@@ -10,6 +10,7 @@ import type { CurrencyCode } from '@healthy360/domain-types';
 
 import type {
     CancelKitchenOrderRequest,
+    KitchenDisplay,
     KitchenOrder,
     KitchenOrderDelivery,
     KitchenOrderFilters,
@@ -23,6 +24,7 @@ import type {
     RecordKitchenOrderPaymentRequest,
 } from '../contracts/kitchen-orders.ts';
 import type {
+    KitchenDisplayEnvelope,
     KitchenOrder as WireKitchenOrder,
     KitchenOrderDelivery as WireKitchenOrderDelivery,
     KitchenOrderLine as WireKitchenOrderLine,
@@ -279,6 +281,19 @@ export function createApiKitchenOrdersRepository(transport: Transport): KitchenO
                 items: envelope.data.map(mapKitchenOrder),
                 nextCursor: meta?.next_cursor ?? null,
                 hasMore: meta?.has_more ?? false,
+            };
+        },
+
+        async getDisplay(): Promise<KitchenDisplay> {
+            const display = await transport.request<KitchenDisplayEnvelope['data']>({
+                method: 'GET',
+                path: '/catalogue/kitchen-display',
+            });
+            return {
+                orders: display.orders.map(mapKitchenOrder),
+                truncated: display.truncated,
+                alarmAfterMinutes: display.alarm_after_minutes,
+                unacceptedOpenMinutes: display.unaccepted_open_minutes,
             };
         },
 

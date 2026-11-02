@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9238 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9245 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4055,6 +4055,8 @@ export interface NamespaceKeys {
     | 'ingredientNeeds.unit'
     | 'kds.accept'
     | 'kds.accepted'
+    | 'kds.alarmBody'
+    | 'kds.alarmTitle'
     | 'kds.column.done'
     | 'kds.column.incoming'
     | 'kds.column.preparing'
@@ -4078,9 +4080,14 @@ export interface NamespaceKeys {
     | 'kds.noBranchTitle'
     | 'kds.placedAgo'
     | 'kds.ready'
+    | 'kds.soundOn'
+    | 'kds.staleBody'
+    | 'kds.staleTitle'
     | 'kds.start'
     | 'kds.subtitle'
     | 'kds.title'
+    | 'kds.truncatedBody'
+    | 'kds.truncatedTitle'
     | 'kds.upcoming'
     | 'kds.waitingForDriver'
     | 'kds.withDriver'
@@ -13311,6 +13318,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ingredientNeeds.unit',
   'kitchen:kds.accept',
   'kitchen:kds.accepted',
+  'kitchen:kds.alarmBody',
+  'kitchen:kds.alarmTitle',
   'kitchen:kds.column.done',
   'kitchen:kds.column.incoming',
   'kitchen:kds.column.preparing',
@@ -13334,9 +13343,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:kds.noBranchTitle',
   'kitchen:kds.placedAgo',
   'kitchen:kds.ready',
+  'kitchen:kds.soundOn',
+  'kitchen:kds.staleBody',
+  'kitchen:kds.staleTitle',
   'kitchen:kds.start',
   'kitchen:kds.subtitle',
   'kitchen:kds.title',
+  'kitchen:kds.truncatedBody',
+  'kitchen:kds.truncatedTitle',
   'kitchen:kds.upcoming',
   'kitchen:kds.waitingForDriver',
   'kitchen:kds.withDriver',

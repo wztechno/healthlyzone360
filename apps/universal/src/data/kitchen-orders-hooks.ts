@@ -1,5 +1,6 @@
 import type {
     CancelKitchenOrderRequest,
+    KitchenDisplay,
     KitchenOrder,
     KitchenOrderFilters,
     KitchenOrderPage,
@@ -45,23 +46,6 @@ import { useRepositories, useRepositoryContext } from './repository-provider.tsx
 
 export { toFailure } from './hooks.ts';
 
-export interface KitchenOrdersQueryOptions {
-    /**
-     * Poll cadence in milliseconds, or `false` (the default) for a list that only refetches when
-     * something asks it to.
-     *
-     * It exists for the kitchen display, which is a wall screen nobody touches: an order placed
-     * while the tablet sits on a shelf has to appear without a person pulling to refresh, and this
-     * client slice has no push channel to deliver it. Every other caller leaves it off — the order
-     * book is worked by somebody who is already causing invalidations by acting on it, and a timer
-     * behind that would refetch a list under the person's cursor for nothing.
-     *
-     * `false` rather than `undefined` as the default so the option reads the same way in the query
-     * as it does at the call site.
-     */
-    readonly refetchInterval?: number | false | undefined;
-}
-
 /**
  * One page of orders, newest first.
  *
@@ -72,17 +56,39 @@ export interface KitchenOrdersQueryOptions {
 export function useKitchenOrdersQuery(
     filters?: KitchenOrderFilters,
     enabled = true,
-    options: KitchenOrdersQueryOptions = {},
 ): UseQueryResult<KitchenOrderPage> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.kitchenOrders.list(filters),
         enabled: enabled && repositories !== null,
-        refetchInterval: options.refetchInterval ?? false,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOrders.listOrders(filters);
+        },
+    });
+}
+
+/**
+ * The wall board.
+ *
+ * It takes a poll cadence because a wall screen is one nobody touches: an order placed while the
+ * tablet sits on a shelf has to appear without a person pulling to refresh, and this client slice
+ * has no push channel to deliver it.
+ */
+export function useKitchenDisplayQuery(
+    enabled: boolean,
+    refetchInterval: number | false,
+): UseQueryResult<KitchenDisplay> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOrders.display(),
+        enabled: enabled && repositories !== null,
+        refetchInterval,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOrders.getDisplay();
         },
     });
 }

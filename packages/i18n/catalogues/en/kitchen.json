@@ -1788,7 +1788,14 @@
         "withDriver": "Out with the driver",
         "accept": "Accept",
         "accepted": "Accepted",
-        "upcoming": "Upcoming"
+        "upcoming": "Upcoming",
+        "soundOn": "Turn on sound",
+        "staleTitle": "This board may be out of date",
+        "staleBody": "The last refresh failed. Last updated {{time}}. It keeps trying by itself.",
+        "truncatedTitle": "Not every ticket fits on this board",
+        "truncatedBody": "More orders are waiting than the board can carry, and the newest are the ones missing. Open the order book to see them.",
+        "alarmTitle": "Not accepted yet",
+        "alarmBody": "Waited {{minutes}} min while open. Accept or start it now."
     },
     "driver": {
         "title": "Your deliveries",

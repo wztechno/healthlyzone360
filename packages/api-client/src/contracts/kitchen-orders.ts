@@ -302,6 +302,22 @@ export interface KitchenOrderPage {
     readonly hasMore: boolean;
 }
 
+/**
+ * The wall board: every open order and today's finished ones, oldest first. Past the server's cap
+ * {@link KitchenDisplay.truncated} says so, and a screen has to.
+ */
+export interface KitchenDisplay {
+    readonly orders: readonly KitchenOrder[];
+    readonly truncated: boolean;
+    /** Minutes while open a placed order may wait before its ticket alarms. The kitchen's setting. */
+    readonly alarmAfterMinutes: number;
+    /**
+     * Each placed order's waiting time, keyed by order id, in minutes **while a branch was open**.
+     * Server-computed so no client works out opening hours.
+     */
+    readonly unacceptedOpenMinutes: Readonly<Record<string, number>>;
+}
+
 export interface KitchenOrderFilters {
     readonly status?: KitchenOrderStatus | undefined;
     /**
@@ -424,6 +440,9 @@ export interface RecordKitchenOrderPaymentRequest extends KitchenOrderTransition
 export interface KitchenOrdersRepository {
     /** Newest first, keyset-paged. Every filter is optional; none of them is a client-side sieve. */
     listOrders(filters?: KitchenOrderFilters): Promise<KitchenOrderPage>;
+
+    /** The wall board. Unpaged, and it is not the order book: see {@link KitchenDisplay}. */
+    getDisplay(): Promise<KitchenDisplay>;
 
     /** The full order including its lines and the `lockVersion` the three writes below need. */
     getOrder(orderId: OrderId): Promise<KitchenOrder>;

@@ -8894,6 +8894,16 @@ export const zOrderDeskQueueEnvelope = z.object({
     }))
 });
 
+export const zKitchenDisplayEnvelope = z.object({
+    data: z.object({
+        orders: z.array(zKitchenOrder),
+        truncated: z.boolean(),
+        alarm_after_minutes: z.int().gte(1),
+        unaccepted_open_minutes: z.record(z.string(), z.int().gte(0))
+    }),
+    meta: zMeta
+});
+
 /**
  * One place a dish goes on a plan day — a second lunch is `lunch` / `2`.
  */
@@ -14552,6 +14562,16 @@ export const zMarkStaffNotificationReadPath = z.object({
  * The alert is read.
  */
 export const zMarkStaffNotificationReadResponse = z.void();
+
+export const zGetKitchenDisplayHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The board.
+ */
+export const zGetKitchenDisplayResponse = zKitchenDisplayEnvelope;
 
 export const zGetKitchenServiceSettingsHeaders = z.object({
     'X-Organisation-Id': zUuid,

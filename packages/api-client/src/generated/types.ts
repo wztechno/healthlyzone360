@@ -9479,6 +9479,27 @@ export type KitchenServiceSettings = {
     owner_alert_after_minutes: number;
 };
 
+export type KitchenDisplayEnvelope = {
+    data: {
+        orders: Array<KitchenOrder>;
+        /**
+         * More orders qualified than the 500 returned.
+         */
+        truncated: boolean;
+        /**
+         * This kitchen's setting, in minutes while open.
+         */
+        alarm_after_minutes: number;
+        /**
+         * Each `placed` order's open minutes waited, keyed by order id.
+         */
+        unaccepted_open_minutes: {
+            [key: string]: number;
+        };
+    };
+    meta: Meta;
+};
+
 export type KitchenServiceSettingsEnvelope = {
     data: KitchenServiceSettings;
     meta: Meta;
@@ -32509,6 +32530,57 @@ export type MarkStaffNotificationReadResponses = {
 };
 
 export type MarkStaffNotificationReadResponse = MarkStaffNotificationReadResponses[keyof MarkStaffNotificationReadResponses];
+
+export type GetKitchenDisplayData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/kitchen-display';
+};
+
+export type GetKitchenDisplayErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetKitchenDisplayError = GetKitchenDisplayErrors[keyof GetKitchenDisplayErrors];
+
+export type GetKitchenDisplayResponses = {
+    /**
+     * The board.
+     */
+    200: KitchenDisplayEnvelope;
+};
+
+export type GetKitchenDisplayResponse = GetKitchenDisplayResponses[keyof GetKitchenDisplayResponses];
 
 export type GetKitchenServiceSettingsData = {
     body?: never;

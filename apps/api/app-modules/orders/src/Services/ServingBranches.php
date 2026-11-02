@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Orders\Services;
 
 use Healthy360\Delivery\Models\DeliveryZone;
+use Healthy360\Orders\Models\Order;
 use Healthy360\Organisations\Enums\BranchStatus;
 use Healthy360\Organisations\Models\OrganisationBranch;
 
@@ -31,12 +32,45 @@ final readonly class ServingBranches
      */
     public function for(string $organisationId, ?string $branchId, ?DeliveryZone $zone): array
     {
-        $named = $branchId ?? $zone?->branch_id;
+        return $this->among($this->activeBranches($organisationId), $branchId ?? $zone?->branch_id);
+    }
 
+    /**
+     * The same answer for a whole list, in one statement rather than one per order.
+     * Each order's `deliveryZone` should be eager-loaded.
+     *
+     * @param  iterable<array-key, Order>  $orders
+     * @return array<string, list<string>> keyed by order id
+     */
+    public function forOrders(string $organisationId, iterable $orders): array
+    {
+        $active = $this->activeBranches($organisationId);
+        $serving = [];
+
+        foreach ($orders as $order) {
+            $serving[(string) $order->getKey()] = $this->among($active, $order->branch_id ?? $order->deliveryZone?->branch_id);
+        }
+
+        return $serving;
+    }
+
+    /**
+     * @param  list<string>  $active
+     * @return list<string>
+     */
+    private function among(array $active, ?string $named): array
+    {
+        return $named === null ? $active : array_values(array_intersect($active, [$named]));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function activeBranches(string $organisationId): array
+    {
         return OrganisationBranch::withoutTenancy()
             ->where('organisation_id', $organisationId)
             ->where('status', BranchStatus::Active->value)
-            ->when($named !== null, static fn ($query) => $query->whereKey($named))
             ->orderBy('created_at')
             ->orderBy('id')
             ->pluck('id')

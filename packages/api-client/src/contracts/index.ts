@@ -605,6 +605,7 @@ export type {
     KitchenOrderFulfilmentType,
     KitchenOrderLine,
     KitchenOrderLineAllergen,
+    KitchenDisplay,
     KitchenOrderPage,
     KitchenOrderPaymentMethod,
     KitchenOrderPaymentReceipt,

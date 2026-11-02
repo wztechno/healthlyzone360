@@ -74,4 +74,29 @@ interface OrderSchedulingLookup
      * @return list<int> ascending; empty when nothing is closed
      */
     public function closedWeekdays(string $organisationId, ?string $branchId): array;
+
+    /**
+     * How many whole minutes between `$from` and `$at` any of these branches was
+     * open, each read on its own clock. This is the clock an unaccepted order runs
+     * on, so one placed at 02:00 starts counting at opening time.
+     *
+     * A day a branch has stated it is shut counts for nothing. A day nobody has
+     * configured counts whole, and so does every minute for a kitchen with no
+     * opening hours at all or no branch to read them from: a missing setting
+     * cannot silence an alarm.
+     *
+     * @param  list<string>  $branchIds
+     */
+    public function openMinutesSince(array $branchIds, CarbonImmutable $from, CarbonImmutable $at): int;
+
+    /**
+     * {@see openMinutesSince()} for many orders at once, reading each branch's hours
+     * once. The kitchen display polls this for every ticket on the wall.
+     *
+     * @template TKey of array-key
+     *
+     * @param  array<TKey, array{branch_ids: list<string>, from: CarbonImmutable}>  $spans
+     * @return array<TKey, int> the same keys
+     */
+    public function openMinutesForEach(array $spans, CarbonImmutable $at): array;
 }

@@ -354,6 +354,7 @@ export const REPOSITORY_SURFACE = {
         'cancelOrder',
         'confirmOrder',
         'fulfilOrder',
+        'getDisplay',
         'getOrder',
         'listOrders',
         'markOrderReady',

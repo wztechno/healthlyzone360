@@ -230,6 +230,7 @@ use Healthy360\Orders\Http\Controllers\CheckoutPreviewController;
 use Healthy360\Orders\Http\Controllers\GuestOrderShowController;
 use Healthy360\Orders\Http\Controllers\GuestOrderStoreController;
 use Healthy360\Orders\Http\Controllers\KitchenAnalyticsReportController;
+use Healthy360\Orders\Http\Controllers\KitchenDisplayController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderCancelController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderConfirmController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderFulfilController;
@@ -2059,6 +2060,9 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             Route::middleware('permission:order.view_organisation')->group(function (): void {
                 Route::get('/orders', KitchenOrderIndexController::class)->name('catalogue.orders.index');
                 Route::get('/orders/{order}', KitchenOrderShowController::class)->name('catalogue.orders.show');
+
+                // The wall board: every open order, unpaged.
+                Route::get('/kitchen-display', KitchenDisplayController::class)->name('catalogue.kitchen-display.index');
 
                 // What the order book did over a range of days, against the
                 // range before it. Counts and units only — no money — so the

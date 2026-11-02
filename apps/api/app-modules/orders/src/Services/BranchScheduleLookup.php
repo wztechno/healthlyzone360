@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Healthy360\Orders\Services;
 
 use Carbon\CarbonImmutable;
+use DateTimeZone;
 use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Orders\Contracts\OrderSchedulingLookup;
 use Healthy360\Organisations\Enums\BranchStatus;
 use Healthy360\Organisations\Models\OrganisationBranch;
+use Illuminate\Support\Collection;
 
 /**
  * The scheduling port's one implementation, over the Kitchens module's
@@ -149,8 +151,120 @@ final readonly class BranchScheduleLookup implements OrderSchedulingLookup
     {
         $branch = OrganisationBranch::withoutTenancy()->whereKey($branchId)->first();
 
-        $timezone = $branch instanceof OrganisationBranch ? $branch->timezone : null;
+        return $this->zone($branch instanceof OrganisationBranch ? $branch->timezone : null);
+    }
 
-        return $timezone === null || $timezone === '' ? (string) config('app.timezone', 'UTC') : $timezone;
+    public function openMinutesSince(array $branchIds, CarbonImmutable $from, CarbonImmutable $at): int
+    {
+        return $this->openMinutesForEach([['branch_ids' => $branchIds, 'from' => $from]], $at)[0];
+    }
+
+    /**
+     * Every branch's hours are read once and its open stretches worked out once,
+     * from the earliest moment asked about, so the cost of a board of five hundred
+     * tickets is one statement and a walk along a short list per ticket.
+     *
+     * The named branches' stretches are swept in order with a cursor, which is what
+     * stops two kitchens open at the same moment counting that minute twice.
+     */
+    public function openMinutesForEach(array $spans, CarbonImmutable $at): array
+    {
+        if ($spans === []) {
+            return [];
+        }
+
+        $end = $at->getTimestamp();
+        $earliest = min(array_map(static fn (array $span): int => $span['from']->getTimestamp(), $spans));
+        $branchIds = array_values(array_unique(array_merge(...array_values(array_column($spans, 'branch_ids')))));
+
+        $weeks = BranchOpeningHour::withoutTenancy()->whereIn('branch_id', $branchIds)->get()->groupBy('branch_id');
+        $zones = OrganisationBranch::withoutTenancy()->whereKey($branchIds)->pluck('timezone', 'id');
+
+        $stretches = [];
+
+        foreach ($branchIds as $branchId) {
+            $stretches[$branchId] = $this->openStretches(
+                $weeks->get($branchId, collect())->keyBy('weekday'),
+                $this->zone($zones->get($branchId)),
+                $earliest,
+                $end,
+            );
+        }
+
+        return array_map(static function (array $span) use ($stretches, $end): int {
+            $from = $span['from']->getTimestamp();
+
+            // No branch to read a clock from: a missing setting cannot silence an alarm.
+            $open = $span['branch_ids'] === []
+                ? [[$from, $end]]
+                : array_merge(...array_map(static fn (string $id): array => $stretches[$id], $span['branch_ids']));
+
+            sort($open);
+
+            $seconds = 0;
+            $cursor = $from;
+
+            foreach ($open as [$opens, $closes]) {
+                $opens = max($opens, $cursor);
+                $closes = min($closes, $end);
+
+                if ($closes > $opens) {
+                    $seconds += $closes - $opens;
+                    $cursor = $closes;
+                }
+            }
+
+            return intdiv($seconds, 60);
+        }, $spans);
+    }
+
+    /**
+     * When one branch was open between two instants, as unix timestamps, on its
+     * own clock. Each day starts from a fresh midnight because Beirut's clocks
+     * change at midnight, and a date walked with `addDay()` alone keeps the 01:00
+     * it landed on for the rest of the walk.
+     *
+     * A closed day is a stored row, so a weekday with no row is unconfigured and
+     * counts whole, for the reason {@see OrderSchedulingLookup::openMinutesSince()}
+     * gives. `closes_at > opens_at` is a CHECK, so no stretch crosses midnight.
+     *
+     * @param  Collection<int, BranchOpeningHour>  $week  keyed by ISO weekday
+     * @return list<array{int, int}>
+     */
+    private function openStretches(Collection $week, string $timezone, int $start, int $end): array
+    {
+        $stretches = [];
+        $day = CarbonImmutable::createFromTimestamp($start, $timezone)->startOfDay();
+
+        while ($day->getTimestamp() < $end) {
+            $next = $day->addDay()->startOfDay();
+            $row = $week->get($day->dayOfWeekIso);
+
+            if ($row === null) {
+                $stretches[] = [$day->getTimestamp(), $next->getTimestamp()];
+            } elseif ($row->isOpen()) {
+                $date = $day->toDateString();
+                $stretches[] = [
+                    CarbonImmutable::parse("{$date} {$row->opens_at}", $timezone)->getTimestamp(),
+                    CarbonImmutable::parse("{$date} {$row->closes_at}", $timezone)->getTimestamp(),
+                ];
+            }
+
+            $day = $next;
+        }
+
+        return $stretches;
+    }
+
+    /**
+     * A stated zone, or the application's. The column is a free string, and a
+     * typing mistake on one branch must not take down the wall board or the
+     * escalation sweep.
+     */
+    private function zone(?string $timezone): string
+    {
+        return $timezone !== null && in_array($timezone, DateTimeZone::listIdentifiers(), true)
+            ? $timezone
+            : (string) config('app.timezone', 'UTC');
     }
 }

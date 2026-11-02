@@ -14222,6 +14222,51 @@ paths:
           $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/kitchen-display:
+    get:
+      operationId: getKitchenDisplay
+      tags:
+        - Kitchen orders
+      summary: The wall board
+      description: |
+        Every open order and whatever was fulfilled in the last day, oldest
+        first with the open work ahead of the finished, so a board that hits the
+        cap of 500 loses a finished ticket before an open one. Past the cap,
+        `truncated` is true and the screen says so. Unpaged, because a kitchen
+        display that shows the first page of its work has lost the rest.
+
+        Finished work is the last 24 hours because the screen decides what
+        "today" means on its own clock, and every today falls inside them.
+
+        Another branch's ticket is on this list. The board decides what belongs
+        on its own wall, because `branch_id` is null on an order delivered through
+        an organisation-wide zone and a server filter would drop it.
+
+        `unaccepted_open_minutes` holds each `placed` order's waiting time,
+        counted only while a branch that can serve it is open, so a screen never
+        works out opening hours. An order is alarming once its figure reaches
+        `alarm_after_minutes`.
+
+        Requires `order.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The board.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenDisplayEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/kitchen-service-settings:
     get:
       operationId: getKitchenServiceSettings
@@ -42567,6 +42612,39 @@ components:
           type: integer
           minimum: 1
           maximum: 10080
+    KitchenDisplayEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - orders
+            - truncated
+            - alarm_after_minutes
+            - unaccepted_open_minutes
+          properties:
+            orders:
+              type: array
+              items:
+                $ref: '#/components/schemas/KitchenOrder'
+            truncated:
+              type: boolean
+              description: More orders qualified than the 500 returned.
+            alarm_after_minutes:
+              type: integer
+              minimum: 1
+              description: This kitchen's setting, in minutes while open.
+            unaccepted_open_minutes:
+              type: object
+              description: Each `placed` order's open minutes waited, keyed by order id.
+              additionalProperties:
+                type: integer
+                minimum: 0
+        meta:
+          $ref: '#/components/schemas/Meta'
     KitchenServiceSettingsEnvelope:
       type: object
       required:
