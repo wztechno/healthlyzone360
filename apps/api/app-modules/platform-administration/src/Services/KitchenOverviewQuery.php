@@ -15,6 +15,8 @@ use Healthy360\Organisations\Enums\MembershipStatus;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Organisations\Models\OrganisationMembership;
+use Healthy360\Tenancy\Database\DatabaseTenantContext;
+use Illuminate\Database\Eloquent\Collection;
 
 /**
  * The numbers and the people the console shows beside each kitchen.
@@ -40,7 +42,19 @@ use Healthy360\Organisations\Models\OrganisationMembership;
  * nobody can get into.
  *
  * Both the platform template role and an organisation's own role of that code
- * count, because `MembershipGranter` will grant either.
+ * count, because `MembershipGranter` will grant either, and so does the
+ * `organisation_owner_standard` copy `2026_10_26_000001` made for a kitchen that
+ * had shadowed the code.
+ *
+ * ## The owners are read as each kitchen, not as the operator
+ *
+ * `withoutTenancy()` lifts the Eloquent scope and leaves row-level security. Under
+ * the operator's session the `roles` policy shows templates and the
+ * `organisation_memberships` policy shows the operator's own rows, so since every
+ * kitchen got its own role copies every kitchen read as having no owner. That is
+ * the warning the audit found. `DatabaseTenantContext::during()` is the bounded way
+ * to ask, and it is one role and one membership query per kitchen: the console
+ * lists tens of kitchens.
  *
  * ## `withoutTenancy()` throughout
  *
@@ -53,6 +67,11 @@ use Healthy360\Organisations\Models\OrganisationMembership;
 final class KitchenOverviewQuery
 {
     public const string OWNER_ROLE = 'organisation_owner';
+
+    /** The role, or the `_standard` copy of it. A binding: PDO reads `?` as a placeholder. */
+    private const string OWNER_ROLE_CODE = '^organisation_owner(_standard(_[0-9]+)?)?$';
+
+    public function __construct(private readonly DatabaseTenantContext $database) {}
 
     /**
      * @param  list<Organisation>  $organisations
@@ -153,34 +172,12 @@ final class KitchenOverviewQuery
      */
     private function owners(array $ids): array
     {
-        $roleIds = Role::withoutTenancy()
-            ->where('code', self::OWNER_ROLE)
-            ->where(function ($query) use ($ids): void {
-                $query->whereNull('organisation_id')->orWhereIn('organisation_id', $ids);
-            })
-            ->pluck('id')
-            ->all();
-
-        if ($roleIds === []) {
-            return [];
-        }
-
-        $membershipIds = MembershipRole::withoutTenancy()
-            ->whereIn('role_id', $roleIds)
-            ->whereIn('organisation_id', $ids)
-            ->pluck('membership_id')
-            ->all();
-
-        if ($membershipIds === []) {
-            return [];
-        }
-
-        $memberships = OrganisationMembership::withoutTenancy()
-            ->whereIn('id', $membershipIds)
-            ->where('status', MembershipStatus::Active->value)
-            ->orderBy('created_at')
-            ->orderBy('id')
-            ->get();
+        $memberships = collect($ids)->flatMap(fn (string $id): Collection => $this->database->during(
+            null,
+            $id,
+            null,
+            fn (): Collection => $this->ownerMemberships($id),
+        ));
 
         $userIds = $memberships->pluck('user_id')->filter()->map(static fn ($id): string => (string) $id)->all();
 
@@ -207,6 +204,33 @@ final class KitchenOverviewQuery
         }
 
         return $owners;
+    }
+
+    /**
+     * @return Collection<int, OrganisationMembership>
+     */
+    private function ownerMemberships(string $organisationId): Collection
+    {
+        $roleIds = Role::withoutTenancy()
+            ->where('code', '~', self::OWNER_ROLE_CODE)
+            ->where(static function ($query) use ($organisationId): void {
+                $query->whereNull('organisation_id')->orWhere('organisation_id', $organisationId);
+            })
+            ->pluck('id')
+            ->all();
+
+        $membershipIds = MembershipRole::withoutTenancy()
+            ->whereIn('role_id', $roleIds)
+            ->where('organisation_id', $organisationId)
+            ->pluck('membership_id')
+            ->all();
+
+        return OrganisationMembership::withoutTenancy()
+            ->whereIn('id', $membershipIds)
+            ->where('status', MembershipStatus::Active->value)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
     }
 
     /**
