@@ -109,7 +109,8 @@ final readonly class CatalogueItemReadiness
             $untranslated[] = 'name_en';
         }
 
-        if (trim($item->name_ar) === '') {
+        // The English copied across is still untranslated, whatever the field holds.
+        if (trim($item->name_ar) === '' || trim($item->name_ar) === trim($item->name_en)) {
             $untranslated[] = 'name_ar';
         }
 

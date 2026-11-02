@@ -72,7 +72,7 @@ export function displayName(text: LocalisedText, locale: string): DisplayName {
 
 /** True when the record cannot be published because one language is still empty. */
 export function isTranslationIncomplete(text: LocalisedText): boolean {
-    return text.en.trim() === '' || text.ar.trim() === '';
+    return text.en.trim() === '' || text.ar.trim() === '' || text.ar.trim() === text.en.trim();
 }
 
 /* ── statuses ────────────────────────────────────────────────────────────────────────────────── */

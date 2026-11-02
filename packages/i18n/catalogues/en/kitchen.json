@@ -142,7 +142,10 @@
             "rolePrimary": "Primary contact",
             "roleBilling": "Billing",
             "roleOperations": "Operations",
-            "roleSignatory": "Signatory"
+            "roleSignatory": "Signatory",
+            "sectionAllergies": "Allergies",
+            "sectionOrders": "Latest orders",
+            "openOrder": "Open"
         },
         "readyForApi": "Ready for API",
         "metricUnavailable": "Not connected yet",

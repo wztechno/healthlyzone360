@@ -34,7 +34,8 @@ final class SuspectRecordsCommand extends Command
     private const string SUSPECT_EMAIL = '(@example\.(com|org|net)|\.test)$';
 
     protected $signature = 'kitchen:suspect-records
-        {--org= : One kitchen by slug. Without it, every organisation.}';
+        {--org= : One kitchen by slug. Without it, every organisation.}
+        {--same-arabic : Instead, the live items whose Arabic name is their English one.}';
 
     protected $description = 'List records that look like customer-visible test data (read-only).';
 
@@ -57,6 +58,12 @@ final class SuspectRecordsCommand extends Command
 
         foreach ($organisations as $organisation) {
             $name = (string) $organisation->name;
+
+            if ($this->option('same-arabic') === true) {
+                array_push($rows, ...$this->insideOrganisation($organisation, fn (string $organisationId): array => $this->untranslated($organisationId, $name)));
+
+                continue;
+            }
 
             if (preg_match('/'.self::SUSPECT_WORDS.'/iu', $name) === 1) {
                 $rows[] = ['kitchen', (string) $organisation->getKey(), $name, $name, $organisation->status->value];
@@ -87,10 +94,29 @@ final class SuspectRecordsCommand extends Command
      */
     private function items(string $organisationId, string $kitchen): array
     {
+        return $this->liveItems($organisationId, $kitchen, 'name_en ~* ?', [self::SUSPECT_WORDS]);
+    }
+
+    /**
+     * Publication now refuses these, so a live one needs its Arabic written by a person.
+     *
+     * @return list<list<string>>
+     */
+    private function untranslated(string $organisationId, string $kitchen): array
+    {
+        return $this->liveItems($organisationId, $kitchen, 'trim(name_ar) = trim(name_en)', []);
+    }
+
+    /**
+     * @param  list<string>  $bindings
+     * @return list<list<string>>
+     */
+    private function liveItems(string $organisationId, string $kitchen, string $condition, array $bindings): array
+    {
         return DB::table('catalogue_items')
             ->where('organisation_id', $organisationId)
             ->where('status', '!=', 'retired')
-            ->whereRaw('name_en ~* ?', [self::SUSPECT_WORDS])
+            ->whereRaw($condition, $bindings)
             ->orderBy('name_en')
             ->get(['id', 'item_type', 'name_en', 'status'])
             ->map(static fn (object $item): array => [(string) $item->item_type, (string) $item->id, $kitchen, (string) $item->name_en, (string) $item->status])

@@ -9,6 +9,7 @@ import type {
 } from '@healthy360/domain-types';
 
 import type { MealChoiceSource } from './commerce.ts';
+import type { DishOption } from './dish-options.ts';
 import type {
     DeliveryFailureReason,
     DriverJobStatus,
@@ -145,6 +146,9 @@ export interface KitchenOrderLine {
     readonly allergens: readonly KitchenOrderLineAllergen[];
     /** The pack as it was sold — size, unit, pieces, net weight. Never a cost, never a supplier. */
     readonly packSummary: Readonly<Record<string, unknown>> | null;
+    /** What the customer changed about the dish, as it stood at placement. */
+    readonly options: readonly DishOption[];
+    readonly note: string | null;
     /** Seller-only: which tariff priced this line. See the file header. */
     readonly priceListId: PriceListId | null;
     readonly priceListItemId: string | null;
@@ -363,6 +367,8 @@ export interface KitchenOrderFilters {
     readonly branchId?: BranchId | undefined;
     /** A partial order number. Nothing else is searchable: a name or an address would not be. */
     readonly query?: string | undefined;
+    /** One customer's orders, for their record in the kitchen's book. */
+    readonly customerAccountId?: string | undefined;
     readonly cursor?: string | undefined;
     readonly limit?: number | undefined;
 }

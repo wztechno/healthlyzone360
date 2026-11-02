@@ -105,7 +105,7 @@ function useKitchenDial(): string | null {
 }
 
 /** What the chosen customer has declared, or an honest failure to find out. */
-function ChosenAllergies({ customerAccountId }: { readonly customerAccountId: string }) {
+export function ChosenAllergies({ customerAccountId }: { readonly customerAccountId: string }) {
     const { t } = useTranslation();
     const read = useOrderDeskCustomerAllergiesQuery(customerAccountId);
 

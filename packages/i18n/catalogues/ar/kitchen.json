@@ -162,7 +162,10 @@
             "rolePrimary": "جهة التواصل الأساسية",
             "roleBilling": "الفوترة",
             "roleOperations": "العمليات",
-            "roleSignatory": "المفوّض بالتوقيع"
+            "roleSignatory": "المفوّض بالتوقيع",
+            "sectionAllergies": "الحساسية",
+            "sectionOrders": "أحدث الطلبات",
+            "openOrder": "فتح"
         },
         "readyForApi": "جاهز للواجهة البرمجية",
         "metricUnavailable": "غير متصل بعد",

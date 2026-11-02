@@ -5631,6 +5631,124 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/items/{item}/options:
+    parameters:
+      - $ref: '#/components/parameters/XOrganisationIdRequired'
+      - name: item
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+    get:
+      operationId: listDishOptions
+      tags: [Sellable catalogue]
+      summary: A dish's free options
+      responses:
+        '200':
+          description: The options, in menu order.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [options]
+                    properties:
+                      options:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DishOption'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      operationId: replaceDishOptions
+      tags: [Sellable catalogue]
+      summary: Replace a dish's free options
+      description: The whole list. A row naming its `id` keeps it, so a basket holding that option still finds it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceDishOptionsRequest'
+      responses:
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '200':
+          description: The options as they now stand.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [options]
+                    properties:
+                      options:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DishOption'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/order-desk/items/{item}/choices:
+    parameters:
+      - $ref: '#/components/parameters/XOrganisationIdRequired'
+      - name: item
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+    get:
+      operationId: getOrderDeskDishChoices
+      tags: [Order desk]
+      summary: What the desk can change about a dish
+      responses:
+        '200':
+          description: Its free options, and its portions at the counter's prices.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [options, portions]
+                    properties:
+                      options:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DishOption'
+                      portions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DishPortion'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/items/{item}/variants:
     put:
       operationId: replaceCatalogueItemVariants
@@ -13172,6 +13290,12 @@ paths:
           description: Restrict to one lifecycle state. Omitted, everything is listed.
           schema:
             $ref: '#/components/schemas/OrderStatus'
+        - name: customer_account_id
+          in: query
+          required: false
+          description: One customer's orders, for their record in the kitchen's book.
+          schema:
+            $ref: '#/components/schemas/Uuid'
         - name: requested_delivery_date
           in: query
           required: false
@@ -33268,12 +33392,94 @@ components:
           $ref: '#/components/schemas/MarketplaceNutritionCalculation'
       additionalProperties: false
 
+    DishOption:
+      type: object
+      required: [id, kind, group_en, group_ar, name_en, name_ar]
+      description: |
+        A free change to a dish: `remove` leaves something out, `choice` picks
+        one from a group such as Sauce. Neither has a price; the only priced
+        choice is the portion, which is a pack.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        kind:
+          type: string
+          enum: [remove, choice]
+        group_en:
+          type: ['string', 'null']
+        group_ar:
+          type: ['string', 'null']
+        name_en:
+          type: string
+        name_ar:
+          type: string
+      additionalProperties: false
+
+    DishPortion:
+      type: object
+      required: [catalogue_item_variant_id, name_en, name_ar, unit_price_minor, currency_code]
+      description: A pack the customer can pick, at its price on the channel asked about.
+      properties:
+        catalogue_item_variant_id:
+          $ref: '#/components/schemas/Uuid'
+        name_en:
+          type: string
+        name_ar:
+          type: string
+        unit_price_minor:
+          type: integer
+        currency_code:
+          type: string
+      additionalProperties: false
+
+    ReplaceDishOptionsRequest:
+      type: object
+      required: [options]
+      properties:
+        options:
+          type: array
+          maxItems: 40
+          items:
+            type: object
+            required: [kind, name_en, name_ar]
+            properties:
+              id:
+                type: ['string', 'null']
+                format: uuid
+              kind:
+                type: string
+                enum: [remove, choice]
+              group_en:
+                type: ['string', 'null']
+                maxLength: 80
+              group_ar:
+                type: ['string', 'null']
+                maxLength: 80
+              name_en:
+                type: string
+                maxLength: 120
+              name_ar:
+                type: string
+                maxLength: 120
+            additionalProperties: false
+      additionalProperties: false
+
     MarketplaceMeal:
       type: object
       required: [id, kitchen_id, kitchen_name, item_type, published_category, name, slug, description, meal_types, diet_classifications, cuisines, allergens, serving, nutrition, price, pack, preparation_minutes, image_placeholder_id, availability, channels, rating, rating_count]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
+        options:
+          type: array
+          description: On the detail only. The dish's free options.
+          items:
+            $ref: '#/components/schemas/DishOption'
+        portions:
+          type: array
+          description: On the detail only. Empty unless there are two packs to pick between.
+          items:
+            $ref: '#/components/schemas/DishPortion'
         kitchen_id:
           $ref: '#/components/schemas/Uuid'
         kitchen_name:
@@ -34361,6 +34567,18 @@ components:
             The day the line is wanted, `YYYY-MM-DD`. Part of the line's
             identity rather than a decoration: two quantities of the same meal
             for two different days are two lines.
+        option_ids:
+          type: ['array', 'null']
+          maxItems: 40
+          items:
+            $ref: '#/components/schemas/Uuid'
+          description: |
+            The dish's free options chosen, from `options` on its detail. Part of
+            the line's identity, with `note`: the same dish made differently is
+            another line.
+        note:
+          type: ['string', 'null']
+          maxLength: 300
       additionalProperties: false
 
     SetCartItemQuantityRequest:
@@ -34379,7 +34597,7 @@ components:
 
     CartLine:
       type: object
-      required: [id, catalogue_item_id, catalogue_item_variant_id, quantity, delivery_date, created_at, updated_at]
+      required: [id, catalogue_item_id, catalogue_item_variant_id, quantity, delivery_date, options, note, created_at, updated_at]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -34398,6 +34616,17 @@ components:
         delivery_date:
           type: ['string', 'null']
           format: date
+        options:
+          type: array
+          description: |
+            The dish's free options this line chose, as they stood when it was
+            chosen. Removing an ingredient never changes `allergens`: the kitchen
+            may still cross-contact.
+          items:
+            $ref: '#/components/schemas/DishOption'
+        note:
+          type: ['string', 'null']
+          maxLength: 300
         created_at:
           type: ['string', 'null']
           format: date-time
@@ -34724,7 +34953,7 @@ components:
       required:
         [id, catalogue_item_id, catalogue_item_variant_id, name_en, name_ar,
          variant_label, quantity, unit_price_minor, line_total_minor,
-         currency_code, allergens, pack_summary]
+         currency_code, allergens, pack_summary, options, note]
       description: |
         The article as it stood the moment the order was placed — a snapshot,
         not a join. Renaming the catalogue item tomorrow does not rewrite what a
@@ -34775,6 +35004,17 @@ components:
           description: |
             The pack as the customer bought it — size, unit, pieces, net weight.
             Never a cost and never a supplier.
+        options:
+          type: array
+          description: |
+            The dish's free options this line chose, as they stood when it was
+            chosen. Removing an ingredient never changes `allergens`: the kitchen
+            may still cross-contact.
+          items:
+            $ref: '#/components/schemas/DishOption'
+        note:
+          type: ['string', 'null']
+          maxLength: 300
       additionalProperties: false
 
     KitchenOrderLine:
@@ -40145,6 +40385,15 @@ components:
             number so a client holding a decimal can send it without a float
             round trip. Zero and negatives are `422`.
           examples: ['0.3500', 3]
+        option_ids:
+          type: ['array', 'null']
+          maxItems: 40
+          items:
+            $ref: '#/components/schemas/Uuid'
+          description: The dish's free options chosen. Lines made differently do not merge.
+        note:
+          type: ['string', 'null']
+          maxLength: 300
       additionalProperties: false
 
     OrderDeskSaleBase:
@@ -40483,6 +40732,12 @@ components:
           minLength: 3
           maxLength: 3
           description: The price's currency where there is one, and the counter's own tariff currency where there is not.
+        option_ids:
+          type: array
+          items:
+            $ref: '#/components/schemas/Uuid'
+        note:
+          type: ['string', 'null']
         refusals:
           type: array
           items:
@@ -42495,6 +42750,17 @@ components:
         pack_summary:
           type: [object, 'null']
           additionalProperties: true
+        options:
+          type: array
+          description: |
+            The dish's free options this line chose, as they stood when it was
+            chosen. Removing an ingredient never changes `allergens`: the kitchen
+            may still cross-contact.
+          items:
+            $ref: '#/components/schemas/DishOption'
+        note:
+          type: ['string', 'null']
+          maxLength: 300
       additionalProperties: false
 
     GuestOrder:

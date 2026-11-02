@@ -2853,8 +2853,47 @@ export const zMarketplaceNutritionFacts = z.object({
     calculation: zMarketplaceNutritionCalculation
 });
 
+/**
+ * A free change to a dish: `remove` leaves something out, `choice` picks
+ * one from a group such as Sauce. Neither has a price; the only priced
+ * choice is the portion, which is a pack.
+ *
+ */
+export const zDishOption = z.object({
+    id: zUuid,
+    kind: z.enum(['remove', 'choice']),
+    group_en: z.string().nullable(),
+    group_ar: z.string().nullable(),
+    name_en: z.string(),
+    name_ar: z.string()
+});
+
+/**
+ * A pack the customer can pick, at its price on the channel asked about.
+ */
+export const zDishPortion = z.object({
+    catalogue_item_variant_id: zUuid,
+    name_en: z.string(),
+    name_ar: z.string(),
+    unit_price_minor: z.int(),
+    currency_code: z.string()
+});
+
+export const zReplaceDishOptionsRequest = z.object({
+    options: z.array(z.object({
+        id: z.uuid().nullish(),
+        kind: z.enum(['remove', 'choice']),
+        group_en: z.string().max(80).nullish(),
+        group_ar: z.string().max(80).nullish(),
+        name_en: z.string().max(120),
+        name_ar: z.string().max(120)
+    })).max(40)
+});
+
 export const zMarketplaceMeal = z.object({
     id: zUuid,
+    options: z.array(zDishOption).optional(),
+    portions: z.array(zDishPortion).optional(),
     kitchen_id: zUuid,
     kitchen_name: z.string(),
     item_type: z.enum([
@@ -3329,7 +3368,9 @@ export const zAddCartItemRequest = z.object({
         z.number(),
         z.string()
     ]).optional(),
-    delivery_date: z.iso.date().nullish()
+    delivery_date: z.iso.date().nullish(),
+    option_ids: z.array(zUuid).max(40).nullish(),
+    note: z.string().max(300).nullish()
 });
 
 export const zSetCartItemQuantityRequest = z.object({
@@ -3345,6 +3386,8 @@ export const zCartLine = z.object({
     catalogue_item_variant_id: z.uuid().nullable(),
     quantity: z.string(),
     delivery_date: z.iso.date().nullable(),
+    options: z.array(zDishOption),
+    note: z.string().max(300).nullable(),
     created_at: z.iso.datetime({ offset: true }).nullable(),
     updated_at: z.iso.datetime({ offset: true }).nullable()
 });
@@ -3512,7 +3555,9 @@ export const zCustomerOrderLine = z.object({
     line_total_minor: z.int(),
     currency_code: z.string().length(3),
     allergens: z.array(zOrderLineAllergen),
-    pack_summary: z.record(z.string(), z.unknown()).nullable()
+    pack_summary: z.record(z.string(), z.unknown()).nullable(),
+    options: z.array(zDishOption),
+    note: z.string().max(300).nullable()
 });
 
 export const zKitchenOrderLine = zCustomerOrderLine.and(z.object({
@@ -5962,7 +6007,9 @@ export const zOrderDeskBasketLine = z.object({
     quantity: z.union([
         z.number(),
         z.string()
-    ])
+    ]),
+    option_ids: z.array(zUuid).max(40).nullish(),
+    note: z.string().max(300).nullish()
 });
 
 /**
@@ -6084,6 +6131,8 @@ export const zOrderDeskQuoteLine = z.object({
     unit_price_minor: z.int().nullable(),
     line_total_minor: z.int().nullable(),
     currency_code: z.string().length(3),
+    option_ids: z.array(zUuid).optional(),
+    note: z.string().nullish(),
     refusals: z.array(zOrderDeskQuoteRefusal),
     held_stock: z.array(z.string()).optional()
 });
@@ -6544,6 +6593,56 @@ export const zCourierCashOwed = z.object({
     runs: z.array(zCourierCashRun)
 });
 
+export const zOpenDailyClose = z.object({
+    currency_code: z.string(),
+    business_date: z.iso.date(),
+    opened_at: z.iso.datetime({ offset: true }),
+    suggested_float_minor: z.int(),
+    counter_cash_minor: z.int(),
+    handed_in_minor: z.int(),
+    cash_refunds_minor: z.int()
+});
+
+export const zDailyClose = z.object({
+    id: zUuid,
+    currency_code: z.string(),
+    business_date: z.iso.date(),
+    opened_at: z.iso.datetime({ offset: true }),
+    closed_at: z.iso.datetime({ offset: true }),
+    opening_float_minor: z.int(),
+    counter_cash_minor: z.int(),
+    handed_in_minor: z.int(),
+    cash_refunds_minor: z.int(),
+    expected_minor: z.int(),
+    counted_minor: z.int(),
+    variance_minor: z.int(),
+    variance_reason: z.string().nullable(),
+    recorded_by_name: z.string().nullable(),
+    signed_off_by_name: z.string().nullable(),
+    signed_off_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zOrderDeskClosesEnvelope = z.object({
+    data: z.object({
+        timezone: z.string(),
+        open: z.array(zOpenDailyClose),
+        closes: z.array(zDailyClose)
+    })
+});
+
+export const zDailyCloseEnvelope = z.object({
+    data: z.object({
+        close: zDailyClose
+    })
+});
+
+export const zStoreOrderDeskCloseRequest = z.object({
+    currency_code: z.string(),
+    opening_float_minor: z.int().gte(0),
+    counted_minor: z.int().gte(0),
+    variance_reason: z.string().max(300).nullish()
+});
+
 export const zCashSettlement = z.object({
     id: zUuid,
     kind: z.enum(['driver', 'courier']),
@@ -6939,7 +7038,9 @@ export const zGuestOrderLine = z.object({
     line_total_minor: z.int().gte(0),
     currency_code: zCurrencyCode,
     allergens: z.array(zGuestOrderLineAllergen),
-    pack_summary: z.record(z.string(), z.unknown()).nullable()
+    pack_summary: z.record(z.string(), z.unknown()).nullable(),
+    options: z.array(zDishOption).optional(),
+    note: z.string().max(300).nullish()
 });
 
 /**
@@ -12600,6 +12701,60 @@ export const zMarkCatalogueItemAllergensAssessedPath = z.object({
  */
 export const zMarkCatalogueItemAllergensAssessedResponse = zCatalogueItemEnvelope;
 
+export const zListDishOptionsHeaders = z.object({
+    'X-Organisation-Id': zUuid
+});
+
+export const zListDishOptionsPath = z.object({
+    item: zUuid
+});
+
+/**
+ * The options, in menu order.
+ */
+export const zListDishOptionsResponse = z.object({
+    data: z.object({
+        options: z.array(zDishOption)
+    })
+});
+
+export const zReplaceDishOptionsBody = zReplaceDishOptionsRequest;
+
+export const zReplaceDishOptionsHeaders = z.object({
+    'X-Organisation-Id': zUuid
+});
+
+export const zReplaceDishOptionsPath = z.object({
+    item: zUuid
+});
+
+/**
+ * The options as they now stand.
+ */
+export const zReplaceDishOptionsResponse = z.object({
+    data: z.object({
+        options: z.array(zDishOption)
+    })
+});
+
+export const zGetOrderDeskDishChoicesHeaders = z.object({
+    'X-Organisation-Id': zUuid
+});
+
+export const zGetOrderDeskDishChoicesPath = z.object({
+    item: zUuid
+});
+
+/**
+ * Its free options, and its portions at the counter's prices.
+ */
+export const zGetOrderDeskDishChoicesResponse = z.object({
+    data: z.object({
+        options: z.array(zDishOption),
+        portions: z.array(zDishPortion)
+    })
+});
+
 export const zReplaceCatalogueItemVariantsBody = zReplaceCatalogueItemVariantsRequest;
 
 export const zReplaceCatalogueItemVariantsHeaders = z.object({
@@ -14797,6 +14952,7 @@ export const zListKitchenOrdersQuery = z.object({
     limit: z.int().gte(1).lte(100).optional().default(25),
     cursor: z.string().max(200).optional(),
     status: zOrderStatus.optional(),
+    customer_account_id: zUuid.optional(),
     requested_delivery_date: z.iso.date().optional(),
     branch_id: zUuid.optional(),
     query: z.string().max(60).optional()
@@ -15580,6 +15736,43 @@ export const zSignOffOrderDeskSettlementPath = z.object({
  * The settlement.
  */
 export const zSignOffOrderDeskSettlementResponse = zCashSettlementEnvelope;
+
+export const zGetOrderDeskClosesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The open shifts and the recent closes.
+ */
+export const zGetOrderDeskClosesResponse = zOrderDeskClosesEnvelope;
+
+export const zStoreOrderDeskCloseBody = zStoreOrderDeskCloseRequest;
+
+export const zStoreOrderDeskCloseHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Idempotency-Key': z.string().max(255).optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The close.
+ */
+export const zStoreOrderDeskCloseResponse = zDailyCloseEnvelope;
+
+export const zSignOffOrderDeskCloseHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSignOffOrderDeskClosePath = z.object({
+    close: zUuid
+});
+
+/**
+ * The close.
+ */
+export const zSignOffOrderDeskCloseResponse = zDailyCloseEnvelope;
 
 export const zGetOrderDeskCashReportHeaders = z.object({
     'X-Organisation-Id': zUuid,

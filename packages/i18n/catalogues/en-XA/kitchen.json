@@ -142,7 +142,10 @@
       "rolePrimary": "[[Þŕíɱáŕý çóñţáçţ āēīōūā]]",
       "roleBilling": "[[Ɓíłłíñĝ āēī]]",
       "roleOperations": "[[Óþéŕáţíóñš āēīō]]",
-      "roleSignatory": "[[Šíĝñáţóŕý āēīō]]"
+      "roleSignatory": "[[Šíĝñáţóŕý āēīō]]",
+      "sectionAllergies": "[[Áłłéŕĝíéš āēīō]]",
+      "sectionOrders": "[[Łáţéšţ óŕðéŕš āēīōūā]]",
+      "openOrder": "[[Óþéñ āē]]"
     },
     "readyForApi": "[[Ŕéáðý ƒóŕ ÁÞÍ āēīōūā]]",
     "metricUnavailable": "[[Ñóţ çóññéçţéð ýéţ āēīōūāē]]",

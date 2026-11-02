@@ -43,6 +43,7 @@ import type {
 } from '../generated/types.ts';
 import { generateRequestId } from './config.ts';
 import { failureBody } from './driver-jobs-repository.ts';
+import { mapDishOption } from './marketplace-mappers.ts';
 import type { Transport } from './transport.ts';
 
 /**
@@ -108,6 +109,8 @@ function mapLine(wire: WireKitchenOrderLine): KitchenOrderLine {
             containment: allergen.containment,
         })),
         packSummary: wire.pack_summary,
+        options: wire.options.map(mapDishOption),
+        note: wire.note,
         priceListId: wire.price_list_id === null ? null : PriceListId.unsafe(wire.price_list_id),
         priceListItemId: wire.price_list_item_id,
     };
@@ -278,6 +281,9 @@ function ordersQuery(filters?: KitchenOrderFilters): string {
     if (filters.branchId !== undefined) search.set('branch_id', String(filters.branchId));
     if (filters.query !== undefined && filters.query.trim() !== '') {
         search.set('query', filters.query.trim());
+    }
+    if (filters.customerAccountId !== undefined) {
+        search.set('customer_account_id', filters.customerAccountId);
     }
     if (filters.cursor !== undefined) search.set('cursor', filters.cursor);
     if (filters.limit !== undefined) search.set('limit', String(filters.limit));

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9562 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9565 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4695,6 +4695,7 @@ export interface NamespaceKeys {
     | 'ops.customers.noName'
     | 'ops.customers.notFoundBody'
     | 'ops.customers.notFoundTitle'
+    | 'ops.customers.openOrder'
     | 'ops.customers.readOnlyNote'
     | 'ops.customers.roleBilling'
     | 'ops.customers.roleOperations'
@@ -4703,9 +4704,11 @@ export interface NamespaceKeys {
     | 'ops.customers.searchHint'
     | 'ops.customers.searchLabel'
     | 'ops.customers.sectionAddresses'
+    | 'ops.customers.sectionAllergies'
     | 'ops.customers.sectionCompany'
     | 'ops.customers.sectionCompanyContacts'
     | 'ops.customers.sectionContacts'
+    | 'ops.customers.sectionOrders'
     | 'ops.customers.segmentAll'
     | 'ops.customers.segmentLabel'
     | 'ops.customers.statusActive'
@@ -14275,6 +14278,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.customers.noName',
   'kitchen:ops.customers.notFoundBody',
   'kitchen:ops.customers.notFoundTitle',
+  'kitchen:ops.customers.openOrder',
   'kitchen:ops.customers.readOnlyNote',
   'kitchen:ops.customers.roleBilling',
   'kitchen:ops.customers.roleOperations',
@@ -14283,9 +14287,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.customers.searchHint',
   'kitchen:ops.customers.searchLabel',
   'kitchen:ops.customers.sectionAddresses',
+  'kitchen:ops.customers.sectionAllergies',
   'kitchen:ops.customers.sectionCompany',
   'kitchen:ops.customers.sectionCompanyContacts',
   'kitchen:ops.customers.sectionContacts',
+  'kitchen:ops.customers.sectionOrders',
   'kitchen:ops.customers.segmentAll',
   'kitchen:ops.customers.segmentLabel',
   'kitchen:ops.customers.statusActive',

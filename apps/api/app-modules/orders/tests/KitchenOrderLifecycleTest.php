@@ -14,6 +14,7 @@ use Healthy360\Orders\Services\OrderPaymentReceipts;
 use Healthy360\Orders\Tests\Fixtures\OrderWorld;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+use Illuminate\Support\Str;
 
 /*
 |--------------------------------------------------------------------------
@@ -284,6 +285,23 @@ it('narrows the kitchen book by status and by order number, and rejects a status
         ->assertStatus(400)
         ->assertJsonPath('error.code', 'request.invalid')
         ->assertJsonPath('error.details.parameter', 'requested_delivery_date');
+});
+
+it('narrows the kitchen book to one customer, and refuses anything but an account id', function (): void {
+    $theirs = OrderWorld::place($this->world);
+    $accountId = (string) $this->world->customer->account->getKey();
+
+    $this->getJson('/api/v1/catalogue/orders?customer_account_id='.$accountId, $this->kitchenHeaders)
+        ->assertOk()
+        ->assertJsonPath('meta.count', 1)
+        ->assertJsonPath('data.0.id', (string) $theirs->getKey());
+
+    $this->getJson('/api/v1/catalogue/orders?customer_account_id='.Str::uuid7(), $this->kitchenHeaders)
+        ->assertOk()
+        ->assertJsonPath('meta.count', 0);
+
+    $this->getJson('/api/v1/catalogue/orders?customer_account_id=nobody', $this->kitchenHeaders)
+        ->assertStatus(400);
 });
 
 it('receipts the cash still outstanding when a pickup is fulfilled, and leaves a delivery and a transfer alone', function (): void {

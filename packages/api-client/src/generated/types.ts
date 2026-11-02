@@ -4313,8 +4313,53 @@ export type MarketplaceNutritionFacts = {
     calculation: MarketplaceNutritionCalculation;
 };
 
+/**
+ * A free change to a dish: `remove` leaves something out, `choice` picks
+ * one from a group such as Sauce. Neither has a price; the only priced
+ * choice is the portion, which is a pack.
+ *
+ */
+export type DishOption = {
+    id: Uuid;
+    kind: 'remove' | 'choice';
+    group_en: string | null;
+    group_ar: string | null;
+    name_en: string;
+    name_ar: string;
+};
+
+/**
+ * A pack the customer can pick, at its price on the channel asked about.
+ */
+export type DishPortion = {
+    catalogue_item_variant_id: Uuid;
+    name_en: string;
+    name_ar: string;
+    unit_price_minor: number;
+    currency_code: string;
+};
+
+export type ReplaceDishOptionsRequest = {
+    options: Array<{
+        id?: string | null;
+        kind: 'remove' | 'choice';
+        group_en?: string | null;
+        group_ar?: string | null;
+        name_en: string;
+        name_ar: string;
+    }>;
+};
+
 export type MarketplaceMeal = {
     id: Uuid;
+    /**
+     * On the detail only. The dish's free options.
+     */
+    options?: Array<DishOption>;
+    /**
+     * On the detail only. Empty unless there are two packs to pick between.
+     */
+    portions?: Array<DishPortion>;
     kitchen_id: Uuid;
     kitchen_name: string;
     /**
@@ -5077,6 +5122,14 @@ export type AddCartItemRequest = {
      *
      */
     delivery_date?: string | null;
+    /**
+     * The dish's free options chosen, from `options` on its detail. Part of
+     * the line's identity, with `note`: the same dish made differently is
+     * another line.
+     *
+     */
+    option_ids?: Array<Uuid> | null;
+    note?: string | null;
 };
 
 export type SetCartItemQuantityRequest = {
@@ -5102,6 +5155,14 @@ export type CartLine = {
      */
     quantity: string;
     delivery_date: string | null;
+    /**
+     * The dish's free options this line chose, as they stood when it was
+     * chosen. Removing an ingredient never changes `allergens`: the kitchen
+     * may still cross-contact.
+     *
+     */
+    options: Array<DishOption>;
+    note: string | null;
     created_at: string | null;
     updated_at: string | null;
 };
@@ -5387,6 +5448,14 @@ export type CustomerOrderLine = {
     pack_summary: {
         [key: string]: unknown;
     } | null;
+    /**
+     * The dish's free options this line chose, as they stood when it was
+     * chosen. Removing an ingredient never changes `allergens`: the kitchen
+     * may still cross-contact.
+     *
+     */
+    options: Array<DishOption>;
+    note: string | null;
 };
 
 export type KitchenOrderLine = CustomerOrderLine & {
@@ -9215,6 +9284,11 @@ export type OrderDeskBasketLine = {
      *
      */
     quantity: number | string;
+    /**
+     * The dish's free options chosen. Lines made differently do not merge.
+     */
+    option_ids?: Array<Uuid> | null;
+    note?: string | null;
 };
 
 /**
@@ -9484,6 +9558,8 @@ export type OrderDeskQuoteLine = {
      * The price's currency where there is one, and the counter's own tariff currency where there is not.
      */
     currency_code: string;
+    option_ids?: Array<Uuid>;
+    note?: string | null;
     refusals: Array<OrderDeskQuoteRefusal>;
     /**
      * A warning, never a refusal: the names of the ingredients this line
@@ -10282,6 +10358,62 @@ export type CourierCashOwed = {
     runs: Array<CourierCashRun>;
 };
 
+export type OpenDailyClose = {
+    currency_code: string;
+    business_date: string;
+    opened_at: string;
+    suggested_float_minor: number;
+    counter_cash_minor: number;
+    handed_in_minor: number;
+    cash_refunds_minor: number;
+};
+
+export type DailyClose = {
+    id: Uuid;
+    currency_code: string;
+    business_date: string;
+    opened_at: string;
+    closed_at: string;
+    opening_float_minor: number;
+    counter_cash_minor: number;
+    handed_in_minor: number;
+    cash_refunds_minor: number;
+    expected_minor: number;
+    counted_minor: number;
+    /**
+     * Counted less expected. Negative is short.
+     */
+    variance_minor: number;
+    variance_reason: string | null;
+    recorded_by_name: string | null;
+    signed_off_by_name: string | null;
+    signed_off_at: string | null;
+};
+
+export type OrderDeskClosesEnvelope = {
+    data: {
+        /**
+         * The kitchen's clock, which the business dates are read on.
+         */
+        timezone: string;
+        open: Array<OpenDailyClose>;
+        closes: Array<DailyClose>;
+    };
+};
+
+export type DailyCloseEnvelope = {
+    data: {
+        close: DailyClose;
+    };
+};
+
+export type StoreOrderDeskCloseRequest = {
+    currency_code: string;
+    opening_float_minor: number;
+    counted_minor: number;
+    variance_reason?: string | null;
+};
+
 export type CashSettlement = {
     id: Uuid;
     kind: 'driver' | 'courier';
@@ -10798,6 +10930,14 @@ export type GuestOrderLine = {
     pack_summary: {
         [key: string]: unknown;
     } | null;
+    /**
+     * The dish's free options this line chose, as they stood when it was
+     * chosen. Removing an ingredient never changes `allergens`: the kitchen
+     * may still cross-contact.
+     *
+     */
+    options?: Array<DishOption>;
+    note?: string | null;
 };
 
 /**
@@ -22461,6 +22601,176 @@ export type MarkCatalogueItemAllergensAssessedResponses = {
 
 export type MarkCatalogueItemAllergensAssessedResponse = MarkCatalogueItemAllergensAssessedResponses[keyof MarkCatalogueItemAllergensAssessedResponses];
 
+export type ListDishOptionsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+    };
+    path: {
+        item: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}/options';
+};
+
+export type ListDishOptionsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ListDishOptionsError = ListDishOptionsErrors[keyof ListDishOptionsErrors];
+
+export type ListDishOptionsResponses = {
+    /**
+     * The options, in menu order.
+     */
+    200: {
+        data: {
+            options: Array<DishOption>;
+        };
+    };
+};
+
+export type ListDishOptionsResponse = ListDishOptionsResponses[keyof ListDishOptionsResponses];
+
+export type ReplaceDishOptionsData = {
+    body: ReplaceDishOptionsRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+    };
+    path: {
+        item: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}/options';
+};
+
+export type ReplaceDishOptionsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReplaceDishOptionsError = ReplaceDishOptionsErrors[keyof ReplaceDishOptionsErrors];
+
+export type ReplaceDishOptionsResponses = {
+    /**
+     * The options as they now stand.
+     */
+    200: {
+        data: {
+            options: Array<DishOption>;
+        };
+    };
+};
+
+export type ReplaceDishOptionsResponse = ReplaceDishOptionsResponses[keyof ReplaceDishOptionsResponses];
+
+export type GetOrderDeskDishChoicesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+    };
+    path: {
+        item: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/order-desk/items/{item}/choices';
+};
+
+export type GetOrderDeskDishChoicesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderDeskDishChoicesError = GetOrderDeskDishChoicesErrors[keyof GetOrderDeskDishChoicesErrors];
+
+export type GetOrderDeskDishChoicesResponses = {
+    /**
+     * Its free options, and its portions at the counter's prices.
+     */
+    200: {
+        data: {
+            options: Array<DishOption>;
+            portions: Array<DishPortion>;
+        };
+    };
+};
+
+export type GetOrderDeskDishChoicesResponse = GetOrderDeskDishChoicesResponses[keyof GetOrderDeskDishChoicesResponses];
+
 export type ReplaceCatalogueItemVariantsData = {
     body: ReplaceCatalogueItemVariantsRequest;
     headers: {
@@ -32328,6 +32638,10 @@ export type ListKitchenOrdersData = {
          */
         status?: OrderStatus;
         /**
+         * One customer's orders, for their record in the kitchen's book.
+         */
+        customer_account_id?: Uuid;
+        /**
          * The day the food is wanted, `YYYY-MM-DD`. Deliberately strict: a
          * relative expression resolves to a different day depending on when
          * the request lands, which is not a filter a kitchen can plan against.
@@ -36137,6 +36451,210 @@ export type SignOffOrderDeskSettlementResponses = {
 };
 
 export type SignOffOrderDeskSettlementResponse = SignOffOrderDeskSettlementResponses[keyof SignOffOrderDeskSettlementResponses];
+
+export type GetOrderDeskClosesData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/order-desk/closes';
+};
+
+export type GetOrderDeskClosesErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderDeskClosesError = GetOrderDeskClosesErrors[keyof GetOrderDeskClosesErrors];
+
+export type GetOrderDeskClosesResponses = {
+    /**
+     * The open shifts and the recent closes.
+     */
+    200: OrderDeskClosesEnvelope;
+};
+
+export type GetOrderDeskClosesResponse = GetOrderDeskClosesResponses[keyof GetOrderDeskClosesResponses];
+
+export type StoreOrderDeskCloseData = {
+    body: StoreOrderDeskCloseRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * A client-chosen key that makes this command safe to retry (§4.14). The
+         * same key with the same request body replays the original envelope,
+         * status included, and carries `Idempotency-Replayed: true`. The same key
+         * with a *different* body is **409** `request.idempotency_key_reused` —
+         * the caller has reused a key that already means something else.
+         *
+         * Keys are scoped per endpoint and per caller and are honoured for
+         * twenty-four hours. The client attaches one deliberately; it is never
+         * inferred server-side.
+         *
+         */
+        'Idempotency-Key'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/order-desk/closes';
+};
+
+export type StoreOrderDeskCloseErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type StoreOrderDeskCloseError = StoreOrderDeskCloseErrors[keyof StoreOrderDeskCloseErrors];
+
+export type StoreOrderDeskCloseResponses = {
+    /**
+     * The close.
+     */
+    201: DailyCloseEnvelope;
+};
+
+export type StoreOrderDeskCloseResponse = StoreOrderDeskCloseResponses[keyof StoreOrderDeskCloseResponses];
+
+export type SignOffOrderDeskCloseData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        close: Uuid;
+    };
+    query?: never;
+    url: '/catalogue/order-desk/closes/{close}/sign-off';
+};
+
+export type SignOffOrderDeskCloseErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type SignOffOrderDeskCloseError = SignOffOrderDeskCloseErrors[keyof SignOffOrderDeskCloseErrors];
+
+export type SignOffOrderDeskCloseResponses = {
+    /**
+     * The close.
+     */
+    200: DailyCloseEnvelope;
+};
+
+export type SignOffOrderDeskCloseResponse = SignOffOrderDeskCloseResponses[keyof SignOffOrderDeskCloseResponses];
 
 export type GetOrderDeskCashReportData = {
     body?: never;

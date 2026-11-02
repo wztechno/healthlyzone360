@@ -31,6 +31,16 @@ it('lists what looks like test data, leaves look-alikes out, and changes nothing
         ->and($plan->fresh()->status)->toBe($plan->status);
 });
 
+it('lists items whose Arabic name is only their English one', function (): void {
+    CatalogueWorld::plan($this->tenant, 'Translated plan');
+    CatalogueWorld::plan($this->tenant, 'Copied plan')->update(['name_ar' => 'Copied plan']);
+
+    $this->artisan('kitchen:suspect-records', ['--same-arabic' => true])
+        ->expectsOutputToContain('Copied plan')
+        ->doesntExpectOutputToContain('Translated plan')
+        ->assertSuccessful();
+});
+
 it('refuses a slug that does not exist', function (): void {
     $this->artisan('kitchen:suspect-records', ['--org' => 'nobody'])->assertFailed();
 });
