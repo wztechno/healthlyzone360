@@ -3944,6 +3944,14 @@ export type DeliveryZone = {
      * A promise, not a measurement. Null means none has been made.
      */
     estimated_minutes: number | null;
+    /**
+     * Areas this zone covers. On the list only; the areas themselves are `…/{zone}/areas`.
+     */
+    area_count?: number;
+    /**
+     * How many of those the gazetteer has withdrawn. On the list only.
+     */
+    inactive_area_count?: number;
     status: DeliveryZoneStatus;
     /**
      * Whether this zone actually serves. Derived from `status`, so it
@@ -7770,10 +7778,11 @@ export type KitchenAnalyticsReportResponse = {
  * spoken for by a confirmed batch — talk to the kitchen, or release the
  * claim. `no_net_content` is an item that sells from finished stock without
  * saying how much of the shelf one sold unit takes, which is a field
- * somebody can go and fill in.
+ * somebody can go and fill in. `quality_hold` is a shelf set aside by a held
+ * quality check: release the check, or throw the food away.
  *
  */
-export type ConsumptionExceptionReasonCode = 'no_branch' | 'no_catalogue_item' | 'no_recipe_version' | 'no_yield_piece_count' | 'unquantified_recipe_line' | 'no_ingredient_link' | 'no_stock_item' | 'no_stock_unit' | 'unit_conversion_unsupported' | 'no_ingredient_cost' | 'insufficient_stock' | 'no_net_content' | 'reserved_for_production';
+export type ConsumptionExceptionReasonCode = 'no_branch' | 'no_catalogue_item' | 'no_recipe_version' | 'no_yield_piece_count' | 'unquantified_recipe_line' | 'no_ingredient_link' | 'no_stock_item' | 'no_stock_unit' | 'unit_conversion_unsupported' | 'no_ingredient_cost' | 'insufficient_stock' | 'no_net_content' | 'reserved_for_production' | 'quality_hold';
 
 /**
  * One thing a confirmed order could not deduct honestly (INV1.2), with its resolution state (INV1.5), joined to the human-readable names of the order, sold item, ingredient and branch it points at, and to where the sold item's recipe opens. Nothing confidential — no recipe line, formulation quantity, ingredient cost or supplier term — passes through.
@@ -9419,7 +9428,7 @@ export type OrderDeskCounterPayment = {
 export type OrderDeskQuoteRefusal = {
     /**
      * The stable key. Line-level: `item_unknown`, `item_not_published`,
-     * `item_not_assessed`, `variant_unknown`, `variant_not_active`, `channel_unavailable`,
+     * `item_not_assessed`, `quality_hold`, `variant_unknown`, `variant_not_active`, `channel_unavailable`,
      * `item_unavailable_on_date`, `unpriced`, `currency_mismatch`,
      * `channel_not_trading`. Order-level:
      * `customer_required`, `address_required`, `address_not_applicable`,
@@ -9640,7 +9649,7 @@ export type KitchenCustomerDetail = KitchenCustomer & {
     company: KitchenCustomerCompany | null;
 };
 
-export type StaffNotificationType = 'unaccepted_manager' | 'unaccepted_owner' | 'allergy_order' | 'late_cancel' | 'delivery_failed' | 'no_cash_collected' | 'refund_approval';
+export type StaffNotificationType = 'unaccepted_manager' | 'unaccepted_owner' | 'allergy_order' | 'late_cancel' | 'delivery_failed' | 'no_cash_collected' | 'refund_approval' | 'stock_expiring';
 
 export type StaffNotification = {
     id: Uuid;

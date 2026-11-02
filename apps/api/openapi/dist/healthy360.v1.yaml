@@ -9607,7 +9607,7 @@ paths:
 
         Refusals are **`422 cart.line_refused`** carrying `details.reasons`: one
         `{reason, …context}` entry per problem, **all of them at once**, from the
-        vocabulary `item_unknown`, `item_not_published`, `item_not_assessed`,
+        vocabulary `item_unknown`, `item_not_published`, `item_not_assessed`, `quality_hold`,
         `variant_unknown`, `variant_not_active`, `channel_not_trading`,
         `channel_unavailable`, `unpriced`, `currency_mismatch`. A refusal that revealed one problem per
         attempt would turn one fix into three round trips.
@@ -14593,7 +14593,7 @@ paths:
 
         Line refusals sit on the line, in `lines[].refusals`, using the same
         vocabulary the placement refusal folds in per article — `item_unknown`,
-        `item_not_published`, `item_not_assessed`, `variant_unknown`, `variant_not_active`,
+        `item_not_published`, `item_not_assessed`, `quality_hold`, `variant_unknown`, `variant_not_active`,
         `channel_unavailable`, `item_unavailable_on_date`, `unpriced`,
         `currency_mismatch`, `channel_not_trading`. Order-level refusals sit in the top-level
         `refusals`, and are the three families an agent can actually do something
@@ -34380,6 +34380,14 @@ components:
             - 'null'
           minimum: 1
           description: A promise, not a measurement. Null means none has been made.
+        area_count:
+          type: integer
+          minimum: 0
+          description: Areas this zone covers. On the list only; the areas themselves are `…/{zone}/areas`.
+        inactive_area_count:
+          type: integer
+          minimum: 0
+          description: How many of those the gazetteer has withdrawn. On the list only.
         status:
           $ref: '#/components/schemas/DeliveryZoneStatus'
         is_active:
@@ -40850,7 +40858,8 @@ components:
         spoken for by a confirmed batch — talk to the kitchen, or release the
         claim. `no_net_content` is an item that sells from finished stock without
         saying how much of the shelf one sold unit takes, which is a field
-        somebody can go and fill in.
+        somebody can go and fill in. `quality_hold` is a shelf set aside by a held
+        quality check: release the check, or throw the food away.
       enum:
         - no_branch
         - no_catalogue_item
@@ -40865,6 +40874,7 @@ components:
         - insufficient_stock
         - no_net_content
         - reserved_for_production
+        - quality_hold
     ConsumptionException:
       type: object
       required:
@@ -43643,7 +43653,7 @@ components:
           type: string
           description: |
             The stable key. Line-level: `item_unknown`, `item_not_published`,
-            `item_not_assessed`, `variant_unknown`, `variant_not_active`, `channel_unavailable`,
+            `item_not_assessed`, `quality_hold`, `variant_unknown`, `variant_not_active`, `channel_unavailable`,
             `item_unavailable_on_date`, `unpriced`, `currency_mismatch`,
             `channel_not_trading`. Order-level:
             `customer_required`, `address_required`, `address_not_applicable`,
@@ -44126,6 +44136,7 @@ components:
         - delivery_failed
         - no_cash_collected
         - refund_approval
+        - stock_expiring
     StaffNotification:
       type: object
       required:

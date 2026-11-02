@@ -6,6 +6,7 @@ namespace Healthy360\Delivery\Http\Controllers;
 
 use Healthy360\Delivery\Enums\DeliveryZoneStatus;
 use Healthy360\Delivery\Models\DeliveryZone;
+use Healthy360\Delivery\Models\DeliveryZoneArea;
 use Healthy360\Delivery\Presenters\DeliveryAdminPresenter;
 use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Support\Api\ApiResponse;
@@ -30,7 +31,8 @@ use Illuminate\Http\Request;
  *
  * The areas are **not** embedded. A zone can name a hundred places, and a list
  * endpoint that carried them would serve a kitchen's whole geography in one
- * response; `…/{zone}/areas` answers that question one zone at a time.
+ * response; `…/{zone}/areas` answers that question one zone at a time. Their
+ * counts are, because a list that shows no count reads as a zone with no areas.
  */
 final class DeliveryZoneIndexController
 {
@@ -81,19 +83,31 @@ final class DeliveryZoneIndexController
     }
 
     /**
-     * Each zone with the windows it offers — one query for the page.
+     * Each zone with the windows it offers and how many areas it covers — one
+     * query each for the page.
      *
      * @param  array<int, DeliveryZone>  $zones
      * @return list<array<string, mixed>>
      */
     private function present(array $zones): array
     {
-        $windowIds = $this->windows->windowIdsByZone(array_map(static fn (DeliveryZone $zone): string => (string) $zone->getKey(), array_values($zones)));
+        $ids = array_map(static fn (DeliveryZone $zone): string => (string) $zone->getKey(), array_values($zones));
+        $windowIds = $this->windows->windowIdsByZone($ids);
 
-        return array_map(
-            fn (DeliveryZone $zone): array => $this->presenter->zone($zone, $windowIds[(string) $zone->getKey()] ?? []),
-            array_values($zones),
-        );
+        $areas = DeliveryZoneArea::query()
+            ->join('delivery_areas', 'delivery_areas.id', '=', 'delivery_zone_areas.delivery_area_id')
+            ->whereIn('delivery_zone_areas.delivery_zone_id', $ids)
+            ->groupBy('delivery_zone_areas.delivery_zone_id')
+            ->selectRaw('delivery_zone_areas.delivery_zone_id as zone_id, count(*) as total, count(*) filter (where not delivery_areas.is_active) as inactive')
+            ->toBase()
+            ->get()
+            ->keyBy('zone_id');
+
+        return array_map(fn (DeliveryZone $zone): array => [
+            ...$this->presenter->zone($zone, $windowIds[(string) $zone->getKey()] ?? []),
+            'area_count' => (int) ($areas[(string) $zone->getKey()]->total ?? 0),
+            'inactive_area_count' => (int) ($areas[(string) $zone->getKey()]->inactive ?? 0),
+        ], array_values($zones));
     }
 
     /**

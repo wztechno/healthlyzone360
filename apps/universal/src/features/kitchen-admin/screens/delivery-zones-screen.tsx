@@ -226,18 +226,19 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
             priority: 80,
             value: (row) => areasText(row, t),
             sort: (left, right, direction) =>
-                compareNumber(left.areas.length, right.areas.length, direction),
+                compareNumber(areaCountOf(left), areaCountOf(right), direction),
             render: (row) => {
                 const testID = zoneRowTestId(String(row.id));
-                const inactive = row.areas.filter((area) => !area.isActive).length;
-                return row.areas.length === 0 ? (
+                const inactive =
+                    row.inactiveAreaCount ?? row.areas.filter((area) => !area.isActive).length;
+                return areaCountOf(row) === 0 ? (
                     <Text tone="secondary" testID={`${testID}-areas-none`}>
                         {t('kitchen:zones.noAreas')}
                     </Text>
                 ) : (
                     <Stack space="none">
                         <Text testID={`${testID}-area-count`}>
-                            {t('kitchen:zones.areaCount', { count: row.areas.length })}
+                            {t('kitchen:zones.areaCount', { count: areaCountOf(row) })}
                         </Text>
                         {inactive === 0 ? null : (
                             <Text
@@ -374,7 +375,7 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
     const unfiltered = trimmed === '' && status === 'all';
 
     // Counted over every page the filters match, not the eighteen rows on this one.
-    const noAreas = everyZone.filter((row) => row.areas.length === 0).length;
+    const noAreas = everyZone.filter((row) => areaCountOf(row) === 0).length;
     const noWindows = everyZone.filter((row) => coverageOf(row).weekdays.length === 0).length;
     const lens: StatusLensSource = {
         total,
@@ -449,7 +450,7 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                 chipsLabel={t('kitchen:zones.columnAreas')}
                 chips={
                     viewing.areas.length === 0
-                        ? [{ key: 'none', label: t('kitchen:zones.noAreas') }]
+                        ? [{ key: 'count', label: areasText(viewing, t) }]
                         : viewing.areas.map((area) => ({
                               key: String(area.id),
                               label: displayName(area.name, locale).value,
@@ -646,10 +647,15 @@ function minimumText(row: DeliveryZoneAdmin, t: TFunction, formatter: Formatter)
     });
 }
 
+/** The list carries a count and no areas, the record the other way round. */
+function areaCountOf(row: DeliveryZoneAdmin): number {
+    return row.areaCount ?? row.areas.length;
+}
+
 function areasText(row: DeliveryZoneAdmin, t: TFunction): string {
-    return row.areas.length === 0
+    return areaCountOf(row) === 0
         ? t('kitchen:zones.noAreas')
-        : t('kitchen:zones.areaCount', { count: row.areas.length });
+        : t('kitchen:zones.areaCount', { count: areaCountOf(row) });
 }
 
 function windowsText(coverage: WindowCoverage, t: TFunction): string {

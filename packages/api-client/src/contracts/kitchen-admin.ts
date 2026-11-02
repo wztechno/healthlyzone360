@@ -2213,6 +2213,9 @@ export interface DeliveryZoneAdmin {
     readonly branchIds: readonly KitchenBranchId[];
     /** Gazetteer rows the zone covers — resolved, so a screen need not fetch them separately. */
     readonly areas: readonly ServiceArea[];
+    /** Set on the list, which carries the counts and leaves `areas` empty. */
+    readonly areaCount?: number | undefined;
+    readonly inactiveAreaCount?: number | undefined;
     readonly deliveryFeeMinor: number | null;
     readonly minimumOrderMinor: number | null;
     readonly currency: CurrencyCode;

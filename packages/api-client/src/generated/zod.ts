@@ -2546,6 +2546,8 @@ export const zDeliveryZone = z.object({
     delivery_fee_minor: z.int().gte(0).nullable(),
     minimum_order_minor: z.int().gte(0).nullable(),
     estimated_minutes: z.int().gte(1).nullable(),
+    area_count: z.int().gte(0).optional(),
+    inactive_area_count: z.int().gte(0).optional(),
     status: zDeliveryZoneStatus,
     is_active: z.boolean(),
     source_system: z.string().max(40).nullish(),
@@ -5098,7 +5100,8 @@ export const zKitchenAnalyticsReportResponse = z.object({
  * spoken for by a confirmed batch — talk to the kitchen, or release the
  * claim. `no_net_content` is an item that sells from finished stock without
  * saying how much of the shelf one sold unit takes, which is a field
- * somebody can go and fill in.
+ * somebody can go and fill in. `quality_hold` is a shelf set aside by a held
+ * quality check: release the check, or throw the food away.
  *
  */
 export const zConsumptionExceptionReasonCode = z.enum([
@@ -5114,7 +5117,8 @@ export const zConsumptionExceptionReasonCode = z.enum([
     'no_ingredient_cost',
     'insufficient_stock',
     'no_net_content',
-    'reserved_for_production'
+    'reserved_for_production',
+    'quality_hold'
 ]);
 
 /**
@@ -6217,7 +6221,8 @@ export const zStaffNotificationType = z.enum([
     'late_cancel',
     'delivery_failed',
     'no_cash_collected',
-    'refund_approval'
+    'refund_approval',
+    'stock_expiring'
 ]);
 
 export const zStaffNotification = z.object({

@@ -45,6 +45,7 @@ import { ApiError, apiFailure, throwFailure } from '../contracts/failure.ts';
 import type { CursorPage } from '../contracts/pagination.ts';
 import type {
     AdminCatalogueItem,
+    AdminCatalogueItemIndexRow,
     AdminCatalogueItemVariant,
     AdminChannelAssignment,
     AdminDeliveryArea,
@@ -581,8 +582,8 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         categoryId?: string | undefined,
         allergen?: string | undefined,
         withoutRecipe?: boolean | undefined,
-    ): Promise<CursorPage<AdminCatalogueItem>> {
-        const envelope = await transport.requestEnvelope<AdminCatalogueItem[]>({
+    ): Promise<CursorPage<AdminCatalogueItemIndexRow>> {
+        const envelope = await transport.requestEnvelope<AdminCatalogueItemIndexRow[]>({
             method: 'GET',
             /*
              * `product_category_id` was never sent, which is why the products list's category
@@ -595,6 +596,8 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 product_category_id: categoryId,
                 allergen,
                 has_recipe: withoutRecipe === true ? 'false' : undefined,
+                // Without this every row of a list read "On no channel", published or not.
+                include: 'channels',
             })}`,
         });
 
@@ -955,17 +958,24 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                     ? filter.statuses[0]
                     : undefined;
 
-            const page = await listCatalogueItems(
-                filter?.itemType ?? 'product',
-                pickCursorFilter(filter),
-                status,
-                filter?.categoryId,
-                undefined,
-                filter?.withoutRecipe,
-            );
+            const [page, lookup] = await Promise.all([
+                listCatalogueItems(
+                    filter?.itemType ?? 'product',
+                    pickCursorFilter(filter),
+                    status,
+                    filter?.categoryId,
+                    undefined,
+                    filter?.withoutRecipe,
+                ),
+                loadSalesChannelLookup(),
+            ]);
             return {
                 ...page,
-                items: page.items.map((wire) => mapProductAdminFromItem(wire)),
+                items: page.items.map((wire) =>
+                    mapProductAdminFromItem(wire, {
+                        channelAvailability: mapChannelAssignments(wire.channels ?? [], lookup),
+                    }),
+                ),
             };
         },
 
@@ -1005,17 +1015,24 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                     ? filter.statuses[0]
                     : undefined;
 
-            const page = await listCatalogueItems(
-                'meal',
-                pickCursorFilter(filter),
-                status,
-                filter?.categoryId,
-                soleAllergen(filter?.allergenCodes),
-                filter?.withoutRecipe,
-            );
+            const [page, lookup] = await Promise.all([
+                listCatalogueItems(
+                    'meal',
+                    pickCursorFilter(filter),
+                    status,
+                    filter?.categoryId,
+                    soleAllergen(filter?.allergenCodes),
+                    filter?.withoutRecipe,
+                ),
+                loadSalesChannelLookup(),
+            ]);
             return {
                 ...page,
-                items: page.items.map((wire) => mapMealAdminFromItem(wire)),
+                items: page.items.map((wire) =>
+                    mapMealAdminFromItem(wire, {
+                        channelAvailability: mapChannelAssignments(wire.channels ?? [], lookup),
+                    }),
+                ),
             };
         },
 
