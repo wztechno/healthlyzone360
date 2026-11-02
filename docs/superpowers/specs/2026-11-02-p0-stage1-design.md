@@ -34,7 +34,7 @@ Orders and delivery call it directly, as `b2b` and `inventory` already call `sup
 
 **SMS.** A small `TwilioSms` class using Laravel's `Http` client, with no new package. It reads `TWILIO_SID`, `TWILIO_TOKEN` and `TWILIO_FROM`. With any of them missing it sends nothing and logs one line. Stage 2 reuses it for customers. The number comes from the user's phone contact point in `contact_points`. A recipient with none gets the bell and email only.
 
-**Endpoints.** Under `/catalogue`, because `/me` routes carry no tenant context and row-level security would return nothing. All three need `order.supervise`.
+**Endpoints.** Under `/catalogue`, because `/me` routes carry no tenant context and row-level security would return nothing. All three need `order.supervise_organisation`.
 - `GET /catalogue/staff-notifications` returns recent rows and the unread count.
 - `POST /catalogue/staff-notifications/{id}/read`
 - `POST /catalogue/staff-notifications/read-all`
@@ -53,7 +53,7 @@ Orders and delivery call it directly, as `b2b` and `inventory` already call `sup
 | Failed delivery | Managers | At failure | alert |
 | Driver collected no cash | Managers | At delivery | alert |
 
-**Recipients.** "Managers" are users holding the new permission `order.supervise`. "Owner" is the `organisation_owner` role. See workstream 7 for who holds the permission.
+**Recipients.** "Managers" are users holding the new permission `order.supervise_organisation`. "Owner" is the `organisation_owner` role. See workstream 7 for who holds the permission.
 
 **The clock.** The unaccepted timer counts only while a branch is open, read from `branch_opening_hours`, so an order placed at 2am does not wake anyone. It starts at opening time. A kitchen with no opening hours set counts around the clock, so a missing setting cannot silence an alarm.
 
@@ -139,14 +139,14 @@ The snapshot is written in `persist()`, so customer, desk and subscription order
 
 ### 7. Cancel and delivery end truthfully
 
-**Permission.** New `order.supervise`, held by `organisation_owner`, `organisation_admin` and `kitchen_manager`. `branch_manager` holds no order permissions today, so it is left for the P1 "Roles for real jobs" work.
+**Permission.** New `order.supervise_organisation`, held by `organisation_owner`, `organisation_admin` and `kitchen_manager`. `branch_manager` holds no order permissions today, so it is left for the P1 "Roles for real jobs" work.
 
 **Cancelling.**
 
 | Order state | Who | Extra answer |
 |---|---|---|
 | Placed, or confirmed and not started | Anyone with `order.manage_organisation` | Reason, as today |
-| Cooking started, or ready | `order.supervise` | Reason, plus returned or wasted |
+| Cooking started, or ready | `order.supervise_organisation` | Reason, plus returned or wasted |
 | Picked up by driver or courier | Nobody | Must close as delivered or failed |
 
 - **Returned or wasted.** New column `cancellation_disposition`. Returned restores stock, as `cancel()` does today. Wasted leaves the deduction in place, so the cost stays counted. Valuing waste is Stage 3.
@@ -176,7 +176,7 @@ Refreshing or opening any `/customer/*` link sends a signed-in customer to `/dis
 
 ## Migrations
 
-All additive. New tables `staff_notifications` and `kitchen_service_settings`, with row-level security. New nullable columns on `orders`, `delivery_jobs` and `catalogue_items`. No database check needs changing: `delivery_jobs.status` already allows `failed` and `cancelled`, and `cancellation_reason` is a plain string, so `delivery_failed` is added to the enum only. New permission `order.supervise`, synced to role templates.
+All additive. New tables `staff_notifications` and `kitchen_service_settings`, with row-level security. New nullable columns on `orders`, `delivery_jobs` and `catalogue_items`. No database check needs changing: `delivery_jobs.status` already allows `failed` and `cancelled`, and `cancellation_reason` is a plain string, so `delivery_failed` is added to the enum only. New permission `order.supervise_organisation`, synced to role templates.
 
 Existing orders are left as they are: no back-filled allergies, no back-filled receipts.
 
