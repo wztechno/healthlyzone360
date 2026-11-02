@@ -45,10 +45,11 @@ final class RunWorld
     public static function grant(object $world, array $permissions): void
     {
         foreach ($permissions as $code) {
-            RolePermission::factory()->create([
-                'organisation_id' => $world->organisation->getKey(),
+            RolePermission::withoutTenancy()->firstOrCreate([
                 'role_id' => $world->tenant->role->getKey(),
                 'permission_id' => Permission::query()->where('code', $code)->sole()->getKey(),
+            ], [
+                'organisation_id' => $world->organisation->getKey(),
             ]);
         }
     }

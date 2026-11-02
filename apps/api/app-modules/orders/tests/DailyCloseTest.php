@@ -45,7 +45,7 @@ beforeEach(function (): void {
 
 function counterCash(object $test, int $amountMinor, string $method = 'cash_at_counter'): OrderPaymentReceipt
 {
-    $order = RunWorld::order($test->world, ['status' => OrderStatus::Fulfilled, 'total_minor' => $amountMinor]);
+    $order = RunWorld::order($test->world, ['status' => OrderStatus::Fulfilled, 'subtotal_minor' => $amountMinor, 'delivery_fee_minor' => 0, 'total_minor' => $amountMinor]);
 
     return OrderPaymentReceipt::factory()->create([
         'organisation_id' => $order->organisation_id,
@@ -126,6 +126,9 @@ it('counts a driver\'s cash at the hand-in, not at the door', function (): void 
         'handed_in_minor' => 2800,
         'short_reason' => 'Change',
     ], $this->world->headers + ['Idempotency-Key' => (string) Str::uuid()])->assertCreated();
+
+    // The clock is frozen, and the close's window ends just before its own instant.
+    $this->travel(1)->minutes();
 
     closeTill($this, 0, 2800)
         ->assertCreated()

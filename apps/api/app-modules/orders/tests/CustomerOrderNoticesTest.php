@@ -37,6 +37,7 @@ beforeEach(function (): void {
     $this->order = Order::factory()->create([
         'organisation_id' => $this->world->organisation->getKey(),
         'customer_account_id' => $this->world->customer->account->getKey(),
+        'sales_channel_id' => $this->world->channel->getKey(),
         'fulfilment_type' => FulfilmentType::Delivery,
     ]);
 });

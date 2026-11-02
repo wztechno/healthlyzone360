@@ -15,6 +15,7 @@ use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\Support\Alerts\StaffAlertType;
 use Healthy360\Support\Models\StaffNotification;
+use Healthy360\Tenancy\TenantContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -43,7 +44,7 @@ beforeEach(function (): void {
 
 function paidOrder(object $test, int $totalMinor = 10000): Order
 {
-    $order = RunWorld::order($test->world, ['status' => OrderStatus::Fulfilled, 'total_minor' => $totalMinor]);
+    $order = RunWorld::order($test->world, ['status' => OrderStatus::Fulfilled, 'subtotal_minor' => $totalMinor, 'delivery_fee_minor' => 0, 'total_minor' => $totalMinor]);
 
     OrderPaymentReceipt::factory()->create([
         'organisation_id' => $order->organisation_id,
@@ -190,7 +191,9 @@ it('tells whoever asked what the owner decided', function (bool $approved, Staff
     $order = paidOrder($this);
     $entryId = refund($this, $order, ['amount_minor' => 6000])->json('data.entries.0.id');
 
+    app(TenantContext::class)->setOrganisation((string) $this->world->ownerAlerted->getKey(), (string) $order->organisation_id);
     app(OrderRefunds::class)->decide($order, $entryId, $approved, (string) $this->world->ownerAlerted->getKey());
+    app(TenantContext::class)->clear();
 
     expect(StaffNotification::withoutTenancy()
         ->where('user_id', $this->world->tenant->user->getKey())
@@ -242,8 +245,8 @@ it('refuses to change or delete a decided entry at the database', function (): v
     $order = paidOrder($this);
     $entryId = refund($this, $order)->json('data.entries.0.id');
 
-    expect(fn () => DB::transaction(fn () => OrderRefund::query()->whereKey($entryId)->update(['amount_minor' => 1])))
+    expect(fn () => DB::transaction(fn () => OrderRefund::withoutTenancy()->whereKey($entryId)->update(['amount_minor' => 1])))
         ->toThrow(QueryException::class, 'append-only')
-        ->and(fn () => DB::transaction(fn () => OrderRefund::query()->whereKey($entryId)->delete()))
+        ->and(fn () => DB::transaction(fn () => OrderRefund::withoutTenancy()->whereKey($entryId)->delete()))
         ->toThrow(QueryException::class, 'append-only');
 });
