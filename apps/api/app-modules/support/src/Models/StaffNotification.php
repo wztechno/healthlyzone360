@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Support\Models;
 
 use Carbon\CarbonImmutable;
+use Healthy360\Support\Alerts\StaffAlerts;
 use Healthy360\Support\Attributes\Classified;
 use Healthy360\Support\Enums\DataClassification;
 use Healthy360\Tenancy\Concerns\BelongsToOrganisation;
@@ -17,8 +18,10 @@ use Healthy360\Tenancy\Contracts\OrganisationScoped;
  * rings, so every read also filters on `user_id`. `(user_id, type, subject_id)`
  * is unique, which is what lets a repeated job alert nobody twice.
  *
- * `data` is what the bell needs to draw the row, and it can name a customer or an
- * allergy, so it is classified above the rest of the row.
+ * `data` is what the bell needs to draw the row: the order number, money and a
+ * severity flag. It never holds a customer's name, an allergy note or any other
+ * personal data ({@see StaffAlerts}), and money is why it is classified above the
+ * rest of the row.
  *
  * @property string $id
  * @property string $organisation_id

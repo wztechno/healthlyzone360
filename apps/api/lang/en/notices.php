@@ -78,4 +78,34 @@ return [
         'holes' => '{1} :count day has demand nobody could work out (a missing recipe or menu).|[2,*] :count days have demand nobody could work out (a missing recipe or menu).',
         'action' => 'Open the buy list',
     ],
+    'staff_alert' => [
+        'action' => 'Open kitchen orders',
+        'total' => 'Order total: :total.',
+        'unaccepted_manager' => [
+            'heading' => 'Order :number has not been accepted',
+            'line' => 'It has passed its alert time and nobody in the kitchen has accepted it.',
+            'sms' => 'Healthy360: order :number has not been accepted. Please check the kitchen.',
+        ],
+        'unaccepted_owner' => [
+            'heading' => 'Order :number is still not accepted',
+            'line' => 'Your managers were alerted and the order is still waiting.',
+            'sms' => 'Healthy360: order :number is still not accepted after your managers were alerted.',
+        ],
+        'allergy_order' => [
+            'heading' => 'New order :number has an allergy on it',
+            'line' => 'Read the allergy details on the order before it is cooked.',
+        ],
+        'late_cancel' => [
+            'heading' => 'Order :number was cancelled after cooking started',
+            'line' => 'Check what was already made for it.',
+        ],
+        'delivery_failed' => [
+            'heading' => 'Delivery failed for order :number',
+            'line' => 'The order needs a decision from you.',
+        ],
+        'no_cash_collected' => [
+            'heading' => 'No cash was collected for order :number',
+            'line' => 'The driver delivered it without collecting any cash. Follow it up with the driver.',
+        ],
+    ],
 ];
