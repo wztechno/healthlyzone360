@@ -2,6 +2,7 @@ import { waitFor } from '@testing-library/react-native';
 import { Text } from 'react-native';
 
 import { withReturnTo } from '../navigation/return-to.ts';
+import { ArrivalHrefContext } from '../navigation/use-return-to.ts';
 import type { ExpoRouterMock } from '../testing/expo-router-mock.ts';
 import { testMeResponse, testMembership, testSessionUser } from '../testing/session-fixtures.ts';
 import { renderStubScreen } from '../testing/stub-screen.tsx';
@@ -51,6 +52,22 @@ describe('Gate redirects', () => {
         expect(routerMock.__redirect).toHaveBeenCalledWith(
             '/sign-in?returnTo=%252Fcustomer%252Fcheckout%253Fchannel%253Dweb-shop',
         );
+    });
+
+    it('returns to where a layout arrived, not the bare area the router reports meanwhile', async () => {
+        routerMock.__set({ pathname: '/customer', params: {} });
+
+        await renderStubScreen(
+            <ArrivalHrefContext.Provider value="/customer/orders/o-1">
+                {guarded()}
+            </ArrivalHrefContext.Provider>,
+        );
+
+        await waitFor(() => {
+            expect(routerMock.__redirect).toHaveBeenCalledWith(
+                withReturnTo('/sign-in', '/customer/orders/o-1'),
+            );
+        });
     });
 
     it('sends an unconfirmed account to verification with the same return', async () => {

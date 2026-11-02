@@ -16162,7 +16162,7 @@ paths:
         This kitchen's **active** delivery windows, in display order — the set
         a desk agent picks a sale's slot from. The same rows and the same shape
         as `GET /catalogue/delivery-windows`, with withdrawn windows left out
-        and behind `order.create_on_behalf_organisation` rather than
+        and behind `order.create_on_behalf_organisation` or `order.supervise_organisation` rather than
         `delivery_zone.manage_organisation`, which governs the kitchen's map
         and which a desk agent need not hold.
       parameters:

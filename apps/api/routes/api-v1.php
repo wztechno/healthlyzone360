@@ -2294,13 +2294,14 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::patch('/order-desk/orders/{order}', OrderDeskAmendmentController::class)
                     ->middleware('precondition')
                     ->name('catalogue.order-desk.orders.update');
-
-                // The slots a sale can be booked into, for the agent who is
-                // booking it. The admin list needs `delivery_zone.manage_
-                // organisation`, which a desk agent need not hold.
-                Route::get('/order-desk/delivery-windows', OrderDeskDeliveryWindowIndexController::class)
-                    ->name('catalogue.order-desk.delivery-windows.index');
             });
+
+            // The slots a sale can be booked into, for the agent booking it and
+            // the supervisor re-delivering it. The admin list needs `delivery_zone.
+            // manage_organisation`, which neither need hold.
+            Route::get('/order-desk/delivery-windows', OrderDeskDeliveryWindowIndexController::class)
+                ->middleware('permission:order.create_on_behalf_organisation,order.supervise_organisation')
+                ->name('catalogue.order-desk.delivery-windows.index');
 
             /*
             |--------------------------------------------------------------

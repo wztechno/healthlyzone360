@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { B2B_CART_CHANNEL_CODE } from '../../src/data/business-hooks.ts';
 import { isPathAvailable } from '../../src/features/availability.ts';
 import { isShopViewOnly } from '../../src/features/marketplace/shop-view-only.tsx';
+import { ArrivalHrefContext, useCurrentHref } from '../../src/navigation/use-return-to.ts';
 import { isBusinessCustomer } from '../../src/session/machine.ts';
 import { useAccessState, useSession } from '../../src/session/session-provider.tsx';
 import { ConsumerShell } from '../../src/shell/consumer-shell.tsx';
@@ -51,8 +52,13 @@ function isWholesaleCheckoutPath(pathname: string, channel: string | undefined):
 export default function CustomerLayout() {
     const reportedPathname = usePathname();
     const { channel: reportedChannel } = useGlobalSearchParams<{ channel?: string }>();
-    const [arrival] = useState({ pathname: reportedPathname, channel: reportedChannel });
-    const bare = reportedPathname === '/customer' || reportedPathname === '/customer/';
+    const reportedHref = useCurrentHref();
+    const [arrival] = useState({
+        pathname: reportedPathname,
+        channel: reportedChannel,
+        href: reportedHref,
+    });
+    const bare =reportedPathname === '/customer' || reportedPathname === '/customer/';
     const pathname = bare ? arrival.pathname : reportedPathname;
     const channel = bare ? arrival.channel : reportedChannel;
     const { me } = useSession();
@@ -66,9 +72,12 @@ export default function CustomerLayout() {
     if (viewOnly && !wholesale) return <Redirect href="/discover" />;
     if (!isPathAvailable(pathname)) return <Redirect href="/discover" />;
 
+    // The gate reads the same bare pathname, so a signed-out deep link would return to nothing.
     return (
-        <ConsumerShell>
-            <Slot />
-        </ConsumerShell>
+        <ArrivalHrefContext.Provider value={bare ? arrival.href : null}>
+            <ConsumerShell>
+                <Slot />
+            </ConsumerShell>
+        </ArrivalHrefContext.Provider>
     );
 }

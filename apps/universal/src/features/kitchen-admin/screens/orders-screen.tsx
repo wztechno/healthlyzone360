@@ -1350,9 +1350,12 @@ function DeliveryActionDialog({
     const { t } = useTranslation();
     const { locale } = useLocale();
     const toast = useToast();
-    // The list needs the desk's own permission; without it the day can still move.
-    const canSell = useCan(ORDER_CREATE_ON_BEHALF_PERMISSION);
-    const windows = useOrderDeskDeliveryWindowsQuery(action === 'redeliver' && canSell);
+    // Open to the desk and to supervisors. Anyone else can still move the day.
+    const canBook = useCan(ORDER_CREATE_ON_BEHALF_PERMISSION);
+    const canSupervise = useCan(ORDER_SUPERVISE_PERMISSION);
+    const windows = useOrderDeskDeliveryWindowsQuery(
+        action === 'redeliver' && (canBook || canSupervise),
+    );
 
     const failDelivery = useFailDeliveryMutation();
     const redeliver = useRedeliverOrderMutation();
