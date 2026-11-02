@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Kitchens\Services\KitchenServiceSettingsLookup;
+use Healthy360\Orders\Tests\Fixtures\RunWorld;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
@@ -12,6 +13,7 @@ use Healthy360\Procurement\Models\GoodsReceipt;
 use Healthy360\Procurement\Models\Supplier;
 use Healthy360\Procurement\Services\GoodsReceiptService;
 use Healthy360\Procurement\Services\ReceiptPriceCompletionService;
+use Healthy360\Procurement\Services\ReceiptPriceControl;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\Support\Alerts\StaffAlertType;
 use Healthy360\Support\Models\StaffNotification;
@@ -104,6 +106,7 @@ it('leaves the variance empty for a first purchase and across currencies', funct
 });
 
 it('holds the payment and not the goods when a price rises past the limit', function (): void {
+    RunWorld::member($this->orgId, 'organisation_owner');
     priceLimit($this, 10);
     delivery($this, '10.00', '2026-11-01');
     $receipt = delivery($this, '12.00', '2026-11-02');
@@ -170,6 +173,15 @@ it('lists what is owed, refuses to pay an unpriced delivery, and leaves the old 
         ->assertJsonPath('data.unpaid.1.amount', null);
 
     $this->postJson(PAYABLES_URL."/{$unpriced->getKey()}/pay", [], $this->headers)->assertConflict();
+});
+
+it('opens a payable on anything from a supplier, whatever it started as', function (): void {
+    $receipt = delivery($this, '10.00', '2026-11-01');
+    $receipt->payment_status = 'not_tracked';
+
+    app(ReceiptPriceControl::class)->openPayable($receipt);
+
+    expect($receipt->payment_status)->toBe('unpaid');
 });
 
 it('flags an overdue delivery on the kitchen clock, and lets a due date be moved', function (): void {

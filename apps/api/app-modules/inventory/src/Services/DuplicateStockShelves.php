@@ -162,6 +162,24 @@ final readonly class DuplicateStockShelves
     }
 
     /**
+     * Takes away an empty shelf of an archived ingredient, on the record.
+     */
+    public function removeEmpty(StockItem $shelf, ?string $actorUserId = null): void
+    {
+        DB::transaction(function () use ($shelf, $actorUserId): void {
+            $shelf->delete();
+
+            $this->audit->record(
+                'inventory.stock_shelf_removed',
+                actorUserId: $actorUserId,
+                subjectType: 'stock_item',
+                subjectId: (string) $shelf->getKey(),
+                metadata: ['code' => $shelf->code, 'ingredient_id' => $shelf->ingredient_id],
+            );
+        });
+    }
+
+    /**
      * An empty shelf nothing has touched: no movement, nothing held, nothing on
      * order or being produced against it. A supplier link is configuration and
      * goes with the row.
@@ -202,9 +220,9 @@ final readonly class DuplicateStockShelves
             return 'both_sold_as_products';
         }
 
-        $held = ! $this->hasHistory($first) ? $first : $second;
+        $pick = $this->pick($shelves, $ingredients);
 
-        return $this->blocksDrop($held, $this->hasHistory($first) ? $first : $second) ? 'open_work' : null;
+        return $this->blocksDrop($pick['drop'], $pick['keep']) ? 'open_work' : null;
     }
 
     /**

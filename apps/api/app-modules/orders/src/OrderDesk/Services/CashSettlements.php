@@ -45,7 +45,12 @@ use stdClass;
  */
 final readonly class CashSettlements
 {
-    /** A run's cash: the driver's receipts for it, less any corrected as a mistake. */
+    /**
+     * A run's cash: the driver's receipts for it, less the corrections that reach
+     * them. A correction comes off whatever else was received first, the desk's
+     * deposit say, because that money never passed through the driver's hands. Only
+     * what is left over can be a mistake in what they collected.
+     */
     private const string COLLECTED_SQL = <<<'SQL'
         coalesce((
             select sum(receipts.amount_minor)
@@ -53,13 +58,18 @@ final readonly class CashSettlements
             where receipts.order_id = orders.id
               and receipts.confirmed_by = jobs.driver_user_id
               and receipts.method <> 'wish'
-        ), 0) - coalesce((
+        ), 0) - greatest(coalesce((
             select sum(corrections.amount_minor)
             from order_refunds as corrections
             where corrections.order_id = orders.id
               and corrections.kind = 'receipt_correction'
               and corrections.status = 'completed'
-        ), 0)
+        ), 0) - coalesce((
+            select sum(others.amount_minor)
+            from order_payment_receipts as others
+            where others.order_id = orders.id
+              and (others.confirmed_by is distinct from jobs.driver_user_id or others.method = 'wish')
+        ), 0), 0)
         SQL;
 
     /** What an order delivered by a courier still owes. */

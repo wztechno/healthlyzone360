@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Delivery\Models\DeliveryJob;
@@ -143,6 +144,54 @@ it('leaves a run from before settlement off the list, and refuses to settle it',
 
     settle($this, [$old], 3000)->assertConflict();
     settle($this, [$new], 2000)->assertCreated();
+});
+
+/**
+ * A desk deposit on the run's order, then a correction of `$correctedMinor`.
+ */
+function correctedDeposit(object $test, DeliveryJob $run, int $depositMinor, int $correctedMinor): void
+{
+    $order = Order::query()->whereKey($run->order_id)->sole();
+    $desk = User::factory()->create();
+
+    OrderPaymentReceipt::factory()->create([
+        'organisation_id' => $order->organisation_id,
+        'order_id' => $order->getKey(),
+        'amount_minor' => $depositMinor,
+        'currency_code' => $order->currency_code,
+        'confirmed_by' => $desk->getKey(),
+        'confirmed_at' => now(),
+    ]);
+
+    DB::table('order_refunds')->insert([
+        'id' => (string) Str::uuid(),
+        'organisation_id' => $order->organisation_id,
+        'order_id' => $order->getKey(),
+        'kind' => 'receipt_correction',
+        'status' => 'completed',
+        'method' => 'cash_at_counter',
+        'amount_minor' => $correctedMinor,
+        'currency_code' => $order->currency_code,
+        'reason' => 'Keyed twice',
+        'requested_by' => $desk->getKey(),
+        'requested_at' => now(),
+        'decided_by' => $desk->getKey(),
+        'decided_at' => now(),
+    ]);
+}
+
+it('takes a correction of the desk\'s deposit off nothing the driver owes', function (): void {
+    correctedDeposit($this, driverRun($this, 2000), 1000, 1000);
+
+    $this->getJson('/api/v1/catalogue/order-desk/settlements', $this->world->headers)
+        ->assertJsonPath('data.drivers.0.collected_minor', 2000);
+});
+
+it('takes only what a correction leaves after the deposit off the driver', function (): void {
+    correctedDeposit($this, driverRun($this, 2000), 1000, 1500);
+
+    $this->getJson('/api/v1/catalogue/order-desk/settlements', $this->world->headers)
+        ->assertJsonPath('data.drivers.0.collected_minor', 1500);
 });
 
 it('refuses to settle a run twice', function (): void {

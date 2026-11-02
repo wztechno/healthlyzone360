@@ -6,9 +6,11 @@ use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Inventory\Enums\ReservationStatus;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Models\StockMovement;
+use Healthy360\Inventory\Models\StockReservation;
 use Healthy360\Inventory\Services\DuplicateStockShelves;
 use Healthy360\Inventory\Services\MealExplosion;
 use Healthy360\Inventory\Services\StockItemDerivationService;
@@ -17,6 +19,8 @@ use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
+use Healthy360\Tenancy\TenantContext;
+use Illuminate\Support\Str;
 
 /*
 |--------------------------------------------------------------------------
@@ -120,7 +124,11 @@ it('keeps whichever side has the history, and adds what the other held', functio
 
     expect($found['merges'][0]['keep']->getKey())->toBe($copy->getKey());
 
+    // The console and the review page both run the merge inside one kitchen.
+    $context = app(TenantContext::class);
+    $context->setOrganisation((string) $this->tenant->user->getKey(), $this->orgId);
     $this->duplicates->merge($this->orgId, $found['merges'][0]['keep'], $found['merges'][0]['drop']);
+    $context->clear();
 
     expect((float) StockLevel::withoutTenancy()->where('stock_item_id', $copy->getKey())->sum('quantity'))->toBe(9.0)
         ->and(StockMovement::withoutTenancy()->where('stock_item_id', $copy->getKey())->where('reference_type', 'stock_merge')->sum('quantity_delta'))->toEqual(2);
@@ -184,6 +192,37 @@ it('clears an empty shelf when its ingredient is archived, and keeps one with st
 
     expect(StockItem::withoutTenancy()->where('ingredient_id', $empty->getKey())->exists())->toBeFalse()
         ->and(StockItem::withoutTenancy()->whereKey($heldShelf->getKey())->exists())->toBeTrue();
+});
+
+it('checks the shelf that would actually go, not the first of the pair', function (): void {
+    // Neither has history, so the original stays and the copy goes: open work on
+    // the copy is what has to stop the merge.
+    $pair = shelfPair($this);
+
+    $claim = new StockReservation;
+    $claim->organisation_id = $this->orgId;
+    $claim->branch_id = (string) $this->branch->getKey();
+    $claim->stock_item_id = (string) $pair['copy']->getKey();
+    $claim->quantity = '1';
+    $claim->holder_type = StockReservation::HOLDER_PRODUCTION_ORDER;
+    $claim->holder_id = (string) Str::uuid();
+    $claim->status = ReservationStatus::Open;
+    $claim->save();
+
+    $found = $this->duplicates->scan($this->orgId);
+
+    expect($found['merges'])->toBe([])
+        ->and($found['reviews'][0]['reason'])->toBe('open_work');
+});
+
+it('audits an empty archived shelf as it removes it', function (): void {
+    $ingredient = Ingredient::factory()->create(['organisation_id' => $this->orgId, 'default_unit_id' => $this->unit->getKey()]);
+    $shelf = StockItem::withoutTenancy()->where('ingredient_id', $ingredient->getKey())->sole();
+
+    $this->duplicates->removeEmpty($shelf);
+
+    expect(StockItem::withoutTenancy()->whereKey($shelf->getKey())->exists())->toBeFalse()
+        ->and(AuditLog::query()->where('action', 'inventory.stock_shelf_removed')->where('subject_id', $shelf->getKey())->count())->toBe(1);
 });
 
 it('writes nothing on the default run', function (): void {

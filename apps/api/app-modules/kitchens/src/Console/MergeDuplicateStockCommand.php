@@ -56,7 +56,7 @@ final class MergeDuplicateStockCommand extends Command
                 $this->components->twoColumnDetail($shelf->code, 'empty, archived ingredient: removed');
 
                 if ($apply) {
-                    $shelf->delete();
+                    $duplicates->removeEmpty($shelf);
                 }
             }
 

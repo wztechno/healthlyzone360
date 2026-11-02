@@ -18,6 +18,7 @@ use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Enums\PaymentMethod;
 use Healthy360\Orders\Exceptions\PlacementRefused;
 use Healthy360\Orders\Models\Order;
+use Healthy360\Orders\Models\OrderComplaint;
 use Healthy360\Orders\Presenters\OrderPresenter;
 use Healthy360\Orders\Services\ComposedLine;
 use Healthy360\Orders\Services\ComposedPlacement;
@@ -29,6 +30,7 @@ use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\Subscriptions\Services\BuyerAllergenCheckAdapter;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Support\Models\StaffNotification;
+use Healthy360\Tenancy\Tests\Fixtures\RuntimeRole;
 
 /*
 |--------------------------------------------------------------------------
@@ -389,6 +391,32 @@ it('clears all four columns when the account is anonymised', function (): void {
 
     // The second run finds nothing left, as the port's contract asks.
     expect(app(OrderSnapshotRedaction::class)->anonymiseFor((string) $this->account->getKey()))->toBe(0);
+});
+
+it('takes the line note and the complaint text with it, in a closure with no kitchen in context', function (): void {
+    $order = app(OrderPlacementService::class)->placeComposed(allergyPlacement($this, [
+        'placedOnBehalfBy' => (string) $this->agent->getKey(),
+    ]))->order;
+    $line = $order->lines()->firstOrFail();
+    $line->note = 'For Rana, she is coeliac';
+    $line->save();
+
+    $complaint = new OrderComplaint;
+    $complaint->organisation_id = (string) $order->organisation_id;
+    $complaint->order_id = (string) $order->getKey();
+    $complaint->cause = 'quality';
+    $complaint->description = 'Rana rang in tears';
+    $complaint->currency_code = (string) $order->currency_code;
+    $complaint->created_by = (string) $this->agent->getKey();
+    $complaint->save();
+
+    RuntimeRole::context();
+    RuntimeRole::run(fn (): int => app(OrderSnapshotRedaction::class)->anonymiseFor((string) $this->account->getKey()));
+
+    expect($line->refresh()->note)->toBeNull()
+        ->and($line->name_en)->not->toBeNull()
+        ->and($complaint->refresh()->description)->toBeNull()
+        ->and($complaint->cause)->toBe('quality');
 });
 
 it('clears them when a guest is purged', function (): void {

@@ -113,6 +113,8 @@ final readonly class ReceiptPriceControl
             return;
         }
 
+        $receipt->payment_status = 'unpaid';
+
         $days = Supplier::query()->whereKey($receipt->supplier_id)->value('payment_due_days');
         $from = $receipt->invoice_date ?? $receipt->received_on;
 
