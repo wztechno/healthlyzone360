@@ -12,6 +12,7 @@ use Healthy360\B2b\Models\QuotationLine;
 use Healthy360\B2b\Services\QuotationService;
 use Healthy360\B2b\Tests\Fixtures\B2bCheckoutWorld;
 use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
+use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemAvailabilityDay;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Kitchens\Models\BranchOpeningHour;
@@ -214,6 +215,36 @@ it('leaves the quotation quoted when the order cannot be placed, and says why', 
 
     expect(Order::query()->count())->toBe(0)
         ->and(Quotation::withoutTenancy()->whereKey($quoted->getKey())->sole()->status->value)->toBe('quoted');
+});
+
+it('refuses an acceptance once a quoted dish has lost its allergen assessment', function (): void {
+    $quoted = quotedForAcceptance($this);
+
+    CatalogueItem::withoutTenancy()->whereKey($this->world['meal']->getKey())->update(['allergens_assessed_at' => null]);
+
+    $this->postJson(
+        "/api/v1/b2b/quotations/{$quoted->getKey()}/accept",
+        acceptBody($this),
+        $this->buyer['headers'] + ['If-Match' => '"'.$quoted->lock_version.'"'],
+    )
+        ->assertStatus(409)
+        ->assertJsonPath('error.code', 'order.placement_refused')
+        ->assertJsonPath('error.details.reasons.0.reason', 'item_not_assessed');
+
+    expect(Order::query()->count())->toBe(0);
+});
+
+it('refuses a quotation line nobody has assessed for allergens', function (): void {
+    CatalogueItem::withoutTenancy()->whereKey($this->world['meal']->getKey())->update(['allergens_assessed_at' => null]);
+
+    $this->actingAs($this->buyer['user'])
+        ->postJson("/api/v1/b2b/programmes/{$this->programme->getKey()}/quotations", [
+            'lines' => [['catalogue_item_id' => (string) $this->world['meal']->getKey(), 'quantity' => 5]],
+        ], $this->buyer['headers'])
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed');
+
+    expect(Quotation::withoutTenancy()->count())->toBe(0);
 });
 
 it('refuses an address that is not one of the buyers', function (): void {

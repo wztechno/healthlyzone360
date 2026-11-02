@@ -12,6 +12,8 @@ use Healthy360\Orders\Enums\CancellationReason;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderPaymentReceipt;
+use Healthy360\Orders\Presenters\OrderPresenter;
+use Healthy360\Orders\Services\OrderDeliveryRuns;
 use Healthy360\Orders\Tests\Fixtures\RunWorld;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
@@ -243,4 +245,36 @@ it('keeps re-deliver and close for the supervise permission', function (): void 
 
     deliveryAction($this, $order, 'redeliver')->assertForbidden();
     deliveryAction($this, $order, 'close-failed', ['disposition' => 'returned'])->assertForbidden();
+});
+
+it('refuses a plain Cancel on a failed run and leaves closing it to close-failed', function (): void {
+    failRun($this, $this->job)->assertOk();
+
+    $this->postJson(
+        '/api/v1/catalogue/orders/'.$this->order->getKey().'/cancel',
+        ['reason' => 'customer_requested', 'disposition' => 'returned'],
+        $this->world->headers + ['If-Match' => '"'.$this->order->fresh()->lock_version.'"'],
+    )
+        ->assertStatus(409)
+        ->assertJsonPath('error.code', 'resource.conflict');
+
+    expect($this->order->refresh()->status)->toBe(OrderStatus::Confirmed);
+
+    deliveryAction($this, $this->order, 'close-failed', ['disposition' => 'returned'])
+        ->assertOk()
+        ->assertJsonPath('data.order.status', 'cancelled');
+});
+
+it('stops telling the customer a failed run is out for delivery', function (): void {
+    $outForDelivery = fn (): ?string => app(OrderPresenter::class)->customer(
+        $this->order->refresh(),
+        [],
+        app(OrderDeliveryRuns::class)->forOrder((string) $this->order->getKey()),
+    )['out_for_delivery_at'];
+
+    expect($outForDelivery())->toBeString();
+
+    failRun($this, $this->job)->assertOk();
+
+    expect($outForDelivery())->toBeNull();
 });

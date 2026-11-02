@@ -40,7 +40,7 @@ return new class extends Migration
         });
 
         DB::statement(<<<'SQL'
-            CREATE FUNCTION recipe_has_published_lines(target_recipe_id uuid, target_organisation_id uuid)
+            CREATE OR REPLACE FUNCTION recipe_has_published_lines(target_recipe_id uuid, target_organisation_id uuid)
             RETURNS boolean
             LANGUAGE sql
             STABLE

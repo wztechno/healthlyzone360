@@ -96,7 +96,8 @@ export const ORDER_CREATE_ON_BEHALF_PERMISSION = 'order.create_on_behalf_organis
 
 /**
  * Who decides about an order once cooking has started, and who staff alerts reach. Held by the
- * owner, the administrator and the kitchen manager; the desk agent stays on `order.manage`.
+ * owner, the administrator and the kitchen manager; the desk agent stays on
+ * `order.manage_organisation`.
  */
 export const ORDER_SUPERVISE_PERMISSION = 'order.supervise_organisation';
 

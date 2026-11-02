@@ -21,9 +21,13 @@ use Illuminate\Support\Facades\DB;
  *
  * **Nothing re-syncs a copy.** `TemplateRoleSeeder` reconciles the templates,
  * never the copies. A default grant that must reach existing kitchens ships as
- * a data migration that only adds it to each organisation's role of that code;
- * a role a kitchen deleted stays deleted, because `provision()` runs when an
- * organisation is created and never again.
+ * a data migration that only adds it to each organisation's copy, and a copy is
+ * a role with the template's code, or `<code>_standard` with an optional number,
+ * and an empty `created_by`: a role a kitchen made itself can share either code,
+ * and keeps exactly what the kitchen gave it
+ * (2026_11_02_000103_grant_order_supervise_organisation_permission). A role a
+ * kitchen deleted stays deleted, because `provision()` runs when an organisation
+ * is created and never again.
  *
  * **The database context is set, not just the Eloquent scope lifted.** The RLS
  * policies on `roles` and `role_permissions` check every insert against

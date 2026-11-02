@@ -393,7 +393,9 @@ export function orderDeskDeliveryState(row: OrderDeskQueueRow): OrderDeskDeliver
     if (row.deliveryJob === null) {
         return row.status === 'placed' ? 'awaiting_confirmation' : 'no_run';
     }
-    return row.deliveryJob.driverUserId === null ? 'unassigned' : 'assigned';
+    return row.deliveryJob.status === 'pending' && row.deliveryJob.driverUserId === null
+        ? 'unassigned'
+        : 'assigned';
 }
 
 const ORDER_DESK_DELIVERY_STATE_KEYS: Readonly<Record<OrderDeskDeliveryState, string>> = {

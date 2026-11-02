@@ -212,6 +212,27 @@ it('starts counting an order placed at 02:00 at opening time', function (): void
     expect(escalated($order, StaffAlertType::UnacceptedManager))->toBe([$this->manager->getKey()]);
 });
 
+it('stays silent about an order for tomorrow, then counts from that day\'s opening', function (): void {
+    escalationOpenNineToSix($this);
+    $tomorrow = $this->noon->addDay();
+    $order = escalationOrder($this, $this->noon->subDays(7), ['requested_delivery_date' => $tomorrow->toDateString()]);
+
+    EscalateUnacceptedOrders::dispatchSync();
+
+    expect(escalated($order, StaffAlertType::UnacceptedManager))->toBe([])
+        ->and(escalated($order, StaffAlertType::UnacceptedOwner))->toBe([]);
+
+    $this->travelTo($tomorrow->setTime(9, 9));
+    EscalateUnacceptedOrders::dispatchSync();
+
+    expect(escalated($order, StaffAlertType::UnacceptedManager))->toBe([]);
+
+    $this->travelTo($tomorrow->setTime(9, 10));
+    EscalateUnacceptedOrders::dispatchSync();
+
+    expect(escalated($order, StaffAlertType::UnacceptedManager))->toBe([$this->manager->getKey()]);
+});
+
 it('counts around the clock for a kitchen with no opening hours', function (): void {
     $order = escalationOrder($this, $this->noon->setTime(2, 0));
 

@@ -6714,7 +6714,8 @@ export const zGuestOrder = z.object({
         'customer_requested',
         'kitchen_unable_to_fulfil',
         'delivery_unavailable',
-        'address_unreachable'
+        'address_unreachable',
+        'delivery_failed'
     ]).nullable(),
     lines: z.array(zGuestOrderLine)
 });

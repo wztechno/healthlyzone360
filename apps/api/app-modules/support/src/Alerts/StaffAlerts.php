@@ -29,7 +29,9 @@ use function Illuminate\Support\defer;
  *
  * **Each recipient hears once.** `(user_id, type, subject_id)` is unique, and only
  * a recipient whose row was really written is mailed, so a job that repeats every
- * minute costs nothing and alerts nobody twice.
+ * minute costs nothing and alerts nobody twice. A type that repeats
+ * ({@see StaffAlertType::repeats()}) brings the row back unread and new instead,
+ * and that counts as written.
  *
  * **The organisation's context is set here, not assumed.** A caller may be a
  * scheduled job with no tenant, and under row-level security that makes a read
@@ -99,6 +101,8 @@ final readonly class StaffAlerts
 
         $alerted = [];
 
+        $encoded = json_encode($data, JSON_THROW_ON_ERROR);
+
         foreach ($recipients as $recipient) {
             $written = StaffNotification::withoutTenancy()->insertOrIgnore([
                 'id' => $this->identifiers->generate(),
@@ -107,9 +111,17 @@ final readonly class StaffAlerts
                 'type' => $type->value,
                 'subject_type' => self::SUBJECT_TYPE,
                 'subject_id' => $subjectId,
-                'data' => json_encode($data, JSON_THROW_ON_ERROR),
+                'data' => $encoded,
                 'created_at' => now(),
             ]);
+
+            if ($written === 0 && $type->repeats()) {
+                $written = StaffNotification::withoutTenancy()
+                    ->where('user_id', $recipient['user_id'])
+                    ->where('type', $type->value)
+                    ->where('subject_id', $subjectId)
+                    ->update(['read_at' => null, 'created_at' => now(), 'data' => $encoded]);
+            }
 
             if ($written === 1) {
                 $alerted[] = $recipient;

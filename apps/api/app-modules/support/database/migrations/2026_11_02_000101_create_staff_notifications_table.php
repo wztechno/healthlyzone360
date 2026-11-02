@@ -19,8 +19,8 @@ use Illuminate\Support\Facades\Schema;
  *
  * `subject_type` and `subject_id` are a plain pair, not a foreign key, because
  * the subject lives in another module and an alert outlives nothing it needs to
- * be cascaded with. There is no `updated_at`: the only change a row ever sees is
- * being read, and `read_at` records that.
+ * be cascaded with. There is no `updated_at`: a row changes by being read, which
+ * `read_at` records, or by coming back as new, which `created_at` does.
  *
  * Isolation strategy: `org-rls`. RLS is enabled, not forced, so the migrator
  * keeps working; a database with neither runtime role still ends up fail-closed,

@@ -618,6 +618,19 @@ describe('kds ticket board', () => {
                 readyAt: minutesAgo(10),
                 deliveryRun: { ...run, status: 'in_transit', pickedUpAt: minutesAgo(2) },
             }),
+            kitchenOrder({
+                id: orderIdAt(8),
+                orderNumber: 'VK-2026-0152',
+                status: 'confirmed',
+                confirmedAt: minutesAgo(30),
+                readyAt: minutesAgo(10),
+                deliveryRun: {
+                    ...run,
+                    status: 'failed',
+                    pickedUpAt: minutesAgo(5),
+                    failedAt: minutesAgo(1),
+                },
+            }),
         ]);
         await renderBoard(book);
 
@@ -631,6 +644,9 @@ describe('kds ticket board', () => {
         );
         expect(screen.getByTestId(`${ticketId(orderIdAt(7))}-driver`)).toHaveTextContent(
             'Out with the driver',
+        );
+        expect(screen.getByTestId(`${ticketId(orderIdAt(8))}-driver`)).toHaveTextContent(
+            'Delivery failed',
         );
         expect(screen.queryByTestId(`${ticketId(orderIdAt(6))}-handed-over`)).toBeNull();
         expect(screen.queryByTestId(`${ticketId(orderIdAt(7))}-handed-over`)).toBeNull();

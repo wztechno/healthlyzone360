@@ -145,16 +145,21 @@ function useKitchenOrderWriteEffects(): (order: KitchenOrder) => void {
         // The answer into every cached list too, so a KDS ticket moves the moment Ready lands
         // rather than when the refetch below does — seconds on a slow server, and the board looked
         // as if nothing had happened.
-        queryClient.setQueriesData<{ readonly items?: readonly KitchenOrder[] }>(
-            // The whole family; the guard below leaves anything that is not a page of orders.
+        const withFresh = (rows: readonly KitchenOrder[]): readonly KitchenOrder[] =>
+            rows.map((row) => (row.id === order.id ? order : row));
+        queryClient.setQueriesData<{
+            readonly items?: readonly KitchenOrder[];
+            readonly orders?: readonly KitchenOrder[];
+        }>(
+            // The whole family; the guards below leave anything that is not a page of orders. The
+            // book's pages hold `items`, the kitchen display's holds `orders`.
             { queryKey: queryKeys.kitchenOrders.all() },
-            (page) =>
-                page === undefined || !Array.isArray(page.items)
-                    ? page
-                    : {
-                          ...page,
-                          items: page.items.map((row) => (row.id === order.id ? order : row)),
-                      },
+            (page) => {
+                if (page === undefined) return page;
+                if (Array.isArray(page.items)) return { ...page, items: withFresh(page.items) };
+                if (Array.isArray(page.orders)) return { ...page, orders: withFresh(page.orders) };
+                return page;
+            },
         );
         void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders.all() });
         void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });

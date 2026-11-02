@@ -75,6 +75,10 @@ final readonly class NoticeRecipients
             ->leftJoin('user_profiles as up', 'up.user_id', '=', 'u.id')
             ->where('m.organisation_id', $organisationId)
             ->where('m.status', 'active')
+            // The same two conditions `PermissionChecker` reads, so nobody is told
+            // about something a role they no longer hold would let them act on.
+            ->where(static fn (Builder $query): Builder => $query->whereNull('mr.starts_at')->orWhere('mr.starts_at', '<=', now()))
+            ->where(static fn (Builder $query): Builder => $query->whereNull('mr.expires_at')->orWhere('mr.expires_at', '>', now()))
             ->whereNotNull('u.email')
             ->select(['u.id as user_id', 'u.email', 'up.preferred_language_code as locale'])
             ->distinct()

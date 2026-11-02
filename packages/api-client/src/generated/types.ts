@@ -9019,8 +9019,9 @@ export type OrderDeskQueueEnvelope = {
         count: number;
         /**
          * Open orders whose `due_at` has passed, across all dates, whatever
-         * this view shows and however many rows it was capped to. Inside
-         * the kitchen, and the branch when one is named.
+         * this view shows and however many rows it was capped to. An order
+         * that names no day is due from `placed_at`. Inside the kitchen,
+         * and the branch when one is named.
          *
          */
         past_due_count: number;
@@ -9578,7 +9579,7 @@ export type KitchenDisplayEnvelope = {
          */
         alarm_after_minutes: number;
         /**
-         * Each `placed` order's open minutes waited, keyed by order id.
+         * Each `placed` order's open minutes waited, keyed by order id. An order for a later day is absent.
          */
         unaccepted_open_minutes: {
             [key: string]: number;
@@ -10556,7 +10557,7 @@ export type GuestOrder = {
     placed_at: string;
     confirmed_at: string | null;
     cancelled_at: string | null;
-    cancellation_reason: 'customer_requested' | 'kitchen_unable_to_fulfil' | 'delivery_unavailable' | 'address_unreachable' | null;
+    cancellation_reason: 'customer_requested' | 'kitchen_unable_to_fulfil' | 'delivery_unavailable' | 'address_unreachable' | 'delivery_failed' | null;
     lines: Array<GuestOrderLine>;
 };
 
@@ -32653,7 +32654,8 @@ export type ListOrderDeskQueueData = {
         query?: string;
         /**
          * `past_due` lists every open order whose `due_at` has passed, whatever
-         * its date, in place of `window`. The other filters still apply.
+         * its date, in place of `window`. An order that names no day is due from
+         * `placed_at`. The other filters still apply.
          *
          */
         lens?: 'past_due';

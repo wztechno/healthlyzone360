@@ -708,9 +708,11 @@ function Ticket({
                     // a Handed over that would tell the customer it had arrived.
                     <Text variant="caption" tone="secondary" testID={`${testID}-driver`}>
                         {t(
-                            (order.deliveryRun?.pickedUpAt ?? null) === null
-                                ? 'kitchen:kds.waitingForDriver'
-                                : 'kitchen:kds.withDriver',
+                            order.deliveryRun?.status === 'failed'
+                                ? 'kitchen:kds.deliveryFailed'
+                                : (order.deliveryRun?.pickedUpAt ?? null) === null
+                                  ? 'kitchen:kds.waitingForDriver'
+                                  : 'kitchen:kds.withDriver',
                         )}
                     </Text>
                 ) : canFulfilKitchenOrder(order.status) ? (

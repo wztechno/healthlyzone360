@@ -281,6 +281,14 @@ protect nothing the parents leave open. The `RlsTest` pin does not move.
 stocks this product, and the counter's value is exactly the set of labels it has printed; both are
 written through `IngredientBarcodeService`, which tests use too.
 
+## P0 Stage 1 — staff alerts, service settings, order allergies (2026-11-02)
+
+| Table | Cluster | Classification | PII | Isolation strategy | Notes |
+|---|---|---|---|---|---|
+| staff_notifications | Operations | Confidential (`data`) / Internal (the rest) | Yes (indirect) | `org-rls` | One row per recipient per alert, unique on `(user_id, type, subject_id)`. `data` carries the order number, money and a severity flag, and never a customer's name, an allergy or an address, because the row outlives the customer and closing an account does not visit this table |
+| kitchen_service_settings | Kitchen operations | Internal | No | `org-rls` | One row per organisation: lead time and the alarm and escalation limits. Created on first read, and the defaults live on the model |
+| orders (`allergy_snapshot`, `allergy_note`, `allergy_acknowledged_at`, `allergy_acknowledged_by`) | Orders | **Special category** | Yes | stated gap (Journey phases above); `orders` carries no policy | The customer's declared allergies copied onto the order, the desk's note, and who acknowledged a conflict. Health data. Served by purpose of use (`OrderPresenter::kitchen()`). Cleared when an account closes or a guest is purged. A guest's own erasure request is refused while an order is open, because the kitchen still needs them |
+
 ## Standing conventions
 
 - UUIDv7 primary keys, application-generated via the central identifier service; ISO-code PKs for stable reference tables (Plan §8).

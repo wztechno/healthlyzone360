@@ -1813,6 +1813,7 @@
         "noBranchBody": "Choose the branch this screen is displaying before the board can show its tickets.",
         "mayContain": "May contain {{allergen}}",
         "handedOver": "Handed over",
+        "deliveryFailed": "Delivery failed",
         "waitingForDriver": "Waiting for the driver",
         "withDriver": "Out with the driver",
         "accept": "Accept",

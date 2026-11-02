@@ -2064,6 +2064,7 @@
         "noBranchBody": "اختر الفرع الذي تعرضه هذه الشاشة كي تظهر تذاكره.",
         "mayContain": "قد يحتوي على {{allergen}}",
         "handedOver": "تم التسليم",
+        "deliveryFailed": "فشل التوصيل",
         "waitingForDriver": "بانتظار السائق",
         "withDriver": "مع السائق",
         "accept": "قبول",

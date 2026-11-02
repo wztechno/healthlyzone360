@@ -55,6 +55,9 @@ use Illuminate\Validation\ValidationException;
  *
  * **Food on the road cannot be cancelled by anybody.** `OrderLifecycle::cancel()`
  * refuses it with `order.out_for_delivery`, and it ends as delivered or failed.
+ *
+ * **A failed run is not cancelled here either.** It is sent out again or closed
+ * through `FailedDelivery`, which records why the order ended.
  */
 final class KitchenOrderCancelController
 {
@@ -80,6 +83,10 @@ final class KitchenOrderCancelController
         $record = $this->locator->sellerOrder($order);
 
         $late = $this->isLate($record);
+
+        if (($this->runs->forOrder((string) $record->getKey())['status'] ?? null) === 'failed') {
+            throw new ApiException(ErrorCode::ResourceConflict, 'This delivery failed. Send it out again or close it as failed.');
+        }
 
         $cancelled = $this->lifecycle->cancel(
             $record,

@@ -21,6 +21,7 @@ use Healthy360\Identity\Exceptions\InvalidContactValue;
 use Healthy360\Identity\Models\ContactPoint;
 use Healthy360\Identity\Services\ContactValueHasher;
 use Healthy360\Identity\Services\ContactValueNormaliser;
+use Healthy360\Orders\Contracts\OpenOrderQuery;
 use Healthy360\Verification\Enums\OtpChannel;
 use Healthy360\Verification\Enums\OtpPurpose;
 use Healthy360\Verification\Exceptions\ChannelUnavailable;
@@ -92,6 +93,7 @@ final class GuestDeletionService
         private readonly GuestSessionService $sessions,
         private readonly AuditRecorder $audit,
         private readonly OrderAnonymisation $orders,
+        private readonly OpenOrderQuery $openOrders,
     ) {}
 
     /**
@@ -181,6 +183,13 @@ final class GuestDeletionService
         $account = CustomerAccount::query()->whereKey($contact->customer_account_id)->first();
 
         if (! $account instanceof CustomerAccount) {
+            return GuestDeletionOutcome::refused();
+        }
+
+        // A purge wipes the order's allergies and address, and a kitchen cooking
+        // that order still needs both. The answer is the ordinary refusal, for
+        // the reason every other one here is.
+        if ($this->openOrders->openOrderSummaries((string) $account->getKey()) !== []) {
             return GuestDeletionOutcome::refused();
         }
 

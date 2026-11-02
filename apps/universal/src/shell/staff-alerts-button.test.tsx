@@ -13,7 +13,7 @@ import { useAccessState } from '../session/session-provider.tsx';
 import type { ExpoRouterMock } from '../testing/expo-router-mock.ts';
 import { kitchenManagerSession, testActiveContext } from '../testing/session-fixtures.ts';
 import { renderStubScreen } from '../testing/stub-screen.tsx';
-import { StaffAlertsButton, freshAlerts } from './staff-alerts-button.tsx';
+import { StaffAlertsButton, alertSeenKey, freshAlerts } from './staff-alerts-button.tsx';
 
 jest.mock('expo-router', () =>
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -212,6 +212,20 @@ describe('the alerts bell', () => {
         );
     });
 
+    it('sounds again when a repeat delivery failure brings the same row back', async () => {
+        const { poll } = await renderBell(list(alert('1')));
+        await screen.findByTestId('staff-alerts-count');
+
+        await poll(list(alert('1', { createdAt: '2026-11-02T09:30:00Z' })));
+
+        await waitFor(() => {
+            expect(playAlertTone).toHaveBeenCalledTimes(1);
+        });
+        expect(await screen.findByTestId('staff-alerts-toast')).toHaveTextContent(
+            'Delivery failed for order H-1',
+        );
+    });
+
     it('sounds for the first row of a bell that loaded empty', async () => {
         const { poll } = await renderBell(list());
         fireEvent.press(await screen.findByTestId('staff-alerts-button'));
@@ -247,7 +261,14 @@ describe('freshAlerts', () => {
     it('finds a row not seen before, including one created in the same second', () => {
         const old = alert('1');
         const sameSecond = alert('2', { createdAt: old.createdAt });
-        expect(freshAlerts([sameSecond, old], new Set(['1']))).toEqual([sameSecond]);
+        expect(freshAlerts([sameSecond, old], new Set([alertSeenKey(old)]))).toEqual([sameSecond]);
+    });
+
+    it('finds a row that came back with a later time, and not one that did not', () => {
+        const old = alert('1');
+        const back = alert('1', { createdAt: '2026-11-02T09:30:00Z' });
+        expect(freshAlerts([back], new Set([alertSeenKey(old)]))).toEqual([back]);
+        expect(freshAlerts([old], new Set([alertSeenKey(old)]))).toEqual([]);
     });
 
     it('leaves out a new row already read elsewhere', () => {

@@ -92,7 +92,8 @@ use Healthy360\Orders\Enums\PaymentMethod;
  * through a multi-week acceptance could strand it, so it skips the same timing
  * and calendar rules a subscription does. It is a second flag because it must
  * not borrow the first: a quotation naming a slot its zone does not run is still
- * refused `window_not_offered`. Both are read through `keepsAgreedDay()`.
+ * refused `window_not_offered`, and a dish nobody has assessed for allergens is
+ * still refused `item_not_assessed`. Both are read through `keepsAgreedDay()`.
  *
  * ## `allergyNote` and `allergenConflictsAcknowledged`
  *

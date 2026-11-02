@@ -233,8 +233,9 @@ final class OrderPresenter
             // The two moments of the drive that are the customer's to know
             // (HA-19): when the driver collected the food and when they handed
             // it over. Times only — who drove it is an employee's name, which
-            // this shape never carries (see `placed_on_behalf_by` above).
-            'out_for_delivery_at' => $run['picked_up_at'] ?? null,
+            // this shape never carries (see `placed_on_behalf_by` above). A
+            // failed run has come back, so it is no longer out for delivery.
+            'out_for_delivery_at' => ($run['status'] ?? null) === 'failed' ? null : ($run['picked_up_at'] ?? null),
             'delivered_at' => $run['delivered_at'] ?? null,
             'cancelled_at' => $order->cancelled_at?->toIso8601String(),
             'cancellation_reason' => $order->cancellation_reason?->value,

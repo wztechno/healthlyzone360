@@ -33,4 +33,14 @@ enum StaffAlertType: string
     {
         return $this === self::UnacceptedManager || $this === self::UnacceptedOwner;
     }
+
+    /**
+     * Whether a second alert about the same order is news rather than a repeat. A
+     * re-delivered order can fail again, and managers must hear that as they did
+     * the first time.
+     */
+    public function repeats(): bool
+    {
+        return $this === self::DeliveryFailed;
+    }
 }

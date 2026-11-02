@@ -751,6 +751,16 @@ describe('order desk queue — the delivery column', () => {
         expect(orderDeskDeliveryState(at(2))).toBe('no_run');
         expect(orderDeskDeliveryState(at(3))).toBe('unassigned');
         expect(orderDeskDeliveryState(at(4))).toBe('assigned');
+        // A courier carries it with nobody on the run, and it does not need a driver.
+        expect(
+            orderDeskDeliveryState(
+                deskRow({
+                    fulfilmentType: 'delivery',
+                    status: 'confirmed',
+                    deliveryJob: deliveryJob({ status: 'in_transit', trackingStatus: 'en_route' }),
+                }),
+            ),
+        ).toBe('assigned');
     });
 
     it('carries no delivery column — the run is read in the record page', async () => {

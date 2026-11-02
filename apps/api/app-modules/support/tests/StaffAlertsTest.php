@@ -127,13 +127,50 @@ it('does not alert twice for one order and type', function (): void {
 
 it('alerts a manager who joins after the first alert, and only them', function (): void {
     staffManager($this->organisationId);
-    $this->alerts->send(StaffAlertType::DeliveryFailed, $this->organisationId, $this->subjectId, STAFF_ALERT_ORDER);
+    $this->alerts->send(StaffAlertType::AllergyOrder, $this->organisationId, $this->subjectId, STAFF_ALERT_ORDER);
 
     $late = staffManager($this->organisationId);
-    $this->alerts->send(StaffAlertType::DeliveryFailed, $this->organisationId, $this->subjectId, STAFF_ALERT_ORDER);
+    $this->alerts->send(StaffAlertType::AllergyOrder, $this->organisationId, $this->subjectId, STAFF_ALERT_ORDER);
 
     Mail::assertQueued(NoticeMessage::class, 2);
     Mail::assertQueued(NoticeMessage::class, fn (NoticeMessage $mail): bool => $mail->hasTo($late->email));
+});
+
+it('brings a repeat delivery failure back unread and mails it again', function (): void {
+    staffManager($this->organisationId);
+    $row = fn (): StaffNotification => StaffNotification::withoutTenancy()->where('subject_id', $this->subjectId)->sole();
+
+    $this->alerts->send(StaffAlertType::DeliveryFailed, $this->organisationId, $this->subjectId, STAFF_ALERT_ORDER);
+
+    $first = $row()->created_at;
+    StaffNotification::withoutTenancy()->where('subject_id', $this->subjectId)->update(['read_at' => now()]);
+    $this->travel(5)->minutes();
+
+    RuntimeRole::context();
+    RuntimeRole::run(fn () => $this->alerts->send(StaffAlertType::DeliveryFailed, $this->organisationId, $this->subjectId, [...STAFF_ALERT_ORDER, 'total_minor' => 3000]));
+
+    expect($row()->read_at)->toBeNull()
+        ->and($row()->created_at->greaterThan($first))->toBeTrue()
+        ->and($row()->data['total_minor'])->toBe(3000);
+
+    Mail::assertQueued(NoticeMessage::class, 2);
+});
+
+it('leaves out a member whose role has expired or not started', function (): void {
+    $current = staffManager($this->organisationId);
+    $expired = staffManager($this->organisationId);
+    $future = staffManager($this->organisationId);
+
+    $roleOf = fn (User $user) => DB::table('membership_roles')
+        ->whereIn('membership_id', DB::table('organisation_memberships')->where('user_id', $user->getKey())->select('id'));
+
+    $roleOf($expired)->update(['expires_at' => now()->subMinute()]);
+    $roleOf($future)->update(['starts_at' => now()->addDay()]);
+
+    $this->alerts->send(StaffAlertType::AllergyOrder, $this->organisationId, $this->subjectId, STAFF_ALERT_ORDER);
+
+    expect(StaffNotification::withoutTenancy()->where('subject_id', $this->subjectId)->pluck('user_id')->all())
+        ->toBe([$current->getKey()]);
 });
 
 it('queues mail in each recipient\'s locale after commit', function (): void {

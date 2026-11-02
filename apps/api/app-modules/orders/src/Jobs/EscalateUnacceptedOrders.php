@@ -24,7 +24,8 @@ use Throwable;
  *
  * The clock is {@see UnacceptedOrderClock}, the same one that turns a ticket red
  * on the wall, so it counts only while a kitchen is open and an order placed at
- * 02:00 wakes nobody. The limits are the kitchen's own settings.
+ * 02:00 wakes nobody and an order for a later day wakes nobody until that day.
+ * The limits are the kitchen's own settings.
  *
  * **Every minute, and safe to repeat.** A recipient's row is unique on the order
  * and the alert ({@see StaffAlerts}), so a run that finds the same late order
@@ -74,7 +75,7 @@ final class EscalateUnacceptedOrders implements ShouldQueue
                         $limits = $settings->for($organisationId);
 
                         foreach ($placed as $order) {
-                            $minutes = $openMinutes[(string) $order->getKey()];
+                            $minutes = $openMinutes[(string) $order->getKey()] ?? 0;
 
                             if ($minutes >= $limits->manager_alert_after_minutes) {
                                 $alerts->send(StaffAlertType::UnacceptedManager, $organisationId, (string) $order->getKey(), $this->alertData($order));

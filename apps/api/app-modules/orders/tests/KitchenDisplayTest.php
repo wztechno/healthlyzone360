@@ -193,6 +193,25 @@ it('hands over the alarm limit and each placed order\'s open minutes, and no one
         ->and($response->json('data.unaccepted_open_minutes'))->not->toHaveKey((string) $accepted->getKey());
 });
 
+it('leaves an order for a later day off the clock until that day\'s opening', function (): void {
+    displayWeek(displayBranch($this->orgId), '09:00:00', '18:00:00');
+    $tomorrow = CarbonImmutable::now('Asia/Beirut')->addDay();
+    $order = displayOrder($this, [
+        'placed_at' => now()->subDays(7),
+        'requested_delivery_date' => $tomorrow->toDateString(),
+    ]);
+
+    $today = $this->getJson(KITCHEN_DISPLAY_URL, $this->headers)->assertOk();
+
+    expect($today->json('data.unaccepted_open_minutes'))->not->toHaveKey((string) $order->getKey());
+
+    $this->travelTo($tomorrow->setTime(9, 10));
+
+    $thatDay = $this->getJson(KITCHEN_DISPLAY_URL, $this->headers)->assertOk();
+
+    expect($thatDay->json('data.unaccepted_open_minutes.'.$order->getKey()))->toBe(10);
+});
+
 it('sends the waiting times as an object even when nothing is waiting', function (): void {
     $content = $this->getJson(KITCHEN_DISPLAY_URL, $this->headers)->assertOk()->getContent();
 

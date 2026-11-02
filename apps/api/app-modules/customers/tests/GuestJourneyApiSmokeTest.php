@@ -7,11 +7,17 @@ use Healthy360\Cart\Services\CartService;
 use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
 use Healthy360\Customers\Enums\CustomerAddressType;
 use Healthy360\Customers\Guest\Enums\GuestSessionGrade;
+use Healthy360\Customers\Guest\Services\GuestDeletionService;
+use Healthy360\Customers\Guest\Services\GuestSessionService;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAddress;
+use Healthy360\Identity\Enums\ContactChannel;
+use Healthy360\Identity\Services\ContactPointRegistry;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+use Healthy360\Verification\Enums\OtpPurpose;
+use Healthy360\Verification\Services\OtpService;
 
 /*
 |--------------------------------------------------------------------------
@@ -175,4 +181,29 @@ it('acknowledges an erasure request identically for an address it holds and one 
         ->toEqual(array_diff_key($unknown->json('data'), ['destination_masked' => null]))
         ->and($known->json('data.destination_masked'))->toBe('k••••••••••@example.test')
         ->and($unknown->json('data.destination_masked'))->toBe('o••••••••••@example.test');
+});
+
+it('will not purge a guest whose order is still open, even on the right code', function (): void {
+    $guest = app(GuestSessionService::class)->start();
+
+    $contact = app(ContactPointRegistry::class)->rememberForCustomerAccount(
+        customerAccountId: (string) $guest->account->getKey(),
+        channel: ContactChannel::Email,
+        value: 'cooking-now@example.test',
+    );
+
+    $order = Order::factory()->create([
+        'organisation_id' => $this->world->organisation->getKey(),
+        'customer_account_id' => $guest->account->getKey(),
+        'sales_channel_id' => $this->world->channel->getKey(),
+        'allergy_note' => 'Coeliac',
+    ]);
+
+    $code = app(OtpService::class)->issue($contact, OtpPurpose::GuestDeletion)->debugCode;
+
+    $outcome = app(GuestDeletionService::class)->confirm(ContactChannel::Email, 'cooking-now@example.test', (string) $code);
+
+    expect($outcome->purged)->toBeFalse()
+        ->and($guest->account->refresh()->anonymised_at)->toBeNull()
+        ->and($order->refresh()->allergy_note)->toBe('Coeliac');
 });

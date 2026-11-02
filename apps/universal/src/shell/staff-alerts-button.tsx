@@ -38,23 +38,28 @@ const ROW_ICONS: Readonly<Record<StaffAlertType, IconName>> = {
 
 const WHEN: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };
 
-/** The ids of the rows last seen in this page load, or `null` before the first answer. */
+/** The keys of the rows last seen in this page load, or `null` before the first answer. */
 export type SeenAlerts = ReadonlySet<string> | null;
+
+/** A row as of its latest news: a repeat delivery failure comes back on the same id. */
+export function alertSeenKey(alert: StaffAlert): string {
+    return `${alert.id}:${alert.createdAt}`;
+}
 
 /**
  * The unread rows that should sound: any newer than what this page load has already seen.
  *
  * The first answer only sets the mark. Rows waiting from before the page opened are unread but not
- * news, and the count already says so. "Newer" is by id rather than by time because `created_at`
+ * news, and the count already says so. "Newer" is by key rather than by time because `created_at`
  * holds whole seconds, so a row written in the second of the last one seen would otherwise be
- * missed. Rows only ever arrive at the top of the list, so an id not seen is a row not seen.
+ * missed. Rows only ever arrive at the top of the list, so a key not seen is news not seen.
  */
 export function freshAlerts(
     alerts: readonly StaffAlert[],
     seen: SeenAlerts,
 ): readonly StaffAlert[] {
     if (seen === null) return [];
-    return alerts.filter((alert) => alert.readAt === null && !seen.has(alert.id));
+    return alerts.filter((alert) => alert.readAt === null && !seen.has(alertSeenKey(alert)));
 }
 
 function alertTitle(t: TFunction, alert: StaffAlert): string {
@@ -71,7 +76,7 @@ function useAnnounceFreshAlerts(alerts: readonly StaffAlert[] | undefined): void
     useEffect(() => {
         if (alerts === undefined) return;
         const fresh = freshAlerts(alerts, seen.current);
-        seen.current = new Set(alerts.map((alert) => alert.id));
+        seen.current = new Set(alerts.map(alertSeenKey));
 
         const newest = fresh[0];
         if (newest === undefined) return;

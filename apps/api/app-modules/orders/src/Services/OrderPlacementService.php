@@ -1450,10 +1450,11 @@ final readonly class OrderPlacementService
                 enforceCalendar: ! $placement->keepsAgreedDay()
                     && ($on !== null || $placement->fulfilmentType === FulfilmentType::Counter)
                     && ! in_array($line->catalogueItemId, $heldItemIds, true),
-                // A standing subscription and an accepted quotation were sold before
-                // the dish lost its assessment, and an edited order already holds its
-                // line. Each must keep going rather than quietly stop.
-                enforceAssessment: ! $placement->keepsAgreedDay()
+                // A standing subscription was sold before the dish lost its assessment,
+                // and an edited order already holds its line. Each must keep going
+                // rather than quietly stop. An accepted quotation is not exempt: a
+                // dish nobody has assessed must not reach a plate through one.
+                enforceAssessment: $placement->enforceWindowOffer
                     && ! in_array($line->catalogueItemId, $heldItemIds, true),
             );
 

@@ -13494,7 +13494,8 @@ paths:
         **Food on the road cannot be cancelled.** A run picked up and not closed
         answers `409 order.out_for_delivery`: it ends as delivered or failed. A
         run that has not been picked up ends as `cancelled`, so it leaves every
-        driver's sheet, and a later pick-up is refused.
+        driver's sheet, and a later pick-up is refused. A failed run answers
+        `409 resource.conflict`: it is sent out again or closed as failed.
       parameters:
         - $ref: '#/components/parameters/OrderPath'
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -14004,7 +14005,8 @@ paths:
           required: false
           description: |
             `past_due` lists every open order whose `due_at` has passed, whatever
-            its date, in place of `window`. The other filters still apply.
+            its date, in place of `window`. An order that names no day is due from
+            `placed_at`. The other filters still apply.
           schema:
             type: string
             enum:
@@ -14510,7 +14512,8 @@ paths:
         `unaccepted_open_minutes` holds each `placed` order's waiting time,
         counted only while a branch that can serve it is open, so a screen never
         works out opening hours. An order is alarming once its figure reaches
-        `alarm_after_minutes`.
+        `alarm_after_minutes`. An order for a later day has no figure until that
+        day, and its count then starts at the start of that day.
 
         Requires `order.view_organisation`.
       parameters:
@@ -42130,8 +42133,9 @@ components:
                   minimum: 0
                   description: |
                     Open orders whose `due_at` has passed, across all dates, whatever
-                    this view shows and however many rows it was capped to. Inside
-                    the kitchen, and the branch when one is named.
+                    this view shows and however many rows it was capped to. An order
+                    that names no day is due from `placed_at`. Inside the kitchen,
+                    and the branch when one is named.
                 overdue_count:
                   type: integer
                   minimum: 0
@@ -43092,7 +43096,7 @@ components:
               description: This kitchen's setting, in minutes while open.
             unaccepted_open_minutes:
               type: object
-              description: Each `placed` order's open minutes waited, keyed by order id.
+              description: Each `placed` order's open minutes waited, keyed by order id. An order for a later day is absent.
               additionalProperties:
                 type: integer
                 minimum: 0
@@ -44609,6 +44613,7 @@ components:
             - kitchen_unable_to_fulfil
             - delivery_unavailable
             - address_unreachable
+            - delivery_failed
             - null
         lines:
           type: array
