@@ -152,8 +152,8 @@ export interface KitchenOrderLine {
     /** The pack as it was sold — size, unit, pieces, net weight. Never a cost, never a supplier. */
     readonly packSummary: Readonly<Record<string, unknown>> | null;
     /** What the customer changed about the dish, as it stood at placement. */
-    readonly options: readonly DishOption[];
-    readonly note: string | null;
+    readonly options?: readonly DishOption[] | undefined;
+    readonly note?: string | null | undefined;
     /** Seller-only: which tariff priced this line. See the file header. */
     readonly priceListId: PriceListId | null;
     readonly priceListItemId: string | null;

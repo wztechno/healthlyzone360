@@ -596,12 +596,12 @@ function OrderLinesTable({
                             {line.variantLabel}
                         </Text>
                     )}
-                    {line.options.length === 0 ? null : (
+                    {dishOptionsLine(line.options, 'en', t) === null ? null : (
                         <Text variant="caption" testID={`${testID}-options`}>
                             {dishOptionsLine(line.options, 'en', t)}
                         </Text>
                     )}
-                    {line.note === null ? null : (
+                    {line.note == null ? null : (
                         <Text variant="caption" testID={`${testID}-note`}>
                             {t('kitchen:dishOptions.lineNote', { note: line.note })}
                         </Text>

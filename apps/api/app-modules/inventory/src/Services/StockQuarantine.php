@@ -71,7 +71,8 @@ final readonly class StockQuarantine
                     ->lockForUpdate()
                     ->value('quantity');
 
-                $quantity = bccomp((string) $onHand, $shelf['quantity'], self::SCALE) < 0 ? (string) $onHand : $shelf['quantity'];
+                $onHand = (string) ($onHand ?? '0');
+                $quantity = bccomp($onHand, $shelf['quantity'], self::SCALE) < 0 ? $onHand : $shelf['quantity'];
 
                 if (bccomp($quantity, '0', self::SCALE) <= 0) {
                     continue;

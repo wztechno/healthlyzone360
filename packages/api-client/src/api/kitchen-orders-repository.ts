@@ -115,8 +115,8 @@ function mapLine(wire: WireKitchenOrderLine): KitchenOrderLine {
             containment: allergen.containment,
         })),
         packSummary: wire.pack_summary,
-        options: wire.options.map(mapDishOption),
-        note: wire.note,
+        options: (wire.options ?? []).map(mapDishOption),
+        note: wire.note ?? null,
         priceListId: wire.price_list_id === null ? null : PriceListId.unsafe(wire.price_list_id),
         priceListItemId: wire.price_list_item_id,
     };

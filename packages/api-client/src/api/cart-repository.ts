@@ -173,8 +173,8 @@ async function mapCartLine(
         lineTotal,
         allergens: meal.allergens,
         deliveryDate: line.delivery_date,
-        options: line.options.map(mapDishOption),
-        note: line.note,
+        options: (line.options ?? []).map(mapDishOption),
+        note: line.note ?? null,
     };
 }
 

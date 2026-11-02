@@ -1801,12 +1801,12 @@ function OrderDeskQueueList() {
                                                                                   }
                                                                               </Text>
                                                                           )}
-                                                                          {line.options.length === 0 ? null : (
+                                                                          {dishOptionsLine(line.options, 'en', t) === null ? null : (
                                                                               <Text variant="caption">
                                                                                   {dishOptionsLine(line.options, 'en', t)}
                                                                               </Text>
                                                                           )}
-                                                                          {line.note === null ? null : (
+                                                                          {line.note == null ? null : (
                                                                               <Text variant="caption">
                                                                                   {t('kitchen:dishOptions.lineNote', {
                                                                                       note: line.note,

@@ -35380,7 +35380,7 @@ components:
 
     CartLine:
       type: object
-      required: [id, catalogue_item_id, catalogue_item_variant_id, quantity, delivery_date, options, note, created_at, updated_at]
+      required: [id, catalogue_item_id, catalogue_item_variant_id, quantity, delivery_date, created_at, updated_at]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -35736,7 +35736,7 @@ components:
       required:
         [id, catalogue_item_id, catalogue_item_variant_id, name_en, name_ar,
          variant_label, quantity, unit_price_minor, line_total_minor,
-         currency_code, allergens, pack_summary, options, note]
+         currency_code, allergens, pack_summary]
       description: |
         The article as it stood the moment the order was placed — a snapshot,
         not a join. Renaming the catalogue item tomorrow does not rewrite what a

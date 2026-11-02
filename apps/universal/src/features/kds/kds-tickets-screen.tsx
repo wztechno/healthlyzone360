@@ -621,12 +621,12 @@ function Ticket({
                                     quantity: formatter.formatNumber(Number(line.quantity)),
                                 })}
                             </Text>
-                            {line.options.length === 0 ? null : (
+                            {dishOptionsLine(line.options, locale, t) === null ? null : (
                                 <Text variant="body" testID={`${testID}-options`}>
                                     {dishOptionsLine(line.options, locale, t)}
                                 </Text>
                             )}
-                            {line.note === null ? null : (
+                            {line.note == null ? null : (
                                 <Text variant="body" testID={`${testID}-note`}>
                                     {t('kitchen:dishOptions.lineNote', { note: line.note })}
                                 </Text>
