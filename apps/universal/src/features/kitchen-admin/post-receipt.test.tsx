@@ -471,6 +471,95 @@ describe('post a goods receipt — a market purchase', () => {
 });
 
 /* ------------------------------------------------------------------------------------------------
+ * A delivery about to be typed in as a market purchase
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('post a goods receipt — open orders at this branch', () => {
+    const NOTICE = 'kitchen-post-receipt-open-orders';
+
+    it('says so, and takes the reader to the one order it could be', async () => {
+        await renderStubScreen(<PostReceiptScreen />, {
+            session: kitchenManagerSession(),
+            repositories: world([]),
+        });
+
+        await untilVisible(NOTICE);
+        expect(screen.getByText('1 order is waiting for delivery here')).toBeTruthy();
+
+        await press(`${NOTICE}-receive`);
+
+        expect(useRouter().push).toHaveBeenCalledWith(
+            `/kitchen/procurement/receive?order=${String(ORDER)}`,
+        );
+    });
+
+    it('goes quiet once the delivery is against an order', async () => {
+        await renderStubScreen(<PostReceiptScreen />, {
+            session: kitchenManagerSession(),
+            repositories: world([]),
+        });
+
+        await untilVisible(NOTICE);
+        await press('kitchen-post-receipt-arrival-order');
+
+        await waitFor(() => {
+            expect(screen.queryByTestId(NOTICE)).toBeNull();
+        });
+    });
+
+    it('says nothing about a supplier with no order out', async () => {
+        const other = SupplierId.unsafe('01935f6d-0000-7000-8000-0000000000a2');
+        const repositories = world([]);
+        await renderStubScreen(<PostReceiptScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    ...repositories.kitchenOps,
+                    listSuppliers: async () => [
+                        {
+                            id: other,
+                            code: 'OTHER',
+                            name: { en: 'Someone else', ar: '' },
+                            currencyCode: null,
+                            contactEmail: null,
+                            contactPhone: null,
+                            address: null,
+                            paymentTerms: null,
+                            leadTimeDays: null,
+                            notes: null,
+                            archivedAt: null,
+                            contactCount: 0,
+                            suppliedItemCount: 0,
+                            primaryContact: null,
+                        },
+                    ],
+                },
+            },
+        });
+
+        await untilVisible(NOTICE);
+        await choose('kitchen-procurement-post-supplier', String(other));
+
+        await waitFor(() => {
+            expect(screen.queryByTestId(NOTICE)).toBeNull();
+        });
+    });
+
+    it('says nothing when no order is out', async () => {
+        const repositories = world([]);
+        await renderStubScreen(<PostReceiptScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: { ...repositories.kitchenOps, listReceivableOrders: async () => [] },
+            },
+        });
+
+        await untilVisible('kitchen-post-receipt-arrival-order');
+        expect(screen.queryByTestId(NOTICE)).toBeNull();
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
  * The delivery against an order
  * ---------------------------------------------------------------------------------------------- */
 

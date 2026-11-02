@@ -630,6 +630,7 @@ function mapGoodsReceipt(wire: WireGoodsReceipt): GoodsReceipt {
         varianceNote: wire.variance_note,
         purchaseOrderId:
             wire.purchase_order_id === null ? null : PurchaseOrderId.unsafe(wire.purchase_order_id),
+        purchaseOrderNumber: wire.purchase_order_number,
         receivedAt: wire.received_at,
         receivedOn: wire.received_on,
         costStatus: wire.cost_status,
@@ -738,6 +739,7 @@ function mapPurchaseLedgerLine(wire: WirePurchaseLedgerLine): PurchaseLedgerLine
         documentRef: wire.document_ref,
         purchaseOrderId:
             wire.purchase_order_id === null ? null : PurchaseOrderId.unsafe(wire.purchase_order_id),
+        purchaseOrderNumber: wire.purchase_order_number,
         costStatus: wire.cost_status,
         stockItemId: StockItemId.unsafe(wire.stock_item_id),
         itemCode: wire.item_code,

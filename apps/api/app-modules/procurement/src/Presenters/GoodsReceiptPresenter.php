@@ -59,6 +59,7 @@ final class GoodsReceiptPresenter
             'invoice_date' => $receipt->invoice_date?->toDateString(),
             'variance_note' => $receipt->variance_note,
             'purchase_order_id' => $receipt->purchase_order_id,
+            'purchase_order_number' => $receipt->purchaseOrder?->number,
             'received_at' => $receipt->received_at?->toIso8601String(),
             // The branch-local business day, and what §3.7 groups spend by. A
             // date string rather than a timestamp, because that is exactly the
@@ -151,8 +152,8 @@ final class GoodsReceiptPresenter
 
     /**
      * One purchases-ledger row: a receipt line flattened with the date, supplier
-     * and item it belongs to. Expects `goodsReceipt`, `goodsReceipt.supplier`
-     * and `stockItem` loaded.
+     * and item it belongs to. Expects `goodsReceipt`, `goodsReceipt.supplier`,
+     * `goodsReceipt.purchaseOrder` and `stockItem` loaded.
      *
      * @return array<string, mixed>
      */
@@ -169,6 +170,7 @@ final class GoodsReceiptPresenter
             'supplier' => $receipt instanceof GoodsReceipt ? $this->supplier($receipt) : null,
             'document_ref' => $receipt?->document_ref,
             'purchase_order_id' => $receipt?->purchase_order_id,
+            'purchase_order_number' => $receipt?->purchaseOrder?->number,
             'cost_status' => $receipt?->cost_status,
             'stock_item_id' => (string) $line->stock_item_id,
             'item_code' => $stockItem?->code,

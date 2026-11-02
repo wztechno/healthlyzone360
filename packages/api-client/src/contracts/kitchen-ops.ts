@@ -42,9 +42,8 @@ import type { CursorPage, CursorPageRequest, OffsetPageRequest } from './paginat
  *    by name — and a caller that preserves that order gets a usable picker over a long list. Levels
  *    are per-branch and read through the active branch context (`X-Branch-Id`, set by
  *    `ContextRepository`); nothing here takes a branch filter because the header already narrows it.
- * 2. **Procurement (O2) is receipts-only.** There is no purchase-order surface: `listSuppliers` and
- *    the goods-receipt pair are the whole scope, and `GoodsReceipt.purchaseOrderId` is always `null`
- *    until one exists to point at.
+ * 2. **A receipt names its order.** `GoodsReceipt.purchaseOrderId` and `purchaseOrderNumber` are
+ *    `null` on a market purchase; the order book itself sits behind the order-supplies code.
  * 3. **Production (O5) has no task UI.** `ProductionOrder` carries a status and the recipe version it
  *    plans against; completing one states what it consumed and yielded, not a checklist.
  * 4. **Quality control (O4) is hold/release only.** `holdQualityCheck` / `releaseQualityCheck` are the
@@ -971,6 +970,8 @@ export interface GoodsReceipt {
     readonly varianceNote: string | null;
     /** The order this delivery settled (SUP5), or `null` for a direct market purchase. */
     readonly purchaseOrderId: PurchaseOrderId | null;
+    /** That order's number. The number alone: reading the order takes the order-supplies code. */
+    readonly purchaseOrderNumber: string | null;
     readonly receivedAt: IsoDateTime | null;
     /**
      * The branch-local business day this delivery is filed under, `YYYY-MM-DD` (SUP5). A different
@@ -1230,6 +1231,7 @@ export interface PurchaseLedgerLine extends ReceiptLineTraceability {
     readonly supplier: SupplierRef | null;
     readonly documentRef: string | null;
     readonly purchaseOrderId: PurchaseOrderId | null;
+    readonly purchaseOrderNumber: string | null;
     /** The parent receipt's costing state (SUP5) — what the completeness filter reads. */
     readonly costStatus: ReceiptCostStatus | null;
     readonly stockItemId: StockItemId;

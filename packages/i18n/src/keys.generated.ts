@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9157 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9167 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4742,8 +4742,14 @@ export interface NamespaceKeys {
     | 'ops.orders.viewPlacedNote'
     | 'ops.procurement.addLine'
     | 'ops.procurement.arrivalSection'
+    | 'ops.procurement.awaitingAll'
+    | 'ops.procurement.awaitingIssued'
+    | 'ops.procurement.awaitingLines'
+    | 'ops.procurement.awaitingReceive'
+    | 'ops.procurement.awaitingTitle'
     | 'ops.procurement.columnCostStatus'
     | 'ops.procurement.columnLines'
+    | 'ops.procurement.columnOrder'
     | 'ops.procurement.columnReceivedAt'
     | 'ops.procurement.columnRefs'
     | 'ops.procurement.columnSupplier'
@@ -4807,6 +4813,10 @@ export interface NamespaceKeys {
     | 'ops.procurement.newSupplierTitle'
     | 'ops.procurement.noSupplier'
     | 'ops.procurement.notYetReceived'
+    | 'ops.procurement.openOrder'
+    | 'ops.procurement.openOrdersAction'
+    | 'ops.procurement.openOrdersBody'
+    | 'ops.procurement.openOrdersTitle'
     | 'ops.procurement.ordersLoading'
     | 'ops.procurement.pendingFxCount'
     | 'ops.procurement.postDelivery'
@@ -13917,8 +13927,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.viewPlacedNote',
   'kitchen:ops.procurement.addLine',
   'kitchen:ops.procurement.arrivalSection',
+  'kitchen:ops.procurement.awaitingAll',
+  'kitchen:ops.procurement.awaitingIssued',
+  'kitchen:ops.procurement.awaitingLines',
+  'kitchen:ops.procurement.awaitingReceive',
+  'kitchen:ops.procurement.awaitingTitle',
   'kitchen:ops.procurement.columnCostStatus',
   'kitchen:ops.procurement.columnLines',
+  'kitchen:ops.procurement.columnOrder',
   'kitchen:ops.procurement.columnReceivedAt',
   'kitchen:ops.procurement.columnRefs',
   'kitchen:ops.procurement.columnSupplier',
@@ -13982,6 +13998,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.newSupplierTitle',
   'kitchen:ops.procurement.noSupplier',
   'kitchen:ops.procurement.notYetReceived',
+  'kitchen:ops.procurement.openOrder',
+  'kitchen:ops.procurement.openOrdersAction',
+  'kitchen:ops.procurement.openOrdersBody',
+  'kitchen:ops.procurement.openOrdersTitle',
   'kitchen:ops.procurement.ordersLoading',
   'kitchen:ops.procurement.pendingFxCount',
   'kitchen:ops.procurement.postDelivery',

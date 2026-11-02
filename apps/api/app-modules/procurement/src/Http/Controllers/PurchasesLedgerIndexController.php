@@ -88,7 +88,7 @@ final class PurchasesLedgerIndexController
         ]);
 
         $query = GoodsReceiptLine::query()
-            ->with(['goodsReceipt.supplier', 'stockItem'])
+            ->with(['goodsReceipt.supplier', 'goodsReceipt.purchaseOrder', 'stockItem'])
             ->whereHas('goodsReceipt', function ($receipt) use ($organisationId, $validated): void {
                 $receipt->where('organisation_id', $organisationId);
 

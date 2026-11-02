@@ -11133,8 +11133,7 @@ paths:
       description: |
         The most recent 50 receipts, newest first, each with its lines —
         a receipt without them is only half the record. `purchase_order_id`
-        is always null in v1 (O2): there is no purchase-order surface yet
-        to have created one.
+        and `purchase_order_number` are null on a market purchase.
 
         `supplier_lot` answers the recall question — which deliveries brought
         lot X — as an exact match on any of a receipt's lines. `from` and `to`
@@ -37593,6 +37592,7 @@ components:
         - invoice_date
         - variance_note
         - purchase_order_id
+        - purchase_order_number
         - received_at
         - received_on
         - cost_status
@@ -37669,6 +37669,14 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
+        purchase_order_number:
+          type:
+            - string
+            - 'null'
+          description: |
+            The number of the order this delivery settled, or null for a market
+            purchase. The number alone: reading the order takes
+            `inventory.order_supplies_organisation`.
         received_at:
           type:
             - string
@@ -38313,6 +38321,7 @@ components:
         - supplier
         - document_ref
         - purchase_order_id
+        - purchase_order_number
         - cost_status
         - stock_item_id
         - item_code
@@ -38358,6 +38367,10 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
+        purchase_order_number:
+          type:
+            - string
+            - 'null'
         cost_status:
           oneOf:
             - $ref: '#/components/schemas/ReceiptCostStatus'

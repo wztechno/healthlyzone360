@@ -102,6 +102,7 @@ function ledgerLine(overrides: Partial<PurchaseLedgerLine> = {}): PurchaseLedger
         supplier: { id: SUPPLIER_A, code: 'SUP-A', nameEn: 'Gulf Fresh' },
         documentRef: 'DN-1',
         purchaseOrderId: null,
+        purchaseOrderNumber: null,
         costStatus: 'complete',
         stockItemId: ITEM_A,
         itemCode: 'FLR-1',

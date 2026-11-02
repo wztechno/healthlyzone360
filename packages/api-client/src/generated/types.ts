@@ -6743,6 +6743,13 @@ export type GoodsReceipt = {
      */
     variance_note: string | null;
     purchase_order_id: Uuid | null;
+    /**
+     * The number of the order this delivery settled, or null for a market
+     * purchase. The number alone: reading the order takes
+     * `inventory.order_supplies_organisation`.
+     *
+     */
+    purchase_order_number: string | null;
     received_at: string | null;
     /**
      * The branch-local business day this delivery is filed under (§3.6).
@@ -7102,6 +7109,7 @@ export type PurchasesLedgerLine = {
     supplier: SupplierRef | null;
     document_ref: string | null;
     purchase_order_id: Uuid | null;
+    purchase_order_number: string | null;
     /**
      * The parent receipt's costing state (SUP5) — what the completeness filter reads.
      */

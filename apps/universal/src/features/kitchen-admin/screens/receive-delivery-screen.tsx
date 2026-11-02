@@ -25,7 +25,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Gate } from '../../../access/gate.tsx';
+import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import {
@@ -34,7 +34,10 @@ import {
     useStockItemsQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
-import { INVENTORY_MANAGE_PERMISSION } from '../entity-registry.ts';
+import {
+    INVENTORY_MANAGE_PERMISSION,
+    INVENTORY_ORDER_SUPPLIES_PERMISSION,
+} from '../entity-registry.ts';
 import { EditorFrame } from '../editor-frame.tsx';
 import { focusField } from '../field-focus.ts';
 import {
@@ -152,6 +155,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
     const toast = useToast();
     const access = useAccessState();
     const branchId = access.branch?.id ?? null;
+    const canOpenOrder = useCan(INVENTORY_ORDER_SUPPLIES_PERMISSION);
 
     const orders = useReceivableOrdersQuery(branchId);
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
@@ -447,8 +451,12 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                         tone: 'success',
                         message: t('kitchen:ops.receiving.postedToast'),
                     });
-                    router.push(
-                        `/kitchen/supply-orders/${String(PurchaseOrderId.unsafe(String(selectedOrder.id)))}` as never,
+                    // Back to the order for whoever can read it; a receiver without the ordering
+                    // code came in through the book, and the order page would only refuse them.
+                    router.replace(
+                        (canOpenOrder
+                            ? `/kitchen/supply-orders/${String(PurchaseOrderId.unsafe(String(selectedOrder.id)))}`
+                            : '/kitchen/procurement') as never,
                     );
                     // The cost status is the second half of what just happened, and it is not
                     // irreversible — a receipt posted without prices is a job, not a mistake.

@@ -715,6 +715,37 @@ it('keeps two lots and two brands of one order line as separate lines, and sums 
         ->assertJsonFragment(['supplier_lot' => 'L2', 'expires_on' => '2027-01-31']);
 });
 
+it('names the order on the receipts list and the ledger, and nothing on a market purchase', function (): void {
+    $world = receivingWorld('order-number@kitchen.test');
+    $order = issuedOrder($world, '10');
+    $delivery = receive($world, $order, [
+        ['stock_item_id' => $world->itemId, 'purchase_order_line_id' => orderLineId($order), 'quantity' => 4],
+    ]);
+    $market = receive($world, null, [['stock_item_id' => $world->itemId, 'quantity' => 2]]);
+    $this->actingAs($world->tenant->user);
+
+    $listed = collect($this->getJson('/api/v1/catalogue/procurement/goods-receipts', $world->headers)
+        ->assertOk()
+        ->json('data.goods_receipts'))
+        ->pluck('purchase_order_number', 'id');
+
+    expect($listed->get((string) $delivery->getKey()))->toBe($order->number)
+        ->and($listed->get((string) $market->getKey()))->toBeNull();
+
+    $ledger = collect($this->getJson('/api/v1/catalogue/procurement/purchases-ledger', $world->headers)
+        ->assertOk()
+        ->json('data.purchases'))
+        ->pluck('purchase_order_number', 'goods_receipt_id');
+
+    expect($ledger->get((string) $delivery->getKey()))->toBe($order->number)
+        ->and($ledger->get((string) $market->getKey()))->toBeNull();
+
+    // The number survives on the receipt's own page, where the order is read separately.
+    $this->getJson('/api/v1/catalogue/procurement/goods-receipts/'.$delivery->getKey(), $world->headers)
+        ->assertOk()
+        ->assertJsonPath('data.goods_receipt.purchase_order_number', $order->number);
+});
+
 it('refuses a GTIN whose check digit fails and a lot GS1 cannot carry', function (array $trace): void {
     $world = receivingWorld('bad-trace@kitchen.test');
     $this->actingAs($world->tenant->user);

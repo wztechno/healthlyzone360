@@ -102,6 +102,7 @@ function receipt(
         invoiceDate: null,
         varianceNote: null,
         purchaseOrderId: null,
+        purchaseOrderNumber: null,
         receivedAt: `${receivedOn}T09:00:00Z`,
         receivedOn,
         costStatus: 'complete',
