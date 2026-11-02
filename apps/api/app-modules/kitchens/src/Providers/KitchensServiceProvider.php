@@ -16,6 +16,7 @@ use Healthy360\Kitchens\Console\PriceRecipesFromCatalogueCommand;
 use Healthy360\Kitchens\Console\PublishReadyCatalogueCommand;
 use Healthy360\Kitchens\Console\RelinkRecipeLinesCommand;
 use Healthy360\Kitchens\Console\SeedApproximatePlanPricesCommand;
+use Healthy360\Kitchens\Console\MergeDuplicateStockCommand;
 use Healthy360\Kitchens\Console\SeedTestAccountsCommand;
 use Healthy360\Kitchens\Console\SimulateStockCommand;
 use Healthy360\Kitchens\Console\UnitNormalisationReportCommand;
@@ -54,6 +55,7 @@ class KitchensServiceProvider extends ServiceProvider
                 SimulateStockCommand::class,
                 PriceFrozenShelfCommand::class,
                 SeedTestAccountsCommand::class,
+                MergeDuplicateStockCommand::class,
             ]);
         }
     }

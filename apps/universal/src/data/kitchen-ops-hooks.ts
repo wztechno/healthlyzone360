@@ -11,6 +11,7 @@ import type {
     ConsumptionExceptionFilter,
     ConsumptionExceptionRetry,
     ConsumptionExceptionTotals,
+    DuplicateStockGroup,
     CreateProductionOrderRequest,
     CreatePurchaseOrdersRequest,
     CreateQualityCheckRequest,
@@ -1065,6 +1066,20 @@ export function useConsumptionExceptionCountQuery(
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOps.countUnresolvedConsumptionExceptions();
+        },
+    });
+}
+
+/** The shelves repeating a name that need a person. */
+export function useDuplicateStockQuery(): UseQueryResult<readonly DuplicateStockGroup[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.duplicateStock(),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.listDuplicateStock();
         },
     });
 }

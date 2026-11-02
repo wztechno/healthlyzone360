@@ -6105,6 +6105,59 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/items/{item}/off-today:
+    put:
+      operationId: takeCatalogueItemOffToday
+      tags: [Sellable catalogue]
+      summary: Take a dish off today
+      description: |
+        One press, today only on the kitchen's own clock, any kind of item. No
+        lock version: two people pressing it mean the same thing. Requires
+        `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: item
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/CatalogueItemOffToday'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      operationId: putCatalogueItemBackOnToday
+      tags: [Sellable catalogue]
+      summary: Put a dish back on today
+      description: Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: item
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/CatalogueItemOffToday'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/items/{item}/availability:
     put:
       operationId: replaceCatalogueItemAvailability
@@ -9152,8 +9205,8 @@ paths:
         `address_missing`, `address_not_deliverable`, `area_not_served`,
         `zone_suspended`, `currency_mismatch`, `window_not_offered`, `closed`,
         `date_in_the_past`, `cut_off_passed`, `kitchen_closed`, `window_ended`,
-        `lead_time_not_met`, `below_zone_minimum`, plus the line-probe vocabulary —
-        come back as `warnings` inside an ordinary `200`. Deliberately the
+        `lead_time_not_met`, `below_zone_minimum`, `kitchen_paused`, `window_full`,
+        plus the line-probe vocabulary — come back as `warnings` inside an ordinary `200`. Deliberately the
         *same words* placement would refuse with: a customer taught one
         vocabulary for "we don't deliver there" on the cart screen and a
         different one at checkout has been taught nothing at all.
@@ -9256,7 +9309,9 @@ paths:
         `date_in_the_past`, `kitchen_closed` (the kitchen has no active branch),
         `window_ended` (the slot asked for today is over), `lead_time_not_met`
         (with `earliest_at` and `lead_minutes`), `below_zone_minimum` (with
-        `minimum_minor` and `currency_code`), plus the whole line vocabulary,
+        `minimum_minor` and `currency_code`), `kitchen_paused` (with
+        `paused_until`), `window_full` (with `requested_date` and
+        `delivery_window_code`), plus the whole line vocabulary,
         `item_unavailable_on_date` included (with `on` and `cause`: `day_off`,
         `sold_out` or `cut_off_passed`),
         folded in per line with the offending `cart_item_id`. A cart with no
@@ -11856,6 +11911,36 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/inventory/duplicates:
+    get:
+      operationId: listDuplicateStock
+      tags: [Kitchen inventory & production]
+      summary: Stock shelves that repeat a name and need a person
+      description: |
+        Shelves in this kitchen sharing one name that could not be merged
+        automatically, each group with its reason. Read live and unpaged. An
+        empty list means nothing needs a person.
+
+        Requires `inventory.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The groups of shelves waiting for a person.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DuplicateStockEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/inventory/consumption-exceptions/unresolved-count:
     get:
       operationId: countUnresolvedConsumptionExceptions
@@ -14393,6 +14478,81 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/KitchenDisplayEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/kitchen-pause:
+    post:
+      operationId: pauseKitchen
+      tags: [Kitchen operations]
+      summary: Stop taking new customer orders for a while
+      description: |
+        Customers are refused `kitchen_paused` until the time runs out; the
+        desk's quote warns instead. Subscription days and accepted quotations
+        carry on. Requires `order.supervise_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [minutes]
+              properties:
+                minutes:
+                  type: integer
+                  minimum: 1
+                  maximum: 720
+      responses:
+        '200':
+          description: The kitchen's service settings, with the pause set.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/KitchenServiceSettings'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      operationId: resumeKitchen
+      tags: [Kitchen operations]
+      summary: Start taking customer orders again early
+      description: Requires `order.supervise_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The kitchen's service settings, with the pause cleared.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/KitchenServiceSettings'
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
@@ -24821,6 +24981,26 @@ components:
         $ref: '#/components/schemas/Uuid'
 
   responses:
+    CatalogueItemOffToday:
+      description: The day it applied to, and where the item now stands.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: object
+                required: [date, off_today]
+                properties:
+                  date:
+                    type: string
+                    format: date
+                  off_today:
+                    type: boolean
     NutritionProviderFailure:
       description: Nutrition provider temporarily unavailable or requires administrator configuration. details.retryable distinguishes the cases.
       content:
@@ -33858,7 +34038,8 @@ components:
             `area_not_served`, `zone_suspended`, `currency_mismatch`,
             `window_not_offered`, `allergen_conflict`, `closed`, `date_in_the_past`,
             `cut_off_passed`, `kitchen_closed`, `window_ended`, `lead_time_not_met`,
-            `below_zone_minimum`, plus the line-probe vocabulary. Deduplicated — three lines refused for the
+            `below_zone_minimum`, `kitchen_paused`, `window_full`, plus the
+            line-probe vocabulary. Deduplicated — three lines refused for the
             same reason read as one fact, not three repeats of it.
         offered_window_codes:
           type: ['array', 'null']
@@ -37549,6 +37730,40 @@ components:
         meta:
           $ref: '#/components/schemas/Meta'
 
+    DuplicateStockEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            required: [name, reason, shelves]
+            properties:
+              name:
+                type: string
+              reason:
+                type: string
+                enum: [different_units, not_a_copy, both_have_history, both_sold_as_products, open_work]
+              shelves:
+                type: array
+                items:
+                  type: object
+                  required: [id, code, unit_code, quantity, has_history]
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    code:
+                      type: string
+                    unit_code:
+                      type: string
+                    quantity:
+                      type: string
+                    has_history:
+                      type: boolean
+        meta:
+          type: object
     ConsumptionExceptionCountEnvelope:
       type: object
       required: [data, meta]
@@ -39660,6 +39875,7 @@ components:
         - quotable
         - offered_window_codes
         - allergen_conflicts
+        - service_warnings
       description: |
         What this basket would come to, and everything standing in the way of it.
 
@@ -39728,6 +39944,13 @@ components:
             allergies, one per meal. **Not a refusal and no part of `quotable`:**
             the sale goes ahead once the agent says the customer was told
             (`acknowledge_allergen_conflicts`).
+        service_warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderDeskQuoteRefusal'
+          description: |
+            `kitchen_paused` and `window_full`, which refuse a customer and only
+            warn the desk: the agent reads them and decides. No part of `quotable`.
       additionalProperties: false
 
     OrderDeskQuoteEnvelope:
@@ -39984,6 +40207,16 @@ components:
           type: integer
           minimum: 0
           description: Refunds on one order above this, in minor units, need the owner.
+        orders_per_window:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 1000
+          description: The most orders one window takes on one day. Null means no limit.
+        paused_until:
+          type: [string, 'null']
+          format: date-time
+          readOnly: true
+          description: New customer orders are refused until then. Set through `kitchen-pause`.
 
     KitchenDisplayEnvelope:
       type: object

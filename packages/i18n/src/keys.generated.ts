@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9353 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9367 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3935,6 +3935,8 @@ export interface NamespaceKeys {
     | 'families.roles.name'
     | 'families.stock.description'
     | 'families.stock.name'
+    | 'families.stockDuplicates.description'
+    | 'families.stockDuplicates.name'
     | 'families.suppliers.description'
     | 'families.suppliers.name'
     | 'families.supplyOrders.description'
@@ -6935,6 +6937,18 @@ export interface NamespaceKeys {
     | 'stockBlockers.stock_recipe_not_published'
     | 'stockBlockers.unformulatedCount'
     | 'stockBlockers.unformulatedTitle'
+    | 'stockDuplicates.caption'
+    | 'stockDuplicates.columnName'
+    | 'stockDuplicates.columnReason'
+    | 'stockDuplicates.columnShelves'
+    | 'stockDuplicates.emptyBody'
+    | 'stockDuplicates.emptyTitle'
+    | 'stockDuplicates.reason.both_have_history'
+    | 'stockDuplicates.reason.both_sold_as_products'
+    | 'stockDuplicates.reason.different_units'
+    | 'stockDuplicates.reason.not_a_copy'
+    | 'stockDuplicates.reason.open_work'
+    | 'stockDuplicates.shelf'
     | 'time.formatHint'
     | 'time.placeholder'
     | 'title'
@@ -13306,6 +13320,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.roles.name',
   'kitchen:families.stock.description',
   'kitchen:families.stock.name',
+  'kitchen:families.stockDuplicates.description',
+  'kitchen:families.stockDuplicates.name',
   'kitchen:families.suppliers.description',
   'kitchen:families.suppliers.name',
   'kitchen:families.supplyOrders.description',
@@ -16306,6 +16322,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:stockBlockers.stock_recipe_not_published',
   'kitchen:stockBlockers.unformulatedCount',
   'kitchen:stockBlockers.unformulatedTitle',
+  'kitchen:stockDuplicates.caption',
+  'kitchen:stockDuplicates.columnName',
+  'kitchen:stockDuplicates.columnReason',
+  'kitchen:stockDuplicates.columnShelves',
+  'kitchen:stockDuplicates.emptyBody',
+  'kitchen:stockDuplicates.emptyTitle',
+  'kitchen:stockDuplicates.reason.both_have_history',
+  'kitchen:stockDuplicates.reason.both_sold_as_products',
+  'kitchen:stockDuplicates.reason.different_units',
+  'kitchen:stockDuplicates.reason.not_a_copy',
+  'kitchen:stockDuplicates.reason.open_work',
+  'kitchen:stockDuplicates.shelf',
   'kitchen:time.formatHint',
   'kitchen:time.placeholder',
   'kitchen:title',

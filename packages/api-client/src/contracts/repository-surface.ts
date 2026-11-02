@@ -298,6 +298,7 @@ export const REPOSITORY_SURFACE = {
         'confirmProductionOrder',
         'countLowStockLevels',
         'countSupplyNeeds',
+        'listDuplicateStock',
         'countUnresolvedConsumptionExceptions',
         'countConsumptionExceptions',
         'createProductionOrder',

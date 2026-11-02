@@ -1704,6 +1704,24 @@ export interface ConsumptionExceptionFilter extends CursorPageRequest, OffsetPag
 }
 
 /** Optionally records why an exception is being marked handled. */
+/** Shelves sharing one name that the merge left for a person, and why. */
+export interface DuplicateStockGroup {
+    readonly name: string;
+    readonly reason:
+        | 'different_units'
+        | 'not_a_copy'
+        | 'both_have_history'
+        | 'both_sold_as_products'
+        | 'open_work';
+    readonly shelves: readonly {
+        readonly id: string;
+        readonly code: string;
+        readonly unitCode: string;
+        readonly quantity: string;
+        readonly hasHistory: boolean;
+    }[];
+}
+
 /** Unresolved and resolved consumption exceptions in scope — whole totals, not a page. */
 export interface ConsumptionExceptionTotals {
     readonly unresolved: number;
@@ -2383,6 +2401,8 @@ export interface KitchenOpsRepository {
     listConsumptionExceptions(
         filter?: ConsumptionExceptionFilter,
     ): Promise<CursorPage<ConsumptionException>>;
+    /** Stock shelves repeating a name that need a person. Needs `inventory.view_organisation`. */
+    listDuplicateStock(): Promise<readonly DuplicateStockGroup[]>;
     /**
      * How many exceptions are unresolved right now, scoped to the active branch context (`X-Branch-Id`)
      * or the whole organisation when none is set — the count the hub badge and review KPI read.

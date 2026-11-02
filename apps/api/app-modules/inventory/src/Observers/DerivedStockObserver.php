@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Inventory\Observers;
 
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Services\StockItemDerivationService;
 use Illuminate\Database\Eloquent\Model;
@@ -70,5 +71,12 @@ final class DerivedStockObserver
             $model instanceof CatalogueItem => $this->derivation->syncProduct($model),
             default => null,
         };
+    }
+
+    public function updated(Model $model): void
+    {
+        if ($model instanceof Ingredient && $model->wasChanged('status') && $model->status === IngredientStatus::Archived) {
+            $this->derivation->clearEmptyShelf($model);
+        }
     }
 }

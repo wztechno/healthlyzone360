@@ -438,6 +438,18 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: null,
     },
     {
+        // What the duplicate-stock merge could not settle alone. Reads only.
+        key: 'stock-duplicates',
+        kind: 'workbench',
+        group: 'workbench',
+        nameKey: 'kitchen:families.stockDuplicates.name',
+        descriptionKey: 'kitchen:families.stockDuplicates.description',
+        icon: 'alert',
+        href: '/kitchen/stock-duplicates',
+        permission: INVENTORY_VIEW_PERMISSION,
+        managePermission: null,
+    },
+    {
         key: 'consumption-exceptions',
         kind: 'workbench',
         group: 'workbench',

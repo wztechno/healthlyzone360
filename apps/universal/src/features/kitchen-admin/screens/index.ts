@@ -28,6 +28,7 @@ export { AnalyticsScreen } from './analytics-screen.tsx';
 export { BatchPlannerScreen } from './batch-planner-screen.tsx';
 export { BranchOperatingScreen } from './branch-operating-screen.tsx';
 export { ConsumptionExceptionsScreen } from './consumption-exceptions-screen.tsx';
+export { StockDuplicatesScreen } from './stock-duplicates-screen.tsx';
 export { CookedItemEditScreen, RecipeBookEditScreen } from './cooked-item-edit-screen.tsx';
 export { CostReportScreen } from './cost-report-screen.tsx';
 export { DeliveryWindowsScreen } from './delivery-windows-screen.tsx';

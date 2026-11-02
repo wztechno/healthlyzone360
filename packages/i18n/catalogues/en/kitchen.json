@@ -2423,6 +2423,10 @@
             "name": "Cost report",
             "description": "Monthly spend and cost of goods sold beside selling revenue — the margin, at a glance."
         },
+        "stockDuplicates": {
+            "name": "Duplicate stock",
+            "description": "Stock rows that share a name and need somebody to decide what they are."
+        },
         "consumptionExceptions": {
             "name": "Stock gaps",
             "description": "Sales a confirmed order could not deduct from stock honestly — review, retry, or resolve each one."
@@ -4764,6 +4768,22 @@
         "itemsFailedTitle_other": "{{count}} items could not be offered",
         "itemFailure": "{{name}}: {{message}}",
         "itemsReadError": "Which items are on the channel could not be read."
+    },
+    "stockDuplicates": {
+        "caption": "Stock rows that share a name",
+        "columnName": "Name",
+        "columnReason": "Why it is here",
+        "columnShelves": "Rows",
+        "shelf": "{{code}}: {{quantity}} {{unit}}",
+        "emptyTitle": "Nothing to review",
+        "emptyBody": "Every stock row with a repeated name has been merged or dealt with.",
+        "reason": {
+            "different_units": "Counted in different units, so the quantities cannot be added",
+            "not_a_copy": "Same name, but neither is a copy of the other",
+            "both_have_history": "Both have stock history, so neither can be dropped",
+            "both_sold_as_products": "Both are sold as products",
+            "open_work": "An open order, receipt or stock figure still uses the row"
+        }
     },
     "lens": {
         "label": "List summary and filters",

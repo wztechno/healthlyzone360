@@ -89,6 +89,7 @@ use Healthy360\Cart\Http\Controllers\CartStoreController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemAllergenIndexController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemAllergensAssessedController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemAvailabilityReplaceController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemOffTodayController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemChannelReplaceController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemDietClassificationReplaceController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemIndexController;
@@ -204,6 +205,7 @@ use Healthy360\Ingredients\Http\Controllers\IngredientUpdateController;
 use Healthy360\Ingredients\Http\Controllers\NutritionReferenceSearchController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionCountController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionIndexController;
+use Healthy360\Inventory\Http\Controllers\DuplicateStockIndexController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionResolveController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionRetryController;
 use Healthy360\Inventory\Http\Controllers\OrderDeskRequirementsController;
@@ -220,6 +222,7 @@ use Healthy360\Inventory\Http\Controllers\StockThresholdController;
 use Healthy360\Inventory\Http\Controllers\StockWasteController;
 use Healthy360\Kitchens\Http\Controllers\BranchOperatingReplaceController;
 use Healthy360\Kitchens\Http\Controllers\BranchOperatingShowController;
+use Healthy360\Kitchens\Http\Controllers\KitchenPauseController;
 use Healthy360\Kitchens\Http\Controllers\KitchenServiceSettingsShowController;
 use Healthy360\Kitchens\Http\Controllers\KitchenServiceSettingsUpdateController;
 use Healthy360\Kitchens\Http\Controllers\PublicKitchenIndexController;
@@ -1042,6 +1045,10 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             Route::get('/kitchen-service-settings', KitchenServiceSettingsShowController::class)->name('catalogue.kitchen-service-settings.show');
             Route::put('/kitchen-service-settings', KitchenServiceSettingsUpdateController::class)
                 ->middleware('permission:catalogue.manage_organisation')->name('catalogue.kitchen-service-settings.update');
+            Route::post('/kitchen-pause', [KitchenPauseController::class, 'store'])
+                ->middleware('permission:order.supervise_organisation')->name('catalogue.kitchen-pause.store');
+            Route::delete('/kitchen-pause', [KitchenPauseController::class, 'destroy'])
+                ->middleware('permission:order.supervise_organisation')->name('catalogue.kitchen-pause.destroy');
 
             Route::get('/ingredients/nutrition-references', NutritionReferenceSearchController::class)
                 ->middleware('permission:catalogue.manage_organisation')->name('catalogue.ingredients.nutrition-references');
@@ -1349,6 +1356,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::put('/items/{item}/availability', CatalogueItemAvailabilityReplaceController::class)
                     ->middleware('precondition')
                     ->name('catalogue.items.availability.replace');
+
+                // One press, today only, and no lock version: see the controller.
+                Route::put('/items/{item}/off-today', [CatalogueItemOffTodayController::class, 'store'])
+                    ->name('catalogue.items.off-today.store');
+                Route::delete('/items/{item}/off-today', [CatalogueItemOffTodayController::class, 'destroy'])
+                    ->name('catalogue.items.off-today.destroy');
             });
 
             Route::middleware(['org.trading', 'permission:catalogue.publish_organisation'])->group(function (): void {
@@ -1643,6 +1656,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 // The count-sheet template names no branch, so it needs no branch context.
                 Route::get('/inventory/counts/import-template', StockLevelExportController::class)
                     ->defaults('template', true)->name('catalogue.inventory.counts.import-template');
+                Route::get('/inventory/duplicates', DuplicateStockIndexController::class)->name('catalogue.inventory.duplicates.index');
                 Route::get('/inventory/consumption-exceptions', ConsumptionExceptionIndexController::class)->name('catalogue.inventory.consumption-exceptions.index');
                 Route::get('/inventory/consumption-exceptions/unresolved-count', ConsumptionExceptionCountController::class)->name('catalogue.inventory.consumption-exceptions.count');
 

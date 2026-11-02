@@ -535,6 +535,7 @@ export const queryKeys = {
         consumptionExceptions: (filter: object = {}) =>
             ['kitchenOps', 'consumption-exceptions', filter] as const,
         consumptionExceptionCount: () => ['kitchenOps', 'consumption-exception-count'] as const,
+        duplicateStock: () => ['kitchenOps', 'duplicate-stock'] as const,
         consumptionExceptionTotals: () => ['kitchenOps', 'consumption-exception-totals'] as const,
         /*
          * The desk queue is filtered (status, branch, page), so the filter is

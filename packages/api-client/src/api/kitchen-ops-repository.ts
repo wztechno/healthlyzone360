@@ -75,6 +75,7 @@ import type {
     RecipientSnapshotContact,
     ResolveConsumptionExceptionRequest,
     ConsumptionExceptionTotals,
+    DuplicateStockGroup,
     SetStockThresholdRequest,
     SpendSummary,
     SpendSummaryCurrencyTotals,
@@ -1966,6 +1967,34 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                 hasMore: meta.has_more ?? false,
                 totalCount: null,
             };
+        },
+
+        async listDuplicateStock(): Promise<readonly DuplicateStockGroup[]> {
+            const envelope = await transport.requestEnvelope<
+                readonly {
+                    readonly name: string;
+                    readonly reason: DuplicateStockGroup['reason'];
+                    readonly shelves: readonly {
+                        readonly id: string;
+                        readonly code: string;
+                        readonly unit_code: string;
+                        readonly quantity: string;
+                        readonly has_history: boolean;
+                    }[];
+                }[]
+            >({ method: 'GET', path: '/catalogue/inventory/duplicates' });
+
+            return envelope.data.map((group) => ({
+                name: group.name,
+                reason: group.reason,
+                shelves: group.shelves.map((shelf) => ({
+                    id: shelf.id,
+                    code: shelf.code,
+                    unitCode: shelf.unit_code,
+                    quantity: shelf.quantity,
+                    hasHistory: shelf.has_history,
+                })),
+            }));
         },
 
         async countUnresolvedConsumptionExceptions(): Promise<number> {
