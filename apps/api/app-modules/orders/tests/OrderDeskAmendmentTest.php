@@ -178,22 +178,22 @@ it('quotes an edit on the order own channel, keeping its stored fee', function (
 
 it('lets staff override a passed cut-off, and records that they did', function (): void {
     CheckoutWorld::cutOff($this->world->branch, '15:00:00');
-    $this->travelTo(CarbonImmutable::parse('2026-11-02 10:00:00', 'Asia/Beirut'));
+    $this->travelTo(CarbonImmutable::parse('2027-03-02 10:00:00', 'Asia/Beirut'));
 
     $order = amendDeskDelivery($this, [
         'branch_id' => (string) $this->world->branch->getKey(),
-        'requested_delivery_date' => '2026-11-03',
+        'requested_delivery_date' => '2027-03-03',
     ]);
 
-    $this->travelTo(CarbonImmutable::parse('2026-11-02 16:00:00', 'Asia/Beirut'));
+    $this->travelTo(CarbonImmutable::parse('2027-03-02 16:00:00', 'Asia/Beirut'));
 
-    amendPatch($this, $order, ['lines' => amendMealLines($this, 1), 'requested_delivery_date' => '2026-11-02'])->assertOk();
+    amendPatch($this, $order, ['lines' => amendMealLines($this, 1), 'requested_delivery_date' => '2027-03-02'])->assertOk();
 
-    expect($order->refresh()->requested_delivery_date->toDateString())->toBe('2026-11-02');
+    expect($order->refresh()->requested_delivery_date->toDateString())->toBe('2027-03-02');
 
     $audit = AuditLog::query()->where('action', 'order.amended')->sole();
     expect($audit->metadata['cut_off_overridden'])->toBeTrue()
-        ->and($audit->metadata['date'])->toBe('2026-11-02')
+        ->and($audit->metadata['date'])->toBe('2027-03-02')
         ->and($audit->metadata['lines_changed'])->toBe(1)
         ->and($audit->metadata['total_before'])->toBe(5500)
         ->and($audit->metadata['total_after'])->toBe(3000);
