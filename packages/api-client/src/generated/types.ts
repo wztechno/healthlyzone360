@@ -6938,6 +6938,17 @@ export type GoodsReceiptLine = {
     line_total_amount: string | null;
     cost_currency_code: string | null;
     /**
+     * The last priced delivery of this shelf before this one, per this
+     * line's unit (mass and volume convert). Null for a first purchase,
+     * across currencies or units that do not convert, or when redacted.
+     *
+     */
+    last_unit_price_amount: string | null;
+    /**
+     * This line's unit price against `last_unit_price_amount`, in percent. Null like it.
+     */
+    price_variance_percent: string | null;
+    /**
      * When this line's money was settled (§3.6). Null means the costing
      * path has not run and price completion may still act on it — the guard
      * that stops one quantity being costed twice.
@@ -7400,6 +7411,17 @@ export type PurchasesLedgerLine = {
     unit_price_amount: string | null;
     line_total_amount: string | null;
     cost_currency_code: string | null;
+    /**
+     * The last priced delivery of this shelf before this one, per this
+     * line's unit (mass and volume convert). Null for a first purchase,
+     * across currencies or units that do not convert, or when redacted.
+     *
+     */
+    last_unit_price_amount: string | null;
+    /**
+     * This line's unit price against `last_unit_price_amount`, in percent. Null like it.
+     */
+    price_variance_percent: string | null;
     /**
      * This line's price is recorded and its valuation is waiting on an
      * exchange-rate decision (§3.6). A work state, not money, so it is

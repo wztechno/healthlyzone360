@@ -112,6 +112,8 @@ function receipt(id: string, overrides: Partial<GoodsReceipt> = {}): GoodsReceip
                 unitPriceAmount: '2.500000',
                 lineTotalAmount: '25.000000',
                 costCurrencyCode: 'USD',
+                lastUnitPriceAmount: null,
+                priceVariancePercent: null,
                 costedAt: '2026-07-27T09:00:00Z',
                 valuationPendingFx: false,
                 gtin: null,

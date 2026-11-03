@@ -125,6 +125,8 @@ function receipt(
             unitPriceAmount: null,
             lineTotalAmount: null,
             costCurrencyCode: null,
+            lastUnitPriceAmount: null,
+            priceVariancePercent: null,
             costedAt: null,
             valuationPendingFx: false,
             gtin: null,

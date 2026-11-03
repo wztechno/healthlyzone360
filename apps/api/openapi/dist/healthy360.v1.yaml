@@ -40634,6 +40634,8 @@ components:
         - unit_price_amount
         - line_total_amount
         - cost_currency_code
+        - last_unit_price_amount
+        - price_variance_percent
         - costed_at
         - valuation_pending_fx
         - gtin
@@ -40679,6 +40681,19 @@ components:
           type:
             - string
             - 'null'
+        last_unit_price_amount:
+          type:
+            - string
+            - 'null'
+          description: |
+            The last priced delivery of this shelf before this one, per this
+            line's unit (mass and volume convert). Null for a first purchase,
+            across currencies or units that do not convert, or when redacted.
+        price_variance_percent:
+          type:
+            - string
+            - 'null'
+          description: This line's unit price against `last_unit_price_amount`, in percent. Null like it.
         costed_at:
           type:
             - string
@@ -41473,6 +41488,8 @@ components:
         - unit_price_amount
         - line_total_amount
         - cost_currency_code
+        - last_unit_price_amount
+        - price_variance_percent
         - valuation_pending_fx
         - costs_redacted
         - gtin
@@ -41549,6 +41566,19 @@ components:
           type:
             - string
             - 'null'
+        last_unit_price_amount:
+          type:
+            - string
+            - 'null'
+          description: |
+            The last priced delivery of this shelf before this one, per this
+            line's unit (mass and volume convert). Null for a first purchase,
+            across currencies or units that do not convert, or when redacted.
+        price_variance_percent:
+          type:
+            - string
+            - 'null'
+          description: This line's unit price against `last_unit_price_amount`, in percent. Null like it.
         valuation_pending_fx:
           type: boolean
           description: |

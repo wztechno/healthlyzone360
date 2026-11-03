@@ -28,7 +28,7 @@ import {
 } from '@healthy360/design-system';
 import type { DataListColumn, IssueTrayContent, SelectOption } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, View } from 'react-native';
@@ -200,15 +200,25 @@ function SupplyOrderBuilder() {
     const { locale } = useLocale();
     const formatter = useFormatter();
     const router = useRouter();
-    // Cancel steps back to wherever the builder was opened from — the book, or a batch's shortfall.
-    const back = useReturnTo(undefined, '/kitchen/supply-orders');
+    // `items` is the Requirements screen's shortfall, handed over as stock item ids.
+    const params = useLocalSearchParams<{ items?: string; returnTo?: string }>();
+    // Cancel steps back to wherever the builder was opened from — the book, a batch's shortfall or
+    // Requirements.
+    const back = useReturnTo(params.returnTo, '/kitchen/supply-orders');
     const toast = useToast();
     const access = useAccessState();
 
     const branchId = access.branch?.id ?? null;
     useKitchenTrailLeaf(t('kitchen:ops.supplyOrders.builderTitle'));
 
-    const [requestedIds, setRequestedIds] = useState<readonly StockItemId[]>([]);
+    // Seeded once from `items`; what the person adds afterwards is theirs.
+    const [requestedIds, setRequestedIds] = useState<readonly StockItemId[]>(() =>
+        (params.items ?? '')
+            .split(',')
+            .map((segment) => segment.trim())
+            .filter((segment) => segment !== '')
+            .map((segment) => segment as unknown as StockItemId),
+    );
     /** Only the rows the person has touched. Untouched rows are answered by the server's defaults. */
     const [edits, setEdits] = useState<SupplyOrderChoices>({});
     const [touched, setTouched] = useState(false);

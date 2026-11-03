@@ -640,6 +640,8 @@ function mapGoodsReceiptLine(line: WireGoodsReceiptLine): GoodsReceiptLine {
         unitPriceAmount: line.unit_price_amount,
         lineTotalAmount: line.line_total_amount,
         costCurrencyCode: line.cost_currency_code,
+        lastUnitPriceAmount: line.last_unit_price_amount,
+        priceVariancePercent: line.price_variance_percent,
         // Work states, not money: they survive the cost redaction because whether a line still needs
         // somebody's attention is not the same question as what it cost.
         costedAt: line.costed_at,
@@ -837,6 +839,8 @@ function mapPurchaseLedgerLine(wire: WirePurchaseLedgerLine): PurchaseLedgerLine
         unitPriceAmount: wire.unit_price_amount,
         lineTotalAmount: wire.line_total_amount,
         costCurrencyCode: wire.cost_currency_code,
+        lastUnitPriceAmount: wire.last_unit_price_amount,
+        priceVariancePercent: wire.price_variance_percent,
         valuationPendingFx: wire.valuation_pending_fx,
         costsRedacted: wire.costs_redacted,
         gtin: wire.gtin,

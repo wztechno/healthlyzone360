@@ -4979,6 +4979,7 @@ export interface NamespaceKeys {
     | 'ops.ledger.columnUnitPrice'
     | 'ops.ledger.completeBadge'
     | 'ops.ledger.emptyBody'
+    | 'ops.ledger.columnVariance'
     | 'ops.ledger.emptyTitle'
     | 'ops.ledger.filterFrom'
     | 'ops.ledger.filterTo'
@@ -5013,6 +5014,9 @@ export interface NamespaceKeys {
     | 'ops.ledger.unpricedLines'
     | 'ops.ledger.viewFoot'
     | 'ops.ledger.viewKind'
+    | 'ops.ledger.varianceDown'
+    | 'ops.ledger.varianceFlat'
+    | 'ops.ledger.varianceUp'
     | 'ops.ledger.viewPendingFxNote'
     | 'ops.ledger.viewUnpricedNote'
     | 'ops.metricUnavailable'
@@ -5814,6 +5818,7 @@ export interface NamespaceKeys {
     | 'ops.requirements.emptyTitle'
     | 'ops.requirements.filterFrom'
     | 'ops.requirements.filterTo'
+    | 'ops.requirements.createOrder'
     | 'ops.requirements.footnote'
     | 'ops.requirements.kpiIngredients'
     | 'ops.requirements.kpiIngredientsCaption'
@@ -14816,6 +14821,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.ledger.filterFrom',
   'kitchen:ops.ledger.filterTo',
   'kitchen:ops.ledger.fromPlaceholder',
+  'kitchen:ops.ledger.columnVariance',
   'kitchen:ops.ledger.hideCharges',
   'kitchen:ops.ledger.incompleteBadge',
   'kitchen:ops.ledger.modeDetail',
@@ -14850,6 +14856,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.ledger.viewUnpricedNote',
   'kitchen:ops.metricUnavailable',
   'kitchen:ops.orders.actionsHeading',
+  'kitchen:ops.ledger.varianceDown',
+  'kitchen:ops.ledger.varianceFlat',
+  'kitchen:ops.ledger.varianceUp',
   'kitchen:ops.orders.backToOrders',
   'kitchen:ops.orders.cancel',
   'kitchen:ops.orders.cancelBody',
@@ -15651,6 +15660,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.requirements.kpiIngredients',
   'kitchen:ops.requirements.kpiIngredientsCaption',
   'kitchen:ops.requirements.kpiNotComputable',
+  'kitchen:ops.requirements.createOrder',
   'kitchen:ops.requirements.kpiNotComputableNone',
   'kitchen:ops.requirements.kpiShort',
   'kitchen:ops.requirements.kpiShortCaption',

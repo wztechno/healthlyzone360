@@ -1072,6 +1072,13 @@ export interface GoodsReceiptLine extends ReceiptLineTraceability {
     readonly lineTotalAmount: string | null;
     readonly costCurrencyCode: string | null;
     /**
+     * The last priced delivery of this shelf before this one, per this line's unit (mass and volume
+     * convert), and this price against it in percent. Both `null` for a first purchase, across
+     * currencies or units that do not convert, or when costs are redacted.
+     */
+    readonly lastUnitPriceAmount: string | null;
+    readonly priceVariancePercent: string | null;
+    /**
      * When this line's money was settled (SUP5). `null` means the costing path has not run and price
      * completion may still act on it — the guard that stops one quantity being costed twice. Never
      * redacted: it is a work state, not a figure.
@@ -1393,6 +1400,13 @@ export interface PurchaseLedgerLine extends ReceiptLineTraceability {
     readonly unitPriceAmount: string | null;
     readonly lineTotalAmount: string | null;
     readonly costCurrencyCode: string | null;
+    /**
+     * The last priced delivery of this shelf before this one, per this line's unit (mass and volume
+     * convert), and this price against it in percent. Both `null` for a first purchase, across
+     * currencies or units that do not convert, or when costs are redacted.
+     */
+    readonly lastUnitPriceAmount: string | null;
+    readonly priceVariancePercent: string | null;
     /** This line's price is recorded and its valuation waits on an exchange rate (SUP5). */
     readonly valuationPendingFx: boolean;
     readonly costsRedacted: boolean;

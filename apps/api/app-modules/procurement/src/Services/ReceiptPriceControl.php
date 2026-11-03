@@ -9,8 +9,11 @@ use Healthy360\Kitchens\Services\KitchenServiceSettingsLookup;
 use Healthy360\Procurement\Models\GoodsReceipt;
 use Healthy360\Procurement\Models\GoodsReceiptLine;
 use Healthy360\Procurement\Models\Supplier;
+use Healthy360\ReferenceData\Models\MeasurementUnit;
+use Healthy360\ReferenceData\Services\UnitConversionService;
 use Healthy360\Support\Alerts\StaffAlerts;
 use Healthy360\Support\Alerts\StaffAlertType;
+use Illuminate\Database\Eloquent\Collection;
 
 /**
  * What a delivery's prices say about it, stamped once when a line is priced.
@@ -22,9 +25,11 @@ use Healthy360\Support\Alerts\StaffAlertType;
  *
  * **A difference needs two prices that mean the same thing.** The comparison is with
  * the last priced delivery of that shelf before this one, from any supplier, and
- * only in the same currency and the same unit. Anything else leaves the variance
- * null: there is no exchange rate here, and a price per box against a price per
- * kilo would be a number nobody asked for. A first purchase has nothing to compare.
+ * only in the same currency. A price per kilo against a price per gram is brought
+ * into the line's unit first (mass and volume only, {@see UnitConversionService});
+ * anything else leaves the variance null: there is no exchange rate here, and a
+ * price per box against a price per kilo would be a number nobody asked for. A
+ * first purchase has nothing to compare.
  *
  * **Only rises wait.** A price that fell needs nobody's approval. A receipt already
  * approved goes back to pending if a line priced later is over the limit.
@@ -37,6 +42,7 @@ final readonly class ReceiptPriceControl
         private LastPurchasePriceQuery $lastPrices,
         private KitchenServiceSettingsLookup $settings,
         private StaffAlerts $alerts,
+        private UnitConversionService $conversion,
     ) {}
 
     /**
@@ -59,6 +65,14 @@ final readonly class ReceiptPriceControl
         $stockItemIds = $lines->pluck('stock_item_id')->unique()->values()->all();
         $last = $this->lastPrices->perItem($organisationId, $stockItemIds, $receipt->received_at);
         $stockUnits = StockItem::query()->whereKey($stockItemIds)->pluck('unit_id', 'id');
+        $units = MeasurementUnit::query()
+            ->whereKey(array_values(array_unique(array_filter([
+                ...$stockUnits->values()->all(),
+                ...$lines->pluck('unit_id')->all(),
+                ...array_column($last, 'unit_id'),
+            ]))))
+            ->get()
+            ->keyBy(static fn (MeasurementUnit $unit): string => (string) $unit->getKey());
         $limit = $this->settings->for($organisationId)->price_approval_above_percent;
         $overLimit = false;
 
@@ -69,22 +83,31 @@ final readonly class ReceiptPriceControl
                 continue;
             }
 
-            $stockUnit = $stockUnits[$line->stock_item_id] ?? null;
+            if ($previous['cost_currency_code'] !== $line->cost_currency_code) {
+                continue;
+            }
 
-            if ($previous['cost_currency_code'] !== $line->cost_currency_code
-                || ($previous['unit_id'] ?? $stockUnit) !== ($line->unit_id ?? $stockUnit)) {
+            $stockUnit = isset($stockUnits[$line->stock_item_id]) ? (string) $stockUnits[$line->stock_item_id] : null;
+            $lastPrice = $this->inLineUnit(
+                $previous['unit_price_amount'],
+                $previous['unit_id'] ?? $stockUnit,
+                $line->unit_id ?? $stockUnit,
+                $units,
+            );
+
+            if ($lastPrice === null || bccomp($lastPrice, '0', 6) <= 0) {
                 continue;
             }
 
             /** @var numeric-string $price */
             $price = (string) $line->unit_price_amount;
             $variance = bcmul(
-                bcdiv(bcsub($price, $previous['unit_price_amount'], 6), $previous['unit_price_amount'], 8),
+                bcdiv(bcsub($price, $lastPrice, 6), $lastPrice, 8),
                 '100',
                 self::PERCENT_SCALE,
             );
 
-            $line->last_unit_price_amount = $previous['unit_price_amount'];
+            $line->last_unit_price_amount = $lastPrice;
             $line->price_variance_percent = $variance;
             $line->save();
 
@@ -98,6 +121,33 @@ final readonly class ReceiptPriceControl
                 'order_number' => $receipt->supplier?->name_en ?? (string) $receipt->received_on?->toDateString(),
             ]);
         }
+    }
+
+    /**
+     * The last price, per the unit this line is priced in. The same unit needs
+     * nothing; a pair the conversion service refuses (a box against a kilo, two
+     * different count units) or an unknown unit has no answer.
+     *
+     * @param  numeric-string  $price
+     * @param  Collection<string, MeasurementUnit>  $units
+     * @return numeric-string|null
+     */
+    private function inLineUnit(string $price, ?string $previousUnitId, ?string $lineUnitId, Collection $units): ?string
+    {
+        if ($previousUnitId === $lineUnitId) {
+            return $price;
+        }
+
+        $previousUnit = $previousUnitId === null ? null : $units->get($previousUnitId);
+        $lineUnit = $lineUnitId === null ? null : $units->get($lineUnitId);
+
+        if (! $previousUnit instanceof MeasurementUnit || ! $lineUnit instanceof MeasurementUnit
+            || ! $this->conversion->canConvert($lineUnit, $previousUnit)) {
+            return null;
+        }
+
+        // A price per previous unit, times the previous units in one line unit.
+        return $this->conversion->convert($price, $lineUnit, $previousUnit);
     }
 
     /**

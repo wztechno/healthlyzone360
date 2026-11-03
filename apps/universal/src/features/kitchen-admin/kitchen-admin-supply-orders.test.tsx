@@ -72,6 +72,8 @@ jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
 jest.mock('expo-router', () => {
     const push = jest.fn();
     const replace = jest.fn();
+    // What the route was opened with; a test that needs `?items=` sets it and `beforeEach` clears it.
+    const params: { current: Record<string, string> } = { current: {} };
     return {
         __esModule: true,
         useRouter: () => ({
@@ -82,22 +84,28 @@ jest.mock('expo-router', () => {
             prefetch: jest.fn(),
         }),
         usePathname: () => '/kitchen/supply-orders',
-        useLocalSearchParams: () => ({}),
+        useLocalSearchParams: () => params.current,
         Redirect: () => null,
         Link: ({ children }: { children: ReactNode }) => children,
         Slot: () => null,
         Stack: () => null,
         __push: push,
         __replace: replace,
+        __params: params,
     };
 });
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const routerMock = require('expo-router') as { __push: jest.Mock; __replace: jest.Mock };
+const routerMock = require('expo-router') as {
+    __push: jest.Mock;
+    __replace: jest.Mock;
+    __params: { current: Record<string, string> };
+};
 
 beforeEach(() => {
     routerMock.__push.mockClear();
     routerMock.__replace.mockClear();
+    routerMock.__params.current = {};
 });
 
 /**
@@ -885,6 +893,27 @@ describe('supply order builder', () => {
                 itemId(9),
             ]);
         });
+    });
+
+    it('opens on the shortfall Requirements handed over, asking the server for those shelves', async () => {
+        routerMock.__params.current = {
+            items: `${String(itemId(7))},${String(itemId(8))}`,
+            returnTo: '/kitchen/order-desk/requirements',
+        };
+
+        const { repositories } = await renderStubScreen(<SupplyOrderBuilderScreen />, {
+            session: kitchenManagerSession(),
+            repositories: builderOverrides([LOW_ONLY]),
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenOps.getOrderProposal).toHaveBeenCalledWith(BRANCH, [
+                itemId(7),
+                itemId(8),
+            ]);
+        });
+        // Seeded once: the first ask already carried them, there was no empty one before it.
+        expect(repositories.kitchenOps.getOrderProposal).not.toHaveBeenCalledWith(BRANCH, []);
     });
 });
 
