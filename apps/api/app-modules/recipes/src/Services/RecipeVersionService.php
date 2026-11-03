@@ -1098,6 +1098,24 @@ final readonly class RecipeVersionService
                 );
             }
 
+            // Publish's determination gate, which release must not skip: a
+            // sub-recipe retired under this dish leaves its output unassessed,
+            // and the recomputed label then reads "none" where it means
+            // "nobody knows".
+            $ingredientIds = $this->readiness->linesOf($locked)->pluck('ingredient_id')->map(static fn (mixed $id): string => (string) $id)->all();
+            $undetermined = $this->readiness->undeterminedIngredientIds(
+                $ingredientIds,
+                $this->rollup->effectiveFor(array_values(array_unique($ingredientIds)), $locked->organisation_id),
+            );
+
+            if ($undetermined !== []) {
+                throw new ApiException(
+                    ErrorCode::ResourceConflict,
+                    'At least one ingredient carries no allergen determination. Assess it before releasing this label.',
+                    ['reason' => 'allergen_unmapped', 'ingredient_ids' => $undetermined, 'current_lock_version' => $locked->lock_version],
+                );
+            }
+
             $superseded = RecipeVersion::withoutTenancy()
                 ->where('recipe_id', $locked->recipe_id)
                 ->whereKeyNot($locked->getKey())

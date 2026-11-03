@@ -7,6 +7,9 @@ use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Models\Catalogue;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
+use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Ingredients\Models\IngredientAllergen;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Recipes\Enums\DerivationState;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
@@ -236,6 +239,29 @@ it('refuses to release a label whose recompute failed', function (): void {
     $this->postJson($this->releasePath, ['confirmed' => true], $this->headers + ['If-Match' => '"'.$version->lock_version.'"'])
         ->assertConflict()
         ->assertJsonPath('error.details.reason', 'derivation_stale');
+});
+
+it('refuses to release a label built on an ingredient nobody has assessed', function (): void {
+    // What a retired sub-recipe leaves its output with: no rows, no claim, not
+    // verified. The label in review reads as fine; publish would refuse it.
+    IngredientAllergen::withoutTenancy()->where('ingredient_id', $this->tahini->getKey())->delete();
+    Ingredient::withoutTenancy()->whereKey($this->tahini->getKey())->update([
+        'verification_status' => IngredientVerificationStatus::Unverified->value,
+        'allergens_derived_from_version_id' => null,
+    ]);
+
+    $version = releaseSubject($this->versionId);
+
+    expect($version->derivation_state)->toBe(DerivationState::Current);
+
+    $this->postJson($this->releasePath, ['confirmed' => true], $this->headers + ['If-Match' => '"'.$version->lock_version.'"'])
+        ->assertConflict()
+        ->assertJsonPath('error.code', 'resource.conflict')
+        ->assertJsonPath('error.details.reason', 'allergen_unmapped')
+        ->assertJsonPath('error.details.ingredient_ids', [(string) $this->tahini->getKey()]);
+
+    expect(releaseSubject($this->versionId)->status)->toBe(RecipeVersionStatus::ReviewRequired)
+        ->and($this->item->refresh()->status)->toBe(CatalogueItemStatus::ReviewRequired);
 });
 
 it('refuses a release sent against a label that has moved since it was compared', function (): void {

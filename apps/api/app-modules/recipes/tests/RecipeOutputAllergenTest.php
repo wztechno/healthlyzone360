@@ -148,7 +148,18 @@ it('sends a published dish to review when the sauce under it starts carrying an 
     expect(RecipeVersion::withoutTenancy()->whereKey($dishId)->sole()->status)->toBe(RecipeVersionStatus::Published);
 
     $tahini = RecipeWorld::mappedIngredient($this->kitchen->organisation, 'Tahini', 'sesame');
+
+    // Queued, as in production, and run after the request. On the sync queue the
+    // dish's recompute would run inside the publish request, and the tenancy
+    // `JobAttempted` reset (a worker's hygiene, see RlsTest) would clear the
+    // request's own context before the controller reads the frozen label.
+    Queue::fake();
+
     carryPublished($this->headers, $this->grams, 'House Sauce Batch', [$tahini], $sauce);
+
+    Queue::assertPushed(RecomputeRecipeDerivations::class, fn (RecomputeRecipeDerivations $job): bool => $job->recipeVersionId === $dishId);
+
+    carryRecompute($dishId, (string) $this->kitchen->organisation->getKey());
 
     $dish = RecipeVersion::withoutTenancy()->whereKey($dishId)->sole();
 
