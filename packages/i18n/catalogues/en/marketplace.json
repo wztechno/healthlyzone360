@@ -246,11 +246,11 @@
     },
     "howItWorks": {
         "title": "How Healthy360 works",
-        "subtitle": "From what you need to a week you can cook or order.",
+        "subtitle": "From what you cannot eat to a meal a kitchen brings to your door.",
         "step": {
             "tell": {
                 "title": "Tell us what has to be true",
-                "body": "Your measurements, how you move, what you are working towards, and everything you cannot or will not eat — allergies, medical restrictions, religious requirements and plain dislikes, each recorded differently because each behaves differently."
+                "body": "What you cannot eat. Leave dishes with your allergens off the menu, and see what every dish contains before you order."
             },
             "target": {
                 "title": "See a target, and where it came from",
@@ -261,8 +261,8 @@
                 "body": "Lock what you want to keep, regenerate what you do not, swap a meal for one that fits, and watch the day's totals move as you go."
             },
             "eat": {
-                "title": "Cook it, or have it delivered",
-                "body": "Every entry is either something you make or something a kitchen brings. Mix the two however suits the week."
+                "title": "Have it delivered",
+                "body": "Choose dishes from the kitchens that deliver to you, pick the day, and the kitchen brings them."
             }
         },
         "nextTitle": "Have a look around",

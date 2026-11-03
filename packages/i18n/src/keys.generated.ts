@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9870 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9863 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1555,23 +1555,16 @@ export interface NamespaceKeys {
     | 'dishOptions.separator'
     | 'facts.amount'
     | 'facts.basisLabel'
-    | 'facts.calculatedAt'
     | 'facts.caption'
-    | 'facts.method'
-    | 'facts.notesTitle'
+    | 'facts.noSource'
     | 'facts.nutrient'
     | 'facts.per100g'
     | 'facts.per100gUnavailable'
     | 'facts.perServing'
-    | 'facts.prototypeFlag'
-    | 'facts.recipeVersion'
-    | 'facts.rounding'
     | 'facts.soldByWeight'
     | 'facts.source'
     | 'facts.sourceTitle'
-    | 'facts.syntheticNote'
     | 'facts.title'
-    | 'facts.version'
     | 'filters.allMeals'
     | 'filters.anyValue'
     | 'filters.atLeast'
@@ -11450,23 +11443,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:dishOptions.separator',
   'catalogue:facts.amount',
   'catalogue:facts.basisLabel',
-  'catalogue:facts.calculatedAt',
   'catalogue:facts.caption',
-  'catalogue:facts.method',
-  'catalogue:facts.notesTitle',
+  'catalogue:facts.noSource',
   'catalogue:facts.nutrient',
   'catalogue:facts.per100g',
   'catalogue:facts.per100gUnavailable',
   'catalogue:facts.perServing',
-  'catalogue:facts.prototypeFlag',
-  'catalogue:facts.recipeVersion',
-  'catalogue:facts.rounding',
   'catalogue:facts.soldByWeight',
   'catalogue:facts.source',
   'catalogue:facts.sourceTitle',
-  'catalogue:facts.syntheticNote',
   'catalogue:facts.title',
-  'catalogue:facts.version',
   'catalogue:filters.allMeals',
   'catalogue:filters.anyValue',
   'catalogue:filters.atLeast',

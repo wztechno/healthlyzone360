@@ -32,11 +32,9 @@ import { orderedNutrientIds, per100gFacts } from './format.ts';
  * The panel names where its figures come from, and nothing else of the calculation: the data-set
  * version, the method key, the rounding and the synthetic/prototype badge read as internal noise
  * on a customer surface (owner, 3 Nov 2026), so only the source name stays. The source block is
- * still part of the component rather than an optional prop.
- *
- * The calculation notes are rendered verbatim because that is where the recipe and its version are
- * named. Parsing them into a field would mean the screen inventing a link the consumer contract
- * deliberately does not publish.
+ * still part of the component rather than an optional prop. The calculation notes are not shown:
+ * the server writes them for staff (`mass_basis: …`), untranslated. A meal with no recorded source
+ * says so in one catalogue sentence instead.
  */
 export interface NutritionFactsPanelProps {
     readonly facts: NutritionFacts;
@@ -157,26 +155,18 @@ export function NutritionFactsPanel({
                     />
                 )}
 
-                {/* The source name only: version, method, rounding and the prototype flags are the
-                    platform's bookkeeping, not the customer's. A meal with no recorded source has
-                    no name to show, and its notes already say so in a sentence. */}
-                {active.calculation.method === NO_RECORDED_SOURCE ? null : (
+                {/* The source name only: version, method, rounding, the prototype flags and the
+                    calculation notes are the platform's bookkeeping, not the customer's. */}
+                {active.calculation.method === NO_RECORDED_SOURCE ? (
+                    <Text testID={`${testID}-no-source`} tone="secondary" variant="caption">
+                        {t('catalogue:facts.noSource')}
+                    </Text>
+                ) : (
                     <Stack space="xs" testID={`${testID}-source`}>
                         <Text variant="label">{t('catalogue:facts.sourceTitle')}</Text>
                         <Text tone="secondary" variant="caption">
                             {t('catalogue:facts.source', { source: active.source.label })}
                         </Text>
-                    </Stack>
-                )}
-
-                {active.calculation.notes.length === 0 ? null : (
-                    <Stack space="xs" testID={`${testID}-notes`}>
-                        <Text variant="label">{t('catalogue:facts.notesTitle')}</Text>
-                        {active.calculation.notes.map((note) => (
-                            <Text key={note} tone="secondary" variant="caption">
-                                {note}
-                            </Text>
-                        ))}
                     </Stack>
                 )}
             </Stack>

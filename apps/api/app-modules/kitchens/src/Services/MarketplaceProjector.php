@@ -55,7 +55,7 @@ final class MarketplaceProjector
     /**
      * Each meal's own calendar days, keyed by meal id; read a page at a time.
      *
-     * @var array<string, array<string, array{available: bool, remaining: int|null}>>
+     * @var array<string, array<string, array{available: bool, remaining: int|null, order_cut_off_at: string|null}>>
      */
     private array $mealDays = [];
 
@@ -190,7 +190,7 @@ final class MarketplaceProjector
             return null;
         }
 
-        $availability = $this->withMealDays($context['availability'], $meal);
+        $availability = $this->withMealDays($context['availability'], $meal, $context['branches'][0]->timezone ?? null);
 
         if ($availableOn !== null && ! $this->isAvailableOn($availability, $availableOn)) {
             return null;
@@ -325,14 +325,20 @@ final class MarketplaceProjector
     }
 
     /**
-     * The kitchen's calendar with the meal's own days laid over it, the rule
-     * `LineProbe` refuses on: a day off or a sold-out day is unavailable even
-     * when the kitchen is open, and a counted day publishes what is left.
+     * The kitchen's calendar with the meal's own days laid over it, the rules
+     * `LineProbe::calendarRefusal()` refuses on: a day off or a sold-out day is
+     * unavailable even when the kitchen is open, and a counted day publishes
+     * what is left. On a shut day there is nothing to count, so no figure.
+     *
+     * The meal's own cut-off is a clock face on the first branch's wall, the
+     * clock `LineProbe::branchNow()` reads (`branchesOf()` orders the branches
+     * the same way). Today is unavailable once that clock is past it; any day
+     * it applies to publishes the earlier of it and the kitchen's cut-off.
      *
      * @param  list<array{date: string, available: bool, remaining: int|null, order_cut_off_at: string|null}>  $calendar
      * @return list<array{date: string, available: bool, remaining: int|null, order_cut_off_at: string|null}>
      */
-    private function withMealDays(array $calendar, CatalogueItem $meal): array
+    private function withMealDays(array $calendar, CatalogueItem $meal, ?string $timezone): array
     {
         $id = (string) $meal->getKey();
 
@@ -341,8 +347,9 @@ final class MarketplaceProjector
         }
 
         $days = $this->mealDays[$id];
+        $now = CarbonImmutable::now($timezone ?? (string) config('app.timezone', 'UTC'));
 
-        return array_map(static function (array $day) use ($days): array {
+        return array_map(static function (array $day) use ($days, $now): array {
             $own = $days[$day['date']] ?? null;
 
             if ($own === null) {
@@ -350,12 +357,25 @@ final class MarketplaceProjector
             }
 
             $available = $day['available'] && $own['available'];
+            $cutOff = $day['order_cut_off_at'];
+
+            if ($available && $own['order_cut_off_at'] !== null) {
+                if ($day['date'] === $now->toDateString() && $now->format('H:i:s') > $own['order_cut_off_at']) {
+                    $available = false;
+                } else {
+                    $mealCutOff = CarbonImmutable::parse($day['date'].' '.$own['order_cut_off_at'], $now->timezone);
+
+                    if ($cutOff === null || $mealCutOff->lessThan(CarbonImmutable::parse($cutOff))) {
+                        $cutOff = $mealCutOff->toIso8601String();
+                    }
+                }
+            }
 
             return [
                 'date' => $day['date'],
                 'available' => $available,
-                'remaining' => $own['remaining'],
-                'order_cut_off_at' => $available ? $day['order_cut_off_at'] : null,
+                'remaining' => $day['available'] ? $own['remaining'] : null,
+                'order_cut_off_at' => $available ? $cutOff : null,
             ];
         }, $calendar);
     }

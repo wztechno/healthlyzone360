@@ -1223,7 +1223,7 @@ describe('NutritionFactsPanel', () => {
                 calculatedAt: '',
                 prototype: true,
                 rounding: 'none',
-                notes: ['The platform holds no nutrition figures for this meal.'],
+                notes: ['mass_basis: stored'],
             },
         };
 
@@ -1238,6 +1238,11 @@ describe('NutritionFactsPanel', () => {
         expect(screen.queryByTestId('meal-detail-facts-source')).toBeNull();
         expect(screen.queryByText(/none\.no_recorded_source/)).toBeNull();
         expect(screen.queryByText(/No nutrition source is recorded/)).toBeNull();
+        // One translated sentence says why the table is empty; the server's notes never show.
+        expect(screen.getByTestId('meal-detail-facts-no-source')).toBeTruthy();
+        expect(screen.getByText('No nutrition figures are recorded for this dish.')).toBeTruthy();
+        expect(screen.queryByTestId('meal-detail-facts-notes')).toBeNull();
+        expect(screen.queryByText(/mass_basis/)).toBeNull();
     });
 
     it('names the source and nothing else of the calculation', async () => {

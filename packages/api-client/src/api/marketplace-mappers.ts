@@ -111,10 +111,8 @@ export const NO_NUTRITION_FACTS: NutritionFacts = {
         calculatedAt: UNKNOWN_ISO_DATE_TIME,
         prototype: true,
         rounding: 'none',
-        notes: [
-            'The platform holds no nutrition figures for this meal. Nothing here is estimated: a ' +
-                'figure would have to be invented, and an invented figure is worse than none.',
-        ],
+        // The panel says "no figures recorded" itself, in the reader's language.
+        notes: [],
     },
 };
 

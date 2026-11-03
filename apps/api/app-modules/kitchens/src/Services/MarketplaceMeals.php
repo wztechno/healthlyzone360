@@ -456,14 +456,15 @@ final readonly class MarketplaceMeals
      * than one portion left is sold out (a listing asks about one portion, the
      * least anyone can order). A date with no row says nothing, so it is absent
      * here and the kitchen's calendar stands. `remaining` is the counted figure,
-     * or null when nobody is counting.
+     * or null when nobody is counting; `order_cut_off_at` is the meal's own
+     * clock-face cut-off, which the projector applies on the branch's clock.
      *
      * No tenant context: the table has no row-level policy, only the Eloquent
      * scope `withoutTenancy()` lifts, so the anonymous marketplace reads it as
      * placement does.
      *
      * @param  list<string>  $itemIds
-     * @return array<string, array<string, array{available: bool, remaining: int|null}>>
+     * @return array<string, array<string, array{available: bool, remaining: int|null, order_cut_off_at: string|null}>>
      */
     public function availabilityByMeal(array $itemIds, CarbonImmutable $from, int $days = MarketplaceAvailability::WINDOW_DAYS): array
     {
@@ -476,7 +477,7 @@ final readonly class MarketplaceMeals
         $rows = CatalogueItemAvailabilityDay::withoutTenancy()
             ->whereIn('catalogue_item_id', $itemIds)
             ->whereBetween('date', [$from->toDateString(), $from->addDays($days - 1)->toDateString()])
-            ->get(['catalogue_item_id', 'date', 'is_available', 'remaining_portions']);
+            ->get(['catalogue_item_id', 'date', 'is_available', 'remaining_portions', 'order_cut_off_at']);
 
         foreach ($rows as $row) {
             $remaining = $row->remaining_portions === null ? null : max(0, $row->remaining_portions);
@@ -484,6 +485,7 @@ final readonly class MarketplaceMeals
             $byMeal[$row->catalogue_item_id][$row->date->toDateString()] = [
                 'available' => $row->is_available && ($remaining === null || $remaining >= 1),
                 'remaining' => $remaining,
+                'order_cut_off_at' => $row->order_cut_off_at,
             ];
         }
 

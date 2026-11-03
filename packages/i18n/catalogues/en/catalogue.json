@@ -169,14 +169,7 @@
         "caption": "Nutrition facts, {{basis}}",
         "sourceTitle": "Where these figures come from",
         "source": "Source: {{source}}",
-        "syntheticNote": "Synthetic prototype data. These figures describe no real product.",
-        "version": "Data set version {{version}}",
-        "calculatedAt": "Calculated {{timestamp}}",
-        "method": "Method: {{method}}",
-        "rounding": "Rounding: {{rounding}}",
-        "recipeVersion": "Recipe version",
-        "notesTitle": "How this was worked out",
-        "prototypeFlag": "Produced by the prototype calculator"
+        "noSource": "No nutrition figures are recorded for this dish."
     },
     "plans": {
         "energyBand": "{{min}}–{{max}} kcal",

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemAvailabilityDay;
@@ -13,6 +14,7 @@ use Healthy360\Organisations\Enums\OrganisationStatus;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use Tests\SeedDatabaseOnce;
 
 /*
@@ -302,12 +304,27 @@ it('withdraws a retired meal from the marketplace', function (): void {
 });
 
 /**
+ * A test's requests share one router, which caches each route's controller —
+ * and with it the projector's kitchen context and meal days. Production builds
+ * both per request; flush them so each read here is one too.
+ */
+$freshControllers = function (): void {
+    foreach (Route::getRoutes()->getRoutes() as $route) {
+        $route->flushController();
+    }
+};
+
+/**
  * The freekeh's published fourteen days, read fresh on every call.
  *
- * @return list<array{date: string, available: bool, remaining: null, order_cut_off_at: string|null}>
+ * @return list<array{date: string, available: bool, remaining: int|null, order_cut_off_at: string|null}>
  */
-$freekehCalendar = fn (): array => collect(test()->getJson('/api/v1/marketplace/meals?item_types=meal&limit=50')->assertOk()->json('data'))
-    ->firstWhere('slug', 'grilled-chicken-freekeh')['availability'];
+$freekehCalendar = function () use ($freshControllers): array {
+    $freshControllers();
+
+    return collect(test()->getJson('/api/v1/marketplace/meals?item_types=meal&limit=50')->assertOk()->json('data'))
+        ->firstWhere('slug', 'grilled-chicken-freekeh')['availability'];
+};
 
 it('shows a closed day as unavailable, the day placement refuses', function () use ($freekehCalendar): void {
     $kitchenId = (string) Organisation::query()->where('slug', 'verdant-kitchen')->value('id');
@@ -363,11 +380,11 @@ it('keeps a day available when one branch is closed and another is open', functi
  * Give the freekeh its own row on a day the kitchen is open, the row placement
  * refuses on, and return that date.
  *
- * @param  array{is_available: bool, remaining_portions: int|null}  $row
+ * @param  array{is_available: bool, remaining_portions: int|null, order_cut_off_at?: string}  $row
  */
-$freekehDay = function (array $row) use ($freekehCalendar): string {
+$freekehDay = function (array $row, ?string $date = null) use ($freekehCalendar): string {
     $meal = CatalogueItem::withoutTenancy()->where('slug', 'grilled-chicken-freekeh')->firstOrFail();
-    $date = collect($freekehCalendar())->skip(1)->firstWhere('available', true)['date'];
+    $date ??= collect($freekehCalendar())->skip(1)->firstWhere('available', true)['date'];
 
     CatalogueItemAvailabilityDay::withoutTenancy()->create($row + [
         'organisation_id' => $meal->organisation_id,
@@ -399,10 +416,11 @@ it('publishes the portions left on a counted day that is still open', function (
         ->toMatchArray(['available' => true, 'remaining' => 5]);
 });
 
-it('reads the per-meal days in one query whether the page has one meal or twenty', function (): void {
+it('reads the per-meal days table once whether the page has one meal or a page of them', function () use ($freshControllers): void {
     $ids = collect($this->getJson('/api/v1/marketplace/meals?limit=50')->assertOk()->json('data'))->pluck('id')->take(20);
 
-    $reads = function (string $ids): int {
+    $reads = function (string $ids) use ($freshControllers): int {
+        $freshControllers();
         DB::flushQueryLog();
         DB::enableQueryLog();
         $this->getJson('/api/v1/marketplace/meals?ids='.$ids)->assertOk();
@@ -414,4 +432,41 @@ it('reads the per-meal days in one query whether the page has one meal or twenty
     expect($ids->count())->toBeGreaterThan(1)
         ->and($reads($ids->first()))->toBe(1)
         ->and($reads($ids->implode(',')))->toBe(1);
+});
+
+/**
+ * Pin the clock at noon on the freekeh's next open day, on its kitchen's wall,
+ * and return that day and the wall's timezone: it is now today, with the
+ * kitchen's 18:00 cut-off ahead.
+ *
+ * @return array{0: string, 1: string}
+ */
+$noonOnAnOpenDay = function () use ($freekehCalendar): string {
+    $meal = CatalogueItem::withoutTenancy()->where('slug', 'grilled-chicken-freekeh')->firstOrFail();
+    $timezone = (string) OrganisationBranch::withoutTenancy()->where('organisation_id', $meal->organisation_id)
+        ->where('status', 'active')->orderBy('created_at')->orderBy('id')->value('timezone');
+    $date = collect($freekehCalendar())->skip(1)->firstWhere('available', true)['date'];
+
+    test()->travelTo(CarbonImmutable::parse($date.' 12:00:00', $timezone));
+
+    expect($freekehCalendar()[0])->toMatchArray(['date' => $date, 'available' => true]);
+
+    return [$date, $timezone];
+};
+
+it('shows today as unavailable once the meal own cut-off has passed, as placement refuses', function () use ($freekehCalendar, $freekehDay, $noonOnAnOpenDay): void {
+    [$today] = $noonOnAnOpenDay();
+    $freekehDay(['is_available' => true, 'remaining_portions' => null, 'order_cut_off_at' => '11:59:00'], $today);
+
+    expect($freekehCalendar()[0])->toMatchArray(['date' => $today, 'available' => false, 'order_cut_off_at' => null]);
+});
+
+it('publishes the meal own cut-off when it comes before the kitchen one', function () use ($freekehCalendar, $freekehDay, $noonOnAnOpenDay): void {
+    [$today, $timezone] = $noonOnAnOpenDay();
+    $freekehDay(['is_available' => true, 'remaining_portions' => null, 'order_cut_off_at' => '15:00:00'], $today);
+
+    $day = $freekehCalendar()[0];
+
+    expect($day['available'])->toBeTrue()
+        ->and(CarbonImmutable::parse($day['order_cut_off_at'])->equalTo(CarbonImmutable::parse($today.' 15:00:00', $timezone)))->toBeTrue();
 });

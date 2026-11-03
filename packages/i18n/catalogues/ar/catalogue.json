@@ -185,14 +185,7 @@
         "caption": "الحقائق الغذائية، {{basis}}",
         "sourceTitle": "من أين تأتي هذه الأرقام",
         "source": "المصدر: {{source}}",
-        "syntheticNote": "بيانات نموذج أولي تركيبية. هذه الأرقام لا تصف منتجًا حقيقيًا.",
-        "version": "إصدار مجموعة البيانات {{version}}",
-        "calculatedAt": "حُسبت في {{timestamp}}",
-        "method": "الطريقة: {{method}}",
-        "rounding": "التقريب: {{rounding}}",
-        "recipeVersion": "إصدار الوصفة",
-        "notesTitle": "كيف حُسبت",
-        "prototypeFlag": "من إنتاج حاسبة النموذج الأولي"
+        "noSource": "لا توجد أرقام غذائية مسجّلة لهذا الطبق."
     },
     "plans": {
         "energyBand": "{{min}}–{{max}} سعرة",
