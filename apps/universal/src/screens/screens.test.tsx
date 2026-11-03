@@ -1044,19 +1044,27 @@ describe('VerifyEmailScreen', () => {
 });
 
 describe('ForbiddenScreen', () => {
-    it('translates the denial reason and shows the stable code', async () => {
+    it('translates the denial reason and names each missing permission by its label', async () => {
         await renderStubScreen(
             <ForbiddenScreen
                 reason="permission_missing"
-                missing={['organisation.manage_platform']}
+                missing={['audit.view_organisation', 'organisation.manage_platform']}
             />,
         );
 
         expect(screen.getByTestId('forbidden-reason-title')).toHaveTextContent(
             /You do not have access/,
         );
-        expect(screen.getByTestId('forbidden-reason-code')).toHaveTextContent(/permission_missing/);
-        expect(screen.getByTestId('forbidden-missing-organisation.manage_platform')).toBeTruthy();
+        // The raw reason code is no longer shown to a person.
+        expect(screen.queryByTestId('forbidden-reason-code')).toBeNull();
+        expect(screen.queryByText('permission_missing')).toBeNull();
+        expect(screen.getByTestId('forbidden-missing-audit.view_organisation')).toHaveTextContent(
+            'See the audit trail',
+        );
+        // A key with no catalogue label (an entitlement, say) falls back to the key itself.
+        expect(
+            screen.getByTestId('forbidden-missing-organisation.manage_platform'),
+        ).toHaveTextContent('organisation.manage_platform');
     });
 
     it('offers a way out rather than a dead end', async () => {
