@@ -2080,7 +2080,11 @@
         "lanes": "Board lanes",
         "held": "Sending in a few seconds. You can still undo it.",
         "readyHeld": "{{number}} marked ready.",
-        "handedOverHeld": "{{number}} handed over."
+        "handedOverHeld": "{{number}} handed over.",
+        "print": "Print ticket",
+        "printTitle": "Kitchen ticket",
+        "printDue": "Due {{time}}",
+        "printMissing": "This ticket is not on the board any more."
     },
     "driver": {
         "title": "Your deliveries",

@@ -17,6 +17,7 @@ import {
 } from '@healthy360/design-system';
 import type { BranchId, OrderId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
+import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -38,7 +39,7 @@ import {
     ORDER_PREPARE_PERMISSION,
     ORDER_VIEW_PERMISSION,
 } from '../kitchen-admin/entity-registry.ts';
-import { displayName, humaniseCode } from '../kitchen-admin/format.ts';
+import { displayName } from '../kitchen-admin/format.ts';
 import {
     allergenLabel,
     allergyBanner,
@@ -59,6 +60,7 @@ import {
     unseenTickets,
 } from './kds-board.ts';
 import type { KdsColumnKey } from './kds-board.ts';
+import { ticketDeliveryLine } from './ticket-print-sheet.tsx';
 import { useWakeLock } from './use-wake-lock.ts';
 
 /**
@@ -681,14 +683,10 @@ function Ticket({
     const { t } = useTranslation();
     const formatter = useFormatter();
 
+    const router = useRouter();
     const testID = kdsTicketTestId(String(order.id));
     const minutes = minutesSincePlaced(order, now);
     const later = isUpcoming(order, now);
-
-    const deliveryDate =
-        order.delivery.requestedDate === null
-            ? null
-            : formatter.formatDate(order.delivery.requestedDate, { dateStyle: 'medium' });
 
     return (
         <Card padding="md" testID={testID}>
@@ -782,19 +780,7 @@ function Ticket({
                 </Stack>
 
                 <Text variant="caption" tone="secondary" testID={`${testID}-delivery`}>
-                    {deliveryDate === null
-                        ? t('kitchen:kds.deliveryUnknown')
-                        : order.delivery.windowCode === null
-                          ? t('kitchen:kds.deliveryOn', { date: deliveryDate })
-                          : t('kitchen:kds.deliveryOnAt', {
-                                date: deliveryDate,
-                                window:
-                                    (locale.toLowerCase().startsWith('ar')
-                                        ? order.delivery.windowNameAr
-                                        : order.delivery.windowNameEn) ??
-                                    order.delivery.windowNameEn ??
-                                    humaniseCode(order.delivery.windowCode),
-                            })}
+                    {ticketDeliveryLine(order, locale, t, formatter)}
                 </Text>
 
                 {/* The ticket's foot: what is waiting, then what can be pressed. */}
@@ -886,6 +872,18 @@ function Ticket({
                             }}
                         />
                     ) : null}
+                    {/* Last, and quiet: paper for the pass, never ahead of the bump. */}
+                    <Button
+                        testID={`${testID}-print`}
+                        block
+                        variant="secondary"
+                        label={t('kitchen:kds.print')}
+                        onPress={() => {
+                            router.push(
+                                `/kds/ticket?order=${encodeURIComponent(String(order.id))}` as never,
+                            );
+                        }}
+                    />
                 </Stack>
             </Stack>
         </Card>

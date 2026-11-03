@@ -2335,7 +2335,11 @@
         "lanes": "مسارات اللوحة",
         "held": "يُرسل خلال ثوانٍ، وما زال بإمكانك التراجع عنه.",
         "readyHeld": "الطلب {{number}} جاهز.",
-        "handedOverHeld": "تم تسليم الطلب {{number}}."
+        "handedOverHeld": "تم تسليم الطلب {{number}}.",
+        "print": "طباعة التذكرة",
+        "printTitle": "تذكرة المطبخ",
+        "printDue": "موعد التسليم {{time}}",
+        "printMissing": "لم تعد هذه التذكرة على اللوحة."
     },
     "driver": {
         "title": "توصيلاتك",

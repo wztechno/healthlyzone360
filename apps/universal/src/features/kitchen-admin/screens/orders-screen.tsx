@@ -842,6 +842,21 @@ function OrderRecord({
 
     const actionContent = (
         <Stack space="sm">
+            {order === null ? null : (
+                <View className="flex-row">
+                    <Button
+                        testID="kitchen-orders-print-ticket"
+                        variant="secondary"
+                        size="sm"
+                        label={t('kitchen:kds.print')}
+                        onPress={() => {
+                            router.push(
+                                `/kitchen/orders/ticket?order=${encodeURIComponent(String(order.id))}` as never,
+                            );
+                        }}
+                    />
+                </View>
+            )}
             {/* The server's `amendable` decides; the desk's sale page edits it. */}
             {order === null || !order.amendable || !canSell ? null : (
                 <View className="flex-row">
