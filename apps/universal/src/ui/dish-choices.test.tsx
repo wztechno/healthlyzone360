@@ -1,15 +1,15 @@
 import type { DishOption } from '@healthy360/api-client/contracts';
 import { createI18n } from '@healthy360/i18n';
-import { render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
 import { I18nextProvider } from 'react-i18next';
 
 import { DishChoiceFields } from './dish-choices.tsx';
 
 /*
- * A chosen sauce or side shows what it adds to the plate before it is bought, on the meal page and
- * the desk alike: its recipe's allergens as badges, or a warning when nobody has assessed it. An
- * option with no allergen codes at all reads as unassessed, never as "none".
+ * Every sauce or side lists what it adds to the plate in its option label, and the chosen one shows it
+ * again as badges, on the meal page and the desk alike. "May contain" is worded apart from "contains",
+ * and an option with no label at all reads as unassessed, never as "none".
  */
 
 /** One instance for the file: a fresh one per render produces overlapping `act()` scopes. */
@@ -19,7 +19,7 @@ async function renderIn(element: ReactElement) {
     await render(<I18nextProvider i18n={i18n}>{element}</I18nextProvider>);
 }
 
-function sauce(id: string, nameEn: string, allergenCodes: DishOption['allergenCodes']): DishOption {
+function sauce(id: string, nameEn: string, allergens: DishOption['allergens']): DishOption {
     return {
         id,
         kind: 'choice',
@@ -27,9 +27,12 @@ function sauce(id: string, nameEn: string, allergenCodes: DishOption['allergenCo
         groupAr: 'صلصة',
         nameEn,
         nameAr: nameEn,
-        allergenCodes,
+        allergens,
     };
 }
+
+const contains = (code: string) => ({ code, containment: 'contains' as const });
+const mayContain = (code: string) => ({ code, containment: 'may_contain' as const });
 
 async function renderChosen(option: DishOption) {
     await renderIn(
@@ -46,7 +49,7 @@ async function renderChosen(option: DishOption) {
 
 describe('the dish choice picker', () => {
     it('shows the chosen sauce’s allergens as badges', async () => {
-        await renderChosen(sauce('aioli', 'Aioli', ['egg', 'milk']));
+        await renderChosen(sauce('aioli', 'Aioli', [contains('egg'), contains('milk')]));
 
         expect(screen.getByTestId('choices-group-Sauce-allergens-egg')).toBeTruthy();
         expect(screen.getByText('Eggs')).toBeTruthy();
@@ -77,7 +80,7 @@ describe('the dish choice picker', () => {
         await renderIn(
             <DishChoiceFields
                 testID="choices"
-                options={[sauce('aioli', 'Aioli', ['egg'])]}
+                options={[sauce('aioli', 'Aioli', [contains('egg')])]}
                 portions={[]}
                 value={{ catalogueItemVariantId: null, optionIds: [] }}
                 onChange={jest.fn()}
@@ -86,5 +89,58 @@ describe('the dish choice picker', () => {
         );
 
         expect(screen.queryByTestId('choices-group-Sauce-allergens-egg')).toBeNull();
+    });
+
+    it('words a chosen sauce’s may-contain apart from what it contains', async () => {
+        await renderChosen(sauce('aioli', 'Aioli', [contains('egg'), mayContain('sesame')]));
+
+        expect(screen.getByText('Eggs')).toBeTruthy();
+        expect(screen.getByText('May contain Sesame')).toBeTruthy();
+    });
+
+    it('lists every option’s allergens in its label before anything is picked', async () => {
+        const removal: DishOption = {
+            id: 'onion',
+            kind: 'remove',
+            groupEn: null,
+            groupAr: null,
+            nameEn: 'onions',
+            nameAr: 'بصل',
+            allergens: [],
+        };
+        await renderIn(
+            <DishChoiceFields
+                testID="choices"
+                options={[
+                    sauce('aioli', 'Aioli', [
+                        contains('egg'),
+                        contains('milk'),
+                        mayContain('sesame'),
+                    ]),
+                    sauce('tahini', 'Tahini', [mayContain('peanut')]),
+                    sauce('pesto', 'Pesto', null),
+                    sauce('salsa', 'Salsa', []),
+                    removal,
+                ]}
+                portions={[]}
+                value={{ catalogueItemVariantId: null, optionIds: [] }}
+                onChange={jest.fn()}
+                formatPrice={() => ''}
+            />,
+        );
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('choices-group-Sauce-trigger'));
+        });
+        const label = (id: string) =>
+            String(screen.getByTestId(`choices-group-Sauce-option-${id}`).props.accessibilityLabel);
+
+        expect(label('aioli')).toBe('Aioli · Contains Eggs, Milk · May contain Sesame');
+        expect(label('tahini')).toBe('Tahini · May contain Peanuts');
+        expect(label('pesto')).toBe(
+            'Pesto · Allergens not checked yet. Ask the kitchen before choosing it.',
+        );
+        expect(label('salsa')).toBe('Salsa');
+        expect(screen.getByText('No onions')).toBeTruthy();
     });
 });

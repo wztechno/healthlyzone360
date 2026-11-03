@@ -34,7 +34,7 @@ function choice(overrides: Partial<KitchenDishOption> = {}): KitchenDishOption {
         nameEn: 'Aioli',
         nameAr: 'أيولي',
         recipeId: null,
-        allergenCodes: null,
+        allergens: null,
         ...overrides,
     };
 }
@@ -54,7 +54,12 @@ async function render(options: readonly KitchenDishOption[], replace = jest.fn()
 
 describe('the dish options editor', () => {
     it('shows a linked choice’s recipe allergens as badges', async () => {
-        await render([choice({ recipeId: AIOLI_RECIPE, allergenCodes: ['egg'] })]);
+        await render([
+            choice({
+                recipeId: AIOLI_RECIPE,
+                allergens: [{ code: 'egg', containment: 'contains' }],
+            }),
+        ]);
 
         expect(await screen.findByTestId('kitchen-dish-option-0-allergens-egg')).toBeTruthy();
     });
@@ -91,7 +96,7 @@ describe('the dish options editor', () => {
     });
 
     it('says when a linked recipe has no published version', async () => {
-        await render([choice({ recipeId: AIOLI_RECIPE, allergenCodes: null })]);
+        await render([choice({ recipeId: AIOLI_RECIPE, allergens: null })]);
 
         expect(
             await screen.findByTestId('kitchen-dish-option-0-allergens-unpublished'),

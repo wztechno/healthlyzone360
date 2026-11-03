@@ -145,17 +145,18 @@ it('surfaces seeded Verdant products on the wholesale B2B catalogue at B2B amoun
 
     expect($products->count())->toBeGreaterThan(0);
 
-    // Honey Mustard: B2B $5 / B2C $3 on dual packs — public list must show the
-    // retail bottle amount, not vanish because the kilo pack is is_default.
+    // Turkey Bacon: B2B $23 / B2C $5.50 on dual packs — public list must show
+    // the retail 200 g amount, not vanish because the kilo pack is is_default.
+    // A bought-in row: what the kitchen makes stays an unassessed draft.
     $public = collect($this->getJson('/api/v1/marketplace/meals?item_types=product')->assertOk()->json('data'))
-        ->firstWhere('name', 'Honey Mustard Sauce');
+        ->firstWhere('name', 'Turkey Bacon');
 
     expect($public)->not->toBeNull()
-        ->and($public['price']['amount'])->toBe(300);
+        ->and($public['price']['amount'])->toBe(550);
 
-    $wholesale = $products->firstWhere('name', 'Honey Mustard Sauce');
+    $wholesale = $products->firstWhere('name', 'Turkey Bacon');
     expect($wholesale)->not->toBeNull()
-        ->and($wholesale['price']['amount_minor'])->toBe(500);
+        ->and($wholesale['price']['amount_minor'])->toBe(2300);
 });
 
 it('lists the published menu with prices, derived allergens and preview nutrition', function (): void {

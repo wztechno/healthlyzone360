@@ -7,6 +7,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
+use Healthy360\Catalogues\Enums\ProductionMode;
 use Healthy360\Catalogues\Models\Catalogue;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
@@ -37,7 +38,9 @@ use RuntimeException;
  * - targets Verdant's existing `web-shop` / `wholesale` channels;
  * - writes onto **active** public tariffs (demo must be buyable);
  * - gives each product its Arabic name, which the sheet does not carry;
- * - publishes every product that passes readiness, assessed by the owner.
+ * - publishes every bought-in product that passes readiness, assessed by the
+ *   owner. What the kitchen makes (the sheet's `Production` kind) has a recipe
+ *   to answer for its allergens, so it stays an unassessed draft.
  *
  * The fixture is a committed copy of the Phase-1 product list (names, packs,
  * B2C/B2B amounts) — not recipes or formulations.
@@ -126,6 +129,9 @@ final class VerdantProductCatalogueSeeder extends Seeder
         'Chicken Burger' => 'برغر دجاج',
     ];
 
+    /** The bought-in rows the PHPUnit slice adds to the sheet's first eight. */
+    private const array TEST_BOUGHT_IN = ['Turkey Bacon', 'Turkey Breast'];
+
     public function run(): void
     {
         $verdant = Organisation::query()->where('slug', 'verdant-kitchen')->first();
@@ -189,9 +195,17 @@ final class VerdantProductCatalogueSeeder extends Seeder
         // Full sheet in local demos; a short slice under PHPUnit so the suite
         // stays within RefreshDatabase transaction budgets. Gate on
         // runningUnitTests(), not APP_ENV=testing alone — a polluted shell
-        // env must not truncate the demo kitchen catalogue.
+        // env must not truncate the demo kitchen catalogue. The first eight
+        // rows are all made in-house and stay drafts, so two bought-in rows
+        // join them: the demo needs something on sale.
         if (app()->runningUnitTests() && count($parsed['rows']) > 8) {
-            $parsed['rows'] = array_slice($parsed['rows'], 0, 8);
+            $parsed['rows'] = [
+                ...array_slice($parsed['rows'], 0, 8),
+                ...array_values(array_filter(
+                    $parsed['rows'],
+                    static fn (array $row): bool => in_array($row['product'], self::TEST_BOUGHT_IN, true),
+                )),
+            ];
         }
 
         $options = new ImportOptions(
@@ -278,6 +292,12 @@ final class VerdantProductCatalogueSeeder extends Seeder
         foreach ($drafts as $item) {
             if ($item->name_ar === $item->name_en && isset(self::ARABIC_NAMES[$item->name_en])) {
                 $item->forceFill(['name_ar' => self::ARABIC_NAMES[$item->name_en]])->save();
+            }
+
+            if ($item->production_mode === ProductionMode::Production) {
+                // Made here: its allergens are its recipe's to answer, and
+                // nobody has assessed it. It stays a draft until a person does.
+                continue;
             }
 
             $reasons = $readiness->reasons($item);

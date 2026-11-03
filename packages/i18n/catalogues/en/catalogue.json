@@ -640,6 +640,7 @@
         "chosen": "{{group}}: {{name}}",
         "separator": " · ",
         "allergensUnassessed": "Allergens not checked yet. Ask the kitchen before choosing it.",
-        "allergensNone": "No allergens declared for this choice."
+        "allergensNone": "No allergens declared for this choice.",
+        "mayContain": "May contain {{allergens}}"
     }
 }
