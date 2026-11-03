@@ -5,6 +5,7 @@ import type {
     CashSettlementRecord,
     CourierCashOwed,
     DriverCashOwed,
+    TillBranch,
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
@@ -46,9 +47,16 @@ import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../ent
  * a driver's shift is whatever they have not yet handed in.
  *
  * A short hand-in needs a reason and waits for a manager's sign-off. The app takes no pay decision.
+ *
+ * A hand-in goes into one branch's till, so a party with runs from two branches is two rows, each
+ * named with its branch once more than one branch is owed. A prepaid courier run brings no cash: its
+ * fee is a kitchen expense (owner, 3 Nov), shown beside the fee and kept out of what is due.
  */
 
 const EM_DASH = '—';
+
+/** A row's branch, for keys and test ids; empty on a kitchen with one till and no branch. */
+const tillSuffix = (row: TillBranch) => (row.branchId === null ? '' : `-${row.branchId}`);
 
 /** Which row's Settle dialog is open. */
 type Settling =
@@ -81,6 +89,22 @@ function OrderDeskSettlement() {
     const money = (amount: number, currency: CurrencyCode) =>
         formatMoney(formatter, { amount, currency });
     const name = (value: string | null) => value ?? EM_DASH;
+    const multiBranch =
+        new Set(
+            [...(report.data?.drivers ?? []), ...(report.data?.couriers ?? [])].map(
+                (row) => row.branchId,
+            ),
+        ).size > 1;
+    const party = (label: string, row: TillBranch) => (
+        <Stack space="xs">
+            <Text variant="strong">{label}</Text>
+            {!multiBranch || row.branchName === null ? null : (
+                <Text variant="caption" tone="secondary">
+                    {row.branchName}
+                </Text>
+            )}
+        </Stack>
+    );
 
     const driverColumns: readonly CatalogueColumn<DriverCashOwed>[] = [
         {
@@ -90,7 +114,7 @@ function OrderDeskSettlement() {
             label: t('kitchen:ops.settlement.columnDriver'),
             width: 220,
             priority: 100,
-            render: (row) => <Text variant="strong">{name(row.displayName)}</Text>,
+            render: (row) => party(name(row.displayName), row),
         },
         {
             key: 'runs',
@@ -120,7 +144,7 @@ function OrderDeskSettlement() {
             priority: 99,
             render: (row) => (
                 <Button
-                    testID={`kitchen-settlement-driver-${row.driverUserId}-settle`}
+                    testID={`kitchen-settlement-driver-${row.driverUserId}${tillSuffix(row)}-settle`}
                     variant="secondary"
                     size="sm"
                     label={t('kitchen:ops.settlement.settle')}
@@ -140,7 +164,7 @@ function OrderDeskSettlement() {
             label: t('kitchen:ops.settlement.columnCourier'),
             width: 220,
             priority: 100,
-            render: (row) => <Text variant="strong">{row.courierName}</Text>,
+            render: (row) => party(row.courierName, row),
         },
         {
             key: 'runs',
@@ -173,13 +197,24 @@ function OrderDeskSettlement() {
             ),
         },
         {
+            key: 'expense',
+            label: t('kitchen:ops.settlement.columnExpense'),
+            width: 140,
+            priority: 65,
+            render: (row) => (
+                <Text variant="mono" tone="secondary">
+                    {money(row.expenseMinor, row.currencyCode)}
+                </Text>
+            ),
+        },
+        {
             key: 'settle',
             label: t('kitchen:ops.settlement.columnAction'),
             width: 120,
             priority: 99,
             render: (row) => (
                 <Button
-                    testID={`kitchen-settlement-courier-${row.courierName}-settle`}
+                    testID={`kitchen-settlement-courier-${row.courierName}${tillSuffix(row)}-settle`}
                     variant="secondary"
                     size="sm"
                     label={t('kitchen:ops.settlement.settle')}
@@ -313,7 +348,9 @@ function OrderDeskSettlement() {
                             label={t('kitchen:ops.settlement.driversHeading')}
                             columns={driverColumns}
                             rows={data.drivers}
-                            rowKey={(row) => `${row.driverUserId}-${row.currencyCode}`}
+                            rowKey={(row) =>
+                                `${row.driverUserId}-${row.currencyCode}${tillSuffix(row)}`
+                            }
                             rowActionsLabel={t('kitchen:list.rowActions')}
                         />
                     )}
@@ -332,7 +369,9 @@ function OrderDeskSettlement() {
                             label={t('kitchen:ops.settlement.couriersHeading')}
                             columns={courierColumns}
                             rows={data.couriers}
-                            rowKey={(row) => `${row.courierName}-${row.currencyCode}`}
+                            rowKey={(row) =>
+                                `${row.courierName}-${row.currencyCode}${tillSuffix(row)}`
+                            }
                             rowActionsLabel={t('kitchen:list.rowActions')}
                         />
                     )}
@@ -394,12 +433,17 @@ function SettleDialog({
     const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
     const chosen = runs.filter((run) => !excluded.has(run.jobId));
     const expected = chosen.reduce((sum, run) => sum + run.amountMinor, 0);
-    const fees =
+    const courierRuns =
         settling.kind === 'courier'
-            ? settling.row.runs
-                  .filter((run) => !excluded.has(run.jobId))
-                  .reduce((sum, run) => sum + run.feeMinor, 0)
-            : 0;
+            ? settling.row.runs.filter((run) => !excluded.has(run.jobId))
+            : [];
+    // A prepaid run's fee is a kitchen expense: it never comes off what is handed in.
+    const fees = courierRuns
+        .filter((run) => !run.prepaid)
+        .reduce((sum, run) => sum + run.feeMinor, 0);
+    const expense = courierRuns
+        .filter((run) => run.prepaid)
+        .reduce((sum, run) => sum + run.feeMinor, 0);
     const net = expected - fees;
 
     const [amount, setAmount] = useState('');
@@ -412,6 +456,21 @@ function SettleDialog({
     const failure = toFailure(record.error);
 
     const money = (value: number) => formatMoney(formatter, { amount: value, currency });
+
+    /** A run's line: what it brought in, or for a prepaid courier run, its fee. */
+    function runLabel(run: CashRun): string {
+        const prepaid =
+            settling.kind === 'courier'
+                ? settling.row.runs.find(
+                      (candidate) => candidate.jobId === run.jobId && candidate.prepaid,
+                  )
+                : undefined;
+        return `${run.orderNumber}  ${
+            prepaid === undefined
+                ? money(run.amountMinor)
+                : t('kitchen:ops.settlement.prepaidFee', { fee: money(prepaid.feeMinor) })
+        }`;
+    }
 
     function submit() {
         if (handedIn === null || !ready) return;
@@ -465,7 +524,7 @@ function SettleDialog({
                         <Checkbox
                             key={run.jobId}
                             testID={`kitchen-settlement-run-${run.jobId}`}
-                            label={`${run.orderNumber}  ${money(run.amountMinor)}`}
+                            label={runLabel(run)}
                             checked={!excluded.has(run.jobId)}
                             onChange={(checked) => {
                                 const next = new Set(excluded);
@@ -482,6 +541,11 @@ function SettleDialog({
                             fee: money(fees),
                             net: money(net),
                         })}
+                    </Text>
+                )}
+                {expense === 0 ? null : (
+                    <Text variant="caption" tone="secondary" testID="kitchen-settlement-expense">
+                        {t('kitchen:ops.settlement.expenseNote', { expense: money(expense) })}
                     </Text>
                 )}
                 <TextInputField

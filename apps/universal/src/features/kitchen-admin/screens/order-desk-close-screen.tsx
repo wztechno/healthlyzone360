@@ -1,5 +1,10 @@
 import { minorAmountToInput, parseMinorAmount } from '@healthy360/domain-types';
-import type { DailyCloseRecord, OpenDailyClose } from '@healthy360/api-client/contracts';
+import type {
+    DailyCloseRecord,
+    DailyCloseTotal,
+    OpenDailyClose,
+    TillBranch,
+} from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
@@ -8,6 +13,7 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
+    Select,
     Stack,
     TableSkeleton,
     Text,
@@ -40,9 +46,16 @@ import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../ent
  * hand-ins the cash report and the settlement read.
  *
  * A short close needs a reason and waits for a manager's sign-off. The app takes no pay decision.
+ *
+ * One till per branch (owner, 3 Nov). With more than one branch the page gains the branch picker the
+ * team member editor uses — a `Select` whose first option is the whole kitchen — a branch line under
+ * each row's shift, and the kitchen total in the same table. With one branch it is the page it was.
  */
 
 const EM_DASH = '—';
+
+/** The picker's whole-kitchen option. Not a branch identifier, so it can never collide with one. */
+const ALL_BRANCHES = '__all__';
 
 export function OrderDeskCloseScreen() {
     return (
@@ -64,8 +77,17 @@ function OrderDeskClose() {
     const report = useDailyClosesQuery();
     const signOff = useSignOffDailyCloseMutation();
     const [closing, setClosing] = useState<OpenDailyClose | null>(null);
+    const [branch, setBranch] = useState(ALL_BRANCHES);
 
     const failure = toFailure(report.error);
+    const multiBranch = (report.data?.branches.length ?? 0) > 1;
+    const inBranch = (row: TillBranch) => branch === ALL_BRANCHES || row.branchId === branch;
+    const branchLine = (row: TillBranch) =>
+        !multiBranch || row.branchName === null ? null : (
+            <Text variant="caption" tone="secondary">
+                {row.branchName}
+            </Text>
+        );
 
     const openColumns: readonly CatalogueColumn<OpenDailyClose>[] = [
         {
@@ -81,6 +103,7 @@ function OrderDeskClose() {
                     <Text variant="caption" tone="secondary">
                         {row.currencyCode}
                     </Text>
+                    {branchLine(row)}
                 </Stack>
             ),
         },
@@ -133,7 +156,7 @@ function OrderDeskClose() {
             priority: 99,
             render: (row) => (
                 <Button
-                    testID={`kitchen-close-${row.currencyCode}-open`}
+                    testID={`kitchen-close-${row.branchId ?? 'kitchen'}-${row.currencyCode}-open`}
                     variant="secondary"
                     size="sm"
                     label={t('kitchen:ops.dailyClose.close')}
@@ -159,6 +182,7 @@ function OrderDeskClose() {
                     <Text variant="caption" tone="secondary">
                         {row.recordedByName ?? EM_DASH}
                     </Text>
+                    {branchLine(row)}
                 </Stack>
             ),
         },
@@ -284,7 +308,50 @@ function OrderDeskClose() {
         },
     ];
 
+    /** The kitchen total: every till together, a day to a row, in the recent list's figure style. */
+    const totalFigures = [
+        ['counter', 'columnCounter', (row: DailyCloseTotal) => row.counterCashMinor, 85],
+        ['handedIn', 'columnHandedIn', (row: DailyCloseTotal) => row.handedInMinor, 80],
+        ['refunds', 'columnRefunds', (row: DailyCloseTotal) => row.cashRefundsMinor, 75],
+        ['counted', 'columnCounted', (row: DailyCloseTotal) => row.countedMinor, 95],
+        ['variance', 'columnVariance', (row: DailyCloseTotal) => row.varianceMinor, 92],
+    ] as const;
+    const totalColumns: readonly CatalogueColumn<DailyCloseTotal>[] = [
+        {
+            key: 'day',
+            role: 'title',
+            value: (row) => row.businessDate,
+            label: t('kitchen:ops.dailyClose.columnDay'),
+            width: 170,
+            priority: 100,
+            render: (row) => (
+                <Stack space="xs">
+                    <Text variant="strong">{row.businessDate}</Text>
+                    <Text variant="caption" tone="secondary">
+                        {t('kitchen:ops.dailyClose.tillCount', {
+                            tills: formatter.formatNumber(row.tillCount),
+                        })}
+                    </Text>
+                </Stack>
+            ),
+        },
+        ...totalFigures.map(([key, label, amount, priority]): CatalogueColumn<DailyCloseTotal> => ({
+            key,
+            ...(key === 'counted' ? { role: 'metric' as const } : {}),
+            label: t(`kitchen:ops.dailyClose.${label}`),
+            width: 130,
+            priority,
+            render: (row) => (
+                <Text variant="mono">
+                    {formatMoney(formatter, { amount: amount(row), currency: row.currencyCode })}
+                </Text>
+            ),
+        })),
+    ];
+
     const data = report.data;
+    const open = data?.open.filter(inBranch) ?? [];
+    const closes = data?.closes.filter(inBranch) ?? [];
 
     return (
         <Cascade space="md" testID="kitchen-order-desk-close-screen">
@@ -302,13 +369,34 @@ function OrderDeskClose() {
                 />
             ) : data === undefined ? null : (
                 <View className="flex-col gap-loose">
+                    {!multiBranch ? null : (
+                        <View className="w-field">
+                            <Select
+                                testID="kitchen-close-branch"
+                                label={t('kitchen:ops.dailyClose.branchLabel')}
+                                size="sm"
+                                value={branch}
+                                options={[
+                                    {
+                                        value: ALL_BRANCHES,
+                                        label: t('kitchen:ops.dailyClose.allBranches'),
+                                    },
+                                    ...data.branches.map((option) => ({
+                                        value: option.id,
+                                        label: option.name,
+                                    })),
+                                ]}
+                                onChange={setBranch}
+                            />
+                        </View>
+                    )}
                     <Text variant="section" accessibilityRole="header">
                         {t('kitchen:ops.dailyClose.openHeading')}
                     </Text>
                     <Text variant="caption" tone="secondary" testID="kitchen-close-clock">
                         {t('kitchen:ops.dailyClose.clockNote', { timezone: data.timezone })}
                     </Text>
-                    {data.open.length === 0 ? (
+                    {open.length === 0 ? (
                         <EmptyState
                             testID="kitchen-close-open-empty"
                             title={t('kitchen:ops.dailyClose.openEmpty')}
@@ -318,8 +406,8 @@ function OrderDeskClose() {
                             testID="kitchen-close-open"
                             label={t('kitchen:ops.dailyClose.openHeading')}
                             columns={openColumns}
-                            rows={data.open}
-                            rowKey={(row) => row.currencyCode}
+                            rows={open}
+                            rowKey={(row) => `${row.branchId ?? 'kitchen'}-${row.currencyCode}`}
                             rowActionsLabel={t('kitchen:list.rowActions')}
                         />
                     )}
@@ -327,7 +415,7 @@ function OrderDeskClose() {
                     <Text variant="section" accessibilityRole="header">
                         {t('kitchen:ops.dailyClose.recentHeading')}
                     </Text>
-                    {data.closes.length === 0 ? (
+                    {closes.length === 0 ? (
                         <EmptyState
                             testID="kitchen-close-recent-empty"
                             title={t('kitchen:ops.dailyClose.recentEmpty')}
@@ -337,10 +425,36 @@ function OrderDeskClose() {
                             testID="kitchen-close-recent"
                             label={t('kitchen:ops.dailyClose.recentHeading')}
                             columns={recentColumns}
-                            rows={data.closes}
+                            rows={closes}
                             rowKey={(row) => row.id}
                             rowActionsLabel={t('kitchen:list.rowActions')}
                         />
+                    )}
+
+                    {!multiBranch ? null : (
+                        <>
+                            <Text variant="section" accessibilityRole="header">
+                                {t('kitchen:ops.dailyClose.totalHeading')}
+                            </Text>
+                            <Text variant="caption" tone="secondary">
+                                {t('kitchen:ops.dailyClose.totalNote')}
+                            </Text>
+                            {data.totals.length === 0 ? (
+                                <EmptyState
+                                    testID="kitchen-close-total-empty"
+                                    title={t('kitchen:ops.dailyClose.recentEmpty')}
+                                />
+                            ) : (
+                                <CatalogueList<DailyCloseTotal>
+                                    testID="kitchen-close-total"
+                                    label={t('kitchen:ops.dailyClose.totalHeading')}
+                                    columns={totalColumns}
+                                    rows={data.totals}
+                                    rowKey={(row) => `${row.businessDate}-${row.currencyCode}`}
+                                    rowActionsLabel={t('kitchen:list.rowActions')}
+                                />
+                            )}
+                        </>
                     )}
                 </View>
             )}
@@ -395,6 +509,7 @@ function CloseDialog({
         if (floatMinor === null || countedMinor === null || !ready) return;
         record.mutate(
             {
+                branchId: closing.branchId,
                 currencyCode: currency,
                 openingFloatMinor: floatMinor,
                 countedMinor,
@@ -422,7 +537,8 @@ function CloseDialog({
             onClose={onClose}
             title={t('kitchen:ops.dailyClose.dialogTitle', {
                 date: closing.businessDate,
-                currency,
+                currency:
+                    closing.branchName === null ? currency : `${currency} · ${closing.branchName}`,
             })}
             description={t('kitchen:ops.dailyClose.dialogBody')}
             actions={

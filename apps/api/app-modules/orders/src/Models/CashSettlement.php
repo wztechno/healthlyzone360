@@ -20,9 +20,11 @@ use Healthy360\Tenancy\Contracts\OrganisationScoped;
  * @property string $kind `driver` | `courier`
  * @property string|null $driver_user_id
  * @property string|null $courier_name
+ * @property string|null $branch_id the till it went into; null before tills were per branch
  * @property string $currency_code
  * @property int $expected_minor
  * @property int $fee_minor
+ * @property int $expense_minor couriers' fees on prepaid runs, a kitchen expense
  * @property int $handed_in_minor
  * @property int $short_minor
  * @property string|null $short_reason
@@ -34,7 +36,7 @@ use Healthy360\Tenancy\Contracts\OrganisationScoped;
  * @property CarbonImmutable|null $updated_at
  */
 #[Classified(DataClassification::Confidential, 'short_reason')]
-#[Classified(DataClassification::Internal, 'kind', 'driver_user_id', 'courier_name', 'currency_code', 'expected_minor', 'fee_minor', 'handed_in_minor', 'short_minor', 'recorded_by', 'recorded_at', 'signed_off_by', 'signed_off_at')]
+#[Classified(DataClassification::Internal, 'kind', 'driver_user_id', 'courier_name', 'branch_id', 'currency_code', 'expected_minor', 'fee_minor', 'expense_minor', 'handed_in_minor', 'short_minor', 'recorded_by', 'recorded_at', 'signed_off_by', 'signed_off_at')]
 class CashSettlement extends BaseModel implements OrganisationScoped
 {
     use BelongsToOrganisation;
@@ -47,6 +49,7 @@ class CashSettlement extends BaseModel implements OrganisationScoped
         return [
             'expected_minor' => 'integer',
             'fee_minor' => 'integer',
+            'expense_minor' => 'integer',
             'handed_in_minor' => 'integer',
             'short_minor' => 'integer',
             'recorded_at' => 'immutable_datetime',

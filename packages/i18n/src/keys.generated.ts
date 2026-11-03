@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9767 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9776 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4811,15 +4811,18 @@ export interface NamespaceKeys {
     | 'ops.customers.typeB2c'
     | 'ops.customers.typeGuest'
     | 'ops.customers.viewKind'
+    | 'ops.dailyClose.allBranches'
     | 'ops.dailyClose.amountInvalid'
     | 'ops.dailyClose.awaitingSignOff'
     | 'ops.dailyClose.balanced'
+    | 'ops.dailyClose.branchLabel'
     | 'ops.dailyClose.clockNote'
     | 'ops.dailyClose.close'
     | 'ops.dailyClose.columnAction'
     | 'ops.dailyClose.columnClosed'
     | 'ops.dailyClose.columnCounted'
     | 'ops.dailyClose.columnCounter'
+    | 'ops.dailyClose.columnDay'
     | 'ops.dailyClose.columnExpected'
     | 'ops.dailyClose.columnFloat'
     | 'ops.dailyClose.columnHandedIn'
@@ -4848,6 +4851,9 @@ export interface NamespaceKeys {
     | 'ops.dailyClose.signOff'
     | 'ops.dailyClose.signedOff'
     | 'ops.dailyClose.signedOffToast'
+    | 'ops.dailyClose.tillCount'
+    | 'ops.dailyClose.totalHeading'
+    | 'ops.dailyClose.totalNote'
     | 'ops.dishMargins.asOf'
     | 'ops.dishMargins.belowTarget'
     | 'ops.dishMargins.channel.b2b'
@@ -5846,6 +5852,7 @@ export interface NamespaceKeys {
     | 'ops.settlement.columnCourier'
     | 'ops.settlement.columnDriver'
     | 'ops.settlement.columnDue'
+    | 'ops.settlement.columnExpense'
     | 'ops.settlement.columnFee'
     | 'ops.settlement.columnHandedIn'
     | 'ops.settlement.columnParty'
@@ -5861,8 +5868,10 @@ export interface NamespaceKeys {
     | 'ops.settlement.dialogTitle'
     | 'ops.settlement.driversEmpty'
     | 'ops.settlement.driversHeading'
+    | 'ops.settlement.expenseNote'
     | 'ops.settlement.feeNote'
     | 'ops.settlement.loadErrorTitle'
+    | 'ops.settlement.prepaidFee'
     | 'ops.settlement.reasonLabel'
     | 'ops.settlement.recentEmpty'
     | 'ops.settlement.recentHeading'
@@ -14596,15 +14605,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.customers.typeB2c',
   'kitchen:ops.customers.typeGuest',
   'kitchen:ops.customers.viewKind',
+  'kitchen:ops.dailyClose.allBranches',
   'kitchen:ops.dailyClose.amountInvalid',
   'kitchen:ops.dailyClose.awaitingSignOff',
   'kitchen:ops.dailyClose.balanced',
+  'kitchen:ops.dailyClose.branchLabel',
   'kitchen:ops.dailyClose.clockNote',
   'kitchen:ops.dailyClose.close',
   'kitchen:ops.dailyClose.columnAction',
   'kitchen:ops.dailyClose.columnClosed',
   'kitchen:ops.dailyClose.columnCounted',
   'kitchen:ops.dailyClose.columnCounter',
+  'kitchen:ops.dailyClose.columnDay',
   'kitchen:ops.dailyClose.columnExpected',
   'kitchen:ops.dailyClose.columnFloat',
   'kitchen:ops.dailyClose.columnHandedIn',
@@ -14633,6 +14645,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.dailyClose.signOff',
   'kitchen:ops.dailyClose.signedOff',
   'kitchen:ops.dailyClose.signedOffToast',
+  'kitchen:ops.dailyClose.tillCount',
+  'kitchen:ops.dailyClose.totalHeading',
+  'kitchen:ops.dailyClose.totalNote',
   'kitchen:ops.dishMargins.asOf',
   'kitchen:ops.dishMargins.belowTarget',
   'kitchen:ops.dishMargins.channel.b2b',
@@ -15631,6 +15646,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.settlement.columnCourier',
   'kitchen:ops.settlement.columnDriver',
   'kitchen:ops.settlement.columnDue',
+  'kitchen:ops.settlement.columnExpense',
   'kitchen:ops.settlement.columnFee',
   'kitchen:ops.settlement.columnHandedIn',
   'kitchen:ops.settlement.columnParty',
@@ -15646,8 +15662,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.settlement.dialogTitle',
   'kitchen:ops.settlement.driversEmpty',
   'kitchen:ops.settlement.driversHeading',
+  'kitchen:ops.settlement.expenseNote',
   'kitchen:ops.settlement.feeNote',
   'kitchen:ops.settlement.loadErrorTitle',
+  'kitchen:ops.settlement.prepaidFee',
   'kitchen:ops.settlement.reasonLabel',
   'kitchen:ops.settlement.recentEmpty',
   'kitchen:ops.settlement.recentHeading',

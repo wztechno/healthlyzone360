@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
+use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Models\DailyClose;
 use Healthy360\Orders\Models\OrderPaymentReceipt;
@@ -43,9 +44,9 @@ beforeEach(function (): void {
     $this->actingAs($this->world->tenant->user);
 });
 
-function counterCash(object $test, int $amountMinor, string $method = 'cash_at_counter'): OrderPaymentReceipt
+function counterCash(object $test, int $amountMinor, string $method = 'cash_at_counter', ?string $branchId = null): OrderPaymentReceipt
 {
-    $order = RunWorld::order($test->world, ['status' => OrderStatus::Fulfilled, 'subtotal_minor' => $amountMinor, 'delivery_fee_minor' => 0, 'total_minor' => $amountMinor]);
+    $order = RunWorld::order($test->world, ['status' => OrderStatus::Fulfilled, 'subtotal_minor' => $amountMinor, 'delivery_fee_minor' => 0, 'total_minor' => $amountMinor, 'branch_id' => $branchId]);
 
     return OrderPaymentReceipt::factory()->create([
         'organisation_id' => $order->organisation_id,
@@ -58,9 +59,10 @@ function counterCash(object $test, int $amountMinor, string $method = 'cash_at_c
     ]);
 }
 
-function closeTill(object $test, int $float, int $counted, ?string $reason = null): TestResponse
+function closeTill(object $test, int $float, int $counted, ?string $reason = null, ?string $branchId = null): TestResponse
 {
     return $test->postJson(CLOSES_URL, [
+        'branch_id' => $branchId,
         'currency_code' => 'USD',
         'opening_float_minor' => $float,
         'counted_minor' => $counted,
@@ -216,6 +218,83 @@ it('is closed to a member without the code, and a sign-off to one without the ma
 
     $this->getJson(CLOSES_URL, $other->headers)->assertForbidden();
     $this->postJson(CLOSES_URL."/{$id}/sign-off", [], $other->headers)->assertForbidden();
+});
+
+/**
+ * The kitchen's second branch, opened after the first, so the first stays first.
+ */
+function secondBranch(object $test): string
+{
+    $branch = CheckoutWorld::branch($test->world->organisation, 'Second kitchen');
+    DB::table('organisation_branches')->where('id', $branch->getKey())->update(['created_at' => now()->addMinute()]);
+
+    return (string) $branch->getKey();
+}
+
+it('closes two branches\' tills apart, and the kitchen total sums them', function (): void {
+    $main = (string) $this->world->branch->getKey();
+    $second = secondBranch($this);
+
+    counterCash($this, 3000, branchId: $main);
+    counterCash($this, 1000, branchId: $second);
+
+    $open = $this->getJson(CLOSES_URL, $this->world->headers)
+        ->assertOk()
+        ->assertJsonCount(2, 'data.branches')
+        ->assertJsonPath('data.branches.0.id', $main)
+        ->json('data.open');
+
+    expect(collect($open)->pluck('counter_cash_minor', 'branch_id')->all())->toEqual([$main => 3000, $second => 1000]);
+
+    closeTill($this, 500, 3500, branchId: $main)
+        ->assertCreated()
+        ->assertJsonPath('data.close.branch_id', $main)
+        ->assertJsonPath('data.close.branch_name', 'Main kitchen')
+        ->assertJsonPath('data.close.counter_cash_minor', 3000)
+        ->assertJsonPath('data.close.variance_minor', 0);
+
+    $this->getJson(CLOSES_URL, $this->world->headers)
+        ->assertJsonCount(1, 'data.open')
+        ->assertJsonPath('data.open.0.branch_id', $second);
+
+    closeTill($this, 200, 1100, 'Change given twice', $second)
+        ->assertCreated()
+        ->assertJsonPath('data.close.branch_id', $second)
+        ->assertJsonPath('data.close.counter_cash_minor', 1000)
+        ->assertJsonPath('data.close.variance_minor', -100);
+
+    $this->travel(1)->minutes();
+
+    $this->getJson(CLOSES_URL, $this->world->headers)
+        ->assertJsonCount(0, 'data.open')
+        ->assertJsonCount(1, 'data.totals')
+        ->assertJsonPath('data.totals.0.business_date', '2026-11-03')
+        ->assertJsonPath('data.totals.0.till_count', 2)
+        ->assertJsonPath('data.totals.0.counter_cash_minor', 4000)
+        ->assertJsonPath('data.totals.0.counted_minor', 4600)
+        ->assertJsonPath('data.totals.0.variance_minor', -100);
+});
+
+it('counts an order with no branch in the kitchen\'s first branch\'s till', function (): void {
+    $second = secondBranch($this);
+
+    counterCash($this, 3000);
+
+    $this->getJson(CLOSES_URL, $this->world->headers)
+        ->assertJsonCount(1, 'data.open')
+        ->assertJsonPath('data.open.0.branch_id', (string) $this->world->branch->getKey());
+
+    closeTill($this, 0, 0, 'Nothing here', $second)->assertConflict();
+    closeTill($this, 0, 3000)
+        ->assertCreated()
+        ->assertJsonPath('data.close.branch_id', (string) $this->world->branch->getKey());
+});
+
+it('refuses another kitchen\'s branch as the till', function (): void {
+    counterCash($this, 3000);
+    $stranger = CheckoutWorld::branch(Organisation::factory()->create(['country_code' => $this->world->organisation->country_code]), 'Elsewhere');
+
+    closeTill($this, 0, 3000, branchId: (string) $stranger->getKey())->assertUnprocessable();
 });
 
 function closeTillAs(object $test): string

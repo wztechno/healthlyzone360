@@ -31,6 +31,20 @@ use stdClass;
  * balance, and the courier's fee is carried on the settlement. Each run's fee is the
  * one keyed at handover.
  *
+ * ## A prepaid courier run brings no cash, and its fee is a kitchen expense
+ *
+ * A courier run on an order that owed nothing at the door, or was paid by Whish,
+ * expects no cash: its amount is zero and it writes no receipt. Its fee cannot come
+ * off cash the courier never held, so it is recorded on the batch as
+ * `expense_minor`, outside the hand-in (owner, 3 Nov). Cash-on-delivery runs keep
+ * their fee netted from what is handed in. A prepaid run with no fee owes nothing
+ * either way and is not listed.
+ *
+ * ## One till per branch
+ *
+ * A hand-in goes into one branch's till, so it covers one branch's runs. Each run's
+ * branch is its order's, as `TillBranches` resolves it.
+ *
  * ## What is refused
  *
  * Nothing may be settled twice, or from two parties at once, and nobody hands in
@@ -40,8 +54,8 @@ use stdClass;
  * A short hand-in records its reason and waits for a manager's sign-off. The app
  * takes no pay decision: nothing else follows from it.
  *
- * A driver's run from before settlement existed carries `predates_settlement` and
- * is not waiting: its cash came back by hand long ago, and nothing recorded it.
+ * Every delivered run waits until it is settled, however old: there is no cut-off
+ * (owner, 3 Nov). Managers clear the history from this list.
  */
 final readonly class CashSettlements
 {
@@ -87,28 +101,35 @@ final readonly class CashSettlements
         ), 0)
         SQL;
 
+    /** A courier run that brings no cash: Whish, or nothing owed at the door. */
+    private const string PREPAID_SQL = "(orders.payment_method = 'wish' or (".self::DUE_SQL.') <= 0)';
+
     public function __construct(
         private OrderPaymentReceipts $receipts,
         private AuditRecorder $audit,
         private StaffAlerts $alerts,
+        private TillBranches $tills,
     ) {}
 
     /**
-     * Every driver with cash not yet handed in, each with their runs.
+     * Every driver with cash not yet handed in, each with their runs, per branch.
      *
-     * @return list<array{driver_user_id: string, display_name: string|null, currency_code: string, collected_minor: int, runs: list<array{job_id: string, order_id: string, order_number: string, delivered_at: string|null, amount_minor: int}>}>
+     * @return list<array{driver_user_id: string, display_name: string|null, branch_id: string|null, branch_name: string|null, currency_code: string, collected_minor: int, runs: list<array{job_id: string, order_id: string, order_number: string, delivered_at: string|null, amount_minor: int}>}>
      */
     public function drivers(string $organisationId): array
     {
-        $rows = $this->driverRuns($organisationId, null)->get();
+        $branches = $this->tills->all($organisationId);
+        $names = array_column($branches, 'name', 'id');
+        $rows = $this->driverRuns($organisationId, null, $branches[0]['id'] ?? null)->get();
         $groups = [];
 
         foreach ($rows as $row) {
-            $key = $row->driver_user_id.'|'.$row->currency_code;
+            $key = $row->driver_user_id.'|'.$row->currency_code.'|'.$row->branch_id;
 
             $groups[$key] ??= [
                 'driver_user_id' => (string) $row->driver_user_id,
                 'display_name' => is_string($row->display_name) ? $row->display_name : null,
+                ...$this->branch($row, $names),
                 'currency_code' => (string) $row->currency_code,
                 'collected_minor' => 0,
                 'runs' => [],
@@ -122,31 +143,38 @@ final readonly class CashSettlements
     }
 
     /**
-     * Every courier with delivered orders still owing, each with their runs.
+     * Every courier with delivered orders still owing, or a prepaid run's fee to
+     * record, each with their runs, per branch.
      *
-     * @return list<array{courier_name: string, currency_code: string, due_minor: int, fee_minor: int, runs: list<array{job_id: string, order_id: string, order_number: string, delivered_at: string|null, amount_minor: int, fee_minor: int, reference: string|null}>}>
+     * @return list<array{courier_name: string, branch_id: string|null, branch_name: string|null, currency_code: string, due_minor: int, fee_minor: int, expense_minor: int, runs: list<array{job_id: string, order_id: string, order_number: string, delivered_at: string|null, amount_minor: int, fee_minor: int, prepaid: bool, reference: string|null}>}>
      */
     public function couriers(string $organisationId): array
     {
-        $rows = $this->courierRuns($organisationId, null)->get();
+        $branches = $this->tills->all($organisationId);
+        $names = array_column($branches, 'name', 'id');
+        $rows = $this->courierRuns($organisationId, null, $branches[0]['id'] ?? null)->get();
         $groups = [];
 
         foreach ($rows as $row) {
-            $key = $row->courier_name.'|'.$row->currency_code;
+            $key = $row->courier_name.'|'.$row->currency_code.'|'.$row->branch_id;
+            $prepaid = (bool) $row->prepaid;
 
             $groups[$key] ??= [
                 'courier_name' => (string) $row->courier_name,
+                ...$this->branch($row, $names),
                 'currency_code' => (string) $row->currency_code,
                 'due_minor' => 0,
                 'fee_minor' => 0,
+                'expense_minor' => 0,
                 'runs' => [],
             ];
 
             $groups[$key]['due_minor'] += (int) $row->amount_minor;
-            $groups[$key]['fee_minor'] += (int) $row->fee_minor;
+            $groups[$key][$prepaid ? 'expense_minor' : 'fee_minor'] += (int) $row->fee_minor;
             $groups[$key]['runs'][] = [
                 ...$this->run($row),
                 'fee_minor' => (int) $row->fee_minor,
+                'prepaid' => $prepaid,
                 'reference' => is_string($row->courier_reference) ? $row->courier_reference : null,
             ];
         }
@@ -167,8 +195,9 @@ final readonly class CashSettlements
         $settlement = DB::transaction(function () use ($organisationId, $jobIds, $handedInMinor, $shortReason, $actorUserId): CashSettlement {
             DB::table('delivery_jobs')->where('organisation_id', $organisationId)->whereIn('id', $jobIds)->lockForUpdate()->get(['id']);
 
-            $driver = $this->driverRuns($organisationId, $jobIds)->get();
-            $courier = $this->courierRuns($organisationId, $jobIds)->get();
+            $firstBranch = $this->tills->first($organisationId);
+            $driver = $this->driverRuns($organisationId, $jobIds, $firstBranch)->get();
+            $courier = $this->courierRuns($organisationId, $jobIds, $firstBranch)->get();
             $rows = $driver->isNotEmpty() ? $driver : $courier;
 
             if ($rows->count() !== count($jobIds) || ($driver->isNotEmpty() && $courier->isNotEmpty())) {
@@ -182,8 +211,13 @@ final readonly class CashSettlements
                 throw ValidationException::withMessages(['job_ids' => 'One hand-in covers one driver or courier, in one currency.']);
             }
 
+            if ($rows->unique('branch_id')->count() > 1) {
+                throw ValidationException::withMessages(['job_ids' => 'One hand-in goes into one branch\'s till. Settle each branch\'s runs on their own.']);
+            }
+
             $expected = (int) $rows->sum('amount_minor');
-            $fee = $isCourier ? (int) $rows->sum('fee_minor') : 0;
+            $fee = $isCourier ? (int) $rows->reject(static fn (stdClass $row): bool => (bool) $row->prepaid)->sum('fee_minor') : 0;
+            $expense = $isCourier ? (int) $rows->filter(static fn (stdClass $row): bool => (bool) $row->prepaid)->sum('fee_minor') : 0;
             $short = $expected - $fee - $handedInMinor;
 
             if ($short < 0) {
@@ -202,9 +236,11 @@ final readonly class CashSettlements
             $settlement->kind = $isCourier ? 'courier' : 'driver';
             $settlement->driver_user_id = $isCourier ? null : (string) $first->driver_user_id;
             $settlement->courier_name = $isCourier ? (string) $first->courier_name : null;
+            $settlement->branch_id = is_string($first->branch_id) ? $first->branch_id : null;
             $settlement->currency_code = (string) $first->currency_code;
             $settlement->expected_minor = $expected;
             $settlement->fee_minor = $fee;
+            $settlement->expense_minor = $expense;
             $settlement->handed_in_minor = $handedInMinor;
             $settlement->short_minor = $short;
             $settlement->short_reason = $short > 0 ? trim((string) $shortReason) : null;
@@ -231,6 +267,8 @@ final readonly class CashSettlements
                 'run_count' => count($jobIds),
                 'expected_minor' => $settlement->expected_minor,
                 'fee_minor' => $settlement->fee_minor,
+                'expense_minor' => $settlement->expense_minor,
+                'branch_id' => $settlement->branch_id,
                 'handed_in_minor' => $settlement->handed_in_minor,
                 'short_minor' => $settlement->short_minor,
                 'currency' => $settlement->currency_code,
@@ -277,8 +315,9 @@ final readonly class CashSettlements
 
     /**
      * @param  list<string>|null  $jobIds  null for every run waiting
+     * @param  string|null  $firstBranch  the till for an order with no branch of its own
      */
-    private function driverRuns(string $organisationId, ?array $jobIds): Builder
+    private function driverRuns(string $organisationId, ?array $jobIds, ?string $firstBranch): Builder
     {
         return $this->runs($organisationId, $jobIds)
             ->leftJoin('user_profiles', 'user_profiles.user_id', '=', 'jobs.driver_user_id')
@@ -287,21 +326,37 @@ final readonly class CashSettlements
             ->whereRaw('('.self::COLLECTED_SQL.') > 0')
             ->select(['jobs.id as job_id', 'jobs.driver_user_id', 'jobs.delivered_at', 'orders.id as order_id', 'orders.order_number', 'orders.currency_code'])
             ->selectRaw('('.self::COLLECTED_SQL.') as amount_minor')
-            ->selectRaw("nullif(trim(coalesce(user_profiles.given_name, '') || ' ' || coalesce(user_profiles.family_name, '')), '') as display_name");
+            ->selectRaw("nullif(trim(coalesce(user_profiles.given_name, '') || ' ' || coalesce(user_profiles.family_name, '')), '') as display_name")
+            ->selectRaw(TillBranches::ofOrder().' as branch_id', [$firstBranch]);
     }
 
     /**
+     * A prepaid run's amount is zero, so it writes no receipt and expects no cash.
+     *
      * @param  list<string>|null  $jobIds  null for every run waiting
+     * @param  string|null  $firstBranch  the till for an order with no branch of its own
      */
-    private function courierRuns(string $organisationId, ?array $jobIds): Builder
+    private function courierRuns(string $organisationId, ?array $jobIds, ?string $firstBranch): Builder
     {
         return $this->runs($organisationId, $jobIds)
             ->whereNotNull('jobs.courier_name')
-            ->where('orders.payment_method', '<>', 'wish')
-            ->whereRaw('('.self::DUE_SQL.') > 0')
+            ->whereRaw('(not '.self::PREPAID_SQL.' or coalesce(jobs.courier_fee_minor, 0) > 0)')
             ->select(['jobs.id as job_id', 'jobs.courier_name', 'jobs.courier_reference', 'jobs.delivered_at', 'orders.id as order_id', 'orders.order_number', 'orders.currency_code'])
             ->selectRaw('coalesce(jobs.courier_fee_minor, 0) as fee_minor')
-            ->selectRaw('('.self::DUE_SQL.') as amount_minor');
+            ->selectRaw(self::PREPAID_SQL.' as prepaid')
+            ->selectRaw('case when '.self::PREPAID_SQL.' then 0 else ('.self::DUE_SQL.') end as amount_minor')
+            ->selectRaw(TillBranches::ofOrder().' as branch_id', [$firstBranch]);
+    }
+
+    /**
+     * @param  array<string, string>  $names
+     * @return array{branch_id: string|null, branch_name: string|null}
+     */
+    private function branch(stdClass $row, array $names): array
+    {
+        $id = is_string($row->branch_id) ? $row->branch_id : null;
+
+        return ['branch_id' => $id, 'branch_name' => $id === null ? null : ($names[$id] ?? null)];
     }
 
     /**
@@ -318,7 +373,6 @@ final readonly class CashSettlements
             ->where('orders.organisation_id', $organisationId)
             ->where('jobs.status', 'delivered')
             ->whereNull('jobs.cash_settlement_id')
-            ->where('jobs.predates_settlement', false)
             ->when($jobIds !== null, fn (Builder $query): Builder => $query->whereIn('jobs.id', $jobIds ?? []))
             ->orderBy('jobs.delivered_at')
             ->orderBy('jobs.id');
@@ -348,7 +402,7 @@ final readonly class CashSettlements
      */
     private function writeCourierReceipts(Collection $rows, string $actorUserId): void
     {
-        foreach ($rows as $row) {
+        foreach ($rows->reject(static fn (stdClass $row): bool => (bool) $row->prepaid) as $row) {
             $order = Order::query()->whereKey((string) $row->order_id)->lockForUpdate()->first();
 
             if (! $order instanceof Order) {

@@ -443,6 +443,7 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                 path: '/catalogue/order-desk/closes',
                 headers: { 'Idempotency-Key': generateRequestId() },
                 body: {
+                    branch_id: request.branchId,
                     currency_code: request.currencyCode,
                     opening_float_minor: request.openingFloatMinor,
                     counted_minor: request.countedMinor,

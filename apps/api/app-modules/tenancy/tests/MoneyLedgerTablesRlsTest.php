@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\User;
 use Healthy360\Organisations\Models\Organisation;
+use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Tenancy\TenantContext;
 use Healthy360\Tenancy\Tests\Fixtures\RuntimeRole;
 use Illuminate\Support\Facades\DB;
@@ -11,7 +12,7 @@ use Illuminate\Support\Str;
 
 /*
 |--------------------------------------------------------------------------
-| cash_settlements and order_refunds under row-level security
+| cash_settlements, daily_closes and order_refunds under row-level security
 |--------------------------------------------------------------------------
 |
 | Both carry the plain `rls_organisation_scope` policy. Run inside
@@ -81,6 +82,60 @@ it('shows no hand-in when the session carries no organisation', function (): voi
     RuntimeRole::context();
 
     expect(RuntimeRole::run(fn (): int => DB::table('cash_settlements')->count()))->toBe(0);
+});
+
+/**
+ * One branch's balanced close, on a branch of its own organisation.
+ */
+function dailyCloseRow(Organisation $organisation, string $userId): string
+{
+    $id = (string) Str::uuid7();
+    $branch = OrganisationBranch::withoutTenancy()->create([
+        'organisation_id' => $organisation->getKey(),
+        'name' => 'Main kitchen',
+        'country_code' => $organisation->country_code,
+        'timezone' => 'Asia/Beirut',
+        'status' => 'active',
+        'lock_version' => 0,
+    ]);
+
+    DB::table('daily_closes')->insert([
+        'id' => $id,
+        'organisation_id' => $organisation->getKey(),
+        'branch_id' => $branch->getKey(),
+        'currency_code' => 'USD',
+        'business_date' => '2026-11-03',
+        'opened_at' => now()->subHours(8),
+        'closed_at' => now(),
+        'opening_float_minor' => 500,
+        'counter_cash_minor' => 1000,
+        'handed_in_minor' => 0,
+        'cash_refunds_minor' => 0,
+        'expected_minor' => 1500,
+        'counted_minor' => 1500,
+        'variance_minor' => 0,
+        'recorded_by' => $userId,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    return $id;
+}
+
+it('hides another kitchen’s branch closes from the runtime role', function (): void {
+    $ours = dailyCloseRow($this->mine, (string) $this->user->getKey());
+    $stranger = dailyCloseRow($this->theirs, (string) $this->user->getKey());
+
+    RuntimeRole::context((string) $this->user->getKey(), (string) $this->mine->getKey());
+
+    /** @var list<string> $visible */
+    $visible = RuntimeRole::run(fn (): array => DB::table('daily_closes')
+        ->pluck('id')
+        ->map(static fn (mixed $id): string => (string) $id)
+        ->all());
+
+    expect($visible)->toContain($ours)
+        ->and($visible)->not->toContain($stranger);
 });
 
 it('puts the same policy on the refund ledger', function (): void {

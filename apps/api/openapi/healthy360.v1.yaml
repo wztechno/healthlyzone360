@@ -16982,9 +16982,11 @@ paths:
       summary: Cash still on the road, and recent hand-ins
       description: |
         Every own driver holding cash from delivered runs, every courier with
-        delivered orders still owing, and the last fifty hand-ins. There is no
+        delivered orders still owing or a prepaid run's fee to record, and the
+        last fifty hand-ins. Every delivered run waits, however old. There is no
         shift table: a driver's shift is whatever they have not yet handed in.
-        Requires `order.settle_cash_organisation`.
+        Each party is listed per branch, because a hand-in goes into one
+        branch's till. Requires `order.settle_cash_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -17011,9 +17013,11 @@ paths:
       description: |
         A driver's receipts already exist, so this records the cash reaching the
         kitchen. A courier's do not, so this writes each order's receipt for its
-        full balance and carries the courier's fees on the settlement.
+        full balance and carries the courier's fees on the settlement. A prepaid
+        courier run expects no cash and writes no receipt; its fee is recorded as
+        `expense_minor`, a kitchen expense outside the hand-in.
 
-        One driver or one courier, in one currency. `409 resource.conflict` when a
+        One driver or one courier, in one currency, for one branch. `409 resource.conflict` when a
         run is no longer waiting. `422` above what the runs brought in, or short
         with no `short_reason`. A short hand-in waits for a manager's sign-off; the
         app takes no pay decision from it. Audited as `order.cash_settled`.
@@ -17098,9 +17102,10 @@ paths:
       tags: [Order desk]
       summary: What should be in the till, and recent closes
       description: |
-        Each currency with cash moving since its last close, in the kitchen's
-        local time, and the last fifty closes. A shift is everything since the
-        last close. Requires `order.settle_cash_organisation`.
+        Each till, one per branch and currency, with cash moving since its last
+        close, in the kitchen's local time; the kitchen's branches; the kitchen
+        total per local day; and the last fifty closes. A shift is everything
+        since that till's last close. Requires `order.settle_cash_organisation`.
       parameters:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -17126,7 +17131,8 @@ paths:
       summary: Close the shift against a cash count
       description: |
         Expected is the float, plus counter cash, plus hand-ins, less cash refunds,
-        all read at the moment of the close. `422` when short with no
+        all read for the branch's till at the moment of the close. No `branch_id`
+        closes the kitchen's first branch. `422` when short with no
         `variance_reason`. A short close waits for a manager's sign-off; the app
         takes no pay decision from it. Audited as `order.daily_closed`.
         Requires `order.settle_cash_organisation`.
@@ -42707,21 +42713,28 @@ components:
       allOf:
         - $ref: '#/components/schemas/CashRun'
         - type: object
-          required: [fee_minor, reference]
+          required: [fee_minor, prepaid, reference]
           properties:
             fee_minor:
               type: integer
               minimum: 0
+            prepaid:
+              type: boolean
+              description: The order owed nothing at the door, or was paid by Whish. Its amount is zero and its fee is a kitchen expense.
             reference:
               type: [string, 'null']
 
     DriverCashOwed:
       type: object
-      required: [driver_user_id, display_name, currency_code, collected_minor, runs]
+      required: [driver_user_id, display_name, branch_id, branch_name, currency_code, collected_minor, runs]
       properties:
         driver_user_id:
           $ref: '#/components/schemas/Uuid'
         display_name:
+          type: [string, 'null']
+        branch_id:
+          $ref: '#/components/schemas/NullableTillBranchId'
+        branch_name:
           type: [string, 'null']
         currency_code:
           type: string
@@ -42734,16 +42747,24 @@ components:
 
     CourierCashOwed:
       type: object
-      required: [courier_name, currency_code, due_minor, fee_minor, runs]
+      required: [courier_name, branch_id, branch_name, currency_code, due_minor, fee_minor, expense_minor, runs]
       properties:
         courier_name:
           type: string
+        branch_id:
+          $ref: '#/components/schemas/NullableTillBranchId'
+        branch_name:
+          type: [string, 'null']
         currency_code:
           type: string
         due_minor:
           type: integer
         fee_minor:
           type: integer
+          description: Fees on cash-on-delivery runs, netted from the hand-in.
+        expense_minor:
+          type: integer
+          description: Fees on prepaid runs, a kitchen expense. Never netted from the hand-in.
         runs:
           type: array
           items:
@@ -42886,10 +42907,19 @@ components:
               items:
                 $ref: '#/components/schemas/Payable'
 
+    NullableTillBranchId:
+      type: [string, 'null']
+      format: uuid
+      description: The branch whose till this is. Null on a kitchen with no branch, and on rows from before tills were per branch, which count as the kitchen's first branch.
+
     OpenDailyClose:
       type: object
-      required: [currency_code, business_date, opened_at, suggested_float_minor, counter_cash_minor, handed_in_minor, cash_refunds_minor]
+      required: [branch_id, branch_name, currency_code, business_date, opened_at, suggested_float_minor, counter_cash_minor, handed_in_minor, cash_refunds_minor]
       properties:
+        branch_id:
+          $ref: '#/components/schemas/NullableTillBranchId'
+        branch_name:
+          type: [string, 'null']
         currency_code:
           type: string
         business_date:
@@ -42909,10 +42939,14 @@ components:
 
     DailyClose:
       type: object
-      required: [id, currency_code, business_date, opened_at, closed_at, opening_float_minor, counter_cash_minor, handed_in_minor, cash_refunds_minor, expected_minor, counted_minor, variance_minor, variance_reason, recorded_by_name, signed_off_by_name, signed_off_at]
+      required: [id, branch_id, branch_name, currency_code, business_date, opened_at, closed_at, opening_float_minor, counter_cash_minor, handed_in_minor, cash_refunds_minor, expected_minor, counted_minor, variance_minor, variance_reason, recorded_by_name, signed_off_by_name, signed_off_at]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
+        branch_id:
+          $ref: '#/components/schemas/NullableTillBranchId'
+        branch_name:
+          type: [string, 'null']
         currency_code:
           type: string
         business_date:
@@ -42957,19 +42991,57 @@ components:
       properties:
         data:
           type: object
-          required: [timezone, open, closes]
+          required: [timezone, branches, open, totals, closes]
           properties:
             timezone:
               type: string
               description: The kitchen's clock, which the business dates are read on.
+            branches:
+              type: array
+              description: Every branch, so every till, the kitchen's first branch first.
+              items:
+                type: object
+                required: [id, name]
+                properties:
+                  id:
+                    $ref: '#/components/schemas/Uuid'
+                  name:
+                    type: string
             open:
               type: array
               items:
                 $ref: '#/components/schemas/OpenDailyClose'
+            totals:
+              type: array
+              description: The kitchen total per local day and currency, newest first, fourteen days with a close at most. Cash moved and variance sum every shift; counted is each till's last count of the day.
+              items:
+                $ref: '#/components/schemas/DailyCloseTotal'
             closes:
               type: array
               items:
                 $ref: '#/components/schemas/DailyClose'
+
+    DailyCloseTotal:
+      type: object
+      required: [business_date, currency_code, till_count, counter_cash_minor, handed_in_minor, cash_refunds_minor, counted_minor, variance_minor]
+      properties:
+        business_date:
+          type: string
+          format: date
+        currency_code:
+          type: string
+        till_count:
+          type: integer
+        counter_cash_minor:
+          type: integer
+        handed_in_minor:
+          type: integer
+        cash_refunds_minor:
+          type: integer
+        counted_minor:
+          type: integer
+        variance_minor:
+          type: integer
 
     DailyCloseEnvelope:
       type: object
@@ -42986,6 +43058,10 @@ components:
       type: object
       required: [currency_code, opening_float_minor, counted_minor]
       properties:
+        branch_id:
+          description: The branch whose till is counted. Omitted or null is the kitchen's first branch.
+          type: [string, 'null']
+          format: uuid
         currency_code:
           type: string
         opening_float_minor:
@@ -43000,7 +43076,7 @@ components:
 
     CashSettlement:
       type: object
-      required: [id, kind, party_name, currency_code, expected_minor, fee_minor, handed_in_minor, short_minor, short_reason, recorded_by_name, recorded_at, signed_off_by_name, signed_off_at]
+      required: [id, kind, party_name, branch_id, branch_name, currency_code, expected_minor, fee_minor, expense_minor, handed_in_minor, short_minor, short_reason, recorded_by_name, recorded_at, signed_off_by_name, signed_off_at]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -43009,12 +43085,19 @@ components:
           enum: [driver, courier]
         party_name:
           type: [string, 'null']
+        branch_id:
+          $ref: '#/components/schemas/NullableTillBranchId'
+        branch_name:
+          type: [string, 'null']
         currency_code:
           type: string
         expected_minor:
           type: integer
         fee_minor:
           type: integer
+        expense_minor:
+          type: integer
+          description: Couriers' fees on prepaid runs, a kitchen expense outside the hand-in.
         handed_in_minor:
           type: integer
         short_minor:

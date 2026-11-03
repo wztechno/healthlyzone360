@@ -1,7 +1,4 @@
-import type {
-    CashSettlementRecord,
-    OrderDeskSettlements,
-} from '@healthy360/api-client/contracts';
+import type { CashSettlementRecord, OrderDeskSettlements } from '@healthy360/api-client/contracts';
 import type { IsoDateTime } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Dimensions } from 'react-native';
@@ -35,6 +32,8 @@ const SETTLEMENTS: OrderDeskSettlements = {
         {
             driverUserId: 'driver-1',
             displayName: 'Omar',
+            branchId: null,
+            branchName: null,
             currencyCode: 'USD',
             collectedMinor: 5000,
             runs: [
@@ -63,9 +62,12 @@ const RECORD: CashSettlementRecord = {
     id: 'settlement-1',
     kind: 'driver',
     partyName: 'Omar',
+    branchId: null,
+    branchName: null,
     currencyCode: 'USD',
     expectedMinor: 5000,
     feeMinor: 0,
+    expenseMinor: 0,
     handedInMinor: 4500,
     shortMinor: 500,
     shortReason: 'Change',
@@ -128,5 +130,71 @@ describe('settling cash', () => {
         });
 
         expect(await screen.findByTestId('kitchen-settlement-settlement-1-sign-off')).toBeTruthy();
+    });
+
+    it('expects no cash for a prepaid courier run, and shows its fee as a kitchen expense', async () => {
+        const recordSettlement = jest.fn(async () => ({
+            ...RECORD,
+            kind: 'courier' as const,
+            partyName: 'Toters',
+            expectedMinor: 0,
+            handedInMinor: 0,
+            shortMinor: 0,
+            shortReason: null,
+            expenseMinor: 300,
+        }));
+
+        await renderStubScreen(<OrderDeskSettlementScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                orderDesk: {
+                    getSettlements: async () => ({
+                        drivers: [],
+                        couriers: [
+                            {
+                                courierName: 'Toters',
+                                branchId: null,
+                                branchName: null,
+                                currencyCode: 'USD',
+                                dueMinor: 0,
+                                feeMinor: 0,
+                                expenseMinor: 300,
+                                runs: [
+                                    {
+                                        jobId: 'job-9',
+                                        orderId: 'order-9',
+                                        orderNumber: 'HZ-9',
+                                        deliveredAt: null,
+                                        amountMinor: 0,
+                                        feeMinor: 300,
+                                        prepaid: true,
+                                        reference: null,
+                                    },
+                                ],
+                            },
+                        ],
+                        settlements: [],
+                    }),
+                    recordSettlement,
+                },
+            },
+        });
+
+        expect(await screen.findByTestId('kitchen-settlement-couriers')).toHaveTextContent(
+            /\$3\.00/u,
+        );
+        fireEvent.press(screen.getByTestId('kitchen-settlement-courier-Toters-settle'));
+        expect(await screen.findByTestId('kitchen-settlement-expense')).toHaveTextContent(
+            /\$3\.00/u,
+        );
+        expect(screen.getByTestId('kitchen-settlement-fee')).toHaveTextContent(/\$0\.00 is due/u);
+
+        await type('kitchen-settlement-amount-input', '0');
+        expect(screen.queryByTestId('kitchen-settlement-short')).toBeNull();
+        fireEvent.press(screen.getByTestId('kitchen-settlement-confirm'));
+
+        await waitFor(() => {
+            expect(recordSettlement).toHaveBeenCalledWith({ jobIds: ['job-9'], handedInMinor: 0 });
+        });
     });
 });

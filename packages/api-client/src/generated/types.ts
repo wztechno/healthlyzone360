@@ -10454,12 +10454,18 @@ export type CashRun = {
 
 export type CourierCashRun = CashRun & {
     fee_minor: number;
+    /**
+     * The order owed nothing at the door, or was paid by Whish. Its amount is zero and its fee is a kitchen expense.
+     */
+    prepaid: boolean;
     reference: string | null;
 };
 
 export type DriverCashOwed = {
     driver_user_id: Uuid;
     display_name: string | null;
+    branch_id: NullableTillBranchId;
+    branch_name: string | null;
     currency_code: string;
     collected_minor: number;
     runs: Array<CashRun>;
@@ -10467,9 +10473,18 @@ export type DriverCashOwed = {
 
 export type CourierCashOwed = {
     courier_name: string;
+    branch_id: NullableTillBranchId;
+    branch_name: string | null;
     currency_code: string;
     due_minor: number;
+    /**
+     * Fees on cash-on-delivery runs, netted from the hand-in.
+     */
     fee_minor: number;
+    /**
+     * Fees on prepaid runs, a kitchen expense. Never netted from the hand-in.
+     */
+    expense_minor: number;
     runs: Array<CourierCashRun>;
 };
 
@@ -10535,7 +10550,14 @@ export type PayablesEnvelope = {
     };
 };
 
+/**
+ * The branch whose till this is. Null on a kitchen with no branch, and on rows from before tills were per branch, which count as the kitchen's first branch.
+ */
+export type NullableTillBranchId = string | null;
+
 export type OpenDailyClose = {
+    branch_id: NullableTillBranchId;
+    branch_name: string | null;
     currency_code: string;
     business_date: string;
     opened_at: string;
@@ -10547,6 +10569,8 @@ export type OpenDailyClose = {
 
 export type DailyClose = {
     id: Uuid;
+    branch_id: NullableTillBranchId;
+    branch_name: string | null;
     currency_code: string;
     business_date: string;
     opened_at: string;
@@ -10573,9 +10597,31 @@ export type OrderDeskClosesEnvelope = {
          * The kitchen's clock, which the business dates are read on.
          */
         timezone: string;
+        /**
+         * Every branch, so every till, the kitchen's first branch first.
+         */
+        branches: Array<{
+            id: Uuid;
+            name: string;
+        }>;
         open: Array<OpenDailyClose>;
+        /**
+         * The kitchen total per local day and currency, newest first, fourteen days with a close at most. Cash moved and variance sum every shift; counted is each till's last count of the day.
+         */
+        totals: Array<DailyCloseTotal>;
         closes: Array<DailyClose>;
     };
+};
+
+export type DailyCloseTotal = {
+    business_date: string;
+    currency_code: string;
+    till_count: number;
+    counter_cash_minor: number;
+    handed_in_minor: number;
+    cash_refunds_minor: number;
+    counted_minor: number;
+    variance_minor: number;
 };
 
 export type DailyCloseEnvelope = {
@@ -10585,6 +10631,10 @@ export type DailyCloseEnvelope = {
 };
 
 export type StoreOrderDeskCloseRequest = {
+    /**
+     * The branch whose till is counted. Omitted or null is the kitchen's first branch.
+     */
+    branch_id?: string | null;
     currency_code: string;
     opening_float_minor: number;
     counted_minor: number;
@@ -10595,9 +10645,15 @@ export type CashSettlement = {
     id: Uuid;
     kind: 'driver' | 'courier';
     party_name: string | null;
+    branch_id: NullableTillBranchId;
+    branch_name: string | null;
     currency_code: string;
     expected_minor: number;
     fee_minor: number;
+    /**
+     * Couriers' fees on prepaid runs, a kitchen expense outside the hand-in.
+     */
+    expense_minor: number;
     handed_in_minor: number;
     short_minor: number;
     short_reason: string | null;

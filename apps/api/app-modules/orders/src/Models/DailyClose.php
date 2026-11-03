@@ -17,6 +17,7 @@ use Healthy360\Tenancy\Contracts\OrganisationScoped;
  *
  * @property string $id
  * @property string $organisation_id
+ * @property string|null $branch_id the till counted; null before tills were per branch
  * @property string $currency_code
  * @property CarbonImmutable $business_date
  * @property CarbonImmutable $opened_at
@@ -36,7 +37,7 @@ use Healthy360\Tenancy\Contracts\OrganisationScoped;
  * @property CarbonImmutable|null $updated_at
  */
 #[Classified(DataClassification::Confidential, 'variance_reason')]
-#[Classified(DataClassification::Internal, 'currency_code', 'business_date', 'opened_at', 'closed_at', 'opening_float_minor', 'counter_cash_minor', 'handed_in_minor', 'cash_refunds_minor', 'expected_minor', 'counted_minor', 'variance_minor', 'recorded_by', 'signed_off_by', 'signed_off_at')]
+#[Classified(DataClassification::Internal, 'branch_id', 'currency_code', 'business_date', 'opened_at', 'closed_at', 'opening_float_minor', 'counter_cash_minor', 'handed_in_minor', 'cash_refunds_minor', 'expected_minor', 'counted_minor', 'variance_minor', 'recorded_by', 'signed_off_by', 'signed_off_at')]
 class DailyClose extends BaseModel implements OrganisationScoped
 {
     use BelongsToOrganisation;

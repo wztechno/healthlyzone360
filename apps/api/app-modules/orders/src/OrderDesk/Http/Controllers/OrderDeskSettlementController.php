@@ -104,14 +104,20 @@ final class OrderDeskSettlementController
             ->whereIn('user_id', $settlements->pluck('driver_user_id')->merge($settlements->pluck('recorded_by'))->merge($settlements->pluck('signed_off_by'))->filter()->unique()->values())
             ->selectRaw("user_id, nullif(trim(coalesce(given_name, '') || ' ' || coalesce(family_name, '')), '') as name")
             ->pluck('name', 'user_id');
+        $branches = DB::table('organisation_branches')
+            ->whereIn('id', $settlements->pluck('branch_id')->filter()->unique()->values())
+            ->pluck('name', 'id');
 
         return $settlements->map(fn (CashSettlement $settlement): array => [
             'id' => (string) $settlement->getKey(),
             'kind' => $settlement->kind,
             'party_name' => $settlement->courier_name ?? $names[$settlement->driver_user_id] ?? null,
+            'branch_id' => $settlement->branch_id,
+            'branch_name' => $settlement->branch_id === null ? null : ($branches[$settlement->branch_id] ?? null),
             'currency_code' => $settlement->currency_code,
             'expected_minor' => $settlement->expected_minor,
             'fee_minor' => $settlement->fee_minor,
+            'expense_minor' => $settlement->expense_minor,
             'handed_in_minor' => $settlement->handed_in_minor,
             'short_minor' => $settlement->short_minor,
             'short_reason' => $settlement->short_reason,

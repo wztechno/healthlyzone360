@@ -38,8 +38,11 @@ const USD = 'USD' as CurrencyCode;
 
 const CLOSES: OrderDeskCloses = {
     timezone: 'Asia/Beirut',
+    branches: [{ id: 'branch-main', name: 'Main kitchen' }],
     open: [
         {
+            branchId: 'branch-main',
+            branchName: 'Main kitchen',
             currencyCode: USD,
             businessDate: '2026-11-03',
             openedAt: '2026-11-03T06:00:00Z' as IsoDateTime,
@@ -49,11 +52,14 @@ const CLOSES: OrderDeskCloses = {
             cashRefundsMinor: 500,
         },
     ],
+    totals: [],
     closes: [],
 };
 
 const SHORT_CLOSE: DailyCloseRecord = {
     id: 'close-1',
+    branchId: 'branch-main',
+    branchName: 'Main kitchen',
     currencyCode: USD,
     businessDate: '2026-11-03',
     openedAt: '2026-11-03T06:00:00Z' as IsoDateTime,
@@ -88,7 +94,7 @@ describe('the daily close', () => {
             repositories: { orderDesk: { getCloses: async () => CLOSES, recordClose } },
         });
 
-        fireEvent.press(await screen.findByTestId('kitchen-close-USD-open'));
+        fireEvent.press(await screen.findByTestId('kitchen-close-branch-main-USD-open'));
         expect((await screen.findByTestId('kitchen-close-float-input')).props.value).toBe('50.00');
 
         await type('kitchen-close-counted-input', '90.00');
@@ -102,6 +108,7 @@ describe('the daily close', () => {
 
         await waitFor(() => {
             expect(recordClose).toHaveBeenCalledWith({
+                branchId: 'branch-main',
                 currencyCode: USD,
                 openingFloatMinor: 5000,
                 countedMinor: 9000,
@@ -122,6 +129,82 @@ describe('the daily close', () => {
 
         expect(await screen.findByTestId('kitchen-close-close-1-sign-off')).toBeTruthy();
         expect(screen.getByTestId('kitchen-close-clock')).toHaveTextContent(/Asia\/Beirut/u);
+    });
+
+    it('keeps one branch the page it was: no picker and no kitchen total', async () => {
+        await renderStubScreen(<OrderDeskCloseScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { orderDesk: { getCloses: async () => CLOSES } },
+        });
+
+        expect(await screen.findByTestId('kitchen-close-branch-main-USD-open')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-close-branch')).toBeNull();
+        expect(screen.queryByTestId('kitchen-close-total')).toBeNull();
+    });
+
+    it('closes each branch on its own till, and shows the kitchen total', async () => {
+        const recordClose = jest.fn(async () => SHORT_CLOSE);
+        const twoTills: OrderDeskCloses = {
+            ...CLOSES,
+            branches: [
+                { id: 'branch-main', name: 'Main kitchen' },
+                { id: 'branch-two', name: 'Hamra' },
+            ],
+            open: [
+                ...CLOSES.open,
+                {
+                    branchId: 'branch-two',
+                    branchName: 'Hamra',
+                    currencyCode: USD,
+                    businessDate: '2026-11-03',
+                    openedAt: '2026-11-03T06:00:00Z' as IsoDateTime,
+                    suggestedFloatMinor: 0,
+                    counterCashMinor: 1000,
+                    handedInMinor: 0,
+                    cashRefundsMinor: 0,
+                },
+            ],
+            totals: [
+                {
+                    businessDate: '2026-11-02',
+                    currencyCode: USD,
+                    tillCount: 2,
+                    counterCashMinor: 4000,
+                    handedInMinor: 0,
+                    cashRefundsMinor: 0,
+                    countedMinor: 4600,
+                    varianceMinor: -100,
+                },
+            ],
+        };
+
+        await renderStubScreen(<OrderDeskCloseScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { orderDesk: { getCloses: async () => twoTills, recordClose } },
+        });
+
+        expect(await screen.findByTestId('kitchen-close-total')).toHaveTextContent(/\$46\.00/u);
+        expect(screen.getByTestId('kitchen-close-branch-main-USD-open')).toBeTruthy();
+
+        fireEvent.press(screen.getByTestId('kitchen-close-branch-trigger'));
+        fireEvent.press(await screen.findByTestId('kitchen-close-branch-option-branch-two'));
+
+        await waitFor(() => {
+            expect(screen.queryByTestId('kitchen-close-branch-main-USD-open')).toBeNull();
+        });
+
+        fireEvent.press(screen.getByTestId('kitchen-close-branch-two-USD-open'));
+        await type('kitchen-close-counted-input', '10.00');
+        fireEvent.press(screen.getByTestId('kitchen-close-confirm'));
+
+        await waitFor(() => {
+            expect(recordClose).toHaveBeenCalledWith({
+                branchId: 'branch-two',
+                currencyCode: USD,
+                openingFloatMinor: 0,
+                countedMinor: 1000,
+            });
+        });
     });
 });
 

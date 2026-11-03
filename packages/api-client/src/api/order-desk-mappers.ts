@@ -405,6 +405,8 @@ function mapCashRun(wire: WireCashRun): CashRun {
 export function mapDailyClose(wire: WireDailyClose): DailyCloseRecord {
     return {
         id: wire.id,
+        branchId: wire.branch_id,
+        branchName: wire.branch_name,
         currencyCode: wire.currency_code as CurrencyCode,
         businessDate: wire.business_date,
         openedAt: wire.opened_at as IsoDateTime,
@@ -426,7 +428,10 @@ export function mapDailyClose(wire: WireDailyClose): DailyCloseRecord {
 export function mapOrderDeskCloses(wire: OrderDeskClosesEnvelope['data']): OrderDeskCloses {
     return {
         timezone: wire.timezone,
+        branches: wire.branches.map((branch) => ({ id: branch.id, name: branch.name })),
         open: wire.open.map((row) => ({
+            branchId: row.branch_id,
+            branchName: row.branch_name,
             currencyCode: row.currency_code as CurrencyCode,
             businessDate: row.business_date,
             openedAt: row.opened_at as IsoDateTime,
@@ -434,6 +439,16 @@ export function mapOrderDeskCloses(wire: OrderDeskClosesEnvelope['data']): Order
             counterCashMinor: row.counter_cash_minor,
             handedInMinor: row.handed_in_minor,
             cashRefundsMinor: row.cash_refunds_minor,
+        })),
+        totals: wire.totals.map((row) => ({
+            businessDate: row.business_date,
+            currencyCode: row.currency_code as CurrencyCode,
+            tillCount: row.till_count,
+            counterCashMinor: row.counter_cash_minor,
+            handedInMinor: row.handed_in_minor,
+            cashRefundsMinor: row.cash_refunds_minor,
+            countedMinor: row.counted_minor,
+            varianceMinor: row.variance_minor,
         })),
         closes: wire.closes.map(mapDailyClose),
     };
@@ -444,9 +459,12 @@ export function mapCashSettlement(wire: WireCashSettlement): CashSettlementRecor
         id: wire.id,
         kind: wire.kind,
         partyName: wire.party_name,
+        branchId: wire.branch_id,
+        branchName: wire.branch_name,
         currencyCode: wire.currency_code as CurrencyCode,
         expectedMinor: wire.expected_minor,
         feeMinor: wire.fee_minor,
+        expenseMinor: wire.expense_minor,
         handedInMinor: wire.handed_in_minor,
         shortMinor: wire.short_minor,
         shortReason: wire.short_reason,
@@ -464,18 +482,24 @@ export function mapOrderDeskSettlements(
         drivers: wire.drivers.map((driver) => ({
             driverUserId: driver.driver_user_id,
             displayName: driver.display_name,
+            branchId: driver.branch_id,
+            branchName: driver.branch_name,
             currencyCode: driver.currency_code as CurrencyCode,
             collectedMinor: driver.collected_minor,
             runs: driver.runs.map(mapCashRun),
         })),
         couriers: wire.couriers.map((courier) => ({
             courierName: courier.courier_name,
+            branchId: courier.branch_id,
+            branchName: courier.branch_name,
             currencyCode: courier.currency_code as CurrencyCode,
             dueMinor: courier.due_minor,
             feeMinor: courier.fee_minor,
+            expenseMinor: courier.expense_minor,
             runs: courier.runs.map((run) => ({
                 ...mapCashRun(run),
                 feeMinor: run.fee_minor,
+                prepaid: run.prepaid,
                 reference: run.reference,
             })),
         })),

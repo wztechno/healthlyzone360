@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\User;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Audit\Models\AuditLog;
+use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
 use Healthy360\Delivery\Models\DeliveryJob;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Models\Order;
@@ -134,16 +135,103 @@ it('alerts the managers to a short hand-in, and links to the settlement page', f
         ->exists())->toBeTrue();
 });
 
-it('leaves a run from before settlement off the list, and refuses to settle it', function (): void {
+it('lists a run delivered long ago, with no cut-off, and settles it', function (): void {
     $old = driverRun($this, 3000);
-    DB::table('delivery_jobs')->where('id', $old->getKey())->update(['predates_settlement' => true]);
+    DB::table('delivery_jobs')->where('id', $old->getKey())->update(['delivered_at' => now()->subDays(40)]);
     $new = driverRun($this, 2000);
 
     $this->getJson('/api/v1/catalogue/order-desk/settlements', $this->world->headers)
-        ->assertJsonPath('data.drivers.0.collected_minor', 2000);
+        ->assertJsonPath('data.drivers.0.collected_minor', 5000)
+        ->assertJsonPath('data.drivers.0.runs.0.job_id', (string) $old->getKey());
 
-    settle($this, [$old], 3000)->assertConflict();
+    settle($this, [$old], 3000)->assertCreated();
     settle($this, [$new], 2000)->assertCreated();
+});
+
+/**
+ * A courier run on an order the desk took in full before it left.
+ */
+function prepaidCourierRun(object $test, int $feeMinor, string $name = 'Toters'): DeliveryJob
+{
+    $run = courierRun($test, $feeMinor, $name);
+
+    OrderPaymentReceipt::factory()->create([
+        'organisation_id' => $run->organisation_id,
+        'order_id' => $run->order_id,
+        'method' => 'cash_at_counter',
+        'amount_minor' => 3000,
+        'currency_code' => 'USD',
+        'confirmed_by' => $test->world->tenant->user->getKey(),
+        'confirmed_at' => now(),
+    ]);
+
+    return $run;
+}
+
+it('balances a prepaid courier batch on no cash, with the fee as a kitchen expense', function (): void {
+    $run = prepaidCourierRun($this, 300);
+
+    $this->getJson('/api/v1/catalogue/order-desk/settlements', $this->world->headers)
+        ->assertJsonPath('data.couriers.0.due_minor', 0)
+        ->assertJsonPath('data.couriers.0.fee_minor', 0)
+        ->assertJsonPath('data.couriers.0.expense_minor', 300)
+        ->assertJsonPath('data.couriers.0.runs.0.prepaid', true)
+        ->assertJsonPath('data.couriers.0.runs.0.amount_minor', 0);
+
+    settle($this, [$run], 0)
+        ->assertCreated()
+        ->assertJsonPath('data.settlement.expected_minor', 0)
+        ->assertJsonPath('data.settlement.fee_minor', 0)
+        ->assertJsonPath('data.settlement.expense_minor', 300)
+        ->assertJsonPath('data.settlement.short_minor', 0)
+        ->assertJsonPath('data.settlement.signed_off_at', null);
+
+    expect(OrderPaymentReceipt::query()->where('order_id', $run->order_id)->count())->toBe(1);
+
+    $this->getJson('/api/v1/catalogue/order-desk/settlements', $this->world->headers)
+        ->assertJsonCount(0, 'data.couriers');
+});
+
+it('nets only the cash runs\' fees in a batch that mixes cash and prepaid runs', function (): void {
+    $cash = courierRun($this, 200);
+    $prepaid = prepaidCourierRun($this, 300);
+
+    settle($this, [$cash, $prepaid], 2800)
+        ->assertCreated()
+        ->assertJsonPath('data.settlement.expected_minor', 3000)
+        ->assertJsonPath('data.settlement.fee_minor', 200)
+        ->assertJsonPath('data.settlement.expense_minor', 300)
+        ->assertJsonPath('data.settlement.short_minor', 0);
+
+    expect(Order::query()->whereKey($cash->order_id)->sole()->receivedMinor())->toBe(3000)
+        ->and(Order::query()->whereKey($prepaid->order_id)->sole()->receivedMinor())->toBe(3000);
+});
+
+it('leaves a prepaid courier run with no fee off the list', function (): void {
+    prepaidCourierRun($this, 0);
+
+    $this->getJson('/api/v1/catalogue/order-desk/settlements', $this->world->headers)
+        ->assertJsonCount(0, 'data.couriers');
+});
+
+it('lists each branch\'s runs apart, and refuses one hand-in across two branches', function (): void {
+    $main = driverRun($this, 3000);
+    $other = driverRun($this, 2000);
+    $second = CheckoutWorld::branch($this->world->organisation, 'Second kitchen');
+    DB::table('organisation_branches')->where('id', $second->getKey())->update(['created_at' => now()->addMinute()]);
+    Order::query()->whereKey($other->order_id)->update(['branch_id' => $second->getKey()]);
+
+    $drivers = $this->getJson('/api/v1/catalogue/order-desk/settlements', $this->world->headers)
+        ->assertJsonCount(2, 'data.drivers')
+        ->json('data.drivers');
+
+    expect(collect($drivers)->pluck('collected_minor', 'branch_name')->all())
+        ->toEqual(['Main kitchen' => 3000, 'Second kitchen' => 2000]);
+
+    settle($this, [$main, $other], 5000)->assertUnprocessable();
+    settle($this, [$other], 2000)
+        ->assertCreated()
+        ->assertJsonPath('data.settlement.branch_id', (string) $second->getKey());
 });
 
 /**

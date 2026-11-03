@@ -6689,24 +6689,9 @@ export const zCashRun = z.object({
 
 export const zCourierCashRun = zCashRun.and(z.object({
     fee_minor: z.int().gte(0),
+    prepaid: z.boolean(),
     reference: z.string().nullable()
 }));
-
-export const zDriverCashOwed = z.object({
-    driver_user_id: zUuid,
-    display_name: z.string().nullable(),
-    currency_code: z.string(),
-    collected_minor: z.int(),
-    runs: z.array(zCashRun)
-});
-
-export const zCourierCashOwed = z.object({
-    courier_name: z.string(),
-    currency_code: z.string(),
-    due_minor: z.int(),
-    fee_minor: z.int(),
-    runs: z.array(zCourierCashRun)
-});
 
 export const zDishMargin = z.object({
     id: zUuid,
@@ -6776,7 +6761,35 @@ export const zPayablesEnvelope = z.object({
     })
 });
 
+/**
+ * The branch whose till this is. Null on a kitchen with no branch, and on rows from before tills were per branch, which count as the kitchen's first branch.
+ */
+export const zNullableTillBranchId = z.uuid().nullable();
+
+export const zDriverCashOwed = z.object({
+    driver_user_id: zUuid,
+    display_name: z.string().nullable(),
+    branch_id: zNullableTillBranchId,
+    branch_name: z.string().nullable(),
+    currency_code: z.string(),
+    collected_minor: z.int(),
+    runs: z.array(zCashRun)
+});
+
+export const zCourierCashOwed = z.object({
+    courier_name: z.string(),
+    branch_id: zNullableTillBranchId,
+    branch_name: z.string().nullable(),
+    currency_code: z.string(),
+    due_minor: z.int(),
+    fee_minor: z.int(),
+    expense_minor: z.int(),
+    runs: z.array(zCourierCashRun)
+});
+
 export const zOpenDailyClose = z.object({
+    branch_id: zNullableTillBranchId,
+    branch_name: z.string().nullable(),
     currency_code: z.string(),
     business_date: z.iso.date(),
     opened_at: z.iso.datetime({ offset: true }),
@@ -6788,6 +6801,8 @@ export const zOpenDailyClose = z.object({
 
 export const zDailyClose = z.object({
     id: zUuid,
+    branch_id: zNullableTillBranchId,
+    branch_name: z.string().nullable(),
     currency_code: z.string(),
     business_date: z.iso.date(),
     opened_at: z.iso.datetime({ offset: true }),
@@ -6805,10 +6820,26 @@ export const zDailyClose = z.object({
     signed_off_at: z.iso.datetime({ offset: true }).nullable()
 });
 
+export const zDailyCloseTotal = z.object({
+    business_date: z.iso.date(),
+    currency_code: z.string(),
+    till_count: z.int(),
+    counter_cash_minor: z.int(),
+    handed_in_minor: z.int(),
+    cash_refunds_minor: z.int(),
+    counted_minor: z.int(),
+    variance_minor: z.int()
+});
+
 export const zOrderDeskClosesEnvelope = z.object({
     data: z.object({
         timezone: z.string(),
+        branches: z.array(z.object({
+            id: zUuid,
+            name: z.string()
+        })),
         open: z.array(zOpenDailyClose),
+        totals: z.array(zDailyCloseTotal),
         closes: z.array(zDailyClose)
     })
 });
@@ -6820,6 +6851,7 @@ export const zDailyCloseEnvelope = z.object({
 });
 
 export const zStoreOrderDeskCloseRequest = z.object({
+    branch_id: z.uuid().nullish(),
     currency_code: z.string(),
     opening_float_minor: z.int().gte(0),
     counted_minor: z.int().gte(0),
@@ -6830,9 +6862,12 @@ export const zCashSettlement = z.object({
     id: zUuid,
     kind: z.enum(['driver', 'courier']),
     party_name: z.string().nullable(),
+    branch_id: zNullableTillBranchId,
+    branch_name: z.string().nullable(),
     currency_code: z.string(),
     expected_minor: z.int(),
     fee_minor: z.int(),
+    expense_minor: z.int(),
     handed_in_minor: z.int(),
     short_minor: z.int(),
     short_reason: z.string().nullable(),

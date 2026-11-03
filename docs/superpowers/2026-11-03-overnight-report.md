@@ -5,13 +5,13 @@
 ## Decide before deploying
 
 1. **Phone lookup privacy.** A cashier at any kitchen can type a registered customer's exact phone number and see their name, phone and allergies, even if the customer has never ordered there. The link is permanent, and the customer isn't told. It is audited, and that kitchen can't change the customer's contact details, but it can add an address, because a first delivery needs one. This came from your request to find B2C customers. **Decided 3 Nov: keep it as built.**
-2. **Settlement cut-off.** Migration `2026_11_03_050101` takes driver runs delivered more than two days before deploy off the settlement list for good, on the assumption the cash came back. They stay in the cash report. Counted 3 Nov: dev has 28 delivered runs (7 to 23 Oct; 27 cash on delivery, $977, and 1 Whish, $352), all past the cut-off; live has none. **Decided 3 Nov: settle everything, no cut-off.** Not built yet.
+2. **Settlement cut-off.** Migration `2026_11_03_050101` takes driver runs delivered more than two days before deploy off the settlement list for good, on the assumption the cash came back. They stay in the cash report. Counted 3 Nov: dev has 28 delivered runs (7 to 23 Oct; 27 cash on delivery, $977, and 1 Whish, $352), all past the cut-off; live has none. **Decided 3 Nov: settle everything, no cut-off.** Built 3 Nov: the migration is gone, so every delivered run is on the settlement list.
 3. **Sauces and sides.** A choice has no allergen data of its own. Adding a choice to a dish takes it off sale only if it was assessed by the manual button. A dish assessed through a recipe or ingredients stays on sale with an undeclared allergen possible. **Decided 3 Nov: a choice links to a sauce or side recipe and takes its allergens from it.** Not built yet.
 4. **Closures and standing orders.** Subscription days and accepted quotations ignore closure dates, so a delivery can fall on a holiday. **Decided 3 Nov: move it to the next open day automatically, and send the manager a bell alert to change it or tell the customer.** Not built yet.
 5. **Held stock.** A sale larger than free stock passes when the shelf is also short, then meets the hold at deduction. Online customers get no warning. **Decided 3 Nov: held stock never counts as free, so the usual shortage warning shows to staff and online customers.** Not built yet.
-6. **Courier fees on prepaid orders.** There is no agreed place to record them, so a fee on a prepaid run is not netted and the hand-in reads short. **Decided 3 Nov: a kitchen expense on the courier batch; the hand-in expects no cash on prepaid runs.** Not built yet.
+6. **Courier fees on prepaid orders.** There is no agreed place to record them, so a fee on a prepaid run is not netted and the hand-in reads short. **Decided 3 Nov: a kitchen expense on the courier batch; the hand-in expects no cash on prepaid runs.** Built 3 Nov as `cash_settlements.expense_minor`.
 7. **Kitchens not yet open.** They appear in the marketplace and refuse only at checkout. **Decided 3 Nov: hide them until the setup gate marks them open.** Not built yet.
-8. **One till.** Daily close assumes one till per kitchen, while a kitchen can now add a second branch. **Decided 3 Nov: one till per branch, with a kitchen total.** Not built yet.
+8. **One till.** Daily close assumes one till per kitchen, while a kitchen can now add a second branch. **Decided 3 Nov: one till per branch, with a kitchen total.** Built 3 Nov. An order with no branch counts in its delivery zone's branch, else the kitchen's oldest active branch.
 9. **Walk-in allergy notes.** A note with no saved profile shows no banner on the driver's sheet. **Decided 3 Nov: show the allergy banner and note to the driver, as for saved profiles.** Not built yet.
 
 ## What was built
@@ -50,7 +50,7 @@
 - PIN and idle lock: a new sign-in step that couldn't be exercised overnight.
 - Lot-level recall tracing: the largest food-safety item.
 - Whish Checkout: waiting for your API and credentials.
-- Rejecting or correcting a posted purchase price, part payments, per-branch tills.
+- Rejecting or correcting a posted purchase price, part payments.
 - Options and notes on the customer's own order page and receipt.
 - Missed temperature reading alerts, and a minimum core temperature rule.
 
@@ -58,7 +58,7 @@
 
 1. Run `catalogue:report-unassessed`. Those dishes come off sale on deploy.
 2. Run `kitchen:suspect-records` and review the test data customers can see.
-3. Decide item 2 above before migrating.
+3. Expect a long first settlement list: every delivered run is on it, and managers clear it.
 4. Run `kitchen:merge-duplicate-stock --org=<slug>`, then `--apply`. `--apply` needs the environment allowlisted. Shelves that both have movements go to the review list.
 5. Count stale `placed` orders, because the display and escalation start from them.
 6. Demo databases need a fresh seed. The demo seed stamps products "contains none", including Honey Mustard Sauce and Mozzarella Sticks. That is untrue, so don't use the demo world for allergen claims.

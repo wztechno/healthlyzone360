@@ -15,15 +15,18 @@ use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use stdClass;
 
 /**
  * What should be in the till, and writing down what was.
  *
- * ## One till per currency, and a shift is everything since the last close
+ * ## One till per branch and currency, and a shift is everything since the last close
  *
- * There is nothing to open: the shift runs from the last close, or from the start
- * of the local day for a kitchen's first. Closing twice in a day makes two shifts.
- * Receipts and hand-ins carry no branch, so there is one till per kitchen.
+ * There is nothing to open: the shift runs from that till's last close, or from the
+ * start of the local day for its first. Closing twice in a day makes two shifts.
+ * Cash belongs to its order's branch and a hand-in to its own, as `TillBranches`
+ * resolves them (owner, 3 Nov: one till per branch, with a kitchen total). Closes
+ * from before carry no branch and count as the kitchen's first branch's.
  *
  * ## The cash comes from the rows the settlement and the cash report read
  *
@@ -56,6 +59,9 @@ final readonly class DailyCloses
     /** How far back to look for a currency this kitchen has been handling. */
     private const int CURRENCY_LOOKBACK_DAYS = 31;
 
+    /** Days of kitchen totals shown, each a day with at least one close. */
+    private const int TOTAL_DAYS = 14;
+
     /** The receipts that were cash in the till rather than on the road. */
     private const string AT_THE_COUNTER = <<<'SQL'
         not exists (
@@ -74,41 +80,88 @@ final readonly class DailyCloses
         private OrganisationTimezone $timezones,
         private StaffAlerts $alerts,
         private AuditRecorder $audit,
+        private TillBranches $tills,
     ) {}
 
     /**
-     * Each currency with money moving since its last close.
+     * Each till, by branch and currency, with money moving since its last close.
      *
-     * @return array{timezone: string, open: list<array{currency_code: string, business_date: string, opened_at: string, suggested_float_minor: int, counter_cash_minor: int, handed_in_minor: int, cash_refunds_minor: int}>}
+     * @return array{timezone: string, branches: list<array{id: string, name: string}>, open: list<array{branch_id: string|null, branch_name: string|null, currency_code: string, business_date: string, opened_at: string, suggested_float_minor: int, counter_cash_minor: int, handed_in_minor: int, cash_refunds_minor: int}>}
      */
     public function open(string $organisationId): array
     {
         $timezone = $this->timezones->forOrganisationId($organisationId);
         $now = CarbonImmutable::now();
+        $branches = $this->tills->all($organisationId);
+        $first = $branches[0]['id'] ?? null;
+        $currencies = $this->currencies($organisationId, $now);
         $open = [];
 
-        foreach ($this->currencies($organisationId, $now) as $currency) {
-            $shift = $this->shift($organisationId, $currency, $timezone);
-            $figures = $this->figures($organisationId, $currency, $shift['opened_at'], $now);
+        foreach ($branches === [] ? [['id' => null, 'name' => null]] : $branches as $till) {
+            foreach ($currencies as $currency) {
+                $shift = $this->shift($organisationId, $till['id'], $first, $currency, $timezone);
+                $figures = $this->figures($organisationId, $till['id'], $first, $currency, $shift['opened_at'], $now);
 
-            if ($figures['counter_cash_minor'] === 0 && $figures['handed_in_minor'] === 0 && $figures['cash_refunds_minor'] === 0) {
-                continue;
+                if ($figures['counter_cash_minor'] === 0 && $figures['handed_in_minor'] === 0 && $figures['cash_refunds_minor'] === 0) {
+                    continue;
+                }
+
+                $open[] = [
+                    'branch_id' => $till['id'],
+                    'branch_name' => $till['name'],
+                    'currency_code' => $currency,
+                    'business_date' => $shift['opened_at']->setTimezone($timezone)->toDateString(),
+                    'opened_at' => $shift['opened_at']->toIso8601String(),
+                    'suggested_float_minor' => $shift['float_minor'],
+                    ...$figures,
+                ];
             }
-
-            $open[] = [
-                'currency_code' => $currency,
-                'business_date' => $shift['opened_at']->setTimezone($timezone)->toDateString(),
-                'opened_at' => $shift['opened_at']->toIso8601String(),
-                'suggested_float_minor' => $shift['float_minor'],
-                ...$figures,
-            ];
         }
 
-        return ['timezone' => $timezone, 'open' => $open];
+        return ['timezone' => $timezone, 'branches' => $branches, 'open' => $open];
     }
 
     /**
-     * Close the shift in this currency against what was counted.
+     * The kitchen total: every till's closes, per local day and currency, for the
+     * last fortnight of days with a close. Cash moved is summed over every shift;
+     * counted is each till's last count of the day, which is what the tills held.
+     *
+     * @return list<array{business_date: string, currency_code: string, till_count: int, counter_cash_minor: int, handed_in_minor: int, cash_refunds_minor: int, counted_minor: int, variance_minor: int}>
+     */
+    public function totals(string $organisationId): array
+    {
+        $shifts = DB::table('daily_closes')
+            ->where('organisation_id', $organisationId)
+            ->select(['business_date', 'currency_code', 'branch_id', 'counter_cash_minor', 'handed_in_minor', 'cash_refunds_minor', 'counted_minor', 'variance_minor'])
+            ->selectRaw('row_number() over (partition by business_date, currency_code, branch_id order by closed_at desc) = 1 as is_last');
+
+        return DB::query()->fromSub($shifts, 'shifts')
+            ->select(['business_date', 'currency_code'])
+            ->selectRaw('count(distinct branch_id) + max(case when branch_id is null then 1 else 0 end) as till_count')
+            ->selectRaw('sum(counter_cash_minor) as counter_cash_minor, sum(handed_in_minor) as handed_in_minor, sum(cash_refunds_minor) as cash_refunds_minor')
+            ->selectRaw('sum(counted_minor) filter (where is_last) as counted_minor, sum(variance_minor) as variance_minor')
+            ->groupBy('business_date', 'currency_code')
+            ->orderByDesc('business_date')
+            ->orderBy('currency_code')
+            ->limit(self::TOTAL_DAYS)
+            ->get()
+            ->map(static fn (stdClass $row): array => [
+                'business_date' => CarbonImmutable::parse((string) $row->business_date)->toDateString(),
+                'currency_code' => (string) $row->currency_code,
+                'till_count' => (int) $row->till_count,
+                'counter_cash_minor' => (int) $row->counter_cash_minor,
+                'handed_in_minor' => (int) $row->handed_in_minor,
+                'cash_refunds_minor' => (int) $row->cash_refunds_minor,
+                'counted_minor' => (int) $row->counted_minor,
+                'variance_minor' => (int) $row->variance_minor,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Close the shift in this branch's till, in this currency, against what was
+     * counted. No branch means the kitchen's first.
      *
      * The advisory lock makes the second of two presses wait, then find the shift
      * closed. The figures are read here and not taken from the screen, so a sale
@@ -117,16 +170,18 @@ final readonly class DailyCloses
      * @throws ApiException
      * @throws ValidationException
      */
-    public function close(string $organisationId, string $currencyCode, int $openingFloatMinor, int $countedMinor, ?string $reason, string $actorUserId): DailyClose
+    public function close(string $organisationId, ?string $branchId, string $currencyCode, int $openingFloatMinor, int $countedMinor, ?string $reason, string $actorUserId): DailyClose
     {
         $timezone = $this->timezones->forOrganisationId($organisationId);
+        $first = $this->tills->first($organisationId);
+        $branchId ??= $first;
 
-        $close = DB::transaction(function () use ($organisationId, $currencyCode, $openingFloatMinor, $countedMinor, $reason, $actorUserId, $timezone): DailyClose {
-            DB::statement('select pg_advisory_xact_lock(hashtextextended(?, 0))', ["daily-close:{$organisationId}:{$currencyCode}"]);
+        $close = DB::transaction(function () use ($organisationId, $branchId, $first, $currencyCode, $openingFloatMinor, $countedMinor, $reason, $actorUserId, $timezone): DailyClose {
+            DB::statement('select pg_advisory_xact_lock(hashtextextended(?, 0))', ["daily-close:{$organisationId}:{$branchId}:{$currencyCode}"]);
 
             $now = CarbonImmutable::now();
-            $shift = $this->shift($organisationId, $currencyCode, $timezone);
-            $figures = $this->figures($organisationId, $currencyCode, $shift['opened_at'], $now);
+            $shift = $this->shift($organisationId, $branchId, $first, $currencyCode, $timezone);
+            $figures = $this->figures($organisationId, $branchId, $first, $currencyCode, $shift['opened_at'], $now);
 
             if (array_sum($figures) === 0) {
                 throw new ApiException(ErrorCode::ResourceConflict, 'No cash has moved since the last close. Reload and try again.');
@@ -142,6 +197,7 @@ final readonly class DailyCloses
 
             $close = new DailyClose;
             $close->organisation_id = $organisationId;
+            $close->branch_id = $branchId;
             $close->currency_code = $currencyCode;
             $close->business_date = $shift['opened_at']->setTimezone($timezone)->startOfDay();
             $close->opened_at = $shift['opened_at'];
@@ -170,6 +226,7 @@ final readonly class DailyCloses
                 'counted_minor' => $close->counted_minor,
                 'variance_minor' => $close->variance_minor,
                 'currency' => $close->currency_code,
+                'branch_id' => $close->branch_id,
             ],
         );
 
@@ -236,11 +293,12 @@ final readonly class DailyCloses
      *
      * @return array{opened_at: CarbonImmutable, float_minor: int}
      */
-    private function shift(string $organisationId, string $currencyCode, string $timezone): array
+    private function shift(string $organisationId, ?string $branchId, ?string $first, string $currencyCode, string $timezone): array
     {
         $last = DailyClose::query()
             ->where('organisation_id', $organisationId)
             ->where('currency_code', $currencyCode)
+            ->whereRaw(TillBranches::rowIn('branch_id'), [$first, $branchId])
             ->orderByDesc('closed_at')
             ->first(['closed_at', 'opening_float_minor']);
 
@@ -255,7 +313,7 @@ final readonly class DailyCloses
      *
      * @return array{counter_cash_minor: int, handed_in_minor: int, cash_refunds_minor: int}
      */
-    private function figures(string $organisationId, string $currencyCode, CarbonImmutable $from, CarbonImmutable $to): array
+    private function figures(string $organisationId, ?string $branchId, ?string $first, string $currencyCode, CarbonImmutable $from, CarbonImmutable $to): array
     {
         $receipts = fn (): Builder => DB::table('order_payment_receipts')
             ->where('order_payment_receipts.organisation_id', $organisationId)
@@ -263,11 +321,13 @@ final readonly class DailyCloses
             ->where('order_payment_receipts.method', '<>', self::NOT_WHISH)
             ->where('order_payment_receipts.confirmed_at', '>=', $from)
             ->where('order_payment_receipts.confirmed_at', '<', $to)
-            ->whereRaw(self::AT_THE_COUNTER);
+            ->whereRaw(self::AT_THE_COUNTER)
+            ->whereRaw(TillBranches::orderIn('order_payment_receipts.order_id'), [$first, $branchId]);
 
         $handedIn = DB::table('cash_settlements')
             ->where('organisation_id', $organisationId)
             ->where('currency_code', $currencyCode)
+            ->whereRaw(TillBranches::rowIn('cash_settlements.branch_id'), [$first, $branchId])
             ->where('recorded_at', '>=', $from)
             ->where('recorded_at', '<', $to)
             ->sum('handed_in_minor');
@@ -275,6 +335,7 @@ final readonly class DailyCloses
         $refunds = DB::table('order_refunds')
             ->where('organisation_id', $organisationId)
             ->where('currency_code', $currencyCode)
+            ->whereRaw(TillBranches::orderIn('order_refunds.order_id'), [$first, $branchId])
             ->where('status', 'completed')
             ->where('method', '<>', self::NOT_WHISH)
             ->where('decided_at', '>=', $from)

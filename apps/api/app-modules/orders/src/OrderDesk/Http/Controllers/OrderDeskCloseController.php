@@ -42,8 +42,11 @@ final class OrderDeskCloseController
             ->limit(self::RECENT)
             ->get();
 
+        $organisationId = $this->locator->sellerId();
+
         return ApiResponse::data([
-            ...$this->closes->open($this->locator->sellerId()),
+            ...$this->closes->open($organisationId),
+            'totals' => $this->closes->totals($organisationId),
             'closes' => $this->present($recent),
         ]);
     }
@@ -54,8 +57,11 @@ final class OrderDeskCloseController
      */
     public function store(Request $request): JsonResponse
     {
-        /** @var array{currency_code: string, opening_float_minor: int, counted_minor: int, variance_reason?: string|null} $validated */
+        $organisationId = $this->locator->sellerId();
+
+        /** @var array{branch_id?: string|null, currency_code: string, opening_float_minor: int, counted_minor: int, variance_reason?: string|null} $validated */
         $validated = $request->validate([
+            'branch_id' => ['nullable', 'uuid', Rule::exists('organisation_branches', 'id')->where('organisation_id', $organisationId)],
             'currency_code' => ['required', 'string', 'size:3', Rule::exists('currencies', 'code')],
             'opening_float_minor' => ['required', 'integer', 'min:0'],
             'counted_minor' => ['required', 'integer', 'min:0'],
@@ -63,7 +69,8 @@ final class OrderDeskCloseController
         ]);
 
         $close = $this->closes->close(
-            $this->locator->sellerId(),
+            $organisationId,
+            $validated['branch_id'] ?? null,
             $validated['currency_code'],
             $validated['opening_float_minor'],
             $validated['counted_minor'],
@@ -100,9 +107,14 @@ final class OrderDeskCloseController
             ->whereIn('user_id', $closes->pluck('recorded_by')->merge($closes->pluck('signed_off_by'))->filter()->unique()->values())
             ->selectRaw("user_id, nullif(trim(coalesce(given_name, '') || ' ' || coalesce(family_name, '')), '') as name")
             ->pluck('name', 'user_id');
+        $branches = DB::table('organisation_branches')
+            ->whereIn('id', $closes->pluck('branch_id')->filter()->unique()->values())
+            ->pluck('name', 'id');
 
         return $closes->map(fn (DailyClose $close): array => [
             'id' => (string) $close->getKey(),
+            'branch_id' => $close->branch_id,
+            'branch_name' => $close->branch_id === null ? null : ($branches[$close->branch_id] ?? null),
             'currency_code' => $close->currency_code,
             'business_date' => $close->business_date->toDateString(),
             'opened_at' => $close->opened_at->toIso8601String(),

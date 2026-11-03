@@ -1104,10 +1104,21 @@ export interface CashRun {
 
 export interface CourierCashRun extends CashRun {
     readonly feeMinor: number;
+    /** Owed nothing at the door, or paid by Whish: no cash, and the fee is a kitchen expense. */
+    readonly prepaid: boolean;
     readonly reference: string | null;
 }
 
-export interface DriverCashOwed {
+/**
+ * The till a sum belongs to, one per branch. Null on a kitchen with no branch, and on rows from
+ * before tills were per branch, which count as the kitchen's first branch.
+ */
+export interface TillBranch {
+    readonly branchId: string | null;
+    readonly branchName: string | null;
+}
+
+export interface DriverCashOwed extends TillBranch {
     readonly driverUserId: string;
     readonly displayName: string | null;
     readonly currencyCode: CurrencyCode;
@@ -1115,21 +1126,25 @@ export interface DriverCashOwed {
     readonly runs: readonly CashRun[];
 }
 
-export interface CourierCashOwed {
+export interface CourierCashOwed extends TillBranch {
     readonly courierName: string;
     readonly currencyCode: CurrencyCode;
     readonly dueMinor: number;
+    /** Fees on cash-on-delivery runs, netted from the hand-in. */
     readonly feeMinor: number;
+    /** Fees on prepaid runs, a kitchen expense outside the hand-in. */
+    readonly expenseMinor: number;
     readonly runs: readonly CourierCashRun[];
 }
 
-export interface CashSettlementRecord {
+export interface CashSettlementRecord extends TillBranch {
     readonly id: string;
     readonly kind: 'driver' | 'courier';
     readonly partyName: string | null;
     readonly currencyCode: CurrencyCode;
     readonly expectedMinor: number;
     readonly feeMinor: number;
+    readonly expenseMinor: number;
     readonly handedInMinor: number;
     readonly shortMinor: number;
     readonly shortReason: string | null;
@@ -1153,8 +1168,8 @@ export interface RecordCashSettlementRequest {
     readonly shortReason?: string | undefined;
 }
 
-/** A currency with cash moving since its last close. A shift is everything since then. */
-export interface OpenDailyClose {
+/** A till, by branch and currency, with cash moving since its last close. */
+export interface OpenDailyClose extends TillBranch {
     readonly currencyCode: CurrencyCode;
     /** The kitchen's local day the shift opened on. */
     readonly businessDate: string;
@@ -1165,7 +1180,7 @@ export interface OpenDailyClose {
     readonly cashRefundsMinor: number;
 }
 
-export interface DailyCloseRecord {
+export interface DailyCloseRecord extends TillBranch {
     readonly id: string;
     readonly currencyCode: CurrencyCode;
     readonly businessDate: string;
@@ -1185,15 +1200,36 @@ export interface DailyCloseRecord {
     readonly signedOffAt: IsoDateTime | null;
 }
 
+/**
+ * Every till's closes on one local day, in one currency. Cash moved and variance sum every shift;
+ * counted is each till's last count of the day.
+ */
+export interface DailyCloseTotal {
+    readonly businessDate: string;
+    readonly currencyCode: CurrencyCode;
+    readonly tillCount: number;
+    readonly counterCashMinor: number;
+    readonly handedInMinor: number;
+    readonly cashRefundsMinor: number;
+    readonly countedMinor: number;
+    readonly varianceMinor: number;
+}
+
 export interface OrderDeskCloses {
     /** The clock the business dates are read on. */
     readonly timezone: string;
+    /** Every branch, so every till, the kitchen's first branch first. */
+    readonly branches: readonly { readonly id: string; readonly name: string }[];
     readonly open: readonly OpenDailyClose[];
+    /** The kitchen total per local day, newest first. */
+    readonly totals: readonly DailyCloseTotal[];
     /** The last fifty, newest first. */
     readonly closes: readonly DailyCloseRecord[];
 }
 
 export interface RecordDailyCloseRequest {
+    /** The till counted. Null is the kitchen's first branch. */
+    readonly branchId: string | null;
     readonly currencyCode: CurrencyCode;
     readonly openingFloatMinor: number;
     readonly countedMinor: number;

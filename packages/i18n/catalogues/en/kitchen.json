@@ -1868,6 +1868,9 @@
                 "courier": "Untick any order this payment does not cover. Settling writes each order's receipt."
             },
             "feeNote": "Fees of {{fee}} come off, so {{net}} is due.",
+            "expenseNote": "Prepaid orders bring no cash. Their fees of {{expense}} are a kitchen expense.",
+            "prepaidFee": "Prepaid, fee {{fee}}",
+            "columnExpense": "Kitchen expense",
             "amountLabel": "Handed in ({{currency}})",
             "amountHint": "{{amount}} is due.",
             "amountInvalid": "Enter an amount up to what is due.",
@@ -1947,7 +1950,13 @@
             "overReasonLabel": "Note (optional)",
             "confirm": "Close the shift",
             "savedToast": "The shift was closed.",
-            "saveError": "The shift was not closed."
+            "saveError": "The shift was not closed.",
+            "branchLabel": "Till",
+            "allBranches": "All branches",
+            "totalHeading": "Kitchen total",
+            "totalNote": "Every branch's till together. Counted is each till's last count of the day.",
+            "columnDay": "Day",
+            "tillCount": "Tills: {{tills}}"
         },
         "payables": {
             "owedHeading": "What is owed",
