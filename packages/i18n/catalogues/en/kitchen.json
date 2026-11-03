@@ -5433,6 +5433,19 @@
             "pm": "Evening"
         }
     },
+    "storefrontProfile": {
+        "title": "Storefront profile",
+        "description": "What customers read on your kitchen's marketplace page. It applies to the whole kitchen. Separate cuisines with commas.",
+        "taglineLabel": "Tagline",
+        "descriptionLabel": "Description",
+        "cuisinesLabel": "Cuisines",
+        "cuisinesPlaceholderEn": "Lebanese, Grills",
+        "cuisinesPlaceholderAr": "لبناني، مشاوي",
+        "save": "Save profile",
+        "savedToast": "Storefront profile saved.",
+        "saveError": "The storefront profile was not saved.",
+        "loadErrorTitle": "The storefront profile could not be loaded."
+    },
     "serviceTimings": {
         "title": "Service timings",
         "description": "These apply to the whole kitchen, not only this branch. Alert times count only while a branch is open.",

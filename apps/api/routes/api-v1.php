@@ -239,6 +239,7 @@ use Healthy360\Kitchens\Http\Controllers\PublicMealIndexController;
 use Healthy360\Kitchens\Http\Controllers\PublicMealPlanIndexController;
 use Healthy360\Kitchens\Http\Controllers\PublicMealPlanShowController;
 use Healthy360\Kitchens\Http\Controllers\PublicMealShowController;
+use Healthy360\Kitchens\Http\Controllers\StorefrontProfileController;
 use Healthy360\Orders\Http\Controllers\CheckoutPreviewController;
 use Healthy360\Orders\Http\Controllers\GuestOrderShowController;
 use Healthy360\Orders\Http\Controllers\GuestOrderStoreController;
@@ -1069,6 +1070,11 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             Route::get('/kitchen-service-settings', KitchenServiceSettingsShowController::class)->name('catalogue.kitchen-service-settings.show');
             Route::put('/kitchen-service-settings', KitchenServiceSettingsUpdateController::class)
                 ->middleware('permission:catalogue.manage_organisation')->name('catalogue.kitchen-service-settings.update');
+            // The kitchen's marketplace copy, read by the anonymous marketplace off `organisations`.
+            Route::middleware(['org.trading', 'permission:catalogue.manage_organisation'])->group(function (): void {
+                Route::get('/storefront-profile', [StorefrontProfileController::class, 'show'])->name('catalogue.storefront-profile.show');
+                Route::put('/storefront-profile', [StorefrontProfileController::class, 'update'])->name('catalogue.storefront-profile.update');
+            });
             Route::post('/kitchen-pause', [KitchenPauseController::class, 'store'])
                 ->middleware('permission:order.supervise_organisation')->name('catalogue.kitchen-pause.store');
             Route::delete('/kitchen-pause', [KitchenPauseController::class, 'destroy'])

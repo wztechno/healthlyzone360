@@ -429,12 +429,14 @@ export const REPOSITORY_SURFACE = {
     kitchenCustomers: ['getCustomer', 'listCustomers'],
     staffAlerts: [
         'getServiceSettings',
+        'getStorefrontProfile',
         'listAlerts',
         'markAlertRead',
         'markAllAlertsRead',
         'pauseKitchen',
         'resumeKitchen',
         'saveServiceSettings',
+        'saveStorefrontProfile',
     ],
     driverJobs: ['claimJob', 'deliverJob', 'failJob', 'listJobs', 'pickUpJob'],
     platformAdmin: [

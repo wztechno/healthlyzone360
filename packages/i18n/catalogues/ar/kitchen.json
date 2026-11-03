@@ -6120,6 +6120,19 @@
             "pm": "مساءً"
         }
     },
+    "storefrontProfile": {
+        "title": "ملف واجهة المتجر",
+        "description": "ما يقرؤه الزبائن على صفحة مطبخك في السوق. يسري على المطبخ كله. افصل بين أنواع المطبخ بفواصل.",
+        "taglineLabel": "العبارة التعريفية",
+        "descriptionLabel": "الوصف",
+        "cuisinesLabel": "أنواع المطبخ",
+        "cuisinesPlaceholderEn": "Lebanese, Grills",
+        "cuisinesPlaceholderAr": "لبناني، مشاوي",
+        "save": "حفظ الملف",
+        "savedToast": "تم حفظ ملف واجهة المتجر.",
+        "saveError": "لم يُحفظ ملف واجهة المتجر.",
+        "loadErrorTitle": "تعذّر تحميل ملف واجهة المتجر."
+    },
     "serviceTimings": {
         "title": "مواعيد الخدمة",
         "description": "تسري هذه المواعيد على المطبخ كله لا على هذا الفرع وحده. لا تُحتسب أوقات التنبيه إلا خلال ساعات عمل الفرع.",

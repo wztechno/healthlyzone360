@@ -758,6 +758,7 @@ export const queryKeys = {
         all: () => ['staffAlerts'] as const,
         list: () => ['staffAlerts', 'list'] as const,
         serviceSettings: () => ['staffAlerts', 'service-settings'] as const,
+        storefrontProfile: () => ['staffAlerts', 'storefront-profile'] as const,
     },
 
     /**

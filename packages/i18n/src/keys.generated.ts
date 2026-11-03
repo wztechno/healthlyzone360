@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9841 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9857 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -5001,9 +5001,9 @@ export interface NamespaceKeys {
     | 'ops.ledger.columnState'
     | 'ops.ledger.columnSupplier'
     | 'ops.ledger.columnUnitPrice'
+    | 'ops.ledger.columnVariance'
     | 'ops.ledger.completeBadge'
     | 'ops.ledger.emptyBody'
-    | 'ops.ledger.columnVariance'
     | 'ops.ledger.emptyTitle'
     | 'ops.ledger.filterFrom'
     | 'ops.ledger.filterTo'
@@ -5036,11 +5036,11 @@ export interface NamespaceKeys {
     | 'ops.ledger.title'
     | 'ops.ledger.toPlaceholder'
     | 'ops.ledger.unpricedLines'
-    | 'ops.ledger.viewFoot'
-    | 'ops.ledger.viewKind'
     | 'ops.ledger.varianceDown'
     | 'ops.ledger.varianceFlat'
     | 'ops.ledger.varianceUp'
+    | 'ops.ledger.viewFoot'
+    | 'ops.ledger.viewKind'
     | 'ops.ledger.viewPendingFxNote'
     | 'ops.ledger.viewUnpricedNote'
     | 'ops.metricUnavailable'
@@ -5840,11 +5840,11 @@ export interface NamespaceKeys {
     | 'ops.requirements.columnSuggestedBuy'
     | 'ops.requirements.columnUnit'
     | 'ops.requirements.coveredBadge'
+    | 'ops.requirements.createOrder'
     | 'ops.requirements.emptyBody'
     | 'ops.requirements.emptyTitle'
     | 'ops.requirements.filterFrom'
     | 'ops.requirements.filterTo'
-    | 'ops.requirements.createOrder'
     | 'ops.requirements.footnote'
     | 'ops.requirements.kpiIngredients'
     | 'ops.requirements.kpiIngredientsCaption'
@@ -7379,6 +7379,17 @@ export interface NamespaceKeys {
     | 'stockDuplicates.reason.not_a_copy'
     | 'stockDuplicates.reason.open_work'
     | 'stockDuplicates.shelf'
+    | 'storefrontProfile.cuisinesLabel'
+    | 'storefrontProfile.cuisinesPlaceholderAr'
+    | 'storefrontProfile.cuisinesPlaceholderEn'
+    | 'storefrontProfile.description'
+    | 'storefrontProfile.descriptionLabel'
+    | 'storefrontProfile.loadErrorTitle'
+    | 'storefrontProfile.save'
+    | 'storefrontProfile.saveError'
+    | 'storefrontProfile.savedToast'
+    | 'storefrontProfile.taglineLabel'
+    | 'storefrontProfile.title'
     | 'temperature.active'
     | 'temperature.addUnit'
     | 'temperature.celsius'
@@ -14865,13 +14876,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.ledger.columnState',
   'kitchen:ops.ledger.columnSupplier',
   'kitchen:ops.ledger.columnUnitPrice',
+  'kitchen:ops.ledger.columnVariance',
   'kitchen:ops.ledger.completeBadge',
   'kitchen:ops.ledger.emptyBody',
   'kitchen:ops.ledger.emptyTitle',
   'kitchen:ops.ledger.filterFrom',
   'kitchen:ops.ledger.filterTo',
   'kitchen:ops.ledger.fromPlaceholder',
-  'kitchen:ops.ledger.columnVariance',
   'kitchen:ops.ledger.hideCharges',
   'kitchen:ops.ledger.incompleteBadge',
   'kitchen:ops.ledger.modeDetail',
@@ -14900,15 +14911,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.ledger.title',
   'kitchen:ops.ledger.toPlaceholder',
   'kitchen:ops.ledger.unpricedLines',
+  'kitchen:ops.ledger.varianceDown',
+  'kitchen:ops.ledger.varianceFlat',
+  'kitchen:ops.ledger.varianceUp',
   'kitchen:ops.ledger.viewFoot',
   'kitchen:ops.ledger.viewKind',
   'kitchen:ops.ledger.viewPendingFxNote',
   'kitchen:ops.ledger.viewUnpricedNote',
   'kitchen:ops.metricUnavailable',
   'kitchen:ops.orders.actionsHeading',
-  'kitchen:ops.ledger.varianceDown',
-  'kitchen:ops.ledger.varianceFlat',
-  'kitchen:ops.ledger.varianceUp',
   'kitchen:ops.orders.backToOrders',
   'kitchen:ops.orders.cancel',
   'kitchen:ops.orders.cancelBody',
@@ -15704,6 +15715,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.requirements.columnSuggestedBuy',
   'kitchen:ops.requirements.columnUnit',
   'kitchen:ops.requirements.coveredBadge',
+  'kitchen:ops.requirements.createOrder',
   'kitchen:ops.requirements.emptyBody',
   'kitchen:ops.requirements.emptyTitle',
   'kitchen:ops.requirements.filterFrom',
@@ -15712,7 +15724,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.requirements.kpiIngredients',
   'kitchen:ops.requirements.kpiIngredientsCaption',
   'kitchen:ops.requirements.kpiNotComputable',
-  'kitchen:ops.requirements.createOrder',
   'kitchen:ops.requirements.kpiNotComputableNone',
   'kitchen:ops.requirements.kpiShort',
   'kitchen:ops.requirements.kpiShortCaption',
@@ -17243,6 +17254,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:stockDuplicates.reason.not_a_copy',
   'kitchen:stockDuplicates.reason.open_work',
   'kitchen:stockDuplicates.shelf',
+  'kitchen:storefrontProfile.cuisinesLabel',
+  'kitchen:storefrontProfile.cuisinesPlaceholderAr',
+  'kitchen:storefrontProfile.cuisinesPlaceholderEn',
+  'kitchen:storefrontProfile.description',
+  'kitchen:storefrontProfile.descriptionLabel',
+  'kitchen:storefrontProfile.loadErrorTitle',
+  'kitchen:storefrontProfile.save',
+  'kitchen:storefrontProfile.saveError',
+  'kitchen:storefrontProfile.savedToast',
+  'kitchen:storefrontProfile.taglineLabel',
+  'kitchen:storefrontProfile.title',
   'kitchen:temperature.active',
   'kitchen:temperature.addUnit',
   'kitchen:temperature.celsius',

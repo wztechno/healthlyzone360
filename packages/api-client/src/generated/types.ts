@@ -4195,16 +4195,16 @@ export type MarketplaceKitchen = {
     name: string;
     slug: string;
     /**
-     * Always empty; the platform stores no marketing copy.
+     * The kitchen's own copy in the request's language, falling back to the other; empty when unset.
      */
     tagline: string;
     /**
-     * Always empty; the platform stores no marketing copy.
+     * The kitchen's own copy in the request's language, falling back to the other; empty when unset.
      */
     description: string;
     country_code: string;
     /**
-     * Always empty; nothing records how a kitchen cooks.
+     * The kitchen's own free-text list in the request's language, falling back to the other; empty when unset.
      */
     cuisines: Array<string>;
     /**
@@ -10025,6 +10025,23 @@ export type KitchenDisplayEnvelope = {
 
 export type KitchenServiceSettingsEnvelope = {
     data: KitchenServiceSettings;
+    meta: Meta;
+};
+
+export type StorefrontProfile = {
+    tagline_en: string | null;
+    tagline_ar: string | null;
+    description_en: string | null;
+    description_ar: string | null;
+    /**
+     * Free text, one cuisine per entry.
+     */
+    cuisines_en: Array<string>;
+    cuisines_ar: Array<string>;
+};
+
+export type StorefrontProfileEnvelope = {
+    data: StorefrontProfile;
     meta: Meta;
 };
 
@@ -36463,6 +36480,112 @@ export type UpdateKitchenServiceSettingsResponses = {
 };
 
 export type UpdateKitchenServiceSettingsResponse = UpdateKitchenServiceSettingsResponses[keyof UpdateKitchenServiceSettingsResponses];
+
+export type GetStorefrontProfileData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/storefront-profile';
+};
+
+export type GetStorefrontProfileErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetStorefrontProfileError = GetStorefrontProfileErrors[keyof GetStorefrontProfileErrors];
+
+export type GetStorefrontProfileResponses = {
+    /**
+     * The kitchen's storefront copy.
+     */
+    200: StorefrontProfileEnvelope;
+};
+
+export type GetStorefrontProfileResponse = GetStorefrontProfileResponses[keyof GetStorefrontProfileResponses];
+
+export type UpdateStorefrontProfileData = {
+    body: StorefrontProfile;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/storefront-profile';
+};
+
+export type UpdateStorefrontProfileErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateStorefrontProfileError = UpdateStorefrontProfileErrors[keyof UpdateStorefrontProfileErrors];
+
+export type UpdateStorefrontProfileResponses = {
+    /**
+     * The copy as stored.
+     */
+    200: StorefrontProfileEnvelope;
+};
+
+export type UpdateStorefrontProfileResponse = UpdateStorefrontProfileResponses[keyof UpdateStorefrontProfileResponses];
 
 export type ListKitchenCustomersData = {
     body?: never;

@@ -1,5 +1,7 @@
 import type { IsoDateTime, OrderId } from '@healthy360/domain-types';
 
+import type { LocalisedText } from './kitchen-admin.ts';
+
 /**
  * The kitchen's top-bar alerts, and the service timings that decide when some of them fire.
  *
@@ -67,6 +69,14 @@ export interface KitchenServiceSettings {
     readonly pausedUntil: string | null;
 }
 
+/** The copy a customer reads on the kitchen's marketplace page. Unset reads as `''` and `[]`. */
+export interface StorefrontProfile {
+    readonly tagline: LocalisedText;
+    readonly description: LocalisedText;
+    /** Free text, one cuisine per entry. */
+    readonly cuisines: { readonly en: readonly string[]; readonly ar: readonly string[] };
+}
+
 export interface StaffAlertsRepository {
     listAlerts(): Promise<StaffAlertList>;
     markAlertRead(alertId: string): Promise<void>;
@@ -77,4 +87,6 @@ export interface StaffAlertsRepository {
     ): Promise<KitchenServiceSettings>;
     pauseKitchen(minutes: number): Promise<KitchenServiceSettings>;
     resumeKitchen(): Promise<KitchenServiceSettings>;
+    getStorefrontProfile(): Promise<StorefrontProfile>;
+    saveStorefrontProfile(profile: StorefrontProfile): Promise<StorefrontProfile>;
 }

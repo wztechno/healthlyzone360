@@ -768,6 +768,7 @@ export type {
     StaffAlertList,
     StaffAlertsRepository,
     StaffAlertType,
+    StorefrontProfile,
 } from './staff-alerts.ts';
 
 export { KITCHEN_QUOTATION_STATUSES } from './kitchen-quotations.ts';

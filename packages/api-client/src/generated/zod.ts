@@ -6476,6 +6476,20 @@ export const zKitchenServiceSettingsEnvelope = z.object({
     meta: zMeta
 });
 
+export const zStorefrontProfile = z.object({
+    tagline_en: z.string().max(160).nullable(),
+    tagline_ar: z.string().max(160).nullable(),
+    description_en: z.string().max(2000).nullable(),
+    description_ar: z.string().max(2000).nullable(),
+    cuisines_en: z.array(z.string().max(40)).max(20),
+    cuisines_ar: z.array(z.string().max(40)).max(20)
+});
+
+export const zStorefrontProfileEnvelope = z.object({
+    data: zStorefrontProfile,
+    meta: zMeta
+});
+
 export const zKitchenCustomersEnvelope = z.object({
     data: z.array(zKitchenCustomer),
     meta: zMeta.and(z.object({
@@ -15978,6 +15992,28 @@ export const zUpdateKitchenServiceSettingsHeaders = z.object({
  * The timings as stored.
  */
 export const zUpdateKitchenServiceSettingsResponse = zKitchenServiceSettingsEnvelope;
+
+export const zGetStorefrontProfileHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The kitchen's storefront copy.
+ */
+export const zGetStorefrontProfileResponse = zStorefrontProfileEnvelope;
+
+export const zUpdateStorefrontProfileBody = zStorefrontProfile;
+
+export const zUpdateStorefrontProfileHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The copy as stored.
+ */
+export const zUpdateStorefrontProfileResponse = zStorefrontProfileEnvelope;
 
 export const zListKitchenCustomersHeaders = z.object({
     'X-Organisation-Id': zUuid,

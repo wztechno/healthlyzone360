@@ -15799,6 +15799,73 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/storefront-profile:
+    get:
+      operationId: getStorefrontProfile
+      tags: [Kitchen operations]
+      summary: This kitchen's marketplace copy
+      description: |
+        The tagline, description and cuisines a customer reads on the kitchen's
+        marketplace page, in English and Arabic. Unset reads as `''` and `[]`.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The kitchen's storefront copy.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontProfileEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+    put:
+      operationId: updateStorefrontProfile
+      tags: [Kitchen operations]
+      summary: Replace this kitchen's marketplace copy
+      description: |
+        All six values together. No `If-Match`. An empty string or list clears
+        the field; blank and repeated cuisines are dropped. Audited.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorefrontProfile'
+      responses:
+        '200':
+          description: The copy as stored.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontProfileEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/customers:
     get:
       operationId: listKitchenCustomers
@@ -34038,16 +34105,16 @@ components:
           type: string
         tagline:
           type: string
-          description: Always empty; the platform stores no marketing copy.
+          description: The kitchen's own copy in the request's language, falling back to the other; empty when unset.
         description:
           type: string
-          description: Always empty; the platform stores no marketing copy.
+          description: The kitchen's own copy in the request's language, falling back to the other; empty when unset.
         country_code:
           type: string
           maxLength: 2
         cuisines:
           type: array
-          description: Always empty; nothing records how a kitchen cooks.
+          description: The kitchen's own free-text list in the request's language, falling back to the other; empty when unset.
           items:
             type: string
         diet_classifications:
@@ -42332,6 +42399,45 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/KitchenServiceSettings'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    StorefrontProfile:
+      type: object
+      required: [tagline_en, tagline_ar, description_en, description_ar, cuisines_en, cuisines_ar]
+      properties:
+        tagline_en:
+          type: [string, 'null']
+          maxLength: 160
+        tagline_ar:
+          type: [string, 'null']
+          maxLength: 160
+        description_en:
+          type: [string, 'null']
+          maxLength: 2000
+        description_ar:
+          type: [string, 'null']
+          maxLength: 2000
+        cuisines_en:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 40
+          description: Free text, one cuisine per entry.
+        cuisines_ar:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 40
+
+    StorefrontProfileEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/StorefrontProfile'
         meta:
           $ref: '#/components/schemas/Meta'
 
