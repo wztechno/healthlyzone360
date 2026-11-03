@@ -21,8 +21,8 @@ import type {
     OrderDeskCustomerSearch,
     OrderDeskDeliveryWindow,
     DishChoices,
-    DishOption,
     DishOptionDraft,
+    KitchenDishOption,
     OrderDeskDrivers,
     OrderDeskQueue,
     OrderDeskQueueFilters,
@@ -712,7 +712,7 @@ export function useDishChoicesQuery(itemId: string | null): UseQueryResult<DishC
     });
 }
 
-export function useDishOptionsQuery(itemId: string): UseQueryResult<readonly DishOption[]> {
+export function useDishOptionsQuery(itemId: string): UseQueryResult<readonly KitchenDishOption[]> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
@@ -727,7 +727,7 @@ export function useDishOptionsQuery(itemId: string): UseQueryResult<readonly Dis
 
 export function useReplaceDishOptionsMutation(
     itemId: string,
-): UseMutationResult<readonly DishOption[], unknown, readonly DishOptionDraft[]> {
+): UseMutationResult<readonly KitchenDishOption[], unknown, readonly DishOptionDraft[]> {
     const repositories = useRepositories();
     const queryClient = useQueryClient();
 
@@ -738,7 +738,7 @@ export function useReplaceDishOptionsMutation(
             void queryClient.invalidateQueries({
                 queryKey: queryKeys.orderDesk.dishChoices(itemId),
             });
-            // A new choice can take the dish off sale, which the listing reads.
+            // A choice linked to an unpublished recipe takes the dish off sale, which the listing reads.
             void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
             void queryClient.invalidateQueries({ queryKey: queryKeys.catalogue.all() });
         },

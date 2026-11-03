@@ -1,29 +1,39 @@
-import type { DishOptionDraft } from '@healthy360/api-client/contracts';
+import type { DishOptionDraft, KitchenDishOption } from '@healthy360/api-client/contracts';
 import {
+    Badge,
     Button,
     FormSection,
     Icon,
     IconButton,
+    Inline,
     Select,
     Stack,
     Text,
     TextInputField,
     useToast,
 } from '@healthy360/design-system';
-import { useState } from 'react';
+import type { SelectOption } from '@healthy360/design-system';
+import { useLocale } from '@healthy360/i18n';
+import type { TFunction } from 'i18next';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import {
-    useDishOptionsQuery,
-    useReplaceDishOptionsMutation,
-} from '../../data/order-desk-hooks.ts';
+import { recipesFromPages, useAllRecipesQuery } from '../../data/kitchen-admin-hooks.ts';
+import { useDishOptionsQuery, useReplaceDishOptionsMutation } from '../../data/order-desk-hooks.ts';
 import { toFailure } from '../../data/hooks.ts';
+import { displayName } from './format.ts';
+import { allergenLabel } from './ops-format.ts';
 
 /**
  * The free changes a dish offers: something left out, or a sauce or side from a group. Saved on its
  * own, as the whole list, because it is not part of the listing's draft and a rename must not wait
  * for a publish. The priced choice, the portion, is the dish's packs, set under Selling.
+ *
+ * A choice links the sauce or side recipe it is (owner, 3 Nov 2026) and takes its allergens from that
+ * recipe's published version, which the row shows beside it. The picker is the recipe `Select` the
+ * product editor uses. A choice saved before the link existed stays unlinked, and unoffered, until
+ * somebody picks its recipe here; Save waits for every choice to have one.
  */
 export function DishOptionsSection({
     itemId,
@@ -33,8 +43,21 @@ export function DishOptionsSection({
     readonly canManage: boolean;
 }) {
     const { t } = useTranslation();
+    const { locale } = useLocale();
     const toast = useToast();
     const read = useDishOptionsQuery(itemId);
+    const recipes = useAllRecipesQuery();
+    const recipeRows = recipesFromPages(recipes.data?.pages);
+    const recipeOptions: readonly SelectOption[] = useMemo(
+        () =>
+            recipeRows.map((row) => ({
+                value: String(row.id),
+                label: displayName(row.name, locale).value,
+                // Searched, not shown — see `SelectOption.keywords`.
+                keywords: row.slug,
+            })),
+        [recipeRows, locale],
+    );
     const replace = useReplaceDishOptionsMutation(itemId);
     // What is on screen: the saved list until somebody edits it.
     const [edited, setRows] = useState<readonly DishOptionDraft[] | null>(null);
@@ -47,7 +70,7 @@ export function DishOptionsSection({
         (row) =>
             row.nameEn.trim() !== '' &&
             row.nameAr.trim() !== '' &&
-            (row.kind === 'remove' || (row.groupEn ?? '').trim() !== ''),
+            (row.kind === 'remove' || ((row.groupEn ?? '').trim() !== '' && row.recipeId !== null)),
     );
     const failure = toFailure(replace.error);
 
@@ -141,6 +164,26 @@ export function DishOptionsSection({
                                 }}
                             />
                         </View>
+                        {row.kind === 'remove' ? null : (
+                            <View className="w-56">
+                                <Select
+                                    testID={`kitchen-dish-option-${String(index)}-recipe`}
+                                    id={`kitchen-dish-option-${String(index)}-recipe`}
+                                    label={t('kitchen:dishOptions.recipe')}
+                                    placeholder={t('kitchen:dishOptions.recipePlaceholder')}
+                                    size="sm"
+                                    searchable
+                                    loading={recipes.isPending}
+                                    disabled={!canManage}
+                                    options={recipeOptions}
+                                    value={row.recipeId}
+                                    onChange={(recipeId) => {
+                                        // The label is the saved recipe's until this saves.
+                                        edit(index, { recipeId, allergenCodes: null });
+                                    }}
+                                />
+                            </View>
+                        )}
                         {canManage ? (
                             <IconButton
                                 testID={`kitchen-dish-option-${String(index)}-remove`}
@@ -153,6 +196,16 @@ export function DishOptionsSection({
                                 }}
                             />
                         ) : null}
+                        {row.kind === 'remove' ? null : (
+                            <View className="w-full">
+                                <ChoiceAllergens
+                                    testID={`kitchen-dish-option-${String(index)}-allergens`}
+                                    row={row}
+                                    saved={read.data?.find((option) => option.id === row.id)}
+                                    t={t}
+                                />
+                            </View>
+                        )}
                     </View>
                 ))}
 
@@ -180,6 +233,8 @@ export function DishOptionsSection({
                                         groupAr: null,
                                         nameEn: '',
                                         nameAr: '',
+                                        recipeId: null,
+                                        allergenCodes: null,
                                     },
                                 ]);
                             }}
@@ -207,5 +262,66 @@ export function DishOptionsSection({
                 ) : null}
             </Stack>
         </FormSection>
+    );
+}
+
+/**
+ * What a choice brings to the plate: its linked recipe's published allergens, as the danger badges the
+ * meal listing draws, or why there are none to show.
+ */
+function ChoiceAllergens({
+    testID,
+    row,
+    saved,
+    t,
+}: {
+    readonly testID: string;
+    readonly row: DishOptionDraft;
+    readonly saved: KitchenDishOption | undefined;
+    readonly t: TFunction;
+}) {
+    if (row.recipeId === null) {
+        return (
+            <Text variant="caption" tone="warning" testID={`${testID}-unlinked`}>
+                {t('kitchen:dishOptions.recipeMissing')}
+            </Text>
+        );
+    }
+
+    if (saved?.recipeId !== row.recipeId) {
+        return (
+            <Text variant="caption" tone="secondary" testID={`${testID}-unsaved`}>
+                {t('kitchen:dishOptions.allergensAfterSave')}
+            </Text>
+        );
+    }
+
+    if (row.allergenCodes === null) {
+        return (
+            <Text variant="caption" tone="warning" testID={`${testID}-unpublished`}>
+                {t('kitchen:dishOptions.recipeUnpublished')}
+            </Text>
+        );
+    }
+
+    if (row.allergenCodes.length === 0) {
+        return (
+            <Text variant="caption" tone="secondary" testID={`${testID}-none`}>
+                {t('kitchen:dishOptions.noAllergens')}
+            </Text>
+        );
+    }
+
+    return (
+        <Inline space="xs" wrap testID={testID}>
+            {row.allergenCodes.map((code) => (
+                <Badge
+                    key={code}
+                    testID={`${testID}-${code}`}
+                    tone="danger"
+                    label={allergenLabel(code, t)}
+                />
+            ))}
+        </Inline>
     );
 }

@@ -26,28 +26,36 @@ final readonly class BuyerAllergenCheckAdapter implements BuyerAllergenCheck
     public function __construct(private MealSafety $safety) {}
 
     /**
+     * One verdict per dish: the first of its lines that conflicts, since a sauce
+     * chosen on one line and not another makes the same dish answer twice.
+     *
      * @param  list<string>  $catalogueItemIds
+     * @param  array<int, list<string>>  $optionIds
      * @return list<array{catalogue_item_id: string, reason: string, allergen_codes: list<string>}>
      */
-    public function conflicts(CustomerAccount $account, array $catalogueItemIds): array
+    public function conflicts(CustomerAccount $account, array $catalogueItemIds, array $optionIds = []): array
     {
         $conflicts = [];
 
-        foreach (array_values(array_unique($catalogueItemIds)) as $itemId) {
-            $verdict = $this->safety->check($account, $itemId);
+        foreach (array_values($catalogueItemIds) as $index => $itemId) {
+            if (isset($conflicts[$itemId])) {
+                continue;
+            }
+
+            $verdict = $this->safety->check($account, $itemId, $optionIds[$index] ?? []);
 
             if ($verdict['safe'] || $verdict['reason'] === null || $verdict['reason'] === 'item_unknown') {
                 continue;
             }
 
-            $conflicts[] = [
+            $conflicts[$itemId] = [
                 'catalogue_item_id' => $itemId,
                 'reason' => $verdict['reason'],
                 'allergen_codes' => $verdict['allergen_classes'],
             ];
         }
 
-        return $conflicts;
+        return array_values($conflicts);
     }
 
     /**

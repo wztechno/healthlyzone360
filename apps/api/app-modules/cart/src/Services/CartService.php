@@ -143,7 +143,7 @@ final readonly class CartService
         $selected = $this->options->snapshot($catalogueItemId, $optionIds);
 
         if ($selected === null) {
-            throw new LineRefused([['reason' => 'option_unknown', 'catalogue_item_id' => $catalogueItemId]]);
+            throw new LineRefused([['reason' => $this->options->refusal($catalogueItemId, $optionIds), 'catalogue_item_id' => $catalogueItemId]]);
         }
 
         $note = trim((string) $note) === '' ? null : trim((string) $note);

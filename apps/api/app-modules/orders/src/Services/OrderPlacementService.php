@@ -407,7 +407,7 @@ final readonly class OrderPlacementService
             $reasons = [...$reasons, ...$this->allergenReasons($account, array_map(
                 static fn (ComposedLine $line): string => $line->catalogueItemId,
                 $placement->lines,
-            ))];
+            ), array_map(static fn (ComposedLine $line): array => $line->optionIds, $placement->lines))];
         }
 
         $effectiveDate = $placement->requestedDate;
@@ -654,7 +654,7 @@ final readonly class OrderPlacementService
             $reasons = [...$reasons, ...$this->allergenReasons($account, array_map(
                 static fn (CartItem $line): string => $line->catalogue_item_id,
                 $lines,
-            ))];
+            ), array_map(static fn (CartItem $line): array => array_column($line->selected_options ?? [], 'id'), $lines))];
         }
 
         $effectiveDate = $this->effectiveDate($lines, $requestedDate, $reasons);
@@ -904,16 +904,17 @@ final readonly class OrderPlacementService
      * rule's own word for it, since `reason` names the refusal.
      *
      * @param  list<string>  $catalogueItemIds
+     * @param  array<int, list<string>>  $optionIds  each line's chosen options, by the same index
      * @return list<array<string, mixed>>
      */
-    private function allergenReasons(CustomerAccount $account, array $catalogueItemIds): array
+    private function allergenReasons(CustomerAccount $account, array $catalogueItemIds, array $optionIds): array
     {
         return array_map(static fn (array $conflict): array => [
             'reason' => 'allergen_conflict',
             'catalogue_item_id' => $conflict['catalogue_item_id'],
             'cause' => $conflict['reason'],
             'allergen_codes' => $conflict['allergen_codes'],
-        ], $this->allergenCheck->conflicts($account, $catalogueItemIds));
+        ], $this->allergenCheck->conflicts($account, $catalogueItemIds, $optionIds));
     }
 
     /**
@@ -941,23 +942,28 @@ final readonly class OrderPlacementService
     ): void {
         $declared = $account === null ? [] : $this->allergenCheck->declared($account);
 
-        $conflicts = $account !== null && ($declared !== [] || $acknowledged)
-            ? $this->allergenCheck->conflicts($account, array_map(static fn (OrderLine $line): string => $line->catalogue_item_id, $lines))
-            : [];
+        // Asked line by line, because two lines of one dish with different
+        // sauces are different food: the conflict is the line's, not the dish's.
+        $conflicts = [];
 
-        $order->allergy_snapshot = $declared === [] ? null : array_map(static function (array $allergy) use ($conflicts, $lines): array {
-            $itemIds = [];
+        if ($account !== null && ($declared !== [] || $acknowledged)) {
+            foreach ($lines as $line) {
+                foreach ($this->allergenCheck->conflicts($account, [$line->catalogue_item_id], [array_column($line->selected_options ?? [], 'id')]) as $conflict) {
+                    $conflicts[] = [...$conflict, 'line_id' => (string) $line->getKey()];
+                }
+            }
+        }
+
+        $order->allergy_snapshot = $declared === [] ? null : array_map(static function (array $allergy) use ($conflicts): array {
+            $lineIds = [];
 
             foreach ($conflicts as $conflict) {
                 if ($conflict['reason'] === 'unassessed' || in_array($allergy['allergen_code'], $conflict['allergen_codes'], true)) {
-                    $itemIds[] = $conflict['catalogue_item_id'];
+                    $lineIds[] = $conflict['line_id'];
                 }
             }
 
-            return [...$allergy, 'conflicts_with_line' => array_values(array_map(
-                static fn (OrderLine $line): string => (string) $line->getKey(),
-                array_filter($lines, static fn (OrderLine $line): bool => in_array($line->catalogue_item_id, $itemIds, true)),
-            ))];
+            return [...$allergy, 'conflicts_with_line' => $lineIds];
         }, $declared);
 
         $accepted = $acknowledged && $conflicts !== [];
@@ -1218,7 +1224,7 @@ final readonly class OrderPlacementService
             $reasons = [...$reasons, ...$this->allergenReasons($account, array_map(
                 static fn (ComposedLine $line): string => $line->catalogueItemId,
                 $draft->lines,
-            ))];
+            ), array_map(static fn (ComposedLine $line): array => $line->optionIds, $draft->lines))];
         }
 
         $channel = SalesChannel::withoutTenancy()->whereKey($locked->sales_channel_id)->first();
@@ -1532,7 +1538,7 @@ final readonly class OrderPlacementService
             $selected = $this->dishOptions->snapshot($line->catalogueItemId, $line->optionIds);
 
             if ($selected === null) {
-                $refusals[] = ['reason' => 'option_unknown', 'catalogue_item_id' => $line->catalogueItemId];
+                $refusals[] = ['reason' => $this->dishOptions->refusal($line->catalogueItemId, $line->optionIds), 'catalogue_item_id' => $line->catalogueItemId];
 
                 continue;
             }
@@ -1560,7 +1566,7 @@ final readonly class OrderPlacementService
                 'unit_price_minor' => $unitPriceMinor,
                 'line_total_minor' => $lineTotal,
                 'currency_code' => $placement->currencyCode,
-                'allergens' => $this->publicAllergens($item),
+                'allergens' => $this->publicAllergens($item, $line->optionIds),
                 'pack_summary' => $variant === null ? null : $this->packSummary((string) $variant->getKey()),
                 'selected_options' => $selected,
                 'note' => $line->note,
@@ -1624,7 +1630,11 @@ final readonly class OrderPlacementService
             $selected = $this->dishOptions->snapshot($line->catalogue_item_id, array_column($line->selected_options ?? [], 'id'));
 
             if ($selected === null) {
-                $refusals[] = ['reason' => 'option_unknown', 'catalogue_item_id' => $line->catalogue_item_id, 'cart_item_id' => (string) $line->getKey()];
+                $refusals[] = [
+                    'reason' => $this->dishOptions->refusal($line->catalogue_item_id, array_column($line->selected_options ?? [], 'id')),
+                    'catalogue_item_id' => $line->catalogue_item_id,
+                    'cart_item_id' => (string) $line->getKey(),
+                ];
 
                 continue;
             }
@@ -1644,7 +1654,7 @@ final readonly class OrderPlacementService
                 'unit_price_minor' => $price->amountMinor,
                 'line_total_minor' => $lineTotal,
                 'currency_code' => $price->currencyCode,
-                'allergens' => $this->publicAllergens($item),
+                'allergens' => $this->publicAllergens($item, array_column($selected, 'id')),
                 'pack_summary' => $variant === null ? null : $this->packSummary((string) $variant->getKey()),
                 'selected_options' => $selected,
                 'note' => $line->note,
@@ -1666,19 +1676,29 @@ final readonly class OrderPlacementService
      * the most likely row on the platform to be handed to a courier or a
      * marketplace partner.
      *
+     * A sauce or side chosen on the line joins the dish's label: the kitchen's
+     * ticket, the desk and the customer's receipt all read this one list.
+     *
+     * @param  list<string>  $optionIds
      * @return list<array{allergen_code: string, containment: string}>
      */
-    private function publicAllergens(CatalogueItem $item): array
+    private function publicAllergens(CatalogueItem $item, array $optionIds): array
     {
         $derived = $this->allergens->forItem($item);
 
-        return array_map(
+        $dish = array_map(
             static fn (array $allergen): array => [
                 'allergen_code' => $allergen['allergen_code'],
                 'containment' => $allergen['containment'],
             ],
             $derived['allergens'],
         );
+
+        if ($optionIds === []) {
+            return $dish;
+        }
+
+        return DishOptions::merge($dish, $this->dishOptions->allergensOf($optionIds)['allergens']);
     }
 
     /**

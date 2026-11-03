@@ -1,7 +1,7 @@
 import type { AllergenConflict } from './commerce.ts';
 import type { BranchId, CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
 
-import type { DishChoices, DishOption, DishOptionDraft } from './dish-options.ts';
+import type { DishChoices, DishOptionDraft, KitchenDishOption } from './dish-options.ts';
 import type { DriverJobStatus, DriverJobTrackingStatus } from './driver-jobs.ts';
 import type { ServiceArea } from './kitchen-admin.ts';
 import type {
@@ -1205,11 +1205,11 @@ export interface OrderDeskRepository {
     /** What can be changed about a dish, with its portions at the counter's prices. */
     getDishChoices(itemId: string): Promise<DishChoices>;
     /** The kitchen's list of a dish's free options. */
-    listDishOptions(itemId: string): Promise<readonly DishOption[]>;
+    listDishOptions(itemId: string): Promise<readonly KitchenDishOption[]>;
     replaceDishOptions(
         itemId: string,
         options: readonly DishOptionDraft[],
-    ): Promise<readonly DishOption[]>;
+    ): Promise<readonly KitchenDishOption[]>;
 
     getCloses(): Promise<OrderDeskCloses>;
     recordClose(request: RecordDailyCloseRequest): Promise<DailyCloseRecord>;

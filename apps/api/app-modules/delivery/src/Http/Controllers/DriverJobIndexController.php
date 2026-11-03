@@ -90,10 +90,15 @@ use Illuminate\Support\Facades\DB;
  * ## Which allergens are on the order, and nothing more
  *
  * `allergy_allergen_codes` is the codes from the order's own snapshot, so a
- * driver handing a bag to somebody can say what to watch for. The notes and the
- * severities stay with the kitchen: they are health detail, and a run sheet has
- * no decision that turns on them. Even the codes are `SpecialCategory`, so the
- * read is recorded, daily because this sheet polls.
+ * driver handing a bag to somebody can say what to watch for. The customer's own
+ * notes and the severities stay with the kitchen: they are health detail, and a
+ * run sheet has no decision that turns on them. Even the codes are
+ * `SpecialCategory`, so the read is recorded, daily because this sheet polls.
+ *
+ * `allergy_note` is the order's free note, as the desk wrote it. A walk-in has
+ * no saved profile and so no codes, and the note is all there is: the owner ruled
+ * on 3 Nov 2026 that the driver sees it, as they see a profile's codes. Its read
+ * is recorded the same way.
  *
  * ## What is still deliberately absent
  *
@@ -154,6 +159,7 @@ final class DriverJobIndexController
         'orders.requested_delivery_date as requested_delivery_date',
         'orders.ready_at as order_ready_at',
         'orders.allergy_snapshot as allergy_snapshot',
+        'orders.allergy_note as allergy_note',
         'orders.currency_code as currency_code',
         'orders.payment_method as payment_method',
         'ca.display_name as customer_name',
@@ -268,6 +274,7 @@ final class DriverJobIndexController
      *     picked_up_at: string|null,
      *     ready_at: string|null,
      *     allergy_allergen_codes: list<string>,
+     *     allergy_note: string|null,
      *     amount_due_minor: int,
      *     currency_code: string|null,
      *     payment_method: string|null,
@@ -300,6 +307,7 @@ final class DriverJobIndexController
             // waits for it (HA-28).
             'ready_at' => $this->instant($job, 'order_ready_at'),
             'allergy_allergen_codes' => $this->allergenCodes($job),
+            'allergy_note' => $this->allergyNote($job),
             'amount_due_minor' => (int) $job->getAttribute('amount_due_minor'),
             'currency_code' => $this->text($job, 'currency_code'),
             'payment_method' => $this->text($job, 'payment_method'),
@@ -341,6 +349,28 @@ final class DriverJobIndexController
             return [];
         }
 
+        $this->recordAllergyRead($job);
+
+        return array_column($allergies, 'allergen_code');
+    }
+
+    /**
+     * The order's free allergy note, recorded as read like the codes: for a
+     * walk-in it is the only allergy record there is.
+     */
+    private function allergyNote(DeliveryJob $job): ?string
+    {
+        $note = $this->text($job, 'allergy_note');
+
+        if ($note !== null) {
+            $this->recordAllergyRead($job);
+        }
+
+        return $note;
+    }
+
+    private function recordAllergyRead(DeliveryJob $job): void
+    {
         $this->audit->recordAccessDaily(
             'order.allergy_read',
             PurposeOfUse::OrderFulfilment,
@@ -349,8 +379,6 @@ final class DriverJobIndexController
             'order',
             $job->order_id,
         );
-
-        return array_column($allergies, 'allergen_code');
     }
 
     /**

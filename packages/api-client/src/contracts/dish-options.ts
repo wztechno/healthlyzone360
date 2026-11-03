@@ -29,8 +29,18 @@ export interface DishChoices {
     readonly portions: readonly DishPortion[];
 }
 
+/**
+ * A dish option as the kitchen edits it. A choice links the sauce or side recipe it is and takes its
+ * allergens from that recipe's published version; `allergenCodes` is null when there is no link or
+ * the recipe has no published version. A choice with no recipe is not offered to anybody.
+ */
+export interface KitchenDishOption extends DishOption {
+    readonly recipeId: string | null;
+    readonly allergenCodes: readonly string[] | null;
+}
+
 /** A row of the kitchen's editor: no `id` yet on a row just added. */
-export type DishOptionDraft = Omit<DishOption, 'id'> & { readonly id: string | null };
+export type DishOptionDraft = Omit<KitchenDishOption, 'id'> & { readonly id: string | null };
 
 /** What an add to the basket chose. */
 export interface DishLineChoices {

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9758 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9767 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2777,6 +2777,7 @@ export interface NamespaceKeys {
     | 'orderRefusal.minimum_order_not_met'
     | 'orderRefusal.mixed_delivery_dates'
     | 'orderRefusal.option_unknown'
+    | 'orderRefusal.option_unlinked'
     | 'orderRefusal.quality_hold'
     | 'orderRefusal.unpriced'
     | 'orderRefusal.variant_not_active'
@@ -3715,6 +3716,7 @@ export interface NamespaceKeys {
     | 'desk.refusal.kitchen_paused'
     | 'desk.refusal.lead_time_not_met'
     | 'desk.refusal.option_unknown'
+    | 'desk.refusal.option_unlinked'
     | 'desk.refusal.quality_hold'
     | 'desk.refusal.unpriced'
     | 'desk.refusal.variant_not_active'
@@ -3877,6 +3879,7 @@ export interface NamespaceKeys {
     | 'desk.window.today'
     | 'desk.windowLabel'
     | 'dishOptions.add'
+    | 'dishOptions.allergensAfterSave'
     | 'dishOptions.apply'
     | 'dishOptions.aside'
     | 'dishOptions.drawerTitle'
@@ -3889,7 +3892,12 @@ export interface NamespaceKeys {
     | 'dishOptions.lineNote'
     | 'dishOptions.nameAr'
     | 'dishOptions.nameEn'
+    | 'dishOptions.noAllergens'
     | 'dishOptions.noteLabel'
+    | 'dishOptions.recipe'
+    | 'dishOptions.recipeMissing'
+    | 'dishOptions.recipePlaceholder'
+    | 'dishOptions.recipeUnpublished'
     | 'dishOptions.removeRow'
     | 'dishOptions.save'
     | 'dishOptions.saved'
@@ -3898,6 +3906,7 @@ export interface NamespaceKeys {
     | 'dressings.kindSaladDressing'
     | 'dressings.title'
     | 'dressings.viewKind'
+    | 'driver.allergyNote'
     | 'driver.allergyTitle'
     | 'driver.amountDue'
     | 'driver.assignedAt'
@@ -12565,6 +12574,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:orderRefusal.window_not_offered',
   'errors:orderRefusal.zone_suspended',
   'errors:subscriptionRefusal.configuration_not_active',
+  'errors:orderRefusal.option_unlinked',
   'errors:subscriptionRefusal.configuration_unknown',
   'errors:subscriptionRefusal.duration_not_fixed',
   'errors:subscriptionRefusal.duration_not_offered',
@@ -13500,6 +13510,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.refusal.window_not_offered',
   'kitchen:desk.refusal.zone_suspended',
   'kitchen:desk.sale.addItem',
+  'kitchen:desk.refusal.option_unlinked',
   'kitchen:desk.sale.addItemPriced',
   'kitchen:desk.sale.addressNeedsCustomer',
   'kitchen:desk.sale.addressNoteBody',
@@ -13662,6 +13673,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:dishOptions.kindChoice',
   'kitchen:dishOptions.kindRemove',
   'kitchen:dishOptions.lineAction',
+  'kitchen:dishOptions.allergensAfterSave',
   'kitchen:dishOptions.lineNote',
   'kitchen:dishOptions.nameAr',
   'kitchen:dishOptions.nameEn',
@@ -13674,7 +13686,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:dressings.kindSaladDressing',
   'kitchen:dressings.title',
   'kitchen:dressings.viewKind',
+  'kitchen:dishOptions.noAllergens',
   'kitchen:driver.allergyTitle',
+  'kitchen:dishOptions.recipe',
+  'kitchen:dishOptions.recipeMissing',
+  'kitchen:dishOptions.recipePlaceholder',
+  'kitchen:dishOptions.recipeUnpublished',
   'kitchen:driver.amountDue',
   'kitchen:driver.assignedAt',
   'kitchen:driver.availableHint',
@@ -13683,6 +13700,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:driver.claimTaken',
   'kitchen:driver.collectedHint',
   'kitchen:driver.collectedInvalid',
+  'kitchen:driver.allergyNote',
   'kitchen:driver.collectedLabel',
   'kitchen:driver.collectedTooMuch',
   'kitchen:driver.customer',

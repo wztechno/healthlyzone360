@@ -236,6 +236,7 @@ final readonly class CheckoutPreviewService
         return $this->allergens->conflicts(
             $buyer,
             array_map(static fn (CartItem $line): string => $line->catalogue_item_id, $lines),
+            array_map(static fn (CartItem $line): array => array_column($line->selected_options ?? [], 'id'), $lines),
         );
     }
 

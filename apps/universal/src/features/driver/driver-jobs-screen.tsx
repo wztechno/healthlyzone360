@@ -62,9 +62,10 @@ import { useOnlineStatus } from '../../online/online-status.tsx';
  * already been received, drawn on a cash order that still owes something; a WISH order has nothing
  * to collect at the door. `driverUserId` is absent, because it would say "you" on every row.
  *
- * **The allergens on the order are named and nothing more.** Whoever takes the bag at the door may
- * need to hear it. The notes and the severity stay with the kitchen, and the wire does not carry
- * them, so this banner is one tone for every order.
+ * **The allergens on the order are named, with the order's own note.** Whoever takes the bag at the
+ * door may need to hear it. A saved profile's notes and severity stay with the kitchen, and the wire
+ * does not carry them, so this banner is one tone for every order. The order's free note does reach
+ * it: a walk-in has no profile, and the note is all the allergy record it has (owner, 3 Nov 2026).
  *
  * **The heading falls back visibly.** `orderNumber` is nullable on the wire, so a job without one
  * shows the order identifier — which is what this screen showed on every row before the number
@@ -634,17 +635,26 @@ function JobCard({ job, locale, disabled, action, onAction, onFail }: JobCardPro
                     </Text>
                 )}
 
-                {job.allergyAllergenCodes.length === 0 ? null : (
+                {job.allergyAllergenCodes.length === 0 && job.allergyNote === null ? null : (
                     <Callout
                         testID={`${testID}-allergy`}
                         tone="warning"
                         icon="warning"
                         title={t('kitchen:driver.allergyTitle')}
-                        body={job.allergyAllergenCodes
-                            .map((code) =>
-                                t(`marketplace:allergens.${code}`, { defaultValue: code }),
-                            )
-                            .join(t('kitchen:common.listSeparator'))}
+                        // A walk-in's note is the whole record, so it rides in the same banner
+                        // as a saved profile's allergens (owner, 3 Nov 2026).
+                        body={[
+                            job.allergyAllergenCodes
+                                .map((code) =>
+                                    t(`marketplace:allergens.${code}`, { defaultValue: code }),
+                                )
+                                .join(t('kitchen:common.listSeparator')),
+                            job.allergyNote === null
+                                ? ''
+                                : t('kitchen:driver.allergyNote', { note: job.allergyNote }),
+                        ]
+                            .filter((part) => part !== '')
+                            .join('\n')}
                     />
                 )}
 

@@ -71,6 +71,7 @@ function driverJob(overrides: Partial<DriverJob> = {}): DriverJob {
         pickedUpAt: null,
         readyAt: '2026-08-16T06:35:00.000Z',
         allergyAllergenCodes: [],
+        allergyNote: null,
         amountDueMinor: 3000,
         currencyCode: 'USD',
         paymentMethod: 'cash_on_delivery',
@@ -284,6 +285,23 @@ describe('the driver run sheet ladder', () => {
         expect(banner).toHaveTextContent(/Eggs/);
         // The wire carries no notes and no severity, so neither does the card.
         expect(banner).not.toHaveTextContent(/life-threatening/);
+    });
+
+    it('shows a walk-in allergy note in the same banner when no allergen is saved', async () => {
+        await renderRunSheet({
+            listJobs: async () => [driverJob({ allergyNote: 'Says no nuts, severe' })],
+        });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId(`${jobTestId(JOB_ONE)}-allergy`)).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        const banner = screen.getByTestId(`${jobTestId(JOB_ONE)}-allergy`);
+        expect(banner).toHaveTextContent(/Allergy on this order/);
+        expect(banner).toHaveTextContent(/Says no nuts, severe/);
     });
 
     it('draws no allergy banner on a run with none', async () => {

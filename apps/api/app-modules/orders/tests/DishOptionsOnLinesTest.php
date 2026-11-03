@@ -9,6 +9,7 @@ use Healthy360\Catalogues\Services\DishOptions;
 use Healthy360\Orders\OrderDesk\Services\DeskBasket;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
+use Healthy360\Recipes\Models\Recipe;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Str;
@@ -44,10 +45,12 @@ describe('a dish\'s options', function (): void {
             'catalogue_id' => (string) $catalogue->getKey(),
             'item_type' => 'meal',
         ]);
+        // A choice is offered only with a recipe behind it.
+        $recipe = (string) Recipe::factory()->create(['organisation_id' => $this->tenant->organisation->getKey()])->getKey();
         $this->dishOptions = app(DishOptions::class)->replace($this->dish, [
             ['kind' => 'remove', 'name_en' => 'Onions', 'name_ar' => 'بصل'],
-            ['kind' => 'choice', 'group_en' => 'Sauce', 'group_ar' => 'صلصة', 'name_en' => 'Garlic', 'name_ar' => 'ثوم'],
-            ['kind' => 'choice', 'group_en' => 'Sauce', 'group_ar' => 'صلصة', 'name_en' => 'Chilli', 'name_ar' => 'حار'],
+            ['kind' => 'choice', 'group_en' => 'Sauce', 'group_ar' => 'صلصة', 'name_en' => 'Garlic', 'name_ar' => 'ثوم', 'recipe_id' => $recipe],
+            ['kind' => 'choice', 'group_en' => 'Sauce', 'group_ar' => 'صلصة', 'name_en' => 'Chilli', 'name_ar' => 'حار', 'recipe_id' => $recipe],
         ]);
     });
 
@@ -65,7 +68,8 @@ describe('a dish\'s options', function (): void {
     it('refuses two answers to one group, and an option that is not this dish\'s', function (): void {
         $dishId = (string) $this->dish->getKey();
 
-        expect(app(DishOptions::class)->snapshot($dishId, [$this->dishOptions[1]['id'], $this->dishOptions[2]['id']]))->toBeNull()
+        expect(app(DishOptions::class)->snapshot($dishId, [$this->dishOptions[1]['id']]))->toHaveCount(1)
+            ->and(app(DishOptions::class)->snapshot($dishId, [$this->dishOptions[1]['id'], $this->dishOptions[2]['id']]))->toBeNull()
             ->and(app(DishOptions::class)->snapshot($dishId, [(string) Str::uuid()]))->toBeNull();
     });
 

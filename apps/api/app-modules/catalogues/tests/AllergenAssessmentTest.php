@@ -75,7 +75,9 @@ function isAssessed(CatalogueItem $item): bool
     return CatalogueItem::withoutTenancy()->whereKey($item->getKey())->allergensAssessed()->exists();
 }
 
-it('takes a stamped dish off sale when a choice is added or renamed, and not for a removal', function (): void {
+it('keeps a stamped dish on sale through a removal and a linked choice, and waits for a draft one', function (): void {
+    // The stop-gap that cleared the stamp on every new or renamed choice is gone:
+    // a choice now carries its own recipe's allergens (owner, 3 Nov 2026).
     $item = unassessedItem($this->a, ['allergens_assessed_at' => now(), 'allergens_assessed_by' => $this->a->user->getKey()]);
     $url = '/api/v1/catalogue/items/'.$item->getKey().'/options';
     $this->actingAs($this->a->user);
@@ -85,18 +87,12 @@ it('takes a stamped dish off sale when a choice is added or renamed, and not for
     $this->putJson($url, ['options' => [['kind' => 'remove', 'name_en' => 'No onion', 'name_ar' => 'بدون بصل']]], $headers)->assertOk();
     expect(isAssessed($item))->toBeTrue();
 
-    $saved = $this->putJson($url, ['options' => [$sauce]], $headers)->assertOk()->json('data.options.0.id');
-    $item->refresh();
-    expect(isAssessed($item))->toBeFalse()
-        ->and($item->allergens_assessed_by)->toBeNull()
-        ->and(AuditLog::query()->where('action', 'catalogue.item.options_replaced')->get()->filter(static fn (AuditLog $log): bool => $log->metadata['allergen_stamp_cleared']))->toHaveCount(1);
+    $this->putJson($url, ['options' => [[...$sauce, 'recipe_id' => (string) publishedRecipe($this->a, 1)->getKey()]]], $headers)->assertOk();
+    expect(isAssessed($item))->toBeTrue()
+        ->and($item->refresh()->allergens_assessed_by)->not->toBeNull();
 
-    // Somebody looks again; the same list resent asks nothing new, a rename does.
-    $this->postJson('/api/v1/catalogue/items/'.$item->getKey().'/allergens-assessed', [], $headers)->assertOk();
-    $this->putJson($url, ['options' => [[...$sauce, 'id' => $saved]]], $headers)->assertOk();
-    expect(isAssessed($item))->toBeTrue();
-
-    $this->putJson($url, ['options' => [[...$sauce, 'id' => $saved, 'name_en' => 'Peanut sauce']]], $headers)->assertOk();
+    $draft = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+    $this->putJson($url, ['options' => [[...$sauce, 'recipe_id' => (string) $draft->getKey()]]], $headers)->assertOk();
     expect(isAssessed($item))->toBeFalse();
 });
 

@@ -18,9 +18,10 @@ final class NullBuyerAllergenCheck implements BuyerAllergenCheck
 {
     /**
      * @param  list<string>  $catalogueItemIds
+     * @param  array<int, list<string>>  $optionIds
      * @return list<array{catalogue_item_id: string, reason: string, allergen_codes: list<string>}>
      */
-    public function conflicts(CustomerAccount $account, array $catalogueItemIds): array
+    public function conflicts(CustomerAccount $account, array $catalogueItemIds, array $optionIds = []): array
     {
         return [];
     }

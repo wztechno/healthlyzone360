@@ -25,11 +25,12 @@ import type {
     OpeningHours,
     PackSize,
 } from '../contracts/marketplace.ts';
-import type { DishOption, DishPortion } from '../contracts/dish-options.ts';
+import type { DishOption, DishPortion, KitchenDishOption } from '../contracts/dish-options.ts';
 import type { CursorPage } from '../contracts/pagination.ts';
 import type {
     DishOption as WireDishOption,
     DishPortion as WireDishPortion,
+    KitchenDishOption as WireKitchenDishOption,
 } from '../generated/types.ts';
 import type {
     MarketplaceBranch as WireBranch,
@@ -379,6 +380,16 @@ export function mapDishOption(wire: WireDishOption): DishOption {
         groupAr: wire.group_ar,
         nameEn: wire.name_en,
         nameAr: wire.name_ar,
+    };
+}
+
+/** A dish option as the kitchen's editor reads it: the recipe link and that recipe's allergens. */
+export function mapKitchenDishOption(wire: WireKitchenDishOption): KitchenDishOption {
+    return {
+        ...mapDishOption(wire),
+        recipeId: wire.recipe_id,
+        allergenCodes:
+            wire.allergens === null ? null : wire.allergens.map((entry) => entry.allergen_code),
     };
 }
 

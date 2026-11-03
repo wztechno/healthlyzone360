@@ -146,7 +146,7 @@ it('snapshots an allergy the basket does not conflict with', function (): void {
         {
             public function __construct(private BuyerAllergenCheck $real) {}
 
-            public function conflicts(CustomerAccount $account, array $catalogueItemIds): array
+            public function conflicts(CustomerAccount $account, array $catalogueItemIds, array $optionIds = []): array
             {
                 return [];
             }
@@ -488,7 +488,7 @@ it('refuses the same Idempotency-Key over HTTP with a different note', function 
     expect(Order::query()->sole()->allergy_note)->toBe('Coeliac');
 });
 
-it('gives the driver the allergen codes and nothing else about them', function (): void {
+it('gives the driver the allergen codes and the order\'s note, and nothing of the profile\'s notes', function (): void {
     declareAllergy($this->account);
 
     // A desk delivery is confirmed at placement, which projects its run.
@@ -504,11 +504,35 @@ it('gives the driver the allergen codes and nothing else about them', function (
 
     $response = $this->getJson('/api/v1/driver/jobs', $this->headers)
         ->assertOk()
-        ->assertJsonPath('data.available.0.allergy_allergen_codes', ['sesame']);
+        ->assertJsonPath('data.available.0.allergy_allergen_codes', ['sesame'])
+        // The order's own note reaches the driver (owner, 3 Nov 2026).
+        ->assertJsonPath('data.available.0.allergy_note', 'Coeliac');
 
     expect($response->getContent())->not->toContain('EpiPen')
-        ->and($response->getContent())->not->toContain('anaphylaxis')
-        ->and($response->getContent())->not->toContain('Coeliac');
+        ->and($response->getContent())->not->toContain('anaphylaxis');
+});
+
+it('gives the driver a walk-in note when no allergy is saved on a profile', function (): void {
+    // A delivery needs an account for its address; this one declares nothing, so
+    // the note is the order's only allergy record, as a walk-in's is.
+    $this->postJson('/api/v1/catalogue/order-desk/orders', [
+        'fulfilment_type' => 'delivery',
+        'payment_method' => 'cash_on_delivery',
+        'customer_account_id' => (string) $this->account->getKey(),
+        'customer_address_id' => (string) $this->world->customer->address->getKey(),
+        'allergy_note' => 'Says no nuts, severe',
+        'lines' => [['catalogue_item_id' => (string) $this->world->meal->getKey(), 'quantity' => 1]],
+    ], $this->headers + ['Idempotency-Key' => 'walk-in-driver'])->assertCreated();
+
+    $order = Order::query()->sole();
+    $order->forceFill(['ready_at' => now()])->save();
+
+    expect($order->allergy_snapshot)->toBeNull();
+
+    $this->getJson('/api/v1/driver/jobs', $this->headers)
+        ->assertOk()
+        ->assertJsonPath('data.available.0.allergy_allergen_codes', [])
+        ->assertJsonPath('data.available.0.allergy_note', 'Says no nuts, severe');
 });
 
 it('quotes the conflict beside the refusals without touching quotable', function (): void {

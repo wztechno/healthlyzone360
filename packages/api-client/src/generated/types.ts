@@ -4399,6 +4399,24 @@ export type DishOption = {
 };
 
 /**
+ * A dish option as the kitchen edits it. A `choice` links the sauce or side
+ * recipe it is and takes its allergens from that recipe's published version;
+ * `allergens` is null when the link is missing or the recipe has no published
+ * version. A choice with no `recipe_id` is not offered to customers or the desk.
+ *
+ */
+export type KitchenDishOption = {
+    id: Uuid;
+    kind: 'remove' | 'choice';
+    group_en: string | null;
+    group_ar: string | null;
+    name_en: string;
+    name_ar: string;
+    recipe_id: string | null;
+    allergens: Array<OrderLineAllergen> | null;
+};
+
+/**
  * A pack the customer can pick, at its price on the channel asked about.
  */
 export type DishPortion = {
@@ -4417,6 +4435,10 @@ export type ReplaceDishOptionsRequest = {
         group_ar?: string | null;
         name_en: string;
         name_ar: string;
+        /**
+         * Required on a `choice`, a recipe of this kitchen's; null on a removal.
+         */
+        recipe_id?: string | null;
     }>;
 };
 
@@ -12705,7 +12727,7 @@ export type DriverJob = {
     ready_at: string | null;
     /**
      * The allergens declared on this order, empty when there are none.
-     * Names only: the notes and severities stay with the kitchen.
+     * Names only: the customer's own notes and severities stay with the kitchen.
      *
      */
     allergy_allergen_codes: Array<string>;
@@ -12765,6 +12787,13 @@ export type AssignDeliveryJobRequest = {
      * own route and its own audit action rather than arriving as an omitted
      * key.
      *
+    /**
+     * The order's free allergy note, as the desk wrote it — the only allergy
+     * record a walk-in order has. Shown to the driver beside the codes
+     * (owner, 3 Nov 2026).
+     *
+     */
+    allergy_note: string | null;
      */
     driver_user_id: Uuid;
 };
@@ -23474,7 +23503,7 @@ export type ReplaceDishOptionsResponses = {
      */
     200: {
         data: {
-            options: Array<DishOption>;
+            options: Array<KitchenDishOption>;
         };
     };
 };
@@ -23529,7 +23558,7 @@ export type GetOrderDeskDishChoicesResponses = {
      */
     200: {
         data: {
-            options: Array<DishOption>;
+            options: Array<KitchenDishOption>;
             portions: Array<DishPortion>;
         };
     };

@@ -53,6 +53,7 @@ export function mapDriverJob(wire: WireDriverJob): DriverJob {
         pickedUpAt: wire.picked_up_at,
         readyAt: wire.ready_at,
         allergyAllergenCodes: wire.allergy_allergen_codes ?? [],
+        allergyNote: wire.allergy_note ?? null,
         amountDueMinor: wire.amount_due_minor,
         currencyCode:
             wire.currency_code !== null && isCurrencyCode(wire.currency_code)

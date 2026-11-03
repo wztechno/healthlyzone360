@@ -1,6 +1,6 @@
 import type { BranchId } from '@healthy360/domain-types';
 
-import type { DishChoices, DishOption, DishOptionDraft } from '../contracts/dish-options.ts';
+import type { DishChoices, DishOptionDraft, KitchenDishOption } from '../contracts/dish-options.ts';
 import type { ServiceArea } from '../contracts/kitchen-admin.ts';
 import type { KitchenOrder } from '../contracts/kitchen-orders.ts';
 import type {
@@ -68,11 +68,12 @@ import type {
     QuoteOrderDeskRequest,
     DishOption as WireDishOption,
     DishPortion as WireDishPortion,
+    KitchenDishOption as WireKitchenDishOption,
 } from '../generated/types.ts';
 import { generateRequestId } from './config.ts';
 import { mapServiceAreaFromDeliveryArea } from './kitchen-admin-mappers.ts';
 import { mapKitchenOrder } from './kitchen-orders-repository.ts';
-import { mapDishOption, mapDishPortion } from './marketplace-mappers.ts';
+import { mapDishOption, mapDishPortion, mapKitchenDishOption } from './marketplace-mappers.ts';
 import {
     mapAssignedDeliveryJob,
     mapCalendarDay,
@@ -537,22 +538,22 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
             };
         },
 
-        async listDishOptions(itemId: string): Promise<readonly DishOption[]> {
+        async listDishOptions(itemId: string): Promise<readonly KitchenDishOption[]> {
             const payload = await transport.request<{
-                readonly options: readonly WireDishOption[];
+                readonly options: readonly WireKitchenDishOption[];
             }>({
                 method: 'GET',
                 path: `/catalogue/items/${encodeURIComponent(itemId)}/options`,
             });
-            return payload.options.map(mapDishOption);
+            return payload.options.map(mapKitchenDishOption);
         },
 
         async replaceDishOptions(
             itemId: string,
             options: readonly DishOptionDraft[],
-        ): Promise<readonly DishOption[]> {
+        ): Promise<readonly KitchenDishOption[]> {
             const payload = await transport.request<{
-                readonly options: readonly WireDishOption[];
+                readonly options: readonly WireKitchenDishOption[];
             }>({
                 method: 'PUT',
                 path: `/catalogue/items/${encodeURIComponent(itemId)}/options`,
@@ -565,9 +566,10 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                         name_en: option.nameEn,
                         name_ar: option.nameAr,
                     })),
+                        recipe_id: option.kind === 'choice' ? option.recipeId : null,
                 },
             });
-            return payload.options.map(mapDishOption);
+            return payload.options.map(mapKitchenDishOption);
         },
 
         async quoteSale(request: OrderDeskSaleRequest): Promise<OrderDeskQuote> {

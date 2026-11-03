@@ -6,6 +6,7 @@ namespace Healthy360\Subscriptions\Services;
 
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Services\DerivedAllergenService;
+use Healthy360\Catalogues\Services\DishOptions;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAllergenDeclaration;
 use Healthy360\Customers\Models\CustomerDietaryProfile;
@@ -55,12 +56,16 @@ use Healthy360\Subscriptions\Contracts\MealSafety;
  */
 final readonly class MealSafetyService implements MealSafety
 {
-    public function __construct(private DerivedAllergenService $allergens) {}
+    public function __construct(private DerivedAllergenService $allergens, private DishOptions $options) {}
 
     /**
+     * A chosen sauce or side joins the meal's label, and one with no basis makes
+     * the whole line unassessed, as a meal with none would be.
+     *
+     * @param  list<string>  $optionIds
      * @return array{safe: bool, allergen_classes: list<string>, reason: string|null}
      */
-    public function check(CustomerAccount $account, string $catalogueItemId): array
+    public function check(CustomerAccount $account, string $catalogueItemId, array $optionIds = []): array
     {
         $profile = $this->profileOf($account);
 
@@ -79,11 +84,12 @@ final readonly class MealSafetyService implements MealSafety
 
         $declared = $this->declaredClasses($profile);
         $derived = $this->allergens->forItem($item);
+        $chosen = $this->options->allergensOf($optionIds);
 
         /** @var list<string> $mealClasses */
         $mealClasses = array_values(array_unique(array_map(
             static fn (array $allergen): string => $allergen['allergen_code'],
-            $derived['allergens'],
+            [...$derived['allergens'], ...$chosen['allergens']],
         )));
 
         $matched = array_values(array_intersect($declared, $mealClasses));
@@ -92,7 +98,7 @@ final readonly class MealSafetyService implements MealSafety
             return ['safe' => false, 'allergen_classes' => $matched, 'reason' => 'allergen_declared'];
         }
 
-        if ($declared !== [] && $derived['basis'] === 'none') {
+        if ($declared !== [] && ($derived['basis'] === 'none' || ! $chosen['assessed'])) {
             // Not "no allergens" — "no basis". Silence is not a statement of
             // absence, and a declared allergy makes the difference matter.
             return ['safe' => false, 'allergen_classes' => [], 'reason' => 'unassessed'];

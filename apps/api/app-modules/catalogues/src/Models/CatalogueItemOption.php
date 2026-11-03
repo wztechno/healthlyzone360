@@ -22,6 +22,7 @@ use Healthy360\Tenancy\Contracts\OrganisationScoped;
  * @property string|null $group_ar
  * @property string $name_en
  * @property string $name_ar
+ * @property string|null $recipe_id the sauce or side recipe a choice is; null on a removal, and on a choice nobody has linked yet
  * @property int $display_order
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at

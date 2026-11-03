@@ -149,8 +149,13 @@ export interface DriverJob {
     readonly orderNumber: string | null;
     readonly status: DriverJobStatus;
     readonly trackingStatus: DriverJobTrackingStatus;
-    /** The allergens on this order, for the handover. Names only, never notes or severity. */
+    /** The allergens on this order, for the handover. Names only, never the profile's notes or severity. */
     readonly allergyAllergenCodes: readonly string[];
+    /**
+     * The order's free allergy note, as the desk wrote it. A walk-in has no saved profile, so this is
+     * the only allergy record it carries; the driver sees it either way (owner, 3 Nov 2026).
+     */
+    readonly allergyNote: string | null;
     /** The order's total less its receipts, in {@link DriverJob.currencyCode}. Never negative. */
     readonly amountDueMinor: number;
     readonly currencyCode: CurrencyCode;

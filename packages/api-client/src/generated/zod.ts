@@ -2974,7 +2974,8 @@ export const zReplaceDishOptionsRequest = z.object({
         group_en: z.string().max(80).nullish(),
         group_ar: z.string().max(80).nullish(),
         name_en: z.string().max(120),
-        name_ar: z.string().max(120)
+        name_ar: z.string().max(120),
+        recipe_id: z.uuid().nullish()
     })).max(40)
 });
 
@@ -3618,6 +3619,24 @@ export const zCancelOrderRequest = z.object({
 export const zOrderLineAllergen = z.object({
     allergen_code: zAllergenCode,
     containment: z.string()
+});
+
+/**
+ * A dish option as the kitchen edits it. A `choice` links the sauce or side
+ * recipe it is and takes its allergens from that recipe's published version;
+ * `allergens` is null when the link is missing or the recipe has no published
+ * version. A choice with no `recipe_id` is not offered to customers or the desk.
+ *
+ */
+export const zKitchenDishOption = z.object({
+    id: zUuid,
+    kind: z.enum(['remove', 'choice']),
+    group_en: z.string().nullable(),
+    group_ar: z.string().nullable(),
+    name_en: z.string(),
+    name_ar: z.string(),
+    recipe_id: z.uuid().nullable(),
+    allergens: z.array(zOrderLineAllergen).nullable()
 });
 
 /**
@@ -8447,6 +8466,7 @@ export const zFailDeliveryRequest = z.object({
     note: z.string().max(1000).nullish()
 });
 
+    allergy_note: z.string().nullable(),
 export const zRedeliverOrderRequest = z.object({
     date: z.iso.date().nullish(),
     window: z.string().max(64).nullish()
@@ -13066,7 +13086,7 @@ export const zListDishOptionsPath = z.object({
  */
 export const zListDishOptionsResponse = z.object({
     data: z.object({
-        options: z.array(zDishOption)
+        options: z.array(zKitchenDishOption)
     })
 });
 
@@ -13085,7 +13105,7 @@ export const zReplaceDishOptionsPath = z.object({
  */
 export const zReplaceDishOptionsResponse = z.object({
     data: z.object({
-        options: z.array(zDishOption)
+        options: z.array(zKitchenDishOption)
     })
 });
 

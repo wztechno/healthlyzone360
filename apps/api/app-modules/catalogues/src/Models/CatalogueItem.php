@@ -10,6 +10,7 @@ use Healthy360\Catalogues\Database\Factories\CatalogueItemFactory;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Enums\ProductionMode;
+use Healthy360\Catalogues\Services\DishOptions;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
@@ -192,20 +193,34 @@ class CatalogueItem extends BaseModel implements OrganisationScoped
      * Applies to meals, products, sauces, dressings and frozen meals. A
      * subscription plan is not food: its meals are, and they answer for themselves.
      *
+     * **And** every sauce or side choice the dish links has a basis of its own: a
+     * published version with a line, through the same function. A linked recipe
+     * still in draft would put an unknown on the plate, so the dish waits for it.
+     * An unlinked choice does not count here because it is not offered at all
+     * ({@see DishOptions}).
+     *
      * @param  Builder<self>  $query
      */
     public function scopeAllergensAssessed(Builder $query): void
     {
-        $query->where(function (Builder $assessed): void {
-            $assessed->where('catalogue_items.item_type', CatalogueItemType::SubscriptionPlan->value)
-                ->orWhereNotNull('catalogue_items.allergens_assessed_at')
-                ->orWhereNotNull('catalogue_items.ingredient_id')
-                ->orWhereRaw('recipe_has_published_lines(catalogue_items.recipe_id, catalogue_items.organisation_id)')
-                ->orWhereExists(fn ($recorded) => $recorded->from('catalogue_item_ingredients')
-                    ->join('ingredient_allergens', 'ingredient_allergens.ingredient_id', '=', 'catalogue_item_ingredients.ingredient_id')
-                    ->whereColumn('catalogue_item_ingredients.catalogue_item_id', 'catalogue_items.id')
-                    ->where(fn ($layer) => $layer->whereNull('ingredient_allergens.organisation_id')
-                        ->orWhereColumn('ingredient_allergens.organisation_id', 'catalogue_items.organisation_id')));
+        // One group, so a caller's `orWhere` after the scope cannot split the two halves.
+        $query->where(function (Builder $whole): void {
+            $whole->whereNotExists(fn ($choices) => $choices->from('catalogue_item_options')
+                ->whereColumn('catalogue_item_options.catalogue_item_id', 'catalogue_items.id')
+                ->whereNotNull('catalogue_item_options.recipe_id')
+                ->whereRaw('NOT recipe_has_published_lines(catalogue_item_options.recipe_id, catalogue_items.organisation_id)'));
+
+            $whole->where(function (Builder $assessed): void {
+                $assessed->where('catalogue_items.item_type', CatalogueItemType::SubscriptionPlan->value)
+                    ->orWhereNotNull('catalogue_items.allergens_assessed_at')
+                    ->orWhereNotNull('catalogue_items.ingredient_id')
+                    ->orWhereRaw('recipe_has_published_lines(catalogue_items.recipe_id, catalogue_items.organisation_id)')
+                    ->orWhereExists(fn ($recorded) => $recorded->from('catalogue_item_ingredients')
+                        ->join('ingredient_allergens', 'ingredient_allergens.ingredient_id', '=', 'catalogue_item_ingredients.ingredient_id')
+                        ->whereColumn('catalogue_item_ingredients.catalogue_item_id', 'catalogue_items.id')
+                        ->where(fn ($layer) => $layer->whereNull('ingredient_allergens.organisation_id')
+                            ->orWhereColumn('ingredient_allergens.organisation_id', 'catalogue_items.organisation_id')));
+            });
         });
     }
 

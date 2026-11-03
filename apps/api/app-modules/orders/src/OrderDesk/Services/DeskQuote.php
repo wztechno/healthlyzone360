@@ -371,7 +371,7 @@ final readonly class DeskQuote
             return [];
         }
 
-        $conflicts = $this->allergenCheck->conflicts($account, array_column($quoted, 'catalogue_item_id'));
+        $conflicts = $this->allergenCheck->conflicts($account, array_column($quoted, 'catalogue_item_id'), array_column($quoted, 'option_ids'));
 
         if ($conflicts !== []) {
             $this->audit->recordAccessDaily(
@@ -432,7 +432,7 @@ final readonly class DeskQuote
             $lineRefusals = $result->refusals;
 
             if ($this->options->snapshot($line->catalogueItemId, $line->optionIds) === null) {
-                $lineRefusals[] = ['reason' => 'option_unknown', 'catalogue_item_id' => $line->catalogueItemId];
+                $lineRefusals[] = ['reason' => $this->options->refusal($line->catalogueItemId, $line->optionIds), 'catalogue_item_id' => $line->catalogueItemId];
             }
 
             $refused = $lineRefusals !== [] || ! $item instanceof CatalogueItem || $price === null;

@@ -6358,7 +6358,7 @@ paths:
                       options:
                         type: array
                         items:
-                          $ref: '#/components/schemas/DishOption'
+                          $ref: '#/components/schemas/KitchenDishOption'
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
@@ -6404,7 +6404,7 @@ paths:
                       options:
                         type: array
                         items:
-                          $ref: '#/components/schemas/DishOption'
+                          $ref: '#/components/schemas/KitchenDishOption'
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
@@ -36285,6 +36285,54 @@ components:
         - catalogue_item_variant_id
         - name_en
         - name_ar
+    KitchenDishOption:
+      type: object
+      required:
+        - id
+        - kind
+        - group_en
+        - group_ar
+        - name_en
+        - name_ar
+        - recipe_id
+        - allergens
+      description: |
+        A dish option as the kitchen edits it. A `choice` links the sauce or side
+        recipe it is and takes its allergens from that recipe's published version;
+        `allergens` is null when the link is missing or the recipe has no published
+        version. A choice with no `recipe_id` is not offered to customers or the desk.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        kind:
+          type: string
+          enum:
+            - remove
+            - choice
+        group_en:
+          type:
+            - string
+            - 'null'
+        group_ar:
+          type:
+            - string
+            - 'null'
+        name_en:
+          type: string
+        name_ar:
+          type: string
+        recipe_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        allergens:
+          type:
+            - array
+            - 'null'
+          items:
+            $ref: '#/components/schemas/OrderLineAllergen'
+      additionalProperties: false
         - unit_price_minor
         - currency_code
       description: A pack the customer can pick, at its price on the channel asked about.
@@ -36347,6 +36395,12 @@ components:
       type: object
       required:
         - id
+              recipe_id:
+                type:
+                  - string
+                  - 'null'
+                format: uuid
+                description: Required on a `choice`, a recipe of this kitchen's; null on a removal.
         - kitchen_id
         - kitchen_name
         - item_type
@@ -50862,7 +50916,15 @@ components:
             type: string
           description: |
             The allergens declared on this order, empty when there are none.
-            Names only: the notes and severities stay with the kitchen.
+            Names only: the customer's own notes and severities stay with the kitchen.
+        allergy_note:
+          type:
+            - string
+            - 'null'
+          description: |
+            The order's free allergy note, as the desk wrote it — the only allergy
+            record a walk-in order has. Shown to the driver beside the codes
+            (owner, 3 Nov 2026).
         amount_due_minor:
           type: integer
           minimum: 0
@@ -50940,6 +51002,7 @@ components:
       required:
         - name
       properties:
+        - allergy_note
         name:
           type: string
           maxLength: 120

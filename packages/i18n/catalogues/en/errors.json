@@ -100,6 +100,7 @@
         "item_not_published": "Something in your basket is not on sale right now.",
         "item_not_assessed": "Something in your basket is not on sale right now because its allergens have not been checked.",
         "option_unknown": "An option you chose is no longer offered.",
+        "option_unlinked": "A sauce or side you chose is not offered right now. Choose another.",
         "quality_hold": "Something in your basket is not available right now.",
         "variant_unknown": "An option you chose is no longer offered.",
         "variant_not_active": "An option you chose is no longer available.",
