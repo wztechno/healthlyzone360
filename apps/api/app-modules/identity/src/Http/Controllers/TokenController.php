@@ -17,6 +17,7 @@ use Illuminate\Auth\Events\Lockout;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Laravel\Fortify\Contracts\TwoFactorAuthenticationProvider;
 use Laravel\Fortify\Fortify;
@@ -121,12 +122,22 @@ final class TokenController
             throw new ApiException(ErrorCode::AuthTwoFactorRequired);
         }
 
+        // Per account, like the session flow's `two-factor` limiter. The login
+        // limiter alone keys on email and IP, so somebody who already holds the
+        // password could otherwise guess codes from rotating addresses.
+        $attemptsKey = 'token-two-factor:'.$user->getKey();
+
+        if (RateLimiter::tooManyAttempts($attemptsKey, 5)) {
+            throw new ApiException(ErrorCode::RateLimitExceeded);
+        }
+
         if ($recoveryCode !== null) {
             $match = collect($user->recoveryCodes())
                 ->first(static fn (string $stored): bool => hash_equals($stored, $recoveryCode));
 
             if (! is_string($match)) {
                 $this->limiter->increment($request);
+                RateLimiter::hit($attemptsKey);
 
                 throw new ApiException(ErrorCode::AuthTwoFactorInvalid, details: ['field' => 'recovery_code']);
             }
@@ -143,6 +154,7 @@ final class TokenController
         if (! is_string($secret)
             || ! $this->twoFactor->verify(Fortify::currentEncrypter()->decrypt($secret), $code)) {
             $this->limiter->increment($request);
+            RateLimiter::hit($attemptsKey);
 
             throw new ApiException(ErrorCode::AuthTwoFactorInvalid, details: ['field' => 'two_factor_code']);
         }

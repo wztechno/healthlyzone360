@@ -8,6 +8,7 @@ use Healthy360\Identity\Models\UserDevice;
 use Healthy360\Organisations\Models\Organisation;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Testing\TestResponse;
 use PragmaRX\Google2FA\Google2FA;
 use Tests\SeedDatabaseOnce;
@@ -265,4 +266,57 @@ it('registers when Origin and X-Client-Platform are both sent', function (): voi
     ])
         ->assertCreated()
         ->assertJsonPath('data.user.email', 'expo-web@example.test');
+});
+
+it('signs every other device out when the password changes, and every device out on a reset', function (): void {
+    $phone = (string) issueToken()->assertCreated()->json('data.token');
+    $tablet = (string) issueToken(['device_name' => 'Nadia iPad'])->assertCreated()->json('data.token');
+
+    // A change made from the phone keeps the phone and drops the tablet.
+    $this->withToken($phone)
+        ->putJson('/api/v1/auth/user/password', [
+            'current_password' => 'password',
+            'password' => 'a-longer-replacement-passphrase',
+            'password_confirmation' => 'a-longer-replacement-passphrase',
+        ])
+        ->assertSuccessful();
+
+    forgetResolvedGuards();
+    $this->withToken($tablet)->getJson('/api/v1/me')->assertUnauthorized();
+
+    forgetResolvedGuards();
+    $this->withToken($phone)->getJson('/api/v1/me')->assertOk();
+
+    // A reset spares nothing, the phone included.
+    $this->postJson('/api/v1/auth/reset-password', [
+        'token' => Password::broker()->createToken($this->owner->refresh()),
+        'email' => 'owner@cedar.test',
+        'password' => 'yet-another-replacement-passphrase',
+        'password_confirmation' => 'yet-another-replacement-passphrase',
+    ])->assertSuccessful();
+
+    forgetResolvedGuards();
+    $this->withToken($phone)->getJson('/api/v1/me')->assertUnauthorized();
+
+    expect(PersonalAccessToken::query()->where('tokenable_id', $this->owner->getKey())->count())->toBe(0)
+        ->and(UserDevice::query()->where('user_id', $this->owner->getKey())->whereNull('revoked_at')->count())->toBe(0);
+});
+
+it('stops guessing second factors per account, not only per address', function (): void {
+    $this->owner->forceFill([
+        'two_factor_secret' => encrypt(app(Google2FA::class)->generateSecretKey()),
+        'two_factor_recovery_codes' => encrypt((string) json_encode(['aaaaaaaaaa-bbbbbbbbbb'])),
+        'two_factor_confirmed_at' => now(),
+    ])->save();
+
+    // Each guess from a fresh address, so the email-and-IP login limiter never fills.
+    foreach (range(1, 5) as $attempt) {
+        $this->withServerVariables(['REMOTE_ADDR' => "203.0.113.{$attempt}"]);
+        issueToken(['two_factor_code' => '000000'])->assertStatus(422);
+    }
+
+    $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.99']);
+    issueToken(['two_factor_code' => '000000'])
+        ->assertStatus(429)
+        ->assertJsonPath('error.code', 'rate_limit.exceeded');
 });

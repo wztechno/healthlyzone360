@@ -83,6 +83,26 @@ final class DeviceRegistrar
     }
 
     /**
+     * Revoke every device and bearer token the user holds, optionally sparing
+     * the one carrying the current request. A changed password must take the
+     * account back from whoever else holds a token; a reset spares nothing.
+     */
+    public function revokeAll(User $user, ?string $keepTokenReference = null): void
+    {
+        DB::transaction(function () use ($user, $keepTokenReference): void {
+            UserDevice::query()
+                ->where('user_id', $user->getKey())
+                ->whereNull('revoked_at')
+                ->when($keepTokenReference !== null, fn ($query) => $query->where('token_reference', '!=', $keepTokenReference))
+                ->update(['revoked_at' => now()]);
+
+            $user->tokens()
+                ->when($keepTokenReference !== null, fn ($query) => $query->whereKeyNot($keepTokenReference))
+                ->delete();
+        });
+    }
+
+    /**
      * Record that a bearer credential was used, at most once per interval.
      */
     public function touch(string $tokenReference): void

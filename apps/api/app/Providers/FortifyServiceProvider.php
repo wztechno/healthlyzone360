@@ -142,6 +142,15 @@ class FortifyServiceProvider extends ServiceProvider
 
         RateLimiter::for('verification', fn (Request $request): Limit => Limit::perMinute(6)
             ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
+
+        // Step-up and password change both test the account password from an
+        // already-authenticated caller; without this a stolen session could
+        // guess it at the `api` group's rate and then step up.
+        RateLimiter::for('password-confirmation', fn (Request $request): Limit => Limit::perMinute(5)
+            ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
+
+        RateLimiter::for('register', fn (Request $request): Limit => Limit::perMinute(10)
+            ->by((string) $request->ip()));
     }
 
     /**

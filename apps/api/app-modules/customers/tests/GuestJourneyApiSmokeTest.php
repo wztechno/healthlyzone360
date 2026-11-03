@@ -239,3 +239,19 @@ it('leaves a guest with an open order for a later retention sweep', function ():
     expect($cooking->refresh()->anonymised_at)->not->toBeNull()
         ->and($order->refresh()->allergy_note)->toBeNull();
 });
+
+it('stops sending passcodes to one destination after five in an hour, whoever asks', function (): void {
+    // Each request sends a fresh message, so without a per-destination bucket
+    // an anonymous loop could flood somebody else's inbox.
+    foreach (range(1, 5) as $ignored) {
+        $this->postJson('/api/v1/guest/deletion-requests', ['channel' => 'email', 'value' => 'flooded@example.test'])
+            ->assertStatus(202);
+    }
+
+    $this->postJson('/api/v1/guest/deletion-requests', ['channel' => 'email', 'value' => 'Flooded@Example.test '])
+        ->assertStatus(429);
+
+    // Another destination is unaffected.
+    $this->postJson('/api/v1/guest/deletion-requests', ['channel' => 'email', 'value' => 'someone-else@example.test'])
+        ->assertStatus(202);
+});
