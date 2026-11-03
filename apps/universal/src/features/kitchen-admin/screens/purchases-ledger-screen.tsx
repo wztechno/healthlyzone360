@@ -511,10 +511,8 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
         },
     ];
 
-    // Seven columns, one over the catalogue's six: a price without its quantity, or a quantity
-    // without its price, is half of a purchase line.
     const controls = useColumnControls(rows, columns, 'kitchen-purchases-ledger', {
-        picker: { max: 7 },
+        picker: { defaults: LINE_DEFAULT_COLUMNS },
     });
 
     const failure = toFailure(isDetail ? ledger.error : summary.error);
@@ -531,7 +529,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
         shownPeriods,
         periodColumns(activeMode === 'weekly' ? 'weekly' : 'monthly', periods, t, formatter),
         'kitchen-purchases-ledger-summary',
-        { picker: { defaults: PERIOD_DEFAULT_COLUMNS, max: PERIOD_COLUMN_COUNT } },
+        { picker: { defaults: PERIOD_DEFAULT_COLUMNS } },
     );
 
     const modeOptions: readonly { readonly value: LedgerMode; readonly label: string }[] = [
@@ -976,9 +974,15 @@ function ledgerLens(
 /** A summary's narrowing by completeness — the Lens figures' filter. */
 type PeriodStatus = 'complete' | 'incomplete';
 
+/**
+ * What a first visit draws: the six-column cap, with quantity, price and total kept together — a
+ * price without its quantity is half of a purchase line. The received date waits in the column
+ * picker; the toolbar's From and Until already narrow by it.
+ */
+const LINE_DEFAULT_COLUMNS = ['item', 'supplier', 'quantity', 'unitPrice', 'lineTotal', 'state'];
+
 /** What a first visit draws. The four charges wait in the column picker, as the cards' toggle did. */
 const PERIOD_DEFAULT_COLUMNS = ['period', 'status', 'lines', 'goods', 'invoiced'];
-const PERIOD_COLUMN_COUNT = 9;
 
 type Formatter = ReturnType<typeof useFormatter>;
 
