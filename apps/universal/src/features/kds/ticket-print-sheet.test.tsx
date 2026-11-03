@@ -1,6 +1,7 @@
 import type { KitchenOrder, KitchenOrderLine } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
-import { screen, within } from '@testing-library/react-native';
+import { fireEvent, screen, within } from '@testing-library/react-native';
+import { Platform } from 'react-native';
 
 import { TEST_BRANCH_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
@@ -11,7 +12,8 @@ jest.mock('expo-router', () =>
     require('../../testing/expo-router-mock.ts').createExpoRouterMock({ pathname: '/kds/ticket' }),
 );
 
-const ORDER_ID = 'test-0000-order-0001' as OrderId;
+// A real UUIDv7: the screen parses the query parameter, and anything else reads as no order.
+const ORDER_ID = '01935f6c-1a2b-7c3d-8e4f-0123456789ab' as OrderId;
 
 const LINE: KitchenOrderLine = {
     id: 'test-order-line-1',
@@ -126,16 +128,23 @@ describe('the printed kitchen ticket', () => {
         expect(sheet).not.toHaveTextContent(/AED|85\.00|42\.50/);
     });
 
-    it('never opens the print dialog by itself', async () => {
+    it('never opens the print dialog by itself, only from the button', async () => {
+        // As the browser: the default jest-expo platform has no print, so nothing could be called.
+        const os = jest.replaceProperty(Platform, 'OS', 'web');
         const print = jest.fn();
         const original = window.print;
         window.print = print;
         try {
             await renderTicket();
             await screen.findByTestId('kds-ticket-print-sheet');
+            const action = screen.getByTestId('kds-ticket-print-action');
             expect(print).not.toHaveBeenCalled();
+
+            fireEvent.press(action);
+            expect(print).toHaveBeenCalledTimes(1);
         } finally {
             window.print = original;
+            os.restore();
         }
     });
 });
