@@ -113,6 +113,7 @@ final class KitchenDisplayController
         $runs = $this->runs->forOrders($orderIds);
         $amendable = $this->amendability->reasons($orders, $lines);
         $this->presenter->preloadPlanDays($orderIds);
+        $this->presenter->preloadRemakes($orderIds);
         $readsTheBook = Gate::allows('order.view_organisation');
 
         return ApiResponse::data([

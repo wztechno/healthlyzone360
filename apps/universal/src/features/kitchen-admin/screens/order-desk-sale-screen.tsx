@@ -1622,6 +1622,14 @@ function Ticket({
     const choosingLine = lines.find((line) => lineKey(line) === choosing);
     const counter = state.fulfilmentType === 'counter';
     const itemCount = lines.reduce((sum, line) => sum + (quantityAsNumber(line.quantity) ?? 0), 0);
+    // Lines that need more than the free stock: told to the agent, and sold anyway.
+    const runningLow = lines
+        .filter((line) =>
+            (quotedByKey.get(lineKey(line))?.warnings ?? []).some(
+                (warning) => warning.reason === 'stock_short',
+            ),
+        )
+        .map((line) => displayName(line.name, locale).value);
     // Beside the refusals, not among them: a conflict is told to the customer, then sold.
     const allergenConflicts = quote?.allergenConflicts ?? [];
     const untold = allergenConflicts.length > 0 && !state.allergyAcknowledged;
@@ -1923,6 +1931,19 @@ function Ticket({
                             {refusalText(warning)}
                         </Text>
                     ))}
+
+                    {runningLow.length === 0 ? null : (
+                        <Callout
+                            testID="kitchen-order-desk-sale-running-low"
+                            tone="warning"
+                            icon="warning"
+                            role="status"
+                            title={t('kitchen:desk.sale.runningLowTitle')}
+                            body={t('kitchen:desk.sale.runningLowBody', {
+                                names: runningLow.join(t('kitchen:common.listSeparator')),
+                            })}
+                        />
+                    )}
 
                     {paying ? (
                         <PaymentMethods

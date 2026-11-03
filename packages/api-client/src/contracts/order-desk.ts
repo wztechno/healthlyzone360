@@ -889,6 +889,11 @@ export interface OrderDeskQuoteLine {
      * held.
      */
     readonly heldStock?: readonly string[];
+    /**
+     * What the line is sold with, never refused for, in the refusal shape. Today only
+     * `stock_short`: the line needs more than the free stock. Absent on older payloads.
+     */
+    readonly warnings?: readonly OrderDeskRefusal[];
 }
 
 /**

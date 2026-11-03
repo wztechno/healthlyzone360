@@ -135,9 +135,11 @@ export interface CalendarSlotDescriptor {
 /**
  * The rows the visible week needs.
  *
- * **The four sittings are always there once the week is answered** — Breakfast, Lunch, Snack and
- * Dinner, in that order — so the grid has the same shape every week and a quiet sitting reads a
- * true `0` rather than vanishing. Each row covers both names a kitchen may give that slot.
+ * **A sitting has a row only when some day of the week carries something in it** — Breakfast,
+ * Lunch, Snack and Dinner, in that order, minus the ones nothing was booked in. A kitchen that
+ * sells no breakfast is not shown a row of zeroes about breakfast every week. Each row covers both
+ * names a kitchen may give that slot, and once a row is drawn a day it is quiet on reads a true
+ * `0`. The server sends only the slots carrying something, so a slot it sent is a slot in use.
  *
  * Any other code the week carries follows, **a union across the week rather than per day**,
  * because a grid whose rows changed from column to column would not be a grid. Those are sorted in
@@ -145,24 +147,34 @@ export interface CalendarSlotDescriptor {
  * `2`. The unslotted bucket is **last and only when some day has one**: a permanent empty row on a
  * kitchen that names every slot would be a row of zeroes about a bucket it does not use.
  *
- * The sittings are drawn even for no days at all: a week with nothing booked is still the
- * calendar's shape, in zeroes (QA: the desk wanted the whole week, never an empty page).
+ * A week with nothing booked has no rows at all. Its days are still drawn — the grid's day
+ * headers — so the page is the whole week, never empty.
  */
 export function calendarSlots(
     days: readonly OrderDeskCalendarDay[],
 ): readonly CalendarSlotDescriptor[] {
     const others = new Set<string>();
+    const meals = new Set<CalendarMeal>();
     let unslotted = false;
 
     for (const day of days) {
         for (const window of day.windows) {
-            if (window.code === null) unslotted = true;
-            else if (!MEAL_OF_CODE.has(window.code)) others.add(window.code);
+            if (window.code === null) {
+                unslotted = true;
+                continue;
+            }
+            const meal = MEAL_OF_CODE.get(window.code);
+            if (meal === undefined) others.add(window.code);
+            else meals.add(meal);
         }
     }
 
     const rows: CalendarSlotDescriptor[] = [
-        ...CALENDAR_MEALS.map((meal) => ({ key: `slot-${meal}`, meal, codes: MEAL_CODES[meal] })),
+        ...CALENDAR_MEALS.filter((meal) => meals.has(meal)).map((meal) => ({
+            key: `slot-${meal}`,
+            meal,
+            codes: MEAL_CODES[meal],
+        })),
         ...[...others]
             .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
             .map((code) => ({ key: `slot-${code}`, meal: null, codes: [code] })),
@@ -176,7 +188,7 @@ export function calendarSlots(
  * The days an answer is drawn from.
  *
  * An answer that carries no days at all is the wire's "nothing this week", so it is drawn as the
- * week in zeroes — every square, every book `0`. An answer that carries some days is drawn as
+ * week with every day answered and empty. An answer that carries some days is drawn as
  * sent, and a date it skipped stays unknown (an em dash), per the module note.
  */
 export function answeredDays(

@@ -62,16 +62,21 @@ export { toFailure } from './hooks.ts';
  * `filters` is passed to the key as a single object (query-key shape rule 3), so two screens asking
  * for the same view share one entry and a filter change is a different entry rather than a mutation
  * of this one.
+ *
+ * `refetchInterval` is the caller's poll cadence, as the wall board's is: the order book is open on
+ * a shelf tablet too, and an order placed meanwhile has to appear without a pull to refresh.
  */
 export function useKitchenOrdersQuery(
     filters?: KitchenOrderFilters,
     enabled = true,
+    refetchInterval: number | false = false,
 ): UseQueryResult<KitchenOrderPage> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.kitchenOrders.list(filters),
         enabled: enabled && repositories !== null,
+        refetchInterval,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOrders.listOrders(filters);

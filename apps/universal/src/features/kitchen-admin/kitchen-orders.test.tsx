@@ -15,6 +15,7 @@ import { Dimensions } from 'react-native';
 import { withDeskWidth } from '../../testing/desk-width.ts';
 import { TEST_BRANCH_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { ORDER_DESK_POLL_MS } from './screens/order-desk-screen.tsx';
 import { OrdersScreen } from './screens/orders-screen.tsx';
 
 /* `mock`-prefixed so the factory below may close over it — Jest's hoisting rule. */
@@ -840,5 +841,63 @@ describe('kitchen orders', () => {
             expect(after?.status).toBe('cancelled');
             expect(after?.cancellationReason).toBe('delivery_unavailable');
         });
+    });
+
+    it('re-reads the book on the desk cadence, so a new order appears without a refresh', async () => {
+        jest.useFakeTimers({ advanceTimers: true });
+        try {
+            const { repositories } = await renderOrders(createOrderBook());
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
+            });
+            const reads = (repositories.kitchenOrders.listOrders as jest.Mock).mock.calls.length;
+
+            await act(async () => {
+                await jest.advanceTimersByTimeAsync(ORDER_DESK_POLL_MS);
+            });
+
+            await waitFor(() => {
+                expect(
+                    (repositories.kitchenOrders.listOrders as jest.Mock).mock.calls.length,
+                ).toBeGreaterThan(reads);
+            });
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('names who cancelled a cancelled order', async () => {
+        const book = createOrderBook(
+            seedOrders().map((order) =>
+                order.status === 'cancelled' ? { ...order, cancelledByName: 'Rana Haddad' } : order,
+            ),
+        );
+        const cancelled = book.orders().find((order) => order.status === 'cancelled');
+        if (cancelled === undefined) throw new Error('this test authored no cancelled order');
+        await openOrder(book, cancelled.id);
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-orders-detail-cancelled-by')).toHaveTextContent(
+                'Rana Haddad',
+            );
+        });
+    });
+
+    it('links a remake back to the order it replaces', async () => {
+        mockPush.mockClear();
+        const book = createOrderBook(
+            withConfirmed({ remakeOf: { id: orderIdAt(1), number: 'VK-2026-0148' } }),
+        );
+        await openOrder(book, orderIdAt(3));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-orders-remake-of')).toHaveTextContent(
+                /VK-2026-0148/,
+            );
+        });
+        fireEvent.press(screen.getByTestId('kitchen-orders-remake-of'));
+        expect(mockPush).toHaveBeenCalledWith(
+            `/kitchen/orders?view=${encodeURIComponent(String(orderIdAt(1)))}`,
+        );
     });
 });

@@ -126,14 +126,15 @@ final class OrderDeskPresenter
     public function __construct(private readonly OrderPresenter $orders) {}
 
     /**
-     * Read the page's plan days in one go, for the rows `row()` is about to
-     * present.
+     * Read the page's plan days, remake links and cancellers in one go, for
+     * the rows `row()` is about to present.
      *
      * @param  list<string>  $orderIds
      */
     public function preloadPlanDays(array $orderIds): void
     {
         $this->orders->preloadPlanDays($orderIds);
+        $this->orders->preloadRemakes($orderIds);
     }
 
     /**

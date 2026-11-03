@@ -676,6 +676,32 @@ describe('sale — the ticket is priced by the quote alone', () => {
         expect(screen.getByTestId(`${MEAL_LINE}-total`)).toHaveTextContent('—');
         expect(screen.getByTestId(CHARGE)).toBeDisabled();
     });
+
+    it('says a line is running low, and still prices it', async () => {
+        await renderSale({
+            quoteSale: async (request) => {
+                const quote = quoteFor(request);
+                // Short only on the ticket line, never on the one-of-each shelf quote.
+                return {
+                    ...quote,
+                    lines: quote.lines.map((line) =>
+                        line.quantity === '2'
+                            ? { ...line, warnings: [{ reason: 'stock_short', context: {} }] }
+                            : line,
+                    ),
+                };
+            },
+        });
+        expect(screen.queryByTestId('kitchen-order-desk-sale-running-low')).toBeNull();
+        await tapMeal(2);
+
+        await untilVisible('kitchen-order-desk-sale-running-low');
+        expect(screen.getByTestId('kitchen-order-desk-sale-running-low')).toHaveTextContent(
+            /Mujaddara bowl/,
+        );
+        // A warning, never a refusal: the line keeps its price.
+        expect(screen.getByTestId(`${MEAL_LINE}-total`)).not.toHaveTextContent('—');
+    });
 });
 
 describe('sale — allergies', () => {

@@ -598,6 +598,7 @@ export function mapOrderDeskQuoteLine(wire: WireOrderDeskQuoteLine): OrderDeskQu
         optionIds: wire.option_ids ?? [],
         note: wire.note ?? null,
         heldStock: wire.held_stock ?? [],
+        warnings: (wire.warnings ?? []).map(mapOrderDeskRefusal),
     };
 }
 

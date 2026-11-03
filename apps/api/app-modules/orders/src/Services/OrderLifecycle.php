@@ -307,6 +307,8 @@ final readonly class OrderLifecycle
                 'cancelled_at' => CarbonImmutable::now(),
                 'cancellation_reason' => $reason,
                 'cancellation_disposition' => $disposition,
+                // Null from a system job, which has no user behind it.
+                'cancelled_by' => $this->context->userId(),
             ],
             function (Order $cancelled) use ($disposition): void {
                 $this->jobs->cancel($cancelled);

@@ -464,6 +464,10 @@ final readonly class DeskQuote
                 'option_ids' => $line->optionIds,
                 'note' => $line->note,
                 'refusals' => $this->attributed($lineRefusals, $line),
+                // What the line is sold with, never refused for: `stock_short`
+                // when it needs more than the free stock. The checkout preview's
+                // warning, told to the agent too.
+                'warnings' => $this->attributed($result->warnings, $line),
                 // The ingredients this line would draw that have stock on quality
                 // hold: a warning (owner decision, 13 Oct 2026), and the names
                 // behind a `quality_hold` refusal when nothing free is left.

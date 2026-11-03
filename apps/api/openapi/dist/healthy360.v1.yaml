@@ -44242,6 +44242,21 @@ components:
             - $ref: '#/components/schemas/CancellationDisposition'
             - type: 'null'
           description: What became of the food on a cancellation after cooking started. Null otherwise.
+        cancelled_by_name:
+          type:
+            - string
+            - 'null'
+          description: |
+            The name on the profile of the person who cancelled it. Null when
+            it is not cancelled, when a system job cancelled it, and when that
+            person has no name on their profile.
+        remake_of:
+          description: |
+            The order this one remakes, when a complaint placed it. Null on
+            every other order.
+          oneOf:
+            - $ref: '#/components/schemas/KitchenOrderRemakeOf'
+            - type: 'null'
         delivery_run:
           oneOf:
             - $ref: '#/components/schemas/KitchenOrderDeliveryRun'
@@ -44309,6 +44324,18 @@ components:
             - string
             - 'null'
           format: date-time
+      additionalProperties: false
+    KitchenOrderRemakeOf:
+      type: object
+      required:
+        - id
+        - number
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        number:
+          type: string
+          description: The original order's number.
       additionalProperties: false
     KitchenOrderPlanDay:
       type: object
@@ -45442,6 +45469,15 @@ components:
             A warning, never a refusal: the names of the ingredients this line
             would draw that have stock on quality hold (a receipt or a batch under
             a held check). Empty on a refused line and when nothing is held.
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderDeskQuoteRefusal'
+          description: |
+            What the line is sold with, never refused for, in the refusal's
+            `{reason, …context}` shape. Today only `stock_short`: the line needs
+            more than the free stock (held stock never counts). The sale still
+            goes through.
       additionalProperties: false
     OrderDeskQuote:
       type: object

@@ -5932,6 +5932,11 @@ export const zCustomerOrder = z.object({
     created_at: z.iso.datetime({ offset: true }).nullable()
 });
 
+export const zKitchenOrderRemakeOf = z.object({
+    id: zUuid,
+    number: z.string()
+});
+
 export const zCustomerOrderEnvelope = z.object({
     data: z.object({
         order: zCustomerOrder
@@ -6280,7 +6285,8 @@ export const zOrderDeskQuoteLine = z.object({
     option_ids: z.array(zUuid).optional(),
     note: z.string().nullish(),
     refusals: z.array(zOrderDeskQuoteRefusal),
-    held_stock: z.array(z.string()).optional()
+    held_stock: z.array(z.string()).optional(),
+    warnings: z.array(zOrderDeskQuoteRefusal).optional()
 });
 
 /**
@@ -9537,6 +9543,8 @@ export const zKitchenOrder = z.object({
     cancelled_at: z.iso.datetime({ offset: true }).nullable(),
     cancellation_reason: zCancellationReason.nullable(),
     cancellation_disposition: zCancellationDisposition.nullish(),
+    cancelled_by_name: z.string().nullish(),
+    remake_of: zKitchenOrderRemakeOf.nullish(),
     delivery_run: zKitchenOrderDeliveryRun.nullish(),
     created_by: z.uuid().nullable(),
     placed_on_behalf_by: z.uuid().nullable(),

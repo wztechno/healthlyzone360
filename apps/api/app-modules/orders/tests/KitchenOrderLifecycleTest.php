@@ -8,12 +8,18 @@ use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
 use Healthy360\Delivery\Models\DeliveryJob;
+use Healthy360\Identity\Models\UserProfile;
+use Healthy360\Orders\Enums\CancellationReason;
 use Healthy360\Orders\Enums\PaymentMethod;
 use Healthy360\Orders\Models\Order;
+use Healthy360\Orders\Services\OrderLifecycle;
 use Healthy360\Orders\Services\OrderPaymentReceipts;
 use Healthy360\Orders\Tests\Fixtures\OrderWorld;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+use Healthy360\Tenancy\Database\DatabaseTenantContext;
+use Healthy360\Tenancy\TenantContext;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /*
@@ -542,4 +548,79 @@ it('ends a run a driver is already carrying when the kitchen closes the order (H
 
     expect($run->fresh()->status)->toBe('delivered')
         ->and($run->fresh()->driver_user_id)->toBe($driverId);
+});
+
+it('records who cancelled an order, and names them on the kitchen record', function (): void {
+    $userId = (string) $this->world->tenant->user->getKey();
+    $profile = UserProfile::query()->firstWhere('user_id', $userId);
+    $profile === null
+        ? UserProfile::factory()->create(['user_id' => $userId, 'given_name' => 'Rana', 'family_name' => 'Haddad'])
+        : $profile->forceFill(['given_name' => 'Rana', 'family_name' => 'Haddad'])->save();
+
+    $order = OrderWorld::place($this->world);
+
+    $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/cancel', [
+        'reason' => 'kitchen_unable_to_fulfil',
+    ], $this->kitchenHeaders + ['If-Match' => '"'.$order->lock_version.'"'])
+        ->assertOk()
+        ->assertJsonPath('data.order.cancelled_by_name', 'Rana Haddad');
+
+    expect($order->fresh()->cancelled_by)->toBe($userId);
+
+    $this->getJson('/api/v1/catalogue/orders', $this->kitchenHeaders)
+        ->assertOk()
+        ->assertJsonPath('data.0.cancelled_by_name', 'Rana Haddad');
+});
+
+it('leaves who cancelled empty when a system job cancels with no user behind it', function (): void {
+    $order = OrderWorld::place($this->world);
+
+    // A job has no request, so no user is ever set on the context.
+    expect(app(TenantContext::class)->userId())->toBeNull();
+
+    $cancelled = app(DatabaseTenantContext::class)->during(
+        null,
+        (string) $order->organisation_id,
+        null,
+        fn (): Order => app(OrderLifecycle::class)->cancel($order, CancellationReason::KitchenUnableToFulfil),
+    );
+
+    expect($cancelled->fresh()->cancelled_by)->toBeNull();
+});
+
+it('links a complaint\'s remake back to the order complained about, in one query for the page', function (): void {
+    $original = OrderWorld::place($this->world);
+    $remake = OrderWorld::place($this->world);
+    OrderWorld::place($this->world);
+
+    DB::table('order_complaints')->insert([
+        'id' => (string) Str::uuid(),
+        'organisation_id' => $original->organisation_id,
+        'order_id' => $original->getKey(),
+        'cause' => 'quality',
+        'currency_code' => $original->currency_code,
+        'remake_order_id' => $remake->getKey(),
+        'created_by' => $this->world->tenant->user->getKey(),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $rows = collect($this->getJson('/api/v1/catalogue/orders', $this->kitchenHeaders)->assertOk()->json('data'))->keyBy('id');
+    $log = array_column(DB::getQueryLog(), 'query');
+    DB::disableQueryLog();
+
+    expect($rows)->toHaveCount(3)
+        ->and($rows[(string) $remake->getKey()]['remake_of'])->toBe([
+            'id' => (string) $original->getKey(),
+            'number' => $original->order_number,
+        ])
+        ->and($rows[(string) $original->getKey()]['remake_of'])->toBeNull()
+        // One read for the whole page, never one per row.
+        ->and(array_filter($log, static fn (string $sql): bool => str_contains($sql, 'order_complaints')))->toHaveCount(1);
+
+    $this->getJson('/api/v1/catalogue/orders/'.$remake->getKey(), $this->kitchenHeaders)
+        ->assertOk()
+        ->assertJsonPath('data.order.remake_of.number', $original->order_number);
 });

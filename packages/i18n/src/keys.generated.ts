@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9815 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9819 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3829,6 +3829,8 @@ export interface NamespaceKeys {
     | 'desk.sale.referencePlaceholder'
     | 'desk.sale.refusedBody'
     | 'desk.sale.refusedTitle'
+    | 'desk.sale.runningLowBody'
+    | 'desk.sale.runningLowTitle'
     | 'desk.sale.section.dressings'
     | 'desk.sale.section.frozenMeals'
     | 'desk.sale.section.meals'
@@ -5033,6 +5035,7 @@ export interface NamespaceKeys {
     | 'ops.orders.cancellationHeading'
     | 'ops.orders.cancellationReason'
     | 'ops.orders.cancelledAt'
+    | 'ops.orders.cancelledBy'
     | 'ops.orders.cancelledToast'
     | 'ops.orders.caption'
     | 'ops.orders.chip'
@@ -5155,6 +5158,7 @@ export interface NamespaceKeys {
     | 'ops.orders.refunds.status.rejected'
     | 'ops.orders.refunds.waitingToast'
     | 'ops.orders.refunds.windowClosed'
+    | 'ops.orders.remakeOf'
     | 'ops.orders.saveFailed'
     | 'ops.orders.searchHint'
     | 'ops.orders.searchLabel'
@@ -13667,6 +13671,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.referencePlaceholder',
   'kitchen:desk.sale.refusedBody',
   'kitchen:desk.sale.refusedTitle',
+  'kitchen:desk.sale.runningLowBody',
+  'kitchen:desk.sale.runningLowTitle',
   'kitchen:desk.sale.section.dressings',
   'kitchen:desk.sale.section.frozenMeals',
   'kitchen:desk.sale.section.meals',
@@ -14871,6 +14877,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.cancellationHeading',
   'kitchen:ops.orders.cancellationReason',
   'kitchen:ops.orders.cancelledAt',
+  'kitchen:ops.orders.cancelledBy',
   'kitchen:ops.orders.cancelledToast',
   'kitchen:ops.orders.caption',
   'kitchen:ops.orders.chip',
@@ -14993,6 +15000,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.orders.refunds.status.rejected',
   'kitchen:ops.orders.refunds.waitingToast',
   'kitchen:ops.orders.refunds.windowClosed',
+  'kitchen:ops.orders.remakeOf',
   'kitchen:ops.orders.saveFailed',
   'kitchen:ops.orders.searchHint',
   'kitchen:ops.orders.searchLabel',

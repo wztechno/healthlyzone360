@@ -8965,6 +8965,19 @@ export type KitchenOrder = {
      */
     cancellation_disposition?: CancellationDisposition | null;
     /**
+     * The name on the profile of the person who cancelled it. Null when
+     * it is not cancelled, when a system job cancelled it, and when that
+     * person has no name on their profile.
+     *
+     */
+    cancelled_by_name?: string | null;
+    /**
+     * The order this one remakes, when a complaint placed it. Null on
+     * every other order.
+     *
+     */
+    remake_of?: KitchenOrderRemakeOf | null;
+    /**
      * The order's delivery run. Null on a pickup or counter order, and on a delivery order not yet confirmed — a run is projected on confirm.
      */
     delivery_run?: KitchenOrderDeliveryRun | null;
@@ -9008,6 +9021,14 @@ export type KitchenOrder = {
     plan_day: KitchenOrderPlanDay | null;
     created_at: string | null;
     updated_at: string | null;
+};
+
+export type KitchenOrderRemakeOf = {
+    id: Uuid;
+    /**
+     * The original order's number.
+     */
+    number: string;
 };
 
 export type KitchenOrderPlanDay = {
@@ -9748,6 +9769,14 @@ export type OrderDeskQuoteLine = {
      *
      */
     held_stock?: Array<string>;
+    /**
+     * What the line is sold with, never refused for, in the refusal's
+     * `{reason, …context}` shape. Today only `stock_short`: the line needs
+     * more than the free stock (held stock never counts). The sale still
+     * goes through.
+     *
+     */
+    warnings?: Array<OrderDeskQuoteRefusal>;
 };
 
 /**

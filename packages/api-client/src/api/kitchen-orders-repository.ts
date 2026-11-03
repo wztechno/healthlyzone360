@@ -185,6 +185,11 @@ export function mapKitchenOrder(wire: WireKitchenOrder): KitchenOrder {
         cancelledAt: wire.cancelled_at,
         cancellationReason: wire.cancellation_reason,
         cancellationDisposition: wire.cancellation_disposition ?? null,
+        cancelledByName: wire.cancelled_by_name ?? null,
+        remakeOf:
+            wire.remake_of === null || wire.remake_of === undefined
+                ? null
+                : { id: OrderId.unsafe(wire.remake_of.id), number: wire.remake_of.number },
         deliveryRun:
             wire.delivery_run === null || wire.delivery_run === undefined
                 ? null
