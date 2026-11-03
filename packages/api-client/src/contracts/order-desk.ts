@@ -617,7 +617,7 @@ export interface WeeklyStockCheck {
  * reconciliation is still a later table.
  */
 export interface OrderDeskCashReportRow {
-    /** `YYYY-MM-DD` — the UTC day the receipts were confirmed on. Part of the row's identity. */
+    /** `YYYY-MM-DD` — the local day, on `meta.timezone`, the receipts were confirmed on. Part of the row's identity. */
     readonly day: string;
     readonly confirmedBy: string;
     /**
@@ -657,12 +657,12 @@ export interface OrderDeskCashReportMeta {
     /** The site it was narrowed to, or `null` for the whole organisation. */
     readonly branchId: string | null;
     /**
-     * The clock the day was measured on. **Always `UTC`**, and echoed rather than assumed: a
-     * receipt carries no branch and the order behind it may carry none either, so there is no
-     * timezone true of every receipt in the answer. A screen states this, because otherwise it is
-     * implying the reader's own midnight.
+     * The IANA zone the days were measured on: the branch's when one was named, else the
+     * organisation's. A screen states it, because otherwise it is implying the reader's own midnight.
      */
     readonly timezone: string;
+    /** Every branch, so every till, the kitchen's first branch first. */
+    readonly branches: readonly { readonly id: string; readonly name: string }[];
     /** Rows in this response. Not a count of receipts. */
     readonly count: number;
 }
@@ -671,7 +671,8 @@ export interface OrderDeskCashReportMeta {
 /** What came off the takings. Beside the rows, never netted into them. */
 export interface OrderDeskCashReportAdjustment {
     readonly day: string;
-    readonly kind: 'refund' | 'receipt_correction' | 'courier_fee' | 'short';
+    /** `courier_expense` is a prepaid run's courier fee: the kitchen paid it, no hand-in carried it. */
+    readonly kind: 'refund' | 'receipt_correction' | 'courier_fee' | 'courier_expense' | 'short';
     /** Who recorded a refund, the courier, or the driver who was short. */
     readonly displayName: string | null;
     readonly currencyCode: CurrencyCode;
@@ -694,11 +695,8 @@ export interface OrderDeskCashReportFilters {
     readonly from: string;
     readonly to: string;
     /**
-     * Narrow to the site that cooked it, through the **order** — a receipt has no branch of its own.
-     *
-     * One consequence, and it is the queue's trap restated: an order with no branch is *excluded*
-     * when this is set. Right for "what did the Marina site take?", wrong as a default, which is why
-     * omitting it is the organisation-wide read rather than a guess at the active branch.
+     * Narrow to one branch's till, resolved as the daily close resolves it, and read the days on
+     * that branch's clock. Omitted, the report is organisation-wide on the organisation's clock.
      */
     readonly branchId?: BranchId | undefined;
 }
@@ -1356,8 +1354,8 @@ export interface OrderDeskRepository {
      * reconciliation exists.
      *
      * Answers {@link OrderDeskCashReport} rather than a bare array for the calendar's reason plus one
-     * of its own: `meta.timezone` is **always `UTC`** and a screen that did not print it would be
-     * implying the reader's own midnight. `totals` arrives beside the rows rather than being summed
+     * of its own: `meta.timezone` is the clock the days were cut on, and a screen that did not print
+     * it would be implying the reader's own midnight. `totals` arrives beside the rows rather than being summed
      * on the client, because summing per method is only legal inside one currency and a client that
      * did it would eventually add two.
      *

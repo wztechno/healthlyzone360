@@ -1,4 +1,5 @@
 import type {
+    OrderDeskCashReportMeta,
     OrderDeskCashReportRow,
     OrderDeskCashReportTotal,
 } from '@healthy360/api-client/contracts';
@@ -8,9 +9,11 @@ import {
     DatePickerButton,
     EmptyState,
     ErrorState,
+    Select,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
+import type { BranchId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -59,15 +62,10 @@ import { PeriodScope } from '../catalogue/period-scope.tsx';
  * rather than letting a reader infer a reconciliation from a table of figures. A real drawer
  * reconciliation is a later table; when it lands, this reads from the same ledger.
  *
- * ## The day boundary is UTC, and the screen prints it
+ * ## The day is the kitchen's
  *
- * A receipt carries no branch, and the order behind it may carry none either — an organisation-wide
- * delivery zone leaves `branchId` null. So there is no branch clock true of every receipt in the
- * answer, and the server measures the day on UTC: the queue's own organisation-wide convention, the
- * only zone that is not a guess. `meta.timezone` is rendered rather than assumed, because a table of
- * a day's takings that did not say *which* midnight it was cut on is a table implying the reader's
- * own — and a kitchen whose evening runs past UTC midnight will see that evening split across two
- * reports. That is a visible, explicable fact, and it stops being one the moment it is unlabelled.
+ * The server cuts days on the chosen till's branch clock, or with All branches on the
+ * organisation's, the clock the daily close uses, and echoes it in `meta.timezone`.
  *
  * ## Three columns of money and no grand total
  *
@@ -97,6 +95,9 @@ import { PeriodScope } from '../catalogue/period-scope.tsx';
 /** What an agent with no name on their profile renders as — the workspace's one unknown character. */
 const EM_DASH = '—';
 
+/** The picker's whole-kitchen option, as on the daily close. Never a branch identifier. */
+const ALL_BRANCHES = '__all__';
+
 export function OrderDeskCashReportScreen() {
     return (
         <Gate
@@ -116,8 +117,8 @@ function OrderDeskCashReport() {
     /**
      * Opens on today, which is the day somebody reconciling a till almost always wants.
      *
-     * `todayIso()` reads the device's clock while the report is cut on UTC, and the two can differ
-     * by a day either side of midnight. The Day column prints the day the *server* filed each row
+     * `todayIso()` reads the device's clock while the report is cut on the kitchen's, and the two
+     * can differ by a day either side of midnight. The Day column prints the day the *server* filed each row
      * under, so a reader whose "today" and the report's disagree can see that they do.
      */
     const [today] = useState(() => todayIso());
@@ -132,21 +133,28 @@ function OrderDeskCashReport() {
      * Memoised because the hook keys on the whole object (query-key shape rule 3) — a fresh literal
      * every render would be a fresh cache entry every render.
      *
-     * **No `branchId`.** The endpoint accepts one and this screen sends none, on the queue's own
-     * argument: narrowing goes through the order, and an order delivered through an
-     * organisation-wide zone carries no branch — so sending the active branch would not scope the
-     * report, it would silently drop takings from it. A reconciliation that quietly omitted money is
-     * the one failure this screen cannot afford, and an in-screen branch picker belongs to the slice
-     * where somebody chooses to narrow and can see that they have.
+     * **`branchId` only when a till is picked.** The picker is the daily close's: All branches by
+     * default, then each till the server listed in `meta.branches`. A till's report reads the same
+     * money as its close, and its days are cut on that branch's clock.
      */
     const span = isIsoDate(from) && isIsoDate(to) ? daysBetween(from, to) : null;
     const tooLong = span !== null && span >= MAX_WINDOW_DAYS;
+    const [branch, setBranch] = useState(ALL_BRANCHES);
     const filters = useMemo(
-        () => (span !== null && span >= 0 && !tooLong ? { from, to } : null),
-        [from, to, span, tooLong],
+        () =>
+            span !== null && span >= 0 && !tooLong
+                ? { from, to, ...(branch === ALL_BRANCHES ? {} : { branchId: branch as BranchId }) }
+                : null,
+        [from, to, span, tooLong, branch],
     );
 
     const report = useOrderDeskCashReportQuery(filters);
+
+    // The tills outlive a reload: a new window or till is a new query with no data yet, and the
+    // picker must not vanish from under the hand that just used it.
+    const [branches, setBranches] = useState<OrderDeskCashReportMeta['branches']>([]);
+    const loadedBranches = report.data?.meta.branches;
+    if (loadedBranches !== undefined && loadedBranches !== branches) setBranches(loadedBranches);
 
     const failure = toFailure(report.error);
     const rows = report.data?.rows ?? [];
@@ -169,8 +177,8 @@ function OrderDeskCashReport() {
                         weekday: 'short',
                         day: 'numeric',
                         month: 'short',
-                        // The day is a UTC calendar day; read in a local zone west of Greenwich
-                        // it would print as the day before.
+                        // The day is a bare date, parsed as UTC midnight; read in a local zone
+                        // west of Greenwich it would print as the day before.
                         timeZone: 'UTC',
                     })}
                 </Text>
@@ -367,6 +375,29 @@ function OrderDeskCashReport() {
                         : (narrow) => <ColumnPicker {...controls.picker} compact={narrow} />
                 }
             />
+
+            {/* The daily close's till picker, shown once the kitchen has more than one till. */}
+            {branches.length > 1 ? (
+                <View className="w-field">
+                    <Select
+                        testID="kitchen-order-desk-cash-report-branch"
+                        label={t('kitchen:ops.dailyClose.branchLabel')}
+                        size="sm"
+                        value={branch}
+                        options={[
+                            {
+                                value: ALL_BRANCHES,
+                                label: t('kitchen:ops.dailyClose.allBranches'),
+                            },
+                            ...branches.map((option) => ({
+                                value: option.id,
+                                label: option.name,
+                            })),
+                        ]}
+                        onChange={setBranch}
+                    />
+                </View>
+            ) : null}
 
             {filters === null ? (
                 tooLong ? (

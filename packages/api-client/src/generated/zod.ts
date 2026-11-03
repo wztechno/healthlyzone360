@@ -5193,6 +5193,7 @@ export const zMonthlyCostReportRow = z.object({
     waste_quantity: z.string().nullable(),
     revenue_amount: z.string(),
     refunds_amount: z.string(),
+    courier_expense_amount: z.string(),
     gross_margin_amount: z.string().nullable(),
     gross_margin_percent: z.string().nullable(),
     is_margin_withheld: z.boolean(),
@@ -7006,6 +7007,7 @@ export const zOrderDeskCashReportAdjustment = z.object({
         'refund',
         'receipt_correction',
         'courier_fee',
+        'courier_expense',
         'short'
     ]),
     display_name: z.string().nullable(),
@@ -7063,6 +7065,10 @@ export const zOrderDeskCashReportEnvelope = z.object({
         to: z.iso.date(),
         branch_id: z.uuid().nullable(),
         timezone: z.string(),
+        branches: z.array(z.object({
+            id: zUuid,
+            name: z.string()
+        })),
         count: z.int().gte(0)
     }))
 });

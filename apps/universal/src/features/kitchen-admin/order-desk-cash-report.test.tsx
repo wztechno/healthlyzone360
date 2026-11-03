@@ -125,6 +125,7 @@ function report(rows: readonly OrderDeskCashReportRow[]): OrderDeskCashReport {
             to: '2026-05-10',
             branchId: null,
             timezone: 'UTC',
+            branches: [],
             count: rows.length,
         },
     };
@@ -197,6 +198,7 @@ describe('order desk cash report — the ladder', () => {
                 to: '2026-05-10',
                 branchId: null,
                 timezone: 'UTC',
+                branches: [],
                 count: 0,
             },
         }));
@@ -268,6 +270,42 @@ describe('order desk cash report — the ladder', () => {
                 to: today,
             });
         });
+    });
+
+    it('narrows to a till picked from the daily close picker', async () => {
+        const base = report(seedRows());
+        const { repositories } = await renderReport(async () => ({
+            ...base,
+            meta: {
+                ...base.meta,
+                branches: [
+                    { id: 'branch-main', name: 'Main kitchen' },
+                    { id: 'branch-two', name: 'Second kitchen' },
+                ],
+            },
+        }));
+        const today = todayIso();
+        await settled();
+
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-cash-report-branch-trigger'));
+        fireEvent.press(
+            await screen.findByTestId('kitchen-order-desk-cash-report-branch-option-branch-two'),
+        );
+
+        await waitFor(() => {
+            expect(repositories.orderDesk.getCashReport).toHaveBeenCalledWith({
+                from: today,
+                to: today,
+                branchId: 'branch-two',
+            });
+        });
+    });
+
+    it('offers no till picker to a kitchen with one till', async () => {
+        await renderReport(async () => report(seedRows()));
+        await settled();
+
+        expect(screen.queryByTestId('kitchen-order-desk-cash-report-branch')).toBeNull();
     });
 });
 

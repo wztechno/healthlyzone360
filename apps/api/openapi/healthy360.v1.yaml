@@ -17380,21 +17380,12 @@ paths:
         table — an opening float, a closing count, a named variance — and that is
         now `/catalogue/order-desk/closes`, which reads this same ledger.
 
-        ## The day boundary is UTC, and `meta.timezone` says so
+        ## The day is the kitchen's local day, and `meta.timezone` says which
 
-        `confirmed_at` is an instant; a day is not. Turning one into the other
-        needs a clock this operation does not have — a receipt carries no branch,
-        and the order behind it may carry none either, because an
-        organisation-wide delivery zone leaves `branch_id` null. There is no
-        timezone true of every receipt in the answer, and using each order's
-        branch where it had one would measure the two halves of a report on two
-        different clocks.
-
-        So the boundary is UTC, matching the queue's organisation-wide convention
-        exactly: unnamed, the only zone that is not a guess. A kitchen whose
-        evening runs past UTC midnight sees that evening split across two
-        reports — a visible, explicable fact rather than a silent
-        misattribution.
+        With `branch_id`, days are read on that branch's timezone; without it,
+        on the organisation's, the clock the daily close uses. A receipt at
+        23:30 in Beirut lands on that Beirut date. `meta.timezone` echoes the
+        zone so a screen can say which midnight it is showing.
 
         ## Grouped by three things, and the third is what makes the sums legal
 
@@ -17409,18 +17400,18 @@ paths:
         agents, derived from the rows so the two can never disagree. There is
         deliberately **no grand total**: it would have to add currencies.
 
-        ## `branch_id` narrows through the order
+        ## `branch_id` names a till
 
-        A receipt has no branch — money is taken by a person at a till, and which
-        site cooked the food is a fact about the order — so the filter reaches the
-        order. One consequence, stated because it is the same trap the queue
-        documents: an order with a null `branch_id` is **excluded** by a branch
-        filter. Right for "what did the Marina site take?", wrong as a default,
-        which is why the default is no narrowing at all.
+        One till per branch, resolved as the daily close resolves it. Receipts
+        and refunds belong to their order's till: the order's branch, else its
+        delivery zone's, else the kitchen's first branch. A hand-in carries its
+        own branch; one recorded before tills were per branch counts as the first
+        branch's. `meta.branches` lists the tills. A branch that is not this
+        kitchen's is a `422` naming `branch_id`.
 
         ## A window of days, still read one day at a time
 
-        `from` and `to` name whole UTC days, both inclusive, at most 31 of them.
+        `from` and `to` name whole local days, both inclusive, at most 31 of them.
         The day is part of every row's key, so a week is seven days of rows
         rather than one row summing Monday and Tuesday — each day can still be
         stood next to that day's cash box. `totals` sum the whole window per
@@ -17433,7 +17424,7 @@ paths:
         - name: from
           in: query
           required: true
-          description: The first day of the window, read on the UTC clock.
+          description: The first day of the window, read on the clock in `meta.timezone`.
           schema:
             type: string
             format: date
@@ -17450,9 +17441,8 @@ paths:
           in: query
           required: false
           description: |
-            Narrow to the site that cooked it, through the order. Omitted, the
-            report is organisation-wide. Orders with no branch are excluded when
-            this is set — see the description.
+            Narrow to one branch's till, and read the days on its timezone.
+            Omitted, the report is organisation-wide on the organisation's clock.
           schema:
             $ref: '#/components/schemas/Uuid'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -39141,6 +39131,7 @@ components:
         - waste_quantity
         - revenue_amount
         - refunds_amount
+        - courier_expense_amount
         - gross_margin_amount
         - gross_margin_percent
         - is_margin_withheld
@@ -39215,6 +39206,9 @@ components:
         refunds_amount:
           type: string
           description: Refunds that completed this month, major units, each order's counted up to its food subtotal. Already taken off `revenue_amount`.
+        courier_expense_amount:
+          type: string
+          description: Couriers' fees on prepaid runs that the kitchen paid, by the month the hand-in was recorded, major units. An operating cost outside COGS; the gross margin does not deduct it.
         gross_margin_amount:
           type: ['string', 'null']
           description: Revenue minus COGS, major units; null when `is_margin_withheld`.
@@ -43574,7 +43568,10 @@ components:
           format: date
         kind:
           type: string
-          enum: [refund, receipt_correction, courier_fee, short]
+          enum: [refund, receipt_correction, courier_fee, courier_expense, short]
+          description: |
+            `courier_fee` came off a hand-in. `courier_expense` is a prepaid
+            run's courier fee, which the kitchen paid and no hand-in carried.
         display_name:
           type: [string, 'null']
           description: The person who recorded a refund, the courier, or the driver who was short.
@@ -43602,7 +43599,7 @@ components:
         day:
           type: string
           format: date
-          description: The UTC day the receipts were confirmed on. Part of the row's key.
+          description: The local day, on `meta.timezone`, the receipts were confirmed on. Part of the row's key.
         confirmed_by:
           $ref: '#/components/schemas/Uuid'
         display_name:
@@ -43691,7 +43688,7 @@ components:
           allOf:
             - $ref: '#/components/schemas/Meta'
             - type: object
-              required: [from, to, branch_id, timezone, count]
+              required: [from, to, branch_id, timezone, branches, count]
               properties:
                 from:
                   type: string
@@ -43708,10 +43705,20 @@ components:
                 timezone:
                   type: string
                   description: |
-                    The clock the day was measured on. **Always `UTC`** — see the
-                    operation. Echoed rather than assumed so a screen can say
-                    which midnight it is showing instead of implying the reader's
-                    own.
+                    The IANA zone the days were measured on: the branch's with
+                    `branch_id`, else the organisation's. Echoed so a screen can
+                    say which midnight it is showing.
+                branches:
+                  type: array
+                  description: Every branch, so every till, the kitchen's first branch first.
+                  items:
+                    type: object
+                    required: [id, name]
+                    properties:
+                      id:
+                        $ref: '#/components/schemas/Uuid'
+                      name:
+                        type: string
                 count:
                   type: integer
                   minimum: 0

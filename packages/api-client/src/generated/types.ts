@@ -7808,6 +7808,10 @@ export type MonthlyCostReportRow = {
      */
     refunds_amount: string;
     /**
+     * Couriers' fees on prepaid runs that the kitchen paid, by the month the hand-in was recorded, major units. An operating cost outside COGS; the gross margin does not deduct it.
+     */
+    courier_expense_amount: string;
+    /**
      * Revenue minus COGS, major units; null when `is_margin_withheld`.
      */
     gross_margin_amount: string | null;
@@ -10856,7 +10860,12 @@ export type StockActivityEnvelope = {
 
 export type OrderDeskCashReportAdjustment = {
     day: string;
-    kind: 'refund' | 'receipt_correction' | 'courier_fee' | 'short';
+    /**
+     * `courier_fee` came off a hand-in. `courier_expense` is a prepaid
+     * run's courier fee, which the kitchen paid and no hand-in carried.
+     *
+     */
+    kind: 'refund' | 'receipt_correction' | 'courier_fee' | 'courier_expense' | 'short';
     /**
      * The person who recorded a refund, the courier, or the driver who was short.
      */
@@ -10879,7 +10888,7 @@ export type OrderDeskCashReportAdjustment = {
  */
 export type OrderDeskCashReportRow = {
     /**
-     * The UTC day the receipts were confirmed on. Part of the row's key.
+     * The local day, on `meta.timezone`, the receipts were confirmed on. Part of the row's key.
      */
     day: string;
     confirmed_by: Uuid;
@@ -10963,13 +10972,19 @@ export type OrderDeskCashReportEnvelope = {
          */
         branch_id: string | null;
         /**
-         * The clock the day was measured on. **Always `UTC`** — see the
-         * operation. Echoed rather than assumed so a screen can say
-         * which midnight it is showing instead of implying the reader's
-         * own.
+         * The IANA zone the days were measured on: the branch's with
+         * `branch_id`, else the organisation's. Echoed so a screen can
+         * say which midnight it is showing.
          *
          */
         timezone: string;
+        /**
+         * Every branch, so every till, the kitchen's first branch first.
+         */
+        branches: Array<{
+            id: Uuid;
+            name: string;
+        }>;
         /**
          * Rows in this response. Not a count of receipts.
          */
@@ -38198,7 +38213,7 @@ export type GetOrderDeskCashReportData = {
     path?: never;
     query: {
         /**
-         * The first day of the window, read on the UTC clock.
+         * The first day of the window, read on the clock in `meta.timezone`.
          */
         from: string;
         /**
@@ -38208,9 +38223,8 @@ export type GetOrderDeskCashReportData = {
          */
         to: string;
         /**
-         * Narrow to the site that cooked it, through the order. Omitted, the
-         * report is organisation-wide. Orders with no branch are excluded when
-         * this is set — see the description.
+         * Narrow to one branch's till, and read the days on its timezone.
+         * Omitted, the report is organisation-wide on the organisation's clock.
          *
          */
         branch_id?: Uuid;

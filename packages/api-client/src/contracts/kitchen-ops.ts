@@ -1473,6 +1473,8 @@ export interface MonthlyCostReportRow {
     readonly revenueAmount: string;
     /** Refunds completed this month, major units. Already off `revenueAmount`. */
     readonly refundsAmount: string;
+    /** Couriers' fees on prepaid runs that the kitchen paid, major units. Outside COGS and the margin. */
+    readonly courierExpenseAmount: string;
     /** Revenue minus COGS, major units, or `null` when withheld. */
     readonly grossMarginAmount: string | null;
     /** Margin as a percentage of revenue, or `null` when revenue is zero or the margin is withheld. */

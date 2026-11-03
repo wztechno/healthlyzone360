@@ -1574,7 +1574,8 @@
             "columnProductionYield": "Batch yield",
             "columnEstimatedMargin": "Est. margin",
             "marginWithheld": "Margin withheld",
-            "columnRefunds": "Refunds (already off revenue)"
+            "columnRefunds": "Refunds (already off revenue)",
+            "columnCourierExpense": "Courier expenses (outside COGS)"
         },
         "exceptions": {
             "title": "Stock gaps",
@@ -1779,6 +1780,7 @@
                 "refund": "Refund",
                 "receipt_correction": "Receipt correction",
                 "courier_fee": "Courier fee",
+                "courier_expense": "Courier fee paid by the kitchen",
                 "short": "Short hand-in"
             }
         },

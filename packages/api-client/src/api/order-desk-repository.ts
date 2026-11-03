@@ -143,9 +143,9 @@ import type { Transport } from './transport.ts';
  * rows.
  *
  * `getCashReport` is the odd one out and its `meta` is the reason: the day it reports is measured on
- * **UTC**, always, because a receipt carries no branch and the order behind it may carry none
- * either. The clock comes back on the wire rather than being assumed here, so a screen prints which
- * midnight it is showing instead of implying the reader's own. Its `totals` are passed through
+ * the branch's or the organisation's clock, which the client cannot derive. The clock comes back on
+ * the wire rather than being assumed here, so a screen prints which midnight it is showing instead
+ * of implying the reader's own. Its `totals` are passed through
  * untouched for the same reason the calendar's three bases are never added: folding them on the
  * client would mean grouping on `method`, and grouping on `method` across two currencies produces a
  * number in neither.

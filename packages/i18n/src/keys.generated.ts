@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9819 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9821 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4674,6 +4674,7 @@ export interface NamespaceKeys {
     | 'ops.batch.versionCell'
     | 'ops.batch.wasteAddedToInputs'
     | 'ops.cashReport.a11y.unnamedAgent'
+    | 'ops.cashReport.adjustment.courier_expense'
     | 'ops.cashReport.adjustment.courier_fee'
     | 'ops.cashReport.adjustment.receipt_correction'
     | 'ops.cashReport.adjustment.refund'
@@ -4719,6 +4720,7 @@ export interface NamespaceKeys {
     | 'ops.costReport.chip'
     | 'ops.costReport.cogsMixCenter'
     | 'ops.costReport.columnCogs'
+    | 'ops.costReport.columnCourierExpense'
     | 'ops.costReport.columnEstimatedMargin'
     | 'ops.costReport.columnMargin'
     | 'ops.costReport.columnMarginPercent'
@@ -14516,6 +14518,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.versionCell',
   'kitchen:ops.batch.wasteAddedToInputs',
   'kitchen:ops.cashReport.a11y.unnamedAgent',
+  'kitchen:ops.cashReport.adjustment.courier_expense',
   'kitchen:ops.cashReport.adjustment.courier_fee',
   'kitchen:ops.cashReport.adjustment.receipt_correction',
   'kitchen:ops.cashReport.adjustment.refund',
@@ -14561,6 +14564,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.costReport.chip',
   'kitchen:ops.costReport.cogsMixCenter',
   'kitchen:ops.costReport.columnCogs',
+  'kitchen:ops.costReport.columnCourierExpense',
   'kitchen:ops.costReport.columnEstimatedMargin',
   'kitchen:ops.costReport.columnMargin',
   'kitchen:ops.costReport.columnMarginPercent',

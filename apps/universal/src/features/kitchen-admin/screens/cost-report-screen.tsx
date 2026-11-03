@@ -410,6 +410,13 @@ function CostReport() {
                         value: percent(viewing.grossMarginPercent),
                         mono: true,
                     },
+                    // An operating cost, after the margin it is not part of.
+                    {
+                        key: 'courierExpense',
+                        label: t('kitchen:ops.costReport.columnCourierExpense'),
+                        value: withCode(viewing.courierExpenseAmount),
+                        mono: true,
+                    },
                     {
                         key: 'currency',
                         label: t('kitchen:ops.costReport.currencyLabel'),

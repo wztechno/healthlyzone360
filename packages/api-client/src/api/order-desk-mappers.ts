@@ -539,10 +539,8 @@ export function mapOrderDeskCashReportTotal(wire: WireCashReportTotal): OrderDes
 /**
  * What the report was measured against.
  *
- * `timezone` is carried rather than dropped even though it is always `UTC` today: a screen that
- * printed a hard-coded word would go on printing it the day a shift table gives the boundary a real
- * clock, and the whole point of echoing it is that the reader is not left assuming their own
- * midnight.
+ * `timezone` is the branch's or the organisation's clock, which the client cannot derive, and
+ * `branches` are the tills a screen offers to narrow by.
  */
 export function mapOrderDeskCashReportMeta(
     wire: OrderDeskCashReportEnvelope['meta'],
@@ -552,6 +550,7 @@ export function mapOrderDeskCashReportMeta(
         to: wire.to,
         branchId: wire.branch_id,
         timezone: wire.timezone,
+        branches: wire.branches.map((branch) => ({ id: branch.id, name: branch.name })),
         count: wire.count,
     };
 }

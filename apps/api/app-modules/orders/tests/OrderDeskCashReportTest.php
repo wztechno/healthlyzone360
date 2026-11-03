@@ -19,6 +19,8 @@ use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /*
 |--------------------------------------------------------------------------
@@ -48,11 +50,12 @@ use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 | minute of a day — so the fixture puts one receipt in each of the three
 | interesting places and asserts which day owns it.
 |
-| **Branch narrowing.** A receipt has no branch, so the filter reaches through
-| the order. The consequence worth pinning is the one the queue screen documents
-| at length: an order with a NULL branch is *excluded* by a branch filter, which
-| is right for "what did the Marina site take?" and would be a silent loss of
-| money if it were ever the default.
+| **Branch narrowing.** A branch names a till, resolved as the daily close
+| resolves it: an order with no branch counts in the first branch's till, and a
+| hand-in in its own branch's. Receipts, refunds and hand-ins all narrow.
+|
+| **The local day.** With a branch the day is the branch's; without, the
+| kitchen's. A receipt at 23:30 in Beirut is that Beirut date's money.
 |
 | **Isolation and permission.** The receipts table carries its own
 | `organisation_id` and no ambient scope, so the predicate is hand-written and a
@@ -279,44 +282,171 @@ it('cuts the day on UTC, half-open, and says so', function (): void {
     )->toBe(800);
 });
 
-it('narrows through the order to a branch, and drops branchless orders when it does', function (): void {
+/**
+ * A branch of this kitchen. `$minutesLater` orders branches by `created_at`, which
+ * is how `TillBranches` picks the first one.
+ */
+function cashBranch(object $test, string $name, string $timezone = 'Asia/Beirut', int $minutesLater = 0): string
+{
     $branch = OrganisationBranch::withoutTenancy()->create([
-        'organisation_id' => $this->orgId,
-        'name' => 'Marina',
+        'organisation_id' => $test->orgId,
+        'name' => $name,
         'country_code' => 'LB',
         'city' => 'Beirut',
-        'timezone' => 'Asia/Beirut',
+        'timezone' => $timezone,
         'status' => 'active',
         'lock_version' => 0,
     ]);
 
+    DB::table('organisation_branches')->where('id', $branch->getKey())->update(['created_at' => now()->addMinutes($minutesLater)]);
+
+    return (string) $branch->getKey();
+}
+
+/** A completed refund on the refund ledger. */
+function cashRefund(object $test, Order $order, int $amountMinor, string $decidedAt): void
+{
+    DB::table('order_refunds')->insert([
+        'id' => (string) Str::uuid7(),
+        'organisation_id' => $test->orgId,
+        'order_id' => $order->getKey(),
+        'kind' => 'refund',
+        'status' => 'completed',
+        'method' => 'cash_at_counter',
+        'amount_minor' => $amountMinor,
+        'currency_code' => 'USD',
+        'reason' => 'Wrong dish',
+        'requested_by' => $test->tenant->user->getKey(),
+        'requested_at' => $decidedAt,
+        'decided_by' => $test->tenant->user->getKey(),
+        'decided_at' => $decidedAt,
+        'created_at' => $decidedAt,
+        'updated_at' => $decidedAt,
+    ]);
+}
+
+/**
+ * A courier hand-in into a till, with a fee off the cash and a prepaid run's fee
+ * the kitchen paid.
+ */
+function cashHandIn(object $test, ?string $branchId, int $feeMinor, int $expenseMinor, string $recordedAt): void
+{
+    DB::table('cash_settlements')->insert([
+        'id' => (string) Str::uuid7(),
+        'organisation_id' => $test->orgId,
+        'branch_id' => $branchId,
+        'kind' => 'courier',
+        'courier_name' => 'Toters',
+        'currency_code' => 'USD',
+        'expected_minor' => 1000,
+        'fee_minor' => $feeMinor,
+        'expense_minor' => $expenseMinor,
+        'handed_in_minor' => 1000 - $feeMinor,
+        'short_minor' => 0,
+        'recorded_by' => $test->tenant->user->getKey(),
+        'recorded_at' => $recordedAt,
+        'created_at' => $recordedAt,
+        'updated_at' => $recordedAt,
+    ]);
+}
+
+it('narrows to a till, counting an order with no branch in the first branch\'s', function (): void {
+    $main = cashBranch($this, 'Main');
+    $marina = cashBranch($this, 'Marina', minutesLater: 1);
+
     $agent = cashAgent($this->orgId, 'branchy@kitchen.test', 'Branchy');
 
-    $atBranch = cashOrder($this, ['branch_id' => $branch->getKey()]);
-    // An order delivered through an organisation-wide zone, which is what the
-    // live book's real orders look like.
+    $atMarina = cashOrder($this, ['branch_id' => $marina]);
     $branchless = cashOrder($this, ['branch_id' => null]);
 
-    cashReceipt($this, $atBranch, $agent, PaymentMethod::CashOnDelivery, 500, 'USD', '2026-05-10 10:00:00');
+    cashReceipt($this, $atMarina, $agent, PaymentMethod::CashOnDelivery, 500, 'USD', '2026-05-10 10:00:00');
     cashReceipt($this, $branchless, $agent, PaymentMethod::CashOnDelivery, 300, 'USD', '2026-05-10 11:00:00');
 
-    // Unnarrowed: both, because both are this kitchen's money.
+    $all = $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10', $this->headers)
+        ->assertOk();
+
+    expect($all->json('data.rows.0.amount_minor_sum'))->toBe(800)
+        ->and($all->json('meta.branches'))->toBe([['id' => $main, 'name' => 'Main'], ['id' => $marina, 'name' => 'Marina']]);
+
+    $atMarinaTill = $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10&branch_id='.$marina, $this->headers)
+        ->assertOk();
+
+    expect($atMarinaTill->json('data.rows.0.amount_minor_sum'))->toBe(500)
+        ->and($atMarinaTill->json('meta.branch_id'))->toBe($marina);
+
     expect(
-        $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10', $this->headers)
+        $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10&branch_id='.$main, $this->headers)
             ->assertOk()
             ->json('data.rows.0.amount_minor_sum')
-    )->toBe(800);
+    )->toBe(300);
+});
 
-    $narrowed = $this->getJson(
-        '/api/v1/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10&branch_id='.$branch->getKey(),
-        $this->headers,
-    )->assertOk();
+it('puts a 23:30 Beirut receipt on the Beirut date, on the kitchen and the branch clock alike', function (): void {
+    $beirut = cashBranch($this, 'Beirut');
+    $order = cashOrder($this, ['branch_id' => $beirut]);
+    $agent = cashAgent($this->orgId, 'late@kitchen.test', 'Late');
 
-    // The branchless order's money is **gone**, and that is the documented
-    // consequence rather than a bug: this is "what did the Marina site take?",
-    // which is why it is never the default.
-    expect($narrowed->json('data.rows.0.amount_minor_sum'))->toBe(500)
-        ->and($narrowed->json('meta.branch_id'))->toBe((string) $branch->getKey());
+    // Beirut is UTC+3 in May. 21:30 UTC on the ninth is 00:30 on the tenth in
+    // Beirut, and 20:30 UTC on the tenth is 23:30 on the tenth. 21:30 UTC on the
+    // tenth is already the eleventh in Beirut.
+    cashReceipt($this, $order, $agent, PaymentMethod::CashAtCounter, 400, 'USD', '2026-05-09 21:30:00');
+    cashReceipt($this, $order, $agent, PaymentMethod::CashAtCounter, 100, 'USD', '2026-05-10 20:30:00');
+    cashReceipt($this, $order, $agent, PaymentMethod::CashAtCounter, 200, 'USD', '2026-05-10 21:30:00');
+
+    foreach (['', '&branch_id='.$beirut] as $branch) {
+        $tenth = $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10'.$branch, $this->headers)
+            ->assertOk();
+
+        expect($tenth->json('data.rows'))->toHaveCount(1)
+            ->and($tenth->json('data.rows.0.day'))->toBe('2026-05-10')
+            ->and($tenth->json('data.rows.0.amount_minor_sum'))->toBe(500)
+            ->and($tenth->json('meta.timezone'))->toBe('Asia/Beirut');
+
+        expect(
+            $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-11&to=2026-05-11'.$branch, $this->headers)
+                ->assertOk()
+                ->json('data.rows.0.amount_minor_sum')
+        )->toBe(200);
+    }
+});
+
+it('narrows refunds and hand-ins to the till as well, and lists a prepaid courier fee', function (): void {
+    $main = cashBranch($this, 'Main');
+    $marina = cashBranch($this, 'Marina', minutesLater: 1);
+
+    cashRefund($this, cashOrder($this, ['branch_id' => $main]), 150, '2026-05-10 09:00:00');
+    cashRefund($this, cashOrder($this, ['branch_id' => $marina]), 250, '2026-05-10 09:00:00');
+
+    // A hand-in into Marina's till, and one from before tills were per branch,
+    // which counts as the first branch's.
+    cashHandIn($this, $marina, 100, 300, '2026-05-10 10:00:00');
+    cashHandIn($this, null, 50, 0, '2026-05-10 10:00:00');
+
+    $adjustments = fn (string $query): array => collect(
+        $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10'.$query, $this->headers)
+            ->assertOk()
+            ->json('data.adjustments')
+    )->mapWithKeys(fn (array $row): array => [$row['kind'] => $row['amount_minor_sum']])->all();
+
+    expect($adjustments('&branch_id='.$marina))->toEqual(['courier_expense' => 300, 'courier_fee' => 100, 'refund' => 250])
+        ->and($adjustments('&branch_id='.$main))->toEqual(['courier_fee' => 50, 'refund' => 150]);
+
+    $all = collect(
+        $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10', $this->headers)
+            ->assertOk()
+            ->json('data.adjustments')
+    );
+
+    expect($all->where('kind', 'courier_fee')->sum('amount_minor_sum'))->toBe(150)
+        ->and($all->where('kind', 'courier_expense')->sum('amount_minor_sum'))->toBe(300)
+        ->and($all->where('kind', 'refund')->sum('amount_minor_sum'))->toBe(400);
+});
+
+it('refuses a branch that is not this kitchen\'s', function (): void {
+    cashBranch($this, 'Main');
+
+    $this->getJson('/api/v1/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10&branch_id='.Str::uuid(), $this->headers)
+        ->assertUnprocessable();
 });
 
 it('lists an agent who never completed a profile rather than losing their takings', function (): void {
