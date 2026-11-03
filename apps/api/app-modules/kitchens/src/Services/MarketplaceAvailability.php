@@ -48,10 +48,11 @@ use Healthy360\Organisations\Models\OrganisationBranch;
  * Where several branches are open on a date, the latest cut-off wins — the last
  * moment an order for that date is accepted anywhere in the kitchen.
  *
- * **`remaining` is always null.** The platform stores no stock counts, and
- * `null` is what the contract reserves for "the kitchen does not publish
- * remaining stock". A zero would say sold out; a large number would be
- * invented.
+ * **`remaining` is null here.** A kitchen counts portions per meal, not per
+ * kitchen, and `null` is what the contract reserves for "the kitchen does not
+ * publish remaining stock". `MarketplaceProjector` lays each meal's own days
+ * (`catalogue_item_availability_days`) over this calendar: a day off or a
+ * sold-out day turns unavailable, and a counted day carries its figure.
  *
  * The window is 14 days starting today, in the branch's timezone rather than
  * the server's — a kitchen in Dubai rolls over its calendar four hours before a

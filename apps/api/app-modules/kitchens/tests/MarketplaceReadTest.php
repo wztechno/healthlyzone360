@@ -5,12 +5,14 @@ declare(strict_types=1);
 use App\Models\User;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemAvailabilityDay;
 use Healthy360\Kitchens\Models\BranchClosure;
 use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Kitchens\Models\KitchenServiceSettings;
 use Healthy360\Organisations\Enums\OrganisationStatus;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
+use Illuminate\Support\Facades\DB;
 use Tests\SeedDatabaseOnce;
 
 /*
@@ -355,4 +357,61 @@ it('keeps a day available when one branch is closed and another is open', functi
     ]);
 
     expect(collect($freekehCalendar())->firstWhere('date', $date)['available'])->toBeTrue();
+});
+
+/**
+ * Give the freekeh its own row on a day the kitchen is open, the row placement
+ * refuses on, and return that date.
+ *
+ * @param  array{is_available: bool, remaining_portions: int|null}  $row
+ */
+$freekehDay = function (array $row) use ($freekehCalendar): string {
+    $meal = CatalogueItem::withoutTenancy()->where('slug', 'grilled-chicken-freekeh')->firstOrFail();
+    $date = collect($freekehCalendar())->skip(1)->firstWhere('available', true)['date'];
+
+    CatalogueItemAvailabilityDay::withoutTenancy()->create($row + [
+        'organisation_id' => $meal->organisation_id,
+        'catalogue_item_id' => $meal->getKey(),
+        'date' => $date,
+    ]);
+
+    return $date;
+};
+
+it('shows a sold-out day as sold out, the day placement refuses', function () use ($freekehCalendar, $freekehDay): void {
+    $date = $freekehDay(['is_available' => true, 'remaining_portions' => 0]);
+
+    expect(collect($freekehCalendar())->firstWhere('date', $date))
+        ->toMatchArray(['available' => false, 'remaining' => 0, 'order_cut_off_at' => null]);
+});
+
+it('shows the meal day off as unavailable while the kitchen is open', function () use ($freekehCalendar, $freekehDay): void {
+    $date = $freekehDay(['is_available' => false, 'remaining_portions' => null]);
+
+    expect(collect($freekehCalendar())->firstWhere('date', $date))
+        ->toMatchArray(['available' => false, 'remaining' => null]);
+});
+
+it('publishes the portions left on a counted day that is still open', function () use ($freekehCalendar, $freekehDay): void {
+    $date = $freekehDay(['is_available' => true, 'remaining_portions' => 5]);
+
+    expect(collect($freekehCalendar())->firstWhere('date', $date))
+        ->toMatchArray(['available' => true, 'remaining' => 5]);
+});
+
+it('reads the per-meal days in one query whether the page has one meal or twenty', function (): void {
+    $ids = collect($this->getJson('/api/v1/marketplace/meals?limit=50')->assertOk()->json('data'))->pluck('id')->take(20);
+
+    $reads = function (string $ids): int {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->getJson('/api/v1/marketplace/meals?ids='.$ids)->assertOk();
+        DB::disableQueryLog();
+
+        return collect(DB::getQueryLog())->filter(fn (array $query): bool => str_contains($query['query'], 'catalogue_item_availability_days'))->count();
+    };
+
+    expect($ids->count())->toBeGreaterThan(1)
+        ->and($reads($ids->first()))->toBe(1)
+        ->and($reads($ids->implode(',')))->toBe(1);
 });

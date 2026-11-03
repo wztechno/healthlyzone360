@@ -34236,7 +34236,8 @@ components:
         One day of the fourteen-day ordering calendar, derived from the
         branches' operating weeks and cut-offs. A day is orderable when at least
         one active branch is open on it and that branch's cut-off has not
-        passed; a day nobody has configured is not orderable.
+        passed; a day nobody has configured is not orderable. On a meal, the
+        meal's own day off or sold-out day is not orderable either.
       required: [date, available, remaining, order_cut_off_at]
       properties:
         date:
@@ -34246,7 +34247,7 @@ components:
           type: boolean
         remaining:
           type: ['integer', 'null']
-          description: Always null — the platform stores no stock counts, and a zero would say sold out.
+          description: Portions of the meal left that day when the kitchen counts them; 0 is sold out. Null when nobody is counting.
         order_cut_off_at:
           type: ['string', 'null']
           format: date-time

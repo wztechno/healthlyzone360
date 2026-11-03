@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Kitchens\Services;
 
+use Carbon\CarbonImmutable;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Services\DishOptions;
@@ -46,10 +47,17 @@ final class MarketplaceProjector
      *     zones: array<string, list<array{zone: DeliveryZone, areas: list<DeliveryArea>, window_codes: list<string>}>>,
      *     channels: array{b2c: bool, b2b: bool, marketplace: bool, pos: bool, subscription: bool, delivery: bool, pickup: bool, corporate: bool},
      *     listing_channels: list<SalesChannel>,
-     *     availability: list<array{date: string, available: bool, remaining: null, order_cut_off_at: string|null}>
+     *     availability: list<array{date: string, available: bool, remaining: int|null, order_cut_off_at: string|null}>
      * }>
      */
     private array $context = [];
+
+    /**
+     * Each meal's own calendar days, keyed by meal id; read a page at a time.
+     *
+     * @var array<string, array<string, array{available: bool, remaining: int|null}>>
+     */
+    private array $mealDays = [];
 
     public function __construct(
         private readonly MarketplaceKitchens $kitchens,
@@ -107,6 +115,38 @@ final class MarketplaceProjector
     }
 
     /**
+     * Read the per-meal calendar days of a whole batch of meals in one query,
+     * before they are projected one by one. A meal nobody primed is read on its
+     * own when it is projected, so the detail page needs no call.
+     *
+     * @param  list<CatalogueItem>  $meals
+     */
+    public function primeMeals(array $meals): void
+    {
+        $ids = array_values(array_diff(
+            array_map(static fn (CatalogueItem $meal): string => (string) $meal->getKey(), $meals),
+            array_keys($this->mealDays),
+        ));
+
+        if ($ids === []) {
+            return;
+        }
+
+        // A day either side of the server's today: every kitchen's fortnight
+        // starts on its own branch's today, which can be the server's yesterday
+        // or tomorrow.
+        $byMeal = $this->meals->availabilityByMeal(
+            $ids,
+            CarbonImmutable::now()->subDay(),
+            MarketplaceAvailability::WINDOW_DAYS + 2,
+        );
+
+        foreach ($ids as $id) {
+            $this->mealDays[$id] = $byMeal[$id] ?? [];
+        }
+    }
+
+    /**
      * The detail page's meal: {@see meal()} and what the customer can choose. Not
      * on the listing, which would pay for a dozen price reads nobody looks at.
      *
@@ -150,7 +190,9 @@ final class MarketplaceProjector
             return null;
         }
 
-        if ($availableOn !== null && ! $this->isAvailableOn($context['availability'], $availableOn)) {
+        $availability = $this->withMealDays($context['availability'], $meal);
+
+        if ($availableOn !== null && ! $this->isAvailableOn($availability, $availableOn)) {
             return null;
         }
 
@@ -168,7 +210,7 @@ final class MarketplaceProjector
             // the name.
             array_values($meal->meal_types ?? []),
             $context['channels'],
-            $context['availability'],
+            $availability,
         );
     }
 
@@ -218,7 +260,7 @@ final class MarketplaceProjector
      *     zones: array<string, list<array{zone: DeliveryZone, areas: list<DeliveryArea>, window_codes: list<string>}>>,
      *     channels: array{b2c: bool, b2b: bool, marketplace: bool, pos: bool, subscription: bool, delivery: bool, pickup: bool, corporate: bool},
      *     listing_channels: list<SalesChannel>,
-     *     availability: list<array{date: string, available: bool, remaining: null, order_cut_off_at: string|null}>
+     *     availability: list<array{date: string, available: bool, remaining: int|null, order_cut_off_at: string|null}>
      * }
      */
     private function contextFor(Organisation|string $kitchen): array
@@ -283,7 +325,43 @@ final class MarketplaceProjector
     }
 
     /**
-     * @param  list<array{date: string, available: bool, remaining: null, order_cut_off_at: string|null}>  $calendar
+     * The kitchen's calendar with the meal's own days laid over it, the rule
+     * `LineProbe` refuses on: a day off or a sold-out day is unavailable even
+     * when the kitchen is open, and a counted day publishes what is left.
+     *
+     * @param  list<array{date: string, available: bool, remaining: int|null, order_cut_off_at: string|null}>  $calendar
+     * @return list<array{date: string, available: bool, remaining: int|null, order_cut_off_at: string|null}>
+     */
+    private function withMealDays(array $calendar, CatalogueItem $meal): array
+    {
+        $id = (string) $meal->getKey();
+
+        if (! isset($this->mealDays[$id])) {
+            $this->primeMeals([$meal]);
+        }
+
+        $days = $this->mealDays[$id];
+
+        return array_map(static function (array $day) use ($days): array {
+            $own = $days[$day['date']] ?? null;
+
+            if ($own === null) {
+                return $day;
+            }
+
+            $available = $day['available'] && $own['available'];
+
+            return [
+                'date' => $day['date'],
+                'available' => $available,
+                'remaining' => $own['remaining'],
+                'order_cut_off_at' => $available ? $day['order_cut_off_at'] : null,
+            ];
+        }, $calendar);
+    }
+
+    /**
+     * @param  list<array{date: string, available: bool, remaining: int|null, order_cut_off_at: string|null}>  $calendar
      */
     private function isAvailableOn(array $calendar, string $date): bool
     {

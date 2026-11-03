@@ -136,6 +136,7 @@ final class PublicMealIndexController
 
                 return $projected;
             },
+            $this->projector->primeMeals(...),
         );
 
         return ApiResponse::data($page['items'], $page['meta'] + [

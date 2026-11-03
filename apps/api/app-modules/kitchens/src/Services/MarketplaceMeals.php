@@ -9,6 +9,7 @@ use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\VariantStatus;
 use Healthy360\Catalogues\Enums\VariantType;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemAvailabilityDay;
 use Healthy360\Catalogues\Models\CatalogueItemDietClassification;
 use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
@@ -445,6 +446,48 @@ final readonly class MarketplaceMeals
         return $this->tenantContext->during(null, $meal->organisation_id, null, function () use ($meal): ?array {
             return $this->nutrition->forItem($meal);
         });
+    }
+
+    /**
+     * Each meal's own calendar days, for a page of meals in one query.
+     *
+     * The rows `LineProbe::calendarRefusal()` refuses on, read the same way: a
+     * day with `is_available` off is a day off, and a counted day with fewer
+     * than one portion left is sold out (a listing asks about one portion, the
+     * least anyone can order). A date with no row says nothing, so it is absent
+     * here and the kitchen's calendar stands. `remaining` is the counted figure,
+     * or null when nobody is counting.
+     *
+     * No tenant context: the table has no row-level policy, only the Eloquent
+     * scope `withoutTenancy()` lifts, so the anonymous marketplace reads it as
+     * placement does.
+     *
+     * @param  list<string>  $itemIds
+     * @return array<string, array<string, array{available: bool, remaining: int|null}>>
+     */
+    public function availabilityByMeal(array $itemIds, CarbonImmutable $from, int $days = MarketplaceAvailability::WINDOW_DAYS): array
+    {
+        if ($itemIds === []) {
+            return [];
+        }
+
+        $byMeal = [];
+
+        $rows = CatalogueItemAvailabilityDay::withoutTenancy()
+            ->whereIn('catalogue_item_id', $itemIds)
+            ->whereBetween('date', [$from->toDateString(), $from->addDays($days - 1)->toDateString()])
+            ->get(['catalogue_item_id', 'date', 'is_available', 'remaining_portions']);
+
+        foreach ($rows as $row) {
+            $remaining = $row->remaining_portions === null ? null : max(0, $row->remaining_portions);
+
+            $byMeal[$row->catalogue_item_id][$row->date->toDateString()] = [
+                'available' => $row->is_available && ($remaining === null || $remaining >= 1),
+                'remaining' => $remaining,
+            ];
+        }
+
+        return $byMeal;
     }
 
     /**

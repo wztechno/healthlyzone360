@@ -4271,14 +4271,15 @@ export type MarketplaceDeliveryWindow = {
  * One day of the fourteen-day ordering calendar, derived from the
  * branches' operating weeks and cut-offs. A day is orderable when at least
  * one active branch is open on it and that branch's cut-off has not
- * passed; a day nobody has configured is not orderable.
+ * passed; a day nobody has configured is not orderable. On a meal, the
+ * meal's own day off or sold-out day is not orderable either.
  *
  */
 export type MarketplaceAvailability = {
     date: string;
     available: boolean;
     /**
-     * Always null — the platform stores no stock counts, and a zero would say sold out.
+     * Portions of the meal left that day when the kitchen counts them; 0 is sold out. Null when nobody is counting.
      */
     remaining: number | null;
     order_cut_off_at: string | null;

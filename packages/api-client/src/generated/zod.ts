@@ -2760,7 +2760,8 @@ export const zMarketplaceKitchen = z.object({
  * One day of the fourteen-day ordering calendar, derived from the
  * branches' operating weeks and cut-offs. A day is orderable when at least
  * one active branch is open on it and that branch's cut-off has not
- * passed; a day nobody has configured is not orderable.
+ * passed; a day nobody has configured is not orderable. On a meal, the
+ * meal's own day off or sold-out day is not orderable either.
  *
  */
 export const zMarketplaceAvailability = z.object({

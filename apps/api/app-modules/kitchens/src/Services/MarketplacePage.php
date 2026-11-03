@@ -55,9 +55,10 @@ final class MarketplacePage
     /**
      * @param  Builder<CatalogueItem>  $query  a fresh query; it is cloned per pass
      * @param  callable(CatalogueItem): (array<string, mixed>|null)  $project  null rejects the row
+     * @param  (callable(list<CatalogueItem>): void)|null  $prime  told each batch before its rows are projected, so a per-row read can be one read per batch
      * @return array{items: list<array<string, mixed>>, meta: array{count: int, next_cursor: string|null, has_more: bool}}
      */
-    public static function walk(Builder $query, int $limit, ?string $cursor, callable $project): array
+    public static function walk(Builder $query, int $limit, ?string $cursor, callable $project, ?callable $prime = null): array
     {
         /** @var list<array<string, mixed>> $kept */
         $kept = [];
@@ -92,6 +93,10 @@ final class MarketplacePage
             }
 
             $lastExamined = $examined->last();
+
+            if ($prime !== null) {
+                $prime($examined->values()->all());
+            }
 
             foreach ($examined as $row) {
                 $projected = $project($row);
