@@ -209,6 +209,7 @@ use Healthy360\Audit\Http\Controllers\AuditActivityIndexController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionCountController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionIndexController;
 use Healthy360\Inventory\Http\Controllers\DuplicateStockIndexController;
+use Healthy360\Inventory\Http\Controllers\DuplicateStockResolveController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionResolveController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionRetryController;
 use Healthy360\Inventory\Http\Controllers\OrderDeskRequirementsController;
@@ -1768,6 +1769,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/inventory/adjustments', StockAdjustController::class)->name('catalogue.inventory.adjustments.store');
                 Route::post('/inventory/waste', StockWasteController::class)->name('catalogue.inventory.waste.store');
                 Route::post('/inventory/counts', StockCountController::class)->name('catalogue.inventory.counts.store');
+
+                // The review list's two answers: merge an emptied shelf with history
+                // into its twin, or keep both. Writes, so the manage code, not the
+                // list's view code.
+                Route::post('/inventory/duplicates/merge', [DuplicateStockResolveController::class, 'merge'])->name('catalogue.inventory.duplicates.merge');
+                Route::post('/inventory/duplicates/dismiss', [DuplicateStockResolveController::class, 'dismiss'])->name('catalogue.inventory.duplicates.dismiss');
 
                 // A receiver links a code nobody has linked yet, at the dock (owner,
                 // 2026-10-21): producer's codes only, no removal, audited. `org.trading`

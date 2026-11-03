@@ -13024,6 +13024,81 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/inventory/duplicates/merge:
+    post:
+      operationId: mergeDuplicateStock
+      tags: [Kitchen inventory & production]
+      summary: Merge a shelf with history into its same-named twin
+      description: |
+        For a `both_have_history` group. The dropped shelf must stand at zero
+        in every branch: count it to zero first. No stock movement is changed
+        or deleted; the dropped row stays, linked to the kept one, so its
+        history stays readable. It leaves every list, and stock lookups
+        follow the link. Open purchase and production lines and supplier
+        links move to the kept shelf. Audited as `inventory.stock_merged`.
+
+        Refused `409 resource.conflict` with `details.reason`:
+        `not_duplicates`, `already_merged`, `different_units`,
+        `both_sold_as_products`, `stock_remaining` or `open_work`.
+
+        Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DuplicateStockMergeRequest'
+      responses:
+        '204':
+          description: Merged.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/inventory/duplicates/dismiss:
+    post:
+      operationId: dismissDuplicateStock
+      tags: [Kitchen inventory & production]
+      summary: Keep same-named shelves as different things
+      description: |
+        Stamps the shelves so their group leaves the review list. A new shelf
+        of the same name brings the group back. Audited as
+        `inventory.duplicate_dismissed`.
+
+        Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DuplicateStockDismissRequest'
+      responses:
+        '204':
+          description: Kept both.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/inventory/consumption-exceptions/unresolved-count:
     get:
       operationId: countUnresolvedConsumptionExceptions
@@ -39602,6 +39677,32 @@ components:
                       type: boolean
         meta:
           type: object
+    DuplicateStockMergeRequest:
+      type: object
+      required: [keep_id, drop_id]
+      additionalProperties: false
+      properties:
+        keep_id:
+          type: string
+          format: uuid
+          description: The shelf that stays.
+        drop_id:
+          type: string
+          format: uuid
+          description: The shelf linked into it; must stand at zero in every branch.
+    DuplicateStockDismissRequest:
+      type: object
+      required: [stock_item_ids]
+      additionalProperties: false
+      properties:
+        stock_item_ids:
+          type: array
+          minItems: 2
+          maxItems: 50
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
     ConsumptionExceptionCountEnvelope:
       type: object
       required: [data, meta]

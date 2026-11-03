@@ -40,6 +40,8 @@ final class StockItemIndexController
     {
         $items = StockItem::query()
             ->select('stock_items.*')
+            // A shelf merged into another keeps its history on its own row, off every list.
+            ->whereNull('merged_into_stock_item_id')
             ->selectRaw('exists (select 1 from stock_levels sl where sl.stock_item_id = stock_items.id and sl.quantity <> 0) as is_stocked')
             ->selectRaw('exists (select 1 from stock_movements sm where sm.stock_item_id = stock_items.id) as has_history')
             ->orderByRaw('is_stocked desc, has_history desc, name_en asc')

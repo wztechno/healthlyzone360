@@ -2256,6 +2256,22 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             }));
         },
 
+        async mergeDuplicateStock(keepId: string, dropId: string): Promise<void> {
+            await transport.request({
+                method: 'POST',
+                path: '/catalogue/inventory/duplicates/merge',
+                body: { keep_id: keepId, drop_id: dropId },
+            });
+        },
+
+        async dismissDuplicateStock(stockItemIds: readonly string[]): Promise<void> {
+            await transport.request({
+                method: 'POST',
+                path: '/catalogue/inventory/duplicates/dismiss',
+                body: { stock_item_ids: stockItemIds },
+            });
+        },
+
         async countUnresolvedConsumptionExceptions(): Promise<number> {
             const envelope = await transport.requestEnvelope<{
                 readonly count: number;

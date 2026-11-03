@@ -135,7 +135,7 @@ final readonly class StockCountSpreadsheetService
         $levels = StockLevel::query()->where('branch_id', $branchId)->get()->keyBy('stock_item_id');
         $costs = $withCosts ? IngredientStockCost::query()->get()->keyBy('ingredient_id') : collect();
 
-        foreach (StockItem::query()->orderBy('code')->get() as $item) {
+        foreach (StockItem::query()->whereNull('merged_into_stock_item_id')->orderBy('code')->get() as $item) {
             /** @var StockLevel|null $level */
             $level = $levels->get($item->id);
             $threshold = $level?->reorder_threshold === null ? null : (string) $level->reorder_threshold;
@@ -185,7 +185,7 @@ final readonly class StockCountSpreadsheetService
         }
 
         $values = $row['values'];
-        $item = StockItem::query()->where('code', $values['code'] ?? null)->first();
+        $item = StockItem::query()->where('code', $values['code'] ?? null)->whereNull('merged_into_stock_item_id')->first();
 
         if ($item === null) {
             $result->skipped($row['row'], $values['code'] ?? null, 'Unknown stock code — stock items are never created by import.');

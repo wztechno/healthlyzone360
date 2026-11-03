@@ -307,6 +307,8 @@ export const REPOSITORY_SURFACE = {
         'removeBranchClosure',
         'createBranch',
         'listDuplicateStock',
+        'mergeDuplicateStock',
+        'dismissDuplicateStock',
         'countUnresolvedConsumptionExceptions',
         'countConsumptionExceptions',
         'createProductionOrder',

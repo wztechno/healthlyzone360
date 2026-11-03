@@ -5394,6 +5394,15 @@ export const zDuplicateStockEnvelope = z.object({
     meta: z.record(z.string(), z.unknown())
 });
 
+export const zDuplicateStockMergeRequest = z.object({
+    keep_id: z.uuid(),
+    drop_id: z.uuid()
+});
+
+export const zDuplicateStockDismissRequest = z.object({
+    stock_item_ids: z.array(z.uuid()).min(2).max(50)
+});
+
 export const zConsumptionExceptionCountEnvelope = z.object({
     data: z.object({
         count: z.int().gte(0),
@@ -15213,6 +15222,30 @@ export const zListDuplicateStockHeaders = z.object({
  * The groups of shelves waiting for a person.
  */
 export const zListDuplicateStockResponse = zDuplicateStockEnvelope;
+
+export const zMergeDuplicateStockBody = zDuplicateStockMergeRequest;
+
+export const zMergeDuplicateStockHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Merged.
+ */
+export const zMergeDuplicateStockResponse = z.void();
+
+export const zDismissDuplicateStockBody = zDuplicateStockDismissRequest;
+
+export const zDismissDuplicateStockHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Kept both.
+ */
+export const zDismissDuplicateStockResponse = z.void();
 
 export const zCountUnresolvedConsumptionExceptionsHeaders = z.object({
     'X-Organisation-Id': zUuid,

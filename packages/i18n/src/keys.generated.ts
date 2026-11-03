@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9805 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9814 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -7326,12 +7326,21 @@ export interface NamespaceKeys {
     | 'stockBlockers.stock_recipe_not_published'
     | 'stockBlockers.unformulatedCount'
     | 'stockBlockers.unformulatedTitle'
+    | 'stockDuplicates.actionFailedToast'
     | 'stockDuplicates.caption'
     | 'stockDuplicates.columnName'
     | 'stockDuplicates.columnReason'
     | 'stockDuplicates.columnShelves'
     | 'stockDuplicates.emptyBody'
     | 'stockDuplicates.emptyTitle'
+    | 'stockDuplicates.keepBoth'
+    | 'stockDuplicates.keptToast'
+    | 'stockDuplicates.mergeBlocked'
+    | 'stockDuplicates.mergeBody'
+    | 'stockDuplicates.mergeConfirm'
+    | 'stockDuplicates.mergeInto'
+    | 'stockDuplicates.mergeTitle'
+    | 'stockDuplicates.mergedToast'
     | 'stockDuplicates.reason.both_have_history'
     | 'stockDuplicates.reason.both_sold_as_products'
     | 'stockDuplicates.reason.different_units'
@@ -17149,12 +17158,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:stockBlockers.stock_recipe_not_published',
   'kitchen:stockBlockers.unformulatedCount',
   'kitchen:stockBlockers.unformulatedTitle',
+  'kitchen:stockDuplicates.actionFailedToast',
   'kitchen:stockDuplicates.caption',
   'kitchen:stockDuplicates.columnName',
   'kitchen:stockDuplicates.columnReason',
   'kitchen:stockDuplicates.columnShelves',
   'kitchen:stockDuplicates.emptyBody',
   'kitchen:stockDuplicates.emptyTitle',
+  'kitchen:stockDuplicates.keepBoth',
+  'kitchen:stockDuplicates.keptToast',
+  'kitchen:stockDuplicates.mergeBlocked',
+  'kitchen:stockDuplicates.mergeBody',
+  'kitchen:stockDuplicates.mergeConfirm',
+  'kitchen:stockDuplicates.mergeInto',
+  'kitchen:stockDuplicates.mergeTitle',
+  'kitchen:stockDuplicates.mergedToast',
   'kitchen:stockDuplicates.reason.both_have_history',
   'kitchen:stockDuplicates.reason.both_sold_as_products',
   'kitchen:stockDuplicates.reason.different_units',

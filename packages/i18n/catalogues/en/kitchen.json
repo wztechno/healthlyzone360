@@ -5114,10 +5114,19 @@
         "shelf": "{{code}}: {{quantity}} {{unit}}",
         "emptyTitle": "Nothing to review",
         "emptyBody": "Every stock row with a repeated name has been merged or dealt with.",
+        "keepBoth": "Keep both",
+        "mergeInto": "Merge into {{code}}",
+        "mergeBlocked": "Count {{code}} to zero to merge it",
+        "mergeTitle": "Merge {{drop}} into {{keep}}?",
+        "mergeBody": "{{drop}} leaves the stock lists and its history stays on its own row. Anything that used it draws on {{keep}} from now on.",
+        "mergeConfirm": "Merge",
+        "mergedToast": "{{drop}} merged into {{keep}}",
+        "keptToast": "{{name}}: kept as separate rows",
+        "actionFailedToast": "That did not save. Try again.",
         "reason": {
             "different_units": "Counted in different units, so the quantities cannot be added",
             "not_a_copy": "Same name, but neither is a copy of the other",
-            "both_have_history": "Both have stock history, so neither can be dropped",
+            "both_have_history": "Both have stock history: count one to zero to merge it, or keep both",
             "both_sold_as_products": "Both are sold as products",
             "open_work": "An open order, receipt or stock figure still uses the row"
         }

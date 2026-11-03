@@ -2614,6 +2614,14 @@ export interface KitchenOpsRepository {
     /** Stock shelves repeating a name that need a person. Needs `inventory.view_organisation`. */
     listDuplicateStock(): Promise<readonly DuplicateStockGroup[]>;
     /**
+     * Links a shelf with history, counted to zero in every branch, into its same-named twin. No
+     * movement changes; the dropped shelf leaves the lists. Refused `resource.conflict` with a
+     * `reason` (`stock_remaining`, `different_units`, `open_work`, …). Needs `inventory.manage_organisation`.
+     */
+    mergeDuplicateStock(keepId: string, dropId: string): Promise<void>;
+    /** Keeps same-named shelves as different things; the group leaves the list. Needs `inventory.manage_organisation`. */
+    dismissDuplicateStock(stockItemIds: readonly string[]): Promise<void>;
+    /**
      * How many exceptions are unresolved right now, scoped to the active branch context (`X-Branch-Id`)
      * or the whole organisation when none is set — the count the hub badge and review KPI read.
      */

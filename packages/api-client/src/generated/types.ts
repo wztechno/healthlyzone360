@@ -8100,6 +8100,21 @@ export type DuplicateStockEnvelope = {
     };
 };
 
+export type DuplicateStockMergeRequest = {
+    /**
+     * The shelf that stays.
+     */
+    keep_id: string;
+    /**
+     * The shelf linked into it; must stand at zero in every branch.
+     */
+    drop_id: string;
+};
+
+export type DuplicateStockDismissRequest = {
+    stock_item_ids: Array<string>;
+};
+
 export type ConsumptionExceptionCountEnvelope = {
     data: {
         /**
@@ -32657,6 +32672,132 @@ export type ListDuplicateStockResponses = {
 };
 
 export type ListDuplicateStockResponse = ListDuplicateStockResponses[keyof ListDuplicateStockResponses];
+
+export type MergeDuplicateStockData = {
+    body: DuplicateStockMergeRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/inventory/duplicates/merge';
+};
+
+export type MergeDuplicateStockErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type MergeDuplicateStockError = MergeDuplicateStockErrors[keyof MergeDuplicateStockErrors];
+
+export type MergeDuplicateStockResponses = {
+    /**
+     * Merged.
+     */
+    204: void;
+};
+
+export type MergeDuplicateStockResponse = MergeDuplicateStockResponses[keyof MergeDuplicateStockResponses];
+
+export type DismissDuplicateStockData = {
+    body: DuplicateStockDismissRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/inventory/duplicates/dismiss';
+};
+
+export type DismissDuplicateStockErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type DismissDuplicateStockError = DismissDuplicateStockErrors[keyof DismissDuplicateStockErrors];
+
+export type DismissDuplicateStockResponses = {
+    /**
+     * Kept both.
+     */
+    204: void;
+};
+
+export type DismissDuplicateStockResponse = DismissDuplicateStockResponses[keyof DismissDuplicateStockResponses];
 
 export type CountUnresolvedConsumptionExceptionsData = {
     body?: never;
