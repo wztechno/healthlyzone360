@@ -40569,6 +40569,13 @@ components:
           type: ['string', 'null']
           format: date-time
           description: When the kitchen marked it ready. The order stays `confirmed` until it is handed over (`fulfilled_at`).
+        due_at:
+          type: string
+          format: date-time
+          description: |
+            Sent on the kitchen display only. When the order is due: its
+            requested day at its window's start, in the branch's zone, else when
+            it was placed. The desk queue's instant; the wall sorts by it.
         fulfilled_at:
           type: ['string', 'null']
           format: date-time

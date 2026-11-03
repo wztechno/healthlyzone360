@@ -8899,6 +8899,13 @@ export type KitchenOrder = {
      * When the kitchen marked it ready. The order stays `confirmed` until it is handed over (`fulfilled_at`).
      */
     ready_at?: string | null;
+    /**
+     * Sent on the kitchen display only. When the order is due: its
+     * requested day at its window's start, in the branch's zone, else when
+     * it was placed. The desk queue's instant; the wall sorts by it.
+     *
+     */
+    due_at?: string;
     fulfilled_at: string | null;
     cancelled_at: string | null;
     cancellation_reason: CancellationReason | null;

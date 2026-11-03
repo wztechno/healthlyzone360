@@ -2035,7 +2035,7 @@
     },
     "kds": {
         "title": "Kitchen display",
-        "subtitle": "Every open ticket for this kitchen, longest wait first. The board refreshes itself while it is on screen.",
+        "subtitle": "Every open ticket for this kitchen, soonest due first. The board refreshes itself while it is on screen.",
         "lastUpdated": "Updated {{time}}",
         "column": {
             "incoming": "Incoming",
@@ -2076,7 +2076,11 @@
         "truncatedTitle": "Not every ticket fits on this board",
         "truncatedBody": "More orders are waiting than the board can carry, and the newest are the ones missing. Open the order book to see them.",
         "alarmTitle": "Not accepted yet",
-        "alarmBody": "Waited {{minutes}} min while open. Accept or start it now."
+        "alarmBody": "Waited {{minutes}} min while open. Accept or start it now.",
+        "lanes": "Board lanes",
+        "held": "Sending in a few seconds. You can still undo it.",
+        "readyHeld": "{{number}} marked ready.",
+        "handedOverHeld": "{{number}} handed over."
     },
     "driver": {
         "title": "Your deliveries",

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9780 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9791 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4278,6 +4278,9 @@ export interface NamespaceKeys {
     | 'kds.emptyBody'
     | 'kds.emptyTitle'
     | 'kds.handedOver'
+    | 'kds.handedOverHeld'
+    | 'kds.held'
+    | 'kds.lanes'
     | 'kds.lastUpdated'
     | 'kds.lineSummary'
     | 'kds.loadErrorTitle'
@@ -4286,6 +4289,7 @@ export interface NamespaceKeys {
     | 'kds.noBranchTitle'
     | 'kds.placedAgo'
     | 'kds.ready'
+    | 'kds.readyHeld'
     | 'kds.soundOn'
     | 'kds.staleBody'
     | 'kds.staleTitle'
@@ -14083,6 +14087,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:kds.emptyBody',
   'kitchen:kds.emptyTitle',
   'kitchen:kds.handedOver',
+  'kitchen:kds.handedOverHeld',
+  'kitchen:kds.held',
+  'kitchen:kds.lanes',
   'kitchen:kds.lastUpdated',
   'kitchen:kds.lineSummary',
   'kitchen:kds.loadErrorTitle',
@@ -14091,6 +14098,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:kds.noBranchTitle',
   'kitchen:kds.placedAgo',
   'kitchen:kds.ready',
+  'kitchen:kds.readyHeld',
   'kitchen:kds.soundOn',
   'kitchen:kds.staleBody',
   'kitchen:kds.staleTitle',

@@ -180,6 +180,7 @@ export function mapKitchenOrder(wire: WireKitchenOrder): KitchenOrder {
         confirmedAt: wire.confirmed_at,
         preparingAt: wire.preparing_at ?? null,
         readyAt: wire.ready_at ?? null,
+        dueAt: wire.due_at ?? null,
         fulfilledAt: wire.fulfilled_at,
         cancelledAt: wire.cancelled_at,
         cancellationReason: wire.cancellation_reason,

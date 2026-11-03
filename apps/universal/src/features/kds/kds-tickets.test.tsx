@@ -8,6 +8,7 @@ import type {
 import type { OrderId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { createInstance } from 'i18next';
+import { Dimensions } from 'react-native';
 
 import {
     KITCHEN_MANAGER_PERMISSIONS,
@@ -22,8 +23,8 @@ import { queryKeys } from '../../data/query-keys.ts';
 import { addDays, todayIso } from '../commerce/dates.ts';
 import { allergenLabel, allergyBanner } from '../kitchen-admin/ops-format.ts';
 import { playAlertTone } from './alert-tone.ts';
-import { isAlarming, placedTicketIds, unseenTickets } from './kds-board.ts';
-import { KDS_ALARM_TONE_MS, KdsTicketsScreen } from './kds-tickets-screen.tsx';
+import { bucketTickets, isAlarming, placedTicketIds, unseenTickets } from './kds-board.ts';
+import { KDS_ALARM_TONE_MS, KDS_UNDO_MS, KdsTicketsScreen } from './kds-tickets-screen.tsx';
 
 jest.mock('expo-router', () => ({
     __esModule: true,
@@ -35,6 +36,23 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('./alert-tone.ts', () => ({ __esModule: true, playAlertTone: jest.fn() }));
+
+/*
+ * React Native's Jest window is 750px, just under `md`, where the board turns into lane tabs. The
+ * board is a wall screen, so this file reads it at a desk's width; the tabs test narrows it itself.
+ */
+const JEST_WINDOW = { window: Dimensions.get('window'), screen: Dimensions.get('screen') };
+
+beforeAll(() => {
+    Dimensions.set({
+        window: { ...JEST_WINDOW.window, width: 1440, height: 900 },
+        screen: { ...JEST_WINDOW.screen, width: 1440, height: 900 },
+    });
+});
+
+afterAll(() => {
+    Dimensions.set(JEST_WINDOW);
+});
 
 /**
  * The wall board, against a book this file writes.
@@ -428,6 +446,8 @@ describe('kds ticket board', () => {
         // bumped on a previous day, so it is off the board rather than lingering forever.
         expect(screen.getByTestId('kds-column-done-count')).toHaveTextContent('0');
         expect(screen.getByTestId('kds-column-done-empty')).toBeTruthy();
+        // Three columns side by side at this width, so no lane tabs.
+        expect(screen.queryByTestId('kds-lanes')).toBeNull();
     });
 
     it('starts an unattributed ticket, which moves it into preparation', async () => {
@@ -558,49 +578,63 @@ describe('kds ticket board', () => {
     });
 
     it('marks a ticket ready without handing it over, then hands it over', async () => {
-        // A collection order: the customer takes it from the counter, so the kitchen hands it over.
-        const book = createOrderBook(
-            seedOrders().map((order) =>
-                order.id === orderIdAt(3) ? { ...order, fulfilmentType: 'pickup' } : order,
-            ),
-        );
-        const { repositories } = await renderBoard(book);
+        // Both presses wait out the undo before they are sent.
+        jest.useFakeTimers({ advanceTimers: true });
+        try {
+            // A collection order: the customer takes it from the counter, so the kitchen hands it
+            // over.
+            const book = createOrderBook(
+                seedOrders().map((order) =>
+                    order.id === orderIdAt(3) ? { ...order, fulfilmentType: 'pickup' } : order,
+                ),
+            );
+            const { repositories } = await renderBoard(book);
 
-        await waitFor(
-            () => {
-                expect(screen.getByTestId('kds-column-preparing')).toBeTruthy();
-            },
-            { timeout: 5000 },
-        );
+            await waitFor(
+                () => {
+                    expect(screen.getByTestId('kds-column-preparing')).toBeTruthy();
+                },
+                { timeout: 5000 },
+            );
 
-        const confirmed = book.orders().find((order) => order.status === 'confirmed');
-        if (confirmed === undefined) throw new Error('this test authored no confirmed order');
+            const confirmed = book.orders().find((order) => order.status === 'confirmed');
+            if (confirmed === undefined) throw new Error('this test authored no confirmed order');
 
-        // Ready: cooked, still confirmed — a collection order nobody has picked up is not fulfilled.
-        fireEvent.press(screen.getByTestId(`${ticketId(confirmed.id)}-ready`));
-
-        await waitFor(() => {
-            expect(repositories.kitchenOrders.markOrderReady).toHaveBeenCalledWith({
-                id: confirmed.id,
-                lockVersion: confirmed.lockVersion,
+            // Ready: cooked, still confirmed — a collection order nobody has picked up is not
+            // fulfilled.
+            fireEvent.press(screen.getByTestId(`${ticketId(confirmed.id)}-ready`));
+            await act(async () => {
+                await jest.advanceTimersByTimeAsync(KDS_UNDO_MS);
             });
-        });
-        expect(repositories.kitchenOrders.fulfilOrder).not.toHaveBeenCalled();
-        await waitFor(() => {
-            expect(screen.getByTestId('kds-column-done-count')).toHaveTextContent('1');
-        });
-        expect(book.find(confirmed.id)?.status).toBe('confirmed');
-        expect(screen.getByTestId('kds-column-preparing-count')).toHaveTextContent('0');
 
-        // Handed over is the step that fulfils it.
-        fireEvent.press(screen.getByTestId(`${ticketId(confirmed.id)}-handed-over`));
-        await waitFor(() => {
-            expect(book.find(confirmed.id)?.status).toBe('fulfilled');
-        });
-        await waitFor(() => {
-            expect(screen.queryByTestId(`${ticketId(confirmed.id)}-handed-over`)).toBeNull();
-        });
-        expect(screen.getByTestId(ticketId(confirmed.id))).toBeTruthy();
+            await waitFor(() => {
+                expect(repositories.kitchenOrders.markOrderReady).toHaveBeenCalledWith({
+                    id: confirmed.id,
+                    lockVersion: confirmed.lockVersion,
+                });
+            });
+            expect(repositories.kitchenOrders.fulfilOrder).not.toHaveBeenCalled();
+            await waitFor(() => {
+                expect(screen.getByTestId('kds-column-done-count')).toHaveTextContent('1');
+            });
+            expect(book.find(confirmed.id)?.status).toBe('confirmed');
+            expect(screen.getByTestId('kds-column-preparing-count')).toHaveTextContent('0');
+
+            // Handed over is the step that fulfils it.
+            fireEvent.press(screen.getByTestId(`${ticketId(confirmed.id)}-handed-over`));
+            await act(async () => {
+                await jest.advanceTimersByTimeAsync(KDS_UNDO_MS);
+            });
+            await waitFor(() => {
+                expect(book.find(confirmed.id)?.status).toBe('fulfilled');
+            });
+            await waitFor(() => {
+                expect(screen.queryByTestId(`${ticketId(confirmed.id)}-handed-over`)).toBeNull();
+            });
+            expect(screen.getByTestId(ticketId(confirmed.id))).toBeTruthy();
+        } finally {
+            jest.useRealTimers();
+        }
     });
 
     it('leaves a ready delivery to the driver instead of offering Handed over (HA-19)', async () => {
@@ -712,6 +746,179 @@ describe('kds ticket board', () => {
         expect(screen.getByTestId(ticketId(confirmed.id))).toBeTruthy();
         expect(screen.queryByTestId(`${ticketId(placed.id)}-start`)).toBeNull();
         expect(screen.queryByTestId(`${ticketId(confirmed.id)}-ready`)).toBeNull();
+    });
+});
+
+describe('due order, the undo and lane tabs', () => {
+    it('runs open work soonest due first, and oldest first between two due together', () => {
+        const soon = minutesAgo(-20);
+        const lunch = kitchenOrder({ id: orderIdAt(1), placedAt: minutesAgo(5), dueAt: soon });
+        // Arrived first, due last: it no longer queues ahead of the lunch.
+        const dinner = kitchenOrder({
+            id: orderIdAt(2),
+            placedAt: minutesAgo(50),
+            dueAt: minutesAgo(-180),
+        });
+        const sameSlot = kitchenOrder({ id: orderIdAt(3), placedAt: minutesAgo(30), dueAt: soon });
+        // No `dueAt` on the payload: due when it was placed, as the server's fallback has it.
+        const unscheduled = kitchenOrder({ id: orderIdAt(4), placedAt: minutesAgo(10) });
+
+        const board = bucketTickets(
+            [lunch, dinner, sameSlot, unscheduled],
+            new Date(),
+            TEST_BRANCH_ID,
+        );
+
+        expect(board.incoming.map((order) => order.id)).toEqual([
+            unscheduled.id,
+            sameSlot.id,
+            lunch.id,
+            dinner.id,
+        ]);
+    });
+
+    it('holds Ready for ten seconds, then sends it', async () => {
+        jest.useFakeTimers({ advanceTimers: true });
+        try {
+            const book = createOrderBook();
+            const { repositories } = await renderBoard(book);
+            const ticket = ticketId(orderIdAt(3));
+
+            await waitFor(
+                () => {
+                    expect(screen.getByTestId(`${ticket}-ready`)).toBeTruthy();
+                },
+                { timeout: 5000 },
+            );
+
+            fireEvent.press(screen.getByTestId(`${ticket}-ready`));
+
+            // Waiting, and saying so on the ticket and in the toast.
+            expect(screen.getByTestId(`${ticket}-held`)).toBeTruthy();
+            expect(screen.getByTestId(`${ticket}-undo-toast`)).toHaveTextContent(
+                /VK-2026-0146 marked ready/,
+            );
+
+            await act(async () => {
+                await jest.advanceTimersByTimeAsync(KDS_UNDO_MS - 1_000);
+            });
+            expect(repositories.kitchenOrders.markOrderReady).not.toHaveBeenCalled();
+
+            await act(async () => {
+                await jest.advanceTimersByTimeAsync(1_000);
+            });
+            await waitFor(() => {
+                expect(repositories.kitchenOrders.markOrderReady).toHaveBeenCalledWith({
+                    id: orderIdAt(3),
+                    lockVersion: 2,
+                });
+            });
+            await waitFor(() => {
+                expect(screen.getByTestId('kds-column-done-count')).toHaveTextContent('1');
+            });
+            expect(screen.queryByTestId(`${ticket}-held`)).toBeNull();
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('sends nothing when Undo is pressed inside the ten seconds', async () => {
+        jest.useFakeTimers({ advanceTimers: true });
+        try {
+            const book = createOrderBook();
+            const { repositories } = await renderBoard(book);
+            const ticket = ticketId(orderIdAt(3));
+
+            await waitFor(
+                () => {
+                    expect(screen.getByTestId(`${ticket}-ready`)).toBeTruthy();
+                },
+                { timeout: 5000 },
+            );
+
+            fireEvent.press(screen.getByTestId(`${ticket}-ready`));
+            fireEvent.press(screen.getByTestId(`${ticket}-undo`));
+
+            await act(async () => {
+                await jest.advanceTimersByTimeAsync(KDS_UNDO_MS + 5_000);
+            });
+
+            expect(repositories.kitchenOrders.markOrderReady).not.toHaveBeenCalled();
+            expect(book.find(orderIdAt(3))?.readyAt ?? null).toBeNull();
+            expect(screen.queryByTestId(`${ticket}-held`)).toBeNull();
+            expect(screen.queryByTestId(`${ticket}-undo-toast`)).toBeNull();
+            // Back where it was, Ready on offer again.
+            expect(screen.getByTestId('kds-column-preparing-count')).toHaveTextContent('1');
+            expect(screen.getByTestId(`${ticket}-ready`)).toBeEnabled();
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('sends Accept and Start at once, with no undo', async () => {
+        jest.useFakeTimers({ advanceTimers: true });
+        try {
+            const book = createOrderBook();
+            const { repositories } = await renderBoard(book);
+            // The branchless placed order is the one placed ticket on this wall.
+            const ticket = ticketId(orderIdAt(2));
+
+            await waitFor(
+                () => {
+                    expect(screen.getByTestId(`${ticket}-accept`)).toBeTruthy();
+                },
+                { timeout: 5000 },
+            );
+
+            fireEvent.press(screen.getByTestId(`${ticket}-accept`));
+            expect(screen.queryByTestId(`${ticket}-undo-toast`)).toBeNull();
+            // `waitFor` steps the clock in small increments: well inside ten seconds.
+            await waitFor(() => {
+                expect(repositories.kitchenOrders.confirmOrder).toHaveBeenCalledTimes(1);
+            });
+
+            await waitFor(() => {
+                expect(screen.getByTestId(`${ticket}-start`)).toBeEnabled();
+            });
+            fireEvent.press(screen.getByTestId(`${ticket}-start`));
+            expect(screen.queryByTestId(`${ticket}-undo-toast`)).toBeNull();
+            await waitFor(() => {
+                expect(repositories.kitchenOrders.startOrder).toHaveBeenCalledTimes(1);
+            });
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('puts the three lanes under tabs below md, one lane on screen at a time', async () => {
+        const wide = { window: Dimensions.get('window'), screen: Dimensions.get('screen') };
+        await act(async () => {
+            Dimensions.set(JEST_WINDOW);
+        });
+        try {
+            await renderBoard(createOrderBook());
+
+            await waitFor(
+                () => {
+                    expect(screen.getByTestId('kds-lanes')).toBeTruthy();
+                },
+                { timeout: 5000 },
+            );
+            expect(screen.getByTestId('kds-column-incoming')).toBeTruthy();
+            expect(screen.queryByTestId('kds-column-preparing')).toBeNull();
+            // Each tab carries its lane's count, so a phone sees the whole board at a glance.
+            expect(screen.getByTestId('kds-lane-preparing-count')).toHaveTextContent('1');
+
+            fireEvent.press(screen.getByTestId('kds-lane-preparing'));
+
+            expect(screen.getByTestId('kds-column-preparing')).toBeTruthy();
+            expect(screen.queryByTestId('kds-column-incoming')).toBeNull();
+            expect(screen.getByTestId(ticketId(orderIdAt(3)))).toBeTruthy();
+        } finally {
+            await act(async () => {
+                Dimensions.set(wide);
+            });
+        }
     });
 });
 

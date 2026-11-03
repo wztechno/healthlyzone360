@@ -298,6 +298,12 @@ export interface KitchenOrder {
      * until `fulfilledAt`. Absent on payloads that predate it, which reads as "not ready".
      */
     readonly readyAt?: IsoDateTime | null;
+    /**
+     * When the order is due — its requested day at its window's start in the branch's zone, else
+     * when it was placed. Sent by the kitchen display only (`getDisplay`), which sorts by it; absent,
+     * or `null`, everywhere else.
+     */
+    readonly dueAt?: IsoDateTime | null;
     readonly fulfilledAt: IsoDateTime | null;
     readonly cancelledAt: IsoDateTime | null;
     readonly cancellationReason: KitchenOrderCancellationReason | null;

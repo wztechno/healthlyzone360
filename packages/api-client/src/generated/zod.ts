@@ -9507,6 +9507,7 @@ export const zKitchenOrder = z.object({
     confirmed_at: z.iso.datetime({ offset: true }).nullable(),
     preparing_at: z.iso.datetime({ offset: true }).nullish(),
     ready_at: z.iso.datetime({ offset: true }).nullish(),
+    due_at: z.iso.datetime({ offset: true }).optional(),
     fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
     cancelled_at: z.iso.datetime({ offset: true }).nullable(),
     cancellation_reason: zCancellationReason.nullable(),
