@@ -20,6 +20,7 @@ import { Pressable, Text as RNText, View } from 'react-native';
 import { Gate } from '../access/gate.tsx';
 import { useLogoutMutation } from '../data/hooks.ts';
 import { isAreaAvailable } from '../features/availability.ts';
+import { isShopViewOnly } from '../features/marketplace/shop-view-only.tsx';
 import { workspaceGroup } from '../navigation/workspace-group.tsx';
 import { guardNavigation } from '../navigation/use-unsaved-guard.ts';
 import { useOnlineStatus } from '../online/online-status.tsx';
@@ -161,9 +162,12 @@ function GuardedAreaShell({
         if (resolvedVariant === 'driver') return switcher;
         return navigationOverride ?? [];
     }, [navigationOverride, resolvedVariant, switcher]);
-    // Not on the workspace page itself, which is where it leads.
+    // Not on the workspace page itself, which is where it leads, and never for a shopper, who has
+    // none: they reach `/devices` from their account.
     const showWorkspacesButton =
-        WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant) && pathname !== '/workspace';
+        WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant) &&
+        pathname !== '/workspace' &&
+        isShopViewOnly(accessState);
     // The bar sits outside `KitchenOpsShell`'s compact provider, so on a staff page its two buttons
     // would otherwise come out at the customer app's 44px. Every staff area takes the 28px pair —
     // the KDS and the driver area included, by the user's choice on 2026-10-25.

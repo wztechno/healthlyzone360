@@ -19,6 +19,8 @@ import { Text } from 'react-native';
 import { queryKeys } from '../data/query-keys.ts';
 import { RedirectIfSignedIn } from '../navigation/redirect-if-signed-in.tsx';
 import { withReturnTo } from '../navigation/return-to.ts';
+import { useAccessState } from '../session/session-provider.tsx';
+import { AreaShell } from '../shell/area-shell.tsx';
 import type { ExpoRouterMock } from '../testing/expo-router-mock.ts';
 import {
     TEST_USER_ID,
@@ -590,6 +592,15 @@ describe('WorkspaceSelectorScreen', () => {
         // server's permission set does not carry `organisation.manage_platform`.
         expect(screen.getByTestId('workspace-area-kitchen')).toBeTruthy();
         expect(screen.queryByTestId('workspace-area-platform-admin')).toBeNull();
+    });
+
+    it('sends a shopper to the shop, never drawing the page', async () => {
+        await renderStubScreen(<WorkspaceSelectorScreen />, { session: testMeResponse() });
+
+        await waitFor(() => {
+            expect(routerMock.__redirect).toHaveBeenCalledWith('/discover');
+        });
+        expect(screen.queryByTestId('workspace-selector-title')).toBeNull();
     });
 
     describe('greeting', () => {
@@ -1406,11 +1417,65 @@ describe('LandingScreen — the return', () => {
         });
     });
 
+    it('lands a shopper on the shop, not on a return to the workspace page', async () => {
+        await renderStubScreen(<LandingScreen returnTo="/workspace" />, {
+            session: testMeResponse(),
+        });
+
+        await waitFor(() => {
+            expect(routerMock.__redirect).toHaveBeenCalledWith('/discover');
+        });
+        expect(routerMock.__router.dismissTo).not.toHaveBeenCalled();
+    });
+
+    it('still takes staff on to the workspace page', async () => {
+        await renderStubScreen(<LandingScreen returnTo="/workspace" />, {
+            session: kitchenManagerSession(),
+        });
+
+        await waitFor(() => {
+            expect(routerMock.__router.dismissTo).toHaveBeenCalledWith('/workspace');
+        });
+    });
+
     it('lands as it always did with no return', async () => {
         await renderStubScreen(<LandingScreen />, { session: testMeResponse() });
 
         await waitFor(() => {
             expect(routerMock.__redirect).toHaveBeenCalledWith('/discover');
         });
+    });
+});
+
+describe('AreaShell — the Workspaces button', () => {
+    /** Drawn once `/me` has arrived, so an absent button is a decision rather than a race. */
+    function SessionLoaded() {
+        const { emailVerified } = useAccessState();
+        return emailVerified ? <Text testID="session-loaded">loaded</Text> : null;
+    }
+
+    async function devicesPage(session: MeResponse) {
+        routerMock.__set({ pathname: '/devices' });
+        await renderStubScreen(
+            <AreaShell area="auth" variant="workspace" unguarded testID="workspace-shell">
+                <SessionLoaded />
+            </AreaShell>,
+            { session },
+        );
+        await waitFor(() => {
+            expect(screen.getByTestId('session-loaded')).toBeTruthy();
+        });
+    }
+
+    it('leads staff back to the workspace page', async () => {
+        await devicesPage(kitchenManagerSession());
+
+        expect(screen.getByTestId('workspaces-button')).toBeTruthy();
+    });
+
+    it('is not offered to a shopper, who has no workspace page', async () => {
+        await devicesPage(testMeResponse());
+
+        expect(screen.queryByTestId('workspaces-button')).toBeNull();
     });
 });

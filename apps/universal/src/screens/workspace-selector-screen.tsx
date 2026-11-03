@@ -14,11 +14,12 @@ import {
 } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
+import { isShopViewOnly } from '../features/marketplace/shop-view-only.tsx';
 import {
     AREA_ICONS,
     availableWorkspaceAreas,
@@ -26,6 +27,7 @@ import {
     workspaceAreaLabelKey,
 } from '../navigation/items.ts';
 import { useAccessState, useSession } from '../session/session-provider.tsx';
+import { shopperHome } from './forbidden-screen.tsx';
 
 /**
  * Workspace selector.
@@ -121,7 +123,18 @@ function useMinuteClock(): Date {
     return now;
 }
 
+/**
+ * A shopper has no workspace page. Signed in, they belong in the shop, so a shopper who reaches
+ * `/workspace` anyway — a typed URL, an old bookmark — is sent to the shop's home. Everybody the
+ * shop is view-only for (`shop-view-only.tsx`) keeps the page.
+ */
 export function WorkspaceSelectorScreen() {
+    const accessState = useAccessState();
+    if (!isShopViewOnly(accessState)) return <Redirect href={shopperHome(accessState) as never} />;
+    return <WorkspaceHub />;
+}
+
+function WorkspaceHub() {
     const { t } = useTranslation();
     const router = useRouter();
     const accessState = useAccessState();
