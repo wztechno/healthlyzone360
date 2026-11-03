@@ -309,7 +309,18 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
          * when the recompute began, and its figures carry as they always have.
          */
         $outputAllergens->strengthen($version);
-        $outputNutrition->write($version, $facts, scheduleDependants: false);
+
+        // The nutrition is not strengthen-only: a retire or supersede that committed
+        // while the roll-up ran has already cleared the output, and writing the
+        // loaded version's facts back would put a retired formulation on it. So it
+        // carries only for the version this job just quarantined (published under
+        // the lock) or one still published now.
+        $stillPublished = $quarantined
+            || RecipeVersion::withoutTenancy()->whereKey($version->getKey())->first()?->status === RecipeVersionStatus::Published;
+
+        if ($stillPublished) {
+            $outputNutrition->write($version, $facts, scheduleDependants: false);
+        }
 
         $version->refresh();
 

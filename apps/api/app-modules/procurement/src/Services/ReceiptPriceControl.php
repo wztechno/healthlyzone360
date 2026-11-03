@@ -38,6 +38,9 @@ final readonly class ReceiptPriceControl
 {
     private const int PERCENT_SCALE = 2;
 
+    /** The largest figure `price_variance_percent`, a decimal(10,2), holds. */
+    private const string MAX_PERCENT = '99999999.99';
+
     public function __construct(
         private LastPurchasePriceQuery $lastPrices,
         private KitchenServiceSettingsLookup $settings,
@@ -106,6 +109,13 @@ final readonly class ReceiptPriceControl
                 '100',
                 self::PERCENT_SCALE,
             );
+
+            // ponytail: past the decimal(10,2) column (a price per mg against one per kg)
+            // the figure is a unit slip, not a price; leave it uncompared rather than fail
+            // the receipt's save. Widen the column if a real comparison ever needs it.
+            if (bccomp(ltrim($variance, '-'), self::MAX_PERCENT, self::PERCENT_SCALE) > 0) {
+                continue;
+            }
 
             $line->last_unit_price_amount = $lastPrice;
             $line->price_variance_percent = $variance;

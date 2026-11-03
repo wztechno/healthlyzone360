@@ -155,11 +155,14 @@ function OrderDeskRequirements() {
         .map((row) => row.stockItemId);
     const shortCount = shortIds.length;
 
-    /** The shortfall, handed to the supply-order builder as the items it proposes. */
+    /**
+     * The shortfall, handed to the supply-order builder as the items it proposes. The proposal
+     * endpoint takes at most 100 ids, so a longer list hands over its first 100.
+     */
     const createOrder = () => {
         router.push(
             withReturnTo(
-                withQuery('/kitchen/supply-orders/new', { items: shortIds.join(',') }),
+                withQuery('/kitchen/supply-orders/new', { items: shortIds.slice(0, 100).join(',') }),
                 '/kitchen/order-desk/requirements',
             ) as never,
         );

@@ -407,6 +407,44 @@ it('compares a price per gram with the last price per kilo, and serves it on the
         ->assertJsonPath('data.purchases.1.price_variance_percent', null);
 });
 
+it('leaves a variance too large for its column empty and still posts the receipt', function (): void {
+    $world = completionWorld('variance-overflow@kitchen.test');
+
+    // The last delivery: 2.00 USD per kilo, so 0.000002 a milligram.
+    completePrices($world, [[
+        'goods_receipt_line_id' => completionLineId($world),
+        'unit_price_amount' => '2.00',
+        'cost_currency_code' => 'USD',
+    ]]);
+
+    $this->travel(1)->hours();
+
+    app(TenantContext::class)->setOrganisation((string) $world->tenant->user->getKey(), $world->organisationId);
+
+    // 5.00 a milligram against that is about 250,000,000% up: past decimal(10,2).
+    $receipt = app(GoodsReceiptService::class)->post(
+        $world->organisationId,
+        (string) $world->branch->getKey(),
+        null,
+        'DN-9004',
+        null,
+        [[
+            'stock_item_id' => $world->itemId,
+            'quantity' => '3',
+            'unit_id' => (string) MeasurementUnit::query()->where('code', 'mg')->value('id'),
+            'unit_price_amount' => '5.00',
+            'cost_currency_code' => 'USD',
+        ]],
+    );
+
+    app(TenantContext::class)->clear();
+
+    $line = $receipt->lines()->sole();
+
+    expect($line->price_variance_percent)->toBeNull()
+        ->and($line->last_unit_price_amount)->toBeNull();
+});
+
 it('leaves the variance empty between units that do not convert', function (): void {
     $world = completionWorld('variance-count@kitchen.test');
 

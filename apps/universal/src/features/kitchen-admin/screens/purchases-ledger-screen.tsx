@@ -489,7 +489,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
             key: 'variance',
             label: t('kitchen:ops.ledger.columnVariance'),
             width: 110,
-            priority: 74,
+            priority: 65,
             value: (row) => varianceText(row.priceVariancePercent),
             sort: (left, right, direction) =>
                 compareAmount(left.priceVariancePercent, right.priceVariancePercent, direction),
