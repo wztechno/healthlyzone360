@@ -468,8 +468,6 @@
             "notStocked": "غير مخزَّن"
         },
         "supplyOrders": {
-            "cancelFailed": "تعذّر إلغاء الطلب.",
-            "issueFailed": "تعذّر إصدار الطلب.",
             "title": "طلبات التوريد",
             "subtitle": "ما ينقص هذا الفرع، والطلب الذي يعالجه.",
             "metrics": {
@@ -5452,7 +5450,6 @@
     },
     "tray": {
         "noChannel": "لا توجد قناة بيع",
-        "groupIssue": "يمنع الإصدار",
         "groupNote": "ملاحظة",
         "onPublicMenu": "على قائمة الطعام العامة",
         "mealNoServiceDay": "لا يوم خدمة بعد",

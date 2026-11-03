@@ -436,8 +436,6 @@
             "notStocked": "Not stocked"
         },
         "supplyOrders": {
-            "cancelFailed": "The order could not be cancelled.",
-            "issueFailed": "The order could not be issued.",
             "title": "Supply orders",
             "subtitle": "What this branch is short of, and the order that fixes it.",
             "metrics": {
@@ -4769,7 +4767,6 @@
     },
     "tray": {
         "noChannel": "No sales channel",
-        "groupIssue": "Blocks issuing",
         "groupNote": "Note",
         "onPublicMenu": "On the public menu",
         "mealNoServiceDay": "No service day yet",

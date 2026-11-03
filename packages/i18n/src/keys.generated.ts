@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9219 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9216 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -5643,7 +5643,6 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.cancelConfirm'
     | 'ops.supplyOrders.cancelConfirmBody'
     | 'ops.supplyOrders.cancelConfirmTitle'
-    | 'ops.supplyOrders.cancelFailed'
     | 'ops.supplyOrders.cancelKeep'
     | 'ops.supplyOrders.cancelOrder'
     | 'ops.supplyOrders.cancelledNoticeBody'
@@ -5684,7 +5683,6 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.issueConfirm'
     | 'ops.supplyOrders.issueConfirmBody'
     | 'ops.supplyOrders.issueConfirmTitle'
-    | 'ops.supplyOrders.issueFailed'
     | 'ops.supplyOrders.issueKeepEditing'
     | 'ops.supplyOrders.issuedNoticeBody'
     | 'ops.supplyOrders.issuedNoticeTitle'
@@ -6938,7 +6936,6 @@ export interface NamespaceKeys {
     | 'tray.groupFailed'
     | 'tray.groupForRecipe'
     | 'tray.groupHeadsUp'
-    | 'tray.groupIssue'
     | 'tray.groupNote'
     | 'tray.groupPublish'
     | 'tray.groupSave'
@@ -14880,7 +14877,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.cancelConfirm',
   'kitchen:ops.supplyOrders.cancelConfirmBody',
   'kitchen:ops.supplyOrders.cancelConfirmTitle',
-  'kitchen:ops.supplyOrders.cancelFailed',
   'kitchen:ops.supplyOrders.cancelKeep',
   'kitchen:ops.supplyOrders.cancelOrder',
   'kitchen:ops.supplyOrders.cancelledNoticeBody',
@@ -14921,7 +14917,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.issueConfirm',
   'kitchen:ops.supplyOrders.issueConfirmBody',
   'kitchen:ops.supplyOrders.issueConfirmTitle',
-  'kitchen:ops.supplyOrders.issueFailed',
   'kitchen:ops.supplyOrders.issueKeepEditing',
   'kitchen:ops.supplyOrders.issuedNoticeBody',
   'kitchen:ops.supplyOrders.issuedNoticeTitle',
@@ -16175,7 +16170,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:tray.groupFailed',
   'kitchen:tray.groupForRecipe',
   'kitchen:tray.groupHeadsUp',
-  'kitchen:tray.groupIssue',
   'kitchen:tray.groupNote',
   'kitchen:tray.groupPublish',
   'kitchen:tray.groupSave',
