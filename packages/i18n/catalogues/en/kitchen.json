@@ -2109,6 +2109,7 @@
         "claim": "Claim this run",
         "claimTaken": "Someone else took that run first.",
         "noAddress": "No address was recorded on this order. Ring the kitchen before you set off.",
+        "openMap": "Opens this address in maps",
         "directions": "Directions: {{directions}}",
         "customer": "Customer: {{name}}",
         "phone": "Ring {{phone}}",
@@ -2328,6 +2329,7 @@
             "customerCreate": "Save customer",
             "customerCancelCreate": "Cancel",
             "customerEdit": "Edit",
+            "customerAddPhone": "Add a phone",
             "customerEditSave": "Save changes",
             "customerEditDuplicatesTitle": "Somebody else also has this number",
             "customerDuplicatesTitle": "Somebody already has that number",
@@ -2433,6 +2435,7 @@
             "backOnToday": "Back on today"
         },
         "refusal": {
+            "phone_required": "Nobody can be rung for this delivery. Add a phone number to the customer before it goes out.",
             "customer_required": "This kind of sale needs a customer. Go back and choose or add one.",
             "address_required": "A delivery needs somewhere to go. Go back and add an address.",
             "address_not_applicable": "A counter sale and a collection have no delivery address.",

@@ -210,6 +210,7 @@ final readonly class OrderPlacementService
         private StaffAlerts $alerts,
         private CalendarPortions $portions,
         private DishOptions $dishOptions,
+        private DeliveryPhone $phones,
     ) {}
 
     /**
@@ -219,6 +220,7 @@ final readonly class OrderPlacementService
      * @param  CarbonImmutable|null  $requestedDate  the day asked for; taken from the lines when they name one
      * @param  string|null  $idempotencyKey  the client's replay key, when it sent one
      * @param  bool  $allergenConflictsAcknowledged  the customer saw the basket's allergen conflicts and chose to order anyway
+     * @param  bool  $requireDeliveryPhone  refuse `phone_required` when the driver would have no number — the customer's own checkout, online or guest
      *
      * @throws PlacementRefused|ApiException
      */
@@ -229,6 +231,7 @@ final readonly class OrderPlacementService
         ?CarbonImmutable $requestedDate = null,
         ?string $idempotencyKey = null,
         bool $allergenConflictsAcknowledged = false,
+        bool $requireDeliveryPhone = false,
     ): PlacementResult {
         $account = $this->accountOf($cart);
 
@@ -252,7 +255,7 @@ final readonly class OrderPlacementService
             fn (): Order => $this->seller->during(
                 $cart->organisation_id,
                 $cart->branch_id,
-                fn (): Order => $this->placeNow($cart, $account, $address, $deliveryWindowCode, $requestedDate, $allergenConflictsAcknowledged),
+                fn (): Order => $this->placeNow($cart, $account, $address, $deliveryWindowCode, $requestedDate, $allergenConflictsAcknowledged, $requireDeliveryPhone),
             ),
         );
 
@@ -420,6 +423,11 @@ final readonly class OrderPlacementService
         if ($placement->fulfilmentType->requiresAddress() && $address !== null) {
             if ($account !== null) {
                 $reasons = [...$reasons, ...$this->addressReasons((string) $account->getKey(), $address)];
+            }
+
+            // The desk only: generation and quotations were agreed earlier.
+            if ($placement->requireDeliveryPhone && ! $this->phones->resolves($address->contact_point_id, $account === null ? null : (string) $account->getKey())) {
+                $reasons[] = ['reason' => 'phone_required'];
             }
 
             [$zone, $zoneReasons] = $this->zoneFor($placement->branchId, $address);
@@ -618,6 +626,7 @@ final readonly class OrderPlacementService
         ?string $deliveryWindowCode,
         ?CarbonImmutable $requestedDate,
         bool $allergenConflictsAcknowledged = false,
+        bool $requireDeliveryPhone = false,
     ): Order {
         $now = CarbonImmutable::now();
         $reasons = [];
@@ -647,6 +656,10 @@ final readonly class OrderPlacementService
 
         $reasons = [...$reasons, ...$this->eligibility->outstanding($account)];
         $reasons = [...$reasons, ...$this->addressReasons($cart->customer_account_id, $address)];
+
+        if ($requireDeliveryPhone && ! $this->phones->resolves($address->contact_point_id, (string) $account->getKey())) {
+            $reasons[] = ['reason' => 'phone_required'];
+        }
 
         // Read at placement, not trusted from the preview: allergies changed
         // on another device since the basket was filled are caught here.

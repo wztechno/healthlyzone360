@@ -27,6 +27,7 @@ import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Linking } from 'react-native';
 
 import { Gate } from '../../access/gate.tsx';
 import {
@@ -589,6 +590,12 @@ interface JobCardProps {
     readonly onFail?: ((job: DriverJob) => void) | undefined;
 }
 
+/** A maps search for the parts of an address that were recorded, in the order given. */
+function driverMapUrl(parts: readonly (string | null)[]): string {
+    const query = parts.filter((part): part is string => part !== null && part !== '').join(', ');
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
 /**
  * One job.
  *
@@ -612,6 +619,10 @@ function JobCard({ job, locale, disabled, action, onAction, onFail }: JobCardPro
     const unitParts = [delivery.building, delivery.floor, delivery.apartment].filter(
         (part): part is string => part !== null && part !== '',
     );
+    /** The address in the phone's maps app: the street, the building and the area are a search. */
+    const openMap = () => {
+        void Linking.openURL(driverMapUrl([delivery.lineOne, delivery.building, areaName]));
+    };
 
     return (
         <Card padding="md" testID={testID}>
@@ -682,8 +693,15 @@ function JobCard({ job, locale, disabled, action, onAction, onFail }: JobCardPro
                     </Text>
                 ) : (
                     <Stack space="none" testID={`${testID}-address`}>
+                        {/* The first line drawn is the link to the map, never a second target beside it. */}
                         {delivery.lineOne === null ? null : (
-                            <Text variant="bodyStrong" testID={`${testID}-address-line-one`}>
+                            <Text
+                                variant="bodyStrong"
+                                testID={`${testID}-address-line-one`}
+                                accessibilityRole="link"
+                                accessibilityHint={t('kitchen:driver.openMap')}
+                                onPress={openMap}
+                            >
                                 {delivery.lineOne}
                             </Text>
                         )}
@@ -701,6 +719,13 @@ function JobCard({ job, locale, disabled, action, onAction, onFail }: JobCardPro
                                 variant="caption"
                                 tone="secondary"
                                 testID={`${testID}-address-area`}
+                                {...(delivery.lineOne === null
+                                    ? {
+                                          accessibilityRole: 'link' as const,
+                                          accessibilityHint: t('kitchen:driver.openMap'),
+                                          onPress: openMap,
+                                      }
+                                    : {})}
                             >
                                 {areaName}
                             </Text>

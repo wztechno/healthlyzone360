@@ -80,6 +80,7 @@ final class OrderStoreController
             $requestedDate === null ? null : CarbonImmutable::createFromFormat('Y-m-d', $requestedDate)->startOfDay(),
             is_string($idempotencyKey) && trim($idempotencyKey) !== '' ? trim($idempotencyKey) : null,
             (bool) ($payload['acknowledge_allergen_conflicts'] ?? false),
+            requireDeliveryPhone: true,
         );
 
         $order = $result->order;

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9824 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9830 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2067,6 +2067,7 @@ export interface NamespaceKeys {
     | 'checkout.addAddress'
     | 'checkout.addAddressAction'
     | 'checkout.addAnotherAddress'
+    | 'checkout.addPhone'
     | 'checkout.addressPlaceholder'
     | 'checkout.addressTitle'
     | 'checkout.areaLabel'
@@ -2381,6 +2382,7 @@ export interface NamespaceKeys {
     | 'warnings.checkout_kitchen_not_open'
     | 'warnings.checkout_kitchen_paused'
     | 'warnings.checkout_lead_time_not_met'
+    | 'warnings.checkout_phone_required'
     | 'warnings.checkout_quality_hold'
     | 'warnings.checkout_stock_short'
     | 'warnings.checkout_window_ended'
@@ -2780,6 +2782,7 @@ export interface NamespaceKeys {
     | 'orderRefusal.mixed_delivery_dates'
     | 'orderRefusal.option_unknown'
     | 'orderRefusal.option_unlinked'
+    | 'orderRefusal.phone_required'
     | 'orderRefusal.quality_hold'
     | 'orderRefusal.unpriced'
     | 'orderRefusal.variant_not_active'
@@ -3721,6 +3724,7 @@ export interface NamespaceKeys {
     | 'desk.refusal.lead_time_not_met'
     | 'desk.refusal.option_unknown'
     | 'desk.refusal.option_unlinked'
+    | 'desk.refusal.phone_required'
     | 'desk.refusal.quality_hold'
     | 'desk.refusal.unpriced'
     | 'desk.refusal.variant_not_active'
@@ -3755,6 +3759,7 @@ export interface NamespaceKeys {
     | 'desk.sale.chargeEmpty'
     | 'desk.sale.chargeTotal'
     | 'desk.sale.completedNumber'
+    | 'desk.sale.customerAddPhone'
     | 'desk.sale.customerAllergiesError'
     | 'desk.sale.customerAllergiesNone'
     | 'desk.sale.customerAllergiesTitle'
@@ -3953,6 +3958,7 @@ export interface NamespaceKeys {
     | 'driver.notesHint'
     | 'driver.notesLabel'
     | 'driver.notesPlaceholder'
+    | 'driver.openMap'
     | 'driver.orderLabel'
     | 'driver.orderReference'
     | 'driver.phone'
@@ -11920,6 +11926,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:checkout.addAddress',
   'commerce:checkout.addAddressAction',
   'commerce:checkout.addAnotherAddress',
+  'commerce:checkout.addPhone',
   'commerce:checkout.addressPlaceholder',
   'commerce:checkout.addressTitle',
   'commerce:checkout.areaLabel',
@@ -12234,6 +12241,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:warnings.checkout_kitchen_not_open',
   'commerce:warnings.checkout_kitchen_paused',
   'commerce:warnings.checkout_lead_time_not_met',
+  'commerce:warnings.checkout_phone_required',
   'commerce:warnings.checkout_quality_hold',
   'commerce:warnings.checkout_stock_short',
   'commerce:warnings.checkout_window_ended',
@@ -12630,6 +12638,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'errors:orderRefusal.mixed_delivery_dates',
   'errors:orderRefusal.option_unknown',
   'errors:orderRefusal.option_unlinked',
+  'errors:orderRefusal.phone_required',
   'errors:orderRefusal.quality_hold',
   'errors:orderRefusal.unpriced',
   'errors:orderRefusal.variant_not_active',
@@ -13568,6 +13577,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.refusal.lead_time_not_met',
   'kitchen:desk.refusal.option_unknown',
   'kitchen:desk.refusal.option_unlinked',
+  'kitchen:desk.refusal.phone_required',
   'kitchen:desk.refusal.quality_hold',
   'kitchen:desk.refusal.unpriced',
   'kitchen:desk.refusal.variant_not_active',
@@ -13602,6 +13612,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.chargeEmpty',
   'kitchen:desk.sale.chargeTotal',
   'kitchen:desk.sale.completedNumber',
+  'kitchen:desk.sale.customerAddPhone',
   'kitchen:desk.sale.customerAllergiesError',
   'kitchen:desk.sale.customerAllergiesNone',
   'kitchen:desk.sale.customerAllergiesTitle',
@@ -13800,6 +13811,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:driver.notesHint',
   'kitchen:driver.notesLabel',
   'kitchen:driver.notesPlaceholder',
+  'kitchen:driver.openMap',
   'kitchen:driver.orderLabel',
   'kitchen:driver.orderReference',
   'kitchen:driver.phone',

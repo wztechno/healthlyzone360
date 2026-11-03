@@ -81,6 +81,7 @@ import {
 import { useAllergenNames } from '../my-allergens.tsx';
 import {
     ALLERGEN_CONFLICT_WARNING,
+    CHECKOUT_PHONE_REQUIRED,
     displayableWarnings,
     isCriticalWarning,
     warningMessageKey,
@@ -316,6 +317,8 @@ export function CheckoutScreen() {
     const accountInactive = orderReasons.some(
         (entry) => entry.reason === 'account_not_active' || entry.reason === 'account_not_ready',
     );
+    // No number the driver can ring: the phone page adds one and comes back here.
+    const phoneMissing = orderReasons.some((entry) => entry.reason === 'phone_required');
 
     /*
      * Where a detour comes back to: this page as it stands, with the defaults the screen derived
@@ -759,14 +762,27 @@ export function CheckoutScreen() {
                                 { defaultValue: placeFailure.message },
                             )}
                             actions={
-                                accountInactive ? (
-                                    <Button
-                                        testID="checkout-finish-setup"
-                                        label={t('commerce:checkout.finishSetup')}
-                                        onPress={() => {
-                                            openDetour('/customer/account');
-                                        }}
-                                    />
+                                accountInactive || phoneMissing ? (
+                                    <>
+                                        {accountInactive ? (
+                                            <Button
+                                                testID="checkout-finish-setup"
+                                                label={t('commerce:checkout.finishSetup')}
+                                                onPress={() => {
+                                                    openDetour('/customer/account');
+                                                }}
+                                            />
+                                        ) : null}
+                                        {phoneMissing ? (
+                                            <Button
+                                                testID="checkout-add-phone"
+                                                label={t('commerce:checkout.addPhone')}
+                                                onPress={() => {
+                                                    openDetour('/customer/account/phone');
+                                                }}
+                                            />
+                                        ) : null}
+                                    </>
                                 ) : undefined
                             }
                         >
@@ -969,6 +985,17 @@ export function CheckoutScreen() {
                                             icon="warning"
                                             title={t('commerce:warnings.title')}
                                             body={t(warningMessageKey(code), { code })}
+                                            actions={
+                                                code === CHECKOUT_PHONE_REQUIRED ? (
+                                                    <TextLink
+                                                        testID="checkout-warning-add-phone"
+                                                        label={t('commerce:checkout.addPhone')}
+                                                        onPress={() => {
+                                                            openDetour('/customer/account/phone');
+                                                        }}
+                                                    />
+                                                ) : undefined
+                                            }
                                         />
                                     ))}
                             </View>

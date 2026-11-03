@@ -269,6 +269,7 @@ final class OrderDeskPlacementController
                     paymentMethod: PaymentMethod::from($payload['payment_method']),
                     allergyNote: $payload['allergy_note'],
                     allergenConflictsAcknowledged: $payload['acknowledge_allergen_conflicts'],
+                    requireDeliveryPhone: true,
                 ),
                 $idempotencyKey,
             );

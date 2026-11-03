@@ -36,7 +36,7 @@ use Healthy360\Orders\Contracts\BuyerAllergenCheck;
  * has no transaction to abort and no order to refuse, so the same facts —
  * `cart_empty`, `address_missing`, `address_not_deliverable`,
  * `area_not_served`, `zone_suspended`, `currency_mismatch`,
- * `window_not_offered`, what `OrderTimingRules` refuses, plus the line-probe vocabulary — come back as
+ * `window_not_offered`, `phone_required`, what `OrderTimingRules` refuses, plus the line-probe vocabulary — come back as
  * `CheckoutPreviewResult::$warnings` inside an ordinary answer. Deliberately
  * the *same words* placement would refuse with: a customer taught one
  * vocabulary for "we don't deliver there" on the cart screen and a different
@@ -60,6 +60,7 @@ final readonly class CheckoutPreviewService
         private SellerContext $seller,
         private BuyerAllergenCheck $allergens,
         private OrderTimingRules $timing,
+        private DeliveryPhone $phones,
     ) {}
 
     /**
@@ -95,6 +96,13 @@ final readonly class CheckoutPreviewService
 
                 [$fee, $zoneWarnings, $zone] = $this->deliveryFee($cart, $address);
                 $warnings = [...$warnings, ...$zoneWarnings];
+
+                // Placement's own `phone_required`, said before the button.
+                if ($address instanceof CustomerAddress
+                    && $address->address_type === CustomerAddressType::Delivery
+                    && ! $this->phones->resolves($address->contact_point_id, $cart->customer_account_id)) {
+                    $warnings[] = 'phone_required';
+                }
 
                 // The rule placement refuses by, run here so the basket can
                 // say which meals clash before the customer reaches the button.

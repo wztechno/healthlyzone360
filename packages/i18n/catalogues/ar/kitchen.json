@@ -2364,6 +2364,7 @@
         "claim": "استلم هذه الرحلة",
         "claimTaken": "سبقك أحد إلى هذه الرحلة.",
         "noAddress": "لم يُسجَّل عنوان على هذا الطلب. اتصل بالمطبخ قبل الانطلاق.",
+        "openMap": "يفتح هذا العنوان في الخرائط",
         "directions": "إرشادات: {{directions}}",
         "customer": "العميل: {{name}}",
         "phone": "اتصل بـ {{phone}}",
@@ -2583,6 +2584,7 @@
             "customerCreate": "حفظ العميل",
             "customerCancelCreate": "إلغاء",
             "customerEdit": "تعديل",
+            "customerAddPhone": "أضف رقمًا",
             "customerEditSave": "حفظ التعديلات",
             "customerEditDuplicatesTitle": "شخص آخر لديه هذا الرقم أيضًا",
             "customerDuplicatesTitle": "هذا الرقم مسجّل لشخص آخر",
@@ -2696,6 +2698,7 @@
             "backOnToday": "إعادته لليوم"
         },
         "refusal": {
+            "phone_required": "لا يوجد رقم للاتصال في هذا التوصيل. أضف رقم هاتف للزبون قبل خروجه.",
             "customer_required": "هذا النوع من البيع يحتاج إلى عميل. ارجع واختر واحدًا أو أضفه.",
             "address_required": "التوصيل يحتاج إلى مكان يُرسل إليه. ارجع وأضف عنوانًا.",
             "address_not_applicable": "البيع على الطاولة والاستلام لا عنوان توصيل لهما.",

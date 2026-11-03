@@ -78,6 +78,7 @@
         "barcode_taken": "This barcode already belongs to another ingredient."
     },
     "orderRefusal": {
+        "phone_required": "Add a phone number the driver can call, then place the order again.",
         "account_not_ready": "Your account setup is not finished yet. Complete the outstanding steps and try again.",
         "account_not_active": "Your account is not active, so an order cannot be placed on it.",
         "guest_not_verified": "Confirm the code we sent before placing this order.",

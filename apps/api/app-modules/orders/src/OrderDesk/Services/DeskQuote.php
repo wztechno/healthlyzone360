@@ -23,6 +23,7 @@ use Healthy360\Orders\Contracts\HeldStockLookup;
 use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Services\ComposedLine;
+use Healthy360\Orders\Services\DeliveryPhone;
 use Healthy360\Orders\Services\OrderTimingRules;
 use Healthy360\Orders\Services\SellerContext;
 use Healthy360\Support\Enums\DataClassification;
@@ -121,6 +122,7 @@ final readonly class DeskQuote
         private AuditRecorder $audit,
         private TenantContext $context,
         private DishOptions $options,
+        private DeliveryPhone $phones,
     ) {}
 
     /**
@@ -261,6 +263,13 @@ final readonly class DeskQuote
 
             [$zone, $zoneRefusals] = $this->zoneFor($branchId, $address);
             $refusals = [...$refusals, ...$zoneRefusals];
+
+            // The placement's own `phone_required`. Not on an edit: the order
+            // already left the desk with whatever number it had.
+            if (! $amending instanceof Order
+                && ! $this->phones->resolves($address->contact_point_id, $account === null ? null : (string) $account->getKey())) {
+                $refusals[] = ['reason' => 'phone_required'];
+            }
 
             // The slots this address may be given, and the placement's own
             // `window_not_offered` when the agent picked one it does not run.

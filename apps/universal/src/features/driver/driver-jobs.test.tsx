@@ -3,6 +3,7 @@ import { conflictFailure } from '@healthy360/api-client/contracts';
 import type { DriverJob } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { Linking } from 'react-native';
 
 import {
     CONSUMER_PERMISSIONS,
@@ -378,6 +379,32 @@ describe('what a run-sheet card says about the delivery', () => {
         expect(screen.getByTestId(`${card}-phone`)).toHaveTextContent('Ring +971500000001');
         expect(screen.getByTestId(`${card}-assigned-at`)).toBeTruthy();
         expect(screen.queryByTestId(`${card}-no-address`)).toBeNull();
+    });
+
+    it('opens the address in the maps app, and leaves the phone as plain text', async () => {
+        const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+        const sheet = createRunSheet([driverJob()]);
+        await renderRunSheet({ listJobs: () => sheet.listJobs() });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('driver-jobs-list')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        const card = jobTestId(JOB_ONE);
+        fireEvent.press(screen.getByTestId(`${card}-address-line-one`));
+
+        // The street, the building and the area — a search, not the unit inside it.
+        expect(openURL).toHaveBeenCalledWith(
+            `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                'Villa 12, Street 8b, Block C, Al Quoz 1',
+            )}`,
+        );
+        expect(screen.getByTestId(`${card}-address-line-one`).props.accessibilityRole).toBe('link');
+        expect(screen.getByTestId(`${card}-phone`).props.accessibilityRole).toBeUndefined();
+        openURL.mockRestore();
     });
 
     it('draws nothing for the parts nobody recorded, rather than labelled blanks', async () => {

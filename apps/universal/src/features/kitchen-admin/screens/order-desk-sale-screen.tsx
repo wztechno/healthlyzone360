@@ -748,6 +748,9 @@ function Sale() {
                     customerAccountId={state.customerAccountId}
                     walkIn={state.walkIn}
                     walkInOffered={!kindChosen || !needsCustomer(state.fulfilmentType)}
+                    needsPhone={(quote?.refusals ?? []).some(
+                        (refusal) => refusal.reason === 'phone_required',
+                    )}
                     onChoose={(customer) => {
                         update(withCustomer(state, customer.id));
                     }}

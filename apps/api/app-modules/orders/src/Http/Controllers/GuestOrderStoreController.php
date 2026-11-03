@@ -118,6 +118,7 @@ final class GuestOrderStoreController
             deliveryWindowCode: $payload['delivery_window_code'] ?? null,
             requestedDate: is_string($requestedDate) ? CarbonImmutable::parse($requestedDate)->startOfDay() : null,
             idempotencyKey: $this->idempotencyKey($request),
+            requireDeliveryPhone: true,
         );
 
         $order = $result->order->loadMissing('lines');
