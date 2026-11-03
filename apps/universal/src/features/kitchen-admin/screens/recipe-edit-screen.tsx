@@ -2794,7 +2794,9 @@ function RecipeEditor({
                               ? releaseFailure.message
                               : releaseFailure.reason === 'derivation_stale'
                                 ? t('kitchen:publish.releaseStale')
-                                : t('kitchen:publish.releaseChanged'),
+                                : releaseFailure.reason === 'allergen_unmapped'
+                                  ? t('kitchen:publish.releaseAllergenUnmapped')
+                                  : t('kitchen:publish.releaseChanged'),
                       testID: 'kitchen-recipe-release-error',
                   },
               ]),

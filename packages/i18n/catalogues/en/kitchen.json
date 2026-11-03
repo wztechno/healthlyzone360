@@ -3694,7 +3694,8 @@
         "releaseConfirm": "Release",
         "releasedToast": "Version {{number}} is released and back on sale.",
         "releaseStale": "An ingredient changed and the label is being worked out again. Wait a moment, then open the release and compare the labels again.",
-        "releaseChanged": "This version changed since you opened it. Open the release again and compare the new labels."
+        "releaseChanged": "This version changed since you opened it. Open the release again and compare the new labels.",
+        "releaseAllergenUnmapped": "An ingredient in this recipe has not had its allergens assessed, so the new label cannot go live. Assess that ingredient in the catalogue, then release again."
     },
     "rollup": {
         "title": "What this draft declares",
