@@ -292,7 +292,10 @@ it('counts an order with no branch in the kitchen\'s first branch\'s till', func
 
 it('refuses another kitchen\'s branch as the till', function (): void {
     counterCash($this, 3000);
-    $stranger = CheckoutWorld::branch(Organisation::factory()->create(['country_code' => $this->world->organisation->country_code]), 'Elsewhere');
+    $stranger = CheckoutWorld::branch(Organisation::factory()->create([
+        'country_code' => $this->world->organisation->country_code,
+        'default_currency_code' => $this->world->organisation->default_currency_code,
+    ]), 'Elsewhere');
 
     closeTill($this, 0, 3000, branchId: (string) $stranger->getKey())->assertUnprocessable();
 });

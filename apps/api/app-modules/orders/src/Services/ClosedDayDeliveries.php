@@ -40,6 +40,7 @@ final readonly class ClosedDayDeliveries
         private OrderTimingRules $timing,
         private StaffAlerts $alerts,
         private AuditRecorder $audit,
+        private SellerContext $seller,
     ) {}
 
     /**
@@ -86,8 +87,9 @@ final readonly class ClosedDayDeliveries
     public function closureAdded(BranchClosure $closure): int
     {
         try {
-            return DB::transaction(function () use ($closure): int {
-                $orders = Order::withoutTenancy()
+            // In the closure's own kitchen: a closure may be saved where no tenant is set.
+            return $this->seller->during($closure->organisation_id, null, fn (): int => DB::transaction(function () use ($closure): int {
+                $orders = Order::query()
                     ->with('deliveryZone')
                     ->where('organisation_id', $closure->organisation_id)
                     ->whereIn('status', [OrderStatus::Placed->value, OrderStatus::Confirmed->value])
@@ -138,7 +140,7 @@ final readonly class ClosedDayDeliveries
                 }
 
                 return $moved;
-            });
+            }));
         } catch (Throwable $e) {
             report($e);
 

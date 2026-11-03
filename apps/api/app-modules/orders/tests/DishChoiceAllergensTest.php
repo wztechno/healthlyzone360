@@ -179,7 +179,7 @@ it('puts the chosen sauce\'s allergen on the kitchen payload', function (): void
 
     $order = Order::query()->sole();
 
-    expect($order->lines()->sole()->allergens)->toBe([['allergen_code' => 'egg', 'containment' => 'contains']]);
+    expect($order->lines()->sole()->allergens)->toEqual([['allergen_code' => 'egg', 'containment' => 'contains']]);
 
     $this->getJson("/api/v1/catalogue/orders/{$order->getKey()}", $this->headers)
         ->assertOk()

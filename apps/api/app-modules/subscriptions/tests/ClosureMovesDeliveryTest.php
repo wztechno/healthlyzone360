@@ -17,6 +17,7 @@ use Healthy360\Subscriptions\Services\SubscriptionService;
 use Healthy360\Subscriptions\Tests\Fixtures\SubscriptionWorld;
 use Healthy360\Support\Alerts\StaffAlertType;
 use Healthy360\Support\Models\StaffNotification;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Mail;
 
 /*
@@ -111,7 +112,10 @@ it('moves an order already generated when a closure is added over its day', func
 
     expect($order->requested_delivery_date->toDateString())->toBe($this->first->toDateString());
 
+    Exceptions::fake();
     ($this->close)($this->first, $this->first);
+    // The move swallows its own failures so a closure always saves; surface them here.
+    Exceptions::assertNothingReported();
 
     $order->refresh();
 
