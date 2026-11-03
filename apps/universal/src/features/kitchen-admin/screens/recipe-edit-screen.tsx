@@ -103,6 +103,7 @@ import { DerivedPanel } from '../catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../catalogue/derived-panel.tsx';
 import {
     RECIPE_MANAGE_PERMISSION,
+    RECIPE_PUBLISH_PERMISSION,
     RECIPE_VIEW_COSTS_PERMISSION,
     RECIPE_VIEW_PERMISSION,
 } from '../entity-registry.ts';
@@ -737,6 +738,8 @@ function RecipeEditor({
     const issueTray = useIssueTrayController();
     const { nudge: nudgeTray, explain: explainBlocked } = issueTray;
     const canManage = useCan(RECIPE_MANAGE_PERMISSION);
+    // Publish and release sit behind their own code: a chef may edit a recipe and not put it live.
+    const canPublish = useCan(RECIPE_PUBLISH_PERMISSION);
     const canViewCosts = useCan(RECIPE_VIEW_COSTS_PERMISSION);
 
     const isCreating = recipe === undefined || recipe === 'new';
@@ -2760,7 +2763,7 @@ function RecipeEditor({
                       tone: 'warning' as const,
                       label: t('kitchen:publish.quarantineTitle'),
                       action:
-                          canManage && currentVersion !== null
+                          canPublish && currentVersion !== null
                               ? {
                                     label: t('kitchen:publish.releaseAction'),
                                     onPress: () => {
@@ -3290,7 +3293,7 @@ function RecipeEditor({
                                     }
                                     onPress={attemptSave}
                                 />
-                                {!publishShown || !isEditable ? null : (
+                                {!publishShown || !isEditable || !canPublish ? null : (
                                     <Button
                                         testID="kitchen-recipe-publish"
                                         // What a stock gap's `no_recipe_version` focuses.
@@ -4135,38 +4138,19 @@ function RecipeEditor({
                             {t('kitchen:publish.consequence')}
                         </Text>
 
-                        <Stack space="xs" testID="kitchen-recipe-publish-allergens">
-                            <Text variant="label">{t('kitchen:publish.allergenRowsTitle')}</Text>
-                            {currentVersion === null || currentVersion.allergens.length === 0 ? (
-                                <Text testID="kitchen-recipe-publish-allergens-none">
-                                    {t('kitchen:publish.allergenRowsNone')}
-                                </Text>
-                            ) : (
-                                <Inline space="xs" wrap>
-                                    {currentVersion.allergens.map((declaration) => (
-                                        <Tag
-                                            key={declaration.allergenCode}
-                                            testID={`kitchen-recipe-publish-allergen-${String(declaration.allergenCode)}`}
-                                            // `contains` and `may contain` are two claims, never one
-                                            // colour — and the words say which, not the colour alone.
-                                            tone={
-                                                declaration.containment === 'contains'
-                                                    ? 'danger'
-                                                    : 'warning'
-                                            }
-                                            label={t('kitchen:publish.allergenTag', {
-                                                code: String(declaration.allergenCode),
-                                                containment: t(
-                                                    declaration.containment === 'contains'
-                                                        ? 'kitchen:containment.contains'
-                                                        : 'kitchen:containment.mayContain',
-                                                ),
-                                            })}
-                                        />
-                                    ))}
-                                </Inline>
-                            )}
-                        </Stack>
+                        {/*
+                         * `contains` and `may contain` are two claims, never one colour — and the
+                         * words say which, not the colour alone.
+                         */}
+                        <AllergenLabelRow
+                            title={t('kitchen:publish.allergenRowsTitle')}
+                            entries={(currentVersion?.allergens ?? []).map((declaration) => ({
+                                code: String(declaration.allergenCode),
+                                containment: declaration.containment,
+                            }))}
+                            testID="kitchen-recipe-publish-allergens"
+                            tagTestID="kitchen-recipe-publish-allergen"
+                        />
 
                         {quarantined ? (
                             <Callout
@@ -4321,7 +4305,11 @@ function RecipeEditor({
                                 testID="kitchen-recipe-release-confirm"
                                 label={t('kitchen:publish.releaseConfirm')}
                                 loading={release.isPending}
-                                disabled={!releaseChecked}
+                                disabled={
+                                    !releaseChecked ||
+                                    anyDirty ||
+                                    currentVersion?.derivationStale !== false
+                                }
                                 onPress={() => {
                                     if (data === undefined || currentVersion === null) return;
                                     release.mutate(
@@ -4388,6 +4376,20 @@ function RecipeEditor({
                             }))}
                             testID="kitchen-recipe-release-new"
                         />
+                        {/*
+                         * A release puts the saved version live: unsaved edits would be refused on
+                         * their next save. A label still being recomputed is one nobody compared.
+                         */}
+                        {anyDirty ? (
+                            <Text testID="kitchen-recipe-release-unsaved" tone="danger">
+                                {t('kitchen:publish.blockUnsaved')}
+                            </Text>
+                        ) : null}
+                        {currentVersion?.derivationStale === true ? (
+                            <Text testID="kitchen-recipe-release-recomputing" tone="danger">
+                                {t('kitchen:publish.releaseStale')}
+                            </Text>
+                        ) : null}
                         <Checkbox
                             testID="kitchen-recipe-release-check"
                             checked={releaseChecked}
@@ -4970,11 +4972,12 @@ function nutrientFigures(
     });
 }
 
-/** One allergen label as the publish dialog draws it: a tag per allergen, the claim in words. */
+/** One allergen label, as the publish and release dialogs draw it: a tag per allergen, the claim in words. */
 function AllergenLabelRow({
     title,
     entries,
     testID,
+    tagTestID = testID,
 }: {
     readonly title: string;
     readonly entries: readonly {
@@ -4982,6 +4985,8 @@ function AllergenLabelRow({
         readonly containment: AllergenContainment;
     }[];
     readonly testID: string;
+    /** Each tag is `${tagTestID}-${code}`; the row's own id when not given. */
+    readonly tagTestID?: string | undefined;
 }) {
     const { t } = useTranslation();
     return (
@@ -4994,7 +4999,7 @@ function AllergenLabelRow({
                     {entries.map((entry) => (
                         <Tag
                             key={entry.code}
-                            testID={`${testID}-${entry.code}`}
+                            testID={`${tagTestID}-${entry.code}`}
                             tone={entry.containment === 'contains' ? 'danger' : 'warning'}
                             label={t('kitchen:publish.allergenTag', {
                                 code: entry.code,

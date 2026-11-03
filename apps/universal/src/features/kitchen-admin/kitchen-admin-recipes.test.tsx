@@ -4257,6 +4257,55 @@ describe('publishing', () => {
         );
     });
 
+    it('offers no release, and no publish, to a chef who may edit the recipe but not publish it', async () => {
+        const stored = quarantinedRecipe();
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession({
+                activeContext: testActiveContext({
+                    permissions: KITCHEN_MANAGER_PERMISSIONS.filter(
+                        (code) => code !== 'recipe.publish_organisation',
+                    ),
+                }),
+            }),
+            repositories: { kitchenAdmin: editorReads(() => stored) },
+        });
+
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-recipe-quarantine');
+        });
+        expect(screen.queryByTestId('kitchen-recipe-release-open')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-publish')).toBeNull();
+    });
+
+    it('holds Release while the new label is still being recomputed', async () => {
+        const stored = quarantinedRecipe({ derivationStale: true });
+        const { repositories } = await renderStubScreen(
+            <RecipeEditScreen recipe={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => stored),
+                        releaseRecipeVersion: async () => stored,
+                    },
+                },
+            },
+        );
+
+        await openRelease();
+        expect(screen.getByTestId('kitchen-recipe-release-recomputing')).toBeTruthy();
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-release-check-control'));
+        });
+        expect(
+            screen.getByTestId('kitchen-recipe-release-confirm').props.accessibilityState.disabled,
+        ).toBe(true);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-release-confirm'));
+        });
+        expect(repositories.kitchenAdmin.releaseRecipeVersion).not.toHaveBeenCalled();
+    });
+
     it('says a release refused over a label still being recomputed in the tray', async () => {
         // A quarantine older than the stored label: the reason stands in for the old label.
         const stored = quarantinedRecipe({ previousLabel: null });

@@ -3628,7 +3628,7 @@
         "allergenRowsNone": "No allergens.",
         "allergenRow": "{{code}} — {{containment}}, from {{names}}",
         "quarantineTitle": "Quarantined for review",
-        "quarantineBody": "Its allergens conflict with an ingredient. Fix the ingredient first.",
+        "quarantineBody": "Its allergen label changed after it was published. A manager can compare the old and new labels on the recipe and release it, or fix the ingredient.",
         "blockedTitle": "Fix these first",
         "blockNoLines": "Add at least one ingredient.",
         "blockNoPieces": "Enter the pieces produced — a meal sold without them takes no stock off the shelf.",
