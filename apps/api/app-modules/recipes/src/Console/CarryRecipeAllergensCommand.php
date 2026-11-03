@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Recipes\Console;
 
+use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\Recipe;
@@ -37,6 +38,11 @@ use Illuminate\Support\Facades\DB;
  * walk, not listed here; run the dry run again after the live run settles if
  * that matters.
  *
+ * **Platform outputs are listed, not carried.** A recipe that names a
+ * platform-library ingredient as its output writes nothing onto it (the row is
+ * every kitchen's); both modes list those as "not carried: platform
+ * ingredient" until the owner decides what they should do.
+ *
  * Every organisation, each inside its own tenant context: `recipe_versions` is
  * row-level secured and the stale marking reads the application context.
  */
@@ -61,12 +67,15 @@ final class CarryRecipeAllergensCommand extends Command
         /** @var list<list<string>> $dishes */
         $dishes = [];
 
+        /** @var list<list<string>> $skipped */
+        $skipped = [];
+
         try {
             foreach (Organisation::query()->orderBy('id')->pluck('slug', 'id') as $organisationId => $slug) {
                 $organisationId = (string) $organisationId;
 
                 $database->during(null, $organisationId, null, function () use (
-                    $context, $writer, $rollup, $labels, $dryRun, $organisationId, $slug, &$moved, &$dishes,
+                    $context, $writer, $rollup, $labels, $dryRun, $organisationId, $slug, &$moved, &$dishes, &$skipped,
                 ): void {
                     $context->restore(['user_id' => null, 'organisation_id' => $organisationId, 'branch_id' => null]);
 
@@ -79,6 +88,10 @@ final class CarryRecipeAllergensCommand extends Command
 
                     if ($producers->isEmpty()) {
                         return;
+                    }
+
+                    foreach ($this->platformOutputs($producers->all()) as [$recipe, $ingredient]) {
+                        $skipped[] = [(string) $slug, $recipe, $ingredient, 'not carried: platform ingredient'];
                     }
 
                     if (! $dryRun) {
@@ -108,6 +121,10 @@ final class CarryRecipeAllergensCommand extends Command
             $context->restore($ambient);
         }
 
+        if ($skipped !== []) {
+            $this->table(['Organisation', 'Recipe', 'Output', 'Outcome'], $skipped);
+        }
+
         if ($dryRun) {
             if ($dishes !== []) {
                 $this->table(['Organisation', 'Dish', 'Label change'], $dishes);
@@ -121,6 +138,41 @@ final class CarryRecipeAllergensCommand extends Command
         $this->line(sprintf('%d output ingredient(s) changed; their dishes are queued for recompute.', $moved));
 
         return self::SUCCESS;
+    }
+
+    /**
+     * The platform-library ingredients these producers name as outputs, which
+     * the writer leaves alone.
+     *
+     * @param  list<RecipeVersion>  $producers
+     * @return list<array{0: string, 1: string}>
+     */
+    private function platformOutputs(array $producers): array
+    {
+        $listed = [];
+
+        foreach ($producers as $producer) {
+            $names = Ingredient::withoutTenancy()
+                ->whereNull('organisation_id')
+                ->whereIn('id', RecipeVersionOutput::withoutTenancy()
+                    ->where('recipe_version_id', $producer->getKey())
+                    ->select('ingredient_id'))
+                ->orderBy('name_en')
+                ->pluck('name_en');
+
+            foreach ($names as $name) {
+                $listed[] = [$this->versionName($producer), (string) $name];
+            }
+        }
+
+        return $listed;
+    }
+
+    private function versionName(RecipeVersion $version): string
+    {
+        $name = Recipe::withoutTenancy()->whereKey($version->recipe_id)->value('name_en');
+
+        return sprintf('%s (v%d)', is_string($name) ? $name : $version->recipe_id, $version->version_number);
     }
 
     /**
@@ -160,8 +212,7 @@ final class CarryRecipeAllergensCommand extends Command
             $diff = $labels->diff($before, $labels->snapshot($dependent));
 
             if ($labels->isMaterial($diff)) {
-                $name = Recipe::withoutTenancy()->whereKey($dependent->recipe_id)->value('name_en');
-                $moving[] = [sprintf('%s (v%d)', is_string($name) ? $name : $dependent->recipe_id, $dependent->version_number), $labels->describe($diff)];
+                $moving[] = [$this->versionName($dependent), $labels->describe($diff)];
             }
         }
 

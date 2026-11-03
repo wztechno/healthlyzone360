@@ -348,7 +348,20 @@ final class ApplyAllergenDeterminationsCommand extends Command
 
         $layer === null ? $query->whereNull('organisation_id') : $query->where('organisation_id', $layer);
 
+        // A row a published recipe carried onto its output (T3) is the
+        // recipe's, not this file's: it is kept, unless the file states the
+        // class more strongly — then the file's row replaces it, and the
+        // recipe writer keeps that row and never weakens it.
+        /** @var array<string, IngredientAllergen> $derived */
+        $derived = [];
+
         foreach ($query->get() as $stale) {
+            if ($stale->source === AllergenMappingSource::RecipeDerived) {
+                $derived[$stale->allergen_code] = $stale;
+
+                continue;
+            }
+
             $stale->delete();
         }
 
@@ -358,8 +371,18 @@ final class ApplyAllergenDeterminationsCommand extends Command
 
         $status = AllergenVerificationStatus::from($file['defaults']['verification_status']);
 
-        $write = function () use ($ingredient, $layer, $entry, $source, $status): void {
+        $write = function () use ($ingredient, $layer, $entry, $source, $status, $derived): void {
             foreach ($entry['allergens'] as $mapping) {
+                $carried = $derived[$mapping['code']] ?? null;
+
+                if ($carried !== null) {
+                    if (AllergenContainment::from($mapping['containment'])->strength() <= $carried->containment->strength()) {
+                        continue;
+                    }
+
+                    $carried->delete();
+                }
+
                 $row = new IngredientAllergen;
                 $row->ingredient_id = (string) $ingredient->getKey();
                 $row->organisation_id = $layer;

@@ -972,10 +972,9 @@ final readonly class RecipeVersionService
         // worker before the commit it depends on has landed.
         //
         // The allergens first (T3): a dish built on this output whose label
-        // now moves goes to review. Then whatever a superseded version still
-        // claims — an output this formulation no longer makes — is given back,
-        // as retirement gives it back; a shared output was just re-claimed
-        // above, so the clear finds nothing of the old version's left on it.
+        // now moves goes to review. Then each output a superseded version
+        // made is re-derived from the producers left — an output this
+        // formulation no longer makes loses what only the old one stated.
         $this->outputAllergens->write($version);
 
         foreach (RecipeVersion::withoutTenancy()->whereKey($demoted)->get() as $retired) {

@@ -274,12 +274,13 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
          * depth cap, and a second dispatcher starting a fresh walk at depth
          * zero is exactly the unbounded cascade those two guards exist to stop.
          *
-         * The allergens go the same way and under the same rule (T3): the
-         * label just frozen is written onto the outputs while the version is
-         * still published — before any quarantine below — so the dishes the
-         * walk reaches next are re-derived against it.
+         * The allergens go the same way (T3), but strengthen-only, for a
+         * published version and one in review alike: a class the recompute
+         * adds carries at once, so the dishes the walk reaches next are
+         * re-derived against it; a class it drops stays carried until a person
+         * publishes or releases. A recompute is not a review.
          */
-        $outputAllergens->write($version, scheduleDependants: false);
+        $outputAllergens->strengthen($version);
         $outputNutrition->write($version, $facts, scheduleDependants: false);
 
         $this->writeCostSnapshot($version, $costing, $lines);

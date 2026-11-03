@@ -178,7 +178,19 @@ final readonly class AllergenMappingService
             // unchanged echo of one is ignored, and any other statement about
             // the same class is refused. The fix is the recipe.
             $derived = $previous->filter(static fn (IngredientAllergen $row): bool => $row->source === AllergenMappingSource::RecipeDerived);
-            $this->assertDerivedUntouched($derived, $normalised);
+
+            // On an output a recipe claims, the kitchen's own rows are
+            // upgrade-only too: the writer may have raised one to what the
+            // recipe states, and there is no second row left to hold that
+            // statement if the editor weakens or drops it.
+            $upgradeOnly = $ingredient->allergens_derived_from_version_id !== null
+                && $scope === AllergenMarketScope::All
+                && $organisationId !== null
+                && $organisationId === $ingredient->organisation_id
+                    ? $previous->reject(static fn (IngredientAllergen $row): bool => $row->source === AllergenMappingSource::RecipeDerived)
+                    : new Collection;
+
+            $this->assertDerivedUntouched($derived, $upgradeOnly, $normalised);
 
             foreach ($previous as $stale) {
                 if (! $derived->has($stale->allergen_code)) {
@@ -496,15 +508,20 @@ final readonly class AllergenMappingService
 
     /**
      * @param  Collection<string, IngredientAllergen>  $derived
+     * @param  Collection<string, IngredientAllergen>  $upgradeOnly  kitchen rows on a claimed output
      * @param  list<array{allergen_code: string, containment: AllergenContainment, source: AllergenMappingSource, verification_status: AllergenVerificationStatus, evidence: string|null}>  $proposed
      *
      * @throws ApiException
      */
-    private function assertDerivedUntouched(Collection $derived, array $proposed): void
+    private function assertDerivedUntouched(Collection $derived, Collection $upgradeOnly, array $proposed): void
     {
         $edited = [];
 
+        /** @var array<string, AllergenContainment> $offered */
+        $offered = [];
+
         foreach ($proposed as $mapping) {
+            $offered[$mapping['allergen_code']] = $mapping['containment'];
             $row = $derived->get($mapping['allergen_code']);
 
             if ($mapping['source'] === AllergenMappingSource::RecipeDerived
@@ -513,7 +530,16 @@ final readonly class AllergenMappingService
             }
         }
 
+        foreach ($upgradeOnly as $code => $row) {
+            $replacement = $offered[$code] ?? null;
+
+            if ($replacement === null || $replacement->strength() < $row->containment->strength()) {
+                $edited[] = (string) $code;
+            }
+        }
+
         if ($edited !== []) {
+            $edited = array_values(array_unique($edited));
             sort($edited);
 
             throw new ApiException(
