@@ -1050,6 +1050,16 @@ export interface RecipeVersionAdmin {
     /** True when a line or an ingredient changed after the figures were last derived. */
     readonly derivationStale: boolean;
     readonly publishedAt: IsoDateTime | null;
+    /** Why the version is quarantined (`review_required`); `null` outside review. */
+    readonly reviewReason: string | null;
+    /**
+     * The label a quarantined version was published with, keyed by allergen code — what a release
+     * replaces with `allergens`. `{}` when that label carried nothing; `null` outside review and on
+     * a quarantine older than the field, which recorded only its `reviewReason`.
+     */
+    readonly previousLabel: Readonly<Record<string, AllergenContainment>> | null;
+    /** The version's own lock, which a release sends; the recipe's is `meta.lockVersion`. */
+    readonly lockVersion: number;
 }
 
 /**

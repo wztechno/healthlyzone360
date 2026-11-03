@@ -787,6 +787,23 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                       key: 'quarantine',
                       tone: 'warning' as const,
                       label: t('kitchen:publish.quarantineTitle'),
+                      // The release is the recipe's: its old and new labels are compared there.
+                      action:
+                          data?.recipeId == null
+                              ? undefined
+                              : {
+                                    label: t('kitchen:products.openRecipe'),
+                                    onPress: () => {
+                                        const target = data.recipeId;
+                                        if (target === null) return;
+                                        guard.intercept(() => {
+                                            router.push(
+                                                `/kitchen/recipes/${String(target)}` as never,
+                                            );
+                                        });
+                                    },
+                                    testID: 'kitchen-meal-quarantine-open-recipe',
+                                },
                       testID: 'kitchen-meal-quarantine',
                   },
               ]

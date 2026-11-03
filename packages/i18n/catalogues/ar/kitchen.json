@@ -4048,7 +4048,17 @@
         "publishedToast": "نُشرت النسخة {{number}}.",
         "titleVersion": "نشر الإصدار {{number}}؟",
         "allergenTag": "{{code}} · {{containment}}",
-        "fixIt": "إصلاح"
+        "fixIt": "إصلاح",
+        "releaseAction": "المراجعة والإفراج",
+        "releaseTitle": "الإفراج عن النسخة {{number}}؟",
+        "releaseBody": "قارن الملصق الذي نُشرت به بالملصق الجديد. الإفراج يجعل الملصق الجديد معتمدًا على هذه النسخة ويعيد أطباقها إلى البيع.",
+        "releaseOldLabel": "الملصق الذي نُشرت به",
+        "releaseNewLabel": "الملصق الجديد",
+        "releaseReasonTitle": "سبب الحجز",
+        "releaseCheck": "قارنت الملصقين والملصق الجديد صحيح.",
+        "releaseConfirm": "إفراج",
+        "releasedToast": "أُفرج عن النسخة {{number}} وعادت إلى البيع.",
+        "releaseStale": "تغيّر أحد المكوّنات ويُعاد احتساب الملصق. أعد تحميل الصفحة وقارن الملصقين مجددًا."
     },
     "rollup": {
         "title": "ما تعلنه هذه المسودة",

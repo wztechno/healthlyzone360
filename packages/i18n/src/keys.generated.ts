@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9795 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9805 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -6831,6 +6831,16 @@ export interface NamespaceKeys {
     | 'publish.publishedToast'
     | 'publish.quarantineBody'
     | 'publish.quarantineTitle'
+    | 'publish.releaseAction'
+    | 'publish.releaseBody'
+    | 'publish.releaseCheck'
+    | 'publish.releaseConfirm'
+    | 'publish.releaseNewLabel'
+    | 'publish.releaseOldLabel'
+    | 'publish.releaseReasonTitle'
+    | 'publish.releaseStale'
+    | 'publish.releaseTitle'
+    | 'publish.releasedToast'
     | 'publish.title'
     | 'publish.titleVersion'
     | 'publish.toPublishCount'
@@ -16644,6 +16654,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:publish.publishedToast',
   'kitchen:publish.quarantineBody',
   'kitchen:publish.quarantineTitle',
+  'kitchen:publish.releaseAction',
+  'kitchen:publish.releaseBody',
+  'kitchen:publish.releaseCheck',
+  'kitchen:publish.releaseConfirm',
+  'kitchen:publish.releaseNewLabel',
+  'kitchen:publish.releaseOldLabel',
+  'kitchen:publish.releaseReasonTitle',
+  'kitchen:publish.releaseStale',
+  'kitchen:publish.releaseTitle',
+  'kitchen:publish.releasedToast',
   'kitchen:publish.title',
   'kitchen:publish.titleVersion',
   'kitchen:publish.toPublishCount',

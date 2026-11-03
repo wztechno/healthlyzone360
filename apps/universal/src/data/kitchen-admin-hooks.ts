@@ -1194,6 +1194,32 @@ export function usePublishRecipeMutation(): UseMutationResult<
     });
 }
 
+export interface ReleaseRecipeVersionVariables {
+    readonly recipeId: RecipeId;
+    readonly versionId: RecipeVersionId;
+    /** The version's own lock, not the recipe's: the quarantined version is the one released. */
+    readonly lockVersion: number;
+}
+
+/**
+ * Releases a quarantined version once a manager has compared its old and new allergen labels; the
+ * new label goes live on the same version, and its listings go back on sale.
+ */
+export function useReleaseRecipeVersionMutation(): UseMutationResult<
+    RecipeAdmin,
+    unknown,
+    ReleaseRecipeVersionVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useRecipeWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ recipeId, versionId, lockVersion }: ReleaseRecipeVersionVariables) =>
+            repositories.kitchenAdmin.releaseRecipeVersion(recipeId, versionId, lockVersion),
+        onSuccess: onWritten,
+    });
+}
+
 /**
  * Retires the recipe.
  *

@@ -3653,7 +3653,17 @@
         "publishedToast": "Version {{number}} is published.",
         "titleVersion": "Publish version {{number}}?",
         "allergenTag": "{{code}} · {{containment}}",
-        "fixIt": "Fix it"
+        "fixIt": "Fix it",
+        "releaseAction": "Review and release",
+        "releaseTitle": "Release version {{number}}?",
+        "releaseBody": "Compare the label it was published with against the new one. Releasing puts the new label live on this version and its dishes back on sale.",
+        "releaseOldLabel": "Label it was published with",
+        "releaseNewLabel": "New label",
+        "releaseReasonTitle": "Why it was quarantined",
+        "releaseCheck": "I have compared the two labels and the new one is right.",
+        "releaseConfirm": "Release",
+        "releasedToast": "Version {{number}} is released and back on sale.",
+        "releaseStale": "An ingredient changed and the label is being worked out again. Reload the page and compare the labels again."
     },
     "rollup": {
         "title": "What this draft declares",
