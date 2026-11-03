@@ -582,6 +582,20 @@
             "closedShortTitle": "The rest of this order was written off",
             "receiptsTitle": "Deliveries",
             "receiptNoDocumentRef": "No delivery note",
+            "view": {
+                "historyLabel": "Where the order has got to",
+                "stepMade": "Made {{date}}",
+                "stepDeliveries_one": "{{date}} · {{count}} delivery",
+                "stepDeliveries_other": "{{date}} · {{count}} deliveries",
+                "ringLabel": "Items received in full",
+                "inFull_one": "{{count}} of {{total}} item in full",
+                "inFull_other": "{{count}} of {{total}} items in full",
+                "nothingToCome": "Nothing — every item is in",
+                "toComeLine": "{{quantity}} {{unit}} · {{item}}",
+                "asIssued": "As on the issued order",
+                "leadTime": "Lead time",
+                "contact": "Contact"
+            },
             "receiptLineCount_one": "{{count}} line",
             "receiptLineCount_other": "{{count}} lines",
             "receiptsEmpty": "Nothing received yet",
@@ -4233,7 +4247,21 @@
         "usedInTitle": "Used in recipes",
         "usedInSubtitle": "Live meals drawing on this ingredient",
         "allergensDietsTitle": "Allergens & diets",
-        "sourcingTitle": "Pack & sourcing"
+        "sourcingTitle": "Pack & sourcing",
+        "pricesTitle": "Prices",
+        "perUnitCaption": "per {{unit}}",
+        "priceLadderLabel": "Unit price {{unit}}, B2B price {{b2b}}, B2C price {{b2c}}",
+        "energyFrom": "Energy from",
+        "energyShare": "{{nutrient}} {{percent}} %",
+        "energySplitLabel": "Energy from fat {{fat}} %, carbohydrate {{carbohydrate}} %, protein {{protein}} %",
+        "aliasesLabel": "Also called",
+        "namesTitle": "Names & what it is"
+    },
+    "allergenBoard": {
+        "freeFrom": "Free from",
+        "diets": "Diets",
+        "listLabel": "Allergens",
+        "pillLabel": "{{state}}: {{allergen}}"
     },
     "frozenMeals": {
         "create": "New frozen meal",
@@ -4243,7 +4271,9 @@
     "recordView": {
         "details": "Details",
         "statusTitle": "Record status",
-        "version": "Version {{version}}"
+        "version": "Version {{version}}",
+        "metaSeparator": " · ",
+        "pathSeparator": " › "
     },
     "search": {
         "label": "Search pages",

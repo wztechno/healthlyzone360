@@ -641,6 +641,28 @@
             "closedShortTitle": "تم شطب بقية هذا الطلب",
             "receiptsTitle": "التوصيلات",
             "receiptNoDocumentRef": "لا يوجد سند تسليم",
+            "view": {
+                "historyLabel": "أين وصل الطلب",
+                "stepMade": "أُنشئ {{date}}",
+                "stepDeliveries_zero": "{{date}} · {{count}} تسليم",
+                "stepDeliveries_one": "{{date}} · تسليم واحد",
+                "stepDeliveries_two": "{{date}} · تسليمان",
+                "stepDeliveries_few": "{{date}} · {{count}} تسليمات",
+                "stepDeliveries_many": "{{date}} · {{count}} تسليمًا",
+                "stepDeliveries_other": "{{date}} · {{count}} تسليم",
+                "ringLabel": "الأصناف المستلمة بالكامل",
+                "inFull_zero": "{{count}} من {{total}} صنف بالكامل",
+                "inFull_one": "{{count}} من {{total}} صنف بالكامل",
+                "inFull_two": "{{count}} من {{total}} صنف بالكامل",
+                "inFull_few": "{{count}} من {{total}} أصناف بالكامل",
+                "inFull_many": "{{count}} من {{total}} صنفًا بالكامل",
+                "inFull_other": "{{count}} من {{total}} صنف بالكامل",
+                "nothingToCome": "لا شيء — وصلت جميع الأصناف",
+                "toComeLine": "{{quantity}} {{unit}} · {{item}}",
+                "asIssued": "كما في الطلب المُصدر",
+                "leadTime": "مدة التوريد",
+                "contact": "جهة الاتصال"
+            },
             "receiptLineCount_zero": "لا توجد بنود",
             "receiptLineCount_one": "بند واحد",
             "receiptLineCount_two": "بندان",
@@ -4872,7 +4894,21 @@
         "usedInTitle": "مستخدم في الوصفات",
         "usedInSubtitle": "الوجبات المنشورة التي تستخدم هذا المكوّن",
         "allergensDietsTitle": "مسببات الحساسية والأنظمة الغذائية",
-        "sourcingTitle": "العبوة والتوريد"
+        "sourcingTitle": "العبوة والتوريد",
+        "pricesTitle": "الأسعار",
+        "perUnitCaption": "لكل {{unit}}",
+        "priceLadderLabel": "سعر الوحدة {{unit}}، سعر الشركات {{b2b}}، سعر المستهلك {{b2c}}",
+        "energyFrom": "مصدر الطاقة",
+        "energyShare": "{{nutrient}} {{percent}} ٪",
+        "energySplitLabel": "مصدر الطاقة: الدهون {{fat}} ٪، الكربوهيدرات {{carbohydrate}} ٪، البروتين {{protein}} ٪",
+        "aliasesLabel": "يُعرف أيضًا باسم",
+        "namesTitle": "الاسم والتعريف"
+    },
+    "allergenBoard": {
+        "freeFrom": "خالٍ من",
+        "diets": "الأنظمة الغذائية",
+        "listLabel": "مسببات الحساسية",
+        "pillLabel": "{{state}}: {{allergen}}"
     },
     "frozenMeals": {
         "create": "وجبة مجمّدة جديدة",
@@ -4882,7 +4918,9 @@
     "recordView": {
         "details": "التفاصيل",
         "statusTitle": "حالة السجل",
-        "version": "الإصدار {{version}}"
+        "version": "الإصدار {{version}}",
+        "metaSeparator": " · ",
+        "pathSeparator": " › "
     },
     "search": {
         "label": "البحث في الصفحات",

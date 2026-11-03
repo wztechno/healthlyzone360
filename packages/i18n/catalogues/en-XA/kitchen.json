@@ -582,6 +582,20 @@
       "closedShortTitle": "[[Ţĥé ŕéšţ óƒ ţĥíš óŕðéŕ ŵáš ŵŕíţţéñ óƒƒ āēīōūāēīōūāēīōūā]]",
       "receiptsTitle": "[[Ðéłíṽéŕíéš āēīō]]",
       "receiptNoDocumentRef": "[[Ñó ðéłíṽéŕý ñóţé āēīōūāē]]",
+      "view": {
+        "historyLabel": "[[Ŵĥéŕé ţĥé óŕðéŕ ĥáš ĝóţ ţó āēīōūāēīōūā]]",
+        "stepMade": "[[Ṁáðé {{date}} āēīōūā]]",
+        "stepDeliveries_one": "[[{{date}} · {{count}} ðéłíṽéŕý āēīōūāēīōūāē]]",
+        "stepDeliveries_other": "[[{{date}} · {{count}} ðéłíṽéŕíéš āēīōūāēīōūāēī]]",
+        "ringLabel": "[[Íţéɱš ŕéçéíṽéð íñ ƒúłł āēīōūāēīō]]",
+        "inFull_one": "[[{{count}} óƒ {{total}} íţéɱ íñ ƒúłł āēīōūāēīōūāēīō]]",
+        "inFull_other": "[[{{count}} óƒ {{total}} íţéɱš íñ ƒúłł āēīōūāēīōūāēīōū]]",
+        "nothingToCome": "[[Ñóţĥíñĝ — éṽéŕý íţéɱ íš íñ āēīōūāēīōūā]]",
+        "toComeLine": "[[{{quantity}} {{unit}} · {{item}} āēīōūāēīōūāēī]]",
+        "asIssued": "[[Áš óñ ţĥé íššúéð óŕðéŕ āēīōūāēīō]]",
+        "leadTime": "[[Łéáð ţíɱé āēīō]]",
+        "contact": "[[Çóñţáçţ āēī]]"
+      },
       "receiptLineCount_one": "[[{{count}} łíñé āēīōūā]]",
       "receiptLineCount_other": "[[{{count}} łíñéš āēīōūā]]",
       "receiptsEmpty": "[[Ñóţĥíñĝ ŕéçéíṽéð ýéţ āēīōūāēī]]",
@@ -4233,7 +4247,21 @@
     "usedInTitle": "[[Úšéð íñ ŕéçíþéš āēīōūā]]",
     "usedInSubtitle": "[[Łíṽé ɱéáłš ðŕáŵíñĝ óñ ţĥíš íñĝŕéðíéñţ āēīōūāēīōūāēīōū]]",
     "allergensDietsTitle": "[[Áłłéŕĝéñš & ðíéţš āēīōūāē]]",
-    "sourcingTitle": "[[Þáçķ & šóúŕçíñĝ āēīōūā]]"
+    "sourcingTitle": "[[Þáçķ & šóúŕçíñĝ āēīōūā]]",
+    "pricesTitle": "[[Þŕíçéš āēī]]",
+    "perUnitCaption": "[[þéŕ {{unit}} āēīōū]]",
+    "priceLadderLabel": "[[Úñíţ þŕíçé {{unit}}, Ɓ2Ɓ þŕíçé {{b2b}}, Ɓ2Ç þŕíçé {{b2c}} āēīōūāēīōūāēīōūāēīōūāēī]]",
+    "energyFrom": "[[Éñéŕĝý ƒŕóɱ āēīōū]]",
+    "energyShare": "[[{{nutrient}} {{percent}} % āēīōūāēīōūā]]",
+    "energySplitLabel": "[[Éñéŕĝý ƒŕóɱ ƒáţ {{fat}} %, çáŕƀóĥýðŕáţé {{carbohydrate}} %, þŕóţéíñ {{protein}} % āēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāēī]]",
+    "aliasesLabel": "[[Áłšó çáłłéð āēīōū]]",
+    "namesTitle": "[[Ñáɱéš & ŵĥáţ íţ íš āēīōūāēī]]"
+  },
+  "allergenBoard": {
+    "freeFrom": "[[Ƒŕéé ƒŕóɱ āēīō]]",
+    "diets": "[[Ðíéţš āē]]",
+    "listLabel": "[[Áłłéŕĝéñš āēīō]]",
+    "pillLabel": "[[{{state}}: {{allergen}} āēīōūāēīōū]]"
   },
   "frozenMeals": {
     "create": "[[Ñéŵ ƒŕóžéñ ɱéáł āēīōūā]]",
@@ -4243,7 +4271,9 @@
   "recordView": {
     "details": "[[Ðéţáíłš āēī]]",
     "statusTitle": "[[Ŕéçóŕð šţáţúš āēīōūā]]",
-    "version": "[[Ṽéŕšíóñ {{version}} āēīōūāēī]]"
+    "version": "[[Ṽéŕšíóñ {{version}} āēīōūāēī]]",
+    "metaSeparator": "[[ ·  āē]]",
+    "pathSeparator": "[[ ›  āē]]"
   },
   "search": {
     "label": "[[Šéáŕçĥ þáĝéš āēīōū]]",

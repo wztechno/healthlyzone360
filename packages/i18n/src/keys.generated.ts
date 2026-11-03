@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9195 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9219 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2987,6 +2987,10 @@ export interface NamespaceKeys {
     | 'aliases.remove'
     | 'aliases.removedToast'
     | 'aliases.title'
+    | 'allergenBoard.diets'
+    | 'allergenBoard.freeFrom'
+    | 'allergenBoard.listLabel'
+    | 'allergenBoard.pillLabel'
     | 'allergenLookup.barcode'
     | 'allergenLookup.barcodeHint'
     | 'allergenLookup.barcodeShort'
@@ -3979,7 +3983,11 @@ export interface NamespaceKeys {
     | 'hub.quarantineCount'
     | 'hub.referenceOnly'
     | 'hub.title'
+    | 'ingredientDetail.aliasesLabel'
     | 'ingredientDetail.allergensDietsTitle'
+    | 'ingredientDetail.energyFrom'
+    | 'ingredientDetail.energyShare'
+    | 'ingredientDetail.energySplitLabel'
     | 'ingredientDetail.fieldCapacity'
     | 'ingredientDetail.fieldPackCost'
     | 'ingredientDetail.fieldSellable'
@@ -3987,10 +3995,14 @@ export interface NamespaceKeys {
     | 'ingredientDetail.identificationSubtitle'
     | 'ingredientDetail.identificationTitle'
     | 'ingredientDetail.kpiMarginOnCost'
+    | 'ingredientDetail.namesTitle'
     | 'ingredientDetail.nutrientValue'
     | 'ingredientDetail.nutritionEmpty'
     | 'ingredientDetail.nutritionSubtitle'
+    | 'ingredientDetail.perUnitCaption'
     | 'ingredientDetail.perUnitValue'
+    | 'ingredientDetail.priceLadderLabel'
+    | 'ingredientDetail.pricesTitle'
     | 'ingredientDetail.sellableNo'
     | 'ingredientDetail.sellableYes'
     | 'ingredientDetail.sourcingTitle'
@@ -5809,6 +5821,16 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.unassignedCount'
     | 'ops.supplyOrders.unlinkedCaption'
     | 'ops.supplyOrders.unlinkedTitle'
+    | 'ops.supplyOrders.view.asIssued'
+    | 'ops.supplyOrders.view.contact'
+    | 'ops.supplyOrders.view.historyLabel'
+    | 'ops.supplyOrders.view.inFull'
+    | 'ops.supplyOrders.view.leadTime'
+    | 'ops.supplyOrders.view.nothingToCome'
+    | 'ops.supplyOrders.view.ringLabel'
+    | 'ops.supplyOrders.view.stepDeliveries'
+    | 'ops.supplyOrders.view.stepMade'
+    | 'ops.supplyOrders.view.toComeLine'
     | 'ops.supplyOrders.viewBranch'
     | 'ops.supplyOrders.viewKind'
     | 'ops.unpricedReceipts.backToQueue'
@@ -6644,6 +6666,8 @@ export interface NamespaceKeys {
     | 'recipes.yieldRequired'
     | 'recipes.yieldUnit'
     | 'recordView.details'
+    | 'recordView.metaSeparator'
+    | 'recordView.pathSeparator'
     | 'recordView.statusTitle'
     | 'recordView.version'
     | 'review.blockedCount'
@@ -12200,6 +12224,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:aliases.remove',
   'kitchen:aliases.removedToast',
   'kitchen:aliases.title',
+  'kitchen:allergenBoard.diets',
+  'kitchen:allergenBoard.freeFrom',
+  'kitchen:allergenBoard.listLabel',
+  'kitchen:allergenBoard.pillLabel',
   'kitchen:allergenLookup.barcode',
   'kitchen:allergenLookup.barcodeHint',
   'kitchen:allergenLookup.barcodeShort',
@@ -13192,7 +13220,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.quarantineCount',
   'kitchen:hub.referenceOnly',
   'kitchen:hub.title',
+  'kitchen:ingredientDetail.aliasesLabel',
   'kitchen:ingredientDetail.allergensDietsTitle',
+  'kitchen:ingredientDetail.energyFrom',
+  'kitchen:ingredientDetail.energyShare',
+  'kitchen:ingredientDetail.energySplitLabel',
   'kitchen:ingredientDetail.fieldCapacity',
   'kitchen:ingredientDetail.fieldPackCost',
   'kitchen:ingredientDetail.fieldSellable',
@@ -13200,10 +13232,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ingredientDetail.identificationSubtitle',
   'kitchen:ingredientDetail.identificationTitle',
   'kitchen:ingredientDetail.kpiMarginOnCost',
+  'kitchen:ingredientDetail.namesTitle',
   'kitchen:ingredientDetail.nutrientValue',
   'kitchen:ingredientDetail.nutritionEmpty',
   'kitchen:ingredientDetail.nutritionSubtitle',
+  'kitchen:ingredientDetail.perUnitCaption',
   'kitchen:ingredientDetail.perUnitValue',
+  'kitchen:ingredientDetail.priceLadderLabel',
+  'kitchen:ingredientDetail.pricesTitle',
   'kitchen:ingredientDetail.sellableNo',
   'kitchen:ingredientDetail.sellableYes',
   'kitchen:ingredientDetail.sourcingTitle',
@@ -15022,6 +15058,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.unassignedCount',
   'kitchen:ops.supplyOrders.unlinkedCaption',
   'kitchen:ops.supplyOrders.unlinkedTitle',
+  'kitchen:ops.supplyOrders.view.asIssued',
+  'kitchen:ops.supplyOrders.view.contact',
+  'kitchen:ops.supplyOrders.view.historyLabel',
+  'kitchen:ops.supplyOrders.view.inFull',
+  'kitchen:ops.supplyOrders.view.leadTime',
+  'kitchen:ops.supplyOrders.view.nothingToCome',
+  'kitchen:ops.supplyOrders.view.ringLabel',
+  'kitchen:ops.supplyOrders.view.stepDeliveries',
+  'kitchen:ops.supplyOrders.view.stepMade',
+  'kitchen:ops.supplyOrders.view.toComeLine',
   'kitchen:ops.supplyOrders.viewBranch',
   'kitchen:ops.supplyOrders.viewKind',
   'kitchen:ops.unpricedReceipts.backToQueue',
@@ -15857,6 +15903,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.yieldRequired',
   'kitchen:recipes.yieldUnit',
   'kitchen:recordView.details',
+  'kitchen:recordView.metaSeparator',
+  'kitchen:recordView.pathSeparator',
   'kitchen:recordView.statusTitle',
   'kitchen:recordView.version',
   'kitchen:review.blockedCount',

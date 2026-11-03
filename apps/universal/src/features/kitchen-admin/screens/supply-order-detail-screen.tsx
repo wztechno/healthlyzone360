@@ -9,6 +9,7 @@ import {
     ErrorState,
     FormSection,
     FormSkeleton,
+    Icon,
     IssueTrayFrame,
     QuantityInput,
     Select,
@@ -47,6 +48,7 @@ import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { focusField } from '../field-focus.ts';
 import { returnCrumbLabel } from '../came-from.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { SupplyOrderRecord } from '../supply-order-record.tsx';
 import {
     canCancelPurchaseOrder,
     canPrintPurchaseOrder,
@@ -91,12 +93,13 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *                                                     └──────────────────────────┘
  * ```
  *
- * ## Three screens wearing one layout
+ * ## A form while it is a draft, a record after
  *
  * A draft is a form: quantities are editable, lines come and go, the note is typed, and Issue sits
- * in the opening. An issued order is a document: the same table, read-only, its issue date a note
- * in the issue tray and cancelling still possible. A cancelled order is a record: read-only, a note
- * saying so, with nothing left to press.
+ * in the opening — the layout drawn above. From `issued` on the order is a document, and it reads
+ * as one: the record canopy with its history and the order's facts as tiles over the read-only
+ * table (`supply-order-record.tsx`, option C of the `Minimal view page` canvas). An issued order can
+ * still be cancelled; a cancelled one is a record with nothing left to press.
  *
  * Which of the three is decided by the closed capability records in `ops-format.ts` rather than by
  * `status === 'draft'` tests scattered through the JSX. That matters for more than tidiness: those
@@ -534,17 +537,39 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
               {
                   key: 'received',
                   label: t('kitchen:ops.supplyOrders.columnReceived'),
-                  width: 104,
+                  width: 200,
                   priority: 60,
-                  render: (line) => (
-                      <Text
-                          variant="mono"
-                          testID={`${purchaseOrderLineTestId(line.stockItemId)}-received`}
-                          tone={Number(line.receivedQuantity) > 0 ? 'primary' : 'secondary'}
-                      >
-                          {`${formatter.formatNumber(Number(line.receivedQuantity))} ${line.unitCode}`}
-                      </Text>
-                  ),
+                  /*
+                   * A bar of received against ordered, beside the figure. The width is a picture
+                   * of the two server figures on the row, which share its unit; the warning fill
+                   * reads the server's own outstanding figure, never one worked out here.
+                   */
+                  render: (line) => {
+                      const ordered = Number(line.quantity);
+                      const share =
+                          ordered > 0 ? Math.min(Number(line.receivedQuantity) / ordered, 1) : 0;
+                      const short = Number(line.outstandingQuantity) > 0;
+                      return (
+                          <View className="min-w-0 flex-1 flex-row items-center gap-tight">
+                              <View
+                                  aria-hidden
+                                  className="h-1.5 flex-1 flex-row overflow-hidden rounded-full bg-surface-sunken"
+                              >
+                                  <View
+                                      className={`h-full rounded-full ${short ? 'bg-warning' : 'bg-surface-brand'}`}
+                                      style={{ width: `${Math.round(share * 100)}%` }}
+                                  />
+                              </View>
+                              <Text
+                                  variant="mono"
+                                  testID={`${purchaseOrderLineTestId(line.stockItemId)}-received`}
+                                  tone={Number(line.receivedQuantity) > 0 ? 'primary' : 'secondary'}
+                              >
+                                  {`${formatter.formatNumber(Number(line.receivedQuantity))} ${line.unitCode}`}
+                              </Text>
+                          </View>
+                      );
+                  },
               },
               {
                   key: 'outstanding',
@@ -829,315 +854,392 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
         },
     };
 
+    const linesTable = (
+        <DataList<LineDraft>
+            testID="kitchen-supply-order-detail-lines-table"
+            label={t('kitchen:ops.supplyOrders.linesCaption')}
+            columns={columns}
+            rows={lines}
+            rowKey={(line) => line.stockItemId}
+            density="sm"
+        />
+    );
+
     return (
         <IssueTrayFrame tray={trayContent} controller={issueTray}>
             <Cascade space="md" testID="kitchen-supply-order-detail-screen">
+                {/*
+                 * From `issued` on the lines are frozen and the order is a document: it opens on
+                 * the record canopy with its history, and its facts are tiles
+                 * (`supply-order-record.tsx`). The draft below stays the builder it is.
+                 */}
+                {editable ? null : (
+                    <SupplyOrderRecord
+                        order={data}
+                        lines={lines}
+                        table={linesTable}
+                        title={title}
+                        subtitle={t('kitchen:ops.supplyOrders.detailSubtitle', {
+                            supplier: supplierName,
+                            branch: branchName,
+                            date: madeOn,
+                        })}
+                        supplierName={supplierName}
+                        branchName={branchName}
+                        statusTone={purchaseOrderStatusTone(data.status)}
+                        back={
+                            <Button
+                                testID="kitchen-supply-order-detail-screen-back"
+                                variant="secondary"
+                                size="sm"
+                                label={t('kitchen:ops.supplyOrders.backToOrders')}
+                                iconStart={<Icon name="chevronStart" size="sm" />}
+                                onPress={() => {
+                                    guard.intercept(back);
+                                }}
+                            />
+                        }
+                        actions={
+                            <>
+                                {printable ? (
+                                    <Button
+                                        testID="kitchen-supply-order-detail-print"
+                                        variant="secondary"
+                                        size="sm"
+                                        label={t('kitchen:ops.supplyOrders.print.printOrder')}
+                                        onPress={openPrint}
+                                    />
+                                ) : null}
+                                {cancellable ? (
+                                    <Button
+                                        testID="kitchen-supply-order-detail-cancel"
+                                        variant="danger"
+                                        size="sm"
+                                        label={t('kitchen:ops.supplyOrders.cancelOrder')}
+                                        onPress={() => {
+                                            setConfirmingCancel(true);
+                                        }}
+                                    />
+                                ) : null}
+                                {receivable ? (
+                                    <Button
+                                        testID="kitchen-supply-order-detail-receive"
+                                        variant="secondary"
+                                        size="sm"
+                                        label={t('kitchen:ops.supplyOrders.receiveDelivery')}
+                                        onPress={goReceive}
+                                    />
+                                ) : null}
+                            </>
+                        }
+                    />
+                )}
+
                 {/*
                  * The opening the record forms share, as the builder draws it: the order and its
                  * status, the way back first and the commit last. The commit lives here only — the
                  * summary beside the cards states the order and does not repeat its buttons.
                  */}
-                <RecordFormOpening
-                    testID="kitchen-supply-order-detail-screen"
-                    title={title}
-                    dirty={guard.isDirty}
-                    badges={
-                        <Badge
-                            variant="label"
-                            testID="kitchen-supply-order-detail-status"
-                            tone={purchaseOrderStatusTone(data.status)}
-                            label={t(purchaseOrderStatusKey(data.status))}
-                        />
-                    }
-                    details={
-                        <Text
-                            variant="caption"
-                            tone="secondary"
-                            testID="kitchen-supply-order-detail-subtitle"
-                        >
-                            {t('kitchen:ops.supplyOrders.detailSubtitle', {
-                                supplier: supplierName,
-                                branch: branchName,
-                                date: madeOn,
-                            })}
-                        </Text>
-                    }
-                    actions={
-                        <>
-                            <Button
-                                testID="kitchen-supply-order-detail-screen-back"
-                                variant="secondary"
-                                label={t('kitchen:ops.supplyOrders.backToOrders')}
-                                onPress={() => {
-                                    guard.intercept(back);
-                                }}
+                {editable ? (
+                    <RecordFormOpening
+                        testID="kitchen-supply-order-detail-screen"
+                        title={title}
+                        dirty={guard.isDirty}
+                        badges={
+                            <Badge
+                                variant="label"
+                                testID="kitchen-supply-order-detail-status"
+                                tone={purchaseOrderStatusTone(data.status)}
+                                label={t(purchaseOrderStatusKey(data.status))}
                             />
-                            {printable ? (
-                                /*
-                                 * One control, two labels. A draft says **Preview** because what
-                                 * comes back is marked Draft and is not the document anybody hands
-                                 * over; an issued order says **Print** because it is.
-                                 */
+                        }
+                        details={
+                            <Text
+                                variant="caption"
+                                tone="secondary"
+                                testID="kitchen-supply-order-detail-subtitle"
+                            >
+                                {t('kitchen:ops.supplyOrders.detailSubtitle', {
+                                    supplier: supplierName,
+                                    branch: branchName,
+                                    date: madeOn,
+                                })}
+                            </Text>
+                        }
+                        actions={
+                            <>
                                 <Button
-                                    testID="kitchen-supply-order-detail-print"
-                                    variant={issuable ? 'ghost' : 'secondary'}
-                                    label={
-                                        issuable
-                                            ? t('kitchen:ops.supplyOrders.print.preview')
-                                            : t('kitchen:ops.supplyOrders.print.printOrder')
-                                    }
-                                    onPress={openPrint}
-                                />
-                            ) : null}
-                            {cancellable ? (
-                                <Button
-                                    testID="kitchen-supply-order-detail-cancel"
-                                    variant="danger"
-                                    label={t('kitchen:ops.supplyOrders.cancelOrder')}
+                                    testID="kitchen-supply-order-detail-screen-back"
+                                    variant="secondary"
+                                    label={t('kitchen:ops.supplyOrders.backToOrders')}
                                     onPress={() => {
-                                        setConfirmingCancel(true);
+                                        guard.intercept(back);
                                     }}
                                 />
-                            ) : null}
-                            {receivable ? (
-                                <Button
-                                    testID="kitchen-supply-order-detail-receive"
-                                    label={t('kitchen:ops.supplyOrders.receiveDelivery')}
-                                    onPress={goReceive}
-                                />
-                            ) : null}
-                            {/*
-                             * No save control at all on a frozen order — an editing affordance that
-                             * always refuses is worse than none.
-                             */}
-                            {editable ? (
-                                <Button
-                                    testID="kitchen-supply-order-detail-screen-save"
-                                    variant={issuable ? 'secondary' : 'primary'}
-                                    label={t('kitchen:ops.supplyOrders.saveLines')}
-                                    loading={update.isPending}
-                                    // A wrong box does not disable Save: pressing it takes you
-                                    // there.
-                                    disabled={!dirty || empty || update.isPending}
-                                    onPress={save}
-                                />
-                            ) : null}
-                            {issuable ? (
-                                <Button
-                                    testID="kitchen-supply-order-detail-issue"
-                                    label={t('kitchen:ops.supplyOrders.issue')}
-                                    disabled={issueBlocked}
-                                    onPress={() => {
-                                        setConfirmingIssue(true);
-                                    }}
-                                />
-                            ) : null}
-                        </>
-                    }
-                    errors={{
-                        summary: t('kitchen:forms.toFixCount', { count: server.items.length }),
-                        items: server.items,
-                    }}
-                />
-
-                <View
-                    ref={Platform.OS === 'web' ? port.ref : undefined}
-                    onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
-                    className={
-                        sideBySide
-                            ? 'z-auto flex-row items-start gap-base'
-                            : 'z-auto flex-col gap-base'
-                    }
-                >
-                    {/* The form is the row's filler beside the fixed summary. */}
-                    <View className="z-auto min-w-0 flex-1 flex-col gap-base">
-                        <FormSection
-                            first
-                            variant="card"
-                            testID="kitchen-supply-order-detail-lines"
-                            title={t('kitchen:ops.supplyOrders.linesTitle')}
-                            aside={
-                                <Text
-                                    variant="caption"
-                                    tone="secondary"
-                                    testID="kitchen-supply-order-detail-line-count"
-                                >
-                                    {lineCount}
-                                </Text>
-                            }
-                        >
-                            <Stack space="sm">
-                                <DataList<LineDraft>
-                                    testID="kitchen-supply-order-detail-lines-table"
-                                    label={t('kitchen:ops.supplyOrders.linesCaption')}
-                                    columns={columns}
-                                    rows={lines}
-                                    rowKey={(line) => line.stockItemId}
-                                    density="sm"
-                                />
-
-                                {empty && editable ? (
-                                    <Text
-                                        variant="caption"
-                                        tone="warning"
-                                        testID="kitchen-supply-order-detail-no-lines"
-                                    >
-                                        {t('kitchen:ops.supplyOrders.noLines')}
-                                    </Text>
+                                {printable ? (
+                                    /*
+                                     * One control, two labels. A draft says **Preview** because what
+                                     * comes back is marked Draft and is not the document anybody hands
+                                     * over; an issued order says **Print** because it is.
+                                     */
+                                    <Button
+                                        testID="kitchen-supply-order-detail-print"
+                                        variant={issuable ? 'ghost' : 'secondary'}
+                                        label={
+                                            issuable
+                                                ? t('kitchen:ops.supplyOrders.print.preview')
+                                                : t('kitchen:ops.supplyOrders.print.printOrder')
+                                        }
+                                        onPress={openPrint}
+                                    />
                                 ) : null}
-
+                                {cancellable ? (
+                                    <Button
+                                        testID="kitchen-supply-order-detail-cancel"
+                                        variant="danger"
+                                        label={t('kitchen:ops.supplyOrders.cancelOrder')}
+                                        onPress={() => {
+                                            setConfirmingCancel(true);
+                                        }}
+                                    />
+                                ) : null}
+                                {receivable ? (
+                                    <Button
+                                        testID="kitchen-supply-order-detail-receive"
+                                        label={t('kitchen:ops.supplyOrders.receiveDelivery')}
+                                        onPress={goReceive}
+                                    />
+                                ) : null}
                                 {/*
-                                 * Under the rows it joins, as the builder's "Add something else".
+                                 * No save control at all on a frozen order — an editing affordance that
+                                 * always refuses is worse than none.
                                  */}
                                 {editable ? (
-                                    <View className="z-tooltip w-full max-w-field">
-                                        <Select
-                                            testID="kitchen-supply-order-detail-add-line"
-                                            label={t('kitchen:ops.supplyOrders.addLineLabel')}
-                                            labelHidden
-                                            size="sm"
-                                            options={addOptions}
-                                            searchable
-                                            value={null}
-                                            placeholder={t(
-                                                'kitchen:ops.supplyOrders.addLinePlaceholder',
-                                            )}
-                                            onChange={(value) => {
-                                                const item = (stockItems.data ?? []).find(
-                                                    (candidate: StockItem) =>
-                                                        String(candidate.id) === value,
-                                                );
-
-                                                if (item === undefined) return;
-
-                                                edit([
-                                                    ...lines,
-                                                    {
-                                                        stockItemId: String(item.id),
-                                                        // Blank, never zero. The person types
-                                                        // what they want; a prefilled zero
-                                                        // would read as a decision.
-                                                        quantity: '',
-                                                        itemCode: item.code,
-                                                        itemNameEn: item.nameEn,
-                                                        unitCode: item.unitCode,
-                                                        // Resolved server-side from the saved
-                                                        // supplier link on save — the client
-                                                        // never invents one.
-                                                        supplierItemRef: null,
-                                                        // A line nobody has ordered yet has
-                                                        // nothing against it, and the whole of
-                                                        // it is to come.
-                                                        receivedQuantity: '0',
-                                                        outstandingQuantity: '',
-                                                    },
-                                                ]);
-                                            }}
-                                        />
-                                    </View>
+                                    <Button
+                                        testID="kitchen-supply-order-detail-screen-save"
+                                        variant={issuable ? 'secondary' : 'primary'}
+                                        label={t('kitchen:ops.supplyOrders.saveLines')}
+                                        loading={update.isPending}
+                                        // A wrong box does not disable Save: pressing it takes you
+                                        // there.
+                                        disabled={!dirty || empty || update.isPending}
+                                        onPress={save}
+                                    />
                                 ) : null}
-                            </Stack>
-                        </FormSection>
-
-                        <FormSection
-                            first
-                            variant="card"
-                            testID="kitchen-supply-order-detail-notes"
-                            title={t('kitchen:ops.supplyOrders.notesTitle')}
-                        >
-                            {editable ? (
-                                <TextInputField
-                                    testID="kitchen-supply-order-detail-notes-input"
-                                    id="kitchen-supply-order-detail-notes-input"
-                                    {...server.flag('notes')}
-                                    label={t('kitchen:ops.supplyOrders.notesLabel')}
-                                    hint={t('kitchen:ops.supplyOrders.notesHint')}
-                                    placeholder={t('kitchen:ops.supplyOrders.notesPlaceholder')}
-                                    size="sm"
-                                    multiline
-                                    value={notes}
-                                    onChangeText={(next) => {
-                                        edit(lines, next);
-                                    }}
-                                />
-                            ) : (
-                                <Text
-                                    tone={notes === '' ? 'secondary' : 'primary'}
-                                    testID="kitchen-supply-order-detail-notes-text"
-                                >
-                                    {notes === '' ? t('kitchen:ops.supplyOrders.noNotes') : notes}
-                                </Text>
-                            )}
-                        </FormSection>
-                    </View>
-
-                    {/*
-                     * The order in a few facts, what has arrived against it, and the next thing to
-                     * do with it. Deliveries are a list, not links: there is no receipt screen, and
-                     * the money on them is behind a permission this screen does not check — the
-                     * purchases ledger is where a cost holder reads it.
-                     */}
-                    <RecordSummaryAside
-                        testID="kitchen-supply-order-detail-summary"
-                        title={t('kitchen:ops.supplyOrders.detailSummaryTitle')}
-                        width={sideBySide ? ASIDE_WIDTH : null}
-                        rows={[
-                            {
-                                key: 'supplier',
-                                label: t('kitchen:ops.supplyOrders.columnSupplier'),
-                                value: supplierName,
-                            },
-                            {
-                                key: 'branch',
-                                label: t('kitchen:ops.supplyOrders.viewBranch'),
-                                value: branchName,
-                            },
-                            {
-                                key: 'made-on',
-                                label: t('kitchen:ops.supplyOrders.columnMadeOn'),
-                                value: madeOn,
-                            },
-                            ...(data.issuedAt === null
-                                ? []
-                                : [
-                                      {
-                                          key: 'issued-on',
-                                          label: t('kitchen:ops.supplyOrders.summaryIssuedOn'),
-                                          value: formatter.formatDate(data.issuedAt, {
-                                              dateStyle: 'medium',
-                                          }),
-                                      },
-                                  ]),
-                        ]}
-                        total={{
-                            label: t('kitchen:ops.supplyOrders.summaryLineTotal'),
-                            value: formatter.formatNumber(lines.length),
-                        }}
-                        list={{
-                            title: t('kitchen:ops.supplyOrders.receiptsTitle'),
-                            empty: t('kitchen:ops.supplyOrders.receiptsEmpty'),
-                            testID: 'kitchen-supply-order-detail-receipts',
-                            emptyTestID: 'kitchen-supply-order-detail-receipts-empty',
-                            items: data.receipts.map((receipt) => ({
-                                key: String(receipt.id),
-                                testID: `kitchen-supply-order-detail-receipt-${String(receipt.id)}`,
-                                name: `${
-                                    receipt.receivedOn === null
-                                        ? EM_DASH
-                                        : formatter.formatDate(receipt.receivedOn, {
-                                              dateStyle: 'medium',
-                                          })
-                                } · ${
-                                    receipt.documentRef ??
-                                    t('kitchen:ops.supplyOrders.receiptNoDocumentRef')
-                                }`,
-                                value: t('kitchen:ops.supplyOrders.receiptLineCount', {
-                                    count: receipt.lineCount,
-                                }),
-                            })),
+                                {issuable ? (
+                                    <Button
+                                        testID="kitchen-supply-order-detail-issue"
+                                        label={t('kitchen:ops.supplyOrders.issue')}
+                                        disabled={issueBlocked}
+                                        onPress={() => {
+                                            setConfirmingIssue(true);
+                                        }}
+                                    />
+                                ) : null}
+                            </>
+                        }
+                        errors={{
+                            summary: t('kitchen:forms.toFixCount', { count: server.items.length }),
+                            items: server.items,
                         }}
                     />
-                </View>
+                ) : null}
+
+                {editable ? (
+                    <View
+                        ref={Platform.OS === 'web' ? port.ref : undefined}
+                        onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
+                        className={
+                            sideBySide
+                                ? 'z-auto flex-row items-start gap-base'
+                                : 'z-auto flex-col gap-base'
+                        }
+                    >
+                        {/* The form is the row's filler beside the fixed summary. */}
+                        <View className="z-auto min-w-0 flex-1 flex-col gap-base">
+                            <FormSection
+                                first
+                                variant="card"
+                                testID="kitchen-supply-order-detail-lines"
+                                title={t('kitchen:ops.supplyOrders.linesTitle')}
+                                aside={
+                                    <Text
+                                        variant="caption"
+                                        tone="secondary"
+                                        testID="kitchen-supply-order-detail-line-count"
+                                    >
+                                        {lineCount}
+                                    </Text>
+                                }
+                            >
+                                <Stack space="sm">
+                                    {linesTable}
+
+                                    {empty && editable ? (
+                                        <Text
+                                            variant="caption"
+                                            tone="warning"
+                                            testID="kitchen-supply-order-detail-no-lines"
+                                        >
+                                            {t('kitchen:ops.supplyOrders.noLines')}
+                                        </Text>
+                                    ) : null}
+
+                                    {/*
+                                     * Under the rows it joins, as the builder's "Add something else".
+                                     */}
+                                    {editable ? (
+                                        <View className="z-tooltip w-full max-w-field">
+                                            <Select
+                                                testID="kitchen-supply-order-detail-add-line"
+                                                label={t('kitchen:ops.supplyOrders.addLineLabel')}
+                                                labelHidden
+                                                size="sm"
+                                                options={addOptions}
+                                                searchable
+                                                value={null}
+                                                placeholder={t(
+                                                    'kitchen:ops.supplyOrders.addLinePlaceholder',
+                                                )}
+                                                onChange={(value) => {
+                                                    const item = (stockItems.data ?? []).find(
+                                                        (candidate: StockItem) =>
+                                                            String(candidate.id) === value,
+                                                    );
+
+                                                    if (item === undefined) return;
+
+                                                    edit([
+                                                        ...lines,
+                                                        {
+                                                            stockItemId: String(item.id),
+                                                            // Blank, never zero. The person types
+                                                            // what they want; a prefilled zero
+                                                            // would read as a decision.
+                                                            quantity: '',
+                                                            itemCode: item.code,
+                                                            itemNameEn: item.nameEn,
+                                                            unitCode: item.unitCode,
+                                                            // Resolved server-side from the saved
+                                                            // supplier link on save — the client
+                                                            // never invents one.
+                                                            supplierItemRef: null,
+                                                            // A line nobody has ordered yet has
+                                                            // nothing against it, and the whole of
+                                                            // it is to come.
+                                                            receivedQuantity: '0',
+                                                            outstandingQuantity: '',
+                                                        },
+                                                    ]);
+                                                }}
+                                            />
+                                        </View>
+                                    ) : null}
+                                </Stack>
+                            </FormSection>
+
+                            <FormSection
+                                first
+                                variant="card"
+                                testID="kitchen-supply-order-detail-notes"
+                                title={t('kitchen:ops.supplyOrders.notesTitle')}
+                            >
+                                {editable ? (
+                                    <TextInputField
+                                        testID="kitchen-supply-order-detail-notes-input"
+                                        id="kitchen-supply-order-detail-notes-input"
+                                        {...server.flag('notes')}
+                                        label={t('kitchen:ops.supplyOrders.notesLabel')}
+                                        hint={t('kitchen:ops.supplyOrders.notesHint')}
+                                        placeholder={t('kitchen:ops.supplyOrders.notesPlaceholder')}
+                                        size="sm"
+                                        multiline
+                                        value={notes}
+                                        onChangeText={(next) => {
+                                            edit(lines, next);
+                                        }}
+                                    />
+                                ) : (
+                                    <Text
+                                        tone={notes === '' ? 'secondary' : 'primary'}
+                                        testID="kitchen-supply-order-detail-notes-text"
+                                    >
+                                        {notes === ''
+                                            ? t('kitchen:ops.supplyOrders.noNotes')
+                                            : notes}
+                                    </Text>
+                                )}
+                            </FormSection>
+                        </View>
+
+                        {/*
+                         * The order in a few facts, what has arrived against it, and the next thing to
+                         * do with it. Deliveries are a list, not links: there is no receipt screen, and
+                         * the money on them is behind a permission this screen does not check — the
+                         * purchases ledger is where a cost holder reads it.
+                         */}
+                        <RecordSummaryAside
+                            testID="kitchen-supply-order-detail-summary"
+                            title={t('kitchen:ops.supplyOrders.detailSummaryTitle')}
+                            width={sideBySide ? ASIDE_WIDTH : null}
+                            rows={[
+                                {
+                                    key: 'supplier',
+                                    label: t('kitchen:ops.supplyOrders.columnSupplier'),
+                                    value: supplierName,
+                                },
+                                {
+                                    key: 'branch',
+                                    label: t('kitchen:ops.supplyOrders.viewBranch'),
+                                    value: branchName,
+                                },
+                                {
+                                    key: 'made-on',
+                                    label: t('kitchen:ops.supplyOrders.columnMadeOn'),
+                                    value: madeOn,
+                                },
+                                ...(data.issuedAt === null
+                                    ? []
+                                    : [
+                                          {
+                                              key: 'issued-on',
+                                              label: t('kitchen:ops.supplyOrders.summaryIssuedOn'),
+                                              value: formatter.formatDate(data.issuedAt, {
+                                                  dateStyle: 'medium',
+                                              }),
+                                          },
+                                      ]),
+                            ]}
+                            total={{
+                                label: t('kitchen:ops.supplyOrders.summaryLineTotal'),
+                                value: formatter.formatNumber(lines.length),
+                            }}
+                            list={{
+                                title: t('kitchen:ops.supplyOrders.receiptsTitle'),
+                                empty: t('kitchen:ops.supplyOrders.receiptsEmpty'),
+                                testID: 'kitchen-supply-order-detail-receipts',
+                                emptyTestID: 'kitchen-supply-order-detail-receipts-empty',
+                                items: data.receipts.map((receipt) => ({
+                                    key: String(receipt.id),
+                                    testID: `kitchen-supply-order-detail-receipt-${String(receipt.id)}`,
+                                    name: `${
+                                        receipt.receivedOn === null
+                                            ? EM_DASH
+                                            : formatter.formatDate(receipt.receivedOn, {
+                                                  dateStyle: 'medium',
+                                              })
+                                    } · ${
+                                        receipt.documentRef ??
+                                        t('kitchen:ops.supplyOrders.receiptNoDocumentRef')
+                                    }`,
+                                    value: t('kitchen:ops.supplyOrders.receiptLineCount', {
+                                        count: receipt.lineCount,
+                                    }),
+                                })),
+                            }}
+                        />
+                    </View>
+                ) : null}
 
                 <EditorGuardDialogs guard={guard} testID="kitchen-supply-order-detail-screen" />
 
