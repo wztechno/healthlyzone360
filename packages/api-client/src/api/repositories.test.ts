@@ -3813,3 +3813,68 @@ describe('mapDuration', () => {
         expect(mapDuration({ ...wire, days: 0 })).toBeNull();
     });
 });
+
+describe('the desk’s dish choices', () => {
+    it('keeps each option’s containment, and never turns an unassessed choice into none', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: {
+                            options: [
+                                {
+                                    id: 'aioli',
+                                    kind: 'choice',
+                                    group_en: 'Sauce',
+                                    group_ar: 'صلصة',
+                                    name_en: 'Aioli',
+                                    name_ar: 'أيولي',
+                                    allergens: [
+                                        { allergen_code: 'egg', containment: 'contains' },
+                                        { allergen_code: 'sesame', containment: 'may_contain' },
+                                    ],
+                                },
+                                {
+                                    id: 'pesto',
+                                    kind: 'choice',
+                                    group_en: 'Sauce',
+                                    group_ar: 'صلصة',
+                                    name_en: 'Pesto',
+                                    name_ar: 'بيستو',
+                                    allergens: null,
+                                },
+                                {
+                                    id: 'onion',
+                                    kind: 'remove',
+                                    group_en: null,
+                                    group_ar: null,
+                                    name_en: 'onions',
+                                    name_ar: 'بصل',
+                                    allergens: [],
+                                },
+                            ],
+                            portions: [],
+                        },
+                        meta: {},
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const choices = await repositories.orderDesk.getDishChoices('item-1');
+
+        expect(calls[0]?.url).toBe(
+            'https://api.example/api/v1/catalogue/order-desk/items/item-1/choices',
+        );
+        expect(choices.options.map((option) => option.allergens)).toEqual([
+            [
+                { code: 'egg', containment: 'contains' },
+                { code: 'sesame', containment: 'may_contain' },
+            ],
+            null,
+            [],
+        ]);
+    });
+});

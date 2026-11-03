@@ -941,14 +941,15 @@ it('marks dependants stale when it fills facts used by a published version', fun
 
 it('leaves the products Verdant makes as unassessed drafts and publishes what it buys in', function (): void {
     // "Assessed: contains none" is only true of a bought-in good. Honey Mustard
-    // and Mozzarella Sticks are made here, from recipes with allergens of their
-    // own, so the demo must not press that button for them.
+    // and Mozzarella Sticks are made here, and the `Supplier & Production`
+    // chicken partly so, from recipes with allergens of their own, so the demo
+    // must not press that button for anything but a `Supplier` row.
     $products = CatalogueItem::withoutTenancy()
         ->where('source_system', VerdantProductCatalogueSeeder::SOURCE_SYSTEM)
         ->get()
         ->keyBy('name_en');
 
-    $made = $products->filter(static fn (CatalogueItem $item): bool => $item->production_mode === ProductionMode::Production);
+    $made = $products->filter(static fn (CatalogueItem $item): bool => $item->production_mode !== ProductionMode::Supplier);
 
     expect($made->keys()->all())->toContain('Honey Mustard Sauce', 'Mozzarella Sticks')
         ->and($made->filter(static fn (CatalogueItem $item): bool => $item->allergens_assessed_at !== null))->toBeEmpty()

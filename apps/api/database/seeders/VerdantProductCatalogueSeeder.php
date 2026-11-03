@@ -38,9 +38,10 @@ use RuntimeException;
  * - targets Verdant's existing `web-shop` / `wholesale` channels;
  * - writes onto **active** public tariffs (demo must be buyable);
  * - gives each product its Arabic name, which the sheet does not carry;
- * - publishes every bought-in product that passes readiness, assessed by the
- *   owner. What the kitchen makes (the sheet's `Production` kind) has a recipe
- *   to answer for its allergens, so it stays an unassessed draft.
+ * - publishes every bought-in (`Supplier`) product that passes readiness,
+ *   assessed by the owner. What the kitchen makes, wholly or in part
+ *   (`Production`, `Supplier & Production`), has a recipe to answer for its
+ *   allergens, so it stays an unassessed draft.
  *
  * The fixture is a committed copy of the Phase-1 product list (names, packs,
  * B2C/B2B amounts) — not recipes or formulations.
@@ -294,9 +295,11 @@ final class VerdantProductCatalogueSeeder extends Seeder
                 $item->forceFill(['name_ar' => self::ARABIC_NAMES[$item->name_en]])->save();
             }
 
-            if ($item->production_mode === ProductionMode::Production) {
-                // Made here: its allergens are its recipe's to answer, and
-                // nobody has assessed it. It stays a draft until a person does.
+            if ($item->production_mode !== ProductionMode::Supplier) {
+                // Made here, wholly or in part (`Production`, `Supplier &
+                // Production`), or of a kind the sheet left unclear: its
+                // allergens are its recipe's to answer, and nobody has assessed
+                // it. It stays a draft until a person does.
                 continue;
             }
 
