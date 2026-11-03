@@ -462,7 +462,8 @@ export const zIngredientAllergenMapping = z.object({
         'technical_sheet',
         'supplier_declaration',
         'kitchen_declared',
-        'inferred'
+        'inferred',
+        'recipe_derived'
     ]),
     verification_status: z.enum([
         'verified',

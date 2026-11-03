@@ -29811,6 +29811,11 @@ components:
             - supplier_declaration
             - kitchen_declared
             - inferred
+            - recipe_derived
+          description: |
+            `recipe_derived` rows are carried from the published recipe that
+            makes this ingredient. They are read-only: the mapping editor refuses
+            to change them, and the fix is the recipe.
         verification_status:
           type: string
           enum:

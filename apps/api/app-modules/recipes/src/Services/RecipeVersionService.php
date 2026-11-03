@@ -73,6 +73,7 @@ final readonly class RecipeVersionService
         private RecipeLabelWriter $labels,
         private RecipeNutritionService $nutrition,
         private RecipeOutputNutritionWriter $outputNutrition,
+        private RecipeOutputAllergenWriter $outputAllergens,
         private UnitConversionService $conversion,
         private WeeklyRecipeCostingService $paidPrices,
     ) {}
@@ -969,6 +970,18 @@ final readonly class RecipeVersionService
         // it. Neither belongs inside the transaction that demotes the
         // incumbent, and a job dispatched from inside one can be picked up by a
         // worker before the commit it depends on has landed.
+        //
+        // The allergens first (T3): a dish built on this output whose label
+        // now moves goes to review. Then whatever a superseded version still
+        // claims — an output this formulation no longer makes — is given back,
+        // as retirement gives it back; a shared output was just re-claimed
+        // above, so the clear finds nothing of the old version's left on it.
+        $this->outputAllergens->write($version);
+
+        foreach (RecipeVersion::withoutTenancy()->whereKey($demoted)->get() as $retired) {
+            $this->outputAllergens->clear($retired);
+        }
+
         $this->outputNutrition->write($version, $nutrition);
 
         return $version;
@@ -1030,7 +1043,9 @@ final readonly class RecipeVersionService
         // A withdrawn child withholds the parent. Whatever this version derived
         // onto the ingredients it produces was true of a formulation that is no
         // longer published, and a parent recipe must not go on totalling
-        // against it — see {@see RecipeOutputNutritionWriter::clear()}.
+        // against it — see {@see RecipeOutputNutritionWriter::clear()}. The
+        // same for the allergens it carried onto them (T3).
+        $this->outputAllergens->clear($version);
         $this->outputNutrition->clear($version);
 
         return $version;
@@ -1149,8 +1164,13 @@ final readonly class RecipeVersionService
 
         // Live again, so what it produces carries its figures again, as after a
         // publication: a recompute while it sat in review skipped the outputs.
+        // The allergens too (T3): the label released is what the outputs
+        // carry. Released as history instead, it gives back what it claimed.
         if ($version->status === RecipeVersionStatus::Published) {
+            $this->outputAllergens->write($version);
             $this->outputNutrition->write($version, $this->nutrition->forVersion($version, $this->readiness->linesOf($version)));
+        } else {
+            $this->outputAllergens->clear($version);
         }
 
         return $version;

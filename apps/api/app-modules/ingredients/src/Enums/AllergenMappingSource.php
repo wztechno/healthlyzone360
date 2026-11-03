@@ -16,4 +16,10 @@ enum AllergenMappingSource: string
     case SupplierDeclaration = 'supplier_declaration';
     case KitchenDeclared = 'kitchen_declared';
     case Inferred = 'inferred';
+
+    /**
+     * Carried from the published recipe that makes this ingredient. Written only
+     * by `RecipeOutputAllergenWriter`; the mapping editor refuses to change it.
+     */
+    case RecipeDerived = 'recipe_derived';
 }

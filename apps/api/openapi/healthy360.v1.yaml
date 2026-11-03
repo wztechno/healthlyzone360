@@ -28981,7 +28981,11 @@ components:
             `us_only` mapping rather than a note nobody reads.
         source:
           type: string
-          enum: [master_list, technical_sheet, supplier_declaration, kitchen_declared, inferred]
+          enum: [master_list, technical_sheet, supplier_declaration, kitchen_declared, inferred, recipe_derived]
+          description: |
+            `recipe_derived` rows are carried from the published recipe that
+            makes this ingredient. They are read-only: the mapping editor refuses
+            to change them, and the fix is the recipe.
         verification_status:
           type: string
           enum: [verified, unverified, requires_review, requires_supplier_confirmation]

@@ -18,6 +18,7 @@ use Healthy360\Recipes\Services\AllergenRollupService;
 use Healthy360\Recipes\Services\RecipeCostingService;
 use Healthy360\Recipes\Services\RecipeLabelWriter;
 use Healthy360\Recipes\Services\RecipeNutritionService;
+use Healthy360\Recipes\Services\RecipeOutputAllergenWriter;
 use Healthy360\Recipes\Services\RecipeOutputNutritionWriter;
 use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Healthy360\Tenancy\TenantContext;
@@ -146,6 +147,7 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
         RecipeCostingService $costing,
         RecipeNutritionService $nutrition,
         RecipeOutputNutritionWriter $outputNutrition,
+        RecipeOutputAllergenWriter $outputAllergens,
         RecipeUsageRegistry $usage,
         AuditRecorder $audit,
     ): void {
@@ -159,12 +161,13 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
                 $costing,
                 $nutrition,
                 $outputNutrition,
+                $outputAllergens,
                 $usage,
                 $audit,
             ): void {
                 $context->restore(['user_id' => null, 'organisation_id' => $this->organisationId, 'branch_id' => null]);
 
-                $this->recompute($rollup, $labels, $costing, $nutrition, $outputNutrition, $usage, $audit);
+                $this->recompute($rollup, $labels, $costing, $nutrition, $outputNutrition, $outputAllergens, $usage, $audit);
             });
         } finally {
             $context->restore($ambient);
@@ -180,6 +183,7 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
         RecipeCostingService $costing,
         RecipeNutritionService $nutrition,
         RecipeOutputNutritionWriter $outputNutrition,
+        RecipeOutputAllergenWriter $outputAllergens,
         RecipeUsageRegistry $usage,
         AuditRecorder $audit,
     ): void {
@@ -269,7 +273,13 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
          * walks the same output → line edge carrying the visited set and the
          * depth cap, and a second dispatcher starting a fresh walk at depth
          * zero is exactly the unbounded cascade those two guards exist to stop.
+         *
+         * The allergens go the same way and under the same rule (T3): the
+         * label just frozen is written onto the outputs while the version is
+         * still published — before any quarantine below — so the dishes the
+         * walk reaches next are re-derived against it.
          */
+        $outputAllergens->write($version, scheduleDependants: false);
         $outputNutrition->write($version, $facts, scheduleDependants: false);
 
         $this->writeCostSnapshot($version, $costing, $lines);

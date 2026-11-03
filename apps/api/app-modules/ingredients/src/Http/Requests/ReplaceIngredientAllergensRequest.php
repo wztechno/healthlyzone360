@@ -41,7 +41,7 @@ class ReplaceIngredientAllergensRequest extends FormRequest
             'mappings' => ['present', 'array', 'max:50'],
             'mappings.*.allergen_code' => ['required', 'string', 'max:20', Rule::exists('allergens', 'code')],
             'mappings.*.containment' => ['required', new Enum(AllergenContainment::class)],
-            'mappings.*.source' => ['nullable', new Enum(AllergenMappingSource::class)],
+            'mappings.*.source' => ['nullable', (new Enum(AllergenMappingSource::class))->except(AllergenMappingSource::RecipeDerived)],
             'mappings.*.verification_status' => ['nullable', new Enum(AllergenVerificationStatus::class)],
             'mappings.*.evidence' => ['nullable', 'string', 'max:2000'],
         ];

@@ -172,12 +172,26 @@ final readonly class AllergenMappingService
                 : $query->where('organisation_id', $organisationId);
 
             $previous = $query->get()->keyBy('allergen_code');
+
+            // Rows a published recipe carried onto its output (T3) are the
+            // recipe's, not the editor's: they are kept through a replace, an
+            // unchanged echo of one is ignored, and any other statement about
+            // the same class is refused. The fix is the recipe.
+            $derived = $previous->filter(static fn (IngredientAllergen $row): bool => $row->source === AllergenMappingSource::RecipeDerived);
+            $this->assertDerivedUntouched($derived, $normalised);
+
             foreach ($previous as $stale) {
-                $stale->delete();
+                if (! $derived->has($stale->allergen_code)) {
+                    $stale->delete();
+                }
             }
 
-            $write = function () use ($ingredient, $scope, $normalised, $organisationId, $previous): void {
+            $write = function () use ($ingredient, $scope, $normalised, $organisationId, $previous, $derived): void {
                 foreach ($normalised as $mapping) {
+                    if ($derived->has($mapping['allergen_code'])) {
+                        continue;
+                    }
+
                     $row = new IngredientAllergen;
                     $row->ingredient_id = (string) $ingredient->getKey();
                     $row->organisation_id = $organisationId;
@@ -210,6 +224,7 @@ final readonly class AllergenMappingService
             // `verification_status`. Only from `unverified` — a row held for
             // review stays held — and never on someone else's row.
             if ($normalised === []
+                && $derived->isEmpty()
                 && $ingredient->organisation_id === $organisationId
                 && $ingredient->verification_status === IngredientVerificationStatus::Unverified) {
                 Ingredient::withoutTenancy()->whereKey($ingredient->getKey())->update([
@@ -289,7 +304,7 @@ final readonly class AllergenMappingService
             if (! hash_equals($this->reviewToken($ingredient), $reviewToken)) {
                 throw new ApiException(ErrorCode::ResourceConflict, 'The allergen assessment changed. Reload before importing suggestions.');
             }
-            if (Ingredient::query()->excludingPackaging()->whereKey($ingredient->getKey())->doesntExist() || $ingredient->nutrition_derived_from_version_id !== null) {
+            if (Ingredient::query()->excludingPackaging()->whereKey($ingredient->getKey())->doesntExist() || $ingredient->nutrition_derived_from_version_id !== null || $ingredient->allergens_derived_from_version_id !== null) {
                 throw new ApiException(ErrorCode::ValidationFailed, 'Only non-derived food ingredients can receive product allergen suggestions.');
             }
             $layer = $this->callerLayer();
@@ -474,6 +489,39 @@ final readonly class AllergenMappingService
                 [
                     'fields' => ['mappings' => ['The platform baseline for this ingredient must be kept or strengthened.']],
                     'weakened_allergen_classes' => $weakened,
+                ],
+            );
+        }
+    }
+
+    /**
+     * @param  Collection<string, IngredientAllergen>  $derived
+     * @param  list<array{allergen_code: string, containment: AllergenContainment, source: AllergenMappingSource, verification_status: AllergenVerificationStatus, evidence: string|null}>  $proposed
+     *
+     * @throws ApiException
+     */
+    private function assertDerivedUntouched(Collection $derived, array $proposed): void
+    {
+        $edited = [];
+
+        foreach ($proposed as $mapping) {
+            $row = $derived->get($mapping['allergen_code']);
+
+            if ($mapping['source'] === AllergenMappingSource::RecipeDerived
+                || ($row !== null && $row->containment !== $mapping['containment'])) {
+                $edited[] = $mapping['allergen_code'];
+            }
+        }
+
+        if ($edited !== []) {
+            sort($edited);
+
+            throw new ApiException(
+                ErrorCode::ValidationFailed,
+                'These allergens are carried from the published recipe that makes this ingredient; change the recipe instead.',
+                [
+                    'fields' => ['mappings' => ['These allergens are carried from the published recipe that makes this ingredient; change the recipe instead.']],
+                    'derived_allergen_classes' => $edited,
                 ],
             );
         }

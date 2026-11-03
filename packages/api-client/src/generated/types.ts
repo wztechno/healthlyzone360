@@ -792,7 +792,13 @@ export type IngredientAllergenMapping = {
      *
      */
     market_scope: 'all' | 'us_only' | 'eu_only';
-    source: 'master_list' | 'technical_sheet' | 'supplier_declaration' | 'kitchen_declared' | 'inferred';
+    /**
+     * `recipe_derived` rows are carried from the published recipe that
+     * makes this ingredient. They are read-only: the mapping editor refuses
+     * to change them, and the fix is the recipe.
+     *
+     */
+    source: 'master_list' | 'technical_sheet' | 'supplier_declaration' | 'kitchen_declared' | 'inferred' | 'recipe_derived';
     verification_status: 'verified' | 'unverified' | 'requires_review' | 'requires_supplier_confirmation';
     /**
      * Free text supporting the statement — a supplier reference, a sheet, a note.
