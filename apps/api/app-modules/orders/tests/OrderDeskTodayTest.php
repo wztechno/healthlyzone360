@@ -122,23 +122,29 @@ it('reads the day per currency: sales, cash, late orders and cancellations', fun
 
 it('leaves out another branch when one is named', function (): void {
     $marina = (string) CheckoutWorld::branch($this->world->organisation, 'Marina')->getKey();
+    // The clock is frozen, so Marina is pushed later: the first branch is the oldest.
+    DB::table('organisation_branches')->where('id', $marina)->update(['created_at' => now()->addMinute()]);
 
     todayOrder($this, '2026-05-10 08:00:00', 3000);
     todayOrder($this, '2026-05-10 08:00:00', 7000, ['branch_id' => $marina]);
     todayOrder($this, '2026-05-10 11:00:00', 1000, ['branch_id' => $marina, 'status' => OrderStatus::Confirmed]);
+    // Branchless and late: the first branch's till, and late there, never nowhere.
+    todayOrder($this, '2026-05-10 10:00:00', 2000, ['branch_id' => null, 'status' => OrderStatus::Confirmed]);
 
     $main = $this->getJson(TODAY_URL.'?branch_id='.$this->mainId, $this->world->headers)->assertOk();
 
-    expect($main->json('data.sales'))->toBe([['currency_code' => 'USD', 'amount_minor' => 3000]])
-        ->and($main->json('data.orders'))->toBe(1)
-        ->and($main->json('data.past_due'))->toBe(0)
+    expect($main->json('data.sales'))->toBe([['currency_code' => 'USD', 'amount_minor' => 5000]])
+        ->and($main->json('data.orders'))->toBe(2)
+        ->and($main->json('data.past_due'))->toBe(1)
+        ->and($main->json('data.overdue'))->toBe(1)
         ->and($main->json('meta.branch_id'))->toBe($this->mainId);
 
     $atMarina = $this->getJson(TODAY_URL.'?branch_id='.$marina, $this->world->headers)->assertOk();
 
     expect($atMarina->json('data.sales'))->toBe([['currency_code' => 'USD', 'amount_minor' => 8000]])
         ->and($atMarina->json('data.orders'))->toBe(2)
-        ->and($atMarina->json('data.past_due'))->toBe(1);
+        ->and($atMarina->json('data.past_due'))->toBe(1)
+        ->and($atMarina->json('data.overdue'))->toBe(1);
 
     $this->getJson(TODAY_URL.'?branch_id='.Str::uuid(), $this->world->headers)
         ->assertUnprocessable();

@@ -5,28 +5,25 @@ import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
-import { Gate } from '../../access/gate.tsx';
+import { Can } from '../../access/gate.tsx';
 import { useOrderDeskTodayQuery } from '../../data/order-desk-hooks.ts';
 import { formatMoney } from '../marketplace/format.ts';
 import { CatalogueStatCards } from './catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from './catalogue/catalogue-stat-cards.tsx';
 import { ORDER_MANAGE_PERMISSION } from './entity-registry.ts';
 
-/** Held outside the render so the gate's memo keeps its identity. */
-const TODAY_REQUIREMENT = { allOf: [ORDER_MANAGE_PERMISSION] } as const;
-
 /**
  * The kitchen home's Today card (owner, 3 Nov): sales and orders, cash to collect, late orders and
- * cancellations, on the cash report's local day. Behind the cash report's own code, and silent for
- * anybody without it.
+ * cancellations, on the cash report's local day. Behind the cash report's own code: `Can`, not the
+ * route `Gate`, so somebody without it sees the rest of the home and no card.
  *
  * The frame is the home's Go to card; the figures are `CatalogueStatCards`. Polls every minute.
  */
 export function TodayCard({ branchId }: { readonly branchId: BranchId | null }) {
     return (
-        <Gate area="kitchen" requirement={TODAY_REQUIREMENT} fallback={<></>} pending={<></>}>
+        <Can permission={ORDER_MANAGE_PERMISSION}>
             <TodayFigures branchId={branchId} />
-        </Gate>
+        </Can>
     );
 }
 

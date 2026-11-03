@@ -69,7 +69,7 @@
             "sales": "Sales",
             "orders": "Orders: {{value}}",
             "cash": "Cash to collect",
-            "counted": "Counted today: {{amount}}",
+            "counted": "Last till count today: {{amount}}",
             "late": "Late orders",
             "pastDue": "Past due: {{value}}",
             "openPastDue": "Late orders, open the past-due orders on the desk",

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Orders\OrderDesk\Services;
 
 use Carbon\CarbonImmutable;
+use Closure;
 use DateTimeZone;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Delivery\Models\DeliveryJob;
@@ -202,19 +203,26 @@ final class OrderDeskQueue
             'truncated' => $truncated,
             'today' => $today,
             'timezone' => $timezone,
-            ...$this->dueCounts($organisationId, $branchId, $now),
+            ...$this->dueCounts($organisationId, $now, fn (Builder $query) => $this->applyBranch($query, $branchId)),
         ];
     }
 
     /**
-     * The queue's past-due and overdue counts without the queue, for a caller
-     * that needs only the counts.
+     * The queue's past-due and overdue counts without the queue, narrowed to a
+     * till rather than to `orders.branch_id`: the order's branch, else its zone's,
+     * else the first branch, as {@see TillBranches} resolves it. A branchless
+     * order is then late in exactly one till, the one whose money it is. No
+     * till counts the whole kitchen.
      *
      * @return array{past_due_count: int, overdue_count: int}
      */
-    public function dueCountsFor(string $organisationId, ?string $branchId, CarbonImmutable $now): array
+    public function dueCountsFor(string $organisationId, ?string $tillBranchId, ?string $firstBranchId, CarbonImmutable $now): array
     {
-        return $this->dueCounts($organisationId, $branchId, $now);
+        return $this->dueCounts($organisationId, $now, static function (Builder $query) use ($tillBranchId, $firstBranchId): void {
+            if ($tillBranchId !== null) {
+                $query->whereRaw(TillBranches::ofOrder().' is not distinct from cast(? as uuid)', [$firstBranchId, $tillBranchId]);
+            }
+        });
     }
 
     /**
@@ -224,9 +232,10 @@ final class OrderDeskQueue
      * passing it. Instants travel as offset strings, not as Carbon bindings, which
      * would be written without a zone and read in the session's.
      *
+     * @param  Closure(Builder<Order>): void  $narrow  how the counts narrow to a branch or a till
      * @return array{past_due_count: int, overdue_count: int}
      */
-    private function dueCounts(string $organisationId, ?string $branchId, CarbonImmutable $now): array
+    private function dueCounts(string $organisationId, CarbonImmutable $now, Closure $narrow): array
     {
         $query = $this->base($organisationId, self::openStatuses())
             ->reorder()
@@ -237,7 +246,7 @@ final class OrderDeskQueue
                 [$now->toIso8601String(), $now->subMinutes(self::OVERDUE_GRACE_MINUTES)->toIso8601String()],
             );
 
-        $this->applyBranch($query, $branchId);
+        $narrow($query);
 
         $counts = $query->toBase()->first();
 

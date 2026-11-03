@@ -29,12 +29,16 @@ use Illuminate\Validation\ValidationException;
  * - **Day:** the local day, chosen as the cash report chooses it ({@see LocalDay}).
  *   Its bounds are converted to UTC before binding.
  * - **Branch:** a till, as `TillBranches` resolves it, so the card and the cash
- *   report agree. Late and past due use the desk queue's own branch filter.
+ *   report agree. Late and past due narrow to the same till, so a branchless
+ *   late order is late in exactly one branch.
  * - **Sales:** orders placed today and not cancelled, per currency.
  * - **Cash:** `cash_expected` is what each open till should hold now, from
  *   {@see DailyCloses::open()}: the float plus counter cash and hand-ins, less
  *   cash refunds, as the close screen pre-fills it. `cash_counted` is each till's
- *   last count today, as {@see DailyCloses::totals()} reads it.
+ *   last count today, as {@see DailyCloses::totals()} reads it. Both cash
+ *   figures run on the organisation's clock, the one `DailyCloses` keeps; the
+ *   rest of the card uses the branch's day when a branch is named. They differ
+ *   only for a branch in another timezone from the kitchen.
  * - **Cancellations:** cancelled today, by disposition. No disposition is `other`.
  *
  * Money stays per currency: no figure adds two.
@@ -101,7 +105,7 @@ final class OrderDeskTodayController
             ->selectRaw('count(*) as order_count')
             ->pluck('order_count', 'cancellation_disposition');
 
-        $due = $this->queue->dueCountsFor($organisationId, $branchId, $now);
+        $due = $this->queue->dueCountsFor($organisationId, $branchId, $first, $now);
 
         return ApiResponse::data([
             'day' => $start->toDateString(),

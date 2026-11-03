@@ -17957,9 +17957,9 @@ paths:
 
         The day is the local day the cash report reads: the branch's timezone
         with `branch_id`, else the organisation's. `branch_id` names a till, as
-        it does on the cash report; `overdue` and `past_due` narrow as the desk
-        queue does, by the order's own branch. Money is per currency, and no
-        figure adds two.
+        it does on the cash report, and every figure narrows to that till: the
+        order's branch, else its zone's, else the first branch. Money is per
+        currency, and no figure adds two.
 
         Requires `order.manage_organisation`, the cash report's code.
       parameters:
