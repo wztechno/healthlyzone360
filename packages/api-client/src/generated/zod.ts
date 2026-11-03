@@ -6393,7 +6393,9 @@ export const zStaffNotificationType = z.enum([
     'price_approval',
     'dish_below_target',
     'delivery_moved_closed',
-    'delivery_closed_unmoved'
+    'delivery_closed_unmoved',
+    'batch_stuck',
+    'customer_cancelled'
 ]);
 
 export const zStaffNotification = z.object({

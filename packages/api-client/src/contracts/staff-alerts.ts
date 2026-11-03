@@ -27,6 +27,8 @@ export const STAFF_ALERT_TYPES = [
     'dish_below_target',
     'delivery_moved_closed',
     'delivery_closed_unmoved',
+    'batch_stuck',
+    'customer_cancelled',
 ] as const;
 export type StaffAlertType = (typeof STAFF_ALERT_TYPES)[number];
 

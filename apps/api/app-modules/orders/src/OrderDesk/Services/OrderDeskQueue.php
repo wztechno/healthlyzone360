@@ -112,9 +112,10 @@ final class OrderDeskQueue
      * drifted would produce a list ordered by a value it does not show.
      *
      * It interpolates nothing. Every caller-supplied value in this class
-     * travels as a binding.
+     * travels as a binding. Public so a caller that joins the same `dw`
+     * (delivery window) and `b` (branch) aliases sorts on the same instant.
      */
-    private const string DUE_AT = "COALESCE(
+    public const string DUE_AT = "COALESCE(
         ((orders.requested_delivery_date + COALESCE(dw.starts_at, TIME '23:59:59'))::timestamp AT TIME ZONE COALESCE(b.timezone, 'UTC')),
         orders.placed_at
     )";
@@ -203,6 +204,17 @@ final class OrderDeskQueue
             'timezone' => $timezone,
             ...$this->dueCounts($organisationId, $branchId, $now),
         ];
+    }
+
+    /**
+     * The queue's past-due and overdue counts without the queue, for a caller
+     * that needs only the counts.
+     *
+     * @return array{past_due_count: int, overdue_count: int}
+     */
+    public function dueCountsFor(string $organisationId, ?string $branchId, CarbonImmutable $now): array
+    {
+        return $this->dueCounts($organisationId, $branchId, $now);
     }
 
     /**

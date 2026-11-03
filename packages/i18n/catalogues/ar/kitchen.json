@@ -5923,7 +5923,9 @@
             "price_approval": "توريدة من {{number}} تحتاج إلى الموافقة على سعرها",
             "dish_below_target": "هبط {{number}} دون هامش الربح المستهدف",
             "delivery_moved_closed": "نُقل الطلب {{number}} من يوم إغلاق",
-            "delivery_closed_unmoved": "توصيل في {{number}} يقع في يوم إغلاق"
+            "delivery_closed_unmoved": "توصيل في {{number}} يقع في يوم إغلاق",
+            "batch_stuck": "الدفعة {{number}} في الإنتاج منذ يومين",
+            "customer_cancelled": "ألغى العميل الطلب {{number}}"
         }
     },
     "dishOptions": {

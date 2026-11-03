@@ -45603,6 +45603,8 @@ components:
         - dish_below_target
         - delivery_moved_closed
         - delivery_closed_unmoved
+        - batch_stuck
+        - customer_cancelled
     StaffNotification:
       type: object
       required:
