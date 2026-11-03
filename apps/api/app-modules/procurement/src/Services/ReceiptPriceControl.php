@@ -29,7 +29,8 @@ use Illuminate\Database\Eloquent\Collection;
  * into the line's unit first (mass and volume only, {@see UnitConversionService});
  * anything else leaves the variance null: there is no exchange rate here, and a
  * price per box against a price per kilo would be a number nobody asked for. A
- * first purchase has nothing to compare.
+ * first purchase has nothing to compare. A rise too large to store is stored as the
+ * largest the column holds, so it still waits for approval.
  *
  * **Only rises wait.** A price that fell needs nobody's approval. A receipt already
  * approved goes back to pending if a line priced later is over the limit.
@@ -98,23 +99,24 @@ final readonly class ReceiptPriceControl
                 $units,
             );
 
-            if ($lastPrice === null || bccomp($lastPrice, '0', 6) <= 0) {
+            if ($lastPrice === null) {
                 continue;
             }
 
             /** @var numeric-string $price */
             $price = (string) $line->unit_price_amount;
-            $variance = bcmul(
-                bcdiv(bcsub($price, $lastPrice, 6), $lastPrice, 8),
-                '100',
-                self::PERCENT_SCALE,
-            );
 
-            // ponytail: past the decimal(10,2) column (a price per mg against one per kg)
-            // the figure is a unit slip, not a price; leave it uncompared rather than fail
-            // the receipt's save. Widen the column if a real comparison ever needs it.
-            if (bccomp(ltrim($variance, '-'), self::MAX_PERCENT, self::PERCENT_SCALE) > 0) {
-                continue;
+            // A rise past the decimal(10,2) column, or a last price that rounds to nothing
+            // in this line's unit (0.40/kg compared per mg), is almost always a unit slip:
+            // the line most likely to put a wrong payable on the books. It is stored as the
+            // largest rise the column holds, so the limit below holds the payment for a
+            // person. A fall is never past it: the most a price can fall is 100%.
+            $variance = bccomp($lastPrice, '0', 6) <= 0
+                ? self::MAX_PERCENT
+                : bcmul(bcdiv(bcsub($price, $lastPrice, 6), $lastPrice, 8), '100', self::PERCENT_SCALE);
+
+            if (bccomp($variance, self::MAX_PERCENT, self::PERCENT_SCALE) > 0) {
+                $variance = self::MAX_PERCENT;
             }
 
             $line->last_unit_price_amount = $lastPrice;

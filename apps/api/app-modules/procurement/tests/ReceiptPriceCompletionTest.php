@@ -10,6 +10,7 @@ use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Models\StockMovement;
 use Healthy360\Inventory\Services\InventoryService;
+use Healthy360\Kitchens\Services\KitchenServiceSettingsLookup;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
@@ -407,13 +408,16 @@ it('compares a price per gram with the last price per kilo, and serves it on the
         ->assertJsonPath('data.purchases.1.price_variance_percent', null);
 });
 
-it('leaves a variance too large for its column empty and still posts the receipt', function (): void {
+it('holds a rise too large for its column, or against a last price that rounds to nothing, for approval and still posts the receipt', function (string $lastPerKilo, string $lastPerMilligram): void {
     $world = completionWorld('variance-overflow@kitchen.test');
+    $settings = app(KitchenServiceSettingsLookup::class)->for($world->organisationId);
+    $settings->price_approval_above_percent = 10;
+    $settings->save();
 
-    // The last delivery: 2.00 USD per kilo, so 0.000002 a milligram.
+    // The last delivery, priced per kilo.
     completePrices($world, [[
         'goods_receipt_line_id' => completionLineId($world),
-        'unit_price_amount' => '2.00',
+        'unit_price_amount' => $lastPerKilo,
         'cost_currency_code' => 'USD',
     ]]);
 
@@ -421,7 +425,8 @@ it('leaves a variance too large for its column empty and still posts the receipt
 
     app(TenantContext::class)->setOrganisation((string) $world->tenant->user->getKey(), $world->organisationId);
 
-    // 5.00 a milligram against that is about 250,000,000% up: past decimal(10,2).
+    // 5.00 a milligram against that is past decimal(10,2), or has nothing to divide by:
+    // a unit slip, held as the largest rise the column stores.
     $receipt = app(GoodsReceiptService::class)->post(
         $world->organisationId,
         (string) $world->branch->getKey(),
@@ -441,9 +446,14 @@ it('leaves a variance too large for its column empty and still posts the receipt
 
     $line = $receipt->lines()->sole();
 
-    expect($line->price_variance_percent)->toBeNull()
-        ->and($line->last_unit_price_amount)->toBeNull();
-});
+    expect($line->price_variance_percent)->toBe('99999999.99')
+        ->and($line->last_unit_price_amount)->toBe($lastPerMilligram)
+        ->and($receipt->fresh()->price_approval_status)->toBe('pending')
+        ->and(StockMovement::withoutTenancy()->where('reference_id', $receipt->getKey())->exists())->toBeTrue();
+})->with([
+    'overflowing rise' => ['2.00', '0.000002'],
+    'last price rounds to zero' => ['0.40', '0.000000'],
+]);
 
 it('leaves the variance empty between units that do not convert', function (): void {
     $world = completionWorld('variance-count@kitchen.test');
