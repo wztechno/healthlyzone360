@@ -8466,6 +8466,7 @@ export const zDriverJob = z.object({
     picked_up_at: z.iso.datetime({ offset: true }).nullable(),
     ready_at: z.iso.datetime({ offset: true }).nullable(),
     allergy_allergen_codes: z.array(z.string()),
+    allergy_note: z.string().nullable(),
     amount_due_minor: z.int().gte(0),
     currency_code: z.string().nullable(),
     payment_method: z.string().nullable(),
@@ -8501,7 +8502,6 @@ export const zFailDeliveryRequest = z.object({
     note: z.string().max(1000).nullish()
 });
 
-    allergy_note: z.string().nullable(),
 export const zRedeliverOrderRequest = z.object({
     date: z.iso.date().nullish(),
     window: z.string().max(64).nullish()

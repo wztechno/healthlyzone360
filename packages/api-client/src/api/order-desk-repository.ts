@@ -566,8 +566,8 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                         group_ar: option.kind === 'choice' ? option.groupAr : null,
                         name_en: option.nameEn,
                         name_ar: option.nameAr,
-                    })),
                         recipe_id: option.kind === 'choice' ? option.recipeId : null,
+                    })),
                 },
             });
             return payload.options.map(mapKitchenDishOption);

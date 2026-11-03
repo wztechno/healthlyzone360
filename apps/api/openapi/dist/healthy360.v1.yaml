@@ -36285,12 +36285,6 @@ components:
         name_ar:
           type: string
       additionalProperties: false
-    DishPortion:
-      type: object
-      required:
-        - catalogue_item_variant_id
-        - name_en
-        - name_ar
     KitchenDishOption:
       type: object
       required:
@@ -36339,6 +36333,12 @@ components:
           items:
             $ref: '#/components/schemas/OrderLineAllergen'
       additionalProperties: false
+    DishPortion:
+      type: object
+      required:
+        - catalogue_item_variant_id
+        - name_en
+        - name_ar
         - unit_price_minor
         - currency_code
       description: A pack the customer can pick, at its price on the channel asked about.
@@ -36395,18 +36395,18 @@ components:
               name_ar:
                 type: string
                 maxLength: 120
-            additionalProperties: false
-      additionalProperties: false
-    MarketplaceMeal:
-      type: object
-      required:
-        - id
               recipe_id:
                 type:
                   - string
                   - 'null'
                 format: uuid
                 description: Required on a `choice`, a recipe of this kitchen's; null on a removal.
+            additionalProperties: false
+      additionalProperties: false
+    MarketplaceMeal:
+      type: object
+      required:
+        - id
         - kitchen_id
         - kitchen_name
         - item_type
@@ -38070,6 +38070,9 @@ components:
             `below_zone_minimum`, `kitchen_paused`, `window_full`, plus the
             line-probe vocabulary. Deduplicated — three lines refused for the
             same reason read as one fact, not three repeats of it.
+            `stock_short` alone is not a refusal: a line needs more than the
+            free stock, and stock on quality hold never counts as free. The
+            order still places.
         offered_window_codes:
           type:
             - array
@@ -38130,9 +38133,6 @@ components:
           properties:
             conflicts:
               type: array
-            `stock_short` alone is not a refusal: a line needs more than the
-            free stock, and stock on quality hold never counts as free. The
-            order still places.
               items:
                 $ref: '#/components/schemas/AllergenConflict'
         meta:
@@ -45589,6 +45589,8 @@ components:
         - short_close
         - price_approval
         - dish_below_target
+        - delivery_moved_closed
+        - delivery_closed_unmoved
     StaffNotification:
       type: object
       required:
@@ -45649,8 +45651,6 @@ components:
         - order_lead_minutes
         - alarm_after_minutes
         - manager_alert_after_minutes
-        - delivery_moved_closed
-        - delivery_closed_unmoved
         - owner_alert_after_minutes
         - refund_approval_above_minor
       properties:
@@ -50994,6 +50994,7 @@ components:
         - picked_up_at
         - ready_at
         - allergy_allergen_codes
+        - allergy_note
         - amount_due_minor
         - currency_code
         - payment_method
@@ -51122,7 +51123,6 @@ components:
       required:
         - name
       properties:
-        - allergy_note
         name:
           type: string
           maxLength: 120

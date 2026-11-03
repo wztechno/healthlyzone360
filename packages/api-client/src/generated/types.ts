@@ -5421,6 +5421,9 @@ export type CheckoutPreview = {
      * `below_zone_minimum`, `kitchen_paused`, `window_full`, plus the
      * line-probe vocabulary. Deduplicated — three lines refused for the
      * same reason read as one fact, not three repeats of it.
+     * `stock_short` alone is not a refusal: a line needs more than the
+     * free stock, and stock on quality hold never counts as free. The
+     * order still places.
      *
      */
     warnings: Array<string>;
@@ -5443,9 +5446,6 @@ export type CheckoutPreview = {
 };
 
 export type AllergenConflict = {
-     * `stock_short` alone is not a refusal: a line needs more than the
-     * free stock, and stock on quality hold never counts as free. The
-     * order still places.
     catalogue_item_id: Uuid;
     /**
      * `allergen_declared` — a declared allergen is on the meal's label.
@@ -12788,6 +12788,13 @@ export type DriverJob = {
      */
     allergy_allergen_codes: Array<string>;
     /**
+     * The order's free allergy note, as the desk wrote it — the only allergy
+     * record a walk-in order has. Shown to the driver beside the codes
+     * (owner, 3 Nov 2026).
+     *
+     */
+    allergy_note: string | null;
+    /**
      * The order's total less its receipts, never below zero.
      */
     amount_due_minor: number;
@@ -12843,13 +12850,6 @@ export type AssignDeliveryJobRequest = {
      * own route and its own audit action rather than arriving as an omitted
      * key.
      *
-    /**
-     * The order's free allergy note, as the desk wrote it — the only allergy
-     * record a walk-in order has. Shown to the driver beside the codes
-     * (owner, 3 Nov 2026).
-     *
-     */
-    allergy_note: string | null;
      */
     driver_user_id: Uuid;
 };
@@ -23500,7 +23500,7 @@ export type ListDishOptionsResponses = {
      */
     200: {
         data: {
-            options: Array<DishOption>;
+            options: Array<KitchenDishOption>;
         };
     };
 };
@@ -23614,7 +23614,7 @@ export type GetOrderDeskDishChoicesResponses = {
      */
     200: {
         data: {
-            options: Array<KitchenDishOption>;
+            options: Array<DishOption>;
             portions: Array<DishPortion>;
         };
     };
