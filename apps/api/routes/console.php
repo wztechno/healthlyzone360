@@ -16,6 +16,7 @@ use Healthy360\Inventory\Jobs\AlertExpiringStock;
 use Healthy360\Inventory\Jobs\RetryOpenConsumptionExceptions;
 use Healthy360\Orders\Jobs\EscalateUnacceptedOrders;
 use Healthy360\Procurement\Jobs\PublishWeeklyIngredientPrices;
+use Healthy360\Production\Jobs\AlertStuckBatches;
 use Healthy360\Subscriptions\Jobs\GenerateSubscriptionDeliveries;
 use Healthy360\Support\Http\Middleware\EnforceIdempotency;
 use Healthy360\Verification\Jobs\PurgeExpiredOtpChallenges;
@@ -399,5 +400,16 @@ Schedule::job(new AlertExpiringStock)
     ->dailyAt('05:00')
     ->timezone('UTC')
     ->name('inventory:alert-expiring-stock')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+/*
+| Daily at 05:00 UTC: a batch still in production two days after it started.
+| Once per batch.
+*/
+Schedule::job(new AlertStuckBatches)
+    ->dailyAt('05:00')
+    ->timezone('UTC')
+    ->name('production:alert-stuck-batches')
     ->withoutOverlapping()
     ->onOneServer();

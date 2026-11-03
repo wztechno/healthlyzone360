@@ -8247,19 +8247,19 @@ export type ProductionOrder = {
     reference: string | null;
     /**
      * The lot — the number on the label and inside the barcode. `YYMMDD` (the
-     * production date), a three-digit sequence for that organisation and day,
-     * and a GS1 mod-10 check digit: `2609250077` is shown `260925-007-7`.
-     * Minted once, when the settlement puts usable units on a shelf, and never
-     * changed. Null on a batch that has not finished or made nothing usable.
+     * branch's day the batch started), a three-digit sequence for that
+     * organisation and day, and a GS1 mod-10 check digit: `2609250077` is
+     * shown `260925-007-7`. Minted once, at start, and never changed — an
+     * abandoned batch keeps it. Null before start.
      *
      */
     lot_number: string | null;
     /**
      * The GS1-128 element string in its human-readable form,
-     * `(11)YYMMDD(17)YYMMDD(10)<lot>` — production date, expiry date, lot.
-     * `(17)` is left out when the batch has no expiry date. Derived from
-     * `production_date`, `expiry_date` and `lot_number`, none of which change
-     * after completion, so it is never stored. Null without a lot.
+     * `(11)YYMMDD(17)YYMMDD(10)<lot>` — the lot's day, expiry date, lot.
+     * Derived from `expiry_date` and `lot_number`, neither of which changes
+     * after completion, so it is never stored. Null until the batch has both
+     * a lot and a use-by date: the label prints only once it can carry one.
      *
      */
     barcode: string | null;
@@ -8734,10 +8734,13 @@ export type CompleteProductionOrderRequest = {
     production_date?: string | null;
     storage_location?: string | null;
     /**
-     * Only for a recipe **without** a shelf life. When the recipe has one the
-     * server computes the use-by date itself (production date plus
-     * `shelf_life_days`), and a supplied one is `422` rather than silently
-     * overruled. Never before `production_date`.
+     * Only for a recipe **without** a shelf life, and then **required**
+     * whenever usable units reach a shelf (produced minus rejected above
+     * zero): omitted, it is `422 validation.failed` with `parameter:
+     * expiry_date`. When the recipe has a shelf life the server computes the
+     * use-by date itself (production date plus `shelf_life_days`), and a
+     * supplied one is `422` rather than silently overruled. Never before
+     * `production_date`.
      *
      */
     expiry_date?: string | null;

@@ -66,9 +66,12 @@ final class ProductionOrderPresenter
             'id' => (string) $order->getKey(),
             'reference' => $order->reference,
             'lot_number' => $order->lot_number,
-            // Derived, never stored: all three inputs are fixed once a lot exists,
-            // and a stored copy could only ever disagree with them (D-146).
-            'barcode' => $order->lot_number === null ? null : ProductionOrderNumbers::barcode($order->lot_number, $order->expiry_date),
+            // Derived, never stored: a stored copy could only ever disagree with
+            // its inputs (D-146). Null until a use-by exists, because the label
+            // carries it and a lot is minted at start, long before one does.
+            'barcode' => $order->lot_number === null || $order->expiry_date === null
+                ? null
+                : ProductionOrderNumbers::barcode($order->lot_number, $order->expiry_date),
             'branch_id' => (string) $order->branch_id,
             'branch_name' => $order->branch?->name,
             'recipe_version_id' => (string) $order->recipe_version_id,

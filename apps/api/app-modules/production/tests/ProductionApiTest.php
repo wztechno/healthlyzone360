@@ -156,8 +156,11 @@ function apiIngredientShelf(object $test, object $tenant, OrganisationBranch $br
  * @param  array<string, mixed>  $report
  * @return array<string, mixed>
  */
-function apiFinishedBatch(object $test, object $world, array $report = ['produced_quantity' => 38]): array
+function apiFinishedBatch(object $test, object $world, array $report = []): array
 {
+    // The world's recipe has no shelf life, so a batch with food on a shelf needs a use-by.
+    $report = $report === [] ? ['produced_quantity' => 38, 'expiry_date' => CarbonImmutable::now()->addDays(5)->toDateString()] : $report;
+
     $orderId = $test->postJson('/api/v1/catalogue/production/orders', [
         'branch_id' => (string) $world->branch->getKey(),
         'recipe_version_id' => (string) $world->version->getKey(),
@@ -362,8 +365,9 @@ it('walks a batch from draft to completed over the wire', function (): void {
         // the cook's to type.
         ->and($completed->json('data.production_order.recipe_shelf_life_days'))->toBeNull();
 
-    // Before completion there is no lot, so there is nothing to encode.
-    expect($started->json('data.production_order.lot_number'))->toBeNull()
+    // The lot is given at start and kept; with no use-by yet there is no
+    // barcode, because the label carries one.
+    expect($started->json('data.production_order.lot_number'))->toBe($lot)
         ->and($started->json('data.production_order.barcode'))->toBeNull();
 });
 

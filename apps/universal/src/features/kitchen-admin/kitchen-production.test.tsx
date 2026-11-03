@@ -552,14 +552,14 @@ describe('one batch', () => {
         );
     });
 
-    it('offers no label for a batch that has no lot yet', async () => {
+    it('shows the lot from start, and offers no label until a use-by exists', async () => {
         await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
             session: kitchenManagerSession(),
             repositories: {
                 kitchenOps: {
                     getProductionOrder: async () =>
                         detail({
-                            order: batch({ status: 'in_production' }),
+                            order: batch({ status: 'in_production', lotNumber: '2609250077' }),
                             lines: [line()],
                             plan: null,
                         }),
@@ -568,8 +568,11 @@ describe('one batch', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-production-batch-lot')).toHaveTextContent('—');
+            expect(screen.getByTestId('kitchen-production-batch-lot')).toHaveTextContent(
+                '260925-007-7',
+            );
         });
+        // The barcode carries the use-by date, so the server sends none yet.
         expect(screen.queryByTestId('kitchen-production-batch-label')).toBeNull();
     });
 
@@ -852,7 +855,31 @@ describe('the batch label', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-production-label-nothing')).toBeTruthy();
+            expect(screen.getByTestId('kitchen-production-label-nothing')).toHaveTextContent(
+                /gets its lot when it starts/,
+            );
+        });
+        expect(screen.queryByTestId('kitchen-production-label-sheets')).toBeNull();
+    });
+
+    it('says the use-by is what is missing when the batch has a lot', async () => {
+        await renderStubScreen(<ProductionBatchLabelScreen order={BATCH_ID} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    getProductionOrder: async () =>
+                        detail({
+                            order: batch({ status: 'in_production', lotNumber: '2609250077' }),
+                            plan: null,
+                        }),
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-production-label-nothing')).toHaveTextContent(
+                /carries the use-by date/,
+            );
         });
         expect(screen.queryByTestId('kitchen-production-label-sheets')).toBeNull();
     });
