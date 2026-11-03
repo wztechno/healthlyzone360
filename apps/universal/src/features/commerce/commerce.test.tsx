@@ -1928,7 +1928,9 @@ describe('CartScreen', () => {
         await fireEvent.changeText(screen.getByTestId('cart-promo-input'), 'SUMMER');
         await fireEvent.press(screen.getByTestId('cart-promo-apply'));
 
-        expect(await screen.findByTestId('prototype-notice')).toHaveTextContent(/not available yet/);
+        expect(await screen.findByTestId('prototype-notice')).toHaveTextContent(
+            /not available yet/,
+        );
         expect(screen.getByTestId('cart-price-total-amount')).toHaveTextContent('AED 45.00');
     });
 

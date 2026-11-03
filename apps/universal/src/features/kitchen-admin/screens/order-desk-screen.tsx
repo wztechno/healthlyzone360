@@ -1801,16 +1801,28 @@ function OrderDeskQueueList() {
                                                                                   }
                                                                               </Text>
                                                                           )}
-                                                                          {dishOptionsLine(line.options, 'en', t) === null ? null : (
+                                                                          {dishOptionsLine(
+                                                                              line.options,
+                                                                              'en',
+                                                                              t,
+                                                                          ) === null ? null : (
                                                                               <Text variant="caption">
-                                                                                  {dishOptionsLine(line.options, 'en', t)}
+                                                                                  {dishOptionsLine(
+                                                                                      line.options,
+                                                                                      'en',
+                                                                                      t,
+                                                                                  )}
                                                                               </Text>
                                                                           )}
-                                                                          {line.note == null ? null : (
+                                                                          {line.note ==
+                                                                          null ? null : (
                                                                               <Text variant="caption">
-                                                                                  {t('kitchen:dishOptions.lineNote', {
-                                                                                      note: line.note,
-                                                                                  })}
+                                                                                  {t(
+                                                                                      'kitchen:dishOptions.lineNote',
+                                                                                      {
+                                                                                          note: line.note,
+                                                                                      },
+                                                                                  )}
                                                                               </Text>
                                                                           )}
                                                                           {isPlanDayLine(

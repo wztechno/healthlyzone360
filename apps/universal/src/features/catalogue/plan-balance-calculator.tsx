@@ -10,12 +10,7 @@ import { Text as RNText, ScrollView, View } from 'react-native';
 import { Eyebrow } from '../../ui/eyebrow.tsx';
 import { PillChip } from '../../ui/pill-chip.tsx';
 import { formatMoney } from '../marketplace/format.ts';
-import {
-    balanceDaysFor,
-    effectiveDayPrice,
-    nextMonday,
-    simulateBalance,
-} from './plan-balance.ts';
+import { balanceDaysFor, effectiveDayPrice, nextMonday, simulateBalance } from './plan-balance.ts';
 import type { BalanceCell, BalanceCellKind } from './plan-balance.ts';
 import { cheapestVariant } from './plan-catalogue.ts';
 import { InfoNote } from './plan-controls.tsx';

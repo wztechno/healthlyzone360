@@ -91,7 +91,9 @@ export function DishChoiceFields({
                     testID={`${testID}-portion`}
                     label={t('catalogue:dishOptions.portion')}
                     size={size}
-                    value={value.catalogueItemVariantId ?? portions[0]?.catalogueItemVariantId ?? null}
+                    value={
+                        value.catalogueItemVariantId ?? portions[0]?.catalogueItemVariantId ?? null
+                    }
                     options={portions.map((portion) => ({
                         value: portion.catalogueItemVariantId,
                         label: t('catalogue:dishOptions.portionPrice', {

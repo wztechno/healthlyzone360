@@ -115,7 +115,9 @@ function TemperatureLogs() {
             width: 100,
             priority: 90,
             value: (row) => t(`kitchen:temperature.slot.${row.slot}`),
-            render: (row) => <Text tone="secondary">{t(`kitchen:temperature.slot.${row.slot}`)}</Text>,
+            render: (row) => (
+                <Text tone="secondary">{t(`kitchen:temperature.slot.${row.slot}`)}</Text>
+            ),
         },
         {
             key: 'unit',
@@ -142,7 +144,11 @@ function TemperatureLogs() {
             width: 130,
             priority: 90,
             value: (row) =>
-                t(row.outOfRange ? 'kitchen:temperature.outOfRange' : 'kitchen:temperature.inRange'),
+                t(
+                    row.outOfRange
+                        ? 'kitchen:temperature.outOfRange'
+                        : 'kitchen:temperature.inRange',
+                ),
             render: (row) => (
                 <Badge
                     tone={row.outOfRange ? 'danger' : 'success'}
@@ -195,7 +201,9 @@ function TemperatureLogs() {
             width: 220,
             priority: 95,
             value: (row) => [row.batchLabel, row.recipe].filter(Boolean).join(' · '),
-            render: (row) => <Text>{[row.batchLabel, row.recipe].filter(Boolean).join(' · ')}</Text>,
+            render: (row) => (
+                <Text>{[row.batchLabel, row.recipe].filter(Boolean).join(' · ')}</Text>
+            ),
         },
         {
             key: 'reading',
@@ -238,7 +246,9 @@ function TemperatureLogs() {
             width: 120,
             priority: 80,
             value: (row) => t(`kitchen:temperature.kind.${row.kind}`),
-            render: (row) => <Text tone="secondary">{t(`kitchen:temperature.kind.${row.kind}`)}</Text>,
+            render: (row) => (
+                <Text tone="secondary">{t(`kitchen:temperature.kind.${row.kind}`)}</Text>
+            ),
         },
         {
             key: 'range',
@@ -678,7 +688,9 @@ function UnitDialog({
             testID="kitchen-temperature-unit-dialog"
             open
             onClose={onClose}
-            title={t(unit === null ? 'kitchen:temperature.addUnit' : 'kitchen:temperature.editUnit')}
+            title={t(
+                unit === null ? 'kitchen:temperature.addUnit' : 'kitchen:temperature.editUnit',
+            )}
             actions={
                 <Button
                     testID="kitchen-temperature-unit-save"

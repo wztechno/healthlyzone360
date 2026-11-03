@@ -106,9 +106,7 @@ function Complaints({ view }: { readonly view: string | undefined }) {
     const scope = useMemo(
         () =>
             (complaints.data ?? NONE).filter((row) =>
-                `${row.orderNumber ?? ''} ${row.description ?? ''}`
-                    .toLowerCase()
-                    .includes(trimmed),
+                `${row.orderNumber ?? ''} ${row.description ?? ''}`.toLowerCase().includes(trimmed),
             ),
         [complaints.data, trimmed],
     );

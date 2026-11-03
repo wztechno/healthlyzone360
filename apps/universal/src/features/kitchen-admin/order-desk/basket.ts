@@ -256,12 +256,11 @@ export function setQuantity(
 export function changeLine(
     lines: readonly BasketLine[],
     key: string,
-    change: Pick<
-        BasketLine,
-        'catalogueItemVariantId' | 'variantLabel' | 'options' | 'note'
-    >,
+    change: Pick<BasketLine, 'catalogueItemVariantId' | 'variantLabel' | 'options' | 'note'>,
 ): readonly BasketLine[] {
-    const changed = lines.flatMap((line) => (lineKey(line) === key ? [{ ...line, ...change }] : []))[0];
+    const changed = lines.flatMap((line) =>
+        lineKey(line) === key ? [{ ...line, ...change }] : [],
+    )[0];
     if (changed === undefined) return lines;
 
     const twin = lines.find((line) => lineKey(line) === lineKey(changed) && lineKey(line) !== key);
