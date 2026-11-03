@@ -7,10 +7,7 @@ import {
     Stack,
     Text,
 } from '@healthy360/design-system';
-import type {
-    SubscriptionBalance,
-    SubscriptionQuote,
-} from '@healthy360/api-client/contracts';
+import type { SubscriptionBalance, SubscriptionQuote } from '@healthy360/api-client/contracts';
 import { useTranslation } from 'react-i18next';
 
 import { toFailure } from '../../data/commerce-hooks.ts';

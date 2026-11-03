@@ -2,14 +2,12 @@ import {
     Badge,
     Button,
     Callout,
-    Card,
     Cascade,
     Icon,
-    Inline,
+    InfoTip,
     RecordWindowFieldGrid,
     Stack,
     TagRow,
-    Text,
     useContentWidth,
 } from '@healthy360/design-system';
 import type { BadgeTone, IconName, RecordWindowField, TagRowItem } from '@healthy360/design-system';
@@ -19,29 +17,36 @@ import { View } from 'react-native';
 
 import { RECORD_RAIL_MIN, RECORD_SPLIT_MIN } from '../desk-layout.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
-import { CataloguePageHeader } from './catalogue-page-header.tsx';
+import { RecordCanopy } from './record-canopy.tsx';
+import type { RecordCanopyCaption, RecordCanopyTone } from './record-canopy.tsx';
+import { RecordTile } from './record-tiles.tsx';
 
 /**
- * The read-only record page behind every kitchen-admin row's View — `IngredientView.dc.html`.
+ * The read-only record page behind every kitchen-admin row's View — option C of the
+ * `Minimal view page` canvas: the record canopy over a column of tiles and a rail beside it.
  *
  * ```
  * Kitchen workspace › Ingredients › Tahini paste            <- the shell's trail, and the way back
- * Tahini paste  ING-0142 [ Live ]
- * ┌ Identification ─────────────────────┐  ┌ Record status ───────┐
- * │ REFERENCE        DESIGNATION        │  │ [ Live ]             │
- * │ …                                   │  │ Updated … by …       │
- * └─────────────────────────────────────┘  │ [ Edit ingredient  ] │
- * ┌ section ────────────────────────────┐  └──────────────────────┘
- * └─────────────────────────────────────┘  ┌ Allergens & diets ───┐
- *                                          └──────────────────────┘
+ * ┌ canopy ─────────────────────────────────────────────────────────────────────────────┐
+ * │ [‹ Back] Tahini paste ● Published                                        [✎ Edit]   │
+ * │          ING-0142 · Ingredient                                                       │
+ * │          Updated … by … · Version 7                                                  │
+ * └──────────────────────────────────────────────────────────────────────────────────────┘
+ * ┌ [≡] Details ─────────────────────────┐  ┌ [photo] ─────────────┐
+ * ┌ [◇] section ─────────────────────────┐  ┌ [◈] Allergens & diets┐
  *              2.1fr                                 1fr
  * ```
+ *
+ * The canopy took over the old header and the Record status card: the status, its caption lines
+ * and the one Edit are on the band now, so the rail holds only what a record adds — its picture,
+ * its chips, its own cards. `statusContent` — a fact the action depends on — is the rail's first
+ * tile, under the band that carries the action.
  *
  * ## It replaces the window, not the list's state
  *
  * Every View used to open a 640px `RecordWindow` over the list. The design draws the record as a
- * page instead: a wide column of cards, and a rail that states the record's status and carries its
- * one way into the editor. A caller renders this **in place of** its list while it holds a record,
+ * page instead: the canopy, a wide column of tiles, and a rail beside it. A caller renders this
+ * **in place of** its list while it holds a record,
  * so Back is a state change — the list's page, sort and filters are still in the hook above it —
  * rather than a navigation that would drop them.
  *
@@ -50,15 +55,15 @@ import { CataloguePageHeader } from './catalogue-page-header.tsx';
  * `onBack` is handed to the shell's trail (`useKitchenTrailLeaf`), which draws
  * `… › Ingredients › Tahini paste` with **Ingredients** as the link that closes the record — so the
  * trail means the same thing here as on a record that is a route of its own. Readers missed the
- * crumb, so the header's inline end carries a `‹ Back` button that does the same (`-back`). Edit
- * lives in the status card, beside the facts that decide whether to press it, and only there.
+ * crumb, so the canopy opens with a `‹ Back` button that does the same (`-back`). Edit is drawn
+ * once, at the canopy's inline end beside the status it depends on.
  *
  * ## One shape for every module
  *
  * The props are `RecordWindow`'s, so a screen moves across by swapping the element and turning
  * `onClose` into `onBack`. The test-id suffixes that suites already name — `-title`, `-kind`,
  * `-status`, `-note`, `-field-{key}`, `-chips`, `-body`, `-primary` — are kept; `-primary` (or the
- * action's own `testID`) now names the status card's Edit, the only one there is. What a module adds
+ * action's own `testID`) names the canopy's Edit, the only one there is. What a module adds
  * beyond the field grid goes into `sections` (main column) and `rail` (beside it); the ingredient
  * page is the reference for both.
  *
@@ -73,8 +78,11 @@ export interface RecordViewSection {
     readonly key: string;
     /** Translated. */
     readonly title: string;
+    /** Behind an (i) beside the title — no sentence is drawn on the page. */
     readonly subtitle?: string | undefined;
     readonly tone?: 'raised' | 'brand' | 'warning' | undefined;
+    /** The tile's glyph. `layers` when omitted. */
+    readonly icon?: IconName | undefined;
     readonly content: ReactNode;
 }
 
@@ -145,6 +153,12 @@ export interface RecordViewPageProps {
     readonly testID: string;
 }
 
+function canopyTone(tone: BadgeTone): RecordCanopyTone {
+    if (tone === 'success' || tone === 'brand') return 'success';
+    if (tone === 'warning' || tone === 'danger') return tone;
+    return 'neutral';
+}
+
 export function RecordViewPage({
     title,
     kind,
@@ -176,74 +190,51 @@ export function RecordViewPage({
 
     useKitchenTrailLeaf(title, onBack);
 
+    const separator = t('kitchen:recordView.metaSeparator');
     const hasChips =
         chipsLabel !== undefined && (chips !== undefined || chipsContent !== undefined);
-    const hasStatusCard =
-        status !== undefined ||
-        statusLines.length > 0 ||
-        footNote !== undefined ||
-        statusContent !== undefined ||
-        primaryAction !== undefined;
+    const hasRail =
+        media !== undefined || statusContent !== undefined || hasChips || rail.length > 0;
     const split = useContentWidth().atLeast(RECORD_SPLIT_MIN);
+    const detailsTitle = fieldsTitle ?? t('kitchen:recordView.details');
 
-    const statusCard = !hasStatusCard ? null : (
-        <Card
-            testID={`${testID}-record-status`}
-            tone="brand"
-            padding="md"
-            title={t('kitchen:recordView.statusTitle')}
-        >
-            <Stack space="sm">
-                {status === undefined ? null : (
-                    <View className="flex-row">
-                        <Badge tone={status.tone} label={status.label} />
-                    </View>
-                )}
-                {statusLines.map((line, index) => (
-                    <Text
-                        key={`${String(index)}-${line}`}
-                        testID={`${testID}-status-line-${String(index)}`}
-                        variant="caption"
-                        tone="secondary"
-                    >
-                        {line}
-                    </Text>
-                ))}
-                {footNote === undefined ? null : (
-                    <Text testID={`${testID}-foot-note`} variant="caption" tone="secondary">
-                        {footNote}
-                    </Text>
-                )}
-                {statusContent}
-                {primaryAction === undefined ? null : (
-                    <Button
-                        testID={primaryAction.testID ?? `${testID}-primary`}
-                        size="sm"
-                        block
-                        label={primaryAction.label}
-                        {...(primaryAction.icon === null
-                            ? {}
-                            : {
-                                  iconStart: <Icon name={primaryAction.icon ?? 'pen'} size="sm" />,
-                              })}
-                        loading={primaryAction.loading}
-                        disabled={primaryAction.disabled}
-                        onPress={primaryAction.onPress}
-                    />
-                )}
-            </Stack>
-        </Card>
-    );
+    const captions: RecordCanopyCaption[] = [
+        {
+            separator,
+            parts: [
+                ...(reference === undefined
+                    ? []
+                    : [{ text: reference, testID: `${testID}-reference` }]),
+                { text: kind, testID: `${testID}-kind` },
+            ],
+        },
+        ...(statusLines.length === 0
+            ? []
+            : [
+                  {
+                      separator,
+                      parts: statusLines.map((line, index) => ({
+                          text: line,
+                          testID: `${testID}-status-line-${String(index)}`,
+                      })),
+                  },
+              ]),
+        ...(footNote === undefined ? [] : [{ text: footNote, testID: `${testID}-foot-note` }]),
+    ];
 
     return (
         <Cascade space="md" testID={testID}>
-            <CataloguePageHeader
+            <RecordCanopy
                 testID={`${testID}-header`}
                 titleTestID={`${testID}-title`}
+                statusTestID={`${testID}-status`}
                 title={title}
-                // The trail's list crumb closes the record too, but a crumb is easy to miss: the
-                // header names the way back as a control of its own.
-                primaryAction={
+                {...(status === undefined
+                    ? {}
+                    : { status: { label: status.label, tone: canopyTone(status.tone) } })}
+                titleBadges={titleAside}
+                captions={captions}
+                back={
                     <Button
                         testID={`${testID}-back`}
                         variant="secondary"
@@ -253,24 +244,32 @@ export function RecordViewPage({
                         onPress={onBack}
                     />
                 }
-                titleAside={
-                    <Inline space="xs" align="center" wrap>
-                        <Badge tone="neutral" label={kind} testID={`${testID}-kind`} />
-                        {reference === undefined ? null : (
-                            <Text variant="mono" tone="secondary" testID={`${testID}-reference`}>
-                                {reference}
-                            </Text>
-                        )}
-                        {status === undefined ? null : (
-                            <Badge
-                                tone={status.tone}
-                                label={status.label}
-                                testID={`${testID}-status`}
-                            />
-                        )}
-                        {titleAside}
-                    </Inline>
-                }
+                {...(primaryAction === undefined
+                    ? {}
+                    : {
+                          actions: (
+                              <Button
+                                  testID={primaryAction.testID ?? `${testID}-primary`}
+                                  variant="secondary"
+                                  size="sm"
+                                  label={primaryAction.label}
+                                  {...(primaryAction.icon === null
+                                      ? {}
+                                      : {
+                                            iconStart: (
+                                                <Icon
+                                                    name={primaryAction.icon ?? 'pen'}
+                                                    size="sm"
+                                                />
+                                            ),
+                                        })}
+                                  loading={primaryAction.loading}
+                                  disabled={primaryAction.disabled}
+                                  onPress={primaryAction.onPress}
+                              />
+                          ),
+                      })}
+                noValue={t('kitchen:list.noValue')}
             />
 
             {note === undefined ? null : (
@@ -280,96 +279,101 @@ export function RecordViewPage({
             {/*
              * Two columns where the *page* has room for both, not where the window is wide: on a
              * laptop the window clears `xl` while the content column is ~920px. One column below
-             * that, with the status card — the record's state and its one action — opened ahead of
-             * the fields rather than left under all of them, past the fold of a 720p screen.
+             * that, the rail under the main column — the action lives on the canopy above both.
              */}
             <View
                 testID={`${testID}-body`}
-                className={split ? 'flex-row items-start gap-base' : 'flex-col gap-base'}
+                className={
+                    split ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
+                }
             >
-                {split ? null : statusCard}
                 <View
                     testID={`${testID}-main`}
-                    className={
-                        split ? 'min-w-0 flex-[21] flex-col gap-base' : 'min-w-0 flex-col gap-base'
-                    }
+                    className="z-auto min-w-0 flex-col gap-base"
+                    style={split ? { flex: hasRail ? 21 : 1 } : undefined}
                 >
-                    <Card
-                        tone="raised"
-                        padding="md"
-                        title={fieldsTitle ?? t('kitchen:recordView.details')}
-                        subtitle={fieldsSubtitle}
+                    <RecordTile
+                        testID={`${testID}-details`}
+                        icon="list"
+                        title={detailsTitle}
+                        trailing={
+                            fieldsSubtitle === undefined ? undefined : (
+                                <InfoTip label={detailsTitle} text={fieldsSubtitle} />
+                            )
+                        }
                     >
                         <RecordWindowFieldGrid fields={fields} testID={`${testID}-field`} />
-                    </Card>
+                    </RecordTile>
 
                     {sections.map((section) => (
-                        <SectionCard key={section.key} section={section} testID={testID} />
+                        <SectionTile key={section.key} section={section} testID={testID} />
                     ))}
 
                     {lines === undefined ? null : (
-                        <Card
-                            testID={`${testID}-lines`}
-                            tone="raised"
-                            padding="md"
-                            title={linesTitle}
-                        >
+                        <RecordTile testID={`${testID}-lines`} icon="layers" title={linesTitle}>
                             {lines}
-                        </Card>
+                        </RecordTile>
                     )}
                 </View>
 
-                <View
-                    testID={`${testID}-rail`}
-                    className={
-                        split ? 'min-w-0 flex-[10] flex-col gap-base' : 'min-w-0 flex-col gap-base'
-                    }
-                    style={split ? { minWidth: RECORD_RAIL_MIN } : undefined}
-                >
-                    {media}
+                {hasRail ? (
+                    <View
+                        testID={`${testID}-rail`}
+                        className="z-auto min-w-0 flex-col gap-base"
+                        style={split ? { flex: 10, minWidth: RECORD_RAIL_MIN } : undefined}
+                    >
+                        {media}
 
-                    {split ? statusCard : null}
+                        {statusContent === undefined ? null : (
+                            <RecordTile
+                                testID={`${testID}-record-status`}
+                                icon="infoCircle"
+                                title={t('kitchen:recordView.statusTitle')}
+                            >
+                                {statusContent}
+                            </RecordTile>
+                        )}
 
-                    {hasChips ? (
-                        <Card
-                            testID={`${testID}-chips`}
-                            tone="raised"
-                            padding="md"
-                            title={chipsLabel}
-                        >
-                            <Stack space="sm">
-                                {chipsSourceBadge === undefined ? null : (
-                                    <View className="flex-row">
+                        {hasChips ? (
+                            <RecordTile
+                                testID={`${testID}-chips`}
+                                icon="tag"
+                                title={chipsLabel}
+                                aside={
+                                    chipsSourceBadge === undefined ? undefined : (
                                         <Badge
                                             tone="neutral"
                                             label={chipsSourceBadge}
                                             testID={`${testID}-chips-source`}
                                         />
-                                    </View>
-                                )}
-                                {chipsContent ??
-                                    (chips === undefined || chips.length === 0 ? null : (
-                                        <TagRow items={chips} testID={`${testID}-chip-row`} />
-                                    ))}
-                                {chipsCaption === undefined ? null : (
-                                    <Text variant="caption" tone="secondary">
-                                        {chipsCaption}
-                                    </Text>
-                                )}
-                            </Stack>
-                        </Card>
-                    ) : null}
+                                    )
+                                }
+                                trailing={
+                                    chipsCaption === undefined ? undefined : (
+                                        <InfoTip label={chipsLabel} text={chipsCaption} />
+                                    )
+                                }
+                            >
+                                <Stack space="sm">
+                                    {chipsContent ??
+                                        (chips === undefined || chips.length === 0 ? null : (
+                                            <TagRow items={chips} testID={`${testID}-chip-row`} />
+                                        ))}
+                                </Stack>
+                            </RecordTile>
+                        ) : null}
 
-                    {rail.map((section) => (
-                        <SectionCard key={section.key} section={section} testID={testID} />
-                    ))}
-                </View>
+                        {rail.map((section) => (
+                            <SectionTile key={section.key} section={section} testID={testID} />
+                        ))}
+                    </View>
+                ) : null}
             </View>
         </Cascade>
     );
 }
 
-function SectionCard({
+function SectionTile({
     section,
     testID,
 }: {
@@ -377,14 +381,18 @@ function SectionCard({
     readonly testID: string;
 }) {
     return (
-        <Card
+        <RecordTile
             testID={`${testID}-section-${section.key}`}
-            tone={section.tone ?? 'raised'}
-            padding="md"
+            icon={section.icon ?? 'layers'}
             title={section.title}
-            subtitle={section.subtitle}
+            tone={section.tone ?? 'raised'}
+            trailing={
+                section.subtitle === undefined ? undefined : (
+                    <InfoTip label={section.title} text={section.subtitle} />
+                )
+            }
         >
             {section.content}
-        </Card>
+        </RecordTile>
     );
 }

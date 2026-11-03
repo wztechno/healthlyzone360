@@ -15,7 +15,6 @@ import {
 } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { KitchenBranchId } from '@healthy360/domain-types';
-import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
@@ -43,13 +42,11 @@ import {
     useSupplyNeedsCountQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useOrderDeskShortfallCountQuery } from '../../../data/order-desk-hooks.ts';
-import { useAccessState, useSession } from '../../../session/session-provider.tsx';
+import { useAccessState } from '../../../session/session-provider.tsx';
 import { operatingDraftsFrom, summariseOperating } from '../delivery-model.ts';
 import {
     CATALOGUE_VIEW_PERMISSION,
     ENTITY_GROUPS,
-    ORDER_CREATE_ON_BEHALF_PERMISSION,
-    RECIPE_MANAGE_PERMISSION,
     WORKSPACE_PERMISSIONS,
     permittedFamilies,
 } from '../entity-registry.ts';
@@ -61,16 +58,13 @@ import { buildReviewQueue } from '../review-queue.ts';
  *
  * Built from the "Option B — compact" board of the overview canvas, top to bottom:
  *
- * 1. **A greeting and the day's actions** — the person's name, the date and branch, and the three
- *    things a kitchen starts most often (a sale, a supply order, a recipe), each only for a role
- *    that may do it.
- * 2. **Five figures**, each its own small card of one size: a status dot, the label and the number
+ * 1. **Five figures**, each its own small card of one size: a status dot, the label and the number
  *    on one line at one size. Amber when it is waiting on someone; a zero is good news and stays
  *    plain.
- * 3. **Three panels of one size** — what needs attention (one line per check, its count and the
+ * 2. **Three panels of one size** — what needs attention (one line per check, its count and the
  *    verb that clears it), how much of the catalogue is on sale, and stock and buying — on the same
  *    grid as Go to, so their edges line up with the cards under them.
- * 4. **Go to** — every module as a small pill, grouped by the rail's sections, in cards of one
+ * 3. **Go to** — every module as a small pill, grouped by the rail's sections, in cards of one
  *    size. A pill carries a count only where the count is something to act on.
  *
  * Counts stay honest: a total the server could not give is "Count unavailable", never a zero.
@@ -98,19 +92,6 @@ const GROUP_LABEL_KEYS: Readonly<Record<EntityGroup, string>> = {
     operations: 'kitchen:nav.groups.operations',
     access: 'kitchen:nav.groups.access',
 };
-
-const GREETING_KEY = {
-    morning: 'access:workspaceSelector.greeting.morning',
-    afternoon: 'access:workspaceSelector.greeting.afternoon',
-    evening: 'access:workspaceSelector.greeting.evening',
-} as const;
-
-/** The workspace page's split: the small hours still say good evening. */
-function greetingKey(hour: number): (typeof GREETING_KEY)[keyof typeof GREETING_KEY] {
-    if (hour >= 5 && hour < 12) return GREETING_KEY.morning;
-    if (hour >= 12 && hour < 18) return GREETING_KEY.afternoon;
-    return GREETING_KEY.evening;
-}
 
 /** A small count box — amber when it is waiting on someone. */
 function CountPill({
@@ -283,18 +264,14 @@ interface CatalogueLine {
 
 export function KitchenHomeScreen() {
     const { t } = useTranslation();
-    const formatter = useFormatter();
     const { width: contentWidth } = useContentWidth();
     const router = useRouter();
     const state = useAccessState();
-    const { me } = useSession();
     const families = permittedFamilies(state);
 
     const permitted = new Set(families.map((family) => family.key));
     const familyByKey = new Map(families.map((family) => [family.key, family]));
     const canViewCatalogue = useCan(CATALOGUE_VIEW_PERMISSION);
-    const canSell = useCan(ORDER_CREATE_ON_BEHALF_PERMISSION);
-    const canWriteRecipes = useCan(RECIPE_MANAGE_PERMISSION);
     const branchId = state.branch?.id ?? null;
 
     // The recipe card counts what is on sale as published — the menu's question, not the recipe's.
@@ -403,21 +380,6 @@ export function KitchenHomeScreen() {
         value === null ? t('kitchen:hub.countUnavailable') : String(value);
     const waitingTone = (value: number | null): Tone =>
         value !== null && value > 0 ? 'warning' : 'ok';
-
-    /* ---------------------------------------------------------------- the greeting */
-
-    const now = new Date();
-    const givenName = me?.profile.givenName?.trim() ?? '';
-    const name = givenName === '' ? (me?.profile.displayName ?? '') : givenName;
-    const context = me?.activeContext ?? null;
-    const branchName = me?.memberships
-        .find((membership) => membership.id === context?.membershipId)
-        ?.branches.find((branch) => branch.id === context?.branchId)?.name;
-    const today = formatter.formatDate(now, { dateStyle: 'full' });
-    const dateLine =
-        branchName === undefined
-            ? today
-            : t('kitchen:hub.dateLine', { date: today, branch: branchName });
 
     /* ---------------------------------------------------------------- the five figures */
 
@@ -649,47 +611,6 @@ export function KitchenHomeScreen() {
     return (
         <Gate area="kitchen" requirement={{ anyOf: WORKSPACE_PERMISSIONS }} testID="kitchen-home">
             <Cascade space="md" testID="kitchen-home-screen">
-                <Inline space="sm" align="center" justify="between" wrap>
-                    <Inline space="sm" align="center" wrap>
-                        <Heading level={1} testID="kitchen-home-title">
-                            {name === ''
-                                ? t('kitchen:hub.title')
-                                : t(greetingKey(now.getHours()), { name })}
-                        </Heading>
-                        <Text tone="secondary" testID="kitchen-home-date">
-                            {dateLine}
-                        </Text>
-                    </Inline>
-                    {/* All three filled: they are the page's own ways in, of equal weight. */}
-                    <Inline space="xs" wrap>
-                        {canSell ? (
-                            <Button
-                                testID="kitchen-home-new-sale"
-                                size="sm"
-                                label={t('kitchen:hub.newSale')}
-                                iconStart={<Icon name="plus" size="sm" />}
-                                onPress={open('/kitchen/order-desk/sale')}
-                            />
-                        ) : null}
-                        {permitted.has('supplyOrders') ? (
-                            <Button
-                                testID="kitchen-home-order-supplies"
-                                size="sm"
-                                label={t('kitchen:hub.orderSupplies')}
-                                onPress={open('/kitchen/supply-orders')}
-                            />
-                        ) : null}
-                        {permitted.has('recipes') && canWriteRecipes ? (
-                            <Button
-                                testID="kitchen-home-new-recipe"
-                                size="sm"
-                                label={t('kitchen:recipes.create')}
-                                onPress={open('/kitchen/recipes/new?kind=preparation')}
-                            />
-                        ) : null}
-                    </Inline>
-                </Inline>
-
                 {setup.data?.isLive === false ? (
                     <Callout
                         testID="kitchen-home-not-open"

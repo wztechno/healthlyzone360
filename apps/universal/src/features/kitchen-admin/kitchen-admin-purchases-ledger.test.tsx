@@ -29,8 +29,8 @@ import { PurchasesLedgerScreen } from './screens/purchases-ledger-screen.tsx';
  * 2. **Switching modes keeps the filters.** A manager who narrowed to one supplier and then asked
  *    for the monthly total should not have to say "this supplier" twice.
  * 3. **A complete period and an incomplete one look different**, and the difference is a badge with
- *    its own icon plus a sentence — never colour alone.
- * 4. **Two currencies are two rows**, and there is no figure anywhere adding them.
+ *    its own icon and words — never colour alone — with the reason behind an (i).
+ * 4. **Two currencies are two figures**, and there is no figure anywhere adding them.
  * 5. **A period with nothing priced shows no money at all.** §3.7: an unpriced line contributes to
  *    quantity history and not to money, and a zero there would read as a quiet week.
  * 6. **An empty range is a good state**, not an error and not a blank card.
@@ -414,6 +414,21 @@ describe('purchases ledger column headers', () => {
 });
 
 describe('purchases ledger summary modes', () => {
+    // The summary is a Catalogue table too, and its cells are drawn as tracks only above `md`.
+    const narrowWindow = Dimensions.get('window');
+    const narrowScreen = Dimensions.get('screen');
+
+    beforeAll(() => {
+        Dimensions.set({
+            window: { ...narrowWindow, width: 1440, height: 900 },
+            screen: { ...narrowScreen, width: 1440, height: 900 },
+        });
+    });
+
+    afterAll(() => {
+        Dimensions.set({ window: narrowWindow, screen: narrowScreen });
+    });
+
     it('shows a complete period with its money, and switching modes keeps the filters', async () => {
         const harness = await renderStubScreen(
             <PurchasesLedgerScreen supplier={String(SUPPLIER_A)} />,
@@ -425,10 +440,7 @@ describe('purchases ledger summary modes', () => {
 
         await untilVisible('kitchen-purchases-ledger-table');
 
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ledger-mode-trigger'));
-        });
-        await untilVisible('kitchen-ledger-mode-weekly');
+        // Three buttons, every mode in sight — no menu to open first.
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-ledger-mode-weekly'));
         });
@@ -455,22 +467,12 @@ describe('purchases ledger summary modes', () => {
             screen.getByTestId('kitchen-ledger-period-2026-W31-USD-invoice-total'),
         ).toHaveTextContent('35.00 USD');
 
-        // The charges behind the difference are one press away, not on by default.
-        expect(screen.queryByTestId('kitchen-ledger-period-2026-W31-USD-charges')).toBeNull();
-        await act(async () => {
-            fireEvent.press(
-                screen.getByTestId('kitchen-ledger-period-2026-W31-USD-charges-toggle'),
-            );
-        });
-        await untilVisible('kitchen-ledger-period-2026-W31-USD-charges');
+        // The charges behind the difference are columns in the picker, not on by default.
+        expect(screen.queryByTestId('kitchen-ledger-period-2026-W31-USD-tax')).toBeNull();
+        // A summary has no item to search for, and says which window it read in the date buttons.
+        expect(screen.queryByTestId('kitchen-ledger-toolbar-search')).toBeNull();
+        expect(screen.queryByTestId('kitchen-ledger-summary-range')).toBeNull();
 
-        // The menu may still be open after the last pick.
-        if (screen.queryByTestId('kitchen-ledger-mode-monthly') === null) {
-            await act(async () => {
-                fireEvent.press(screen.getByTestId('kitchen-ledger-mode-trigger'));
-            });
-        }
-        await untilVisible('kitchen-ledger-mode-monthly');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-ledger-mode-monthly'));
         });
@@ -503,7 +505,7 @@ describe('purchases ledger summary modes', () => {
 
         await untilVisible('kitchen-ledger-period-2026-07');
 
-        // Two rows, two figures, and nothing anywhere adding 12 and 30 — there is no
+        // Two lines, two figures, and nothing anywhere adding 12 and 30 — there is no
         // exchange rate in this system.
         expect(screen.getByTestId('kitchen-ledger-period-2026-07-EUR-subtotal')).toHaveTextContent(
             '12.00 EUR',
@@ -534,15 +536,69 @@ describe('purchases ledger summary modes', () => {
 
         await untilVisible('kitchen-ledger-period-2026-W31');
 
-        expect(screen.getByTestId('kitchen-ledger-period-2026-W31-state')).toHaveTextContent(
-            /Incomplete/,
+        // The two counts are two different jobs and are said separately, each as a badge.
+        expect(screen.getByTestId('kitchen-ledger-period-2026-W31-unpriced')).toHaveTextContent(
+            /2 unpriced/,
         );
-        // The two counts are two different jobs and are said separately.
-        expect(screen.getByTestId('kitchen-ledger-period-2026-W31-unpriced')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-ledger-period-2026-W31-pending-fx')).toBeTruthy();
-        // No money row, rather than a zero that would read as a quiet week.
-        expect(screen.getByTestId('kitchen-ledger-period-2026-W31-no-money')).toBeTruthy();
-        expect(screen.queryByTestId('kitchen-ledger-period-2026-W31-USD')).toBeNull();
+        expect(screen.getByTestId('kitchen-ledger-period-2026-W31-pending-fx')).toHaveTextContent(
+            /1 pending FX/,
+        );
+        // Why the figures are short sits behind the (i), not as a sentence on the row.
+        expect(screen.getByTestId('kitchen-ledger-period-2026-W31-info')).toBeTruthy();
+        // No money, rather than a zero that would read as a quiet week.
+        expect(screen.getByTestId('kitchen-ledger-period-2026-W31-no-money')).toHaveTextContent(
+            'Nothing priced',
+        );
+        expect(screen.queryByTestId('kitchen-ledger-period-2026-W31-USD-subtotal')).toBeNull();
+    });
+
+    it('counts the periods on the Lens bar, and filters the table by completeness', async () => {
+        await renderStubScreen(<PurchasesLedgerScreen mode="monthly" />, {
+            session: kitchenManagerSession(),
+            repositories: overrides({
+                getSpendSummary: async () =>
+                    summary([
+                        period({
+                            period: '2026-10',
+                            periodStart: '2026-10-01',
+                            periodEnd: '2026-10-31',
+                            unpricedLineCount: 1,
+                            isComplete: false,
+                        }),
+                        period({
+                            period: '2026-09',
+                            periodStart: '2026-09-01',
+                            periodEnd: '2026-09-30',
+                        }),
+                    ]),
+            }),
+        });
+
+        await untilVisible('kitchen-ledger-period-2026-10');
+
+        const figure = (key: string) =>
+            screen.getByTestId(`kitchen-ledger-toolbar-figure-${key}-value`);
+        expect(figure('all')).toHaveTextContent('2');
+        expect(figure('complete')).toHaveTextContent('1');
+        expect(figure('incomplete')).toHaveTextContent('1');
+        expect(figure('unpriced')).toHaveTextContent('1');
+        // Priced lines plus the unpriced one: the period's every delivery.
+        expect(screen.getByTestId('kitchen-ledger-period-2026-10-lines')).toHaveTextContent('3');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ledger-toolbar-figure-incomplete'));
+        });
+
+        await waitFor(() => {
+            expect(screen.queryByTestId('kitchen-ledger-period-2026-09')).toBeNull();
+        });
+        expect(screen.getByTestId('kitchen-ledger-period-2026-10')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-ledger-toolbar-result')).toHaveTextContent('1 of 2');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ledger-toolbar-clear'));
+        });
+        await untilVisible('kitchen-ledger-period-2026-09');
     });
 
     it('treats a range with no deliveries as a good state', async () => {

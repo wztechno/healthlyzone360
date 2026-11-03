@@ -20,6 +20,7 @@ import {
     kitchenManagerSession,
     testActiveContext,
 } from '../../testing/session-fixtures.ts';
+import { withReturnTo } from '../../navigation/return-to.ts';
 import { withDeskWidth } from '../../testing/desk-width.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { ProductionBatchLabelScreen } from './screens/production-batch-label-screen.tsx';
@@ -35,6 +36,9 @@ jest.mock('expo-router', () => {
         useRouter: () => ({ push, replace: jest.fn(), back: jest.fn() }),
         usePathname: () => '/kitchen/production-desk',
         useLocalSearchParams: () => ({}),
+        useGlobalSearchParams: () => ({}),
+        useSegments: () => [],
+        useNavigation: () => ({}),
         Redirect: () => null,
         Link: ({ children }: { children: ReactNode }) => children,
         __push: push,
@@ -285,7 +289,7 @@ describe('one batch', () => {
             });
         });
 
-    // The batch's problems are cards in its issue tray, docked and open at a desk's width.
+    // The batch page has no issue tray: a refused edge is a callout over its lens.
     it('says on the batch why it could not be confirmed', async () => {
         await withDeskWidth(async () => {
             await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
@@ -302,6 +306,7 @@ describe('one batch', () => {
             const notice = await screen.findByTestId('kitchen-production-batch-advance-error');
             expect(notice).toHaveTextContent(/The batch was not confirmed/);
             expect(notice).toHaveTextContent(/could not be turned into a quantity/);
+            expect(screen.queryByTestId('kitchen-production-batch-tray')).toBeNull();
         });
     });
 
@@ -338,7 +343,7 @@ describe('one batch', () => {
                 expect(screen.getByTestId('kitchen-production-batch-plan')).toBeTruthy();
             });
             // "Need nothing for that" and "we could not work out what this needs" are opposite
-            // statements; the hole is its own card in the tray rather than a zero in the table.
+            // statements; the hole is the plan's own notice rather than a zero in the table.
             await waitFor(() => {
                 expect(
                     within(screen.getByTestId('kitchen-production-batch-plan-holes')).getByText(
@@ -407,16 +412,45 @@ describe('one batch', () => {
                 expect(screen.getByTestId('kitchen-production-batch-cost-unit')).toBeTruthy();
             });
             // A partial total reads exactly like a whole one and is smaller. "Withheld" is the
-            // only honest thing to print, and the reason is the tray's card on the batch.
-            expect(screen.getByTestId('kitchen-production-batch-cost-unit')).toHaveTextContent(
-                'Withheld',
-            );
+            // only honest thing to print, and the valuation's reason is behind its (i).
             expect(
-                within(screen.getByTestId('kitchen-production-batch-cost-status')).getByText(
-                    'Salt carried no moving average.',
-                ),
-            ).toBeTruthy();
+                screen.getByTestId('kitchen-production-batch-cost-unit-value'),
+            ).toHaveTextContent('Withheld');
+            expect(screen.getByTestId('kitchen-production-batch-cost-unit-info')).toBeTruthy();
         });
+    });
+
+    it('draws a finished batch as one lens: its history, its figures and its record', async () => {
+        await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    getProductionOrder: async () =>
+                        detail({
+                            order: labelled(),
+                            lines: [line()],
+                            plan: null,
+                        }),
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-production-batch-facts')).toBeTruthy();
+        });
+        // The four stat cards and the Status, Cost and Record cards are gone into it.
+        expect(screen.queryByTestId('kitchen-production-batch-state')).toBeNull();
+        expect(screen.queryByTestId('kitchen-production-batch-record')).toBeNull();
+        expect(screen.queryByTestId('kitchen-production-batch-yield')).toBeNull();
+        expect(screen.getByTestId('kitchen-production-batch-stamp-completed')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-production-batch-yield-usable')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-production-batch-cost-unit')).toBeTruthy();
+        // The claimed lines are the table alone: the lens already says what they are.
+        expect(
+            within(screen.getByTestId('kitchen-production-batch-lines')).queryByText(
+                'What it claimed',
+            ),
+        ).toBeNull();
     });
 
     it('shows a chef every quantity and no money at all', async () => {
@@ -539,7 +573,7 @@ describe('one batch', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-production-batch-lot')).toHaveTextContent(
+            expect(screen.getByTestId('kitchen-production-batch-lot-value')).toHaveTextContent(
                 '260925-007-7',
             );
         });
@@ -568,7 +602,7 @@ describe('one batch', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-production-batch-lot')).toHaveTextContent('—');
+            expect(screen.getByTestId('kitchen-production-batch-lot-value')).toHaveTextContent('—');
         });
         expect(screen.queryByTestId('kitchen-production-batch-label')).toBeNull();
     });
@@ -751,8 +785,11 @@ describe('the batch register', () => {
         await fireEvent.changeText(scan, '  260925-007-7  ');
         await fireEvent(scan, 'submitEditing');
 
+        // The register sends itself along, so the batch's trail names it and comes back to it.
         await waitFor(() => {
-            expect(routerMock.__push).toHaveBeenCalledWith(`/kitchen/production-desk/${BATCH_ID}`);
+            expect(routerMock.__push).toHaveBeenCalledWith(
+                withReturnTo(`/kitchen/production-desk/${BATCH_ID}`, '/kitchen/production-desk'),
+            );
         });
         // No status and no branch: a label only exists on a finished batch, and the server
         // resolves the code in any state.

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9778 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9818 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3062,6 +3062,10 @@ export interface NamespaceKeys {
     | 'allergenAssessment.confirm'
     | 'allergenAssessment.noRecipe'
     | 'allergenAssessment.notAssessed'
+    | 'allergenBoard.diets'
+    | 'allergenBoard.freeFrom'
+    | 'allergenBoard.listLabel'
+    | 'allergenBoard.pillLabel'
     | 'allergenLookup.barcode'
     | 'allergenLookup.barcodeHint'
     | 'allergenLookup.barcodeShort'
@@ -4219,7 +4223,11 @@ export interface NamespaceKeys {
     | 'hub.quarantineCount'
     | 'hub.referenceOnly'
     | 'hub.title'
+    | 'ingredientDetail.aliasesLabel'
     | 'ingredientDetail.allergensDietsTitle'
+    | 'ingredientDetail.energyFrom'
+    | 'ingredientDetail.energyShare'
+    | 'ingredientDetail.energySplitLabel'
     | 'ingredientDetail.fieldCapacity'
     | 'ingredientDetail.fieldPackCost'
     | 'ingredientDetail.fieldSellable'
@@ -4227,10 +4235,14 @@ export interface NamespaceKeys {
     | 'ingredientDetail.identificationSubtitle'
     | 'ingredientDetail.identificationTitle'
     | 'ingredientDetail.kpiMarginOnCost'
+    | 'ingredientDetail.namesTitle'
     | 'ingredientDetail.nutrientValue'
     | 'ingredientDetail.nutritionEmpty'
     | 'ingredientDetail.nutritionSubtitle'
+    | 'ingredientDetail.perUnitCaption'
     | 'ingredientDetail.perUnitValue'
+    | 'ingredientDetail.priceLadderLabel'
+    | 'ingredientDetail.pricesTitle'
     | 'ingredientDetail.sellableNo'
     | 'ingredientDetail.sellableYes'
     | 'ingredientDetail.sourcingTitle'
@@ -4303,9 +4315,11 @@ export interface NamespaceKeys {
     | 'lens.allGaps'
     | 'lens.allIngredients'
     | 'lens.allLines'
+    | 'lens.allMonths'
     | 'lens.allOrders'
     | 'lens.allPackaging'
     | 'lens.allPeople'
+    | 'lens.allPeriodsAction'
     | 'lens.allPlans'
     | 'lens.allPriceLists'
     | 'lens.allProducts'
@@ -4316,11 +4330,13 @@ export interface NamespaceKeys {
     | 'lens.allRoles'
     | 'lens.allStock'
     | 'lens.allSuppliers'
+    | 'lens.allWeeks'
     | 'lens.allZones'
     | 'lens.allergenMix'
     | 'lens.archivedAction'
     | 'lens.batchMix'
     | 'lens.clear'
+    | 'lens.completePeriodsAction'
     | 'lens.confirmedBatchesAction'
     | 'lens.deskMix'
     | 'lens.draftBatchesAction'
@@ -4328,6 +4344,7 @@ export interface NamespaceKeys {
     | 'lens.gapsMix'
     | 'lens.holdChecksAction'
     | 'lens.inProductionBatchesAction'
+    | 'lens.incompletePeriodsAction'
     | 'lens.issuedOnPage'
     | 'lens.label'
     | 'lens.ledgerMix'
@@ -4345,6 +4362,7 @@ export interface NamespaceKeys {
     | 'lens.period.year'
     | 'lens.period.yesterday'
     | 'lens.periodLabel'
+    | 'lens.periodsMix'
     | 'lens.publishedAction'
     | 'lens.qcMix'
     | 'lens.quotationsMix'
@@ -4366,6 +4384,7 @@ export interface NamespaceKeys {
     | 'lens.stockOutAction'
     | 'lens.token'
     | 'lens.unpricedAction'
+    | 'lens.unpricedLines'
     | 'lens.unpricedReceiptsMix'
     | 'lens.unresolvedAction'
     | 'lens.zoneMix'
@@ -4644,6 +4663,7 @@ export interface NamespaceKeys {
     | 'ops.batch.packagingWasteIncluded'
     | 'ops.batch.pickRecipeBody'
     | 'ops.batch.pickRecipeTitle'
+    | 'ops.batch.piecesNoneInfo'
     | 'ops.batch.portionsUnit'
     | 'ops.batch.positionCovered'
     | 'ops.batch.positionShort'
@@ -4655,11 +4675,13 @@ export interface NamespaceKeys {
     | 'ops.batch.recipesErrorTitle'
     | 'ops.batch.roundedFrom'
     | 'ops.batch.roundedUpFrom'
+    | 'ops.batch.targetLabel'
     | 'ops.batch.targetNeededBody'
     | 'ops.batch.targetNeededTitle'
     | 'ops.batch.targetPortionsLabel'
     | 'ops.batch.targetQuantityLabel'
     | 'ops.batch.versionCell'
+    | 'ops.batch.versionFigure'
     | 'ops.batch.wasteAddedToInputs'
     | 'ops.cashReport.a11y.unnamedAgent'
     | 'ops.cashReport.adjustment.courier_fee'
@@ -4963,28 +4985,29 @@ export interface NamespaceKeys {
     | 'ops.ledger.columnDate'
     | 'ops.ledger.columnItem'
     | 'ops.ledger.columnLineTotal'
+    | 'ops.ledger.columnMonth'
     | 'ops.ledger.columnQuantity'
     | 'ops.ledger.columnState'
+    | 'ops.ledger.columnStatus'
     | 'ops.ledger.columnSupplier'
     | 'ops.ledger.columnUnitPrice'
+    | 'ops.ledger.columnWeek'
     | 'ops.ledger.completeBadge'
     | 'ops.ledger.emptyBody'
     | 'ops.ledger.emptyTitle'
     | 'ops.ledger.filterFrom'
     | 'ops.ledger.filterTo'
     | 'ops.ledger.fromPlaceholder'
-    | 'ops.ledger.hideCharges'
     | 'ops.ledger.incompleteBadge'
     | 'ops.ledger.modeDetail'
     | 'ops.ledger.modeLabel'
     | 'ops.ledger.modeMonthly'
     | 'ops.ledger.modeWeekly'
-    | 'ops.ledger.noPricedDeliveries'
     | 'ops.ledger.noSupplier'
-    | 'ops.ledger.pendingFxNote'
+    | 'ops.ledger.nothingPriced'
+    | 'ops.ledger.pendingFxBadge'
     | 'ops.ledger.periodDates'
     | 'ops.ledger.searchPlaceholder'
-    | 'ops.ledger.showCharges'
     | 'ops.ledger.statLinesUnit'
     | 'ops.ledger.statPendingFxCaption'
     | 'ops.ledger.statPricedCaption'
@@ -4992,19 +5015,23 @@ export interface NamespaceKeys {
     | 'ops.ledger.statePendingFx'
     | 'ops.ledger.statePriced'
     | 'ops.ledger.stateUnpriced'
-    | 'ops.ledger.summaryEmptyBody'
+    | 'ops.ledger.statusNothingPriced'
+    | 'ops.ledger.statusPendingFxInfo'
+    | 'ops.ledger.statusUnpricedInfo'
     | 'ops.ledger.summaryEmptyTitle'
     | 'ops.ledger.summaryInvoiceTotal'
     | 'ops.ledger.summaryLines'
-    | 'ops.ledger.summaryRange'
+    | 'ops.ledger.summaryMonthlyLabel'
     | 'ops.ledger.summarySubtotal'
+    | 'ops.ledger.summaryWeeklyLabel'
     | 'ops.ledger.title'
     | 'ops.ledger.toPlaceholder'
-    | 'ops.ledger.unpricedLines'
+    | 'ops.ledger.unpricedBadge'
     | 'ops.ledger.viewFoot'
     | 'ops.ledger.viewKind'
     | 'ops.ledger.viewPendingFxNote'
     | 'ops.ledger.viewUnpricedNote'
+    | 'ops.ledger.weekLabel'
     | 'ops.metricUnavailable'
     | 'ops.orders.actionsHeading'
     | 'ops.orders.backToOrders'
@@ -5326,6 +5353,7 @@ export interface NamespaceKeys {
     | 'ops.production.abandonedToast'
     | 'ops.production.actualCost'
     | 'ops.production.actualCostCaption'
+    | 'ops.production.actualCostFact'
     | 'ops.production.amountRequired'
     | 'ops.production.asPlanned'
     | 'ops.production.backToDesk'
@@ -5394,6 +5422,7 @@ export interface NamespaceKeys {
     | 'ops.production.emptyTitle'
     | 'ops.production.estimatedCost'
     | 'ops.production.estimatedCostCaption'
+    | 'ops.production.estimatedCostFact'
     | 'ops.production.estimatedLiveCaption'
     | 'ops.production.expiredBadge'
     | 'ops.production.expiredNotice'
@@ -5410,6 +5439,7 @@ export interface NamespaceKeys {
     | 'ops.production.headingPlan'
     | 'ops.production.headingRecord'
     | 'ops.production.headingYield'
+    | 'ops.production.historyLabel'
     | 'ops.production.labelBatchOf'
     | 'ops.production.labelCopies'
     | 'ops.production.lineKindIngredient'
@@ -5524,6 +5554,7 @@ export interface NamespaceKeys {
     | 'ops.production.stepsTitle'
     | 'ops.production.storageLocationLabel'
     | 'ops.production.storageLocationPlaceholder'
+    | 'ops.production.summaryLabel'
     | 'ops.production.summaryMakes'
     | 'ops.production.summaryPortions'
     | 'ops.production.summaryRuns'
@@ -6106,7 +6137,6 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.cancelConfirm'
     | 'ops.supplyOrders.cancelConfirmBody'
     | 'ops.supplyOrders.cancelConfirmTitle'
-    | 'ops.supplyOrders.cancelFailed'
     | 'ops.supplyOrders.cancelKeep'
     | 'ops.supplyOrders.cancelOrder'
     | 'ops.supplyOrders.cancelledNoticeBody'
@@ -6147,7 +6177,6 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.issueConfirm'
     | 'ops.supplyOrders.issueConfirmBody'
     | 'ops.supplyOrders.issueConfirmTitle'
-    | 'ops.supplyOrders.issueFailed'
     | 'ops.supplyOrders.issueKeepEditing'
     | 'ops.supplyOrders.issuedNoticeBody'
     | 'ops.supplyOrders.issuedNoticeTitle'
@@ -6284,6 +6313,16 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.unassignedCount'
     | 'ops.supplyOrders.unlinkedCaption'
     | 'ops.supplyOrders.unlinkedTitle'
+    | 'ops.supplyOrders.view.asIssued'
+    | 'ops.supplyOrders.view.contact'
+    | 'ops.supplyOrders.view.historyLabel'
+    | 'ops.supplyOrders.view.inFull'
+    | 'ops.supplyOrders.view.leadTime'
+    | 'ops.supplyOrders.view.nothingToCome'
+    | 'ops.supplyOrders.view.ringLabel'
+    | 'ops.supplyOrders.view.stepDeliveries'
+    | 'ops.supplyOrders.view.stepMade'
+    | 'ops.supplyOrders.view.toComeLine'
     | 'ops.supplyOrders.viewBranch'
     | 'ops.supplyOrders.viewKind'
     | 'ops.unpricedReceipts.backToQueue'
@@ -7121,6 +7160,8 @@ export interface NamespaceKeys {
     | 'recipes.yieldRequired'
     | 'recipes.yieldUnit'
     | 'recordView.details'
+    | 'recordView.metaSeparator'
+    | 'recordView.pathSeparator'
     | 'recordView.statusTitle'
     | 'recordView.version'
     | 'review.blockedCount'
@@ -7493,7 +7534,6 @@ export interface NamespaceKeys {
     | 'tray.groupFailed'
     | 'tray.groupForRecipe'
     | 'tray.groupHeadsUp'
-    | 'tray.groupIssue'
     | 'tray.groupNote'
     | 'tray.groupPublish'
     | 'tray.groupSave'
@@ -12858,6 +12898,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:allergenAssessment.confirm',
   'kitchen:allergenAssessment.noRecipe',
   'kitchen:allergenAssessment.notAssessed',
+  'kitchen:allergenBoard.diets',
+  'kitchen:allergenBoard.freeFrom',
+  'kitchen:allergenBoard.listLabel',
+  'kitchen:allergenBoard.pillLabel',
   'kitchen:allergenLookup.barcode',
   'kitchen:allergenLookup.barcodeHint',
   'kitchen:allergenLookup.barcodeShort',
@@ -14015,7 +14059,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.quarantineCount',
   'kitchen:hub.referenceOnly',
   'kitchen:hub.title',
+  'kitchen:ingredientDetail.aliasesLabel',
   'kitchen:ingredientDetail.allergensDietsTitle',
+  'kitchen:ingredientDetail.energyFrom',
+  'kitchen:ingredientDetail.energyShare',
+  'kitchen:ingredientDetail.energySplitLabel',
   'kitchen:ingredientDetail.fieldCapacity',
   'kitchen:ingredientDetail.fieldPackCost',
   'kitchen:ingredientDetail.fieldSellable',
@@ -14023,10 +14071,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ingredientDetail.identificationSubtitle',
   'kitchen:ingredientDetail.identificationTitle',
   'kitchen:ingredientDetail.kpiMarginOnCost',
+  'kitchen:ingredientDetail.namesTitle',
   'kitchen:ingredientDetail.nutrientValue',
   'kitchen:ingredientDetail.nutritionEmpty',
   'kitchen:ingredientDetail.nutritionSubtitle',
+  'kitchen:ingredientDetail.perUnitCaption',
   'kitchen:ingredientDetail.perUnitValue',
+  'kitchen:ingredientDetail.priceLadderLabel',
+  'kitchen:ingredientDetail.pricesTitle',
   'kitchen:ingredientDetail.sellableNo',
   'kitchen:ingredientDetail.sellableYes',
   'kitchen:ingredientDetail.sourcingTitle',
@@ -14099,9 +14151,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:lens.allGaps',
   'kitchen:lens.allIngredients',
   'kitchen:lens.allLines',
+  'kitchen:lens.allMonths',
   'kitchen:lens.allOrders',
   'kitchen:lens.allPackaging',
   'kitchen:lens.allPeople',
+  'kitchen:lens.allPeriodsAction',
   'kitchen:lens.allPlans',
   'kitchen:lens.allPriceLists',
   'kitchen:lens.allProducts',
@@ -14112,11 +14166,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:lens.allRoles',
   'kitchen:lens.allStock',
   'kitchen:lens.allSuppliers',
+  'kitchen:lens.allWeeks',
   'kitchen:lens.allZones',
   'kitchen:lens.allergenMix',
   'kitchen:lens.archivedAction',
   'kitchen:lens.batchMix',
   'kitchen:lens.clear',
+  'kitchen:lens.completePeriodsAction',
   'kitchen:lens.confirmedBatchesAction',
   'kitchen:lens.deskMix',
   'kitchen:lens.draftBatchesAction',
@@ -14124,6 +14180,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:lens.gapsMix',
   'kitchen:lens.holdChecksAction',
   'kitchen:lens.inProductionBatchesAction',
+  'kitchen:lens.incompletePeriodsAction',
   'kitchen:lens.issuedOnPage',
   'kitchen:lens.label',
   'kitchen:lens.ledgerMix',
@@ -14141,6 +14198,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:lens.period.year',
   'kitchen:lens.period.yesterday',
   'kitchen:lens.periodLabel',
+  'kitchen:lens.periodsMix',
   'kitchen:lens.publishedAction',
   'kitchen:lens.qcMix',
   'kitchen:lens.quotationsMix',
@@ -14162,6 +14220,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:lens.stockOutAction',
   'kitchen:lens.token',
   'kitchen:lens.unpricedAction',
+  'kitchen:lens.unpricedLines',
   'kitchen:lens.unpricedReceiptsMix',
   'kitchen:lens.unresolvedAction',
   'kitchen:lens.zoneMix',
@@ -14440,6 +14499,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.packagingWasteIncluded',
   'kitchen:ops.batch.pickRecipeBody',
   'kitchen:ops.batch.pickRecipeTitle',
+  'kitchen:ops.batch.piecesNoneInfo',
   'kitchen:ops.batch.portionsUnit',
   'kitchen:ops.batch.positionCovered',
   'kitchen:ops.batch.positionShort',
@@ -14451,11 +14511,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.recipesErrorTitle',
   'kitchen:ops.batch.roundedFrom',
   'kitchen:ops.batch.roundedUpFrom',
+  'kitchen:ops.batch.targetLabel',
   'kitchen:ops.batch.targetNeededBody',
   'kitchen:ops.batch.targetNeededTitle',
   'kitchen:ops.batch.targetPortionsLabel',
   'kitchen:ops.batch.targetQuantityLabel',
   'kitchen:ops.batch.versionCell',
+  'kitchen:ops.batch.versionFigure',
   'kitchen:ops.batch.wasteAddedToInputs',
   'kitchen:ops.cashReport.a11y.unnamedAgent',
   'kitchen:ops.cashReport.adjustment.courier_fee',
@@ -14759,28 +14821,29 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.ledger.columnDate',
   'kitchen:ops.ledger.columnItem',
   'kitchen:ops.ledger.columnLineTotal',
+  'kitchen:ops.ledger.columnMonth',
   'kitchen:ops.ledger.columnQuantity',
   'kitchen:ops.ledger.columnState',
+  'kitchen:ops.ledger.columnStatus',
   'kitchen:ops.ledger.columnSupplier',
   'kitchen:ops.ledger.columnUnitPrice',
+  'kitchen:ops.ledger.columnWeek',
   'kitchen:ops.ledger.completeBadge',
   'kitchen:ops.ledger.emptyBody',
   'kitchen:ops.ledger.emptyTitle',
   'kitchen:ops.ledger.filterFrom',
   'kitchen:ops.ledger.filterTo',
   'kitchen:ops.ledger.fromPlaceholder',
-  'kitchen:ops.ledger.hideCharges',
   'kitchen:ops.ledger.incompleteBadge',
   'kitchen:ops.ledger.modeDetail',
   'kitchen:ops.ledger.modeLabel',
   'kitchen:ops.ledger.modeMonthly',
   'kitchen:ops.ledger.modeWeekly',
-  'kitchen:ops.ledger.noPricedDeliveries',
   'kitchen:ops.ledger.noSupplier',
-  'kitchen:ops.ledger.pendingFxNote',
+  'kitchen:ops.ledger.nothingPriced',
+  'kitchen:ops.ledger.pendingFxBadge',
   'kitchen:ops.ledger.periodDates',
   'kitchen:ops.ledger.searchPlaceholder',
-  'kitchen:ops.ledger.showCharges',
   'kitchen:ops.ledger.statLinesUnit',
   'kitchen:ops.ledger.statPendingFxCaption',
   'kitchen:ops.ledger.statPricedCaption',
@@ -14788,19 +14851,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.ledger.statePendingFx',
   'kitchen:ops.ledger.statePriced',
   'kitchen:ops.ledger.stateUnpriced',
-  'kitchen:ops.ledger.summaryEmptyBody',
+  'kitchen:ops.ledger.statusNothingPriced',
+  'kitchen:ops.ledger.statusPendingFxInfo',
+  'kitchen:ops.ledger.statusUnpricedInfo',
   'kitchen:ops.ledger.summaryEmptyTitle',
   'kitchen:ops.ledger.summaryInvoiceTotal',
   'kitchen:ops.ledger.summaryLines',
-  'kitchen:ops.ledger.summaryRange',
+  'kitchen:ops.ledger.summaryMonthlyLabel',
   'kitchen:ops.ledger.summarySubtotal',
+  'kitchen:ops.ledger.summaryWeeklyLabel',
   'kitchen:ops.ledger.title',
   'kitchen:ops.ledger.toPlaceholder',
-  'kitchen:ops.ledger.unpricedLines',
+  'kitchen:ops.ledger.unpricedBadge',
   'kitchen:ops.ledger.viewFoot',
   'kitchen:ops.ledger.viewKind',
   'kitchen:ops.ledger.viewPendingFxNote',
   'kitchen:ops.ledger.viewUnpricedNote',
+  'kitchen:ops.ledger.weekLabel',
   'kitchen:ops.metricUnavailable',
   'kitchen:ops.orders.actionsHeading',
   'kitchen:ops.orders.backToOrders',
@@ -15122,6 +15189,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.abandonedToast',
   'kitchen:ops.production.actualCost',
   'kitchen:ops.production.actualCostCaption',
+  'kitchen:ops.production.actualCostFact',
   'kitchen:ops.production.amountRequired',
   'kitchen:ops.production.asPlanned',
   'kitchen:ops.production.backToDesk',
@@ -15190,6 +15258,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.emptyTitle',
   'kitchen:ops.production.estimatedCost',
   'kitchen:ops.production.estimatedCostCaption',
+  'kitchen:ops.production.estimatedCostFact',
   'kitchen:ops.production.estimatedLiveCaption',
   'kitchen:ops.production.expiredBadge',
   'kitchen:ops.production.expiredNotice',
@@ -15206,6 +15275,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.headingPlan',
   'kitchen:ops.production.headingRecord',
   'kitchen:ops.production.headingYield',
+  'kitchen:ops.production.historyLabel',
   'kitchen:ops.production.labelBatchOf',
   'kitchen:ops.production.labelCopies',
   'kitchen:ops.production.lineKindIngredient',
@@ -15320,6 +15390,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.stepsTitle',
   'kitchen:ops.production.storageLocationLabel',
   'kitchen:ops.production.storageLocationPlaceholder',
+  'kitchen:ops.production.summaryLabel',
   'kitchen:ops.production.summaryMakes',
   'kitchen:ops.production.summaryPortions',
   'kitchen:ops.production.summaryRuns',
@@ -15902,7 +15973,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.cancelConfirm',
   'kitchen:ops.supplyOrders.cancelConfirmBody',
   'kitchen:ops.supplyOrders.cancelConfirmTitle',
-  'kitchen:ops.supplyOrders.cancelFailed',
   'kitchen:ops.supplyOrders.cancelKeep',
   'kitchen:ops.supplyOrders.cancelOrder',
   'kitchen:ops.supplyOrders.cancelledNoticeBody',
@@ -15943,7 +16013,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.issueConfirm',
   'kitchen:ops.supplyOrders.issueConfirmBody',
   'kitchen:ops.supplyOrders.issueConfirmTitle',
-  'kitchen:ops.supplyOrders.issueFailed',
   'kitchen:ops.supplyOrders.issueKeepEditing',
   'kitchen:ops.supplyOrders.issuedNoticeBody',
   'kitchen:ops.supplyOrders.issuedNoticeTitle',
@@ -16080,6 +16149,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.unassignedCount',
   'kitchen:ops.supplyOrders.unlinkedCaption',
   'kitchen:ops.supplyOrders.unlinkedTitle',
+  'kitchen:ops.supplyOrders.view.asIssued',
+  'kitchen:ops.supplyOrders.view.contact',
+  'kitchen:ops.supplyOrders.view.historyLabel',
+  'kitchen:ops.supplyOrders.view.inFull',
+  'kitchen:ops.supplyOrders.view.leadTime',
+  'kitchen:ops.supplyOrders.view.nothingToCome',
+  'kitchen:ops.supplyOrders.view.ringLabel',
+  'kitchen:ops.supplyOrders.view.stepDeliveries',
+  'kitchen:ops.supplyOrders.view.stepMade',
+  'kitchen:ops.supplyOrders.view.toComeLine',
   'kitchen:ops.supplyOrders.viewBranch',
   'kitchen:ops.supplyOrders.viewKind',
   'kitchen:ops.unpricedReceipts.backToQueue',
@@ -16917,6 +16996,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.yieldRequired',
   'kitchen:recipes.yieldUnit',
   'kitchen:recordView.details',
+  'kitchen:recordView.metaSeparator',
+  'kitchen:recordView.pathSeparator',
   'kitchen:recordView.statusTitle',
   'kitchen:recordView.version',
   'kitchen:review.blockedCount',
@@ -17289,7 +17370,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:tray.groupFailed',
   'kitchen:tray.groupForRecipe',
   'kitchen:tray.groupHeadsUp',
-  'kitchen:tray.groupIssue',
   'kitchen:tray.groupNote',
   'kitchen:tray.groupPublish',
   'kitchen:tray.groupSave',

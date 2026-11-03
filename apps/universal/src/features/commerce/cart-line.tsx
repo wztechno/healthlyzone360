@@ -92,8 +92,7 @@ export function CartLine({ item, priceText, busy, onQuantity, onRemove, onOpen }
                 >
                     {[dishOptionsLine(item.options, locale, t), item.note]
                         .filter((part) => part != null && part !== '')
-                        .join(t('catalogue:dishOptions.separator')) ||
-                        t('commerce:cart.noChanges')}
+                        .join(t('catalogue:dishOptions.separator')) || t('commerce:cart.noChanges')}
                 </RNText>
 
                 <YourAllergens

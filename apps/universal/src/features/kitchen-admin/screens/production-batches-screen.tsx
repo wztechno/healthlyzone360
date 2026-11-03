@@ -17,6 +17,8 @@ import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
+import { withReturnTo } from '../../../navigation/return-to.ts';
+import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 import {
     useProductionOrderLookupMutation,
     useProductionOrdersQuery,
@@ -100,6 +102,11 @@ function ProductionBatches() {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
+    // A batch opened from here names the register in its trail and comes back to this page of it.
+    const here = useCurrentHref();
+    const openBatch = (id: string) => {
+        router.push(withReturnTo(`/kitchen/production-desk/${id}`, here) as never);
+    };
     const access = useAccessState();
     const branchId = access.branch?.id ?? null;
 
@@ -125,7 +132,7 @@ function ProductionBatches() {
                 }
                 setScan('');
                 setScanMessage(null);
-                router.push(`/kitchen/production-desk/${String(only.id)}`);
+                openBatch(String(only.id));
             },
             onError: (error) => {
                 setScanMessage(toFailure(error)?.message ?? null);
@@ -373,7 +380,7 @@ function ProductionBatches() {
                         highlightedId={lastOpenedId}
                         onRowPress={(row) => {
                             rememberOpened(String(row.id));
-                            router.push(`/kitchen/production-desk/${String(row.id)}`);
+                            openBatch(String(row.id));
                         }}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                     />

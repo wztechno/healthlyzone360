@@ -91,35 +91,21 @@ describe('RecordViewPage on a laptop', () => {
         />
     );
 
-    /** The order the body's columns are in the tree — the order they are read and laid out. */
-    function bodyOrder(): string[] {
-        const body = screen.getByTestId('record-body');
-        const ids = ['record-record-status', 'record-main', 'record-rail'];
-        const nodes = ids.map((id) => screen.getByTestId(id));
-        const order: string[] = [];
-        const walk = (node: typeof body) => {
-            const index = nodes.indexOf(node);
-            if (index >= 0) order.push(ids[index] ?? '');
-            for (const child of node.children) {
-                if (typeof child !== 'string') walk(child);
-            }
-        };
-        walk(body);
-        return order;
-    }
-
-    it('sets the rail beside the record where the page has room, panel shut at 1280', async () => {
+    it('sets the body in two columns where the page has room, panel shut at 1280', async () => {
         mockWindowWidth = 1280;
         await renderStubScreen(
             <ContentWidthProvider value={PANEL_SHUT}>{page}</ContentWidthProvider>,
         );
 
         expect(screen.getByTestId('record-body').props.className).toContain('flex-row');
-        // The status card is the rail's, after the main column.
-        expect(bodyOrder()).toEqual(['record-main', 'record-rail', 'record-record-status']);
+        // The status and its action are the canopy's, above the body — no rail card for them.
+        const header = screen.getByTestId('record-header');
+        expect(header).toContainElement(screen.getByTestId('record-primary'));
+        expect(header).toContainElement(screen.getByTestId('record-status-line-0'));
+        expect(screen.queryByTestId('record-record-status')).toBeNull();
     });
 
-    it('stacks a narrow page with the status card — and its action — first', async () => {
+    it('stacks a narrow page, its action still on the canopy above it', async () => {
         // 1093px: a 1366×768 laptop at 125%, with the page panel open, leaves 749px.
         mockWindowWidth = 1093;
         await renderStubScreen(
@@ -127,7 +113,8 @@ describe('RecordViewPage on a laptop', () => {
         );
 
         expect(screen.getByTestId('record-body').props.className).not.toContain('flex-row');
-        expect(bodyOrder()).toEqual(['record-record-status', 'record-main', 'record-rail']);
-        expect(screen.getByTestId('record-primary')).toBeTruthy();
+        expect(screen.getByTestId('record-header')).toContainElement(
+            screen.getByTestId('record-primary'),
+        );
     });
 });

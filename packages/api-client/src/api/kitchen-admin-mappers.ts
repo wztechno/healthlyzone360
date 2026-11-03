@@ -282,6 +282,7 @@ export function mapIngredientAllergenMapping(wire: WireAllergenMapping): Ingredi
         verification: mapAllergenVerification(wire.verification_status),
         sourceNote: wire.evidence ?? null,
         lookupSource: wire.lookup_source ?? null,
+        source: wire.source,
         layer: wire.layer,
     };
 }

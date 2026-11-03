@@ -3385,6 +3385,10 @@ function IngredientEditor({
                                     onChange={(selection) =>
                                         setAllergenDraft({ name: details.name.en, selection })
                                     }
+                                    onNothingDeclared={() => {
+                                        setNoAllergens(true);
+                                        guard.markDirty();
+                                    }}
                                 />
                             ) : null}
                             {isCreating &&

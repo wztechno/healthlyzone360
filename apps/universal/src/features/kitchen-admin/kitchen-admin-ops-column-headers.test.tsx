@@ -154,14 +154,7 @@ describe('procurement receipts headers', () => {
 
         await untilVisible('kitchen-procurement-receipts-table');
 
-        for (const column of [
-            'receivedAt',
-            'supplier',
-            'refs',
-            'order',
-            'total',
-            'costStatus',
-        ]) {
+        for (const column of ['receivedAt', 'supplier', 'refs', 'order', 'total', 'costStatus']) {
             expect(screen.getByTestId(`kitchen-procurement-column-${column}-trigger`)).toBeTruthy();
         }
 

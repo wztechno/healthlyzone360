@@ -476,7 +476,7 @@ const SEARCH_MIN_WIDTH = 200;
 /** A space the layout cannot collapse, so an otherwise empty line still takes its full height. */
 const NO_BREAK_SPACE = String.fromCharCode(0xa0);
 
-function LensFigureCell({
+export function LensFigureCell({
     figure,
     narrow,
     testID,

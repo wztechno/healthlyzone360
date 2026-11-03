@@ -2,6 +2,7 @@ import type { PurchaseOrderLine, StockItem } from '@healthy360/api-client/contra
 import {
     Badge,
     Button,
+    Callout,
     Cascade,
     DataList,
     Dialog,
@@ -9,21 +10,15 @@ import {
     ErrorState,
     FormSection,
     FormSkeleton,
-    IssueTrayFrame,
+    Icon,
     QuantityInput,
     Select,
     Stack,
     Text,
     TextInputField,
-    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type {
-    DataListColumn,
-    IssueCardItem,
-    IssueTrayContent,
-    SelectOption,
-} from '@healthy360/design-system';
+import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { PurchaseOrderId, StockItemId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -33,7 +28,6 @@ import { Platform, View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
-import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import {
     useCancelPurchaseOrderMutation,
@@ -47,6 +41,7 @@ import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { focusField } from '../field-focus.ts';
 import { returnCrumbLabel } from '../came-from.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { SupplyOrderRecord } from '../supply-order-record.tsx';
 import {
     canCancelPurchaseOrder,
     canPrintPurchaseOrder,
@@ -67,7 +62,6 @@ import { serverFieldErrors } from '../server-field-errors.ts';
 import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { readQuantity } from '../supply-order-model.ts';
 import { trimDecimal } from '../format.ts';
-import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
@@ -91,12 +85,13 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  *                                                     └──────────────────────────┘
  * ```
  *
- * ## Three screens wearing one layout
+ * ## A form while it is a draft, a record after
  *
  * A draft is a form: quantities are editable, lines come and go, the note is typed, and Issue sits
- * in the opening. An issued order is a document: the same table, read-only, its issue date a note
- * in the issue tray and cancelling still possible. A cancelled order is a record: read-only, a note
- * saying so, with nothing left to press.
+ * in the opening — the layout drawn above. From `issued` on the order is a document, and it reads
+ * as one: the record canopy with its history and the order's facts as tiles over the read-only
+ * table (`supply-order-record.tsx`, option C of the `Minimal view page` canvas). An issued order can
+ * still be cancelled; a cancelled one is a record with nothing left to press.
  *
  * Which of the three is decided by the closed capability records in `ops-format.ts` rather than by
  * `status === 'draft'` tests scattered through the JSX. That matters for more than tidiness: those
@@ -115,9 +110,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * sheet's to show; this screen names the supplier in the opening and the summary, once each.
  *
  * The live reference stays available on an issued order for one thing only: its archive flag, which
- * is why the tray can note that the supplier has since left the book. On a draft the same flag is a
- * card under "Blocks issuing" — the server refuses to issue to an archived supplier — whose Fix
- * opens the supplier, where Restore is.
+ * is why a screen can explain that the supplier has since left the book.
  *
  * ## Issue and print is one action, and the order of the two halves matters
  *
@@ -312,15 +305,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
     const invalid = readings.some((reading) => reading.value === null);
     const empty = lines.length === 0;
 
-    /*
-     * What the server refused, put on the fields it named (BUG-06) and named again as cards in the
-     * page's issue tray, each taking the reader to its field. A refusal opens the tray.
-     */
-    const issueTray = useIssueTrayController();
-    const { nudge: nudgeTray } = issueTray;
-    useNudgeOnRefusal(update.error, nudgeTray);
-    useNudgeOnRefusal(issue.error, nudgeTray);
-    useNudgeOnRefusal(cancel.error, nudgeTray);
+    // What the server refused, put on the fields it named (BUG-06).
     const updateFailure = toFailure(update.error);
     const otherFailure = toFailure(issue.error ?? cancel.error);
     /** The fields a save can be refused on, in the order the page draws them. */
@@ -534,17 +519,39 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
               {
                   key: 'received',
                   label: t('kitchen:ops.supplyOrders.columnReceived'),
-                  width: 104,
+                  width: 200,
                   priority: 60,
-                  render: (line) => (
-                      <Text
-                          variant="mono"
-                          testID={`${purchaseOrderLineTestId(line.stockItemId)}-received`}
-                          tone={Number(line.receivedQuantity) > 0 ? 'primary' : 'secondary'}
-                      >
-                          {`${formatter.formatNumber(Number(line.receivedQuantity))} ${line.unitCode}`}
-                      </Text>
-                  ),
+                  /*
+                   * A bar of received against ordered, beside the figure. The width is a picture
+                   * of the two server figures on the row, which share its unit; the warning fill
+                   * reads the server's own outstanding figure, never one worked out here.
+                   */
+                  render: (line) => {
+                      const ordered = Number(line.quantity);
+                      const share =
+                          ordered > 0 ? Math.min(Number(line.receivedQuantity) / ordered, 1) : 0;
+                      const short = Number(line.outstandingQuantity) > 0;
+                      return (
+                          <View className="min-w-0 flex-1 flex-row items-center gap-tight">
+                              <View
+                                  aria-hidden
+                                  className="h-1.5 flex-1 flex-row overflow-hidden rounded-full bg-surface-sunken"
+                              >
+                                  <View
+                                      className={`h-full rounded-full ${short ? 'bg-warning' : 'bg-surface-brand'}`}
+                                      style={{ width: `${Math.round(share * 100)}%` }}
+                                  />
+                              </View>
+                              <Text
+                                  variant="mono"
+                                  testID={`${purchaseOrderLineTestId(line.stockItemId)}-received`}
+                                  tone={Number(line.receivedQuantity) > 0 ? 'primary' : 'secondary'}
+                              >
+                                  {`${formatter.formatNumber(Number(line.receivedQuantity))} ${line.unitCode}`}
+                              </Text>
+                          </View>
+                      );
+                  },
               },
               {
                   key: 'outstanding',
@@ -702,141 +709,102 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
     const lineCount = t('kitchen:ops.supplyOrders.receiptLineCount', { count: lines.length });
     const issueBlocked = dirty || invalid || empty;
 
-    /*
-     * The order's problems, in its issue tray rather than in a band under the opening. A refused
-     * save keeps the server's own words under its title — the fields it named are the opening's
-     * cards (`errors` below) — and a refused issue or cancel is what "didn't go through". Only one
-     * of the two is said, as the band said one: a save refused first is the one to fix.
-     */
-    const supplier = data.supplier;
-    const supplierArchived = supplier?.archivedAt != null;
-    const saveCards: IssueCardItem[] =
-        saveError === null
-            ? []
-            : [
-                  {
-                      key: 'save-error',
-                      tone: 'danger',
-                      label: t('kitchen:editor.saveError'),
-                      detail: saveError,
-                      testID: 'kitchen-supply-order-detail-action-error',
-                  },
-              ];
-    const failedCards: IssueCardItem[] =
-        updateFailure !== null || otherFailure === null
-            ? []
-            : [
-                  {
-                      key: 'act-error',
-                      tone: 'danger',
-                      label: t(
-                          issue.error == null
-                              ? 'kitchen:ops.supplyOrders.cancelFailed'
-                              : 'kitchen:ops.supplyOrders.issueFailed',
-                      ),
-                      detail: otherFailure.message,
-                      testID: 'kitchen-supply-order-detail-action-error',
-                  },
-              ];
-    // A draft cannot be issued to an archived supplier; Fix opens the supplier, where Restore is.
-    const issueCards: IssueCardItem[] =
-        !issuable || supplier === null || !supplierArchived
-            ? []
-            : [
-                  {
-                      key: 'supplier-archived',
-                      tone: 'warning',
-                      label: t('kitchen:ops.supplyOrders.supplierArchivedTitle'),
-                      detail: supplier.nameEn,
-                      action: {
-                          onPress: () => {
-                              guard.intercept(() => {
-                                  router.push(
-                                      withReturnTo(
-                                          `/kitchen/suppliers/${String(supplier.id)}`,
-                                          `/kitchen/supply-orders/${String(data.id)}`,
-                                      ) as never,
-                                  );
-                              });
-                          },
-                      },
-                      testID: 'kitchen-supply-order-detail-archived-notice',
-                  },
-              ];
-    const trayContent: IssueTrayContent = {
-        title: t('kitchen:tray.title'),
-        testID: 'kitchen-supply-order-detail-tray',
-        groups: [
-            { key: 'save', title: t('kitchen:tray.groupSave'), items: saveCards },
-            { key: 'issue', title: t('kitchen:tray.groupIssue'), items: issueCards },
-            { key: 'failed', title: t('kitchen:tray.groupFailed'), items: failedCards },
-        ],
-        /*
-         * Facts about the order, with nothing to fix here. "Issued", never "sent" (§2): nothing left
-         * this system — the person printed the sheet and handed it over. A short delivery closed
-         * "with an explicit reason" (§3.5) shows the reason too: *that* it closed short without
-         * *why* would be the worse half of the two.
-         */
-        notes: {
-            title: t('kitchen:tray.groupNote'),
-            testID: 'kitchen-supply-order-detail-notices',
-            lines: [
-                ...(status === 'cancelled'
-                    ? [
-                          {
-                              key: 'cancelled',
-                              text: t('kitchen:ops.supplyOrders.cancelledNoticeTitle'),
-                              testID: 'kitchen-supply-order-detail-cancelled-notice',
-                          },
-                      ]
-                    : data.issuedAt !== null
-                      ? [
-                            {
-                                key: 'issued',
-                                text: t('kitchen:ops.supplyOrders.issuedNoticeTitle', {
-                                    date: formatter.formatDate(data.issuedAt, {
-                                        dateStyle: 'medium',
-                                    }),
-                                }),
-                                testID: 'kitchen-supply-order-detail-issued-notice',
-                            },
-                        ]
-                      : []),
-                ...(data.closeShortReason === null
-                    ? []
-                    : [
-                          {
-                              key: 'close-short',
-                              text: t('kitchen:ops.supplyOrders.closedShortTitle'),
-                              testID: 'kitchen-supply-order-detail-close-short-notice',
-                          },
-                          {
-                              key: 'close-short-reason',
-                              text: data.closeShortReason,
-                              testID: 'kitchen-supply-order-detail-close-short-reason',
-                          },
-                      ]),
-                ...(supplierArchived && !issuable
-                    ? [
-                          {
-                              key: 'supplier-archived',
-                              text: t('kitchen:ops.supplyOrders.supplierArchivedTitle'),
-                              testID: 'kitchen-supply-order-detail-archived-notice',
-                          },
-                      ]
-                    : []),
-            ],
-        },
-    };
+    // A refused save says what is left once its fields have their messages; an issue or cancel, why.
+    const actionError: string | null =
+        updateFailure !== null ? saveError : (otherFailure?.message ?? null);
+    const hasNotices =
+        status === 'cancelled' ||
+        data.issuedAt !== null ||
+        data.closeShortReason !== null ||
+        actionError !== null ||
+        data.supplier?.archivedAt != null;
+
+    const linesTable = (
+        <DataList<LineDraft>
+            testID="kitchen-supply-order-detail-lines-table"
+            label={t('kitchen:ops.supplyOrders.linesCaption')}
+            columns={columns}
+            rows={lines}
+            rowKey={(line) => line.stockItemId}
+            density="sm"
+        />
+    );
 
     return (
-        <IssueTrayFrame tray={trayContent} controller={issueTray}>
-            <Cascade space="md" testID="kitchen-supply-order-detail-screen">
-                {/*
-                 * The opening the record forms share, as the builder draws it: the order and its
-                 * status, the way back first and the commit last. The commit lives here only — the
-                 * summary beside the cards states the order and does not repeat its buttons.
-                 */}
+        <Cascade space="md" testID="kitchen-supply-order-detail-screen">
+            {/*
+             * From `issued` on the lines are frozen and the order is a document: it opens on
+             * the record canopy with its history, and its facts are tiles
+             * (`supply-order-record.tsx`). The draft below stays the builder it is.
+             */}
+            {editable ? null : (
+                <SupplyOrderRecord
+                    order={data}
+                    lines={lines}
+                    table={linesTable}
+                    title={title}
+                    subtitle={t('kitchen:ops.supplyOrders.detailSubtitle', {
+                        supplier: supplierName,
+                        branch: branchName,
+                        date: madeOn,
+                    })}
+                    supplierName={supplierName}
+                    branchName={branchName}
+                    statusTone={purchaseOrderStatusTone(data.status)}
+                    back={
+                        <Button
+                            testID="kitchen-supply-order-detail-screen-back"
+                            variant="secondary"
+                            size="sm"
+                            label={t('kitchen:ops.supplyOrders.backToOrders')}
+                            iconStart={<Icon name="chevronStart" size="sm" />}
+                            onPress={() => {
+                                guard.intercept(back);
+                            }}
+                        />
+                    }
+                    actions={
+                        <>
+                            {printable ? (
+                                <Button
+                                    testID="kitchen-supply-order-detail-print"
+                                    variant="secondary"
+                                    size="sm"
+                                    label={t('kitchen:ops.supplyOrders.print.printOrder')}
+                                    onPress={openPrint}
+                                />
+                            ) : null}
+                            {cancellable ? (
+                                <Button
+                                    testID="kitchen-supply-order-detail-cancel"
+                                    variant="danger"
+                                    size="sm"
+                                    label={t('kitchen:ops.supplyOrders.cancelOrder')}
+                                    onPress={() => {
+                                        setConfirmingCancel(true);
+                                    }}
+                                />
+                            ) : null}
+                            {receivable ? (
+                                <Button
+                                    testID="kitchen-supply-order-detail-receive"
+                                    variant="secondary"
+                                    size="sm"
+                                    label={t('kitchen:ops.supplyOrders.receiveDelivery')}
+                                    onPress={goReceive}
+                                />
+                            ) : null}
+                        </>
+                    }
+                />
+            )}
+
+            {/*
+             * The opening the record forms share, as the builder draws it: the order and its
+             * status, the way back first and the commit last. The commit lives here only — the
+             * summary beside the cards states the order and does not repeat its buttons.
+             */}
+            {editable ? (
                 <RecordFormOpening
                     testID="kitchen-supply-order-detail-screen"
                     title={title}
@@ -939,7 +907,68 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                         items: server.items,
                     }}
                 />
+            ) : null}
 
+            {/* The order's notices, one band under the opening. */}
+            {!hasNotices ? null : (
+                <Stack space="xs" testID="kitchen-supply-order-detail-notices">
+                    {status === 'cancelled' ? (
+                        <Callout
+                            testID="kitchen-supply-order-detail-cancelled-notice"
+                            tone="info"
+                            title={t('kitchen:ops.supplyOrders.cancelledNoticeTitle')}
+                        />
+                    ) : data.issuedAt !== null ? (
+                        /*
+                         * "Issued", never "sent" (§2). Nothing left this system through any channel — the
+                         * person printed the sheet and handed it over.
+                         */
+                        <Callout
+                            testID="kitchen-supply-order-detail-issued-notice"
+                            tone="info"
+                            title={t('kitchen:ops.supplyOrders.issuedNoticeTitle', {
+                                date: formatter.formatDate(data.issuedAt, { dateStyle: 'medium' }),
+                            })}
+                        />
+                    ) : null}
+
+                    {data.closeShortReason === null ? null : (
+                        /*
+                         * §3.5 allows a short delivery to be closed "with an explicit reason", and the
+                         * reason is shown here rather than left in the audit log: seeing *that* it closed
+                         * short but not *why* would be the worse half of the two.
+                         */
+                        <Callout
+                            testID="kitchen-supply-order-detail-close-short-notice"
+                            tone="warning"
+                            title={t('kitchen:ops.supplyOrders.closedShortTitle')}
+                            body={data.closeShortReason}
+                        />
+                    )}
+
+                    {actionError === null ? null : (
+                        // A save, issue or cancel the server refused. Field refusals are already on their
+                        // fields; this says what is left, so a refused action never looks like nothing.
+                        <Callout
+                            testID="kitchen-supply-order-detail-action-error"
+                            tone="danger"
+                            role="alert"
+                            title={t('kitchen:editor.saveError')}
+                            body={actionError}
+                        />
+                    )}
+
+                    {data.supplier?.archivedAt == null ? null : (
+                        <Callout
+                            testID="kitchen-supply-order-detail-archived-notice"
+                            tone="warning"
+                            title={t('kitchen:ops.supplyOrders.supplierArchivedTitle')}
+                        />
+                    )}
+                </Stack>
+            )}
+
+            {editable ? (
                 <View
                     ref={Platform.OS === 'web' ? port.ref : undefined}
                     onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
@@ -967,14 +996,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                             }
                         >
                             <Stack space="sm">
-                                <DataList<LineDraft>
-                                    testID="kitchen-supply-order-detail-lines-table"
-                                    label={t('kitchen:ops.supplyOrders.linesCaption')}
-                                    columns={columns}
-                                    rows={lines}
-                                    rowKey={(line) => line.stockItemId}
-                                    density="sm"
-                                />
+                                {linesTable}
 
                                 {empty && editable ? (
                                     <Text
@@ -1138,66 +1160,66 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                         }}
                     />
                 </View>
+            ) : null}
 
-                <EditorGuardDialogs guard={guard} testID="kitchen-supply-order-detail-screen" />
+            <EditorGuardDialogs guard={guard} testID="kitchen-supply-order-detail-screen" />
 
-                <Dialog
-                    open={confirmingIssue}
-                    onClose={() => {
-                        setConfirmingIssue(false);
-                    }}
-                    title={t('kitchen:ops.supplyOrders.issueConfirmTitle')}
-                    description={t('kitchen:ops.supplyOrders.issueConfirmBody')}
-                    testID="kitchen-supply-order-detail-issue-confirm"
-                    actions={
-                        <>
-                            <Button
-                                testID="kitchen-supply-order-detail-issue-cancel"
-                                variant="secondary"
-                                label={t('kitchen:ops.supplyOrders.issueKeepEditing')}
-                                onPress={() => {
-                                    setConfirmingIssue(false);
-                                }}
-                            />
-                            <Button
-                                testID="kitchen-supply-order-detail-issue-confirm-action"
-                                label={t('kitchen:ops.supplyOrders.issueConfirm')}
-                                loading={issue.isPending}
-                                onPress={confirmIssue}
-                            />
-                        </>
-                    }
-                />
+            <Dialog
+                open={confirmingIssue}
+                onClose={() => {
+                    setConfirmingIssue(false);
+                }}
+                title={t('kitchen:ops.supplyOrders.issueConfirmTitle')}
+                description={t('kitchen:ops.supplyOrders.issueConfirmBody')}
+                testID="kitchen-supply-order-detail-issue-confirm"
+                actions={
+                    <>
+                        <Button
+                            testID="kitchen-supply-order-detail-issue-cancel"
+                            variant="secondary"
+                            label={t('kitchen:ops.supplyOrders.issueKeepEditing')}
+                            onPress={() => {
+                                setConfirmingIssue(false);
+                            }}
+                        />
+                        <Button
+                            testID="kitchen-supply-order-detail-issue-confirm-action"
+                            label={t('kitchen:ops.supplyOrders.issueConfirm')}
+                            loading={issue.isPending}
+                            onPress={confirmIssue}
+                        />
+                    </>
+                }
+            />
 
-                <Dialog
-                    open={confirmingCancel}
-                    onClose={() => {
-                        setConfirmingCancel(false);
-                    }}
-                    title={t('kitchen:ops.supplyOrders.cancelConfirmTitle')}
-                    description={t('kitchen:ops.supplyOrders.cancelConfirmBody')}
-                    testID="kitchen-supply-order-detail-cancel-confirm"
-                    actions={
-                        <>
-                            <Button
-                                testID="kitchen-supply-order-detail-cancel-keep"
-                                variant="quiet"
-                                label={t('kitchen:ops.supplyOrders.cancelKeep')}
-                                onPress={() => {
-                                    setConfirmingCancel(false);
-                                }}
-                            />
-                            <Button
-                                testID="kitchen-supply-order-detail-cancel-confirm-action"
-                                variant="danger"
-                                label={t('kitchen:ops.supplyOrders.cancelConfirm')}
-                                loading={cancel.isPending}
-                                onPress={confirmCancel}
-                            />
-                        </>
-                    }
-                />
-            </Cascade>
-        </IssueTrayFrame>
+            <Dialog
+                open={confirmingCancel}
+                onClose={() => {
+                    setConfirmingCancel(false);
+                }}
+                title={t('kitchen:ops.supplyOrders.cancelConfirmTitle')}
+                description={t('kitchen:ops.supplyOrders.cancelConfirmBody')}
+                testID="kitchen-supply-order-detail-cancel-confirm"
+                actions={
+                    <>
+                        <Button
+                            testID="kitchen-supply-order-detail-cancel-keep"
+                            variant="quiet"
+                            label={t('kitchen:ops.supplyOrders.cancelKeep')}
+                            onPress={() => {
+                                setConfirmingCancel(false);
+                            }}
+                        />
+                        <Button
+                            testID="kitchen-supply-order-detail-cancel-confirm-action"
+                            variant="danger"
+                            label={t('kitchen:ops.supplyOrders.cancelConfirm')}
+                            loading={cancel.isPending}
+                            onPress={confirmCancel}
+                        />
+                    </>
+                }
+            />
+        </Cascade>
     );
 }

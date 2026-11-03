@@ -1842,7 +1842,8 @@ function Ticket({
                                                 </Text>
                                             </View>
                                         </View>
-                                        {dishOptionsLine(line.options, locale, t) === null ? null : (
+                                        {dishOptionsLine(line.options, locale, t) ===
+                                        null ? null : (
                                             <Text variant="caption" tone="secondary">
                                                 {dishOptionsLine(line.options, locale, t)}
                                             </Text>
@@ -2340,9 +2341,7 @@ function DishChoicesDrawer({
                         portions={portions}
                         value={value}
                         onChange={setValue}
-                        formatPrice={(choice) =>
-                            money(choice.unitPriceMinor, choice.currencyCode)
-                        }
+                        formatPrice={(choice) => money(choice.unitPriceMinor, choice.currencyCode)}
                     />
                 )}
                 <TextInputField

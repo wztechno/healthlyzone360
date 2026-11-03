@@ -263,7 +263,6 @@ describe('plan balance arithmetic', () => {
         expect(empty.weeks).toHaveLength(0);
         expect(empty.lastDelivery).toBeNull();
     });
-
 });
 
 /* ── /plans ──────────────────────────────────────────────────────────────────────────────────── */

@@ -44,6 +44,7 @@ export function AllergenReferencePicker({
     onChange,
     suggestion,
     disabled = false,
+    onNothingDeclared,
 }: {
     readonly name: string;
     readonly classes: readonly AllergenClass[];
@@ -56,6 +57,12 @@ export function AllergenReferencePicker({
           }
         | undefined;
     readonly disabled?: boolean;
+    /**
+     * A barcode search found the product and it declares nothing — no allergen, no term we could
+     * not place. The product cannot be imported (an empty list is not an allergen-free claim), so
+     * the form ticks its own "no allergens" box for the cook to see instead.
+     */
+    readonly onNothingDeclared?: (() => void) | undefined;
 }) {
     const { t } = useTranslation();
     const { locale } = useLocale();
@@ -69,7 +76,25 @@ export function AllergenReferencePicker({
     const run = () => {
         if (blocked) return;
         onChange(undefined);
-        search.mutate({ query: query.trim(), barcode: barcode.trim() || undefined });
+        const byBarcode = barcode.trim() !== '';
+        search.mutate(
+            { query: query.trim(), barcode: barcode.trim() || undefined },
+            {
+                onSuccess: (result) => {
+                    if (
+                        byBarcode &&
+                        result.candidates.length > 0 &&
+                        result.candidates.every(
+                            (candidate) =>
+                                candidate.mappings.length === 0 &&
+                                candidate.unmapped_terms.length === 0,
+                        )
+                    ) {
+                        onNothingDeclared?.();
+                    }
+                },
+            },
+        );
     };
 
     const listed = search.data?.candidates ?? suggestion?.candidates ?? [];

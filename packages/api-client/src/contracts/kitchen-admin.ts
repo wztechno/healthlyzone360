@@ -258,6 +258,13 @@ export interface IngredientAllergenMapping {
     /** Where the determination came from — a supplier specification, a test report, a person. */
     readonly sourceNote: string | null;
     readonly lookupSource?: Readonly<Record<string, unknown>> | null;
+    /** How it was found: typed by the kitchen, or brought in by the master list or a lookup. */
+    readonly source?:
+        | 'master_list'
+        | 'technical_sheet'
+        | 'supplier_declaration'
+        | 'kitchen_declared'
+        | 'inferred';
 }
 
 export interface AllergenReferenceCandidate {
