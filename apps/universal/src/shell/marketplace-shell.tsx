@@ -7,18 +7,17 @@ import {
     OfflineIndicator,
     Stack,
     Text,
-    inputControlClassName,
-    inputFrameClassName,
     useBreakpoint,
+    useMotion,
     useTheme,
 } from '@healthy360/design-system';
 import type { NavigationItem } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
-import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { useCallback, useEffect, useEffectEvent, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, Pressable, Text as RNText, TextInput, View } from 'react-native';
+import { Animated, Easing, Platform, Pressable, Text as RNText, View } from 'react-native';
 
 import { recordResumeIntent } from '../features/marketplace/resume-intent.ts';
 import { useLogoutMutation } from '../data/hooks.ts';
@@ -31,27 +30,14 @@ import {
 } from '../features/commerce/pending-add.ts';
 import { useBasketAdd } from '../features/commerce/use-basket-add.tsx';
 import type { BasketAdd } from '../features/commerce/use-basket-add.tsx';
-import { requestMenuSearchFocus } from '../features/catalogue/menu-search-focus.ts';
 import { LEGAL_PAGES } from '../features/legal/legal-pages.tsx';
-import { QUERY_PARAM } from '../features/marketplace/filter-bar.tsx';
 import { ShopViewOnlyProvider, isShopViewOnly } from '../features/marketplace/shop-view-only.tsx';
 import { marketplaceNavigation } from '../navigation/consumer-items.ts';
 import { availableWorkspaceAreas } from '../navigation/items.ts';
-import { withQuery } from '../navigation/return-to.ts';
 import { useCurrentHref, useGoToAuth } from '../navigation/use-return-to.ts';
 import { useOnlineStatus } from '../online/online-status.tsx';
 import { useAccessState, useSession } from '../session/session-provider.tsx';
-import { LocaleToggle } from './locale-toggle.tsx';
-import { ThemeToggle } from './theme-toggle.tsx';
 import { useScrollPlace } from './use-scroll-place.ts';
-
-/** The catalogue the header search narrows. */
-const MENU_PATH = '/meals';
-
-/** A search param as one string — the hooks hand back an array for a repeated key. */
-function termOf(raw: string | string[] | undefined): string {
-    return (Array.isArray(raw) ? raw[0] : raw) ?? '';
-}
 
 const SHELL_TEST_ID = 'marketplace-shell';
 const CONTENT_TEST_ID = `${SHELL_TEST_ID}-content`;
@@ -125,6 +111,66 @@ function SkipToContent() {
                 {t('marketplace:nav.skipToContent')}
             </Text>
         </Pressable>
+    );
+}
+
+/**
+ * The theme glyph, turning in as it changes — the accepted design's sun/moon swap: a quarter turn
+ * and a grow from 60%, overshooting a little before it settles. It is keyed on the theme by its
+ * caller, so each switch mounts a fresh one. Under reduced motion it is simply there.
+ */
+function ThemeGlyph({ dark }: { readonly dark: boolean }) {
+    const { enabled } = useMotion();
+    // State, not a ref: the value is read while rendering (its interpolations), which a ref may not be.
+    const [progress] = useState(() => new Animated.Value(enabled ? 0 : 1));
+
+    useEffect(() => {
+        if (!enabled) {
+            progress.setValue(1);
+            return;
+        }
+        const animation = Animated.timing(progress, {
+            toValue: 1,
+            duration: 450,
+            easing: Easing.bezier(0.34, 1.4, 0.64, 1),
+            useNativeDriver: true,
+        });
+        animation.start();
+        return () => {
+            animation.stop();
+        };
+    }, [enabled, progress]);
+
+    return (
+        <Animated.View
+            style={
+                enabled
+                    ? {
+                          opacity: progress.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0, 1],
+                              extrapolate: 'clamp',
+                          }),
+                          transform: [
+                              {
+                                  rotate: progress.interpolate({
+                                      inputRange: [0, 1],
+                                      outputRange: ['-90deg', '0deg'],
+                                  }),
+                              },
+                              {
+                                  scale: progress.interpolate({
+                                      inputRange: [0, 1],
+                                      outputRange: [0.6, 1],
+                                  }),
+                              },
+                          ],
+                      }
+                    : undefined
+            }
+        >
+            <Icon name={dark ? 'sun' : 'moon'} size="lg" className="text-content-primary" />
+        </Animated.View>
     );
 }
 
@@ -209,10 +255,10 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
      * Available destinations only — the table keeps every destination the product will have, and
      * `../features/availability.ts` decides which of them has a backend to reach today.
      *
-     * Secondary destinations are dropped as well. "How it works" and "For business" are marketing
-     * pages, and the seven-item row they made was wide enough to wrap onto a second line and shove
-     * the account controls into one another. They are already in the footer below, listed there by
-     * the same availability table, so this costs no route a way of being reached.
+     * Secondary destinations are dropped as well. "How it works" is a marketing page, and a longer
+     * row wraps onto a second line and shoves the account controls into one another; it is in the
+     * footer below, listed there by the same availability table. "Business" is a header destination
+     * since the accepted shop design (it opens `/for-business`).
      */
     /*
      * A header destination is a place, not an action (CHROME-11). Pressing the one you are on used
@@ -284,24 +330,19 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                 // blank frame first and sent an unconfirmed account to verification (browse-10).
                 navigateTo('/discover');
             }}
-            className="min-h-touch min-w-0 shrink flex-row items-center gap-2 pe-2"
+            className="min-h-touch min-w-0 shrink flex-row items-center gap-2 pe-2 lg:shrink-0"
         >
             {/*
-             * A solid mark with one squared corner, not a gradient tile carrying a letter.
-             *
-             * The asymmetry *is* the mark: three corners at the default 8px radius with the
-             * bottom-start at 2px reads as a plate set down on an edge, and it survives at 28px,
-             * where a single letter would just be a smudge. `rounded-es-xs` is the logical corner,
-             * so the squared edge mirrors under RTL rather than stranding itself on the wrong side.
-             *
-             * Fill and ring are semantic roles, not HealthZone's lime and ink — the structure
-             * lands now and the palette pass reaches this without reopening the file. Retiring the
-             * gradient also hands violet back to its one job, marking machine-generated content.
+             * The accepted design's mark: a round brand disc carrying a leaf, sized to the pill
+             * bar's other round controls. Fill and glyph are semantic roles, so a palette change
+             * reaches it without reopening the file.
              */}
-            <View className="h-[26px] w-[26px] rounded rounded-es-xs border-[1.5px] border-surface-canopy bg-surface-brand" />
+            <View className="h-9 w-9 items-center justify-center rounded-full bg-surface-brand md:h-10 md:w-10">
+                <Icon name="leaf" className="text-content-on-brand" />
+            </View>
             <RNText
                 numberOfLines={1}
-                className="shrink font-display text-lg font-extrabold tracking-display text-content-primary md:text-xl"
+                className="shrink font-display text-lg font-bold tracking-display text-content-primary md:text-xl lg:shrink-0"
             >
                 {t('marketplace:brand.name')}
             </RNText>
@@ -309,97 +350,10 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
     );
 
     /*
-     * Search belongs to the chrome, not to one screen.
-     *
-     * It used to live in `PageHero`'s trailing panel, which put it on the four screens that use a
-     * hero and nowhere else: from a meal detail page there was no way to start a new search but
-     * the back button. In the bar it is reachable from every marketplace surface.
-     *
-     * It holds nothing but the draft term, and `?q=` on `/meals` is the term itself — the same param
-     * the catalogue's own search field writes (browse-06), so there is no second query layer here
-     * to drift out of step with it:
-     *
-     * - **On the catalogue** the draft follows `?q=` — a term typed into the page's field, a chip
-     *   removed, "Clear all" — and submitting sets `?q=` in place (`setParams`), so a search narrows
-     *   the diet, shelf and ranges already applied instead of starting over without them.
-     * - **Anywhere else** submitting opens the catalogue on the term alone. An empty term goes to
-     *   the bare catalogue rather than to `?q=`, so clearing the box is a route a person can also
-     *   reach by hand.
-     *
-     * The field is drawn from `xl` only. Between `md` and `xl` the four destinations, the field and
-     * the controls do not fit on one line — at 820px the row wrapped and the destinations stacked
-     * into a 200px header — so there it is a search button that opens the catalogue and puts the
-     * cursor in the catalogue's own search field. Below `md` there is no room even for the button;
-     * the catalogue is one press away in the menu, and its field is the first thing on it.
+     * No search in the bar: the accepted design ends it in the destinations, the two switches,
+     * the account and the cart. The menu and Discover carry their own search fields.
      */
-    const globalParams = useGlobalSearchParams();
-    const onMenu = pathname === MENU_PATH;
-    const menuTerm = onMenu ? termOf(globalParams[QUERY_PARAM]) : '';
-    const [searchDraft, setSearchDraft] = useState(menuTerm);
-    // Adjusted during render rather than in an effect, so the field never paints a stale term.
-    const [syncedTerm, setSyncedTerm] = useState(menuTerm);
-    if (syncedTerm !== menuTerm) {
-        setSyncedTerm(menuTerm);
-        setSearchDraft(menuTerm);
-    }
     const wideBar = useBreakpoint().atLeast('xl');
-    const [searchFocused, setSearchFocused] = useState(false);
-
-    const submitSearch = useCallback(() => {
-        const term = searchDraft.trim();
-        if (onMenu) {
-            router.setParams({ [QUERY_PARAM]: term });
-            return;
-        }
-        router.push(withQuery(MENU_PATH, { [QUERY_PARAM]: term }) as never);
-    }, [onMenu, router, searchDraft]);
-
-    const searchField = (
-        <View
-            className={`${inputFrameClassName({
-                invalid: false,
-                focused: searchFocused,
-                disabled: false,
-            })} w-[340px] min-w-0 shrink`}
-        >
-            <Icon name="search" className="text-content-disabled" />
-            <TextInput
-                testID="marketplace-search"
-                accessibilityLabel={t('marketplace:nav.searchLabel')}
-                placeholder={t('marketplace:nav.searchPlaceholder')}
-                value={searchDraft}
-                onChangeText={setSearchDraft}
-                onFocus={() => {
-                    setSearchFocused(true);
-                }}
-                onBlur={() => {
-                    setSearchFocused(false);
-                }}
-                onSubmitEditing={submitSearch}
-                returnKeyType="search"
-                className={inputControlClassName}
-            />
-        </View>
-    );
-
-    const searchButton = (
-        <View className="hidden md:flex">
-            <IconButton
-                testID="marketplace-search-button"
-                size="sm"
-                variant="ghost"
-                className="rounded-full border-stroke"
-                icon={<Icon name="search" size="lg" className="text-content-primary" />}
-                label={t('marketplace:nav.searchLabel')}
-                onPress={() => {
-                    // The catalogue as a destination — nothing new stacked when already on it —
-                    // with the cursor waiting in its field, which is what "search" promised.
-                    requestMenuSearchFocus();
-                    navigateTo(MENU_PATH);
-                }}
-            />
-        </View>
-    );
 
     /*
      * The trailing controls: language, appearance, the account and the basket.
@@ -417,7 +371,41 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
     const otherLocaleLabel = locale.startsWith('ar') ? 'English' : t('common:locale.arabic');
     const themeLabel = isDark ? t('common:theme.switchToLight') : t('common:theme.switchToDark');
 
-    // The ring and the glyph's own colour match `ThemeToggle` beside it, for the reasons given there.
+    /*
+     * The language switch as the bar draws it: a round button beside the theme switch, showing the
+     * other language's mark — "ع" on an English page, "EN" on an Arabic one — and named in full
+     * for a screen reader. The staff shells keep the worded `LocaleToggle`; the testID is the same,
+     * because it is the same control.
+     */
+    const themeButton = (
+        <IconButton
+            testID="theme-toggle"
+            size="sm"
+            variant="ghost"
+            className="rounded-full border-stroke"
+            icon={<ThemeGlyph key={isDark ? 'dark' : 'light'} dark={isDark} />}
+            label={themeLabel}
+            onPress={toggleTheme}
+        />
+    );
+
+    const localeButton = (
+        <IconButton
+            testID="locale-toggle"
+            size="sm"
+            variant="ghost"
+            className="rounded-full border-stroke"
+            icon={
+                <RNText className="font-display text-base font-bold text-content-primary">
+                    {locale.startsWith('ar') ? 'EN' : 'ع'}
+                </RNText>
+            }
+            label={otherLocaleLabel}
+            onPress={toggleLocale}
+        />
+    );
+
+    // A ring and its own glyph colour, like the theme switch beside it.
     // "You are here" on the account pages, as the destinations show it with their underline.
     const accountButton = (
         <IconButton
@@ -429,7 +417,7 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                     ? 'rounded-full border-stroke-strong bg-surface-sunken'
                     : 'rounded-full border-stroke'
             }
-            icon={<Icon name="userCircle" size="lg" className="text-content-primary" />}
+            icon={<Icon name="user" size="lg" className="text-content-primary" />}
             label={t('marketplace:nav.account')}
             {...(onAccount ? { 'aria-current': 'page' as const } : {})}
             aria-selected={onAccount}
@@ -467,31 +455,35 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
      * pointer at the moment of the first add. The chip is the button's colours inverted.
      */
     const cartButton = (
-        <IconButton
+        <Pressable
             testID="marketplace-basket"
-            size="sm"
-            variant="primary"
-            className="rounded-lg px-3"
-            label={cartButtonLabel}
+            role="link"
+            accessibilityRole="link"
+            accessibilityLabel={cartButtonLabel}
             {...(onBasket ? { 'aria-current': 'page' as const } : {})}
             aria-selected={onBasket}
-            icon={
-                <View className="flex-row items-center gap-1.5">
-                    <Icon name="shoppingBasket" size="lg" className="text-content-on-brand" />
-                    <View
-                        testID="marketplace-basket-count"
-                        className="min-w-[24px] items-center justify-center rounded-full bg-content-on-brand px-2 py-0.5"
-                    >
-                        <RNText className="text-xs font-semibold tabular-nums text-surface-brand">
-                            {String(cartCount)}
-                        </RNText>
-                    </View>
-                </View>
-            }
+            focusable
             onPress={() => {
                 navigateTo('/customer/cart');
             }}
-        />
+            // The accepted design's cart: an ink pill, 48px tall, the word beside the basket glyph
+            // and the count in a brand disc. The word hides on a phone, where the pill is the glyph
+            // and the count.
+            className="h-12 flex-row items-center gap-2 rounded-full bg-content-primary pe-2.5 ps-3.5 transition duration-normal ease-standard active:opacity-80 md:pe-3"
+        >
+            <Icon name="shoppingBasket" className="text-surface-base" />
+            <RNText className="hidden text-sm font-semibold text-surface-base md:flex">
+                {cartLabel}
+            </RNText>
+            <View
+                testID="marketplace-basket-count"
+                className="h-[22px] min-w-[22px] items-center justify-center rounded-full bg-surface-brand px-1.5"
+            >
+                <RNText className="text-xs font-bold tabular-nums text-content-on-brand">
+                    {String(cartCount)}
+                </RNText>
+            </View>
+        </Pressable>
     );
 
     /*
@@ -545,14 +537,9 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
      */
     const topbarEnd = (
         <Inline space="md" justify="end" wrap={!wideBar} className="min-w-0 shrink">
-            {wideBar ? searchField : searchButton}
             <Inline space="sm" justify="end">
-                <View className="hidden lg:flex">
-                    <LocaleToggle />
-                </View>
-                <View className="hidden lg:flex">
-                    <ThemeToggle />
-                </View>
+                <View className="hidden lg:flex">{localeButton}</View>
+                <View className="hidden lg:flex">{themeButton}</View>
                 {viewOnly ? (
                     staffControls
                 ) : signedIn ? (

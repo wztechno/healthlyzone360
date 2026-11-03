@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9818 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9820 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -8078,6 +8078,7 @@ export interface NamespaceKeys {
     | 'menu.titleFor'
     | 'nav.account'
     | 'nav.accountMenu'
+    | 'nav.business'
     | 'nav.dietitians'
     | 'nav.discover'
     | 'nav.forBusiness'
@@ -8095,6 +8096,7 @@ export interface NamespaceKeys {
     | 'nav.searchPlaceholder'
     | 'nav.signIn'
     | 'nav.skipToContent'
+    | 'nav.weeklyPlans'
     | 'nav.workspaces'
     | 'nutrients.carbohydrate'
     | 'nutrients.energy'
@@ -17913,6 +17915,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:menu.titleFor',
   'marketplace:nav.account',
   'marketplace:nav.accountMenu',
+  'marketplace:nav.business',
   'marketplace:nav.dietitians',
   'marketplace:nav.discover',
   'marketplace:nav.forBusiness',
@@ -17930,6 +17933,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:nav.searchPlaceholder',
   'marketplace:nav.signIn',
   'marketplace:nav.skipToContent',
+  'marketplace:nav.weeklyPlans',
   'marketplace:nav.workspaces',
   'marketplace:nutrients.carbohydrate',
   'marketplace:nutrients.energy',

@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode, Ref } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, Pressable, ScrollView, Text as RNText, View } from 'react-native';
+import {
+    Animated,
+    Easing,
+    Platform,
+    Pressable,
+    ScrollView,
+    Text as RNText,
+    View,
+} from 'react-native';
 import type { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 import { IconButton } from '../actions/button.tsx';
@@ -12,7 +20,10 @@ import { CascadeItem } from '../motion/cascade.tsx';
 import type { IconName } from '../icons/icon.tsx';
 import { useBreakpoint } from '../hooks/use-breakpoint.ts';
 import { ContentWidthProvider } from '../hooks/use-content-width.tsx';
+import { AnimatedView } from '../internal/animated-view.ts';
 import { cx } from '../internal/class-names.ts';
+import { startAfterPaint } from '../motion/start-after-paint.ts';
+import { useMotion } from '../motion/use-motion.ts';
 import { Drawer } from '../overlays/drawer.tsx';
 import { ShellDockHost } from './shell-dock.tsx';
 
@@ -909,178 +920,148 @@ function AppShellLayout({
                     testID={testID === undefined ? undefined : `${testID}-topbar`}
                     role="banner"
                     /*
-                     * Flat on the page, not a raised plane. The bar carries a hairline and takes
-                     * the page surface, so the chrome reads as an edge of the document rather than
-                     * as a card floating over it — a shadow here competes with the elevation the
-                     * content cards use to mean "this is a thing you can pick up".
-                     *
-                     * The gutters track the content gutters below (`p-4 md:px-10 lg:px-11`) so the
-                     * brand mark sits on the same vertical line as the first card in the grid.
-                     * They were fixed at `px-4`, which left the bar inset by 16px against content
-                     * inset by 44px, and the misalignment is visible on every wide viewport.
+                     * The accepted shop design floats the bar: a raised card with a gap from the
+                     * window's edges and fully rounded ends, rather than a hairline across the top
+                     * of the document. This outer box is only the gap; the card is the row inside.
                      */
-                    className="z-raised border-b border-stroke-subtle bg-surface-base px-4 py-3.5 md:px-10 lg:px-11"
+                    className="z-raised bg-surface-base px-3 pb-2 pt-2.5 md:px-6 md:pt-4 lg:px-8"
                 >
-                    {/*
-                     * The bar's contents span the window, not the page's measure. HealthZone centres
-                     * its header on the content's 1184px container, but on a wide screen that left
-                     * a band of empty bar either side: the brand and destinations sit at the start
-                     * edge and the search and controls at the end edge instead.
-                     *
-                     * The gap is 16px from `md` to `lg`: at 768px the destinations and the
-                     * signed-in controls fit on one line only without the wider 28px.
-                     */}
-                    <View className="w-full flex-row items-center gap-3 md:gap-4 lg:gap-7">
-                        {!wideEnoughForTopNav && navigation.length > 0 ? (
-                            <IconButton
-                                testID={testID === undefined ? undefined : `${testID}-menu`}
-                                label={t('designSystem:shell.openNavigation')}
-                                icon={<Icon name="menu" />}
-                                onPress={() => {
-                                    setDrawerOpen(true);
-                                }}
-                            />
-                        ) : null}
-                        {topbarStart}
-
+                    <MarketplaceBarEntrance>
                         {/*
-                         * No title in this bar, unlike every other variant.
+                         * The card: exactly 68px tall from `md` (at least 56px on a phone), 1312px at most, its contents
+                         * inset 12px at the start and 10px at the end. `rounded-3xl` below `lg`, where a
+                         * long Arabic row may still wrap onto a second line and a pill would pinch it;
+                         * fully round from `lg`, where it fits.
                          *
-                         * It was rendering a tagline as `aria-level={1}` beside the wordmark — but
-                         * every screen under this shell opens with a `PageHero` that renders its own
-                         * level-1 heading, so each marketplace page shipped *two* h1s, and the first
-                         * one named the product rather than the page. A screen-reader user landing on
-                         * the meals catalogue heard the tagline before the word "Meals".
-                         *
-                         * The brand mark in `topbarStart` is a link to home and carries its own
-                         * accessible name, so nothing is lost by dropping the text: the banner
-                         * landmark is still a banner, and the page's heading is now the page's own.
+                         * The gap is 16px from `md` to `lg`: at 768px the destinations and the
+                         * signed-in controls fit on one line only without the wider gap.
                          */}
+                        <View className="mx-auto min-h-[56px] w-full max-w-[1312px] flex-row items-center gap-3 rounded-3xl border border-stroke-subtle bg-surface-raised py-1.5 pe-2.5 ps-3 shadow-elevation-3 md:h-[68px] md:gap-4 md:py-0 lg:gap-[18px] lg:rounded-full">
+                            {!wideEnoughForTopNav && navigation.length > 0 ? (
+                                <IconButton
+                                    testID={testID === undefined ? undefined : `${testID}-menu`}
+                                    label={t('designSystem:shell.openNavigation')}
+                                    icon={<Icon name="menu" />}
+                                    onPress={() => {
+                                        setDrawerOpen(true);
+                                    }}
+                                />
+                            ) : null}
+                            {topbarStart}
 
-                        {/*
-                         * `self-stretch` on the wrapper, not just on the row inside it. The top bar
-                         * centres its children, so without this the wrapper is only as tall as its
-                         * own content (28px) and every stretch below it inherits that ceiling — the
-                         * active underline then floats mid-bar instead of sitting on its edge.
-                         *
-                         * `web:xl:min-w-max` decides who gives way. `flex-1` alone sizes this from
-                         * zero, so the row got only what the trailing search and controls left over
-                         * and four destinations wrapped onto two lines at 1280px while the search kept
-                         * its full 340px. HealthZone draws the opposite priority — the destinations on
-                         * one line, the search as the flexible part. From `xl` the row will not shrink
-                         * below one line and the search (`min-w-0 shrink`) yields instead; below `xl`
-                         * there is not room for both, and wrapping is still what keeps the bar inside
-                         * the window.
-                         */}
-                        <View className="flex-1 flex-row items-stretch self-stretch web:xl:min-w-max">
-                            {showTopNav ? (
-                                <View
-                                    testID={
-                                        testID === undefined ? undefined : `${testID}-navigation`
-                                    }
-                                    role="navigation"
-                                    aria-label={t('designSystem:shell.primaryNavigation')}
-                                    // `shrink` is load-bearing: react-native-web gives every View
-                                    // flex-shrink: 0, so without it the row renders at max-content
-                                    // width and overflows the document at 768-1023px instead of
-                                    // wrapping (flex-wrap only engages once the box can be narrowed).
-                                    //
-                                    // `-my-2` cancels the bar's own vertical padding for this row
-                                    // only, so a stretched item's bottom edge *is* the bar's bottom
-                                    // edge — which is where the active underline has to sit. The
-                                    // padding comes back on each item, so the touch target is unchanged.
-                                    //
-                                    // `content-stretch` is the other half and is easy to miss:
-                                    // react-native-web defaults `align-content` to `flex-start`, so
-                                    // with `flex-wrap` on, a single line sits at its natural height and
-                                    // `items-stretch` has nothing to stretch into. When the row *does*
-                                    // wrap, each line stretches to its own height and the underline
-                                    // tracks the active item's line, which is what it should do.
-                                    className="-my-2 flex-row flex-wrap content-stretch items-stretch gap-0.5 shrink"
-                                >
-                                    {navigation.map((item) => (
-                                        <Pressable
-                                            key={item.key}
-                                            testID={item.testID}
-                                            role="link"
-                                            accessibilityRole="link"
-                                            accessibilityLabel={item.label}
-                                            accessibilityState={{ selected: item.active === true }}
-                                            aria-current={item.active === true ? 'page' : undefined}
-                                            focusable
-                                            onPress={item.onPress}
-                                            className="relative min-h-touch flex-row items-center justify-center bg-transparent px-2.5 py-2"
-                                        >
-                                            {/*
-                                             * No glyph here, unlike the drawer and the sidebar.
-                                             *
-                                             * A top bar is read as a line of words, and a row of
-                                             * icons in front of them is decoration that costs about
-                                             * 140px of the space the row has least of — which is what
-                                             * pushed this nav onto a second line and the trailing
-                                             * controls into each other. The glyphs also carried no
-                                             * meaning: a diamond for Kitchens and a half-circle for
-                                             * Meals name nothing a reader could guess.
-                                             *
-                                             * The drawer keeps them (`item.icon` is still rendered
-                                             * there): a stacked vertical list is scanned down an edge,
-                                             * where a leading glyph genuinely helps.
-                                             */}
-                                            {/*
-                                             * The word and its underline, as HealthZone draws them: the
-                                             * active destination in ink rather than in brand, at the
-                                             * same weight as the rest, with a 2px brand rule hugging
-                                             * the word (2px below it) rather than sitting on the bar's
-                                             * edge. Every item reserves the rule's height, so the
-                                             * words stay on one baseline whichever one is active.
-                                             *
-                                             * brand-500 is legal on the rule because it carries no
-                                             * text — it is a graphic, and §1.3 keeps brand-500 for
-                                             * exactly this.
-                                             */}
-                                            <View className="flex-col items-stretch gap-0.5">
-                                                <RNText
-                                                    numberOfLines={1}
-                                                    className={cx(
-                                                        'text-base font-medium text-start',
-                                                        item.active === true
-                                                            ? 'text-content-primary'
-                                                            : 'text-content-secondary',
-                                                    )}
-                                                >
-                                                    {item.label}
-                                                </RNText>
+                            {/*
+                             * No title in this bar, unlike every other variant.
+                             *
+                             * It was rendering a tagline as `aria-level={1}` beside the wordmark — but
+                             * every screen under this shell opens with a `PageHero` that renders its own
+                             * level-1 heading, so each marketplace page shipped *two* h1s, and the first
+                             * one named the product rather than the page. A screen-reader user landing on
+                             * the meals catalogue heard the tagline before the word "Meals".
+                             *
+                             * The brand mark in `topbarStart` is a link to home and carries its own
+                             * accessible name, so nothing is lost by dropping the text: the banner
+                             * landmark is still a banner, and the page's heading is now the page's own.
+                             */}
+
+                            {/*
+                             * The destinations take the middle of the bar, centred between the brand and
+                             * the trailing controls. `web:xl:min-w-max` keeps them on one line from `xl`;
+                             * below that there is not always room, and wrapping is what keeps the bar
+                             * inside the window.
+                             */}
+                            <View className="flex-1 flex-row items-center justify-center web:xl:min-w-max">
+                                {showTopNav ? (
+                                    <View
+                                        testID={
+                                            testID === undefined
+                                                ? undefined
+                                                : `${testID}-navigation`
+                                        }
+                                        role="navigation"
+                                        aria-label={t('designSystem:shell.primaryNavigation')}
+                                        // `shrink` is load-bearing: react-native-web gives every View
+                                        // flex-shrink: 0, so without it the row renders at max-content
+                                        // width and overflows the document at 768-1023px instead of
+                                        // wrapping (flex-wrap only engages once the box can be narrowed).
+                                        //
+                                        // The destinations sit in a sunken track, and the active one is a
+                                        // filled pill inside it — the accepted design's segmented look.
+                                        className="shrink flex-row flex-wrap items-center gap-0.5 rounded-3xl bg-surface-base p-1 lg:rounded-full"
+                                    >
+                                        {navigation.map((item) => (
+                                            <Pressable
+                                                key={item.key}
+                                                testID={item.testID}
+                                                role="link"
+                                                accessibilityRole="link"
+                                                accessibilityLabel={item.label}
+                                                accessibilityState={{
+                                                    selected: item.active === true,
+                                                }}
+                                                aria-current={
+                                                    item.active === true ? 'page' : undefined
+                                                }
+                                                focusable
+                                                onPress={item.onPress}
+                                                // The design's tabs are one width, 118px, from `lg`, so the
+                                                // pill is the same size on every destination; narrower bars
+                                                // size each to its word.
+                                                className={cx(
+                                                    'relative min-h-touch flex-row items-center justify-center rounded-full px-3 lg:w-[118px] lg:px-0',
+                                                    item.active === true
+                                                        ? null
+                                                        : 'transition duration-normal ease-standard hover:bg-surface-brand-subtle',
+                                                )}
+                                            >
+                                                {/*
+                                                 * No glyph here, unlike the drawer and the sidebar.
+                                                 *
+                                                 * A top bar is read as a line of words, and a row of
+                                                 * icons in front of them is decoration that costs about
+                                                 * 140px of the space the row has least of — which is what
+                                                 * pushed this nav onto a second line and the trailing
+                                                 * controls into each other. The glyphs also carried no
+                                                 * meaning: a diamond for Kitchens and a half-circle for
+                                                 * Meals name nothing a reader could guess.
+                                                 *
+                                                 * The drawer keeps them (`item.icon` is still rendered
+                                                 * there): a stacked vertical list is scanned down an edge,
+                                                 * where a leading glyph genuinely helps.
+                                                 */}
+                                                {/*
+                                                 * The active destination is a filled brand pill with the
+                                                 * on-brand ink, drawn as a layer under the word so the word
+                                                 * keeps one position whichever item is active.
+                                                 */}
                                                 {item.active === true ? (
-                                                    <View
-                                                        // Named off the *shell*, not off the item. The
-                                                        // responsive suite enumerates controls with
-                                                        // `[data-testid^="marketplace-nav-"]` and checks
-                                                        // each one is touch-sized; an item-derived name
-                                                        // put this 2px decoration in that set. Exactly
-                                                        // one item is ever active, so one handle is enough.
+                                                    <MarketplaceActivePill
                                                         testID={
                                                             testID === undefined
                                                                 ? undefined
                                                                 : `${testID}-nav-active-bar`
                                                         }
-                                                        aria-hidden
-                                                        accessibilityElementsHidden
-                                                        importantForAccessibility="no-hide-descendants"
-                                                        // eslint-disable-next-line no-restricted-syntax -- §1.3 keeps brand-500 for underline bars precisely: this View carries no text, so the 3.05:1 that rules it out as a text surface does not apply. The rule cannot see that, so it is waived here rather than weakened everywhere.
-                                                        className="h-0.5 bg-brand-500"
                                                     />
-                                                ) : (
-                                                    <View aria-hidden className="h-0.5" />
-                                                )}
-                                            </View>
-                                        </Pressable>
-                                    ))}
-                                </View>
-                            ) : null}
-                        </View>
+                                                ) : null}
+                                                <RNText
+                                                    numberOfLines={1}
+                                                    className={cx(
+                                                        'text-sm font-semibold text-start',
+                                                        item.active === true
+                                                            ? 'text-content-on-brand'
+                                                            : 'text-content-secondary',
+                                                    )}
+                                                >
+                                                    {item.label}
+                                                </RNText>
+                                            </Pressable>
+                                        ))}
+                                    </View>
+                                ) : null}
+                            </View>
 
-                        {topbarEnd}
-                    </View>
+                            {topbarEnd}
+                        </View>
+                    </MarketplaceBarEntrance>
                 </View>
 
                 <ScrollView
@@ -1543,5 +1524,111 @@ function RailButton({
                 className={active ? 'text-content-on-sidebar-active' : 'text-content-on-sidebar'}
             />
         </Pressable>
+    );
+}
+
+/** The accepted shop design's overshoot: the pill grows a little past full size and settles. */
+const POP_EASING = Easing.bezier(0.34, 1.4, 0.64, 1);
+const POP_MS = 600;
+const POP_DELAY_MS = 200;
+const DROP_MS = 600;
+
+/**
+ * The marketplace bar's entrance: it drops 14px into place and grows from 98% as it fades in, once,
+ * when the shell mounts. Under reduced motion the final style is rendered directly.
+ */
+function MarketplaceBarEntrance({ children }: { readonly children: ReactNode }) {
+    const { enabled, easing } = useMotion();
+    const progress = useRef(new Animated.Value(enabled ? 0 : 1)).current;
+
+    useEffect(() => {
+        if (!enabled) {
+            progress.setValue(1);
+            return;
+        }
+        progress.setValue(0);
+        return startAfterPaint(
+            Animated.timing(progress, {
+                toValue: 1,
+                duration: DROP_MS,
+                easing: easing.decelerate,
+                useNativeDriver: true,
+            }),
+        );
+    }, [enabled, progress, easing]);
+
+    const style = enabled
+        ? {
+              opacity: progress,
+              transform: [
+                  {
+                      translateY: progress.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [-14, 0],
+                      }),
+                  },
+                  { scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.98, 1] }) },
+              ],
+          }
+        : { opacity: 1 };
+
+    return (
+        <AnimatedView className="w-full" style={style}>
+            {children}
+        </AnimatedView>
+    );
+}
+
+/**
+ * The active destination's filled pill. It is mounted by whichever item is active, so moving to
+ * another destination mounts it again there and it pops in: from 60% and transparent, overshooting
+ * a little before it settles, 200ms after the page changes.
+ */
+function MarketplaceActivePill({ testID }: { readonly testID?: string | undefined }) {
+    const { enabled } = useMotion();
+    const progress = useRef(new Animated.Value(enabled ? 0 : 1)).current;
+
+    useEffect(() => {
+        if (!enabled) {
+            progress.setValue(1);
+            return;
+        }
+        progress.setValue(0);
+        return startAfterPaint(
+            Animated.timing(progress, {
+                toValue: 1,
+                duration: POP_MS,
+                delay: POP_DELAY_MS,
+                easing: POP_EASING,
+                useNativeDriver: true,
+            }),
+        );
+    }, [enabled, progress]);
+
+    const style = enabled
+        ? {
+              opacity: progress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 1],
+                  extrapolate: 'clamp' as const,
+              }),
+              transform: [
+                  { scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) },
+              ],
+          }
+        : { opacity: 1 };
+
+    return (
+        <AnimatedView
+            // Named off the *shell*, not off the item. The responsive suite enumerates controls with
+            // `[data-testid^="marketplace-nav-"]` and checks each one is touch-sized; an item-derived
+            // name put this decoration in that set. Exactly one item is ever active.
+            testID={testID}
+            aria-hidden
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            className="absolute inset-0 rounded-full bg-surface-brand shadow-elevation-2"
+            style={style}
+        />
     );
 }

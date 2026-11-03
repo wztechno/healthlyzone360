@@ -32,11 +32,10 @@ import type {
 } from '@healthy360/domain-types';
 import type { NutritionFacts } from '@healthy360/nutrition';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { Dimensions, Pressable, ScrollView } from 'react-native';
+import { Pressable, ScrollView } from 'react-native';
 
 import { useLogoutMutation } from '../../data/hooks.ts';
 import { queryKeys } from '../../data/query-keys.ts';
-import { takeMenuSearchFocus } from '../catalogue/menu-search-focus.ts';
 import { consumerNavigation, marketplaceNavigation } from '../../navigation/consumer-items.ts';
 import { forgetQueries, lastQuery, rememberQuery } from '../../navigation/last-query.ts';
 import { withReturnTo } from '../../navigation/return-to.ts';
@@ -2405,78 +2404,6 @@ describe('MarketplaceShell — the page’s place', () => {
             routerMock.__set({ pathname: '/kitchens' });
         });
         expect(screen.queryByTestId('marketplace-nav-meals')).toBeNull();
-    });
-});
-
-/* ── the header search and the menu's own (browse-06) ────────────────────────────────────────── */
-
-describe('MarketplaceShell — search', () => {
-    const shell = (
-        <ConsumerShell unguarded>
-            <></>
-        </ConsumerShell>
-    );
-    const narrow = Dimensions.get('window');
-    const narrowScreen = Dimensions.get('screen');
-    const atWidth = (width: number) => {
-        Dimensions.set({
-            window: { ...narrow, width, height: 900 },
-            screen: { ...narrowScreen, width, height: 900 },
-        });
-    };
-    afterEach(async () => {
-        // Still mounted here — the suite's cleanup runs after this — so the resize is an update.
-        await act(async () => {
-            Dimensions.set({ window: narrow, screen: narrowScreen });
-        });
-        takeMenuSearchFocus();
-    });
-
-    it('shows the menu’s term in the header field, and searches there in place', async () => {
-        atWidth(1440);
-        routerMock.__set({ pathname: '/meals', params: { q: 'salad', diet: 'vegan' } });
-        await renderStubScreen(shell);
-
-        const field = await screen.findByTestId('marketplace-search');
-        expect(field.props.value).toBe('salad');
-
-        await fireEvent.changeText(field, 'grain bowl');
-        await fireEvent(field, 'submitEditing');
-        // The diet stays: a search on the menu narrows what is already applied.
-        expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ q: 'grain bowl' });
-        expect(routerMock.__push).not.toHaveBeenCalled();
-
-        // Lifted elsewhere — a chip removed, "Clear all" — the header follows.
-        await act(async () => {
-            routerMock.__set({ params: { diet: 'vegan' } });
-        });
-        expect(screen.getByTestId('marketplace-search').props.value).toBe('');
-    });
-
-    it('opens the menu on the term from any other page', async () => {
-        atWidth(1440);
-        routerMock.__set({ pathname: '/kitchens', params: { q: 'thai' } });
-        await renderStubScreen(shell);
-
-        // Another page's `?q=` is its own search, not the menu's.
-        const field = await screen.findByTestId('marketplace-search');
-        expect(field.props.value).toBe('');
-        await fireEvent.changeText(field, 'soup & bread');
-        await fireEvent(field, 'submitEditing');
-        expect(routerMock.__push).toHaveBeenCalledWith('/meals?q=soup+%26+bread');
-        expect(routerMock.__router.setParams).not.toHaveBeenCalled();
-    });
-
-    it('opens the menu from the tablet’s search button with the cursor waiting in its field', async () => {
-        atWidth(1024);
-        routerMock.__set({ pathname: '/kitchens' });
-        await renderStubScreen(shell);
-
-        await fireEvent.press(await screen.findByTestId('marketplace-search-button'));
-        expect(routerMock.__router.navigate).toHaveBeenCalledWith('/meals');
-        expect(routerMock.__push).not.toHaveBeenCalled();
-        // Taken by the menu's field when it mounts (`menu-search-focus.ts`).
-        expect(takeMenuSearchFocus()).toBe(true);
     });
 });
 
