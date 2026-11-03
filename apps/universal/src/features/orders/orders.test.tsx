@@ -425,4 +425,25 @@ describe('the order page’s lines, wording and cancel (T17)', () => {
             /already accepted/,
         );
     });
+
+    it('says the order is already cancelled when the kitchen cancelled it first', async () => {
+        await renderStubScreen(<CustomerOrderScreen orderId={ORDER_ID} />, {
+            session: testMeResponse(),
+            repositories: {
+                commerce: {
+                    getMyOrder: async () => placedOrder({ state: 'placed' }),
+                    cancelMyOrder: async () => {
+                        throw new ApiError(conflictFailure({ reason: 'order_already_cancelled' }));
+                    },
+                },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId('customer-order-cancel'));
+        await fireEvent.press(await screen.findByTestId('customer-order-cancel-confirm'));
+
+        const callout = await screen.findByTestId('customer-order-cancel-too-late');
+        expect(callout).toHaveTextContent(/already cancelled/);
+        expect(callout).not.toHaveTextContent(/accepted/);
+    });
 });

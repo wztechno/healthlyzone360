@@ -575,7 +575,8 @@ export interface CommerceRepository {
     /**
      * `POST /api/v1/me/orders/{order}/cancel` — the customer calls off their own order, only while
      * it is still `placed`. Once the kitchen accepts it the server answers `409` with `reason:
-     * order_already_accepted`, and the customer contacts the kitchen instead. Nothing was paid.
+     * order_already_accepted`, and the customer contacts the kitchen instead; an order already
+     * cancelled is `reason: order_already_cancelled`. Nothing was paid.
      */
     cancelMyOrder(orderId: OrderId): Promise<PlacedOrder>;
 

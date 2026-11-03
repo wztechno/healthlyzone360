@@ -5453,8 +5453,8 @@ export type CheckoutPreview = {
      * `area_not_served`, `zone_suspended`, `currency_mismatch`,
      * `window_not_offered`, `allergen_conflict`, `closed`, `date_in_the_past`,
      * `cut_off_passed`, `kitchen_closed`, `window_ended`, `lead_time_not_met`,
-     * `below_zone_minimum`, `kitchen_paused`, `window_full`, plus the
-     * line-probe vocabulary. Deduplicated — three lines refused for the
+     * `below_zone_minimum`, `kitchen_paused`, `window_full`, `phone_required`,
+     * plus the line-probe vocabulary. Deduplicated — three lines refused for the
      * same reason read as one fact, not three repeats of it.
      * `stock_short` alone is not a refusal: a line needs more than the
      * free stock, and stock on quality hold never counts as free. The
@@ -9739,7 +9739,8 @@ export type OrderDeskQuoteRefusal = {
      * `address_not_deliverable`, `area_not_served`, `zone_suspended`,
      * `window_not_offered`, `currency_mismatch` (with
      * `subject: delivery_fee`), `cut_off_passed`, `closed`,
-     * `date_in_the_past`, `kitchen_closed`, `window_ended`.
+     * `date_in_the_past`, `kitchen_closed`, `window_ended`,
+     * `phone_required`.
      *
      */
     reason: string;
@@ -29486,10 +29487,11 @@ export type CancelMyOrderErrors = {
      */
     404: ErrorEnvelope;
     /**
-     * The change conflicts with the current state. On a lock-versioned
-     * write this is a lost race, and `details.current_lock_version` is the
-     * value to reload against, so a client can offer "reload" or "keep
-     * mine" without a second round trip.
+     * `resource.conflict` with `details.reason`: `order_already_accepted`
+     * (the kitchen accepted it first; contact the kitchen) or
+     * `order_already_cancelled`. There is no `current_lock_version`:
+     * this audience is never served a validator, so there is nothing to
+     * reload against.
      *
      */
     409: ErrorEnvelope;

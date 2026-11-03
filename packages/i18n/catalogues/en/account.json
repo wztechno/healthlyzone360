@@ -27,6 +27,8 @@
         "cancelConfirm": "Cancel order",
         "cancelTooLateTitle": "The kitchen has already accepted this order",
         "cancelTooLateBody": "It can no longer be cancelled here. Contact the kitchen to change it.",
+        "cancelAlreadyCancelledTitle": "This order is already cancelled",
+        "cancelAlreadyCancelledBody": "There is nothing more to do here. Contact the kitchen if you did not expect this.",
         "notFoundTitle": "We could not find that order",
         "notFoundBody": "It may belong to another account, or the link may be incomplete. Your own orders are all in your order history.",
         "lineLabel": "{{qty}}× {{name}}",

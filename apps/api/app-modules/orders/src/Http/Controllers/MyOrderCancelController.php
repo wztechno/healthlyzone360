@@ -29,7 +29,8 @@ use Illuminate\Http\JsonResponse;
  * **Exactly one of accept and cancel wins.** The cancel runs at the lock version
  * this request read, and `OrderLifecycle::transition()` writes only while status
  * and lock are both unchanged. An accept that lands between the read and the
- * write turns this into the same `409 order_already_accepted` a late cancel gets.
+ * write turns this into the same `409 order_already_accepted` a late cancel gets; a
+ * kitchen cancel or rejection that got there first is `order_already_cancelled`.
  * No `If-Match`: the customer is never served a validator (`MyOrderShowController`).
  *
  * Found as `MyOrderShowController` finds it, so somebody else's order is a 404.
@@ -56,7 +57,7 @@ final class MyOrderCancelController
         $record = $this->locator->customerOrder($account, $order);
 
         if ($record->status !== OrderStatus::Placed) {
-            throw $this->alreadyAccepted();
+            throw $this->tooLate($record->status);
         }
 
         try {
@@ -70,7 +71,8 @@ final class MyOrderCancelController
                 throw $e;
             }
 
-            throw $this->alreadyAccepted($e);
+            // Lost the race: say what won, read afresh.
+            throw $this->tooLate($this->locator->customerOrder($account, $order)->status, $e);
         }
 
         $this->alerts->send(StaffAlertType::CustomerCancelled, $cancelled->organisation_id, (string) $cancelled->getKey(), [
@@ -82,8 +84,18 @@ final class MyOrderCancelController
         return ApiResponse::data(['order' => $this->presenter->customer($cancelled, $lines, $this->runs->forOrder((string) $cancelled->getKey()))]);
     }
 
-    private function alreadyAccepted(?ApiException $previous = null): ApiException
+    /** Accepted (or further on) by the kitchen, or already cancelled: each says its own sentence. */
+    private function tooLate(OrderStatus $status, ?ApiException $previous = null): ApiException
     {
+        if ($status === OrderStatus::Cancelled) {
+            return new ApiException(
+                ErrorCode::ResourceConflict,
+                'This order has already been cancelled.',
+                ['reason' => 'order_already_cancelled'],
+                previous: $previous,
+            );
+        }
+
         return new ApiException(
             ErrorCode::ResourceConflict,
             'The kitchen has already accepted this order. Contact the kitchen to change it.',

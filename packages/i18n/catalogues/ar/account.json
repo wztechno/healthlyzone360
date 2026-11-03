@@ -27,6 +27,8 @@
         "cancelConfirm": "إلغاء الطلب",
         "cancelTooLateTitle": "قبل المطبخ هذا الطلب بالفعل",
         "cancelTooLateBody": "لم يعد بالإمكان إلغاؤه من هنا. تواصل مع المطبخ لتغييره.",
+        "cancelAlreadyCancelledTitle": "هذا الطلب ملغى بالفعل",
+        "cancelAlreadyCancelledBody": "لا حاجة لأي إجراء آخر هنا. تواصل مع المطبخ إن لم تكن تتوقع ذلك.",
         "notFoundTitle": "لم نعثر على هذا الطلب",
         "notFoundBody": "قد يكون تابعًا لحساب آخر، أو قد يكون الرابط ناقصًا. جميع طلباتك موجودة في سجل طلباتك.",
         "lineLabel": "{{qty}}× {{name}}",

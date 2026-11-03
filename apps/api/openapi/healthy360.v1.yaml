@@ -10118,7 +10118,7 @@ paths:
         `zone_suspended`, `currency_mismatch`, `window_not_offered`, `closed`,
         `date_in_the_past`, `cut_off_passed`, `kitchen_closed`, `window_ended`,
         `lead_time_not_met`, `below_zone_minimum`, `kitchen_paused`, `window_full`,
-        plus the line-probe vocabulary — come back as `warnings` inside an ordinary `200`. Deliberately the
+        `phone_required`, plus the line-probe vocabulary — come back as `warnings` inside an ordinary `200`. Deliberately the
         *same words* placement would refuse with: a customer taught one
         vocabulary for "we don't deliver there" on the cart screen and a
         different one at checkout has been taught nothing at all.
@@ -10223,7 +10223,9 @@ paths:
         (with `earliest_at` and `lead_minutes`), `below_zone_minimum` (with
         `minimum_minor` and `currency_code`), `kitchen_paused` (with
         `paused_until`), `window_full` (with `requested_date` and
-        `delivery_window_code`), plus the whole line vocabulary,
+        `delivery_window_code`), `phone_required` (a delivery with no live phone
+        on the address or the account, so the driver has nobody to ring),
+        plus the whole line vocabulary,
         `item_unavailable_on_date` included (with `on` and `cause`: `day_off`,
         `sold_out` or `cut_off_passed`),
         folded in per line with the offending `cart_item_id`. A cart with no
@@ -10403,12 +10405,14 @@ paths:
         **Only while the order is `placed`.** Once the kitchen accepts it, stock
         is deducted and cooking may start, so the customer contacts the kitchen
         instead. Any other status is `409 resource.conflict` with `reason:
-        order_already_accepted`. Payment is cash on delivery, so nothing is
-        refunded because nothing was taken.
+        order_already_accepted`, or `order_already_cancelled` when the order is
+        already cancelled. Payment is cash on delivery, so nothing is refunded
+        because nothing was taken.
 
         **Exactly one of accept and cancel wins.** The cancel runs at the
         `lock_version` this request read; an accept that lands between the read
-        and the write turns it into the same `409 order_already_accepted`. No
+        and the write turns it into the same `409 order_already_accepted` (a
+        kitchen cancel that lands there, `order_already_cancelled`). No
         `If-Match`: this audience is never served a validator.
 
         The reason is recorded as `customer_requested` and the kitchen's
@@ -10434,7 +10438,26 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/ResourceConflict'
+          description: |
+            `resource.conflict` with `details.reason`: `order_already_accepted`
+            (the kitchen accepted it first; contact the kitchen) or
+            `order_already_cancelled`. There is no `current_lock_version`:
+            this audience is never served a validator, so there is nothing to
+            reload against.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+              example:
+                error:
+                  code: resource.conflict
+                  message: The kitchen has already accepted this order. Contact the kitchen to change it.
+                  details:
+                    reason: order_already_accepted
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -15248,8 +15271,8 @@ paths:
         about: the fulfilment **shape** (`customer_required`,
         `address_required`, `address_not_applicable`), the **destination**
         (`address_not_deliverable`, `area_not_served`, `zone_suspended`,
-        `window_not_offered`, and a `currency_mismatch` whose `subject` is
-        `delivery_fee`), and the
+        `window_not_offered`, a `currency_mismatch` whose `subject` is
+        `delivery_fee`, and `phone_required` when nobody can be rung), and the
         **schedule** (`cut_off_passed`, `closed`, `date_in_the_past`,
         `kitchen_closed`, `window_ended`). The desk is not asked the lead time or
         the zone minimum.
@@ -36047,8 +36070,8 @@ components:
             `area_not_served`, `zone_suspended`, `currency_mismatch`,
             `window_not_offered`, `allergen_conflict`, `closed`, `date_in_the_past`,
             `cut_off_passed`, `kitchen_closed`, `window_ended`, `lead_time_not_met`,
-            `below_zone_minimum`, `kitchen_paused`, `window_full`, plus the
-            line-probe vocabulary. Deduplicated — three lines refused for the
+            `below_zone_minimum`, `kitchen_paused`, `window_full`, `phone_required`,
+            plus the line-probe vocabulary. Deduplicated — three lines refused for the
             same reason read as one fact, not three repeats of it.
             `stock_short` alone is not a refusal: a line needs more than the
             free stock, and stock on quality hold never counts as free. The
@@ -41998,7 +42021,8 @@ components:
             `address_not_deliverable`, `area_not_served`, `zone_suspended`,
             `window_not_offered`, `currency_mismatch` (with
             `subject: delivery_fee`), `cut_off_passed`, `closed`,
-            `date_in_the_past`, `kitchen_closed`, `window_ended`.
+            `date_in_the_past`, `kitchen_closed`, `window_ended`,
+            `phone_required`.
       additionalProperties: true
 
     OrderDeskQuoteLine:

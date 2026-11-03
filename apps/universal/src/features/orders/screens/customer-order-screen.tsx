@@ -73,7 +73,11 @@ export function CustomerOrderScreen({ orderId }: CustomerOrderScreenProps) {
     const order = useMyOrderQuery(parsed, { pollMs: online ? ORDER_TRACKING_POLL_MS : false });
     const cancel = useCancelMyOrderMutation();
     const [confirming, setConfirming] = useState(false);
-    const tooLate = toFailure(cancel.error)?.code === 'resource.conflict';
+    const failure = toFailure(cancel.error);
+    const tooLate = failure?.code === 'resource.conflict';
+    // The kitchen cancelled or rejected it first: not "accepted", and nothing left to ask for.
+    const alreadyCancelled =
+        failure?.code === 'resource.conflict' && failure.reason === 'order_already_cancelled';
     const closeDialog = () => {
         setConfirming(false);
     };
@@ -176,8 +180,16 @@ export function CustomerOrderScreen({ orderId }: CustomerOrderScreenProps) {
                         role="alert"
                         tone="warning"
                         icon="warning"
-                        title={t('account:orders.cancelTooLateTitle')}
-                        body={t('account:orders.cancelTooLateBody')}
+                        title={t(
+                            alreadyCancelled
+                                ? 'account:orders.cancelAlreadyCancelledTitle'
+                                : 'account:orders.cancelTooLateTitle',
+                        )}
+                        body={t(
+                            alreadyCancelled
+                                ? 'account:orders.cancelAlreadyCancelledBody'
+                                : 'account:orders.cancelTooLateBody',
+                        )}
                     />
                 ) : (
                     <DialogFailure error={cancel.error} testID={`${TEST_ID}-cancel-failure`} />

@@ -73,6 +73,9 @@ it('cancels a placed order as the customer asked, and stamps who did it', functi
     expect($order->status)->toBe(OrderStatus::Cancelled)
         ->and($order->cancellation_reason)->toBe(CancellationReason::CustomerRequested)
         ->and($order->cancelled_by)->toBe((string) $this->customer->getKey());
+
+    // The stock the order held goes back, once.
+    app(OrderStockConsumption::class)->shouldHaveReceived('restore')->once();
 });
 
 it('refuses once the kitchen has accepted the order', function (): void {
@@ -115,6 +118,40 @@ it('lets exactly one of accept and cancel win when the accept lands first', func
     expect($order->status)->toBe(OrderStatus::Confirmed)
         ->and($order->cancelled_at)->toBeNull()
         ->and(customerCancelAlerts($order))->toBe(0);
+
+    app(OrderStockConsumption::class)->shouldNotHaveReceived('restore');
+});
+
+it('says the order is already cancelled when the kitchen cancelled it first', function (): void {
+    $order = customerPlacedOrder($this->world);
+    $fired = false;
+
+    // The kitchen's cancel lands the moment the customer's has read the order.
+    Order::retrieved(function (Order $read) use (&$fired): void {
+        if ($fired) {
+            return;
+        }
+
+        $fired = true;
+
+        DB::table('orders')->where('id', $read->getKey())->update([
+            'status' => OrderStatus::Cancelled->value,
+            'cancelled_at' => now(),
+            'lock_version' => DB::raw('lock_version + 1'),
+        ]);
+    });
+
+    customerCancel($this, $order)
+        ->assertStatus(409)
+        ->assertJsonPath('error.details.reason', 'order_already_cancelled');
+
+    // And once it is plainly cancelled, the status check says the same.
+    customerCancel($this, $order)
+        ->assertStatus(409)
+        ->assertJsonPath('error.details.reason', 'order_already_cancelled');
+
+    expect(customerCancelAlerts($order))->toBe(0);
+    app(OrderStockConsumption::class)->shouldNotHaveReceived('restore');
 });
 
 it('answers somebody else\'s order with a 404', function (): void {
