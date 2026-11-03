@@ -6,6 +6,7 @@ namespace Healthy360\Production\Jobs;
 
 use Carbon\CarbonImmutable;
 use Healthy360\Organisations\Models\Organisation;
+use Healthy360\Production\Services\ProductionOrderNumbers;
 use Healthy360\Support\Alerts\StaffAlerts;
 use Healthy360\Support\Alerts\StaffAlertType;
 use Healthy360\Tenancy\Database\DatabaseTenantContext;
@@ -53,7 +54,10 @@ final class AlertStuckBatches implements ShouldQueue
 
                     foreach ($batches as $batch) {
                         $alerts->send(StaffAlertType::BatchStuck, $organisationId, (string) $batch->id, [
-                            'order_number' => (string) ($batch->lot_number ?? $batch->reference),
+                            // Read as every screen shows it: 260925-007-7.
+                            'order_number' => $batch->lot_number === null
+                                ? (string) $batch->reference
+                                : ProductionOrderNumbers::displayLot((string) $batch->lot_number),
                         ]);
                     }
                 });

@@ -8256,10 +8256,12 @@ export type ProductionOrder = {
     lot_number: string | null;
     /**
      * The GS1-128 element string in its human-readable form,
-     * `(11)YYMMDD(17)YYMMDD(10)<lot>` — the lot's day, expiry date, lot.
-     * Derived from `expiry_date` and `lot_number`, neither of which changes
-     * after completion, so it is never stored. Null until the batch has both
-     * a lot and a use-by date: the label prints only once it can carry one.
+     * `(11)YYMMDD(17)YYMMDD(10)<lot>` — production date, expiry date, lot.
+     * `(11)` is `production_date`, or the lot's own day when a batch has
+     * none. Derived from `production_date`, `expiry_date` and `lot_number`,
+     * none of which change after completion, so it is never stored. Null
+     * until the batch has both a lot and a use-by date: the label prints only
+     * once it can carry one.
      *
      */
     barcode: string | null;

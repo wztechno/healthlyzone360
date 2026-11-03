@@ -71,7 +71,7 @@ final class ProductionOrderPresenter
             // carries it and a lot is minted at start, long before one does.
             'barcode' => $order->lot_number === null || $order->expiry_date === null
                 ? null
-                : ProductionOrderNumbers::barcode($order->lot_number, $order->expiry_date),
+                : ProductionOrderNumbers::barcode($order->lot_number, $order->production_date, $order->expiry_date),
             'branch_id' => (string) $order->branch_id,
             'branch_name' => $order->branch?->name,
             'recipe_version_id' => (string) $order->recipe_version_id,

@@ -465,7 +465,12 @@ describe('one batch', () => {
                 kitchenOps: {
                     getProductionOrder: async () =>
                         detail({
-                            order: batch({ status: 'in_production', lockVersion: 3 }),
+                            // A shelf life fills Use by, so the form asks for nothing else.
+                            order: batch({
+                                status: 'in_production',
+                                lockVersion: 3,
+                                recipeShelfLifeDays: 5,
+                            }),
                             lines: [
                                 line(),
                                 line({

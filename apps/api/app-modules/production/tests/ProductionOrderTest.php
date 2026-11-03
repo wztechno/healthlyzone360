@@ -24,6 +24,7 @@ use Healthy360\Production\Jobs\AlertStuckBatches;
 use Healthy360\Production\Models\ProductionOrder;
 use Healthy360\Production\Models\ProductionOrderLine;
 use Healthy360\Production\Services\BatchReport;
+use Healthy360\Production\Services\ProductionOrderNumbers;
 use Healthy360\Production\Services\ProductionOrderService;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
@@ -658,7 +659,8 @@ it('keeps the start’s lot and computes no expiry when nothing usable reaches a
 
     // Nothing to date, so no use-by is asked for either, and with no use-by
     // there is no label to print for a tray that does not exist.
-    expect($completed->lot_number)->toBe($order->lot_number)
+    expect($order->lot_number)->not->toBeNull()
+        ->and($completed->lot_number)->toBe($order->lot_number)
         ->and($completed->expiry_date)->toBeNull();
 })->with([
     'a batch that made nothing' => ['0', '0'],
@@ -857,5 +859,5 @@ it('tells the managers once about a batch in production for two days, and not be
     expect($rows)->toHaveCount(1)
         ->and($rows->first()->subject_id)->toBe((string) $stuck->getKey())
         ->and($rows->first()->subject_type)->toBe('production_order')
-        ->and($rows->first()->data['order_number'])->toBe($stuck->lot_number);
+        ->and($rows->first()->data['order_number'])->toBe(ProductionOrderNumbers::displayLot((string) $stuck->lot_number));
 });

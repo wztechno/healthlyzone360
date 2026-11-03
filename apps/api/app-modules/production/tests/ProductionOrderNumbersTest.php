@@ -35,11 +35,15 @@ it('builds a lot from the production day, the sequence and the check digit', fun
 ]);
 
 it('writes the GS1-128 element string with the lot last', function (): void {
-    expect(ProductionOrderNumbers::barcode('2609250077', CarbonImmutable::parse('2026-09-30')))
+    expect(ProductionOrderNumbers::barcode('2609250077', CarbonImmutable::parse('2026-09-25'), CarbonImmutable::parse('2026-09-30')))
         ->toBe('(11)260925(17)260930(10)2609250077')
-        // No expiry, no (17) — never an empty date.
-        ->and(ProductionOrderNumbers::barcode('2609250077', null))
-        ->toBe('(11)260925(10)2609250077');
+        // Started on the 25th and reported made on the 26th: (11) is the day the
+        // label prints as made, not the lot's own day.
+        ->and(ProductionOrderNumbers::barcode('2609250077', CarbonImmutable::parse('2026-09-26'), CarbonImmutable::parse('2026-09-30')))
+        ->toBe('(11)260926(17)260930(10)2609250077')
+        // No production date: the lot's own day stands in.
+        ->and(ProductionOrderNumbers::barcode('2609250077', null, CarbonImmutable::parse('2026-09-30')))
+        ->toBe('(11)260925(17)260930(10)2609250077');
 });
 
 it('reduces whatever was scanned or typed to the one key it can mean', function (string $code, ?string $expected): void {

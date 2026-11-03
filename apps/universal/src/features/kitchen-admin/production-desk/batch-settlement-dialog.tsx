@@ -129,7 +129,7 @@ export function BatchSettlementDialog({
         }
     }
 
-    const errors = completionErrors(draft, mode);
+    const errors = completionErrors(draft, mode, shelfLifeDays);
     const blocked = hasCompletionErrors(errors);
     const rows = orderedLines(lines);
     const noValue = t('kitchen:list.noValue');
@@ -365,6 +365,14 @@ export function BatchSettlementDialog({
                             testID={`${testID}-expiry-date`}
                             id={`${testID}-expiry-date`}
                             label={t('kitchen:ops.production.expiryDateLabel')}
+                            // Food on a shelf needs a use-by, and with no shelf life only the
+                            // cook can give it.
+                            required={usable > 0}
+                            error={
+                                producedTouched && errors.expiry !== undefined
+                                    ? t(errors.expiry)
+                                    : undefined
+                            }
                             value={draft.expiryDate}
                             onChange={(value) => {
                                 onChange({ ...draft, expiryDate: value });

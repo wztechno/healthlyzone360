@@ -157,6 +157,14 @@ class ProductionOrderNumbers
     }
 
     /**
+     * The lot as people read it, `260925-007-7`: the app's `formatLot()`.
+     */
+    public static function displayLot(string $lot): string
+    {
+        return substr($lot, 0, 6).'-'.substr($lot, 6, 3).'-'.substr($lot, 9);
+    }
+
+    /**
      * The GS1 mod-10 check digit — the one a GTIN carries.
      *
      * Weights 3, 1, 3, … from the **right**, so the same function serves any
@@ -170,18 +178,22 @@ class ProductionOrderNumbers
     }
 
     /**
-     * The GS1-128 element string, human-readable: `(11)YYMMDD[(17)YYMMDD](10)<lot>`.
+     * The GS1-128 element string, human-readable: `(11)YYMMDD(17)YYMMDD(10)<lot>`.
      *
      * Fixed-length AIs first and the variable-length (10) **last**, so no FNC1
      * separator is ever needed inside the symbol — separators are what
-     * keyboard-wedge scanners mangle. `(11)` repeats the lot's own date because
-     * that is the AI a reader looks for; drop it here if a label printer's head
-     * turns out narrower than the 50 mm of bars it costs (D-146).
+     * keyboard-wedge scanners mangle. `(11)` is the production date, the day the
+     * label prints as "Made on", which is not always the lot's own day: a lot is
+     * dated the day the batch started. The lot's day stands in only for a batch
+     * with no production date. Drop `(11)` here if a label printer's head turns
+     * out narrower than the 50 mm of bars it costs (D-146).
+     *
+     * The use-by is required: there is no label without one.
      */
-    public static function barcode(string $lot, ?CarbonImmutable $expiry): string
+    public static function barcode(string $lot, ?CarbonImmutable $madeOn, CarbonImmutable $expiry): string
     {
-        return '(11)'.substr($lot, 0, 6)
-            .($expiry === null ? '' : '(17)'.$expiry->format('ymd'))
+        return '(11)'.($madeOn === null ? substr($lot, 0, 6) : $madeOn->format('ymd'))
+            .'(17)'.$expiry->format('ymd')
             .'(10)'.$lot;
     }
 
