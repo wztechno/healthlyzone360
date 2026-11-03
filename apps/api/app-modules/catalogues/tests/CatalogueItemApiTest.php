@@ -848,11 +848,15 @@ it('serves every row’s live packs with include=variants, in a fixed number of 
     };
 
     $queriesFor = function (): array {
-        DB::flushQueryLog();
-        DB::enableQueryLog();
-        $rows = $this->getJson('/api/v1/catalogue/items?include=channels,variants&limit=100', CatalogueWorld::headers($this->a))
+        $read = fn () => $this->getJson('/api/v1/catalogue/items?include=channels,variants&limit=100', CatalogueWorld::headers($this->a))
             ->assertOk()
             ->json('data');
+        // Warmed by an identical read, so per-test caches (the permission set) are paid for once
+        // and the count compares only what the page itself costs.
+        $read();
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $rows = $read();
         $count = count(DB::getQueryLog());
         DB::disableQueryLog();
 

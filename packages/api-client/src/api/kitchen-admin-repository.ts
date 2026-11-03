@@ -35,6 +35,7 @@ import type {
     PriceListPage,
     ProductAdmin,
     ProductAdminFilter,
+    PublishableStatus,
     RecipeAdmin,
     RecipeAdminFilter,
     ReferenceSeries,
@@ -142,6 +143,14 @@ function pickCursorFilter(filter?: CursorQueryFilter): CursorQueryFilter | undef
     if (Object.keys(picked).length === 0) return undefined;
     return picked;
 }
+
+/** The index's `status` for each list status; `null` where a price list has no such state. */
+const PRICE_LIST_WIRE_STATUS: Readonly<Record<PublishableStatus, string | null>> = {
+    draft: 'draft',
+    review_required: null,
+    published: 'active',
+    retired: 'archived',
+};
 
 /**
  * The price-list index's Lens figures from its `meta`, or `undefined` when it sent none. The
@@ -1180,6 +1189,10 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
 
         async listPriceLists(filter?: PriceListAdminFilter): Promise<PriceListPage> {
             const whole = filter?.withoutEntries !== true;
+            // One status narrows on the server. A price list is never awaiting review, so that
+            // one is asked without a status — the figures still come back — and answers no rows.
+            const sole = filter?.statuses?.length === 1 ? filter.statuses[0] : undefined;
+            const status = sole === undefined ? undefined : PRICE_LIST_WIRE_STATUS[sole];
 
             /*
              * Whole records, entries and channels included — the contract every caller reads this
@@ -1192,10 +1205,10 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             const [envelope, lookup] = await Promise.all([
                 transport.requestEnvelope<AdminPriceListIndexRow[]>({
                     method: 'GET',
-                    path: `/catalogue/price-lists${cursorQuery(
-                        pickCursorFilter(filter),
-                        whole ? { include: 'entries,channels' } : undefined,
-                    )}`,
+                    path: `/catalogue/price-lists${cursorQuery(pickCursorFilter(filter), {
+                        ...(whole ? { include: 'entries,channels' } : {}),
+                        ...(status === null || status === undefined ? {} : { status }),
+                    })}`,
                 }),
                 whole ? loadSalesChannelLookup() : Promise.resolve(null),
             ]);
@@ -1217,7 +1230,11 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                           ),
                       }),
             );
-            return figures === undefined ? page : { ...page, figures };
+            const narrowed =
+                status === null
+                    ? { items: [], nextCursor: null, hasMore: false, totalCount: 0 }
+                    : page;
+            return figures === undefined ? narrowed : { ...narrowed, figures };
         },
 
         async getPriceList(priceListId: PriceListId): Promise<PriceListAdmin> {

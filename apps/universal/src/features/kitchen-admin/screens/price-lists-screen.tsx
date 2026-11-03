@@ -369,7 +369,8 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
             figures.statusCounts.draft +
             figures.statusCounts.review_required +
             figures.statusCounts.published,
-        statusCounts: figures.statusCounts,
+        // Retired is outside that scope too, so the mix draws no slice for it.
+        statusCounts: { ...figures.statusCounts, retired: 0 },
         countsPending: counted === undefined,
         statuses,
         setStatuses: (next) => {
