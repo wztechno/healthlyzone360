@@ -393,11 +393,17 @@ it('refuses any movement onto a merged shelf', function (): void {
 
     $this->duplicates->mergeWithHistory($this->orgId, $original, $copy);
 
+    // Every writer of a movement runs inside one kitchen: a request, a job's context.
+    $context = app(TenantContext::class);
+    $context->setOrganisation((string) $this->tenant->user->getKey(), $this->orgId);
+
     try {
         app(InventoryService::class)->recordMovement($this->orgId, (string) $this->branch->getKey(), (string) $copy->getKey(), 'adjust', '1');
         $reason = null;
     } catch (ApiException $refused) {
         $reason = $refused->details['reason'] ?? null;
+    } finally {
+        $context->clear();
     }
 
     expect($reason)->toBe('stock_merged')

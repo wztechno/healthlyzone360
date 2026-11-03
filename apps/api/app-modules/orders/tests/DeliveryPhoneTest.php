@@ -154,6 +154,9 @@ describe('online', function (): void {
 });
 
 it('refuses a guest delivery with no phone, and places it once the guest gives one', function (): void {
+    // `OtpService::exposesCodes()`'s testing-only affordance, as `GuestJourneyApiSmokeTest` turns it on.
+    config()->set('verification.otp.expose_codes', true);
+
     $token = $this->postJson('/api/v1/guest/sessions', ['preferred_language_code' => 'en', 'country_code' => 'LB'])
         ->assertCreated()
         ->json('data.token');

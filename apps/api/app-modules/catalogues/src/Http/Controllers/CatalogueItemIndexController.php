@@ -12,6 +12,7 @@ use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Presenters\CatalogueItemAdminPresenter;
+use Healthy360\Catalogues\Services\AllergenAssessment;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\CursorPage;
@@ -37,7 +38,10 @@ use Illuminate\Support\Str;
  */
 final class CatalogueItemIndexController
 {
-    public function __construct(private readonly CatalogueItemAdminPresenter $presenter) {}
+    public function __construct(
+        private readonly CatalogueItemAdminPresenter $presenter,
+        private readonly AllergenAssessment $assessment,
+    ) {}
 
     /**
      * @throws ApiException
@@ -74,6 +78,7 @@ final class CatalogueItemIndexController
             OffsetPage::constrain($query, $requestedPage, $perPage);
 
             $rows = $query->get();
+            $this->assessment->prime($rows);
             $variants = $withVariants ? $this->variants($rows) : null;
 
             return ApiResponse::data(
@@ -86,6 +91,7 @@ final class CatalogueItemIndexController
         CursorPage::constrain($query, $limit, CursorPage::cursor($request));
 
         $page = CursorPage::page($query->get(), $limit);
+        $this->assessment->prime($page['items']);
         $variants = $withVariants ? $this->variants($page['items']) : null;
 
         return ApiResponse::data(

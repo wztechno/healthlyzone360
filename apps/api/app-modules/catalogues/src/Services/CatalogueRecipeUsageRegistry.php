@@ -238,6 +238,7 @@ final readonly class CatalogueRecipeUsageRegistry implements RecipeUsageRegistry
 
         $channels = $this->channelCodes($itemIds);
         $packs = $this->packs($itemIds);
+        $this->assessment->prime($items);
 
         $sellers = [];
 

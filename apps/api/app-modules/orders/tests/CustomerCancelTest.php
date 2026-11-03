@@ -13,6 +13,7 @@ use Healthy360\Orders\Tests\Fixtures\RunWorld;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\Support\Alerts\StaffAlertType;
+use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Support\Models\StaffNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Exceptions;
@@ -180,5 +181,8 @@ it('alerts the managers once, with the order number only', function (): void {
     expect($alert->type)->toBe(StaffAlertType::CustomerCancelled->value)
         ->and($alert->data)->toBe(['order_number' => $order->order_number]);
 
-    Exceptions::assertNothingReported();
+    // The second press's deliberate 409 is the only thing reported: the alert
+    // swallowed no failure of its own.
+    Exceptions::assertReportedCount(1);
+    Exceptions::assertReported(fn (ApiException $refused): bool => $refused->status() === 409);
 });

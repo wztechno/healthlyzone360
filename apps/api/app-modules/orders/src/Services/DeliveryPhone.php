@@ -28,7 +28,7 @@ final class DeliveryPhone
 {
     public function resolves(?string $contactPointId, ?string $customerAccountId): bool
     {
-        if ($contactPointId !== null && $this->livePhones()->whereKey($contactPointId)->exists()) {
+        if ($contactPointId !== null && $this->livePhones()->where('id', $contactPointId)->exists()) {
             return true;
         }
 

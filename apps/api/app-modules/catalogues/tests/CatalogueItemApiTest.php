@@ -864,6 +864,8 @@ it('serves every row’s live packs with include=variants, in a fixed number of 
     };
 
     $first = $packed();
+    // Answered for the whole page in one query, so one row says no and the rest yes.
+    $first->forceFill(['allergens_assessed_at' => null])->save();
     [$one, $queriesForOne] = $queriesFor();
 
     foreach (range(1, 19) as $n) {
@@ -878,6 +880,7 @@ it('serves every row’s live packs with include=variants, in a fixed number of 
         ->and(array_column($row['variants'], 'code'))->toBe(['jar-250g', 'jar-500g'])
         ->and($row['variants'][0]['pack']['pack_quantity'])->toBe('1.0000')
         ->and($row['channels'])->toBe([])
+        ->and(collect($twenty)->pluck('allergens_assessed', 'id')->reject()->keys()->all())->toBe([(string) $first->getKey()])
         ->and($queriesForTwenty)->toBe($queriesForOne);
 
     // Without it, the rows carry no variants; an unknown include is refused.
