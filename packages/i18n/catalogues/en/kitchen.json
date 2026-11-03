@@ -3663,7 +3663,8 @@
         "releaseCheck": "I have compared the two labels and the new one is right.",
         "releaseConfirm": "Release",
         "releasedToast": "Version {{number}} is released and back on sale.",
-        "releaseStale": "An ingredient changed and the label is being worked out again. Reload the page and compare the labels again."
+        "releaseStale": "An ingredient changed and the label is being worked out again. Wait a moment, then open the release and compare the labels again.",
+        "releaseChanged": "This version changed since you opened it. Open the release again and compare the new labels."
     },
     "rollup": {
         "title": "What this draft declares",

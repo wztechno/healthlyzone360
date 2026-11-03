@@ -2775,19 +2775,23 @@ function RecipeEditor({
                   },
               ]
             : []),
-        // A refused release, after its dialog closed; a lost race is the conflict dialog's instead.
-        ...(releaseFailure === null ||
-        (releaseFailure.code === 'resource.conflict' &&
-            releaseFailure.reason !== 'derivation_stale')
+        /*
+         * A refused release, after its dialog closed. A 409 has already refetched the version (see
+         * the release's `onError`), so the next opening compares the fresh labels under the fresh
+         * lock; the release has no local edits, so there is no reload-or-keep question to ask.
+         */
+        ...(releaseFailure === null
             ? []
             : [
                   {
                       key: 'release-error',
                       tone: 'danger' as const,
                       label:
-                          releaseFailure.code === 'resource.conflict'
-                              ? t('kitchen:publish.releaseStale')
-                              : releaseFailure.message,
+                          releaseFailure.code !== 'resource.conflict'
+                              ? releaseFailure.message
+                              : releaseFailure.reason === 'derivation_stale'
+                                ? t('kitchen:publish.releaseStale')
+                                : t('kitchen:publish.releaseChanged'),
                       testID: 'kitchen-recipe-release-error',
                   },
               ]),
@@ -4337,12 +4341,12 @@ function RecipeEditor({
                                                 });
                                             },
                                             onError: (error) => {
-                                                const failure = toFailure(error);
-                                                if (!(
-                                                    failure?.code === 'resource.conflict' &&
-                                                    failure.reason === 'derivation_stale'
-                                                )) {
-                                                    concurrency.capture(error);
+                                                // A recompute moves the version's lock and label:
+                                                // never retry on the lock this dialog was shown.
+                                                if (
+                                                    toFailure(error)?.code === 'resource.conflict'
+                                                ) {
+                                                    void record.refetch();
                                                 }
                                                 nudgeTray();
                                             },
