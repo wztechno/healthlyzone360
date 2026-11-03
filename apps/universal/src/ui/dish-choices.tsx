@@ -1,5 +1,5 @@
 import type { DishOption, DishPortion } from '@healthy360/api-client/contracts';
-import { Checkbox, Select, Stack } from '@healthy360/design-system';
+import { Badge, Checkbox, Inline, Select, Stack, Text } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
@@ -108,30 +108,36 @@ export function DishChoiceFields({
             {groups.map((group) => {
                 const inGroup = options.filter((option) => option.groupEn === group);
                 const first = inGroup[0];
+                const chosen = inGroup.find((option) => value.optionIds.includes(option.id));
                 return (
-                    <Select
-                        key={group}
-                        testID={`${testID}-group-${group}`}
-                        label={arabic ? (first?.groupAr ?? group) : group}
-                        size={size}
-                        value={
-                            inGroup.find((option) => value.optionIds.includes(option.id))?.id ??
-                            NO_PREFERENCE
-                        }
-                        options={[
-                            {
-                                value: NO_PREFERENCE,
-                                label: t('catalogue:dishOptions.noPreference'),
-                            },
-                            ...inGroup.map((option) => ({
-                                value: option.id,
-                                label: named(option),
-                            })),
-                        ]}
-                        onChange={(id) => {
-                            pick(group, id);
-                        }}
-                    />
+                    <Stack key={group} space="xs">
+                        <Select
+                            testID={`${testID}-group-${group}`}
+                            label={arabic ? (first?.groupAr ?? group) : group}
+                            size={size}
+                            value={chosen?.id ?? NO_PREFERENCE}
+                            options={[
+                                {
+                                    value: NO_PREFERENCE,
+                                    label: t('catalogue:dishOptions.noPreference'),
+                                },
+                                ...inGroup.map((option) => ({
+                                    value: option.id,
+                                    label: named(option),
+                                })),
+                            ]}
+                            onChange={(id) => {
+                                pick(group, id);
+                            }}
+                        />
+                        {chosen === undefined ? null : (
+                            <ChoiceAllergens
+                                testID={`${testID}-group-${group}-allergens`}
+                                option={chosen}
+                                t={t}
+                            />
+                        )}
+                    </Stack>
                 );
             })}
 
@@ -152,5 +158,51 @@ export function DishChoiceFields({
                 />
             ))}
         </Stack>
+    );
+}
+
+/**
+ * What the chosen sauce or side adds to the plate, before it is bought: its recipe's allergens as the
+ * danger badges the kitchen's editor draws, or a warning when nobody has assessed it. Missing codes
+ * read as unassessed, never as "none".
+ */
+function ChoiceAllergens({
+    testID,
+    option,
+    t,
+}: {
+    readonly testID: string;
+    readonly option: DishOption;
+    readonly t: TFunction;
+}) {
+    const codes = option.allergenCodes;
+
+    if (codes === null || codes === undefined) {
+        return (
+            <Text variant="caption" tone="warning" testID={`${testID}-unassessed`}>
+                {t('catalogue:dishOptions.allergensUnassessed')}
+            </Text>
+        );
+    }
+
+    if (codes.length === 0) {
+        return (
+            <Text variant="caption" tone="secondary" testID={`${testID}-none`}>
+                {t('catalogue:dishOptions.allergensNone')}
+            </Text>
+        );
+    }
+
+    return (
+        <Inline space="xs" wrap testID={testID}>
+            {codes.map((code) => (
+                <Badge
+                    key={code}
+                    testID={`${testID}-${code}`}
+                    tone="danger"
+                    label={t(`marketplace:allergens.${code}`)}
+                />
+            ))}
+        </Inline>
     );
 }

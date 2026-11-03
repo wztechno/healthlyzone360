@@ -638,6 +638,8 @@
         "noPreference": "No preference",
         "leaveOut": "No {{name}}",
         "chosen": "{{group}}: {{name}}",
-        "separator": " · "
+        "separator": " · ",
+        "allergensUnassessed": "Allergens not checked yet. Ask the kitchen before choosing it.",
+        "allergensNone": "No allergens declared for this choice."
     }
 }

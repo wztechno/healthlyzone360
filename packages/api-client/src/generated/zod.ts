@@ -2942,21 +2942,6 @@ export const zOrderComplaint = z.object({
 });
 
 /**
- * A free change to a dish: `remove` leaves something out, `choice` picks
- * one from a group such as Sauce. Neither has a price; the only priced
- * choice is the portion, which is a pack.
- *
- */
-export const zDishOption = z.object({
-    id: zUuid,
-    kind: z.enum(['remove', 'choice']),
-    group_en: z.string().nullable(),
-    group_ar: z.string().nullable(),
-    name_en: z.string(),
-    name_ar: z.string()
-});
-
-/**
  * A pack the customer can pick, at its price on the channel asked about.
  */
 export const zDishPortion = z.object({
@@ -2977,43 +2962,6 @@ export const zReplaceDishOptionsRequest = z.object({
         name_ar: z.string().max(120),
         recipe_id: z.uuid().nullish()
     })).max(40)
-});
-
-export const zMarketplaceMeal = z.object({
-    id: zUuid,
-    options: z.array(zDishOption).optional(),
-    portions: z.array(zDishPortion).optional(),
-    kitchen_id: zUuid,
-    kitchen_name: z.string(),
-    item_type: z.enum([
-        'meal',
-        'product',
-        'sauce',
-        'dressing',
-        'frozen_meal'
-    ]),
-    published_category: z.object({
-        code: z.string(),
-        name: z.string()
-    }).nullable(),
-    name: z.string(),
-    photo_url: z.url().nullish(),
-    slug: z.string(),
-    description: z.string(),
-    meal_types: z.array(zMealTypeCode),
-    diet_classifications: z.array(z.string()),
-    cuisines: z.array(z.string()),
-    allergens: z.array(zAllergenCode),
-    serving: zMarketplaceServing.nullable(),
-    nutrition: zMarketplaceNutritionFacts.nullable(),
-    price: zMarketplaceMoney,
-    pack: zPackSize.nullable(),
-    preparation_minutes: z.int().nullable(),
-    image_placeholder_id: z.string(),
-    availability: z.array(zMarketplaceAvailability),
-    channels: zMarketplaceSalesChannels,
-    rating: z.number().nullable(),
-    rating_count: z.int().gte(0)
 });
 
 export const zMarketplaceEnergyBand = z.object({
@@ -3047,11 +2995,6 @@ export const zMarketplaceListMeta = zPaginationMeta.and(z.object({
 
 export const zMarketplaceKitchensEnvelope = z.object({
     data: z.array(zMarketplaceKitchen),
-    meta: zMarketplaceListMeta
-});
-
-export const zMarketplaceMealsEnvelope = z.object({
-    data: z.array(zMarketplaceMeal),
     meta: zMarketplaceListMeta
 });
 
@@ -3469,62 +3412,6 @@ export const zSetCartItemQuantityRequest = z.object({
     ])
 });
 
-export const zCartLine = z.object({
-    id: zUuid,
-    catalogue_item_id: zUuid,
-    catalogue_item_variant_id: z.uuid().nullable(),
-    quantity: z.string(),
-    delivery_date: z.iso.date().nullable(),
-    options: z.array(zDishOption).optional(),
-    note: z.string().max(300).nullish(),
-    created_at: z.iso.datetime({ offset: true }).nullable(),
-    updated_at: z.iso.datetime({ offset: true }).nullable()
-});
-
-/**
- * **No amount of any kind appears here, and none ever will.** The cart
- * tables hold no price column: the server's probe establishes that a line
- * is orderable and discards its price, because a cart price is advisory and
- * every line is repriced at placement. A subtotal here would be a number no
- * table holds and no checkout will honour.
- *
- */
-export const zCart = z.object({
-    id: zUuid,
-    organisation_id: zUuid,
-    sales_channel_id: zUuid,
-    branch_id: z.uuid().nullable(),
-    status: zCartStatus,
-    currency_code: z.string().length(3),
-    expires_at: z.iso.datetime({ offset: true }),
-    lock_version: z.int().gte(0),
-    line_count: z.int().gte(0),
-    lines: z.array(zCartLine),
-    created_at: z.iso.datetime({ offset: true }).nullable(),
-    updated_at: z.iso.datetime({ offset: true }).nullable()
-});
-
-export const zCartEnvelope = z.object({
-    data: z.object({
-        cart: zCart
-    }),
-    meta: zMeta
-});
-
-/**
- * The line the request was about, **and** the basket around it. The write
- * moved the cart's validator and pushed its expiry out, so a response
- * carrying only the line would hand a client two stale facts.
- *
- */
-export const zCartLineEnvelope = z.object({
-    data: z.object({
-        line: zCartLine,
-        cart: zCart
-    }),
-    meta: zMeta
-});
-
 /**
  * Four fields, and none of them is a price. Every amount is decided during
  * placement, against the tariff standing at that moment; a body that could
@@ -3622,6 +3509,22 @@ export const zOrderLineAllergen = z.object({
 });
 
 /**
+ * A free change to a dish: `remove` leaves something out, `choice` picks
+ * one from a group such as Sauce. Neither has a price; the only priced
+ * choice is the portion, which is a pack.
+ *
+ */
+export const zDishOption = z.object({
+    id: zUuid,
+    kind: z.enum(['remove', 'choice']),
+    group_en: z.string().nullable(),
+    group_ar: z.string().nullable(),
+    name_en: z.string(),
+    name_ar: z.string(),
+    allergens: z.array(zOrderLineAllergen).nullish()
+});
+
+/**
  * A dish option as the kitchen edits it. A `choice` links the sauce or side
  * recipe it is and takes its allergens from that recipe's published version;
  * `allergens` is null when the link is missing or the recipe has no published
@@ -3637,6 +3540,104 @@ export const zKitchenDishOption = z.object({
     name_ar: z.string(),
     recipe_id: z.uuid().nullable(),
     allergens: z.array(zOrderLineAllergen).nullable()
+});
+
+export const zMarketplaceMeal = z.object({
+    id: zUuid,
+    options: z.array(zDishOption).optional(),
+    portions: z.array(zDishPortion).optional(),
+    kitchen_id: zUuid,
+    kitchen_name: z.string(),
+    item_type: z.enum([
+        'meal',
+        'product',
+        'sauce',
+        'dressing',
+        'frozen_meal'
+    ]),
+    published_category: z.object({
+        code: z.string(),
+        name: z.string()
+    }).nullable(),
+    name: z.string(),
+    photo_url: z.url().nullish(),
+    slug: z.string(),
+    description: z.string(),
+    meal_types: z.array(zMealTypeCode),
+    diet_classifications: z.array(z.string()),
+    cuisines: z.array(z.string()),
+    allergens: z.array(zAllergenCode),
+    serving: zMarketplaceServing.nullable(),
+    nutrition: zMarketplaceNutritionFacts.nullable(),
+    price: zMarketplaceMoney,
+    pack: zPackSize.nullable(),
+    preparation_minutes: z.int().nullable(),
+    image_placeholder_id: z.string(),
+    availability: z.array(zMarketplaceAvailability),
+    channels: zMarketplaceSalesChannels,
+    rating: z.number().nullable(),
+    rating_count: z.int().gte(0)
+});
+
+export const zMarketplaceMealsEnvelope = z.object({
+    data: z.array(zMarketplaceMeal),
+    meta: zMarketplaceListMeta
+});
+
+export const zCartLine = z.object({
+    id: zUuid,
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: z.uuid().nullable(),
+    quantity: z.string(),
+    delivery_date: z.iso.date().nullable(),
+    options: z.array(zDishOption).optional(),
+    note: z.string().max(300).nullish(),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    updated_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+/**
+ * **No amount of any kind appears here, and none ever will.** The cart
+ * tables hold no price column: the server's probe establishes that a line
+ * is orderable and discards its price, because a cart price is advisory and
+ * every line is repriced at placement. A subtotal here would be a number no
+ * table holds and no checkout will honour.
+ *
+ */
+export const zCart = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    sales_channel_id: zUuid,
+    branch_id: z.uuid().nullable(),
+    status: zCartStatus,
+    currency_code: z.string().length(3),
+    expires_at: z.iso.datetime({ offset: true }),
+    lock_version: z.int().gte(0),
+    line_count: z.int().gte(0),
+    lines: z.array(zCartLine),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    updated_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zCartEnvelope = z.object({
+    data: z.object({
+        cart: zCart
+    }),
+    meta: zMeta
+});
+
+/**
+ * The line the request was about, **and** the basket around it. The write
+ * moved the cart's validator and pushed its expiry out, so a response
+ * carrying only the line would hand a client two stale facts.
+ *
+ */
+export const zCartLineEnvelope = z.object({
+    data: z.object({
+        line: zCartLine,
+        cart: zCart
+    }),
+    meta: zMeta
 });
 
 /**

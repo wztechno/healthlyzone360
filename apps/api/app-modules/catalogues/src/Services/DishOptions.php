@@ -7,6 +7,10 @@ namespace Healthy360\Catalogues\Services;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemOption;
 use Healthy360\Ingredients\Enums\AllergenContainment;
+use Healthy360\Recipes\Enums\RecipeVersionStatus;
+use Healthy360\Tenancy\Database\DatabaseTenantContext;
+use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -19,23 +23,28 @@ use Illuminate\Support\Facades\DB;
  *
  * A choice is different: a new sauce is a new thing on the plate. So a choice
  * links the sauce or side recipe it is (owner, 3 Nov 2026) and takes its
- * allergens from that recipe's published version, through
- * {@see DerivedAllergenService::forRecipe()}. A line that picks it carries them
- * beside the dish's own ({@see allergensOf()}).
+ * allergens from that recipe's published version's frozen label ({@see labels()}).
+ * A line that picks it carries them beside the dish's own ({@see allergensOf()}),
+ * and the customer and the desk see them on the choice before they pick it
+ * ({@see forItem()}).
  *
  * A choice with no link is **not offered**: {@see forItem()} leaves it out and
  * a line that names it is refused `option_unlinked`. Choices written before the
  * link existed stay that way until a kitchen links them; nothing guesses one. A
  * link to a recipe with no published version takes the dish off sale through
- * {@see CatalogueItem::scopeAllergensAssessed()} until the recipe is published.
+ * {@see CatalogueItem::scopeAllergensAssessed()} until the recipe is published,
+ * and a line that picks such a choice anyway (an amended order's held line) is
+ * refused `item_not_assessed` ({@see snapshot()}), so it can never reach an order
+ * carrying only the dish's allergens.
  *
  * @phpstan-type DishOption array{id: string, kind: string, group_en: string|null, group_ar: string|null, name_en: string, name_ar: string}
  * @phpstan-type Allergen array{allergen_code: string, containment: string}
+ * @phpstan-type OfferedOption array{id: string, kind: string, group_en: string|null, group_ar: string|null, name_en: string, name_ar: string, allergens: list<Allergen>|null}
  * @phpstan-type EditorOption array{id: string, kind: string, group_en: string|null, group_ar: string|null, name_en: string, name_ar: string, recipe_id: string|null, allergens: list<Allergen>|null}
  */
 final readonly class DishOptions
 {
-    public function __construct(private DerivedAllergenService $allergens) {}
+    public function __construct(private DatabaseTenantContext $tenantContext) {}
 
     /**
      * What makes two lines of one dish different lines: empty when they carry
@@ -58,15 +67,23 @@ final readonly class DishOptions
 
     /**
      * What a customer or the desk is offered: every removal, and every choice
-     * linked to a recipe.
+     * linked to a recipe, each with what it adds to the plate. A removal adds
+     * nothing (`[]`); a choice whose recipe has no published basis is `null`:
+     * unassessed, never "none".
      *
-     * @return list<DishOption>
+     * @return list<OfferedOption>
      */
     public function forItem(string $catalogueItemId): array
     {
-        return array_values($this->rows($catalogueItemId)
-            ->filter(static fn (CatalogueItemOption $option): bool => $option->kind !== 'choice' || $option->recipe_id !== null)
-            ->map(fn (CatalogueItemOption $option): array => $this->shape($option))
+        $offered = $this->rows($catalogueItemId)
+            ->filter(static fn (CatalogueItemOption $option): bool => $option->kind !== 'choice' || $option->recipe_id !== null);
+        $labels = $this->labels($offered);
+
+        return array_values($offered
+            ->map(fn (CatalogueItemOption $option): array => [
+                ...$this->shape($option),
+                'allergens' => $option->kind === 'choice' ? ($labels[(string) $option->getKey()] ?? null) : [],
+            ])
             ->all());
     }
 
@@ -78,23 +95,27 @@ final readonly class DishOptions
      */
     public function forEditor(CatalogueItem $item): array
     {
-        return array_values($this->rows((string) $item->getKey())
-            ->map(function (CatalogueItemOption $option) use ($item): array {
-                $label = $option->recipe_id === null ? null : $this->allergens->forRecipe($option->recipe_id, (string) $item->organisation_id);
+        $rows = $this->rows((string) $item->getKey());
+        $labels = $this->labels($rows);
 
-                return [
-                    ...$this->shape($option),
-                    'recipe_id' => $option->recipe_id,
-                    'allergens' => $label === null || $label['basis'] === 'none' ? null : $this->public($label['allergens']),
-                ];
-            })
+        return array_values($rows
+            ->map(fn (CatalogueItemOption $option): array => [
+                ...$this->shape($option),
+                'recipe_id' => $option->recipe_id,
+                'allergens' => $labels[(string) $option->getKey()] ?? null,
+            ])
             ->all());
     }
 
     /**
      * The chosen options as a line stores them, or null when one is not offered
-     * on this dish (any more) or two come from one group. {@see refusal()} says
-     * which.
+     * on this dish (any more), when a chosen choice's recipe has no published
+     * basis, or when two come from one group. {@see refusal()} says which.
+     *
+     * The unassessed refusal holds on every path, including those that waive the
+     * dish's own assessment (an amended order's held lines): the line would
+     * otherwise carry the dish's allergens alone, and food safety beats the
+     * exemption.
      *
      * @param  list<string>  $optionIds
      * @return list<DishOption>|null
@@ -114,27 +135,44 @@ final readonly class DishOptions
             return null;
         }
 
+        if (array_filter($chosen, static fn (array $option): bool => $option['allergens'] === null) !== []) {
+            return null;
+        }
+
         $groups = array_filter(array_column($chosen, 'group_en'));
 
-        return count($groups) === count(array_unique($groups)) ? $chosen : null;
+        if (count($groups) !== count(array_unique($groups))) {
+            return null;
+        }
+
+        return array_map(static function (array $option): array {
+            unset($option['allergens']);
+
+            return $option;
+        }, $chosen);
     }
 
     /**
      * Why {@see snapshot()} refused: `option_unlinked` when a chosen choice has
-     * no recipe behind it, else `option_unknown`.
+     * no recipe behind it, `item_not_assessed` (the code an unassessed dish is
+     * refused with) when its recipe has no published basis, else `option_unknown`.
      *
      * @param  list<string>  $optionIds
      */
     public function refusal(string $catalogueItemId, array $optionIds): string
     {
-        $unlinked = CatalogueItemOption::withoutTenancy()
-            ->where('catalogue_item_id', $catalogueItemId)
-            ->whereIn('id', $optionIds)
-            ->where('kind', 'choice')
-            ->whereNull('recipe_id')
-            ->exists();
+        $choices = $this->choices($optionIds)
+            ->filter(static fn (CatalogueItemOption $choice): bool => $choice->catalogue_item_id === $catalogueItemId);
 
-        return $unlinked ? 'option_unlinked' : 'option_unknown';
+        if ($choices->contains(static fn (CatalogueItemOption $choice): bool => $choice->recipe_id === null)) {
+            return 'option_unlinked';
+        }
+
+        $labels = $this->labels($choices);
+
+        return $choices->contains(static fn (CatalogueItemOption $choice): bool => ! isset($labels[(string) $choice->getKey()]))
+            ? 'item_not_assessed'
+            : 'option_unknown';
     }
 
     /**
@@ -154,21 +192,48 @@ final readonly class DishOptions
         $assessed = true;
         $allergens = [];
 
-        $choices = CatalogueItemOption::withoutTenancy()
-            ->whereIn('id', $optionIds)
-            ->where('kind', 'choice')
-            ->get();
+        $choices = $this->choices($optionIds);
+        $labels = $this->labels($choices);
 
         foreach ($choices as $choice) {
-            $label = $choice->recipe_id === null
-                ? ['basis' => 'none', 'allergens' => []]
-                : $this->allergens->forRecipe($choice->recipe_id, $choice->organisation_id);
+            $label = $labels[(string) $choice->getKey()] ?? null;
 
-            $assessed = $assessed && $label['basis'] !== 'none';
-            $allergens = self::merge($allergens, $this->public($label['allergens']));
+            $assessed = $assessed && $label !== null;
+            $allergens = self::merge($allergens, $label ?? []);
         }
 
         return ['assessed' => $assessed, 'allergens' => $allergens];
+    }
+
+    /**
+     * The ingredients the chosen choices put on the plate: every line of each
+     * linked recipe's published version, the version {@see allergensOf()} reads
+     * the label of. An excluded ingredient in the chosen sauce is on the meal.
+     *
+     * @param  list<string>  $optionIds
+     * @return list<string>
+     */
+    public function ingredientIdsOf(array $optionIds): array
+    {
+        if ($optionIds === []) {
+            return [];
+        }
+
+        $ids = [];
+
+        foreach ($this->choices($optionIds)->whereNotNull('recipe_id')->groupBy('organisation_id') as $organisationId => $linked) {
+            /** @var list<string> $lines */
+            $lines = $this->tenantContext->during(null, (string) $organisationId, null, fn (): array => $this->publishedVersions($linked)
+                ->join('recipe_version_lines', 'recipe_version_lines.recipe_version_id', '=', 'recipe_versions.id')
+                ->distinct()
+                ->pluck('recipe_version_lines.ingredient_id')
+                ->map(static fn (mixed $id): string => (string) $id)
+                ->all());
+
+            $ids = [...$ids, ...$lines];
+        }
+
+        return array_values(array_unique($ids));
     }
 
     /**
@@ -253,17 +318,76 @@ final readonly class DishOptions
     }
 
     /**
-     * The code and the containment, and nothing about the formulation.
-     *
-     * @param  list<array{allergen_code: string, containment: string, derivation: string, source_ingredient_id: string|null}>  $allergens
-     * @return list<Allergen>
+     * @param  list<string>  $optionIds
+     * @return Collection<int, CatalogueItemOption>
      */
-    private function public(array $allergens): array
+    private function choices(array $optionIds): Collection
     {
-        return array_map(static fn (array $allergen): array => [
-            'allergen_code' => $allergen['allergen_code'],
-            'containment' => $allergen['containment'],
-        ], $allergens);
+        return CatalogueItemOption::withoutTenancy()
+            ->whereIn('id', $optionIds)
+            ->where('kind', 'choice')
+            ->get()
+            ->toBase();
+    }
+
+    /**
+     * Each linked choice's published label (the code and the containment, nothing
+     * about the formulation) keyed by option id, in one read per kitchen however
+     * many choices there are. A choice missing from the result has no basis: no
+     * link, or no published version with a line, the test
+     * {@see CatalogueItem::scopeAllergensAssessed()} takes a dish off sale on.
+     *
+     * **Inside the kitchen's tenant context.** `recipe_versions` and its label are
+     * tenant rows whose policies fail closed for a request with no organisation,
+     * and the marketplace's meal page is exactly that request;
+     * `MarketplaceMeals::allergenCodesOf()` restores the same context for the
+     * dish's own label. And because a label row is only reached through a version
+     * that was found first, a read that cannot see the version answers
+     * "unassessed", never "none".
+     *
+     * @param  Collection<int, CatalogueItemOption>  $options
+     * @return array<string, list<Allergen>>
+     */
+    private function labels(Collection $options): array
+    {
+        $labels = [];
+
+        foreach ($options->where('kind', 'choice')->whereNotNull('recipe_id')->groupBy('organisation_id') as $organisationId => $linked) {
+            /** @var Collection<int, object{option_id: string, allergen_code: string|null, containment: string|null}> $rows */
+            $rows = $this->tenantContext->during(null, (string) $organisationId, null, fn (): Collection => $this->publishedVersions($linked)
+                ->leftJoin('recipe_version_allergens', 'recipe_version_allergens.recipe_version_id', '=', 'recipe_versions.id')
+                ->orderBy('recipe_version_allergens.allergen_code')
+                ->get(['catalogue_item_options.id as option_id', 'recipe_version_allergens.allergen_code', 'recipe_version_allergens.containment'])
+                ->toBase());
+
+            foreach ($rows as $row) {
+                $optionId = (string) $row->option_id;
+                $labels[$optionId] ??= [];
+
+                if ($row->allergen_code !== null) {
+                    $labels[$optionId][] = ['allergen_code' => (string) $row->allergen_code, 'containment' => (string) $row->containment];
+                }
+            }
+        }
+
+        return $labels;
+    }
+
+    /**
+     * These options joined to their linked recipe's published version, when it
+     * has a line: `recipe_has_published_lines()`, the assessment scope's own test.
+     *
+     * @param  Collection<int, CatalogueItemOption>  $options
+     */
+    private function publishedVersions(Collection $options): Builder
+    {
+        return DB::table('catalogue_item_options')
+            ->join('recipe_versions', static fn (JoinClause $join): JoinClause => $join
+                ->on('recipe_versions.recipe_id', '=', 'catalogue_item_options.recipe_id')
+                ->on('recipe_versions.organisation_id', '=', 'catalogue_item_options.organisation_id')
+                ->where('recipe_versions.status', '=', RecipeVersionStatus::Published->value))
+            ->whereIn('catalogue_item_options.id', $options->map(static fn (CatalogueItemOption $option): string => (string) $option->getKey())->values()->all())
+            ->whereRaw('recipe_has_published_lines(catalogue_item_options.recipe_id, catalogue_item_options.organisation_id)');
     }
 
     /**

@@ -25,7 +25,8 @@ use Healthy360\Subscriptions\Contracts\MealSafety;
  *    the customer already made theirs by declaring. §6 is written as an
  *    absolute and this is what implementing an absolute looks like: no
  *    threshold, no flag, no override.
- * 2. **An excluded ingredient is on the meal's list.** The `ingredient_id`
+ * 2. **An excluded ingredient is on the meal's list**, or in the published
+ *    recipe of a sauce or side chosen on it. The `ingredient_id`
  *    form of `customer_food_exclusions` is, in that table's own words, "the
  *    strong form and the only one C1 can check mechanically". Both `dislike`
  *    and `forbidden` block, even though `FoodExclusionKind::isOverridable()`
@@ -104,7 +105,7 @@ final readonly class MealSafetyService implements MealSafety
             return ['safe' => false, 'allergen_classes' => [], 'reason' => 'unassessed'];
         }
 
-        if ($this->excludedIngredientOn($profile, $item)) {
+        if ($this->excludedIngredientOn($profile, $item, $optionIds)) {
             return ['safe' => false, 'allergen_classes' => [], 'reason' => 'excluded'];
         }
 
@@ -146,7 +147,14 @@ final readonly class MealSafetyService implements MealSafety
             ->all()));
     }
 
-    private function excludedIngredientOn(CustomerDietaryProfile $profile, CatalogueItem $item): bool
+    /**
+     * The meal's listed ingredients and, through the same choice path the
+     * allergen check reads, the published lines of every sauce or side chosen
+     * on it.
+     *
+     * @param  list<string>  $optionIds
+     */
+    private function excludedIngredientOn(CustomerDietaryProfile $profile, CatalogueItem $item, array $optionIds): bool
     {
         /** @var list<string> $excluded */
         $excluded = CustomerFoodExclusion::query()
@@ -160,7 +168,10 @@ final readonly class MealSafetyService implements MealSafety
             return false;
         }
 
-        return array_intersect($excluded, $this->allergens->listedIngredientIds($item)) !== [];
+        return array_intersect($excluded, [
+            ...$this->allergens->listedIngredientIds($item),
+            ...$this->options->ingredientIdsOf($optionIds),
+        ]) !== [];
     }
 
     private function profileOf(CustomerAccount $account): ?CustomerDietaryProfile

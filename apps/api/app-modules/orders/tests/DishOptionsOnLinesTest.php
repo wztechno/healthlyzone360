@@ -6,10 +6,13 @@ use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Catalogues\Models\Catalogue;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Services\DishOptions;
+use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Orders\OrderDesk\Services\DeskBasket;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\Recipes\Models\Recipe;
+use Healthy360\Recipes\Models\RecipeVersion;
+use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Str;
@@ -45,8 +48,17 @@ describe('a dish\'s options', function (): void {
             'catalogue_id' => (string) $catalogue->getKey(),
             'item_type' => 'meal',
         ]);
-        // A choice is offered only with a recipe behind it.
-        $recipe = (string) Recipe::factory()->create(['organisation_id' => $this->tenant->organisation->getKey()])->getKey();
+        // A choice is offered only with a recipe behind it, and sold only once
+        // that recipe has a published version with a line.
+        $organisationId = (string) $this->tenant->organisation->getKey();
+        $recipe = (string) Recipe::factory()->create(['organisation_id' => $organisationId])->getKey();
+        $version = RecipeVersion::factory()->published()->create(['recipe_id' => $recipe, 'organisation_id' => $organisationId]);
+        RecipeVersionLine::factory()->create([
+            'recipe_version_id' => $version->getKey(),
+            'organisation_id' => $organisationId,
+            'line_number' => 1,
+            'ingredient_id' => Ingredient::factory()->create(['organisation_id' => $organisationId])->getKey(),
+        ]);
         $this->dishOptions = app(DishOptions::class)->replace($this->dish, [
             ['kind' => 'remove', 'name_en' => 'Onions', 'name_ar' => 'بصل'],
             ['kind' => 'choice', 'group_en' => 'Sauce', 'group_ar' => 'صلصة', 'name_en' => 'Garlic', 'name_ar' => 'ثوم', 'recipe_id' => $recipe],

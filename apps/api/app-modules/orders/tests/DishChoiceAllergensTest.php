@@ -13,6 +13,7 @@ use Healthy360\Customers\Enums\AllergenSeverity;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAllergenDeclaration;
 use Healthy360\Customers\Models\CustomerDietaryProfile;
+use Healthy360\Customers\Models\CustomerFoodExclusion;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Tests\Fixtures\DeskWorld;
@@ -22,6 +23,8 @@ use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionAllergen;
 use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+use Healthy360\Subscriptions\Services\MealSafetyService;
+use Illuminate\Support\Facades\DB;
 
 /*
 |--------------------------------------------------------------------------
@@ -232,6 +235,105 @@ it('takes the dish off sale while a linked recipe has no published version', fun
     ]);
 
     expect($assessed())->toBeTrue();
+});
+
+it('shows each offered choice\'s allergens before purchase, and unassessed as null, never none', function (): void {
+    $dishId = (string) $this->world->meal->getKey();
+    $aioli = dishChoice($this->world->meal, (string) choiceRecipe($this->organisationId, 'egg')->getKey(), 'Aioli');
+    $salsa = dishChoice($this->world->meal, (string) choiceRecipe($this->organisationId, null)->getKey(), 'Salsa');
+    $draft = dishChoice($this->world->meal, (string) choiceRecipe($this->organisationId, null, published: false)->getKey(), 'Pesto');
+
+    $offered = array_column(app(DishOptions::class)->forItem($dishId), 'allergens', 'id');
+
+    expect($offered[$aioli])->toBe([['allergen_code' => 'egg', 'containment' => 'contains']])
+        ->and($offered[$salsa])->toBe([])
+        ->and($offered[$draft])->toBeNull();
+
+    $served = $this->getJson("/api/v1/catalogue/order-desk/items/{$dishId}/choices", $this->headers)
+        ->assertOk()
+        ->json('data.options');
+
+    expect(array_column($served, 'allergens', 'id'))->toBe($offered);
+});
+
+it('reads every choice\'s label in a fixed number of queries', function (): void {
+    $dishId = (string) $this->world->meal->getKey();
+    $options = app(DishOptions::class);
+    $count = function () use ($options, $dishId): int {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $options->forItem($dishId);
+        $queries = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        return $queries;
+    };
+
+    dishChoice($this->world->meal, (string) choiceRecipe($this->organisationId, 'egg')->getKey(), 'Aioli');
+    $one = $count();
+
+    dishChoice($this->world->meal, (string) choiceRecipe($this->organisationId, 'milk')->getKey(), 'Ranch');
+    dishChoice($this->world->meal, (string) choiceRecipe($this->organisationId, null)->getKey(), 'Salsa');
+
+    expect($count())->toBe($one);
+});
+
+it('refuses a held line whose sauce lost its assessment, on the amendment path too', function (): void {
+    $sauce = choiceRecipe($this->organisationId, 'egg');
+    $aioli = dishChoice($this->world->meal, (string) $sauce->getKey());
+    $body = choicePickupBody($this, [$aioli], [
+        'fulfilment_type' => 'delivery',
+        'payment_method' => 'cash_on_delivery',
+        'customer_address_id' => (string) $this->world->customer->address->getKey(),
+    ]);
+
+    $placed = $this->postJson('/api/v1/catalogue/order-desk/orders', $body, $this->headers + ['Idempotency-Key' => 'held-sauce'])
+        ->assertCreated();
+    $order = Order::query()->findOrFail($placed->json('data.order.id'));
+
+    // The sauce's recipe goes back for review after a recompute: no published basis.
+    RecipeVersion::withoutTenancy()->where('recipe_id', $sauce->getKey())->update(['status' => 'review_required']);
+
+    $dishId = (string) $this->world->meal->getKey();
+    expect(app(DishOptions::class)->snapshot($dishId, [$aioli]))->toBeNull()
+        ->and(app(DishOptions::class)->refusal($dishId, [$aioli]))->toBe('item_not_assessed')
+        ->and(app(DishOptions::class)->allergensOf([$aioli])['assessed'])->toBeFalse();
+
+    // The order already holds the dish, so its own assessment is waived; the
+    // sauce's is not, or the line would be saved with the dish's allergens alone.
+    $this->patchJson(
+        "/api/v1/catalogue/order-desk/orders/{$order->getKey()}",
+        ['lines' => $body['lines']],
+        $this->headers + ['If-Match' => '"'.$order->refresh()->lock_version.'"'],
+    )->assertStatus(409)
+        ->assertJsonPath('error.details.reasons.0.reason', 'item_not_assessed');
+
+    $this->postJson('/api/v1/catalogue/order-desk/quote', [
+        'fulfilment_type' => 'delivery',
+        'amending_order_id' => (string) $order->getKey(),
+        'lines' => $body['lines'],
+    ], $this->headers)
+        ->assertOk()
+        ->assertJsonPath('data.quote.quotable', false);
+
+    expect($order->lines()->sole()->allergens)->toEqual([['allergen_code' => 'egg', 'containment' => 'contains']]);
+});
+
+it('counts an excluded ingredient in the chosen sauce\'s recipe as on the meal', function (): void {
+    $sauce = choiceRecipe($this->organisationId, null);
+    $aioli = dishChoice($this->world->meal, (string) $sauce->getKey());
+    $garlic = Ingredient::withoutTenancy()->findOrFail(RecipeVersionLine::withoutTenancy()
+        ->whereIn('recipe_version_id', RecipeVersion::withoutTenancy()->where('recipe_id', $sauce->getKey())->select('id'))
+        ->value('ingredient_id'));
+
+    $profile = CustomerDietaryProfile::query()->where('customer_account_id', $this->account->getKey())->firstOrFail();
+    CustomerFoodExclusion::factory()->forIngredient($garlic)->forbidden()->create(['customer_dietary_profile_id' => $profile->getKey()]);
+
+    $safety = app(MealSafetyService::class);
+    $mealId = (string) $this->world->meal->getKey();
+
+    expect($safety->check($this->account, $mealId)['safe'])->toBeTrue()
+        ->and($safety->check($this->account, $mealId, [$aioli]))->toBe(['safe' => false, 'allergen_classes' => [], 'reason' => 'excluded']);
 });
 
 describe('the kitchen\'s editor', function (): void {

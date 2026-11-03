@@ -380,6 +380,14 @@ export function mapDishOption(wire: WireDishOption): DishOption {
         groupAr: wire.group_ar,
         nameEn: wire.name_en,
         nameAr: wire.name_ar,
+        ...(wire.allergens === undefined
+            ? {}
+            : {
+                  allergenCodes:
+                      wire.allergens === null
+                          ? null
+                          : wire.allergens.map((entry) => entry.allergen_code),
+              }),
     };
 }
 

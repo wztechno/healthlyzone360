@@ -4396,6 +4396,15 @@ export type DishOption = {
     group_ar: string | null;
     name_en: string;
     name_ar: string;
+    /**
+     * On an offered option only (the meal detail and the desk's choices),
+     * never on a line's stored options. What the option adds to the plate:
+     * empty on a removal, a `choice`'s linked recipe's published label
+     * otherwise, and null when that recipe has no published version, which
+     * means unassessed, never "no allergens".
+     *
+     */
+    allergens?: Array<OrderLineAllergen> | null;
 };
 
 /**

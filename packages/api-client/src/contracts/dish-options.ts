@@ -14,6 +14,12 @@ export interface DishOption {
     readonly groupAr: string | null;
     readonly nameEn: string;
     readonly nameAr: string;
+    /**
+     * On an offered option only (the meal page, the desk's choices; never a line's stored options): the
+     * allergen codes it adds to the plate. Empty on a removal; `null` on a choice whose recipe has no
+     * published version, which is unassessed, never "none".
+     */
+    readonly allergenCodes?: readonly string[] | null | undefined;
 }
 
 export interface DishPortion {

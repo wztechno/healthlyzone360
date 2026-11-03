@@ -103,32 +103,6 @@ final readonly class DerivedAllergenService
         return $this->publishedVersionOf($item->recipe_id, $item->organisation_id);
     }
 
-    /**
-     * A recipe's own label, for a dish's sauce or side choice that links one
-     * rather than selling it: the first basis of {@see forItem()} and nothing
-     * else. A recipe with no published version has `basis = none`.
-     *
-     * @return array{
-     *     basis: string,
-     *     recipe_version_id: string|null,
-     *     allergens: list<array{allergen_code: string, containment: string, derivation: string, source_ingredient_id: string|null}>
-     * }
-     */
-    public function forRecipe(string $recipeId, string $organisationId): array
-    {
-        $version = $this->publishedVersionOf($recipeId, $organisationId);
-
-        if (! $version instanceof RecipeVersion) {
-            return ['basis' => 'none', 'recipe_version_id' => null, 'allergens' => []];
-        }
-
-        return [
-            'basis' => 'recipe_version',
-            'recipe_version_id' => (string) $version->getKey(),
-            'allergens' => $this->fromFrozenLabel($version),
-        ];
-    }
-
     private function publishedVersionOf(?string $recipeId, string $organisationId): ?RecipeVersion
     {
         if ($recipeId === null) {

@@ -730,6 +730,8 @@
         "noPreference": "بلا تفضيل",
         "leaveOut": "بدون {{name}}",
         "chosen": "{{group}}: {{name}}",
-        "separator": " · "
+        "separator": " · ",
+        "allergensUnassessed": "لم تُفحص مسببات الحساسية بعد. اسأل المطبخ قبل اختياره.",
+        "allergensNone": "لا مسببات حساسية مُعلنة لهذا الخيار."
     }
 }
