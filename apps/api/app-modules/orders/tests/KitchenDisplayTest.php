@@ -353,10 +353,15 @@ it('reads the due instant inside the board\'s own query, so more tickets cost no
         return array_column($log, 'query');
     };
 
-    displayOrder($this);
+    // The same shape as the five below, so the comparison is one ticket against six of one kind.
+    displayOrder($this, [
+        'branch_id' => $branch->getKey(),
+        'delivery_window_code' => 'lunch',
+        'requested_delivery_date' => CarbonImmutable::now()->addDay()->toDateString(),
+    ]);
     $one = $queries();
 
-    foreach (range(1, 5) as $day) {
+    foreach (range(2, 6) as $day) {
         displayOrder($this, [
             'branch_id' => $branch->getKey(),
             'delivery_window_code' => 'lunch',

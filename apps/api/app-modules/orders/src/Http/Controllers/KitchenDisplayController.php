@@ -125,7 +125,11 @@ final class KitchenDisplayController
                 );
 
                 // A `timestamptz` in the session zone; the wire carries UTC, as the desk queue's does.
-                $ticket['due_at'] = CarbonImmutable::parse((string) $order->getAttribute('due_at'))->utc()->toIso8601String();
+                // Empty falls back to when it was placed, as `OrderDeskQueue::instant()` does, never "now".
+                $due = $order->getAttribute('due_at');
+                $ticket['due_at'] = is_string($due) && $due !== ''
+                    ? CarbonImmutable::parse($due)->utc()->toIso8601String()
+                    : $order->placed_at->utc()->toIso8601String();
 
                 return $readsTheBook ? $ticket : $this->presenter->forTheLine($ticket);
             })->all(),

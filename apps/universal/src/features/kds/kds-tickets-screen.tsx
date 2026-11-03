@@ -17,6 +17,7 @@ import {
 } from '@healthy360/design-system';
 import type { BranchId, OrderId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -319,6 +320,7 @@ function KdsTickets() {
     const fulfilOrder = useFulfilOrderMutation();
     const { heldIds, hold } = useHeldBumps(t('kitchen:common.undo'));
     const [lane, setLane] = useState<KdsColumnKey>('incoming');
+    const queryClient = useQueryClient();
 
     const board = useMemo(
         () => bucketTickets(orders ?? [], now, branchId),
@@ -355,8 +357,9 @@ function KdsTickets() {
         fulfilOrder.reset();
     }
 
-    function send(order: KitchenOrder, action: KdsAction) {
-        clearActionState();
+    /** `keepState` when another write is in flight: a held bump firing must not wipe its result. */
+    function send(order: KitchenOrder, action: KdsAction, keepState = false) {
+        if (!keepState) clearActionState();
         const request = { id: order.id, lockVersion: order.lockVersion };
         if (action === 'accept') acceptOrder.mutate(request);
         else if (action === 'start') startOrder.mutate(request);
@@ -376,7 +379,8 @@ function KdsTickets() {
                 number: order.orderNumber,
             }),
             () => {
-                send(order, action);
+                // Asked at fire time, ten seconds after the press, not of the render that held it.
+                send(order, action, queryClient.isMutating() > 0);
             },
         );
     }
@@ -591,6 +595,13 @@ function KdsTickets() {
                             value: column,
                             label: t(`kitchen:kds.column.${column}`),
                             count: board[column].length,
+                            // An alarm lives on an Incoming ticket, so a phone on another lane
+                            // still sees it: heavier and warning-toned, not colour alone.
+                            countTone:
+                                column === 'incoming' &&
+                                board.incoming.some((order) => alarmMinutes(order) !== null)
+                                    ? 'warning'
+                                    : undefined,
                             testID: `kds-lane-${column}`,
                         }))}
                     />

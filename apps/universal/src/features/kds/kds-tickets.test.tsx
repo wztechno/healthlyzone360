@@ -896,7 +896,15 @@ describe('due order, the undo and lane tabs', () => {
             Dimensions.set(JEST_WINDOW);
         });
         try {
-            await renderBoard(createOrderBook());
+            const book = createOrderBook();
+            // Order 2 is placed and has waited past the limit, so the board is alarming.
+            await renderBoard({
+                ...book,
+                getDisplay: () => ({
+                    ...book.getDisplay(),
+                    unacceptedOpenMinutes: { [String(orderIdAt(2))]: 7 },
+                }),
+            });
 
             await waitFor(
                 () => {
@@ -914,6 +922,13 @@ describe('due order, the undo and lane tabs', () => {
             expect(screen.getByTestId('kds-column-preparing')).toBeTruthy();
             expect(screen.queryByTestId('kds-column-incoming')).toBeNull();
             expect(screen.getByTestId(ticketId(orderIdAt(3)))).toBeTruthy();
+            // The alarm is on an Incoming ticket, out of sight: the Incoming tab still says so.
+            expect(screen.getByTestId('kds-lane-incoming-count').props.className).toContain(
+                'text-warning-strong',
+            );
+            expect(screen.getByTestId('kds-lane-preparing-count').props.className).not.toContain(
+                'text-warning-strong',
+            );
         } finally {
             await act(async () => {
                 Dimensions.set(wide);
