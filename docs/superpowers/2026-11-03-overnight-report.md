@@ -4,7 +4,7 @@
 
 ## Decide before deploying
 
-1. **Phone lookup privacy.** A cashier at any kitchen can type a registered customer's exact phone number and see their name, phone and allergies, even if the customer has never ordered there. The link is permanent, and the customer isn't told. It is audited, and that kitchen can't change the customer's contact details, but it can add an address, because a first delivery needs one. This came from your request to find B2C customers. Keep it, make it expire, or limit it.
+1. **Phone lookup privacy.** A cashier at any kitchen can type a registered customer's exact phone number and see their name, phone and allergies, even if the customer has never ordered there. The link is permanent, and the customer isn't told. It is audited, and that kitchen can't change the customer's contact details, but it can add an address, because a first delivery needs one. This came from your request to find B2C customers. **Decided 3 Nov: keep it as built.**
 2. **Settlement cut-off.** Migration `2026_11_03_050101` takes driver runs delivered more than two days before deploy off the settlement list for good, on the assumption the cash came back. They stay in the cash report. Check the count and total first.
 3. **Sauces and sides.** A choice has no allergen data of its own. Adding a choice to a dish takes it off sale only if it was assessed by the manual button. A dish assessed through a recipe or ingredients stays on sale with an undeclared allergen possible. Decide whether each choice should carry its own allergens. This is the most important food-safety gap left.
 4. **Closures and standing orders.** Subscription days and accepted quotations ignore closure dates, so a delivery can fall on a holiday.
