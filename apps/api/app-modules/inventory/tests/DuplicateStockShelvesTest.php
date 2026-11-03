@@ -12,6 +12,7 @@ use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Models\StockMovement;
 use Healthy360\Inventory\Models\StockReservation;
 use Healthy360\Inventory\Services\DuplicateStockShelves;
+use Healthy360\Inventory\Services\InventoryService;
 use Healthy360\Inventory\Services\MealExplosion;
 use Healthy360\Inventory\Services\StockItemDerivationService;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
@@ -382,4 +383,81 @@ it('audits a merge with history and a keep-both', function (): void {
         ->and($merged->metadata['merged_stock_item_id'] ?? null)->toBe((string) $copy->getKey())
         ->and($merged->actor_user_id)->toBe((string) $this->tenant->user->getKey())
         ->and($dismissed->metadata['stock_item_ids'] ?? [])->toHaveCount(2);
+});
+
+it('refuses any movement onto a merged shelf', function (): void {
+    ['original' => $original, 'copy' => $copy] = shelfPair($this);
+    stocked($this, $original, '5');
+    stocked($this, $copy, '2');
+    countedOut($this, $copy);
+
+    $this->duplicates->mergeWithHistory($this->orgId, $original, $copy);
+
+    try {
+        app(InventoryService::class)->recordMovement($this->orgId, (string) $this->branch->getKey(), (string) $copy->getKey(), 'adjust', '1');
+        $reason = null;
+    } catch (ApiException $refused) {
+        $reason = $refused->details['reason'] ?? null;
+    }
+
+    expect($reason)->toBe('stock_merged')
+        ->and(StockMovement::withoutTenancy()->where('stock_item_id', $copy->getKey())->count())->toBe(2);
+});
+
+it('merges and keeps both over HTTP, behind the manage permission', function (): void {
+    $merge = '/api/v1/catalogue/inventory/duplicates/merge';
+    $dismiss = '/api/v1/catalogue/inventory/duplicates/dismiss';
+    $ids = ['keep_id' => (string) Str::uuid(), 'drop_id' => (string) Str::uuid()];
+
+    // The world in beforeEach can read stock but not move it.
+    $viewOnly = firstPartyHeaders() + ['X-Organisation-Id' => $this->orgId];
+    $this->postJson($merge, $ids, $viewOnly)->assertForbidden();
+    $this->postJson($dismiss, ['stock_item_ids' => array_values($ids)], $viewOnly)->assertForbidden();
+
+    $this->tenant = PricingWorld::kitchen('manager@kitchen.test', ['inventory.view_organisation', 'inventory.manage_organisation']);
+    $this->orgId = (string) $this->tenant->organisation->getKey();
+    $this->branch = OrganisationBranch::withoutTenancy()->create([
+        'organisation_id' => $this->orgId,
+        'name' => 'Main kitchen',
+        'country_code' => 'LB',
+        'city' => 'Beirut',
+        'timezone' => 'Asia/Beirut',
+        'status' => 'active',
+        'lock_version' => 0,
+    ]);
+    $this->actingAs($this->tenant->user);
+    $headers = firstPartyHeaders() + ['X-Organisation-Id' => $this->orgId];
+
+    ['original' => $original, 'copy' => $copy] = shelfPair($this);
+    stocked($this, $original, '5');
+    stocked($this, $copy, '2');
+    $pair = ['keep_id' => (string) $original->getKey(), 'drop_id' => (string) $copy->getKey()];
+
+    $this->postJson($merge, $pair, $headers)
+        ->assertStatus(409)
+        ->assertJsonPath('error.code', 'resource.conflict')
+        ->assertJsonPath('error.details.reason', 'stock_remaining');
+
+    countedOut($this, $copy);
+
+    $this->postJson($merge, $pair, $headers)->assertNoContent();
+
+    expect($copy->refresh()->merged_into_stock_item_id)->toBe((string) $original->getKey());
+
+    $this->postJson($merge, $pair, $headers)
+        ->assertStatus(409)
+        ->assertJsonPath('error.details.reason', 'already_merged');
+
+    $twins = [];
+    foreach (['Beef fajita', 'beef fajita '] as $index => $name) {
+        $ingredient = Ingredient::factory()->create(['organisation_id' => $this->orgId, 'default_unit_id' => $this->unit->getKey(), 'name_en' => "Fajita {$index}"]);
+        $twins[] = (string) StockItem::withoutTenancy()->updateOrCreate(
+            ['organisation_id' => $this->orgId, 'ingredient_id' => $ingredient->getKey()],
+            ['code' => "fajita-{$index}", 'name_en' => $name, 'unit_code' => 'kg', 'unit_id' => $this->unit->getKey()],
+        )->getKey();
+    }
+
+    $this->postJson($dismiss, ['stock_item_ids' => $twins], $headers)->assertNoContent();
+
+    expect($this->duplicates->scan($this->orgId)['reviews'])->toBe([]);
 });

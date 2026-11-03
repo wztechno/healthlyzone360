@@ -155,6 +155,10 @@ final readonly class DuplicateStockShelves
             $product = $drop->catalogue_item_id;
             $dropId = (string) $drop->getKey();
 
+            // A shelf linked into this one by an earlier merge with history would
+            // be un-merged by the FK's null-on-delete; it follows to the kept shelf.
+            DB::table('stock_items')->where('merged_into_stock_item_id', $dropId)->update(['merged_into_stock_item_id' => $keep->getKey()]);
+
             $drop->delete();
 
             if ($product !== null) {
@@ -215,10 +219,10 @@ final readonly class DuplicateStockShelves
                 $this->refuse('both_sold_as_products', 'Both shelves are sold as products, so they cannot be merged.');
             }
 
-            // Locked so a movement cannot land on an existing level between this
-            // check and the link. ponytail: a first movement at a branch with no
-            // level yet inserts one unlocked; locking the stock_items row in
-            // recordMovement closes that if it is ever seen.
+            // The levels and the row are locked, so a movement in flight either
+            // lands before this read or waits for the link (a first level insert
+            // takes a key-share lock on the row). A write after the link is
+            // refused by InventoryService::recordMovement().
             $held = StockLevel::withoutTenancy()->where('stock_item_id', $dropId)->lockForUpdate()->get()
                 ->contains(static fn (StockLevel $level): bool => bccomp((string) $level->quantity, '0', self::SCALE) !== 0);
 
@@ -238,6 +242,10 @@ final readonly class DuplicateStockShelves
             }
 
             $this->moveSupplierLinks($keep, $drop);
+            // What stayed duplicates a supplier the kept shelf already has. These are
+            // configuration, not history, and left here they would offer the hidden
+            // shelf on a purchase order.
+            DB::table('supplier_stock_items')->where('stock_item_id', $dropId)->delete();
 
             // A shelf merged into this one earlier now points at the one that stays,
             // so a link is always one step.

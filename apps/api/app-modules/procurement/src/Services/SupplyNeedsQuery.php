@@ -71,6 +71,7 @@ final readonly class SupplyNeedsQuery
     {
         return StockLevel::query()
             ->where('branch_id', $branchId)
+            ->whereHas('stockItem', static fn (Builder $item): Builder => $item->whereNull('merged_into_stock_item_id'))
             ->where(function (Builder $level): void {
                 $level->where('quantity', '<=', 0)
                     ->orWhere(function (Builder $low): void {

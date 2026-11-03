@@ -11,6 +11,8 @@ use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Models\StockMovement;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
+use Healthy360\Support\Api\ErrorCode;
+use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -88,6 +90,13 @@ final readonly class InventoryService
 
         return DB::transaction(function () use ($organisationId, $branchId, $stockItemId, $reason, $delta, $referenceType, $referenceId, $notes, $unitCostAmount, $costAmount, $costCurrencyCode, $orderLineId, $soldItemType, $holderType, $holderId, $wasteReason): StockMovement {
             $level = $this->lockLevel($organisationId, $branchId, $stockItemId);
+
+            // Read after the level lock, so a merge that held it has committed. A
+            // merged shelf is off every list and nothing resolves to it; stock
+            // landing there would be stock nobody can see.
+            if (StockItem::withoutTenancy()->whereKey($stockItemId)->value('merged_into_stock_item_id') !== null) {
+                throw new ApiException(ErrorCode::ResourceConflict, 'This stock row was merged into another; record stock on that one.', ['reason' => 'stock_merged']);
+            }
 
             $currentQuantity = $this->numeric((string) $level->quantity);
             $newQuantity = bcadd($currentQuantity, $delta, self::SCALE);
