@@ -43,6 +43,11 @@ use Illuminate\Support\Facades\DB;
  * every kitchen's); both modes list those as "not carried: platform
  * ingredient" until the owner decides what they should do.
  *
+ * **Old quarantines are listed too.** A version quarantined before
+ * `previous_label` existed has no recorded published label, so the writer
+ * never removes or weakens anything on its outputs until it is released; both
+ * modes list it for a manager to release.
+ *
  * Every organisation, each inside its own tenant context: `recipe_versions` is
  * row-level secured and the stale marking reads the application context.
  */
@@ -78,6 +83,18 @@ final class CarryRecipeAllergensCommand extends Command
                     $context, $writer, $rollup, $labels, $dryRun, $organisationId, $slug, &$moved, &$dishes, &$skipped,
                 ): void {
                     $context->restore(['user_id' => null, 'organisation_id' => $organisationId, 'branch_id' => null]);
+
+                    $unfloored = RecipeVersion::withoutTenancy()
+                        ->where('organisation_id', $organisationId)
+                        ->where('status', RecipeVersionStatus::ReviewRequired->value)
+                        ->whereNull('previous_label')
+                        ->whereIn('id', RecipeVersionOutput::withoutTenancy()->select('recipe_version_id'))
+                        ->orderBy('id')
+                        ->get();
+
+                    foreach ($unfloored as $version) {
+                        $skipped[] = [(string) $slug, $this->versionName($version), '—', 'in review with no recorded label: release it; its outputs are not weakened meanwhile'];
+                    }
 
                     $producers = RecipeVersion::withoutTenancy()
                         ->where('organisation_id', $organisationId)

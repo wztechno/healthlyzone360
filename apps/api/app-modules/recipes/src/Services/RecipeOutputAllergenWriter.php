@@ -117,7 +117,14 @@ final readonly class RecipeOutputAllergenWriter
                 $current = Ingredient::withoutTenancy()->whereKey($ingredient->getKey())->value('allergens_derived_from_version_id');
                 $claim = $this->claim($producers, is_string($current) ? $current : null, (string) $version->getKey());
 
-                $changed = $this->sync($ingredient, $this->labelOf($producers), $claim, $strengthenOnly);
+                // A version quarantined before `previous_label` existed has no
+                // floor: its published label is unknown, so nothing it may have
+                // dropped can be removed until somebody releases it. Its outputs
+                // are only ever strengthened meanwhile, and the carry command
+                // lists it.
+                $unfloored = array_filter($producers, static fn (RecipeVersion $producer): bool => self::unfloored($producer));
+
+                $changed = $this->sync($ingredient, $this->labelOf($producers), $claim, $strengthenOnly || $unfloored !== []);
 
                 if ($claim !== $current) {
                     Ingredient::withoutTenancy()->whereKey($ingredient->getKey())->update([
@@ -291,6 +298,15 @@ final readonly class RecipeOutputAllergenWriter
         }
 
         return $ids[0] ?? null;
+    }
+
+    /**
+     * In review with no recorded published label — a quarantine older than the
+     * `previous_label` column.
+     */
+    public static function unfloored(RecipeVersion $version): bool
+    {
+        return $version->status === RecipeVersionStatus::ReviewRequired && $version->previous_label === null;
     }
 
     private function recipeName(RecipeVersion $version): string

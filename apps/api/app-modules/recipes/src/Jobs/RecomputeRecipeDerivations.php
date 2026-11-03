@@ -207,20 +207,44 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
         $effective = $rollup->effectiveFor(array_values(array_unique($orderedIngredientIds)), $version->organisation_id);
         $rolled = $rollup->rollUp($orderedIngredientIds, $effective);
 
-        // Captured before anything is written: the diff is between what a diner
-        // was promised and what the mappings now imply, and once the label is
-        // rewritten the promise is unrecoverable.
-        $before = $labels->snapshot($version);
-
         $hash = $labels->derivationHash($lines, $effective);
         $facts = $nutrition->forVersion($version, $lines);
         $now = now();
 
-        /** @var array{added: list<string>, removed: list<string>, strengthened: list<string>, weakened: list<string>} $diff */
-        $diff = DB::transaction(function () use ($version, $labels, $rolled, $hash, $facts, $now, $before): array {
+        /** @var array{0: array{added: list<string>, removed: list<string>, strengthened: list<string>, weakened: list<string>}, 1: bool} $outcome */
+        $outcome = DB::transaction(function () use ($version, $labels, $rolled, $hash, $facts, $now): array {
+            // The row is locked first, so the label read as "before", the
+            // freeze and the quarantine all see one state of the version and no
+            // release or publication commits in between.
+            $status = RecipeVersion::withoutTenancy()->whereKey($version->getKey())->lockForUpdate()->sole()->status;
+
+            // Captured before anything is written: the diff is between what a
+            // diner was promised and what the mappings now imply, and once the
+            // label is rewritten the promise is unrecoverable.
+            $before = $labels->snapshot($version);
+
             $labels->freeze($version, $rolled, $now);
 
             $diff = $labels->diff($before, $labels->snapshot($version));
+
+            // The quarantine commits with the freeze (T3). A published version
+            // carrying a label nobody has reviewed must never be visible, not
+            // even between two transactions: a publication of another producer
+            // of the same output would read it as reviewed and carry a dropped
+            // class off the output, and a reader of the dish label would see it.
+            $hold = $labels->isMaterial($diff) && $status === RecipeVersionStatus::Published
+                ? [
+                    'status' => RecipeVersionStatus::ReviewRequired->value,
+                    'review_reason' => $labels->describe($diff),
+
+                    // A JSON object string: the query builder bypasses the
+                    // cast, and an empty label must still read as `{}`, not `[]`.
+                    'previous_label' => json_encode(
+                        (object) array_map(static fn (AllergenContainment $containment): string => $containment->value, $before),
+                        JSON_THROW_ON_ERROR,
+                    ),
+                ]
+                : [];
 
             // `lock_version` does not move, with one exception. The gates this
             // recompute arms on a draft or a published version are structural,
@@ -237,7 +261,7 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
 
             RecipeVersion::withoutTenancy()
                 ->whereKey($version->getKey())
-                ->update($bump + [
+                ->update($bump + $hold + [
                     'derivation_state' => DerivationState::Current->value,
                     'derived_at' => $now,
                     'derived_input_hash' => $hash,
@@ -253,10 +277,10 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
                     'updated_at' => $now,
                 ]);
 
-            return $diff;
+            return [$diff, $hold !== []];
         });
 
-        $version->refresh();
+        [$diff, $quarantined] = $outcome;
 
         /*
          * Everything this version *produces* gets the figures too, before the
@@ -279,14 +303,20 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
          * adds carries at once, so the dishes the walk reaches next are
          * re-derived against it; a class it drops stays carried until a person
          * publishes or releases. A recompute is not a review.
+         *
+         * Both run on the version as this job loaded it, before the refresh
+         * below: a version this recompute has just quarantined was published
+         * when the recompute began, and its figures carry as they always have.
          */
         $outputAllergens->strengthen($version);
         $outputNutrition->write($version, $facts, scheduleDependants: false);
 
+        $version->refresh();
+
         $this->writeCostSnapshot($version, $costing, $lines);
 
-        if ($labels->isMaterial($diff)) {
-            $this->quarantine($version, $labels, $usage, $audit, $diff, $before);
+        if ($quarantined) {
+            $this->quarantine($version, $labels, $usage, $audit, $diff);
         }
 
         $this->propagate($version);
@@ -322,14 +352,15 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * Take a published version — and everything selling it — off sale.
+     * The rest of taking a published version off sale: the audit, and
+     * everything selling it.
      *
-     * The label the diner was promised is kept on the version as
-     * `previous_label`, so the manager who releases it compares the old label
-     * with the new one rather than reading a sentence about the difference.
+     * The version itself moved to `review_required` — with the label the diner
+     * was promised kept as `previous_label`, so the manager who releases it
+     * compares the old label with the new one — in the transaction that froze
+     * the new label.
      *
      * @param  array{added: list<string>, removed: list<string>, strengthened: list<string>, weakened: list<string>}  $diff
-     * @param  array<string, AllergenContainment>  $before
      */
     private function quarantine(
         RecipeVersion $version,
@@ -337,28 +368,8 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
         RecipeUsageRegistry $usage,
         AuditRecorder $audit,
         array $diff,
-        array $before,
     ): void {
-        if ($version->status !== RecipeVersionStatus::Published) {
-            return;
-        }
-
         $reason = $labels->describe($diff);
-
-        RecipeVersion::withoutTenancy()
-            ->whereKey($version->getKey())
-            ->update([
-                'status' => RecipeVersionStatus::ReviewRequired->value,
-                'review_reason' => $reason,
-
-                // A JSON object string: the query builder bypasses the cast,
-                // and an empty label must still read as `{}`, not `[]`.
-                'previous_label' => json_encode(
-                    (object) array_map(static fn (AllergenContainment $containment): string => $containment->value, $before),
-                    JSON_THROW_ON_ERROR,
-                ),
-                'updated_at' => now(),
-            ]);
 
         $audit->record(
             'catalogue.allergen_rollup_changed',

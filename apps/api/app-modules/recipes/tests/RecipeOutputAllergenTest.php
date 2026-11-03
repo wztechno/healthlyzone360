@@ -13,6 +13,10 @@ use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionAllergen;
 use Healthy360\Recipes\Tests\Fixtures\RecipeWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Database\Events\TransactionBeginning;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 
 /*
@@ -537,6 +541,69 @@ it('refuses to weaken or drop a kitchen row the recipe raised', function (): voi
         ->assertJsonPath('error.details.derived_allergen_classes', ['sesame']);
 
     expect(carryRows($sauce))->toBe(['sesame' => 'contains:kitchen_declared']);
+});
+
+it('freezes a moved label and quarantines the version in one transaction', function (): void {
+    // Between two transactions a published version would carry a label nobody
+    // reviewed, and another producer's publication of the same output would
+    // read it as reviewed. So the freeze and the status change must commit
+    // together: same transaction, same nesting level, inside one.
+    $tahini = RecipeWorld::mappedIngredient($this->kitchen->organisation, 'Tahini', 'sesame');
+    $sauce = RecipeWorld::unmappedIngredient($this->kitchen->organisation, 'Tahini Sauce');
+    $versionId = carryPublished($this->headers, $this->grams, 'Tahini Sauce Batch', [$tahini], $sauce);
+
+    $transaction = 0;
+    $seen = [];
+    $baseline = DB::transactionLevel();
+
+    Event::listen(TransactionBeginning::class, function () use (&$transaction): void {
+        $transaction++;
+    });
+    DB::listen(function (QueryExecuted $query) use (&$transaction, &$seen): void {
+        $seen[] = ['transaction' => $transaction, 'level' => DB::transactionLevel(), 'sql' => $query->sql, 'bindings' => $query->bindings];
+    });
+
+    $this->putJson('/api/v1/catalogue/ingredients/'.$tahini->getKey().'/allergens', ['mappings' => [
+        ['allergen_code' => 'sesame', 'containment' => 'contains'],
+        ['allergen_code' => RecipeWorld::allergen('peanut')->code, 'containment' => 'may_contain'],
+    ]], $this->headers)->assertOk();
+
+    $freeze = collect($seen)->last(static fn (array $query): bool => str_starts_with($query['sql'], 'insert into "recipe_version_allergens"'));
+    $hold = collect($seen)->last(static fn (array $query): bool => str_starts_with($query['sql'], 'update "recipe_versions"')
+        && in_array(RecipeVersionStatus::ReviewRequired->value, $query['bindings'], true));
+
+    expect($freeze)->not->toBeNull()
+        ->and($hold)->not->toBeNull()
+        ->and($hold['transaction'])->toBe($freeze['transaction'])
+        ->and($hold['level'])->toBe($freeze['level'])
+        ->and($freeze['level'])->toBeGreaterThan($baseline)
+        ->and(RecipeVersion::withoutTenancy()->whereKey($versionId)->sole()->status)->toBe(RecipeVersionStatus::ReviewRequired);
+});
+
+it('never weakens an output whose producer was quarantined with no recorded label, and lists it', function (): void {
+    $tahini = RecipeWorld::mappedIngredient($this->kitchen->organisation, 'Tahini', 'sesame');
+    $cream = RecipeWorld::mappedIngredient($this->kitchen->organisation, 'Cream', 'milk');
+    $sauce = RecipeWorld::unmappedIngredient($this->kitchen->organisation, 'House Sauce');
+
+    $aId = carryPublished($this->headers, $this->grams, 'Old Quarantine Batch', [$tahini, $cream], $sauce);
+    $bId = carryPublished($this->headers, $this->grams, 'Other Batch', [$tahini], $sauce);
+
+    // A quarantine from before `previous_label` existed: in review, its label
+    // recomputed without milk, and no record of what it was published with.
+    RecipeVersion::withoutTenancy()->whereKey($aId)->update(['status' => RecipeVersionStatus::ReviewRequired->value, 'previous_label' => null]);
+    RecipeVersionAllergen::withoutTenancy()->where('recipe_version_id', $aId)->where('allergen_code', 'milk')->delete();
+
+    $b = RecipeVersion::withoutTenancy()->whereKey($bId)->sole();
+
+    $this->postJson("/api/v1/catalogue/recipes/{$b->recipe_id}/versions/1/retire", [],
+        $this->headers + ['If-Match' => '"'.$b->lock_version.'"'])->assertOk();
+
+    // Re-derived from A alone, but A has no floor: milk stays until A is released.
+    expect(carryRows($sauce))->toBe(['milk' => 'contains:recipe_derived', 'sesame' => 'contains:recipe_derived']);
+
+    $this->artisan('recipes:carry-allergens', ['--dry-run' => true])
+        ->expectsOutputToContain('in review with no recorded label')
+        ->assertSuccessful();
 });
 
 it('lists a platform-library output as not carried, in both modes', function (): void {
