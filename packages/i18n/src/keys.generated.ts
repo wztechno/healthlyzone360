@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9826 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9855 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -7870,15 +7870,24 @@ export interface NamespaceKeys {
     | 'diets.pescatarian'
     | 'diets.vegan'
     | 'diets.vegetarian'
+    | 'discover.addAddress'
     | 'discover.addLabel'
+    | 'discover.addressLine'
     | 'discover.allMeals'
     | 'discover.allMealsCount'
+    | 'discover.allShelves'
     | 'discover.becauseYouOrdered'
     | 'discover.cardEnergy'
     | 'discover.cardProtein'
     | 'discover.cardRating'
     | 'discover.cardRatingLabel'
     | 'discover.categoriesTitle'
+    | 'discover.chooseArea'
+    | 'discover.defaultAddress'
+    | 'discover.deliverHere'
+    | 'discover.deliverTo'
+    | 'discover.deliverToLabel'
+    | 'discover.editAddress'
     | 'discover.heroBody'
     | 'discover.heroBrowseMeals'
     | 'discover.heroEyebrow'
@@ -7888,6 +7897,12 @@ export interface NamespaceKeys {
     | 'discover.heroOverlayLabel'
     | 'discover.heroTitle'
     | 'discover.heroTrackOrder'
+    | 'discover.hint1'
+    | 'discover.hint2'
+    | 'discover.hint3'
+    | 'discover.hint4'
+    | 'discover.hint5'
+    | 'discover.next'
     | 'discover.notRated'
     | 'discover.offerAction'
     | 'discover.offerBody'
@@ -7897,12 +7912,26 @@ export interface NamespaceKeys {
     | 'discover.offerFallbackEyebrow'
     | 'discover.offerFallbackTitle'
     | 'discover.offerTitle'
+    | 'discover.pageTitle'
+    | 'discover.pickBeverages'
+    | 'discover.pickDressings'
+    | 'discover.pickFrozen'
+    | 'discover.pickKitchens'
+    | 'discover.pickMeals'
+    | 'discover.pickPlans'
+    | 'discover.pickSauces'
+    | 'discover.pickedTitle'
     | 'discover.popularMeta'
+    | 'discover.popularNow'
     | 'discover.popularTitle'
     | 'discover.popularTitleUnrated'
+    | 'discover.previous'
     | 'discover.railFigures'
     | 'discover.railTitle'
     | 'discover.railTitleUnrated'
+    | 'discover.savedAddresses'
+    | 'discover.searchFor'
+    | 'discover.shopBy'
     | 'discover.tileCount'
     | 'filters.availability'
     | 'filters.category'
@@ -17713,15 +17742,24 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:diets.pescatarian',
   'marketplace:diets.vegan',
   'marketplace:diets.vegetarian',
+  'marketplace:discover.addAddress',
   'marketplace:discover.addLabel',
+  'marketplace:discover.addressLine',
   'marketplace:discover.allMeals',
   'marketplace:discover.allMealsCount',
+  'marketplace:discover.allShelves',
   'marketplace:discover.becauseYouOrdered',
   'marketplace:discover.cardEnergy',
   'marketplace:discover.cardProtein',
   'marketplace:discover.cardRating',
   'marketplace:discover.cardRatingLabel',
   'marketplace:discover.categoriesTitle',
+  'marketplace:discover.chooseArea',
+  'marketplace:discover.defaultAddress',
+  'marketplace:discover.deliverHere',
+  'marketplace:discover.deliverTo',
+  'marketplace:discover.deliverToLabel',
+  'marketplace:discover.editAddress',
   'marketplace:discover.heroBody',
   'marketplace:discover.heroBrowseMeals',
   'marketplace:discover.heroEyebrow',
@@ -17731,6 +17769,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:discover.heroOverlayLabel',
   'marketplace:discover.heroTitle',
   'marketplace:discover.heroTrackOrder',
+  'marketplace:discover.hint1',
+  'marketplace:discover.hint2',
+  'marketplace:discover.hint3',
+  'marketplace:discover.hint4',
+  'marketplace:discover.hint5',
+  'marketplace:discover.next',
   'marketplace:discover.notRated',
   'marketplace:discover.offerAction',
   'marketplace:discover.offerBody',
@@ -17740,12 +17784,26 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:discover.offerFallbackEyebrow',
   'marketplace:discover.offerFallbackTitle',
   'marketplace:discover.offerTitle',
+  'marketplace:discover.pageTitle',
+  'marketplace:discover.pickBeverages',
+  'marketplace:discover.pickDressings',
+  'marketplace:discover.pickFrozen',
+  'marketplace:discover.pickKitchens',
+  'marketplace:discover.pickMeals',
+  'marketplace:discover.pickPlans',
+  'marketplace:discover.pickSauces',
+  'marketplace:discover.pickedTitle',
   'marketplace:discover.popularMeta',
+  'marketplace:discover.popularNow',
   'marketplace:discover.popularTitle',
   'marketplace:discover.popularTitleUnrated',
+  'marketplace:discover.previous',
   'marketplace:discover.railFigures',
   'marketplace:discover.railTitle',
   'marketplace:discover.railTitleUnrated',
+  'marketplace:discover.savedAddresses',
+  'marketplace:discover.searchFor',
+  'marketplace:discover.shopBy',
   'marketplace:discover.tileCount',
   'marketplace:filters.availability',
   'marketplace:filters.category',

@@ -54,6 +54,7 @@ export function renderTokensNative(): string {
                     nutrition: Object.fromEntries(
                         NUTRITION_LEVELS.map((level) => [level, themes[theme].nutrition[level]]),
                     ),
+                    tint: themes[theme].tint,
                 },
             ]),
         ),

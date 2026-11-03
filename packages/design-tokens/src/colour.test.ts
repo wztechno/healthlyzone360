@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { COLOUR_STOPS, NUTRITION_LEVELS, RAMPS, SEMANTIC_ROLES, THEMES, themes } from './colour.ts';
+import {
+    COLOUR_STOPS,
+    NUTRITION_LEVELS,
+    RAMPS,
+    SEMANTIC_ROLES,
+    THEMES,
+    TINT_NAMES,
+    themes,
+} from './colour.ts';
 import type { SemanticRole, ThemeName } from './colour.ts';
 import {
     WCAG_AA_LARGE_TEXT,
@@ -120,6 +128,11 @@ describe('surface and text pairs meet WCAG AA for normal text', () => {
         // against the flat colour at the near end.
         pairs.push([theme, 'onCanopy/surfaceCanopyDeep', c.onCanopy, c.surfaceCanopyDeep]);
         pairs.push([theme, 'onCanopyMuted/surfaceCanopyDeep', c.onCanopyMuted, c.surfaceCanopyDeep]);
+        // The shop's colour-coded cards carry their headline in the tint's own ink.
+        for (const name of TINT_NAMES) {
+            const tint = themes[theme].tint[name];
+            pairs.push([theme, `tint-${name}-on/tint-${name}`, tint.on, tint.surface]);
+        }
     }
 
     it.each(pairs)('%s %s', (_theme, _label, foreground, background) => {

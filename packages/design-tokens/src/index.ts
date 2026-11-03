@@ -5,6 +5,7 @@ export {
     RAMPS,
     SEMANTIC_ROLES,
     THEMES,
+    TINT_NAMES,
     brand,
     chartColours,
     gradients,
@@ -20,6 +21,8 @@ export {
     themeDark,
     themeLight,
     themes,
+    tintDark,
+    tintLight,
 } from './colour.ts';
 export type {
     ChartColours,
@@ -36,6 +39,8 @@ export type {
     ThemeColours,
     ThemeName,
     ThemeTokens,
+    TintName,
+    TintPair,
 } from './colour.ts';
 
 export {

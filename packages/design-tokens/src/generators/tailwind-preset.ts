@@ -1,4 +1,4 @@
-import { NUTRITION_LEVELS, RAMPS, SEMANTIC_ROLES } from '../colour.ts';
+import { NUTRITION_LEVELS, RAMPS, SEMANTIC_ROLES, TINT_NAMES } from '../colour.ts';
 import { ELEVATION_LEVELS, NAMED_ELEVATIONS, elevation, namedElevation } from '../elevation.ts';
 import {
     cardWidth,
@@ -113,6 +113,14 @@ function colours(): Record<string, unknown> {
         NUTRITION_LEVELS.flatMap((level) => [
             [level, variableReference(`nutrition-${level}`)],
             [`${level}-on`, variableReference(`nutrition-${level}-on`)],
+        ]),
+    );
+
+    // `bg-tint-blue` for the fill, `text-tint-blue-on` for the ink on it.
+    result['tint'] = Object.fromEntries(
+        TINT_NAMES.flatMap((name) => [
+            [name, variableReference(`tint-${name}`)],
+            [`${name}-on`, variableReference(`tint-${name}-on`)],
         ]),
     );
 
