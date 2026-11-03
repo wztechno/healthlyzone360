@@ -422,9 +422,14 @@ final readonly class DuplicateStockShelves
 
     /**
      * What stops a shelf with history being linked rather than dropped: a cost
-     * basis its own ingredient still carries, an open claim on it, or an open
-     * order holding both shelves, which the unique lines would refuse. Receipts
-     * stay where they are, so they block nothing.
+     * basis its own ingredient still carries, an open claim on it, an open
+     * order holding both shelves, which the unique lines would refuse, or an
+     * unresolved consumption exception on an order that consumed from it.
+     * Receipts stay where they are, so they block nothing.
+     *
+     * The exception case: a retry asks whether its line already took from the
+     * shelf it now resolves to. After a merge that is the kept shelf, which never
+     * saw the consume, so the retry would deduct a second time.
      */
     private function blocksLink(StockItem $drop, StockItem $keep): bool
     {
@@ -438,6 +443,14 @@ final readonly class DuplicateStockShelves
 
         return $costed
             || DB::table('stock_reservations')->where('stock_item_id', $drop->getKey())->where('status', 'open')->exists()
+            || DB::table('order_consumption_exceptions as exception')
+                ->whereNull('exception.resolved_at')
+                ->whereExists(static fn ($consumed) => $consumed->from('stock_movements')
+                    ->whereColumn('stock_movements.reference_id', 'exception.order_id')
+                    ->where('stock_movements.reference_type', 'order')
+                    ->where('stock_movements.reason', 'consume')
+                    ->where('stock_movements.stock_item_id', $drop->getKey()))
+                ->exists()
             || $this->sharesAnOrder('purchase_order_lines', ['purchase_order_id'], $drop->getKey(), $keep->getKey(), openOnly: true)
             || $this->sharesAnOrder('production_order_lines', ['production_order_id', 'line_kind'], $drop->getKey(), $keep->getKey(), openOnly: true);
     }
