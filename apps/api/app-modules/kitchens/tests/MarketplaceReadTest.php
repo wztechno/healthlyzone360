@@ -5,9 +5,12 @@ declare(strict_types=1);
 use App\Models\User;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Kitchens\Models\BranchClosure;
+use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Kitchens\Models\KitchenServiceSettings;
 use Healthy360\Organisations\Enums\OrganisationStatus;
 use Healthy360\Organisations\Models\Organisation;
+use Healthy360\Organisations\Models\OrganisationBranch;
 use Tests\SeedDatabaseOnce;
 
 /*
@@ -294,4 +297,62 @@ it('withdraws a retired meal from the marketplace', function (): void {
     $slugs = collect($this->getJson('/api/v1/marketplace/meals')->assertOk()->json('data'))->pluck('slug')->all();
 
     expect($slugs)->not->toContain('mezze-plate');
+});
+
+/**
+ * The freekeh's published fourteen days, read fresh on every call.
+ *
+ * @return list<array{date: string, available: bool, remaining: null, order_cut_off_at: string|null}>
+ */
+$freekehCalendar = fn (): array => collect(test()->getJson('/api/v1/marketplace/meals?item_types=meal&limit=50')->assertOk()->json('data'))
+    ->firstWhere('slug', 'grilled-chicken-freekeh')['availability'];
+
+it('shows a closed day as unavailable, the day placement refuses', function () use ($freekehCalendar): void {
+    $kitchenId = (string) Organisation::query()->where('slug', 'verdant-kitchen')->value('id');
+    $branchId = (string) OrganisationBranch::withoutTenancy()->where('organisation_id', $kitchenId)->value('id');
+    $date = collect($freekehCalendar())->skip(1)->firstWhere('available', true)['date'];
+
+    BranchClosure::withoutTenancy()->create([
+        'organisation_id' => $kitchenId,
+        'branch_id' => $branchId,
+        'closed_from' => $date,
+        'closed_to' => $date,
+    ]);
+
+    expect(collect($freekehCalendar())->firstWhere('date', $date))->toMatchArray(['available' => false, 'order_cut_off_at' => null]);
+});
+
+it('keeps a day available when one branch is closed and another is open', function () use ($freekehCalendar): void {
+    $kitchenId = (string) Organisation::query()->where('slug', 'verdant-kitchen')->value('id');
+    $branchId = (string) OrganisationBranch::withoutTenancy()->where('organisation_id', $kitchenId)->value('id');
+    $date = collect($freekehCalendar())->skip(1)->firstWhere('available', true)['date'];
+
+    $second = OrganisationBranch::withoutTenancy()->create([
+        'organisation_id' => $kitchenId,
+        'name' => 'Second kitchen',
+        'country_code' => 'AE',
+        'city' => 'Dubai',
+        'timezone' => 'Asia/Dubai',
+        'status' => 'active',
+        'lock_version' => 0,
+    ]);
+
+    foreach (range(1, 7) as $weekday) {
+        BranchOpeningHour::withoutTenancy()->create([
+            'organisation_id' => $kitchenId,
+            'branch_id' => $second->getKey(),
+            'weekday' => $weekday,
+            'opens_at' => '09:00:00',
+            'closes_at' => '21:00:00',
+        ]);
+    }
+
+    BranchClosure::withoutTenancy()->create([
+        'organisation_id' => $kitchenId,
+        'branch_id' => $branchId,
+        'closed_from' => $date,
+        'closed_to' => $date,
+    ]);
+
+    expect(collect($freekehCalendar())->firstWhere('date', $date)['available'])->toBeTrue();
 });

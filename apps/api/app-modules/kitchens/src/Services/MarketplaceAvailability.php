@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Kitchens\Services;
 
 use Carbon\CarbonImmutable;
+use Healthy360\Kitchens\Models\BranchClosure;
 use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Organisations\Models\OrganisationBranch;
 
@@ -27,6 +28,12 @@ use Healthy360\Organisations\Models\OrganisationBranch;
  * the right operator because the consumer contract's calendar belongs to the
  * *kitchen*: a customer is asking "can I have this on Thursday", not "can the
  * Al Quoz kitchen make it".
+ *
+ * **A closure date comes before the week.** A branch with a `branch_closures`
+ * range over a date is shut that date whatever its weekday says, the rule
+ * placement applies in `BranchScheduleLookup`, so the calendar never offers a
+ * day checkout would refuse as `closed`. Another branch open that day still
+ * keeps it orderable, by the union above.
  *
  * **A day nobody has configured is not orderable.** `branch_opening_hours`
  * distinguishes "we are shut" (a row with no times) from "nobody has said" (no
@@ -58,9 +65,10 @@ final class MarketplaceAvailability
     /**
      * @param  list<OrganisationBranch>  $branches  the kitchen's active branches
      * @param  list<BranchOpeningHour>  $hours  every configured day of those branches
+     * @param  list<BranchClosure>  $closures  closure ranges of those branches
      * @return list<array{date: string, available: bool, remaining: null, order_cut_off_at: string|null}>
      */
-    public function calendar(array $branches, array $hours, ?CarbonImmutable $now = null): array
+    public function calendar(array $branches, array $hours, array $closures = [], ?CarbonImmutable $now = null): array
     {
         if ($branches === []) {
             return [];
@@ -92,7 +100,8 @@ final class MarketplaceAvailability
             foreach ($branches as $branch) {
                 $day = $byBranch[$branch->getKey()][$date->dayOfWeekIso] ?? null;
 
-                if (! $day instanceof BranchOpeningHour || ! $day->isOpen()) {
+                if (! $day instanceof BranchOpeningHour || ! $day->isOpen()
+                    || $this->isClosedOn($closures, (string) $branch->getKey(), $date->toDateString())) {
                     continue;
                 }
 
@@ -121,6 +130,22 @@ final class MarketplaceAvailability
         }
 
         return $calendar;
+    }
+
+    /**
+     * @param  list<BranchClosure>  $closures
+     */
+    private function isClosedOn(array $closures, string $branchId, string $date): bool
+    {
+        foreach ($closures as $closure) {
+            if ($closure->branch_id === $branchId
+                && $closure->closed_from->toDateString() <= $date
+                && $closure->closed_to->toDateString() >= $date) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

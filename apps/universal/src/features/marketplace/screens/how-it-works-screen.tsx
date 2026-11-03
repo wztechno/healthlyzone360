@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { isFeatureAvailable } from '../../availability.ts';
+import type { FeatureKey } from '../../availability.ts';
 import { EntityImage, resolveMarketingImage } from '../../../media/entity-image.tsx';
 import { useGoToAuth } from '../../../navigation/use-return-to.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
@@ -11,18 +12,27 @@ import { useSession } from '../../../session/session-provider.tsx';
 import { SectionHeader } from '../section-header.tsx';
 
 /**
- * The four steps.
+ * The steps.
  *
  * Numbered as data rather than written out four times, so the ordinal, the icon and the copy key
  * cannot drift apart — the failure mode being a step labelled "3" sitting second on the page after
- * somebody reorders the JSX.
+ * somebody reorders the JSX. A step that describes a switched-off feature is left out, and the
+ * numbering closes up behind it.
  */
-const STEPS: readonly { readonly key: string; readonly icon: IconName }[] = [
+const STEPS: readonly {
+    readonly key: string;
+    readonly icon: IconName;
+    readonly feature?: FeatureKey;
+}[] = [
     { key: 'tell', icon: 'user' },
-    { key: 'target', icon: 'success' },
-    { key: 'plan', icon: 'calendar' },
+    { key: 'target', icon: 'success', feature: 'nutrition' },
+    { key: 'plan', icon: 'calendar', feature: 'planner' },
     { key: 'eat', icon: 'organisation' },
 ];
+
+const VISIBLE_STEPS = STEPS.filter(
+    (step) => step.feature === undefined || isFeatureAvailable(step.feature),
+);
 
 /**
  * How it works.
@@ -38,8 +48,8 @@ const STEPS: readonly { readonly key: string; readonly icon: IconName }[] = [
  * ## The last button is the reader's next step
  *
  * A visitor is offered an account, and the trip to registration carries this page back. Somebody
- * already signed in was offered "Create account" too (browse-15); their next step is the one the
- * fourth card describes — a plan for the week — so that is what they get instead.
+ * already signed in was offered "Create account" too (browse-15); their next step is a plan for the
+ * week, so that is what they get instead.
  */
 export function HowItWorksScreen() {
     const { t } = useTranslation();
@@ -60,7 +70,7 @@ export function HowItWorksScreen() {
             </Stack>
 
             <Stack space="md" testID="how-it-works-steps">
-                {STEPS.map((step, index) => (
+                {VISIBLE_STEPS.map((step, index) => (
                     <Card
                         key={step.key}
                         testID={`how-it-works-step-${step.key}`}

@@ -1477,11 +1477,16 @@ describe('DietitianProfileScreen', () => {
 /* ── explainer and business ──────────────────────────────────────────────────────────────────── */
 
 describe('HowItWorksScreen', () => {
-    it('renders four steps and the standing disclaimer', async () => {
+    it('renders the live steps and the standing disclaimer', async () => {
         await renderStubScreen(<HowItWorksScreen />);
 
-        for (const step of ['tell', 'target', 'plan', 'eat']) {
+        for (const step of ['tell', 'eat']) {
             expect(screen.getByTestId(`how-it-works-step-${step}`)).toBeTruthy();
+        }
+        // The planner and nutrition targets are switched off (`availability.ts`), so the page
+        // does not promise them.
+        for (const step of ['target', 'plan']) {
+            expect(screen.queryByTestId(`how-it-works-step-${step}`)).toBeNull();
         }
         expect(screen.getByTestId('medical-disclaimer')).toBeTruthy();
     });

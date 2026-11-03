@@ -9,6 +9,7 @@ use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Services\DishOptions;
 use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Delivery\Models\DeliveryZone;
+use Healthy360\Kitchens\Models\BranchClosure;
 use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Kitchens\Presenters\MarketplaceKitchenPresenter;
 use Healthy360\Kitchens\Presenters\MarketplaceMealPresenter;
@@ -256,8 +257,29 @@ final class MarketplaceProjector
             'zones' => $this->kitchens->deliveryZonesOf($organisation, $branches),
             'channels' => MarketplaceChannels::switchesFor(MarketplaceChannels::activeFor($id)),
             'listing_channels' => $this->meals->listingChannelsOf($id),
-            'availability' => $this->availability->calendar($branches, $hours),
+            'availability' => $this->availability->calendar($branches, $hours, $this->closuresOf($branches)),
         ];
+    }
+
+    /**
+     * Every closure of these branches not yet over, in one query. The table's
+     * read policy is open (its migration says why), so the anonymous
+     * marketplace sees the same closures placement refuses on.
+     *
+     * @param  list<OrganisationBranch>  $branches
+     * @return list<BranchClosure>
+     */
+    private function closuresOf(array $branches): array
+    {
+        if ($branches === []) {
+            return [];
+        }
+
+        return array_values(BranchClosure::withoutTenancy()
+            ->whereIn('branch_id', array_map(static fn (OrganisationBranch $branch): string => (string) $branch->getKey(), $branches))
+            ->where('closed_to', '>=', now()->subDay()->toDateString())
+            ->get()
+            ->all());
     }
 
     /**
