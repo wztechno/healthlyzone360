@@ -182,13 +182,17 @@ it('reads the meal tags in the same number of queries with and without a clash',
         return $queries;
     };
 
+    // The control carries no free-from tag, so a per-meal label read added for
+    // free-from tags would show up as a difference, not on both sides.
     $clean = freeFromMeal($this->a, 'sesame', AllergenContainment::Contains, published: true);
-    tagMeal($clean, 'nut_free', 'vegan');
+    tagMeal($clean, 'vegan');
 
     $clashing = freeFromMeal($this->a, 'peanut', AllergenContainment::Contains, published: true);
     tagMeal($clashing, 'nut_free', 'vegan');
 
-    expect($count($clashing))->toBe($count($clean))
-        ->and($meals->dietClassificationCodesOf($clean))->toBe(['vegan', 'nut_free'])
+    // The tags read and `codesFor`: the label is checked inside the first.
+    expect($count($clean))->toBe(2)
+        ->and($count($clashing))->toBe(2)
+        ->and($meals->dietClassificationCodesOf($clean))->toBe(['vegan'])
         ->and($meals->dietClassificationCodesOf($clashing))->toBe(['vegan']);
 });

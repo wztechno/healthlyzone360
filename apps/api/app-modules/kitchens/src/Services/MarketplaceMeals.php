@@ -496,7 +496,7 @@ final readonly class MarketplaceMeals
      * version's frozen rows when there is a version, else the item's listed
      * ingredients, else the one ingredient it is, each from both mapping layers.
      * Any containment contradicts. The version is read through
-     * `recipe_published_allergen_codes()` because the anonymous marketplace
+     * `recipe_published_label_has()` because the anonymous marketplace
      * cannot see `recipe_versions`, and a plain join would keep the tag.
      *
      * @param  Builder<CatalogueItemDietClassification>|QueryBuilder  $tags
@@ -524,7 +524,7 @@ final readonly class MarketplaceMeals
                 JOIN catalogue_items tagged ON tagged.id = catalogue_item_diet_classifications.catalogue_item_id
                 WHERE free_from_tag.id = catalogue_item_diet_classifications.diet_classification_id
                   AND COALESCE(
-                      free_from.allergen_code = ANY (recipe_published_allergen_codes(tagged.recipe_id, tagged.organisation_id)),
+                      recipe_published_label_has(tagged.recipe_id, tagged.organisation_id, ARRAY[free_from.allergen_code]),
                       CASE
                           WHEN EXISTS (SELECT 1 FROM catalogue_item_ingredients listed WHERE listed.catalogue_item_id = tagged.id)
                           THEN EXISTS (
