@@ -2481,6 +2481,17 @@ export interface KitchenAdminRepository {
     /** Refused from `review_required` — a quarantined recipe cannot be published (plan §4.7). */
     publishRecipe(recipeId: RecipeId, request: LockedRequest): Promise<RecipeAdmin>;
     retireRecipe(recipeId: RecipeId, request: LockedRequest): Promise<RecipeAdmin>;
+    /**
+     * Release a quarantined version once a manager has compared its old and new allergen labels:
+     * the new label goes live on the same version and its listings go back on sale. Refused with
+     * `details.reason = derivation_stale` while an ingredient change is still being recomputed.
+     * `lockVersion` is the **version's**.
+     */
+    releaseRecipeVersion(
+        recipeId: RecipeId,
+        versionId: RecipeVersionId,
+        lockVersion: number,
+    ): Promise<RecipeAdmin>;
 
     /* ── products ───────────────────────────────────────────────────────────────────────────── */
 

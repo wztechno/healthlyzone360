@@ -142,6 +142,60 @@ final readonly class CatalogueRecipeUsageRegistry implements RecipeUsageRegistry
     }
 
     /**
+     * Every quarantined listing of this recipe, back to `published`, one audit
+     * row each — the mirror of {@see quarantinePublishedItems()}. The lock
+     * version does not move, for the reason it does not move on quarantine.
+     *
+     * @return list<string>
+     */
+    public function releaseQuarantinedItems(Recipe $recipe): array
+    {
+        if (! $this->context->hasOrganisation()) {
+            return [];
+        }
+
+        $items = CatalogueItem::query()
+            ->where('recipe_id', $recipe->getKey())
+            ->where('status', CatalogueItemStatus::ReviewRequired->value)
+            ->orderBy('slug')
+            ->get();
+
+        if ($items->isEmpty()) {
+            return [];
+        }
+
+        DB::transaction(function () use ($items): void {
+            foreach ($items as $item) {
+                CatalogueItem::withoutTenancy()
+                    ->whereKey($item->getKey())
+                    ->update([
+                        'status' => CatalogueItemStatus::Published->value,
+                        'review_reason' => null,
+                        'updated_at' => now(),
+                    ]);
+            }
+        });
+
+        foreach ($items as $item) {
+            $this->audit->record(
+                'catalogue.item_released',
+                actorUserId: $this->context->userId(),
+                subjectType: 'catalogue_item',
+                subjectId: (string) $item->getKey(),
+                metadata: [
+                    'slug' => $item->slug,
+                    'recipe_id' => (string) $recipe->getKey(),
+                    'previous_status' => CatalogueItemStatus::ReviewRequired->value,
+                    'origin' => 'allergen_release',
+                    'review_reason' => $item->review_reason,
+                ],
+            );
+        }
+
+        return array_values($items->map(static fn (CatalogueItem $item): string => (string) $item->getKey())->all());
+    }
+
+    /**
      * What sells each recipe on a page of the recipe book, keyed by recipe id.
      *
      * Three queries however many recipes are asked about: the items, then their channels and their

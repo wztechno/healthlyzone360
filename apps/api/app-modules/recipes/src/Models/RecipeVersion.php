@@ -51,6 +51,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $published_by
  * @property string|null $review_reason
  * @property array<string, mixed>|null $nutrition_facts
+ * @property array<string, string>|null $previous_label
  * @property string|null $notes
  * @property string|null $source_system
  * @property string|null $source_ref
@@ -115,6 +116,7 @@ class RecipeVersion extends BaseModel implements OrganisationScoped
             'b2b_price_amount' => 'decimal:6',
             'b2c_price_amount' => 'decimal:6',
             'nutrition_facts' => 'array',
+            'previous_label' => 'array',
             'derived_at' => 'immutable_datetime',
             'published_at' => 'immutable_datetime',
             'seeded_at' => 'immutable_datetime',

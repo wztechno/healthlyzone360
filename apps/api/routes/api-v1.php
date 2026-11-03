@@ -362,6 +362,7 @@ use Healthy360\Recipes\Http\Controllers\RecipeVersionAllergenIndexController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionIndexController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionPublishController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionReadinessController;
+use Healthy360\Recipes\Http\Controllers\RecipeVersionReleaseController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionRetireController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionShowController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionStoreController;
@@ -1247,6 +1248,10 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/recipes/{recipe}/versions/{version}/retire', RecipeVersionRetireController::class)
                     ->middleware('precondition')
                     ->name('catalogue.recipes.versions.retire');
+
+                Route::post('/recipes/{recipe}/versions/{version}/release', RecipeVersionReleaseController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.recipes.versions.release');
             });
 
             /*

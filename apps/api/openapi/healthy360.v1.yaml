@@ -4466,6 +4466,80 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/recipes/{recipe}/versions/{version}/release:
+    post:
+      operationId: releaseRecipeVersion
+      tags: [Recipes]
+      summary: Release a quarantined version with its recomputed allergen label
+      description: |
+        A manager has compared the label the version was published with
+        (`previous_label`) against the recomputed one, ticked that they checked
+        it, and accepts the new one. The new label goes live on the same
+        version, `review_reason` and `previous_label` are cleared, and every
+        quarantined listing of the recipe goes back on sale once no version of
+        it is left in review. Audited as `catalogue.allergen_release`, and
+        `catalogue.item_released` per listing.
+
+        When another version is published, or a newer one is also in review,
+        the released version is `retired` (superseded) rather than published.
+
+        Refusals:
+
+        - `422 validation.failed` when `confirmed` is not `true`.
+        - `409 resource.conflict` when the version is not `review_required`.
+        - `409 resource.conflict` with `details.reason = derivation_stale` when
+          an ingredient change since the quarantine has not been recomputed
+          yet. Reload and compare again.
+
+        Requires `recipe.publish_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/RecipePath'
+        - $ref: '#/components/parameters/RecipeVersionPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirmed]
+              properties:
+                confirmed:
+                  type: boolean
+                  const: true
+                  description: The manager's tick that they compared the old and new labels.
+              additionalProperties: false
+      responses:
+        '200':
+          description: The released version.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeVersionEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/recipes/{recipe}/versions/{version}/technical-sheet:
     get:
       operationId: showRecipeTechnicalSheet
@@ -29842,6 +29916,8 @@ components:
           type: ['string', 'null']
           maxLength: 200
           description: Why this version is quarantined, when it is.
+        previous_label:
+          $ref: '#/components/schemas/RecipeVersionPreviousLabel'
         notes:
           type: ['string', 'null']
         lock_version:
@@ -31849,6 +31925,22 @@ components:
               $ref: '#/components/schemas/RecipeVersionStatus'
             derivation_state:
               $ref: '#/components/schemas/DerivationState'
+            previous_label:
+              $ref: '#/components/schemas/RecipeVersionPreviousLabel'
+
+    RecipeVersionPreviousLabel:
+      type: ['object', 'null']
+      description: |
+        The allergen label a quarantined version was published with, as
+        `{allergen class: containment}` — what a release replaces with the
+        recomputed label. `{}` when the old label carried nothing. Null outside
+        review, and on a quarantine older than this field, which recorded only
+        its `review_reason`.
+      additionalProperties:
+        type: string
+        enum: [contains, may_contain]
+      examples:
+        - { sesame: contains }
 
     CatalogueItemReadinessMeta:
       allOf:

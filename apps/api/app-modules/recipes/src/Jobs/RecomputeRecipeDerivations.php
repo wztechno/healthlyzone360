@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Recipes\Jobs;
 
 use Healthy360\Audit\Services\AuditRecorder;
+use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Recipes\Contracts\RecipeUsageRegistry;
 use Healthy360\Recipes\Enums\CostBasis;
 use Healthy360\Recipes\Enums\DerivationState;
@@ -264,7 +265,7 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
         $diff = $labels->diff($before, $labels->snapshot($version));
 
         if ($labels->isMaterial($diff)) {
-            $this->quarantine($version, $labels, $usage, $audit, $diff);
+            $this->quarantine($version, $labels, $usage, $audit, $diff, $before);
         }
 
         $this->propagate($version);
@@ -302,7 +303,12 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
     /**
      * Take a published version — and everything selling it — off sale.
      *
+     * The label the diner was promised is kept on the version as
+     * `previous_label`, so the manager who releases it compares the old label
+     * with the new one rather than reading a sentence about the difference.
+     *
      * @param  array{added: list<string>, removed: list<string>, strengthened: list<string>, weakened: list<string>}  $diff
+     * @param  array<string, AllergenContainment>  $before
      */
     private function quarantine(
         RecipeVersion $version,
@@ -310,6 +316,7 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
         RecipeUsageRegistry $usage,
         AuditRecorder $audit,
         array $diff,
+        array $before,
     ): void {
         if ($version->status !== RecipeVersionStatus::Published) {
             return;
@@ -322,6 +329,13 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
             ->update([
                 'status' => RecipeVersionStatus::ReviewRequired->value,
                 'review_reason' => $reason,
+
+                // A JSON object string: the query builder bypasses the cast,
+                // and an empty label must still read as `{}`, not `[]`.
+                'previous_label' => json_encode(
+                    (object) array_map(static fn (AllergenContainment $containment): string => $containment->value, $before),
+                    JSON_THROW_ON_ERROR,
+                ),
                 'updated_at' => now(),
             ]);
 

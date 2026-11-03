@@ -1465,6 +1465,7 @@ export type AdminRecipeVersion = {
      * Why this version is quarantined, when it is.
      */
     review_reason?: string | null;
+    previous_label?: RecipeVersionPreviousLabel;
     notes?: string | null;
     lock_version: number;
     created_at?: string | null;
@@ -2862,7 +2863,20 @@ export type RecipeVersionReadinessMeta = Meta & {
     version_number: number;
     status: RecipeVersionStatus;
     derivation_state: DerivationState;
+    previous_label?: RecipeVersionPreviousLabel;
 };
+
+/**
+ * The allergen label a quarantined version was published with, as
+ * `{allergen class: containment}` — what a release replaces with the
+ * recomputed label. `{}` when the old label carried nothing. Null outside
+ * review, and on a quarantine older than this field, which recorded only
+ * its `review_reason`.
+ *
+ */
+export type RecipeVersionPreviousLabel = {
+    [key: string]: 'contains' | 'may_contain';
+} | null;
 
 export type CatalogueItemReadinessMeta = Meta & {
     slug: string;
@@ -21381,6 +21395,116 @@ export type RetireRecipeVersionResponses = {
 };
 
 export type RetireRecipeVersionResponse = RetireRecipeVersionResponses[keyof RetireRecipeVersionResponses];
+
+export type ReleaseRecipeVersionData = {
+    body: {
+        /**
+         * The manager's tick that they compared the old and new labels.
+         */
+        confirmed: true;
+    };
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+        /**
+         * The version identifier, or its `version_number`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, a human reading a technical sheet holds "version 3" — and
+         * a number cannot be mistaken for a UUID. The version is always resolved
+         * inside the recipe in the path, so one recipe's number can never reach
+         * another's version.
+         *
+         */
+        version: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{recipe}/versions/{version}/release';
+};
+
+export type ReleaseRecipeVersionErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReleaseRecipeVersionError = ReleaseRecipeVersionErrors[keyof ReleaseRecipeVersionErrors];
+
+export type ReleaseRecipeVersionResponses = {
+    /**
+     * The released version.
+     */
+    200: RecipeVersionEnvelope;
+};
+
+export type ReleaseRecipeVersionResponse = ReleaseRecipeVersionResponses[keyof ReleaseRecipeVersionResponses];
 
 export type ShowRecipeTechnicalSheetData = {
     body?: never;

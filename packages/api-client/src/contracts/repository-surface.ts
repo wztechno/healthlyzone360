@@ -253,6 +253,7 @@ export const REPOSITORY_SURFACE = {
         'publishPriceList',
         'publishProduct',
         'publishRecipe',
+        'releaseRecipeVersion',
         'removeRecordPhoto',
         'retireMeal',
         'retirePlan',

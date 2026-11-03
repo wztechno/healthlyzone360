@@ -877,6 +877,13 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     retireRecipe(_recipeId: RecipeId, _request: LockedRequest): Promise<RecipeAdmin> {
         return notImplemented(`POST ${BASE}/catalogue/recipes/{recipe}/archive`);
     },
+    releaseRecipeVersion(
+        _recipeId: RecipeId,
+        _versionId: RecipeVersionId,
+        _lockVersion: number,
+    ): Promise<RecipeAdmin> {
+        return notImplemented(`POST ${BASE}/catalogue/recipes/{recipe}/versions/{version}/release`);
+    },
 
     listProducts(_filter?: ProductAdminFilter): Promise<CursorPage<ProductAdmin>> {
         return notImplemented(`GET ${BASE}/catalogue/items?item_type=product`);

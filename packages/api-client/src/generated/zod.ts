@@ -1700,11 +1700,22 @@ export const zPublicationReadiness = z.object({
     reasons: z.array(zReadinessReason)
 });
 
+/**
+ * The allergen label a quarantined version was published with, as
+ * `{allergen class: containment}` — what a release replaces with the
+ * recomputed label. `{}` when the old label carried nothing. Null outside
+ * review, and on a quarantine older than this field, which recorded only
+ * its `review_reason`.
+ *
+ */
+export const zRecipeVersionPreviousLabel = z.record(z.string(), z.enum(['contains', 'may_contain'])).nullable();
+
 export const zRecipeVersionReadinessMeta = zMeta.and(z.object({
     recipe_id: zUuid,
     version_number: z.int(),
     status: zRecipeVersionStatus,
-    derivation_state: zDerivationState
+    derivation_state: zDerivationState,
+    previous_label: zRecipeVersionPreviousLabel.optional()
 }));
 
 export const zCatalogueItemReadinessMeta = zMeta.and(z.object({
@@ -1882,6 +1893,7 @@ export const zAdminRecipeVersion = z.object({
     derived_at: z.iso.datetime({ offset: true }).nullish(),
     published_at: z.iso.datetime({ offset: true }).nullish(),
     review_reason: z.string().max(200).nullish(),
+    previous_label: zRecipeVersionPreviousLabel.optional(),
     notes: z.string().nullish(),
     lock_version: z.int().gte(0),
     created_at: z.iso.datetime({ offset: true }).nullish(),
@@ -12573,6 +12585,29 @@ export const zRetireRecipeVersionPath = z.object({
  * The retired version.
  */
 export const zRetireRecipeVersionResponse = zRecipeVersionEnvelope;
+
+export const zReleaseRecipeVersionBody = z.object({
+    confirmed: z.literal(true)
+});
+
+export const zReleaseRecipeVersionHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReleaseRecipeVersionPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The released version.
+ */
+export const zReleaseRecipeVersionResponse = zRecipeVersionEnvelope;
 
 export const zShowRecipeTechnicalSheetHeaders = z.object({
     'X-Organisation-Id': zUuid,
