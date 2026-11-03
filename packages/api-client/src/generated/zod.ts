@@ -14577,6 +14577,20 @@ export const zShowMyOrderPath = z.object({
  */
 export const zShowMyOrderResponse = zCustomerOrderEnvelope;
 
+export const zCancelMyOrderHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCancelMyOrderPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The cancelled order, as the customer sees it.
+ */
+export const zCancelMyOrderResponse = zCustomerOrderEnvelope;
+
 export const zListStockItemsHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()

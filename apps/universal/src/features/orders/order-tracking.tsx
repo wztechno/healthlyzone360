@@ -1,6 +1,8 @@
 import type {
     DeliveryAddress,
+    DishOption,
     GuestOrderState,
+    KitchenOrderFulfilmentType,
     OrderStepTimes,
 } from '@healthy360/api-client/contracts';
 import { Button, Callout, Icon, useBreakpoint } from '@healthy360/design-system';
@@ -11,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { Text as RNText, View } from 'react-native';
 
 import { usePrototypeAction } from '../../prototype/index.ts';
+import { dishOptionsLine } from '../../ui/dish-choices.tsx';
 import { Eyebrow } from '../../ui/eyebrow.tsx';
 import { formatAddress } from '../commerce/address.ts';
 import { formatMoney } from '../marketplace/format.ts';
@@ -64,6 +67,9 @@ export interface TrackableOrder {
         readonly name: string;
         readonly quantity: number;
         readonly lineTotal: Money;
+        /** What the line changed about the dish. An order that carries none leaves them out. */
+        readonly options?: readonly DishOption[] | undefined;
+        readonly note?: string | null | undefined;
     }[];
     readonly total: Money;
     readonly address: DeliveryAddress;
@@ -76,6 +82,8 @@ export interface TrackableOrder {
     readonly placedAt: string;
     /** When it reached each later step. A guest order carries none. */
     readonly stepTimes?: OrderStepTimes | undefined;
+    /** On a delivery, "ready" means it leaves soon, not that somebody should come for it. */
+    readonly fulfilmentType?: KitchenOrderFulfilmentType | undefined;
 }
 
 /** The design's white card: `--card` on a `--line` hairline, 16px corners. */
@@ -91,6 +99,11 @@ export interface OrderTrackingProps {
      */
     readonly onRefresh?: (() => void) | undefined;
     readonly refreshing?: boolean | undefined;
+    /**
+     * Opens the page's own cancel confirmation. Drawn only while the order is `placed`: once the
+     * kitchen accepts it, the customer contacts the kitchen instead.
+     */
+    readonly onCancel?: (() => void) | undefined;
     /** Drawn at the foot of the timeline card, under the buttons. */
     readonly footer?: ReactNode;
     /** Prefix for every test ID — `guest-order`, `customer-order`. */
@@ -102,6 +115,7 @@ export function OrderTracking({
     paymentLabel,
     onRefresh,
     refreshing,
+    onCancel,
     footer,
     testID,
 }: OrderTrackingProps) {
@@ -224,6 +238,7 @@ export function OrderTracking({
                         current={current}
                         placedAt={placedAt}
                         times={times}
+                        delivery={order.fulfilmentType === 'delivery'}
                         placedDetail={t('guest:order.steps.placed.detail', {
                             payment: paymentLabel,
                             total: formatMoney(formatter, order.total),
@@ -252,6 +267,14 @@ export function OrderTracking({
                             }}
                         />
                     ) : null}
+                    {onCancel === undefined || order.state !== 'placed' ? null : (
+                        <Button
+                            testID={`${testID}-cancel`}
+                            variant="secondary"
+                            label={t('account:orders.cancelOpen')}
+                            onPress={onCancel}
+                        />
+                    )}
                     <Button
                         testID={`${testID}-help`}
                         variant="quiet"
@@ -270,27 +293,43 @@ export function OrderTracking({
                 <View testID={`${testID}-items`} className={`${CARD} p-5 ${wide ? 'flex-1' : ''}`}>
                     <Eyebrow>{t('guest:order.itemsTitle')}</Eyebrow>
                     <View className="mt-3 flex-col gap-3" testID={`${testID}-lines`}>
-                        {order.lines.map((line) => (
-                            <View
-                                key={line.id}
-                                testID={`${testID}-line-${line.id}`}
-                                className="flex-row items-center gap-3"
-                            >
-                                <OrderLineThumb
-                                    name={line.name}
-                                    className="h-[46px] w-[46px] rounded"
-                                />
-                                <RNText className="min-w-0 flex-1 text-sm text-content-primary text-start">
-                                    {t('guest:order.lineLabel', {
-                                        qty: formatter.formatNumber(line.quantity),
-                                        name: line.name,
-                                    })}
-                                </RNText>
-                                <RNText className="text-sm font-semibold tabular-nums text-content-primary text-end">
-                                    {formatMoney(formatter, line.lineTotal)}
-                                </RNText>
-                            </View>
-                        ))}
+                        {order.lines.map((line) => {
+                            // The cart line's own wording of what was changed (`cart-line.tsx`).
+                            const mods = [dishOptionsLine(line.options, locale, t), line.note]
+                                .filter((part) => part != null && part !== '')
+                                .join(t('catalogue:dishOptions.separator'));
+                            return (
+                                <View
+                                    key={line.id}
+                                    testID={`${testID}-line-${line.id}`}
+                                    className="flex-row items-center gap-3"
+                                >
+                                    <OrderLineThumb
+                                        name={line.name}
+                                        className="h-[46px] w-[46px] rounded"
+                                    />
+                                    <View className="min-w-0 flex-1 flex-col">
+                                        <RNText className="text-sm text-content-primary text-start">
+                                            {t('guest:order.lineLabel', {
+                                                qty: formatter.formatNumber(line.quantity),
+                                                name: line.name,
+                                            })}
+                                        </RNText>
+                                        {mods === '' ? null : (
+                                            <RNText
+                                                testID={`${testID}-line-${line.id}-mods`}
+                                                className="text-xs text-content-secondary text-start"
+                                            >
+                                                {mods}
+                                            </RNText>
+                                        )}
+                                    </View>
+                                    <RNText className="text-sm font-semibold tabular-nums text-content-primary text-end">
+                                        {formatMoney(formatter, line.lineTotal)}
+                                    </RNText>
+                                </View>
+                            );
+                        })}
                     </View>
                 </View>
 

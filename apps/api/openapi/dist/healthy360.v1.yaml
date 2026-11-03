@@ -10715,10 +10715,12 @@ paths:
         is snapshotted onto.
 
         **No `ETag`.** The row carries `lock_version` and this audience cannot
-        write it: confirm, fulfil and cancel are the kitchen's actions behind the
-        kitchen's permission. Serving a validator to a reader with no writer
-        invites a client to send `If-Match` at an endpoint that does not exist
-        for it. The kitchen's read of the same row does carry one.
+        write it, bar one move: confirm, fulfil and a late cancel are the
+        kitchen's actions behind the kitchen's permission, and the customer's own
+        cancel of a `placed` order runs at the lock it reads itself. Serving a
+        validator to a reader with no `If-Match` writer invites a client to send
+        one at an endpoint that does not take it. The kitchen's read of the same
+        row does carry one.
 
         The allergen statement on each line is served exactly as it was
         snapshotted at placement — code and containment, never the derivation or
@@ -10744,6 +10746,50 @@ paths:
           $ref: '#/components/responses/EmailUnverified'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /me/orders/{order}/cancel:
+    post:
+      operationId: cancelMyOrder
+      tags:
+        - Orders
+      summary: Cancel one of the caller's own orders, before the kitchen accepts it
+      description: |
+        **Only while the order is `placed`.** Once the kitchen accepts it, stock
+        is deducted and cooking may start, so the customer contacts the kitchen
+        instead. Any other status is `409 resource.conflict` with `reason:
+        order_already_accepted`. Payment is cash on delivery, so nothing is
+        refunded because nothing was taken.
+
+        **Exactly one of accept and cancel wins.** The cancel runs at the
+        `lock_version` this request read; an accept that lands between the read
+        and the write turns it into the same `409 order_already_accepted`. No
+        `If-Match`: this audience is never served a validator.
+
+        The reason is recorded as `customer_requested` and the kitchen's
+        managers are alerted once. Somebody else's order is `404`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The cancelled order, as the customer sees it.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerOrderEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /catalogue/inventory/items:

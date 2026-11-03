@@ -556,6 +556,9 @@ export const apiCommerceRepository: CommerceRepository = {
     getMyOrder(_orderId: OrderId): Promise<PlacedOrder> {
         return notImplemented(`GET ${BASE}/me/orders/{order}`);
     },
+    cancelMyOrder(_orderId: OrderId): Promise<PlacedOrder> {
+        return notImplemented(`POST ${BASE}/me/orders/{order}/cancel`);
+    },
     /**
      * Subscription lifecycle (quote preview, create, reads, pause/resume/skip, address/window) is
      * served — implemented in `./subscription-repository.ts` and spread over this object by

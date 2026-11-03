@@ -253,6 +253,7 @@ use Healthy360\Orders\Http\Controllers\KitchenOrderIndexController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderReadyController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderShowController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderStartController;
+use Healthy360\Orders\Http\Controllers\MyOrderCancelController;
 use Healthy360\Orders\Http\Controllers\MyOrderIndexController;
 use Healthy360\Orders\Http\Controllers\MyOrderShowController;
 use Healthy360\Orders\Http\Controllers\OrderPaymentReceiptStoreController;
@@ -706,6 +707,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         */
         Route::get('/me/orders', MyOrderIndexController::class)->name('me.orders.index');
         Route::get('/me/orders/{order}', MyOrderShowController::class)->name('me.orders.show');
+        Route::post('/me/orders/{order}/cancel', MyOrderCancelController::class)->name('me.orders.cancel');
 
         /*
         |------------------------------------------------------------------

@@ -97,7 +97,11 @@ function OrderRow({ order }: { readonly order: PlacedOrder }) {
             <Badge
                 testID={`${testID}-state`}
                 tone={ORDER_STATE_TONE[order.state]}
-                label={t(`guest:order.states.${order.state}`)}
+                label={
+                    order.state === 'ready_for_pickup' && order.fulfilmentType === 'delivery'
+                        ? t('guest:order.readyOutSoon')
+                        : t(`guest:order.states.${order.state}`)
+                }
             />
 
             <View className="flex-row items-center gap-2.5">

@@ -1,9 +1,15 @@
-import { Button, EmptyState } from '@healthy360/design-system';
+import { Button, Callout, Dialog, EmptyState } from '@healthy360/design-system';
 import { OrderId } from '@healthy360/domain-types';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { useMyOrderQuery } from '../../../data/commerce-hooks.ts';
+import {
+    toFailure,
+    useCancelMyOrderMutation,
+    useMyOrderQuery,
+} from '../../../data/commerce-hooks.ts';
+import { DialogFailure } from '../../commerce/subscription-editors.tsx';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useOnlineStatus } from '../../../online/online-status.tsx';
 import { SubpageTrail } from '../../../ui/subpage-trail.tsx';
@@ -29,6 +35,11 @@ import { OrderTracking } from '../order-tracking.tsx';
  * seconds, and again the moment the tab is shown; it stops once the order is delivered or
  * cancelled, and while offline — an interval firing into a dead network is retries nobody asked
  * for. So there is no Refresh button here: it would only ever repeat what the page just did.
+ *
+ * **Cancel, only while placed.** Until the kitchen accepts the order the customer may call it off,
+ * behind the same confirm `Dialog` a subscription cancel uses (`subscription-editors.tsx`). Once
+ * accepted the button is gone; a cancel that loses the race to the kitchen's accept is told so inside
+ * the dialog, and the page re-reads the order.
  *
  * The route parameter is the order's **identifier**, never its printed number: the endpoint refuses
  * the number on purpose (a receipt passes through a courier's hands). A malformed identifier is
@@ -60,6 +71,12 @@ export function CustomerOrderScreen({ orderId }: CustomerOrderScreenProps) {
     const parsed = orderId === undefined ? null : OrderId.safeParse(orderId);
     const { online } = useOnlineStatus();
     const order = useMyOrderQuery(parsed, { pollMs: online ? ORDER_TRACKING_POLL_MS : false });
+    const cancel = useCancelMyOrderMutation();
+    const [confirming, setConfirming] = useState(false);
+    const tooLate = toFailure(cancel.error)?.code === 'resource.conflict';
+    const closeDialog = () => {
+        setConfirming(false);
+    };
 
     // The empty states' one action: there is no order to show, and the history is where they are.
     const backToOrders = (
@@ -108,11 +125,64 @@ export function CustomerOrderScreen({ orderId }: CustomerOrderScreenProps) {
                                 testID={TEST_ID}
                                 order={order.data}
                                 paymentLabel={t('guest:review.cashOnDelivery')}
+                                onCancel={() => {
+                                    cancel.reset();
+                                    setConfirming(true);
+                                }}
                             />
                         </View>
                     )}
                 </QueryStates>
             )}
+
+            <Dialog
+                testID={`${TEST_ID}-cancel-dialog`}
+                open={confirming}
+                onClose={closeDialog}
+                title={t('account:orders.cancelTitle')}
+                description={t('account:orders.cancelBody')}
+                actions={
+                    tooLate ? (
+                        <Button
+                            testID={`${TEST_ID}-cancel-done`}
+                            label={t('commerce:common.close')}
+                            onPress={closeDialog}
+                        />
+                    ) : (
+                        <>
+                            <Button
+                                testID={`${TEST_ID}-cancel-keep`}
+                                variant="quiet"
+                                label={t('account:orders.cancelKeep')}
+                                onPress={closeDialog}
+                            />
+                            <Button
+                                testID={`${TEST_ID}-cancel-confirm`}
+                                variant="danger"
+                                label={t('account:orders.cancelConfirm')}
+                                loading={cancel.isPending}
+                                onPress={() => {
+                                    if (order.data === undefined) return;
+                                    cancel.mutate(order.data.id, { onSuccess: closeDialog });
+                                }}
+                            />
+                        </>
+                    )
+                }
+            >
+                {tooLate ? (
+                    <Callout
+                        testID={`${TEST_ID}-cancel-too-late`}
+                        role="alert"
+                        tone="warning"
+                        icon="warning"
+                        title={t('account:orders.cancelTooLateTitle')}
+                        body={t('account:orders.cancelTooLateBody')}
+                    />
+                ) : (
+                    <DialogFailure error={cancel.error} testID={`${TEST_ID}-cancel-failure`} />
+                )}
+            </Dialog>
         </View>
     );
 }

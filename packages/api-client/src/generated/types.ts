@@ -29415,6 +29415,73 @@ export type ShowMyOrderResponses = {
 
 export type ShowMyOrderResponse = ShowMyOrderResponses[keyof ShowMyOrderResponses];
 
+export type CancelMyOrderData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order identifier. **Not** the order number, tempting though it is:
+         * the number is printed on a receipt that passes through a courier's
+         * hands, and a URL that accepted it would turn a scrap of paper into an
+         * address. The number is searchable through `GET /catalogue/orders`,
+         * behind the read permission.
+         *
+         */
+        order: Uuid;
+    };
+    query?: never;
+    url: '/me/orders/{order}/cancel';
+};
+
+export type CancelMyOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CancelMyOrderError = CancelMyOrderErrors[keyof CancelMyOrderErrors];
+
+export type CancelMyOrderResponses = {
+    /**
+     * The cancelled order, as the customer sees it.
+     */
+    200: CustomerOrderEnvelope;
+};
+
+export type CancelMyOrderResponse = CancelMyOrderResponses[keyof CancelMyOrderResponses];
+
 export type ListStockItemsData = {
     body?: never;
     headers: {

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9860 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9868 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -535,6 +535,13 @@ export interface NamespaceKeys {
     | 'nav.subscriptions'
     | 'orders.backToHistory'
     | 'orders.browse'
+    | 'orders.cancelBody'
+    | 'orders.cancelConfirm'
+    | 'orders.cancelKeep'
+    | 'orders.cancelOpen'
+    | 'orders.cancelTitle'
+    | 'orders.cancelTooLateBody'
+    | 'orders.cancelTooLateTitle'
     | 'orders.empty'
     | 'orders.emptyBody'
     | 'orders.lineLabel'
@@ -2932,6 +2939,7 @@ export interface NamespaceKeys {
     | 'order.position.current'
     | 'order.position.done'
     | 'order.position.upcoming'
+    | 'order.readyOutSoon'
     | 'order.reference'
     | 'order.refresh'
     | 'order.separator'
@@ -10424,6 +10432,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:nav.subscriptions',
   'account:orders.backToHistory',
   'account:orders.browse',
+  'account:orders.cancelBody',
+  'account:orders.cancelConfirm',
+  'account:orders.cancelKeep',
+  'account:orders.cancelOpen',
+  'account:orders.cancelTitle',
+  'account:orders.cancelTooLateBody',
+  'account:orders.cancelTooLateTitle',
   'account:orders.empty',
   'account:orders.emptyBody',
   'account:orders.lineLabel',
@@ -12812,6 +12827,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:order.position.current',
   'guest:order.position.done',
   'guest:order.position.upcoming',
+  'guest:order.readyOutSoon',
   'guest:order.reference',
   'guest:order.refresh',
   'guest:order.separator',

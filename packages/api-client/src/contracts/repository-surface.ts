@@ -152,6 +152,7 @@ export const REPOSITORY_SURFACE = {
     ],
     commerce: [
         'addCartItem',
+        'cancelMyOrder',
         'cancelSubscription',
         'changeAddress',
         'changeSlot',
