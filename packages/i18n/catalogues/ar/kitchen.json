@@ -5858,6 +5858,7 @@
         "allRecipes": "كل الوصفات",
         "allAction": "عرض كل الحالات",
         "publishedAction": "عرض السجلات المنشورة فقط",
+        "uncostedAction": "عرض المكونات التي لا سعر وحدة لها فقط",
         "result": "{{shown}} من {{total}}",
         "clear": "مسح",
         "mix": "{{published}} منشورة، {{draft}} مسودة، {{review}} بانتظار المراجعة",

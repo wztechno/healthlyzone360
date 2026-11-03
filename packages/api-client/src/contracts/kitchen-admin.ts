@@ -1899,6 +1899,21 @@ export interface PriceListAdminFilter extends CursorPageRequest, OffsetPageReque
     readonly withoutEntries?: boolean | undefined;
 }
 
+/** The price-list screen's Lens figures, counted by the index rather than over every list. */
+export interface PriceListFigures {
+    /** Per status over the search, the status filter aside. Archived lists count as `retired`. */
+    readonly statusCounts: Readonly<Record<PublishableStatus, number>>;
+    /** Lists in the filtered set with no confirmed price. */
+    readonly unpricedCount: number;
+    /** Lists in the filtered set on a contract-private channel. */
+    readonly agreementCount: number;
+}
+
+export interface PriceListPage extends CursorPage<PriceListAdmin> {
+    /** Sent by the index with every page; absent from a stub that does not count. */
+    readonly figures?: PriceListFigures | undefined;
+}
+
 export interface SetPriceListEntriesRequest extends LockedRequest {
     readonly entries: readonly PriceListEntry[];
 }
@@ -2538,7 +2553,7 @@ export interface KitchenAdminRepository {
 
     /* ── price lists ────────────────────────────────────────────────────────────────────────── */
 
-    listPriceLists(filter?: PriceListAdminFilter): Promise<CursorPage<PriceListAdmin>>;
+    listPriceLists(filter?: PriceListAdminFilter): Promise<PriceListPage>;
     getPriceList(priceListId: PriceListId): Promise<PriceListAdmin>;
     setPriceListEntries(
         priceListId: PriceListId,

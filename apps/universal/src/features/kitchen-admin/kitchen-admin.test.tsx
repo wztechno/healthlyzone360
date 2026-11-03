@@ -867,6 +867,56 @@ describe('the ingredient list', () => {
         expect(screen.getByTestId('kitchen-ingredients-clear')).toBeTruthy();
     });
 
+    it('narrows to the uncosted rows from the Unpriced figure, and lets go when pressed again', async () => {
+        const priced = ingredient(1, { unitPrice: { amount: 3.9, currency: 'AED' } });
+        const first = ingredient(2);
+        const second = ingredient(3);
+        await renderStubScreen(<IngredientsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listIngredients: ingredientListing(() => [priced, first, second]),
+                },
+            },
+        });
+        await untilVisible('kitchen-ingredients-table');
+        const row = (target: IngredientAdmin) => `kitchen-ingredient-${String(target.id)}-name`;
+
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('kitchen-ingredients-toolbar-figure-uncosted-value'),
+            ).toHaveTextContent('2');
+        });
+        expect(screen.getByTestId(row(priced))).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-toolbar-figure-uncosted'));
+        });
+
+        await waitFor(() => {
+            expect(screen.queryByTestId(row(priced))).toBeNull();
+        });
+        expect(screen.getByTestId(row(first))).toBeTruthy();
+        expect(screen.getByTestId(row(second))).toBeTruthy();
+        expect(
+            screen.getByTestId('kitchen-ingredients-toolbar-figure-uncosted').props
+                .accessibilityState,
+        ).toEqual(expect.objectContaining({ selected: true }));
+        expect(screen.getByTestId('kitchen-ingredients-toolbar-token-uncosted')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-ingredients-toolbar-result')).toHaveTextContent(
+            '2 of 2',
+        );
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-toolbar-figure-uncosted'));
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId(row(priced))).toBeTruthy();
+        });
+        expect(screen.queryByTestId('kitchen-ingredients-toolbar-token-uncosted')).toBeNull();
+    });
+
     it('renders the error state when the listing fails', async () => {
         await renderStubScreen(<IngredientsScreen />, {
             session: kitchenManagerSession(),

@@ -26,6 +26,7 @@ import type {
     PlanAdminFilter,
     PriceListAdmin,
     PriceListAdminFilter,
+    PriceListPage,
     ProductAdmin,
     ProductAdminFilter,
     RecipeAdmin,
@@ -3367,7 +3368,7 @@ export function usePriceListPageQuery(
     filter: ListFilter<PriceListAdminFilter> | undefined,
     page: number,
     enabled = true,
-): PagedListResult<PriceListAdmin> {
+): UseQueryResult<PriceListPage, Error> {
     const { repositories } = useRepositoryContext();
 
     const key = queryKeys.kitchenAdmin.priceListsPage(filter, page);

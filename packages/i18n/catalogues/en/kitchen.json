@@ -5171,6 +5171,7 @@
         "allRecipes": "All recipes",
         "allAction": "Show every status",
         "publishedAction": "Show only published records",
+        "uncostedAction": "Show only ingredients with no unit price",
         "result": "{{shown}} of {{total}}",
         "clear": "Clear",
         "mix": "{{published}} published, {{draft}} draft, {{review}} awaiting review",

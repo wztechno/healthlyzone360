@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Pricing\Http\Controllers;
 
+use Healthy360\Catalogues\Enums\SalesChannelKind;
 use Healthy360\Pricing\Enums\CustomerScope;
 use Healthy360\Pricing\Enums\PriceListStatus;
 use Healthy360\Pricing\Models\ChannelPriceList;
@@ -54,7 +55,9 @@ final class PriceListIndexController
         $this->applyScope($request, $query);
         $this->applySearch($request, $query);
         $this->eagerLoad($includes, $query);
+        $query->withCount(['entries as confirmed_entries_count' => static fn ($entries) => $entries->confirmedOpenRows()]);
 
+        $figures = $this->figures($request, $query);
         $requestedPage = OffsetPage::page($request);
 
         if ($requestedPage !== null) {
@@ -70,7 +73,7 @@ final class PriceListIndexController
 
             return ApiResponse::data(
                 $rows->map(fn (PriceList $list): array => $this->row($list, $includes))->all(),
-                OffsetPage::meta($rows, $requestedPage, $perPage, $total),
+                OffsetPage::meta($rows, $requestedPage, $perPage, $total) + $figures,
             );
         }
 
@@ -81,8 +84,61 @@ final class PriceListIndexController
 
         return ApiResponse::data(
             $page['items']->map(fn (PriceList $list): array => $this->row($list, $includes))->all(),
-            $page['meta'],
+            $page['meta'] + $figures,
         );
+    }
+
+    /**
+     * The list screen's Lens figures, counted here so it need not read every
+     * list whole to draw them.
+     *
+     * `status_counts` covers the search and scope filters but not the status
+     * one — the figures are what each status would show — and archived lists
+     * with them. `unpriced_count` and `agreement_count` cover the filtered set
+     * itself: no confirmed open entry, and assigned to a channel whose prices
+     * are contract-private (`SalesChannelKind::hasPrivatePricing()`).
+     *
+     * @param  Builder<PriceList>  $query
+     * @return array{status_counts: array<string, int>, unpriced_count: int, agreement_count: int}
+     *
+     * @throws ApiException
+     */
+    private function figures(Request $request, Builder $query): array
+    {
+        $scoped = PriceList::query();
+        $this->applyScope($request, $scoped);
+        $this->applySearch($request, $scoped);
+
+        /** @var array<string, int> $byStatus */
+        $byStatus = $scoped->toBase()
+            ->selectRaw('status, count(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status')
+            ->map(static fn ($count): int => (int) $count)
+            ->all();
+
+        $statusCounts = [];
+
+        foreach (PriceListStatus::cases() as $status) {
+            $statusCounts[$status->value] = $byStatus[$status->value] ?? 0;
+        }
+
+        $private = array_values(array_map(
+            static fn (SalesChannelKind $kind): string => $kind->value,
+            array_filter(SalesChannelKind::cases(), static fn (SalesChannelKind $kind): bool => $kind->hasPrivatePricing()),
+        ));
+
+        return [
+            'status_counts' => $statusCounts,
+            'unpriced_count' => $query->clone()
+                ->whereDoesntHave('entries', static fn ($entries) => $entries->confirmedOpenRows())
+                ->toBase()
+                ->getCountForPagination(),
+            'agreement_count' => $query->clone()
+                ->whereHas('channelAssignments.salesChannel', static fn ($channel) => $channel->whereIn('channel_kind', $private))
+                ->toBase()
+                ->getCountForPagination(),
+        ];
     }
 
     /**
@@ -204,6 +260,7 @@ final class PriceListIndexController
     private function row(PriceList $list, array $includes): array
     {
         $row = $this->presenter->priceList($list);
+        $row['confirmed_entries_count'] = (int) $list->getAttribute('confirmed_entries_count');
 
         if ($includes['entries']) {
             $row['entries'] = $list->entries

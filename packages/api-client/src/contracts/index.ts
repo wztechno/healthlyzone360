@@ -354,6 +354,8 @@ export type {
     PriceListAdmin,
     PriceListAdminFilter,
     PriceListEntry,
+    PriceListFigures,
+    PriceListPage,
     PriceStatus,
     ProductAdmin,
     ProductAdminFilter,

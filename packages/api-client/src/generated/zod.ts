@@ -1658,10 +1658,11 @@ export const zAdminChannelAssignment = z.object({
 });
 
 /**
- * A catalogue item row; `channels` is present when `include=channels` asks for it.
+ * A catalogue item row; `channels` and `variants` are present when `include` asks for them.
  */
 export const zAdminCatalogueItemIndexRow = zAdminCatalogueItem.and(z.object({
-    channels: z.array(zAdminChannelAssignment).optional()
+    channels: z.array(zAdminChannelAssignment).optional(),
+    variants: z.array(zAdminCatalogueItemVariant).optional()
 }));
 
 export const zDerivedAllergen = z.object({
@@ -2094,6 +2095,7 @@ export const zPriceListChannelAssignment = z.object({
  * A price list row; `entries` and `channels` are present when `include` asks for them.
  */
 export const zAdminPriceListIndexRow = zAdminPriceList.and(z.object({
+    confirmed_entries_count: z.int().gte(0),
     entries: z.array(zAdminPriceListEntry).optional(),
     channels: z.array(zPriceListChannelAssignment).optional()
 }));
@@ -12913,7 +12915,7 @@ export const zListCatalogueItemsQuery = z.object({
     product_category_id: zUuid.optional(),
     allergen: z.string().max(20).optional(),
     ids: z.string().optional(),
-    include: z.enum(['channels']).optional()
+    include: z.string().regex(/^(channels|variants)(,(channels|variants))?$/).optional()
 });
 
 /**
@@ -13570,7 +13572,15 @@ export const zListPriceListsQuery = z.object({
  */
 export const zListPriceListsResponse = z.object({
     data: z.array(zAdminPriceListIndexRow),
-    meta: zPaginatedOrNumberedMeta
+    meta: zPaginatedOrNumberedMeta.and(z.object({
+        status_counts: z.object({
+            draft: z.int().gte(0),
+            active: z.int().gte(0),
+            archived: z.int().gte(0)
+        }),
+        unpriced_count: z.int().gte(0),
+        agreement_count: z.int().gte(0)
+    }))
 });
 
 export const zCreatePriceListBody = zCreatePriceListRequest;

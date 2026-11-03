@@ -2477,15 +2477,20 @@ export type MealTypeCode = 'breakfast' | 'lunch' | 'dinner' | 'snack';
  * A price list row; `entries` and `channels` are present when `include` asks for them.
  */
 export type AdminPriceListIndexRow = AdminPriceList & {
+    /**
+     * Open entries whose price is confirmed.
+     */
+    confirmed_entries_count: number;
     entries?: Array<AdminPriceListEntry>;
     channels?: Array<PriceListChannelAssignment>;
 };
 
 /**
- * A catalogue item row; `channels` is present when `include=channels` asks for it.
+ * A catalogue item row; `channels` and `variants` are present when `include` asks for them.
  */
 export type AdminCatalogueItemIndexRow = AdminCatalogueItem & {
     channels?: Array<AdminChannelAssignment>;
+    variants?: Array<AdminCatalogueItemVariant>;
 };
 
 /**
@@ -22614,9 +22619,9 @@ export type ListCatalogueItemsData = {
          */
         ids?: string;
         /**
-         * `channels` adds each item's channel assignments, as the item's own read serves them.
+         * A comma-separated list. `channels` adds each item's channel assignments, as the item's own read serves them; `variants` adds its live (not archived) variants with their packs, in the item read's shape.
          */
-        include?: 'channels';
+        include?: string;
     };
     url: '/catalogue/items';
 };
@@ -25055,7 +25060,27 @@ export type ListPriceListsResponses = {
      */
     200: {
         data: Array<AdminPriceListIndexRow>;
-        meta: PaginatedOrNumberedMeta;
+        meta: PaginatedOrNumberedMeta & {
+            /**
+             * Lists per status over the search and scope
+             * filters, the status filter aside, archived
+             * lists included.
+             *
+             */
+            status_counts: {
+                draft: number;
+                active: number;
+                archived: number;
+            };
+            /**
+             * Lists in the filtered set with no confirmed open entry.
+             */
+            unpriced_count: number;
+            /**
+             * Lists in the filtered set assigned to a channel whose prices are contract-private.
+             */
+            agreement_count: number;
+        };
     };
 };
 

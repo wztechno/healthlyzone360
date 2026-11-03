@@ -5501,11 +5501,10 @@ paths:
         - name: include
           in: query
           required: false
-          description: '`channels` adds each item''s channel assignments, as the item''s own read serves them.'
+          description: A comma-separated list. `channels` adds each item's channel assignments, as the item's own read serves them; `variants` adds its live (not archived) variants with their packs, in the item read's shape.
           schema:
             type: string
-            enum:
-              - channels
+            pattern: ^(channels|variants)(,(channels|variants))?$
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
@@ -7404,7 +7403,42 @@ paths:
                     items:
                       $ref: '#/components/schemas/AdminPriceListIndexRow'
                   meta:
-                    $ref: '#/components/schemas/PaginatedOrNumberedMeta'
+                    allOf:
+                      - $ref: '#/components/schemas/PaginatedOrNumberedMeta'
+                      - type: object
+                        required:
+                          - status_counts
+                          - unpriced_count
+                          - agreement_count
+                        properties:
+                          status_counts:
+                            type: object
+                            description: |
+                              Lists per status over the search and scope
+                              filters, the status filter aside, archived
+                              lists included.
+                            required:
+                              - draft
+                              - active
+                              - archived
+                            properties:
+                              draft:
+                                type: integer
+                                minimum: 0
+                              active:
+                                type: integer
+                                minimum: 0
+                              archived:
+                                type: integer
+                                minimum: 0
+                          unpriced_count:
+                            type: integer
+                            minimum: 0
+                            description: Lists in the filtered set with no confirmed open entry.
+                          agreement_count:
+                            type: integer
+                            minimum: 0
+                            description: Lists in the filtered set assigned to a channel whose prices are contract-private.
         '400':
           $ref: '#/components/responses/RequestInvalid'
         '401':
@@ -33049,7 +33083,13 @@ components:
       allOf:
         - $ref: '#/components/schemas/AdminPriceList'
         - type: object
+          required:
+            - confirmed_entries_count
           properties:
+            confirmed_entries_count:
+              type: integer
+              minimum: 0
+              description: Open entries whose price is confirmed.
             entries:
               type: array
               items:
@@ -33059,7 +33099,7 @@ components:
               items:
                 $ref: '#/components/schemas/PriceListChannelAssignment'
     AdminCatalogueItemIndexRow:
-      description: A catalogue item row; `channels` is present when `include=channels` asks for it.
+      description: A catalogue item row; `channels` and `variants` are present when `include` asks for them.
       allOf:
         - $ref: '#/components/schemas/AdminCatalogueItem'
         - type: object
@@ -33068,6 +33108,10 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/AdminChannelAssignment'
+            variants:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminCatalogueItemVariant'
     AdminCatalogueItem:
       type: object
       required:
