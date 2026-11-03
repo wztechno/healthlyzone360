@@ -866,6 +866,65 @@ describe('kitchen orders', () => {
         }
     });
 
+    it('keeps an order opened by address open across a poll, with its cancel form as it was', async () => {
+        jest.useFakeTimers({ advanceTimers: true });
+        try {
+            const book = createOrderBook();
+            const placed = book.orders().find((order) => order.status === 'placed');
+            if (placed === undefined) throw new Error('this test authored no placed order');
+            // Not on the loaded page — an older order a link names, like a remake's original.
+            const { repositories } = await renderStubScreen(
+                <OrdersScreen view={String(placed.id)} />,
+                {
+                    session: kitchenManagerSession(),
+                    repositories: {
+                        kitchenOrders: {
+                            listOrders: async (filters) => {
+                                const page = book.listOrders(filters);
+                                return {
+                                    ...page,
+                                    items: page.items.filter((order) => order.id !== placed.id),
+                                };
+                            },
+                            getOrder: async (id) => book.getOrder(id),
+                            cancelOrder: async (request) => book.cancelOrder(request),
+                        },
+                    },
+                },
+            );
+
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchen-orders-cancel')).toBeTruthy();
+            });
+            fireEvent.press(screen.getByTestId('kitchen-orders-cancel'));
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchen-orders-cancel-reasons')).toBeTruthy();
+            });
+            fireEvent.press(
+                screen.getByTestId('kitchen-orders-cancel-reason-delivery_unavailable'),
+            );
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchen-orders-cancel-confirm')).not.toBeDisabled();
+            });
+            const reads = (repositories.kitchenOrders.listOrders as jest.Mock).mock.calls.length;
+
+            await act(async () => {
+                await jest.advanceTimersByTimeAsync(ORDER_DESK_POLL_MS);
+            });
+            await waitFor(() => {
+                expect(
+                    (repositories.kitchenOrders.listOrders as jest.Mock).mock.calls.length,
+                ).toBeGreaterThan(reads);
+            });
+
+            // The poll has landed, and the record never left: the chosen reason is still chosen.
+            expect(screen.getByTestId('kitchen-orders-detail-body')).toBeTruthy();
+            expect(screen.getByTestId('kitchen-orders-cancel-confirm')).not.toBeDisabled();
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
     it('names who cancelled a cancelled order', async () => {
         const book = createOrderBook(
             seedOrders().map((order) =>
