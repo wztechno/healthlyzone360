@@ -1,6 +1,6 @@
-import type { StockActivity } from '@healthy360/api-client/contracts';
+import type { ActivityPage, StockActivity } from '@healthy360/api-client/contracts';
 import type { IsoDateTime } from '@healthy360/domain-types';
-import { screen } from '@testing-library/react-native';
+import { fireEvent, screen } from '@testing-library/react-native';
 import { Dimensions } from 'react-native';
 
 import { permissionsAdministratorSession } from '../../testing/session-fixtures.ts';
@@ -92,6 +92,39 @@ describe('the Activity page', () => {
         );
         expect(screen.getByTestId('kitchen-activity-stock-order-consume-1')).toHaveTextContent(
             'HZ-1001',
+        );
+    });
+
+    it('opens the order an audit entry is about', async () => {
+        const audit: ActivityPage = {
+            entries: [
+                {
+                    id: 'audit-1',
+                    at: '2026-11-01T10:00:00Z' as IsoDateTime,
+                    action: 'order.cancelled',
+                    actorName: 'Layla Haddad',
+                    subjectType: 'order',
+                    orderId: 'order-2',
+                    orderNumber: 'HZ-1002',
+                    metadata: {},
+                },
+            ],
+            truncated: false,
+        };
+        await renderStubScreen(<ActivityScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: {
+                kitchenOps: {
+                    getStockActivity: async () => ACTIVITY,
+                    getActivity: async () => audit,
+                },
+            },
+        });
+
+        fireEvent.press(await screen.findByTestId('kitchen-activity-view-audit'));
+
+        expect(await screen.findByTestId('kitchen-activity-audit-order-audit-1')).toHaveTextContent(
+            'HZ-1002',
         );
     });
 });

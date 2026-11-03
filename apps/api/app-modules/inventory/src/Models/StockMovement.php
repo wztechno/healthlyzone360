@@ -27,7 +27,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $waste_reason expired | spoiled | damaged | overproduced | customer_return | other; waste only, and null before the column (read as `other`)
  * @property string|null $actor_user_id who moved it; null on a row from before the column, or a job with nobody signed in
  * @property numeric-string|null $unit_cost_amount moving-average cost at consume time, per the ingredient default unit (INV1.2)
- * @property numeric-string|null $cost_amount COGS for this movement: unit_cost × quantity consumed (INV1.2)
+ * @property numeric-string|null $cost_amount the value of this movement, unsigned (`quantity_delta` gives the direction): unit_cost × quantity consumed (INV1.2); on an `adjust` row, a count's value
  * @property string|null $cost_currency_code
  * @property Carbon $created_at
  * @property Carbon $updated_at
