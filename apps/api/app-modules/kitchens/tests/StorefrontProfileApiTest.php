@@ -7,6 +7,7 @@ use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Kitchens\Presenters\MarketplaceKitchenPresenter;
 use Healthy360\Kitchens\Tests\Fixtures\KitchenWorld;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
+use Healthy360\Organisations\Enums\OrganisationStatus;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 
@@ -119,6 +120,20 @@ it('refuses a reader and a writer without the catalogue permission', function ()
     $this->putJson('/api/v1/catalogue/storefront-profile', STOREFRONT_PROFILE, $this->headers)->assertForbidden();
 
     expect(AuditLog::query()->where('action', 'kitchen.storefront_profile_updated')->exists())->toBeFalse();
+});
+
+it('lets a suspended kitchen read its profile but not write it', function (): void {
+    $kitchen = storefrontCaller($this, 'manage@kitchen.test', ['catalogue.manage_organisation']);
+    $kitchen->organisation->forceFill(['status' => OrganisationStatus::Suspended])->save();
+
+    $this->getJson('/api/v1/catalogue/storefront-profile', $this->headers)
+        ->assertOk()
+        ->assertJsonPath('data.tagline_en', '');
+    $this->putJson('/api/v1/catalogue/storefront-profile', STOREFRONT_PROFILE, $this->headers)
+        ->assertConflict()
+        ->assertJsonPath('error.code', 'organisation.suspended');
+
+    expect(Organisation::query()->findOrFail($kitchen->organisation->getKey())->tagline_en)->toBeNull();
 });
 
 it('serves the marketplace the copy in the request language', function (string $locale, string $tagline, string $description, array $cuisines): void {

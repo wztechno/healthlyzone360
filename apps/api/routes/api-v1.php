@@ -1071,10 +1071,11 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             Route::put('/kitchen-service-settings', KitchenServiceSettingsUpdateController::class)
                 ->middleware('permission:catalogue.manage_organisation')->name('catalogue.kitchen-service-settings.update');
             // The kitchen's marketplace copy, read by the anonymous marketplace off `organisations`.
-            Route::middleware(['org.trading', 'permission:catalogue.manage_organisation'])->group(function (): void {
-                Route::get('/storefront-profile', [StorefrontProfileController::class, 'show'])->name('catalogue.storefront-profile.show');
-                Route::put('/storefront-profile', [StorefrontProfileController::class, 'update'])->name('catalogue.storefront-profile.update');
-            });
+            // A suspended kitchen may still read it; only the write needs `org.trading`.
+            Route::get('/storefront-profile', [StorefrontProfileController::class, 'show'])
+                ->middleware('permission:catalogue.manage_organisation')->name('catalogue.storefront-profile.show');
+            Route::put('/storefront-profile', [StorefrontProfileController::class, 'update'])
+                ->middleware(['org.trading', 'permission:catalogue.manage_organisation'])->name('catalogue.storefront-profile.update');
             Route::post('/kitchen-pause', [KitchenPauseController::class, 'store'])
                 ->middleware('permission:order.supervise_organisation')->name('catalogue.kitchen-pause.store');
             Route::delete('/kitchen-pause', [KitchenPauseController::class, 'destroy'])
