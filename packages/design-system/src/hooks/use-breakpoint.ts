@@ -3,6 +3,8 @@ import type { BreakpointName } from '@healthy360/design-tokens';
 import { useMemo } from 'react';
 import { useWindowDimensions } from 'react-native';
 
+import { useHydrated } from './use-hydrated.ts';
+
 /**
  * The token scale already has a zero-width stop (`xs`), so there is no synthetic "base" here — one
  * vocabulary, shared with the Tailwind preset, is what keeps a class variant and a JavaScript
@@ -37,7 +39,9 @@ function resolveBreakpoint(width: number): Breakpoint {
  * reader users trip over. So the shell branches in JavaScript, and this is where it reads from.
  */
 export function useBreakpoint(): UseBreakpointResult {
-    const { width } = useWindowDimensions();
+    const { width: windowWidth } = useWindowDimensions();
+    // The static export renders with a zero-width window; hydrate at that width, then re-render.
+    const width = useHydrated() ? windowWidth : 0;
 
     return useMemo(() => {
         const breakpoint = resolveBreakpoint(width);
