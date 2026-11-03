@@ -302,7 +302,11 @@ describe('order desk cash report — the ladder', () => {
     });
 
     it('offers no till picker to a kitchen with one till', async () => {
-        await renderReport(async () => report(seedRows()));
+        const base = report(seedRows());
+        await renderReport(async () => ({
+            ...base,
+            meta: { ...base.meta, branches: [{ id: 'branch-main', name: 'Main kitchen' }] },
+        }));
         await settled();
 
         expect(screen.queryByTestId('kitchen-order-desk-cash-report-branch')).toBeNull();

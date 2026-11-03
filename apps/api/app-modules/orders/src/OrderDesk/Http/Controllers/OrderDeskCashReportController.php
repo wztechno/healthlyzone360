@@ -49,8 +49,11 @@ use Illuminate\Validation\ValidationException;
  * clock, chosen per request by {@see LocalDay}: the named branch's timezone, or
  * with no branch the organisation's, the clock `DailyCloses` uses (owner, 3 Nov).
  * A receipt at 23:30 in Beirut is that Beirut date's money, not the next UTC
- * day's. `meta.timezone` echoes the zone, so a screen says which midnight it is
- * showing rather than implying the reader's own.
+ * day's. `meta.timezone` echoes the zone, so a client can say which midnight it
+ * is showing rather than implying the reader's own. With All branches the days are
+ * the organisation's, so where a branch keeps a different clock its own report and
+ * All split the same money at different midnights (owner ruling: the branch's day
+ * with a branch, the organisation's without).
  *
  * The zone goes into SQL as a literal, which is safe only because `LocalDay`
  * returns a `DateTimeZone::listIdentifiers()` entry. A bound parameter would not
@@ -168,8 +171,8 @@ final class OrderDeskCashReportController
             'to' => $to->toDateString(),
             'branch_id' => $branchId,
             // Echoed because the client did not choose it and cannot derive it
-            // — and because a screen that did not say which midnight it was
-            // showing would be implying the reader's own.
+            // — so a client can say which midnight it was cut on rather than
+            // imply the reader's own.
             'timezone' => $zone,
             'branches' => $branches,
             'count' => count($rows),

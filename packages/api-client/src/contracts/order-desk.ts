@@ -1354,8 +1354,8 @@ export interface OrderDeskRepository {
      * reconciliation exists.
      *
      * Answers {@link OrderDeskCashReport} rather than a bare array for the calendar's reason plus one
-     * of its own: `meta.timezone` is the clock the days were cut on, and a screen that did not print
-     * it would be implying the reader's own midnight. `totals` arrives beside the rows rather than being summed
+     * of its own: `meta.timezone` is the clock the days were cut on, which a client cannot derive
+     * and can name rather than imply the reader's own midnight. `totals` arrives beside the rows rather than being summed
      * on the client, because summing per method is only legal inside one currency and a client that
      * did it would eventually add two.
      *

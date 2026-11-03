@@ -329,7 +329,8 @@ it('leaves a run no cash reached off the driver list', function (): void {
 it('shows the courier fee and the short amount beside the cash report rows', function (): void {
     settle($this, [courierRun($this, 300)], 2500, 'Courier kept change')->assertCreated();
 
-    $today = now('UTC')->toDateString();
+    // The kitchen's clock is its Beirut branch's, so the report's day is Beirut's.
+    $today = now('Asia/Beirut')->toDateString();
 
     $adjustments = $this->getJson('/api/v1/catalogue/order-desk/cash-report?from='.$today.'&to='.$today, $this->world->headers)
         ->assertOk()
