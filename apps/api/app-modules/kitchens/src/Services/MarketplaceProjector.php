@@ -347,7 +347,7 @@ final class MarketplaceProjector
         }
 
         $days = $this->mealDays[$id];
-        $now = CarbonImmutable::now($timezone ?? (string) config('app.timezone', 'UTC'));
+        $now = CarbonImmutable::now($timezone !== null && $timezone !== '' ? $timezone : (string) config('app.timezone', 'UTC'));
 
         return array_map(static function (array $day) use ($days, $now): array {
             $own = $days[$day['date']] ?? null;

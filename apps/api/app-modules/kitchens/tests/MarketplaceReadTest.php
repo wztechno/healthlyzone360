@@ -441,7 +441,7 @@ it('reads the per-meal days table once whether the page has one meal or a page o
  *
  * @return array{0: string, 1: string}
  */
-$noonOnAnOpenDay = function () use ($freekehCalendar): string {
+$noonOnAnOpenDay = function () use ($freekehCalendar): array {
     $meal = CatalogueItem::withoutTenancy()->where('slug', 'grilled-chicken-freekeh')->firstOrFail();
     $timezone = (string) OrganisationBranch::withoutTenancy()->where('organisation_id', $meal->organisation_id)
         ->where('status', 'active')->orderBy('created_at')->orderBy('id')->value('timezone');
@@ -459,6 +459,13 @@ it('shows today as unavailable once the meal own cut-off has passed, as placemen
     $freekehDay(['is_available' => true, 'remaining_portions' => null, 'order_cut_off_at' => '11:59:00'], $today);
 
     expect($freekehCalendar()[0])->toMatchArray(['date' => $today, 'available' => false, 'order_cut_off_at' => null]);
+});
+
+it('keeps today available at the very second of the meal own cut-off, as placement does', function () use ($freekehCalendar, $freekehDay, $noonOnAnOpenDay): void {
+    [$today] = $noonOnAnOpenDay();
+    $freekehDay(['is_available' => true, 'remaining_portions' => null, 'order_cut_off_at' => '12:00:00'], $today);
+
+    expect($freekehCalendar()[0])->toMatchArray(['date' => $today, 'available' => true]);
 });
 
 it('publishes the meal own cut-off when it comes before the kitchen one', function () use ($freekehCalendar, $freekehDay, $noonOnAnOpenDay): void {
