@@ -1783,6 +1783,41 @@ describe('editing a meal', () => {
         expect(stored.portionFactor).toBe(1.5);
     });
 
+    it('warns about a free-from tag a choice the dish offers contradicts', async () => {
+        const stored = meal({ ordinal: 1, overrides: { dietClassifications: ['nut_free'] } });
+
+        await renderStubScreen(<MealListing meal={stored.id} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    getMeal: async () => stored,
+                    listRecipes: async () => page(NO_RECIPES),
+                },
+                orderDesk: {
+                    listDishOptions: async () => [
+                        {
+                            id: 'option-1',
+                            kind: 'choice',
+                            groupEn: 'Sauce',
+                            groupAr: 'صلصة',
+                            nameEn: 'Satay',
+                            nameAr: 'ساتاي',
+                            recipeId: 'recipe-satay',
+                            allergens: [{ code: 'peanut', containment: 'contains' }],
+                        },
+                    ],
+                },
+            },
+        });
+
+        await untilVisible('kitchen-meal-name-en-input');
+
+        // The dish's own label is clean; the server would refuse the tag, so the card says so.
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-meal-diet-clash-nut_free');
+        });
+    });
+
     it('refuses a portion of nothing rather than dividing by it', async () => {
         const stored = meal({ ordinal: 1 });
 

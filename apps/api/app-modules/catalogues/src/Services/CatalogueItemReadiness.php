@@ -76,6 +76,7 @@ final readonly class CatalogueItemReadiness
         private DerivedAllergenService $allergens,
         private ConfirmedPriceRegistry $prices,
         private StockDeductionReadiness $stock,
+        private CatalogueItemService $items,
     ) {}
 
     /**
@@ -187,7 +188,7 @@ final readonly class CatalogueItemReadiness
     }
 
     /**
-     * The item's stored free-from tags its current label contradicts. The label is
+     * The item's stored free-from tags its current label, or a choice it offers, contradicts. The label is
      * read only when a free-from tag is there to contradict.
      *
      * @return list<array{tag: string, allergen_codes: list<string>}>
@@ -207,12 +208,7 @@ final readonly class CatalogueItemReadiness
             return [];
         }
 
-        $codes = array_map(
-            static fn (array $row): string => $row['allergen_code'],
-            $this->allergens->forItem($item)['allergens'],
-        );
-
-        return CatalogueItemService::freeFromClashes($tags, $codes);
+        return CatalogueItemService::freeFromClashes($tags, $this->items->labelAllergenCodes($item));
     }
 
     /**

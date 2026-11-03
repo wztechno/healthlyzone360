@@ -6,13 +6,16 @@ use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemDietClassification;
 use Healthy360\Catalogues\Models\CatalogueItemIngredient;
+use Healthy360\Catalogues\Models\CatalogueItemOption;
 use Healthy360\Catalogues\Tests\Fixtures\CatalogueWorld;
 use Healthy360\Ingredients\Enums\AllergenContainment;
+use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Kitchens\Services\MarketplaceMeals;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionAllergen;
+use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\ReferenceData\Models\DietClassification;
 use Illuminate\Support\Facades\DB;
@@ -195,4 +198,74 @@ it('reads the meal tags in the same number of queries with and without a clash',
         ->and($count($clashing))->toBe(2)
         ->and($meals->dietClassificationCodesOf($clean))->toBe(['vegan'])
         ->and($meals->dietClassificationCodesOf($clashing))->toBe(['vegan']);
+});
+
+/** A choice on `$meal` linked to a sauce recipe whose published, one-line version declares `$allergen`. */
+function freeFromChoice(object $tenant, CatalogueItem $meal, string $allergen): void
+{
+    $organisationId = (string) $tenant->organisation->getKey();
+    $recipe = Recipe::factory()->create(['organisation_id' => $organisationId]);
+    $version = RecipeVersion::factory()->published()->create(['recipe_id' => $recipe->getKey(), 'organisation_id' => $organisationId]);
+
+    RecipeVersionLine::factory()->create([
+        'recipe_version_id' => $version->getKey(),
+        'organisation_id' => $organisationId,
+        'line_number' => 1,
+        'ingredient_id' => Ingredient::factory()->create(['organisation_id' => $organisationId])->getKey(),
+    ]);
+    RecipeVersionAllergen::factory()->create([
+        'recipe_version_id' => $version->getKey(),
+        'organisation_id' => $organisationId,
+        'allergen_code' => CatalogueWorld::allergen($allergen)->code,
+    ]);
+
+    (new CatalogueItemOption)->forceFill([
+        'organisation_id' => $organisationId,
+        'catalogue_item_id' => (string) $meal->getKey(),
+        'kind' => 'choice',
+        'group_en' => 'Sauce',
+        'group_ar' => 'صلصة',
+        'name_en' => 'Satay sauce',
+        'name_ar' => 'صلصة ساتاي',
+        'recipe_id' => (string) $recipe->getKey(),
+        'display_order' => 0,
+    ])->save();
+}
+
+it('counts the label of a choice the dish offers against its free-from tags, on every path', function (): void {
+    // The dish's own label is clean; the peanut is in the sauce a customer may pick.
+    $meal = freeFromRecipeMeal($this->a, null);
+    tagMeal($meal, 'nut_free', 'vegan');
+    freeFromChoice($this->a, $meal, 'peanut');
+
+    $meals = app(MarketplaceMeals::class);
+
+    expect($meals->allergenCodesOf($meal))->toBe([])
+        ->and($meals->dietClassificationCodesOf($meal))->toBe(['vegan'])
+        ->and(dietFilterMatches($meal, 'nut_free'))->toBe([])
+        ->and(dietFilterMatches($meal, 'vegan'))->toBe([(string) $meal->getKey()]);
+
+    // Still the two queries the plain clash costs: the choice is checked inside the tags read.
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $meals->dietClassificationCodesOf($meal);
+    expect(DB::getQueryLog())->toHaveCount(2);
+    DB::disableQueryLog();
+
+    $this->actingAs($this->a->user);
+    $headers = CatalogueWorld::headers($this->a);
+
+    // The warning (and publish gate) the readiness reasons drive.
+    $reasons = $this->getJson('/api/v1/catalogue/items/'.$meal->getKey().'/readiness', $headers)
+        ->assertOk()
+        ->json('data.reasons');
+
+    expect(collect($reasons)->firstWhere('code', 'diet_tag_contradicts_allergens')['context'] ?? null)
+        ->toBe(['tag' => 'nut_free', 'allergen_codes' => ['peanut']]);
+
+    // And the save.
+    $this->putJson('/api/v1/catalogue/items/'.$meal->getKey().'/diet-classifications', ['diet_classifications' => ['nut_free']],
+        $headers + ['If-Match' => '"'.$meal->lock_version.'"'])
+        ->assertStatus(422)
+        ->assertJsonPath('error.details.clashes', [['tag' => 'nut_free', 'allergen_codes' => ['peanut']]]);
 });

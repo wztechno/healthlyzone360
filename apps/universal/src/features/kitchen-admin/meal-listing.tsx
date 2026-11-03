@@ -40,6 +40,7 @@ import { View } from 'react-native';
 import { Gate, useCan } from '../../access/gate.tsx';
 import { DishOptionsSection } from './dish-options-section.tsx';
 import { toFailure } from '../../data/hooks.ts';
+import { useDishOptionsQuery } from '../../data/order-desk-hooks.ts';
 import {
     ingredientsFromPages,
     useAdminMealQuery,
@@ -149,9 +150,12 @@ const FREE_FROM: Partial<Record<DietClassification, readonly string[]>> = {
     nut_free: ['tree_nut', 'peanut'],
 };
 
-/** The meal's free-from tags its current label contradicts, with the classes that do. */
-function freeFromClashes(meal: MealAdmin) {
-    const label = meal.allergens.map(String);
+/**
+ * The meal's free-from tags its current label, or a choice it offers, contradicts, with the classes
+ * that do — the server's `CatalogueItemService::labelAllergenCodes()`.
+ */
+function freeFromClashes(meal: MealAdmin, choiceAllergens: readonly string[]) {
+    const label = [...meal.allergens.map(String), ...choiceAllergens];
     return meal.dietClassifications.flatMap((tag) => {
         const codes = (FREE_FROM[tag] ?? []).filter((code) => label.includes(code));
         return codes.length === 0 ? [] : [{ tag, codes }];
@@ -159,8 +163,11 @@ function freeFromClashes(meal: MealAdmin) {
 }
 
 /** The meal's diet tags less the ones its label contradicts, which the server would refuse. */
-function tagsTheLabelAllows(meal: MealAdmin): readonly DietClassification[] {
-    const clashing = freeFromClashes(meal).map((clash) => clash.tag);
+function tagsTheLabelAllows(
+    meal: MealAdmin,
+    choiceAllergens: readonly string[],
+): readonly DietClassification[] {
+    const clashing = freeFromClashes(meal, choiceAllergens).map((clash) => clash.tag);
     return meal.dietClassifications.filter((tag) => !clashing.includes(tag));
 }
 
@@ -337,6 +344,12 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
     const [showRetire, setShowRetire] = useState(false);
 
     const data = record.data;
+    // What the dish's choices add to the plate: a free-from tag they contradict is refused too.
+    const dishOptions = useDishOptionsQuery(String(meal));
+    const choiceAllergens = useMemo(
+        () => (dishOptions.data ?? []).flatMap((option) => (option.allergens ?? []).map(({ code }) => code)),
+        [dishOptions.data],
+    );
     const serverKey =
         data === undefined ? null : `${String(data.id)}:${String(data.meta.lockVersion)}`;
 
@@ -624,7 +637,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
         mealTypes: details.mealTypes,
         // Echoed back so a save here cannot clear a classification set elsewhere — see the note on
         // DetailsDraft — less a free-from tag the label contradicts, which the server refuses.
-        dietClassifications: tagsTheLabelAllows(saved),
+        dietClassifications: tagsTheLabelAllows(saved, choiceAllergens),
         ...finishedStockRequest,
     });
 
@@ -837,7 +850,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
             : []),
         // A free-from tag the label contradicts: hidden from customers, and refused on save and
         // publish. The fix drops every such tag at once, or the server refuses the one left.
-        ...(data === undefined ? [] : freeFromClashes(data)).map((clash) => ({
+        ...(data === undefined ? [] : freeFromClashes(data, choiceAllergens)).map((clash) => ({
             key: `diet-clash-${clash.tag}`,
             tone: 'warning' as const,
             label: t('kitchen:meals.dietTagClash', {
@@ -858,7 +871,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                       mealId: data.id,
                                       request: {
                                           lockVersion: data.meta.lockVersion,
-                                          dietClassifications: tagsTheLabelAllows(data),
+                                          dietClassifications: tagsTheLabelAllows(data, choiceAllergens),
                                       },
                                   },
                                   {

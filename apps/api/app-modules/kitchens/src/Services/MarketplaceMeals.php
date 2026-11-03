@@ -540,7 +540,9 @@ final readonly class MarketplaceMeals
      * The label is {@see allergenCodesOf()}'s, spelt in SQL: the published recipe
      * version's frozen rows when there is a version, else the item's listed
      * ingredients, else the one ingredient it is, each from both mapping layers.
-     * Any containment contradicts. The version is read through
+     * Any containment contradicts, and so does the published label of any choice
+     * the dish offers (a `nut_free` bowl with a peanut-sauce choice is not nut
+     * free). The version is read through
      * `recipe_published_label_has()` because the anonymous marketplace
      * cannot see `recipe_versions`, and a plain join would keep the tag.
      *
@@ -568,7 +570,7 @@ final readonly class MarketplaceMeals
                 JOIN (VALUES {$values}) AS free_from (tag, allergen_code) ON free_from.tag = free_from_tag.code
                 JOIN catalogue_items tagged ON tagged.id = catalogue_item_diet_classifications.catalogue_item_id
                 WHERE free_from_tag.id = catalogue_item_diet_classifications.diet_classification_id
-                  AND COALESCE(
+                  AND (COALESCE(
                       recipe_published_label_has(tagged.recipe_id, tagged.organisation_id, ARRAY[free_from.allergen_code]),
                       CASE
                           WHEN EXISTS (SELECT 1 FROM catalogue_item_ingredients listed WHERE listed.catalogue_item_id = tagged.id)
@@ -588,7 +590,14 @@ final readonly class MarketplaceMeals
                                 AND mapped.allergen_code = free_from.allergen_code
                           )
                       END
-                  )
+                  ) OR EXISTS (
+                      SELECT 1
+                      FROM catalogue_item_options offered
+                      WHERE offered.catalogue_item_id = tagged.id
+                        AND offered.kind = 'choice'
+                        AND offered.recipe_id IS NOT NULL
+                        AND recipe_published_label_has(offered.recipe_id, tagged.organisation_id, ARRAY[free_from.allergen_code])
+                  ))
             )
             SQL, $bindings);
     }

@@ -105,6 +105,7 @@ final readonly class CatalogueItemService
         private AuditRecorder $audit,
         private IngredientCatalogueService $ingredients,
         private DerivedAllergenService $allergens,
+        private DishOptions $options,
     ) {}
 
     /**
@@ -131,16 +132,20 @@ final readonly class CatalogueItemService
     }
 
     /**
-     * The allergen classes on the item's current label: the same derivation the
-     * marketplace shows (`MarketplaceMeals::allergenCodesOf()`), both containments.
+     * The allergen classes a free-from tag must not contradict: the item's current
+     * label — the same derivation the marketplace shows
+     * (`MarketplaceMeals::allergenCodesOf()`), both containments — and the published
+     * label of every choice it offers, as the marketplace's free-from filter reads them.
      *
      * @return list<string>
      */
     public function labelAllergenCodes(CatalogueItem $item): array
     {
+        $choices = array_map(static fn (array $option): array => $option['allergens'] ?? [], $this->options->forItem((string) $item->getKey()));
+
         return array_values(array_unique(array_map(
             static fn (array $row): string => $row['allergen_code'],
-            $this->allergens->forItem($item)['allergens'],
+            [...$this->allergens->forItem($item)['allergens'], ...array_merge([], ...$choices)],
         )));
     }
 
