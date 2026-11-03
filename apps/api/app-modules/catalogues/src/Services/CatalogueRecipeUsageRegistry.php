@@ -52,6 +52,7 @@ final readonly class CatalogueRecipeUsageRegistry implements RecipeUsageRegistry
         private TenantContext $context,
         private AuditRecorder $audit,
         private StockDeductionReadiness $stock,
+        private AllergenAssessment $assessment,
     ) {}
 
     /**
@@ -214,6 +215,8 @@ final readonly class CatalogueRecipeUsageRegistry implements RecipeUsageRegistry
                 'pack_count' => $packs[$id]['count'] ?? 0,
                 'default_pack' => $packs[$id]['default'] ?? null,
                 'stock_blockers' => $this->stock->codes($item),
+                'allergens_assessed' => $this->assessment->isAssessed($item),
+                'on_sale_without_recipe' => $this->assessment->isOnSaleWithoutRecipe($item),
             ];
         }
 

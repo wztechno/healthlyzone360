@@ -54,6 +54,10 @@ use Throwable;
  * the same reason it is there — since the fulfilment migration it is null on
  * orders that never had an address, and `orders_fulfilment_shape_check` refuses
  * a marker on those shapes.
+ *
+ * `order_lines.note` goes too, for what a customer can write there. The complaint
+ * text the real implementation also takes is left out: its table arrives with
+ * the orders module, so a tree running this fallback has none to read.
  */
 final class OrderSnapshotAnonymiser implements OrderAnonymisation
 {
@@ -93,6 +97,11 @@ final class OrderSnapshotAnonymiser implements OrderAnonymisation
         }
 
         try {
+            DB::table('order_lines')
+                ->whereIn('order_id', DB::table('orders')->where('customer_account_id', $customerAccountId)->select('id'))
+                ->whereNotNull('note')
+                ->update(['note' => null]);
+
             // The `where` on the placeholder is the idempotence guard the
             // contract promises: a second finalisation matches no rows and
             // returns zero rather than rewriting the same redaction.

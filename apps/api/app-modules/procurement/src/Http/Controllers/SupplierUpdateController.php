@@ -79,6 +79,7 @@ final class SupplierUpdateController
             // Mirrors the CHECK the migration adds, so a bad value is a named
             // 422 rather than a constraint violation.
             'lead_time_days' => ['sometimes', 'nullable', 'integer', 'between:0,365'],
+            'payment_due_days' => ['sometimes', 'nullable', 'integer', 'between:0,365'],
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
         ]);
 

@@ -12,10 +12,10 @@
         "expiresToday": "Expires today.",
         "role": {
             "kitchen_owner": "Kitchen owner",
-            "kitchen_manager": "Kitchen manager",
+            "kitchen_manager": "Manager",
             "commercial_manager": "Commercial manager",
-            "organisation_owner": "Organisation owner",
-            "order_desk_agent": "Order desk agent",
+            "organisation_owner": "Owner",
+            "order_desk_agent": "Cashier",
             "unknown": "{{code}}"
         }
     },

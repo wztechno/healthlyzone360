@@ -1,21 +1,29 @@
-import { Badge, Cascade, DatePickerButton, Select, Text } from '@healthy360/design-system';
-import type { BadgeTone } from '@healthy360/design-system';
-import { useFormatter } from '@healthy360/i18n';
+import type {
+    KitchenAnalyticsChannel,
+    KitchenAnalyticsDay,
+    KitchenAnalyticsItem,
+    KitchenAnalyticsReport,
+    KitchenAnalyticsTotals,
+} from '@healthy360/api-client/contracts';
+import {
+    Cascade,
+    DatePickerButton,
+    EmptyState,
+    ErrorState,
+    RecordSkeleton,
+    Text,
+} from '@healthy360/design-system';
+import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { Gate } from '../../../access/gate.tsx';
+import { toFailure } from '../../../data/hooks.ts';
+import { useKitchenAnalyticsQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { RatioBars } from '../analytics/ratio-bars.tsx';
 import { StatMix } from '../analytics/stat-mix.tsx';
-import type { StatMixTone } from '../analytics/stat-mix.tsx';
 import { TrendBars } from '../analytics/trend-bars.tsx';
-import { ANALYTICS_SEGMENTS, buildKitchenAnalytics } from '../analytics-sample-data.ts';
-import type {
-    AnalyticsKpi,
-    AnalyticsSegment,
-    AnalyticsTableRow,
-} from '../analytics-sample-data.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
@@ -24,456 +32,521 @@ import {
     compareText,
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
-import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
+import { ORDER_VIEW_PERMISSION } from '../entity-registry.ts';
 import { WorkbenchSectionHeading } from '../workbench-parts.tsx';
-import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { PeriodScope, periodWindows } from '../catalogue/period-scope.tsx';
 import { addDays, daysBetween, todayIso } from '../../commerce/dates.ts';
 /**
- * `/kitchen/analytics` — the sample-data dashboard, as `Workbench.dc.html` draws it (§3.3).
+ * `/kitchen/analytics` — what the order book did over a window of days, as `Workbench.dc.html`
+ * draws the dashboard (§3.3).
  *
  * ```
- * Units produced 1 240 units  ● On-time rate 92 %  Review backlog 31  Avg prep time 34 min
- * [Period This month ▾] [2026-08-01 ▦] to [2026-08-29 ▦] [All ▾]             ▦ Columns 6 of 6
- * PRODUCTION TREND  units a day         VOLUME BY CHANNEL
- * ▁▂▃▅▆▇                               Subscription ▬▬▬▬▬▬▬▬  2 410
- * STATUS MIX  ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬   ■ On track 62%  ■ Watch 26%  ■ Blocked 12%
- * LINE ITEMS  sample figures until live reporting lands
+ * Orders 41  Units sold 96  ● On-time rate 92 %  Average lead time 3.2 h
+ * [Period This month ▾] [2026-08-01 ▦] to [2026-08-29 ▦]                     ▦ Columns 6 of 6
+ * UNITS SOLD  units a day / a week     ▁▂▃▅▆▇
+ * ORDERS BY CHANNEL                    Subscription ▬▬▬▬▬▬▬▬  41
+ * ORDER OUTCOMES  ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬     ■ Fulfilled  ■ Open  ■ Cancelled
+ * TOP ITEMS                            name · type · orders · units · share · last ordered
  * ```
  *
- * ## Sample data, said where it is read closely
+ * Every figure is `GET /catalogue/reports/kitchen-analytics`, computed from orders. Counts and
+ * units only — no money — so it sits behind the order book's own read code. The server reads each
+ * order's day on its branch's clock.
  *
- * Every figure here is `analytics-sample-data.ts`. The page carries no badge over it (removed
- * 2026-11-02, the user's call); the line items' heading and the view window still say so. When live
- * reporting lands on this route it starts carrying real revenue, and at that point it needs the cost
- * permission Cost report already has (§6.5) — decided before the data changes, not after.
+ * On time is fulfilled by the end of the requested delivery window; orders without a requested
+ * date are outside that rate, and a window with none shows the dash rather than 0 %.
  *
  * ## The Lens bar is the summary
  *
- * The four KPIs are the bar's figures, as every list page's are — no cards. The change against last
- * period is behind each figure's (i); a KPI moving the wrong way carries a danger dot.
+ * The four KPIs are the bar's figures, as every list page's are — no cards. The change against the
+ * equal window before this one is behind each figure's (i); a KPI moving the wrong way carries a
+ * danger dot.
  *
  * ## The window is the other pages' window
  *
- * The Period shortcut and a From–To pair, as Stock gaps and Cash taken draw them. The sample builder
- * reads the window's length in days, so a custom window draws as well as a shortcut. It opens on
- * This month.
+ * The Period shortcut and a From–To pair, as Stock gaps and Cash taken draw them. It opens on This
+ * month, and the pickers stop at the server's 366 days.
  *
  * ## The charts are boxes
  *
  * `TrendBars`, `RatioBars` and `StatMix` draw with `View`s and tokens, not SVG: the theme arrives for
  * free, a test can read them, and each carries its figure in words beside or on the drawing.
- *
- * The theme toggle is real app chrome — this is the one screen the app already puts it on.
  */
 export function AnalyticsScreen() {
     return (
         <Gate
             area="kitchen"
-            requirement={{ allOf: [CATALOGUE_VIEW_PERMISSION] }}
+            requirement={{ allOf: [ORDER_VIEW_PERMISSION] }}
             testID="kitchen-analytics"
         >
             <AnalyticsDashboard />
         </Gate>
     );
 }
-const MIX_TONE: Readonly<Record<string, StatMixTone>> = {
-    on_track: 'success',
-    watch: 'warning',
-    blocked: 'danger',
-};
-const STATUS_TONE: Readonly<Record<AnalyticsTableRow['status'], BadgeTone>> = {
-    on_track: 'success',
-    watch: 'warning',
-    blocked: 'danger',
-};
-function statusKey(status: AnalyticsTableRow['status']): string {
-    return `kitchen:analytics.status.${status === 'on_track' ? 'onTrack' : status}`;
-}
-function AnalyticsDashboard() {
-    const { t } = useTranslation();
-    const formatter = useFormatter();
-    const [today] = useState(() => todayIso());
-    const [from, setFrom] = useState(() => periodWindows(today).month.from);
-    const [to, setTo] = useState(today);
-    const [segment, setSegment] = useState<AnalyticsSegment>('all');
-    const [viewing, setViewing] = useState<AnalyticsTableRow | null>(null);
-    // Both ends counted: Today is one day.
-    const days = Math.max(1, (daysBetween(from, to) ?? 0) + 1);
-    const bundle = useMemo(() => buildKitchenAnalytics(days, segment), [days, segment]);
-    const spans = useMemo(
-        () => bucketSpans(from, days, bundle.productionTrend.length),
-        [from, days, bundle.productionTrend.length],
-    );
-    const pickWindow = (next: { readonly from: string; readonly to: string }) => {
-        setFrom(next.from);
-        setTo(next.to);
-        setViewing(null);
-    };
-    const channelMax = Math.max(1, ...bundle.channelVolume.map((point) => point.value));
-    const columns: readonly ControlledColumn<
-        AnalyticsTableRow,
-        CatalogueColumn<AnalyticsTableRow>
-    >[] = [
-        {
-            key: 'name',
-            role: 'title',
-            value: (row) => row.name,
-            label: t('kitchen:analytics.table.name'),
-            width: 200,
-            priority: 100,
-            sort: (left, right, direction) => compareText(left.name, right.name, direction),
-            render: (row) => (
-                <Text variant="strong" numberOfLines={1}>
-                    {row.name}
-                </Text>
-            ),
-        },
-        {
-            key: 'segment',
-            label: t('kitchen:analytics.table.segment'),
-            width: 110,
-            priority: 60,
-            filter: {
-                values: (loaded) =>
-                    [...new Set(loaded.map((row) => row.segment))].map((value) => ({
-                        key: value,
-                        label: t(`kitchen:analytics.segments.${value}`),
-                    })),
-                match: (row, value) => row.segment === value,
-            },
-            render: (row) => (
-                <Text tone="secondary">{t(`kitchen:analytics.segments.${row.segment}`)}</Text>
-            ),
-        },
-        {
-            key: 'status',
-            role: 'status',
-            label: t('kitchen:analytics.table.status'),
-            width: 96,
-            priority: 80,
-            filter: {
-                values: () =>
-                    (['on_track', 'watch', 'blocked'] as const).map((value) => ({
-                        key: value,
-                        label: t(statusKey(value)),
-                    })),
-                match: (row, value) => row.status === value,
-            },
-            render: (row) => (
-                <Badge tone={STATUS_TONE[row.status]} label={t(statusKey(row.status))} />
-            ),
-        },
-        {
-            key: 'volume',
-            role: 'metric',
-            label: t('kitchen:analytics.table.volume'),
-            width: 80,
-            priority: 85,
-            sort: (left, right, direction) => compareNumber(left.volume, right.volume, direction),
-            render: (row) => <Text variant="mono">{formatter.formatNumber(row.volume)}</Text>,
-        },
-        {
-            key: 'done',
-            label: t('kitchen:analytics.table.completion'),
-            width: 64,
-            priority: 50,
-            sort: (left, right, direction) =>
-                compareNumber(left.completionPercent, right.completionPercent, direction),
-            render: (row) => (
-                <Text variant="mono">
-                    {formatter.formatNumber(row.completionPercent / 100, { style: 'percent' })}
-                </Text>
-            ),
-        },
-        {
-            key: 'avg',
-            label: t('kitchen:analytics.table.avgMinutes'),
-            width: 76,
-            priority: 45,
-            sort: (left, right, direction) =>
-                compareNumber(left.avgMinutes, right.avgMinutes, direction),
-            render: (row) => <Text variant="mono">{formatter.formatNumber(row.avgMinutes)}</Text>,
-        },
-        {
-            key: 'updated',
-            label: t('kitchen:analytics.table.updated'),
-            width: 110,
-            priority: 20,
-            // Oldest first when ascending, as a timestamp sorts: the label is "5h ago", so the
-            // larger the hours, the earlier the change.
-            sort: (left, right, direction) =>
-                compareNumber(right.updatedHoursAgo, left.updatedHoursAgo, direction),
-            render: (row) => (
-                <Text variant="caption" tone="secondary" numberOfLines={1}>
-                    {row.updatedLabel}
-                </Text>
-            ),
-        },
-    ];
-    const controls = useColumnControls(bundle.rows, columns, 'kitchen-analytics-table');
-    if (viewing !== null) {
-        return (
-            <RecordViewPage
-                testID="kitchen-analytics-window"
-                onBack={() => {
-                    setViewing(null);
-                }}
-                title={viewing.name}
-                kind={t('kitchen:analytics.window.kind')}
-                status={{
-                    label: t(statusKey(viewing.status)),
-                    tone: STATUS_TONE[viewing.status],
-                }}
-                note={t('kitchen:analytics.window.note')}
-                fields={[
-                    {
-                        key: 'segment',
-                        label: t('kitchen:analytics.table.segment'),
-                        value: t(`kitchen:analytics.segments.${viewing.segment}`),
-                    },
-                    {
-                        key: 'volume',
-                        label: t('kitchen:analytics.table.volume'),
-                        value: formatter.formatNumber(viewing.volume),
-                        mono: true,
-                    },
-                    {
-                        key: 'done',
-                        label: t('kitchen:analytics.table.completion'),
-                        value: formatter.formatNumber(viewing.completionPercent / 100, {
-                            style: 'percent',
-                        }),
-                        mono: true,
-                    },
-                    {
-                        key: 'avg',
-                        label: t('kitchen:analytics.table.avgMinutes'),
-                        value: formatter.formatNumber(viewing.avgMinutes),
-                        mono: true,
-                    },
-                    {
-                        key: 'updated',
-                        label: t('kitchen:analytics.table.updated'),
-                        value: viewing.updatedLabel,
-                    },
-                ]}
-                // No primary: a sample line item has no record to open, and a button that went
-                // nowhere would be the one dishonest control on an honestly labelled screen.
-            />
-        );
-    }
 
-    return (
-        <Cascade space="md" testID="kitchen-analytics-panel">
-            <LensBar
-                testID="kitchen-analytics-toolbar"
-                label={t('kitchen:lens.label')}
-                figures={bundle.kpis.map((kpi) => kpiFigure(kpi, t, formatter))}
-                scope={
-                    <>
-                        <PeriodScope
-                            testID="kitchen-analytics-period"
-                            today={today}
-                            value={{ from, to }}
-                            onChange={pickWindow}
-                        />
-                        <View className="z-auto flex-row items-center gap-tight">
-                            <DatePickerButton
-                                testID="kitchen-analytics-from"
-                                label={t('kitchen:analytics.filters.from')}
-                                value={from}
-                                max={to}
-                                onChange={(next) => {
-                                    pickWindow({ from: next, to });
-                                }}
-                            />
-                            <Text variant="caption" tone="secondary" aria-hidden>
-                                {t('kitchen:ops.requirements.windowTo')}
-                            </Text>
-                            <DatePickerButton
-                                testID="kitchen-analytics-to"
-                                label={t('kitchen:analytics.filters.to')}
-                                value={to}
-                                min={from}
-                                onChange={(next) => {
-                                    pickWindow({ from, to: next });
-                                }}
-                            />
-                        </View>
-                        {/* A fixed-width box, lifted so its menu is never covered by the charts. */}
-                        <View className="z-tooltip" style={{ width: SEGMENT_WIDTH }}>
-                            <Select<AnalyticsSegment>
-                                testID="kitchen-analytics-segment"
-                                id="kitchen-analytics-segment"
-                                label={t('kitchen:analytics.filters.segment')}
-                                labelHidden
-                                value={segment}
-                                onChange={(next) => {
-                                    setSegment(next);
-                                    setViewing(null);
-                                }}
-                                options={ANALYTICS_SEGMENTS.map((value) => ({
-                                    value,
-                                    label: t(`kitchen:analytics.segments.${value}`),
-                                }))}
-                            />
-                        </View>
-                    </>
-                }
-                result={t('kitchen:lens.result', {
-                    shown: controls.rows.length,
-                    total: bundle.rows.length,
-                })}
-                clearLabel={t('kitchen:lens.clear')}
-                {...(controls.filtered ? { onClear: controls.clearFilters } : {})}
-                // Always the labelled button, "Columns 6 of 6", as on the other lists.
-                trailing={<ColumnPicker {...controls.picker} />}
-            />
-            {/* One chart per line: side by side, the trend's bars had no room between them. */}
-            <View className="flex-col gap-loose">
-                <View className="flex-col gap-snug">
-                    <WorkbenchSectionHeading
-                        title={t('kitchen:analytics.charts.productionTrend')}
-                        aside={t('kitchen:analytics.charts.productionTrendUnit')}
-                    />
-                    <TrendBars
-                        testID="kitchen-analytics-trend"
-                        values={bundle.productionTrend.map((point) => point.value)}
-                        tickEvery={Math.max(1, Math.ceil(bundle.productionTrend.length / 8))}
-                        tickFor={(index) => {
-                            const span = spans[index];
-                            if (span === undefined) return '';
-                            return formatter.formatDate(
-                                span.from,
-                                days <= 7
-                                    ? { weekday: 'short', day: 'numeric' }
-                                    : { day: 'numeric', month: 'short' },
-                            );
-                        }}
-                        valueFor={(index) =>
-                            formatter.formatNumber(bundle.productionTrend[index]?.value ?? 0)
-                        }
-                        titleFor={(index) => {
-                            const span = spans[index];
-                            const short = { day: 'numeric', month: 'short' } as const;
-                            return t('kitchen:analytics.charts.trendBarTitle', {
-                                label:
-                                    span === undefined
-                                        ? ''
-                                        : span.from.getTime() === span.to.getTime()
-                                          ? formatter.formatDate(span.from, short)
-                                          : t('kitchen:calendar.range', {
-                                                from: formatter.formatDate(span.from, short),
-                                                to: formatter.formatDate(span.to, short),
-                                            }),
-                                value: formatter.formatNumber(
-                                    bundle.productionTrend[index]?.value ?? 0,
-                                ),
-                            });
-                        }}
-                    />
-                </View>
-                <View className="flex-col gap-snug">
-                    <WorkbenchSectionHeading title={t('kitchen:analytics.charts.channelVolume')} />
-                    <RatioBars
-                        testID="kitchen-analytics-channels"
-                        labelWidth={110}
-                        valueWidth={56}
-                        rows={bundle.channelVolume.map((point) => ({
-                            key: point.label,
-                            label: t(`kitchen:analytics.charts.channels.${point.label}`),
-                            value: formatter.formatNumber(point.value),
-                            share: point.value / channelMax,
-                        }))}
-                    />
-                </View>
-            </View>
-            <View className="flex-col gap-2.5">
-                <WorkbenchSectionHeading title={t('kitchen:analytics.charts.statusMix')} />
-                <StatMix
-                    testID="kitchen-analytics-mix"
-                    formatPercent={(pct) => formatter.formatNumber(pct / 100, { style: 'percent' })}
-                    segments={bundle.statusMix.map((slice) => ({
-                        key: slice.key,
-                        label: t(slice.labelKey),
-                        pct: slice.value,
-                        tone: MIX_TONE[slice.key] ?? 'warning',
-                    }))}
-                />
-            </View>
-            <View className="flex-col">
-                <WorkbenchSectionHeading
-                    title={t('kitchen:analytics.table.title')}
-                    aside={t('kitchen:analytics.table.sampleNote')}
-                />
-                <CatalogueList<AnalyticsTableRow>
-                    testID="kitchen-analytics-table"
-                    label={t('kitchen:analytics.table.caption')}
-                    columns={controls.columns}
-                    rows={controls.rows}
-                    rowKey={(row) => row.id}
-                    onRowPress={setViewing}
-                    rowActionsLabel={t('kitchen:list.rowActions')}
-                />
-            </View>
-        </Cascade>
-    );
+/** One day short of the server's cap: the window counts both of its ends. */
+const WINDOW_REACH = 365;
+
+/** A window longer than a month draws a bar a week, or its bars have no room between them. */
+const DAILY_DAYS = 31;
+
+const CHANNEL_LABEL: Readonly<Record<KitchenAnalyticsChannel, string>> = {
+    subscription: 'kitchen:analytics.charts.channels.subscription',
+    b2b: 'kitchen:analytics.charts.channels.b2b',
+    pos: 'kitchen:analytics.charts.channels.pos',
+    a_la_carte: 'kitchen:analytics.charts.channels.aLaCarte',
+};
+
+const KPI_KEYS = ['orders', 'units', 'onTime', 'leadTime'] as const;
+
+interface TrendBucket {
+    readonly from: string;
+    readonly to: string;
+    readonly units: number;
 }
-/** The order desk's kind select width, so the two filters read as one control. */
-const SEGMENT_WIDTH = 140;
+
+/**
+ * The trend's bars: one per day, or runs of `size` days ending on the last day. The oldest run
+ * absorbs the remainder, so the newest bar is always a whole week ending on the window's last day.
+ */
+export function trendBuckets(
+    days: readonly KitchenAnalyticsDay[],
+    size: number,
+): readonly TrendBucket[] {
+    const buckets: TrendBucket[] = [];
+    for (let end = days.length; end > 0; end -= size) {
+        const run = days.slice(Math.max(0, end - size), end);
+        buckets.unshift({
+            from: run[0]?.date ?? '',
+            to: run[run.length - 1]?.date ?? '',
+            units: run.reduce((sum, day) => sum + day.units, 0),
+        });
+    }
+    return buckets;
+}
 
 /** A local day, `YYYY-MM-DD`, as a `Date` at its midnight. */
 function localDay(iso: string): Date {
     return new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
 }
 
-/**
- * The real calendar days each trend bar stands for, across the window.
- *
- * The window is split into `count` equal runs of whole days, oldest first; the last run absorbs the
- * remainder so the final bar always ends on the window's last day.
- */
-function bucketSpans(
-    from: string,
-    days: number,
-    count: number,
-): readonly { readonly from: Date; readonly to: Date }[] {
-    const size = Math.max(1, Math.floor(days / Math.max(1, count)));
-    const last = localDay(addDays(from, days - 1) ?? from);
-    return Array.from({ length: count }, (_, index) => {
-        const start = localDay(addDays(from, index * size) ?? from);
-        const end =
-            index === count - 1 ? last : localDay(addDays(from, (index + 1) * size - 1) ?? from);
-        return { from: start, to: end < start ? start : end };
-    });
+function itemTypeLabel(type: string | null, t: TFunction): string {
+    if (type === null) return t('kitchen:list.noValue');
+    if (type === 'subscription_plan') return t('kitchen:priceLists.kindPlan');
+    return t(`marketplace:itemTypes.${type}`);
+}
+
+function AnalyticsDashboard() {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const { locale } = useLocale();
+    const [today] = useState(() => todayIso());
+    const [from, setFrom] = useState(() => periodWindows(today).month.from);
+    const [to, setTo] = useState(today);
+    const pickWindow = (next: { readonly from: string; readonly to: string }) => {
+        setFrom(next.from);
+        setTo(next.to);
+    };
+    const report = useKitchenAnalyticsQuery(from, to);
+    const failure = toFailure(report.error);
+    const data = report.data;
+    const items = useMemo(() => data?.items ?? [], [data]);
+
+    const name = (item: KitchenAnalyticsItem): string =>
+        locale === 'ar' && item.nameAr !== null && item.nameAr !== '' ? item.nameAr : item.nameEn;
+    const totalUnits = data?.current.units ?? 0;
+    const columns: readonly ControlledColumn<
+        KitchenAnalyticsItem,
+        CatalogueColumn<KitchenAnalyticsItem>
+    >[] = [
+        {
+            key: 'name',
+            role: 'title',
+            value: name,
+            label: t('kitchen:analytics.table.name'),
+            width: 200,
+            priority: 100,
+            sort: (left, right, direction) => compareText(name(left), name(right), direction),
+            render: (item) => (
+                <Text variant="strong" numberOfLines={1}>
+                    {name(item)}
+                </Text>
+            ),
+        },
+        {
+            key: 'type',
+            label: t('kitchen:analytics.table.type'),
+            width: 110,
+            priority: 60,
+            filter: {
+                values: (loaded) =>
+                    [...new Set(loaded.map((item) => item.itemType))].map((value) => ({
+                        key: value ?? '',
+                        label: itemTypeLabel(value, t),
+                    })),
+                match: (item, value) => (item.itemType ?? '') === value,
+            },
+            render: (item) => <Text tone="secondary">{itemTypeLabel(item.itemType, t)}</Text>,
+        },
+        {
+            key: 'orders',
+            role: 'metric',
+            label: t('kitchen:analytics.table.orders'),
+            width: 72,
+            priority: 80,
+            sort: (left, right, direction) => compareNumber(left.orders, right.orders, direction),
+            render: (item) => <Text variant="mono">{formatter.formatNumber(item.orders)}</Text>,
+        },
+        {
+            key: 'units',
+            role: 'metric',
+            label: t('kitchen:analytics.table.units'),
+            width: 80,
+            priority: 90,
+            sort: (left, right, direction) => compareNumber(left.units, right.units, direction),
+            render: (item) => <Text variant="mono">{formatter.formatNumber(item.units)}</Text>,
+        },
+        {
+            key: 'share',
+            label: t('kitchen:analytics.table.share'),
+            width: 72,
+            priority: 50,
+            sort: (left, right, direction) => compareNumber(left.units, right.units, direction),
+            render: (item) => (
+                <Text variant="mono">
+                    {totalUnits === 0
+                        ? t('kitchen:list.noValue')
+                        : formatter.formatNumber(item.units / totalUnits, {
+                              style: 'percent',
+                              maximumFractionDigits: 1,
+                          })}
+                </Text>
+            ),
+        },
+        {
+            key: 'lastOrdered',
+            label: t('kitchen:analytics.table.lastOrdered'),
+            width: 120,
+            priority: 40,
+            sort: (left, right, direction) =>
+                compareText(left.lastOrderedAt, right.lastOrderedAt, direction),
+            render: (item) => (
+                <Text variant="caption" tone="secondary" numberOfLines={1}>
+                    {formatter.formatDate(item.lastOrderedAt, { dateStyle: 'medium' })}
+                </Text>
+            ),
+        },
+    ];
+    const controls = useColumnControls(items, columns, 'kitchen-analytics-table');
+
+    const figures: readonly LensFigure[] =
+        data !== undefined
+            ? reportFigures(data, t, formatter)
+            : report.isPending
+              ? KPI_KEYS.map((key) => ({
+                    key,
+                    label: t(`kitchen:analytics.kpi.${key}`),
+                    value: null,
+                }))
+              : [];
+    const lens = (
+        <LensBar
+            testID="kitchen-analytics-toolbar"
+            label={t('kitchen:lens.label')}
+            figures={figures}
+            scope={
+                <>
+                    <PeriodScope
+                        testID="kitchen-analytics-period"
+                        today={today}
+                        value={{ from, to }}
+                        onChange={pickWindow}
+                    />
+                    <View className="z-auto flex-row items-center gap-tight">
+                        <DatePickerButton
+                            testID="kitchen-analytics-from"
+                            label={t('kitchen:analytics.filters.from')}
+                            value={from}
+                            min={addDays(to, -WINDOW_REACH) ?? undefined}
+                            max={to}
+                            onChange={(next) => {
+                                pickWindow({ from: next, to });
+                            }}
+                        />
+                        <Text variant="caption" tone="secondary" aria-hidden>
+                            {t('kitchen:ops.requirements.windowTo')}
+                        </Text>
+                        <DatePickerButton
+                            testID="kitchen-analytics-to"
+                            label={t('kitchen:analytics.filters.to')}
+                            value={to}
+                            min={from}
+                            max={addDays(from, WINDOW_REACH) ?? undefined}
+                            onChange={(next) => {
+                                pickWindow({ from, to: next });
+                            }}
+                        />
+                    </View>
+                </>
+            }
+            result={
+                report.isPending
+                    ? null
+                    : t('kitchen:lens.result', { shown: controls.rows.length, total: items.length })
+            }
+            clearLabel={t('kitchen:lens.clear')}
+            {...(controls.filtered ? { onClear: controls.clearFilters } : {})}
+            // Always the labelled button, "Columns 6 of 6", as on the other lists.
+            trailing={<ColumnPicker {...controls.picker} />}
+        />
+    );
+
+    if (report.isPending) {
+        return (
+            <Cascade space="md" testID="kitchen-analytics-panel">
+                {lens}
+                <RecordSkeleton
+                    testID="kitchen-analytics-loading"
+                    heading={false}
+                    tiles={0}
+                    rows={6}
+                />
+            </Cascade>
+        );
+    }
+    if (failure !== null) {
+        return (
+            <Cascade space="md" testID="kitchen-analytics-panel">
+                {lens}
+                <ErrorState
+                    testID="kitchen-analytics-error"
+                    failure={failure}
+                    onRetry={() => {
+                        void report.refetch();
+                    }}
+                    retrying={report.isFetching}
+                />
+            </Cascade>
+        );
+    }
+    if (data === undefined) return null;
+
+    const { current } = data;
+    const placed = current.fulfilled + current.open + current.cancelled;
+    // Both ends counted: Today is one day.
+    const days = Math.max(1, (daysBetween(from, to) ?? 0) + 1);
+    const weekly = days > DAILY_DAYS;
+    const buckets = trendBuckets(data.days, weekly ? 7 : 1);
+    const channelMax = Math.max(1, ...data.channels.map((channel) => channel.orders));
+    const short = { day: 'numeric', month: 'short' } as const;
+
+    return (
+        <Cascade space="md" testID="kitchen-analytics-panel">
+            {lens}
+            {placed === 0 ? (
+                <EmptyState
+                    testID="kitchen-analytics-empty"
+                    title={t('kitchen:analytics.emptyTitle')}
+                    body={t('kitchen:analytics.emptyBody')}
+                />
+            ) : (
+                <Cascade space="md">
+                    {/* One chart per line: side by side, the trend's bars had no room between them. */}
+                    <View className="flex-col gap-loose">
+                        <View className="flex-col gap-snug">
+                            <WorkbenchSectionHeading
+                                title={t('kitchen:analytics.charts.unitsTrend')}
+                                aside={t(
+                                    weekly
+                                        ? 'kitchen:analytics.charts.perWeek'
+                                        : 'kitchen:analytics.charts.perDay',
+                                )}
+                            />
+                            <TrendBars
+                                testID="kitchen-analytics-trend"
+                                values={buckets.map((bucket) => bucket.units)}
+                                tickEvery={Math.max(1, Math.ceil(buckets.length / 8))}
+                                tickFor={(index) => {
+                                    const bucket = buckets[index];
+                                    if (bucket === undefined) return '';
+                                    return formatter.formatDate(
+                                        localDay(bucket.from),
+                                        days <= 7 ? { weekday: 'short', day: 'numeric' } : short,
+                                    );
+                                }}
+                                valueFor={(index) =>
+                                    formatter.formatNumber(buckets[index]?.units ?? 0)
+                                }
+                                titleFor={(index) => {
+                                    const bucket = buckets[index];
+                                    if (bucket === undefined) return '';
+                                    const fromLabel = formatter.formatDate(
+                                        localDay(bucket.from),
+                                        short,
+                                    );
+                                    return t('kitchen:analytics.charts.trendBarTitle', {
+                                        label:
+                                            bucket.from === bucket.to
+                                                ? fromLabel
+                                                : t('kitchen:calendar.range', {
+                                                      from: fromLabel,
+                                                      to: formatter.formatDate(
+                                                          localDay(bucket.to),
+                                                          short,
+                                                      ),
+                                                  }),
+                                        value: formatter.formatNumber(bucket.units),
+                                    });
+                                }}
+                            />
+                        </View>
+                        <View className="flex-col gap-snug">
+                            <WorkbenchSectionHeading
+                                title={t('kitchen:analytics.charts.channelVolume')}
+                            />
+                            <RatioBars
+                                testID="kitchen-analytics-channels"
+                                labelWidth={110}
+                                valueWidth={56}
+                                rows={data.channels.map((channel) => ({
+                                    key: channel.key,
+                                    label: t(CHANNEL_LABEL[channel.key]),
+                                    value: formatter.formatNumber(channel.orders),
+                                    share: channel.orders / channelMax,
+                                }))}
+                            />
+                        </View>
+                    </View>
+                    <View className="flex-col gap-2.5">
+                        <WorkbenchSectionHeading title={t('kitchen:analytics.charts.outcomeMix')} />
+                        <StatMix
+                            testID="kitchen-analytics-mix"
+                            formatPercent={(pct) =>
+                                formatter.formatNumber(pct / 100, { style: 'percent' })
+                            }
+                            segments={(
+                                [
+                                    ['fulfilled', current.fulfilled, 'success'],
+                                    ['open', current.open, 'warning'],
+                                    ['cancelled', current.cancelled, 'danger'],
+                                ] as const
+                            ).map(([key, count, tone]) => ({
+                                key,
+                                label: t(`kitchen:analytics.charts.outcomes.${key}`),
+                                pct: (count / placed) * 100,
+                                tone,
+                            }))}
+                        />
+                    </View>
+                    <View className="flex-col">
+                        <WorkbenchSectionHeading title={t('kitchen:analytics.table.title')} />
+                        <CatalogueList<KitchenAnalyticsItem>
+                            testID="kitchen-analytics-table"
+                            label={t('kitchen:analytics.table.caption')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(item) => item.catalogueItemId}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                        />
+                    </View>
+                </Cascade>
+            )}
+        </Cascade>
+    );
+}
+
+interface KpiInput {
+    readonly key: (typeof KPI_KEYS)[number];
+    readonly display: string;
+    readonly current: number | null;
+    readonly previous: number | null;
+    readonly higherIsBetter: boolean;
+}
+
+/** The report's four KPIs, each against the equal window before this one. */
+function reportFigures(
+    { current, previous }: KitchenAnalyticsReport,
+    t: TFunction,
+    formatter: ReturnType<typeof useFormatter>,
+): readonly LensFigure[] {
+    const onTime = (totals: KitchenAnalyticsTotals) =>
+        totals.fulfilledWithDue === 0 ? null : totals.onTime / totals.fulfilledWithDue;
+    const leadHours = (totals: KitchenAnalyticsTotals) =>
+        totals.avgLeadMinutes === null ? null : totals.avgLeadMinutes / 60;
+    const currentOnTime = onTime(current);
+    const currentLead = leadHours(current);
+    const kpis: readonly KpiInput[] = [
+        {
+            key: 'orders',
+            display: formatter.formatNumber(current.orders),
+            current: current.orders,
+            previous: previous.orders,
+            higherIsBetter: true,
+        },
+        {
+            key: 'units',
+            display: formatter.formatNumber(current.units),
+            current: current.units,
+            previous: previous.units,
+            higherIsBetter: true,
+        },
+        {
+            key: 'onTime',
+            display:
+                currentOnTime === null
+                    ? t('kitchen:list.noValue')
+                    : formatter.formatNumber(currentOnTime, { style: 'percent' }),
+            current: currentOnTime,
+            previous: onTime(previous),
+            higherIsBetter: true,
+        },
+        {
+            key: 'leadTime',
+            display:
+                currentLead === null
+                    ? t('kitchen:list.noValue')
+                    : `${formatter.formatNumber(currentLead, {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                      })} ${t('kitchen:analytics.units.hours')}`,
+            current: currentLead,
+            previous: leadHours(previous),
+            higherIsBetter: false,
+        },
+    ];
+    return kpis.map((kpi) => kpiFigure(kpi, t));
 }
 
 /**
- * A KPI as a Lens bar figure: the value in its unit, the change against last period behind its (i),
- * and a danger dot when it moved the wrong way.
+ * A KPI as a Lens bar figure: the change against the previous window behind its (i), and a danger
+ * dot when it moved the wrong way. No previous figure (or a zero one) has no percentage change, so
+ * the (i) says so instead.
  */
-function kpiFigure(
-    kpi: AnalyticsKpi,
-    t: TFunction,
-    formatter: ReturnType<typeof useFormatter>,
-): LensFigure {
-    const good = kpi.higherIsBetter ? kpi.deltaPercent >= 0 : kpi.deltaPercent <= 0;
-    const trend =
-        kpi.deltaPercent > 0
-            ? t('kitchen:analytics.trend.up', { value: Math.abs(kpi.deltaPercent) })
-            : kpi.deltaPercent < 0
-              ? t('kitchen:analytics.trend.down', { value: Math.abs(kpi.deltaPercent) })
-              : t('kitchen:analytics.trend.flat');
-    return {
+function kpiFigure(kpi: KpiInput, t: TFunction): LensFigure {
+    const base = {
         key: kpi.key,
-        label: t(kpi.labelKey),
-        value: kpi.value,
-        display: `${formatter.formatNumber(kpi.value)} ${t(`kitchen:analytics.units.${kpi.unit}`)}`,
-        info: trend,
-        ...(kpi.deltaPercent === 0 || good ? {} : { tone: 'danger' as const }),
+        label: t(`kitchen:analytics.kpi.${kpi.key}`),
+        // `null` means still in flight on the bar; a loaded figure with no value draws its dash.
+        value: kpi.current ?? 0,
+        display: kpi.display,
+    };
+    if (kpi.current === null) return { ...base, info: t('kitchen:analytics.notEnoughData') };
+    if (kpi.previous === null || kpi.previous === 0) {
+        return { ...base, info: t('kitchen:analytics.trend.noComparison') };
+    }
+    const delta = Math.round(((kpi.current - kpi.previous) / kpi.previous) * 100);
+    const good = kpi.higherIsBetter ? delta >= 0 : delta <= 0;
+    return {
+        ...base,
+        info:
+            delta > 0
+                ? t('kitchen:analytics.trend.up', { value: Math.abs(delta) })
+                : delta < 0
+                  ? t('kitchen:analytics.trend.down', { value: Math.abs(delta) })
+                  : t('kitchen:analytics.trend.flat'),
+        ...(delta === 0 || good ? {} : { tone: 'danger' as const }),
     };
 }

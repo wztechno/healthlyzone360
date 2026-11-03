@@ -7,6 +7,7 @@ use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Audit\Models\AuditLog;
 use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
 use Healthy360\Catalogues\Enums\SalesChannelKind;
+use Healthy360\Catalogues\Models\CatalogueItemAvailabilityDay;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Customers\Enums\CustomerAddressType;
 use Healthy360\Customers\Models\CustomerAddress;
@@ -177,25 +178,47 @@ it('quotes an edit on the order own channel, keeping its stored fee', function (
 
 it('lets staff override a passed cut-off, and records that they did', function (): void {
     CheckoutWorld::cutOff($this->world->branch, '15:00:00');
-    $this->travelTo(CarbonImmutable::parse('2026-11-02 10:00:00', 'Asia/Beirut'));
+    $this->travelTo(CarbonImmutable::parse('2027-03-02 10:00:00', 'Asia/Beirut'));
 
     $order = amendDeskDelivery($this, [
         'branch_id' => (string) $this->world->branch->getKey(),
-        'requested_delivery_date' => '2026-11-03',
+        'requested_delivery_date' => '2027-03-03',
     ]);
 
-    $this->travelTo(CarbonImmutable::parse('2026-11-02 16:00:00', 'Asia/Beirut'));
+    $this->travelTo(CarbonImmutable::parse('2027-03-02 16:00:00', 'Asia/Beirut'));
 
-    amendPatch($this, $order, ['lines' => amendMealLines($this, 1), 'requested_delivery_date' => '2026-11-02'])->assertOk();
+    amendPatch($this, $order, ['lines' => amendMealLines($this, 1), 'requested_delivery_date' => '2027-03-02'])->assertOk();
 
-    expect($order->refresh()->requested_delivery_date->toDateString())->toBe('2026-11-02');
+    expect($order->refresh()->requested_delivery_date->toDateString())->toBe('2027-03-02');
 
     $audit = AuditLog::query()->where('action', 'order.amended')->sole();
     expect($audit->metadata['cut_off_overridden'])->toBeTrue()
-        ->and($audit->metadata['date'])->toBe('2026-11-02')
+        ->and($audit->metadata['date'])->toBe('2027-03-02')
         ->and($audit->metadata['lines_changed'])->toBe(1)
         ->and($audit->metadata['total_before'])->toBe(5500)
         ->and($audit->metadata['total_after'])->toBe(3000);
+});
+
+it('keeps a line the calendar closed after the order took it, and refuses moving it onto such a day', function (): void {
+    $held = now()->addDays(2)->toDateString();
+    $moved = now()->addDays(3)->toDateString();
+
+    $order = amendDeskDelivery($this, ['requested_delivery_date' => $held]);
+
+    foreach ([$held, $moved] as $date) {
+        CatalogueItemAvailabilityDay::factory()->create([
+            'organisation_id' => $this->world->organisation->getKey(),
+            'catalogue_item_id' => $this->world->meal->getKey(),
+            'date' => $date,
+            'remaining_portions' => 0,
+        ]);
+    }
+
+    amendPatch($this, $order, ['lines' => amendMealLines($this, 1)])->assertOk();
+
+    $reasons = amendRefusal(amendPatch($this, $order, ['lines' => amendMealLines($this, 1), 'requested_delivery_date' => $moved]));
+
+    expect(array_column($reasons, 'reason'))->toContain('item_unavailable_on_date');
 });
 
 it('still refuses a day in the past or a day the branch is closed', function (): void {

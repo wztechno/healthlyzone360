@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Catalogues\Providers;
 
+use Healthy360\Catalogues\Console\ReportUnassessedCommand;
 use Healthy360\Catalogues\Contracts\ConfirmedPriceRegistry;
 use Healthy360\Catalogues\Services\CatalogueIngredientUsageRegistry;
 use Healthy360\Catalogues\Services\CatalogueRecipeUsageRegistry;
@@ -35,6 +36,10 @@ class CataloguesServiceProvider extends ServiceProvider
 
         // Scoped, so the photo links it looks up are reused for the rest of the request.
         $this->app->scoped(RecordPhotoService::class);
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([ReportUnassessedCommand::class]);
+        }
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Customers\Guest\Services;
 
 use Healthy360\Audit\Services\AuditRecorder;
+use Healthy360\Customers\Closure\Contracts\OrderAnonymisation;
 use Healthy360\Customers\Enums\CustomerAccountStatus;
 use Healthy360\Customers\Enums\CustomerAccountType;
 use Healthy360\Customers\Guest\Enums\SuppressionSource;
@@ -20,6 +21,7 @@ use Healthy360\Identity\Exceptions\InvalidContactValue;
 use Healthy360\Identity\Models\ContactPoint;
 use Healthy360\Identity\Services\ContactValueHasher;
 use Healthy360\Identity\Services\ContactValueNormaliser;
+use Healthy360\Orders\Contracts\OpenOrderQuery;
 use Healthy360\Verification\Enums\OtpChannel;
 use Healthy360\Verification\Enums\OtpPurpose;
 use Healthy360\Verification\Exceptions\ChannelUnavailable;
@@ -74,11 +76,12 @@ use Throwable;
  * without it the next import silently re-adds the person who asked to be
  * forgotten.
  *
- * **Orders are deliberately not touched.** A guest order is a commercial and tax
- * record with a statutory retention of its own, and the plan's position is that
- * the order keeps its area and city while the identifying columns go. That
- * redaction belongs to the orders module, which may not exist in this tree yet —
- * hence the table-existence guard and the seam below.
+ * **Orders survive, redacted.** A guest order is a commercial and tax record with
+ * a statutory retention of its own, and the plan's position is that the order
+ * keeps its area and city while the identifying columns go. That redaction
+ * belongs to the orders module, through the `OrderAnonymisation` port a closure
+ * uses. It became necessary when orders began carrying a copy of the allergies
+ * this method deletes.
  */
 final class GuestDeletionService
 {
@@ -89,6 +92,8 @@ final class GuestDeletionService
         private readonly MarketingSuppressionRegistry $suppressions,
         private readonly GuestSessionService $sessions,
         private readonly AuditRecorder $audit,
+        private readonly OrderAnonymisation $orders,
+        private readonly OpenOrderQuery $openOrders,
     ) {}
 
     /**
@@ -188,7 +193,13 @@ final class GuestDeletionService
             metadata: ['contact_channel' => $channel->value],
         );
 
-        return GuestDeletionOutcome::purged($this->purge($account));
+        $report = $this->purge($account);
+
+        // An open order is the ordinary refusal, for the reason every other one
+        // here is.
+        return $report instanceof GuestPurgeReport
+            ? GuestDeletionOutcome::purged($report)
+            : GuestDeletionOutcome::refused();
     }
 
     /**
@@ -199,13 +210,24 @@ final class GuestDeletionService
      * runs out. The suppression source differs between them — an expiry is not
      * somebody asking to be forgotten — which is why it is a parameter.
      *
+     * **An open order stops it, whoever is asking.** A purge wipes the order's
+     * allergies and address, and a kitchen cooking that order still needs both,
+     * so the answer is null and nothing is touched. The guard sits here rather
+     * than in a caller so neither caller can miss it.
+     *
      * Order matters. Contacts go first so the cascade takes their passcode
      * challenges with them and the address's courier-number reference is nulled
      * rather than blocking; the dietary profile takes its allergen declarations
      * and food exclusions with it. The account row survives, anonymised.
+     *
+     * @return GuestPurgeReport|null null when an open order left the account alone
      */
-    public function purge(CustomerAccount $account, SuppressionSource $source = SuppressionSource::Deletion): GuestPurgeReport
+    public function purge(CustomerAccount $account, SuppressionSource $source = SuppressionSource::Deletion): ?GuestPurgeReport
     {
+        if ($this->openOrders->openOrderSummaries((string) $account->getKey()) !== []) {
+            return null;
+        }
+
         /** @var Collection<int, ContactPoint> $contacts */
         $contacts = ContactPoint::query()
             ->where('customer_account_id', $account->getKey())
@@ -237,6 +259,9 @@ final class GuestDeletionService
             CustomerDietaryProfile::query()
                 ->where('customer_account_id', $account->getKey())
                 ->delete();
+
+            // The order's own copy of those allergies, and its address.
+            $this->orders->anonymiseFor((string) $account->getKey());
 
             $sessionsDeleted = GuestSession::query()
                 ->where('customer_account_id', $account->getKey())
@@ -282,24 +307,10 @@ final class GuestDeletionService
     }
 
     /**
-     * How many order records this purge deliberately left alone.
+     * How many order records this purge kept, redacted.
      *
-     * **Seam for the integrator (C1 / orders).** A guest order is a commercial
-     * and tax record: the plan's position is that the row survives with its
-     * delivery *area* and *city* — which is what tax is computed on — while the
-     * columns that name a person are redacted by the module that owns them.
-     * That redaction cannot live here without Customers taking a dependency on
-     * Orders and inverting the module graph.
-     *
-     * So this counts and returns, guarded by a table-existence check because the
-     * orders module may not be in the tree yet. When it is, the integrator
-     * should hang a listener or a registry port off `guest.purged` — the same
-     * shape `CatalogueIngredientUsageRegistry` uses for the reverse direction —
-     * and this method becomes its call site.
-     *
-     * @todo C1/integrator: replace the count with a GuestDataPurgeParticipant
-     *       port that the orders module implements, so redaction happens inside
-     *       the same transaction as the rest of the purge.
+     * Guarded by a table-existence check because the orders module may not be in
+     * the tree.
      */
     private function retainedOrderCount(CustomerAccount $account): int
     {

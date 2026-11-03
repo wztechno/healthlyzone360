@@ -236,7 +236,7 @@ it('groups the day by agent, method and currency, and never adds two currencies 
         ->and($totals['cash_at_counter|USD']['amount_minor_sum'])->toBe(400)
         ->and($totals['wish|USD']['amount_minor_sum'])->toBe(700)
         // No grand total anywhere, because there is no currency for one to be in.
-        ->and(array_keys($response->json('data')))->toBe(['rows', 'totals']);
+        ->and(array_keys($response->json('data')))->toBe(['rows', 'totals', 'adjustments']);
 });
 
 it('cuts the day on UTC, half-open, and says so', function (): void {

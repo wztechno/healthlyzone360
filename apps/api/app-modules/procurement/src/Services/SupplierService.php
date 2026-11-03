@@ -54,6 +54,7 @@ final readonly class SupplierService
             'address',
             'payment_terms',
             'lead_time_days',
+            'payment_due_days',
             'notes',
         ];
 
@@ -66,7 +67,7 @@ final readonly class SupplierService
 
             $value = $attributes[$field];
 
-            if ($field === 'lead_time_days') {
+            if ($field === 'lead_time_days' || $field === 'payment_due_days') {
                 $value = $value === null ? null : (int) $value;
             } elseif (is_string($value)) {
                 $value = trim($value);

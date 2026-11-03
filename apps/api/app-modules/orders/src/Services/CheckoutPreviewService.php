@@ -19,7 +19,9 @@ use Healthy360\Orders\Contracts\BuyerAllergenCheck;
 
 /**
  * "What would this basket cost, right now, delivered where?" — a query that
- * reserves nothing, charges nothing and writes no row.
+ * reserves nothing and charges nothing. The one row it can write is the
+ * kitchen's default service settings, created by `KitchenServiceSettingsLookup`
+ * the first time a lead time is asked for.
  *
  * **The same two engines `OrderPlacementService` runs at placement**, run here
  * for a preview instead: `LineProbe` reprices every line exactly as it would
@@ -34,7 +36,7 @@ use Healthy360\Orders\Contracts\BuyerAllergenCheck;
  * has no transaction to abort and no order to refuse, so the same facts —
  * `cart_empty`, `address_missing`, `address_not_deliverable`,
  * `area_not_served`, `zone_suspended`, `currency_mismatch`,
- * `window_not_offered`, plus the line-probe vocabulary — come back as
+ * `window_not_offered`, what `OrderTimingRules` refuses, plus the line-probe vocabulary — come back as
  * `CheckoutPreviewResult::$warnings` inside an ordinary answer. Deliberately
  * the *same words* placement would refuse with: a customer taught one
  * vocabulary for "we don't deliver there" on the cart screen and a different
@@ -57,6 +59,7 @@ final readonly class CheckoutPreviewService
         private ZoneWindowService $zoneWindows,
         private SellerContext $seller,
         private BuyerAllergenCheck $allergens,
+        private OrderTimingRules $timing,
     ) {}
 
     /**
@@ -83,8 +86,12 @@ final readonly class CheckoutPreviewService
 
                 $warnings = $lines === [] ? ['cart_empty'] : [];
 
-                [$subtotal, $lineWarnings] = $this->pricedSubtotal($cart, $lines, $requestedDate);
-                $warnings = [...$warnings, ...$lineWarnings];
+                // The one day placement would use for the whole basket.
+                /** @var CarbonImmutable|null $day */
+                $day = $requestedDate ?? collect($lines)->pluck('delivery_date')->filter()->first();
+
+                [$subtotal, $lineWarnings, $stockWarnings] = $this->pricedSubtotal($cart, $lines, $day);
+                $warnings = [...$warnings, ...$lineWarnings, ...$stockWarnings];
 
                 [$fee, $zoneWarnings, $zone] = $this->deliveryFee($cart, $address);
                 $warnings = [...$warnings, ...$zoneWarnings];
@@ -104,6 +111,27 @@ final readonly class CheckoutPreviewService
 
                 if ($offered !== null && $deliveryWindowCode !== null && ! in_array($deliveryWindowCode, $offered, true)) {
                     $warnings[] = 'window_not_offered';
+                }
+
+                if ($lines !== []) {
+                    // The same rules on the same day placement would ask about,
+                    // with a subtotal only when every line priced, as there.
+                    $refusals = [
+                        ...$this->timing->refusals(
+                            $cart->organisation_id,
+                            $cart->branch_id,
+                            $zone,
+                            $day,
+                            $deliveryWindowCode,
+                            CarbonImmutable::now(),
+                            leadTime: true,
+                        ),
+                        ...$this->timing->pauseRefusals($cart->organisation_id, CarbonImmutable::now()),
+                        ...$this->timing->capacityRefusals($cart->organisation_id, $day, $deliveryWindowCode),
+                        ...($lineWarnings === [] ? $this->timing->minimumRefusals($zone, $subtotal, $cart->currency_code) : []),
+                    ];
+
+                    $warnings = [...$warnings, ...array_column($refusals, 'reason')];
                 }
 
                 return new CheckoutPreviewResult(
@@ -133,24 +161,25 @@ final readonly class CheckoutPreviewService
      * here is what's wrong with the rest".
      *
      * @param  list<CartItem>  $lines
-     * @return array{0: int, 1: list<string>}
+     * @return array{0: int, 1: list<string>, 2: list<string>}
      */
-    private function pricedSubtotal(Cart $cart, array $lines, ?CarbonImmutable $requestedDate): array
+    private function pricedSubtotal(Cart $cart, array $lines, ?CarbonImmutable $day): array
     {
         if ($lines === []) {
-            return [0, []];
+            return [0, [], []];
         }
 
         $channel = SalesChannel::withoutTenancy()->whereKey($cart->sales_channel_id)->first();
 
         if (! $channel instanceof SalesChannel) {
-            return [0, ['channel_unknown']];
+            return [0, ['channel_unknown'], []];
         }
 
         $buyer = CustomerAccount::query()->whereKey($cart->customer_account_id)->first();
 
         $subtotal = 0;
         $warnings = [];
+        $stockWarnings = [];
 
         foreach ($lines as $line) {
             $result = $this->probe->probe(
@@ -158,9 +187,12 @@ final readonly class CheckoutPreviewService
                 $line->catalogue_item_id,
                 $line->catalogue_item_variant_id,
                 $line->quantity,
-                $requestedDate ?? $line->delivery_date,
+                $day,
                 $cart->currency_code,
                 $buyer,
+                // A basket with no day yet is still priced whole: the calendar
+                // answers once a day is chosen.
+                enforceCalendar: $day !== null,
             );
 
             if (! $result->isOrderable()) {
@@ -171,6 +203,12 @@ final readonly class CheckoutPreviewService
                 continue;
             }
 
+            // Sold with a warning, never refused: kept apart so the zone
+            // minimum still runs over a basket that priced whole.
+            foreach ($result->warnings as $warning) {
+                $stockWarnings[] = (string) $warning['reason'];
+            }
+
             // Minor units, rounded exactly once, at the line total — the same
             // arithmetic `OrderPlacementService::repriced()` performs, so a
             // preview and the placement it precedes never disagree on a line
@@ -178,7 +216,7 @@ final readonly class CheckoutPreviewService
             $subtotal += (int) round($result->price->amountMinor * (float) $line->quantity);
         }
 
-        return [$subtotal, $warnings];
+        return [$subtotal, $warnings, $stockWarnings];
     }
 
     /**
@@ -198,6 +236,7 @@ final readonly class CheckoutPreviewService
         return $this->allergens->conflicts(
             $buyer,
             array_map(static fn (CartItem $line): string => $line->catalogue_item_id, $lines),
+            array_map(static fn (CartItem $line): array => array_column($line->selected_options ?? [], 'id'), $lines),
         );
     }
 

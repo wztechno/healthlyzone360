@@ -25,9 +25,10 @@ import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { EntityImage } from '../../../media/entity-image.tsx';
 import { PhotoCredit } from '../../../media/photo-credit.tsx';
 import { useNavigateUp, usePreviousEntry } from '../../../navigation/use-return-to.ts';
-import { usePrototypeAction } from '../../../prototype/index.ts';
 import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { useFailureMessage } from '../../../screens/form-helpers.ts';
+import { DishChoiceFields, NO_DISH_CHOICES } from '../../../ui/dish-choices.tsx';
+import type { DishChoiceValue } from '../../../ui/dish-choices.tsx';
 import { Eyebrow } from '../../../ui/eyebrow.tsx';
 import { YourAllergens } from '../../commerce/my-allergens.tsx';
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
@@ -186,7 +187,6 @@ export function MealDetailScreen({ mealId, returnTo }: MealDetailScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const navigateUp = useNavigateUp();
-    const runPrototype = usePrototypeAction();
 
     const parsed = mealId === undefined ? null : MealId.safeParse(mealId);
     const meal = useMealQuery(parsed);
@@ -194,6 +194,7 @@ export function MealDetailScreen({ mealId, returnTo }: MealDetailScreenProps) {
 
     const [quantity, setQuantity] = useState(1);
     const [instructions, setInstructions] = useState('');
+    const [choices, setChoices] = useState<DishChoiceValue>(NO_DISH_CHOICES);
 
     /*
      * The grids' "add to basket", with the quantity threaded through — the mutation, the
@@ -272,17 +273,23 @@ export function MealDetailScreen({ mealId, returnTo }: MealDetailScreenProps) {
                                     onQuantityChange={setQuantity}
                                     instructions={instructions}
                                     onInstructionsChange={setInstructions}
+                                    choices={choices}
+                                    onChoicesChange={setChoices}
                                     pending={basket.pending}
                                     failure={basket.failure}
                                     onAdd={() => {
-                                        basket.add(item, quantity);
-                                        if (instructions.trim() !== '') {
-                                            runPrototype({
-                                                contract:
-                                                    'POST /api/v1/carts/{cart}/items — instructions',
-                                                message: t('catalogue:meal.instructionsNotSent'),
-                                            });
-                                        }
+                                        basket.add(
+                                            {
+                                                ...item,
+                                                choices: {
+                                                    catalogueItemVariantId:
+                                                        choices.catalogueItemVariantId,
+                                                    optionIds: choices.optionIds,
+                                                    note: instructions,
+                                                },
+                                            },
+                                            quantity,
+                                        );
                                     }}
                                 />
                             </View>
@@ -448,6 +455,8 @@ interface MealInfoColumnProps {
     readonly onQuantityChange: (next: number) => void;
     readonly instructions: string;
     readonly onInstructionsChange: (next: string) => void;
+    readonly choices: DishChoiceValue;
+    readonly onChoicesChange: (next: DishChoiceValue) => void;
     readonly pending: boolean;
     /** Why the last add failed. A generic `server` keeps the page's own sentence. */
     readonly failure: ApiFailure | null;
@@ -460,6 +469,8 @@ function MealInfoColumn({
     onQuantityChange,
     instructions,
     onInstructionsChange,
+    choices,
+    onChoicesChange,
     pending,
     failure,
     onAdd,
@@ -470,8 +481,14 @@ function MealInfoColumn({
     const viewOnly = useShopViewOnly();
 
     const tag = leadTag(item, t);
+    const options = item.options ?? [];
+    const portions = item.portions ?? [];
+    // The price the chosen portion's pack carries. The server re-reads it at placement.
+    const portion = portions.find(
+        (candidate) => candidate.catalogueItemVariantId === choices.catalogueItemVariantId,
+    );
     const total = formatMoney(formatter, {
-        amount: item.price.amount * quantity,
+        amount: (portion?.unitPriceMinor ?? item.price.amount) * quantity,
         currency: item.price.currency,
     });
     const allergens =
@@ -565,14 +582,30 @@ function MealInfoColumn({
                     className="mt-[26px] flex-col border-t border-stroke pt-[22px]"
                 >
                     <Eyebrow className="mb-3">{t('catalogue:meal.makeItYours')}</Eyebrow>
-                    <View className="min-h-touch flex-row items-center gap-3 rounded-lg border border-stroke bg-surface-raised px-4 py-3">
-                        <RNText
-                            testID="meal-detail-options-none"
-                            className="min-w-0 flex-1 text-sm text-content-secondary text-start"
-                        >
-                            {t('catalogue:meal.optionsNone')}
-                        </RNText>
-                    </View>
+                    {options.length === 0 && portions.length === 0 ? (
+                        <View className="min-h-touch flex-row items-center gap-3 rounded-lg border border-stroke bg-surface-raised px-4 py-3">
+                            <RNText
+                                testID="meal-detail-options-none"
+                                className="min-w-0 flex-1 text-sm text-content-secondary text-start"
+                            >
+                                {t('catalogue:meal.optionsNone')}
+                            </RNText>
+                        </View>
+                    ) : (
+                        <DishChoiceFields
+                            testID="meal-detail-choices"
+                            options={options}
+                            portions={portions}
+                            value={choices}
+                            onChange={onChoicesChange}
+                            formatPrice={(choice) =>
+                                formatMoney(formatter, {
+                                    amount: choice.unitPriceMinor,
+                                    currency: item.price.currency,
+                                })
+                            }
+                        />
+                    )}
                     <TextInputField
                         testID="meal-detail-instructions"
                         id="meal-detail-instructions"

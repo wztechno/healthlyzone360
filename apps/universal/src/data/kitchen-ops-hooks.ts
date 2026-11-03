@@ -1,5 +1,8 @@
 import type {
+    ActivityPage,
+    ActivityWindow,
     AddIngredientBarcodeRequest,
+    StockActivity,
     BarcodeScan,
     GoodsReceiptFilter,
     IngredientBarcode,
@@ -11,6 +14,11 @@ import type {
     ConsumptionExceptionFilter,
     ConsumptionExceptionRetry,
     ConsumptionExceptionTotals,
+    AddBranchClosureRequest,
+    BranchClosure,
+    CreateBranchRequest,
+    KitchenSetup,
+    DuplicateStockGroup,
     CreateProductionOrderRequest,
     CreatePurchaseOrdersRequest,
     CreateQualityCheckRequest,
@@ -20,8 +28,11 @@ import type {
     GoodsReceiptDetail,
     GoodsReceiptResult,
     ItemLatestPurchase,
+    KitchenAnalyticsReport,
     MonthlyCostReportFilter,
     MonthlyCostReportRow,
+    DishMargins,
+    Payables,
     OrderProposal,
     PostGoodsReceiptRequest,
     ProcurementReference,
@@ -62,6 +73,10 @@ import type {
     UpdatePurchaseOrderRequest,
     UpdateSupplierRequest,
     UpsertSupplierLinkRequest,
+    RecordCookingTemperatureRequest,
+    RecordTemperatureRequest,
+    TemperatureLog,
+    TemperatureUnitDraft,
 } from '@healthy360/api-client/contracts';
 import type { CursorPage } from '@healthy360/api-client/contracts';
 import type {
@@ -212,6 +227,34 @@ export function useRecordStockAdjustmentMutation(): UseMutationResult<
         mutationFn: (request: StockAdjustmentRequest) =>
             repositories.kitchenOps.recordStockAdjustment(request),
         onSuccess: onWritten,
+    });
+}
+
+/** The Activity page's ledger view. */
+export function useStockActivityQuery(window: ActivityWindow): UseQueryResult<StockActivity> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.stockActivity(window),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.getStockActivity(window);
+        },
+    });
+}
+
+/** The Activity page's audit view. */
+export function useActivityQuery(window: ActivityWindow): UseQueryResult<ActivityPage> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.activity(window),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.getActivity(window);
+        },
     });
 }
 
@@ -974,6 +1017,79 @@ export function useSpendSummaryQuery(
  * Behind `inventory.view_costs_organisation` on the server, so a caller without that code gets a
  * failure rather than the kitchen's economics; the screen gates its card on the same permission.
  */
+export function useDishMarginsQuery(): UseQueryResult<DishMargins> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.dishMargins(),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.getDishMargins();
+        },
+    });
+}
+
+export function usePayablesQuery(): UseQueryResult<Payables> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.payables(),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.getPayables();
+        },
+    });
+}
+
+/** Each act answers with the whole list, which replaces the cached one. */
+function usePayablesAct<Input>(
+    act: (input: Input) => Promise<Payables>,
+): UseMutationResult<Payables, unknown, Input> {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: false,
+        mutationFn: act,
+        onSuccess: (payables) => {
+            queryClient.setQueryData(queryKeys.kitchenOps.payables(), payables);
+        },
+    });
+}
+
+export function useApprovePayablePriceMutation(): UseMutationResult<Payables, unknown, string> {
+    const repositories = useRepositories();
+
+    return usePayablesAct((receiptId: string) =>
+        repositories.kitchenOps.approvePayablePrice(receiptId),
+    );
+}
+
+export function usePayPayableMutation(): UseMutationResult<
+    Payables,
+    unknown,
+    { readonly receiptId: string; readonly reference: string | null }
+> {
+    const repositories = useRepositories();
+
+    return usePayablesAct(({ receiptId, reference }) =>
+        repositories.kitchenOps.payPayable(receiptId, reference),
+    );
+}
+
+export function useSetPayableDueDateMutation(): UseMutationResult<
+    Payables,
+    unknown,
+    { readonly receiptId: string; readonly dueOn: string | null }
+> {
+    const repositories = useRepositories();
+
+    return usePayablesAct(({ receiptId, dueOn }) =>
+        repositories.kitchenOps.setPayableDueDate(receiptId, dueOn),
+    );
+}
+
 export function useCostReportQuery(
     filter: MonthlyCostReportFilter = {},
     enabled = true,
@@ -986,6 +1102,26 @@ export function useCostReportQuery(
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOps.listCostReport(filter);
+        },
+    });
+}
+
+/**
+ * The kitchen analytics report — order volume over `from`..`to` (inclusive `YYYY-MM-DD`) against the
+ * equal range before it. Behind `order.view_organisation` on the server.
+ */
+export function useKitchenAnalyticsQuery(
+    from: string,
+    to: string,
+): UseQueryResult<KitchenAnalyticsReport> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.analytics(from, to),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.getKitchenAnalytics({ from, to });
         },
     });
 }
@@ -1044,6 +1180,100 @@ export function useConsumptionExceptionCountQuery(
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOps.countUnresolvedConsumptionExceptions();
+        },
+    });
+}
+
+/** The setup checklist and whether the kitchen is live. */
+export function useKitchenSetupQuery(enabled = true): UseQueryResult<KitchenSetup> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.kitchenSetup(),
+        enabled: enabled && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.getKitchenSetup();
+        },
+    });
+}
+
+export function useGoLiveMutation(): UseMutationResult<KitchenSetup, unknown, void> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: () => repositories.kitchenOps.goLive(),
+        onSuccess: (setup) => {
+            queryClient.setQueryData(queryKeys.kitchenOps.kitchenSetup(), setup);
+        },
+    });
+}
+
+/** The active branch's closures that have not ended. */
+export function useBranchClosuresQuery(): UseQueryResult<readonly BranchClosure[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.branchClosures(),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.listBranchClosures();
+        },
+    });
+}
+
+export function useAddBranchClosureMutation(): UseMutationResult<
+    BranchClosure,
+    unknown,
+    AddBranchClosureRequest
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (request) => repositories.kitchenOps.addBranchClosure(request),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: queryKeys.kitchenOps.branchClosures(),
+            });
+        },
+    });
+}
+
+export function useRemoveBranchClosureMutation(): UseMutationResult<void, unknown, string> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (closureId) => repositories.kitchenOps.removeBranchClosure(closureId),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: queryKeys.kitchenOps.branchClosures(),
+            });
+        },
+    });
+}
+
+export function useCreateBranchMutation(): UseMutationResult<void, unknown, CreateBranchRequest> {
+    const repositories = useRepositories();
+
+    return useMutation({
+        mutationFn: (request) => repositories.kitchenOps.createBranch(request),
+    });
+}
+
+/** The shelves repeating a name that need a person. */
+export function useDuplicateStockQuery(): UseQueryResult<readonly DuplicateStockGroup[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.duplicateStock(),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.listDuplicateStock();
         },
     });
 }
@@ -1441,6 +1671,74 @@ export function useReleaseQualityCheckMutation(): UseMutationResult<
     return useMutation({
         mutationFn: (qualityCheckId: QualityCheckId) =>
             repositories.kitchenOps.releaseQualityCheck(qualityCheckId),
+        onSuccess: onWritten,
+    });
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * The temperature log
+ * ---------------------------------------------------------------------------------------------- */
+
+export function useTemperatureLogQuery(month: string): UseQueryResult<TemperatureLog> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOps.temperatureLog(month),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOps.getTemperatureLog(month);
+        },
+    });
+}
+
+function useTemperatureLogWritten(): () => void {
+    const queryClient = useQueryClient();
+    return () => {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOps.temperatureLog() });
+    };
+}
+
+export function useRecordTemperatureMutation(): UseMutationResult<
+    { readonly outOfRange: boolean },
+    unknown,
+    RecordTemperatureRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useTemperatureLogWritten();
+
+    return useMutation({
+        retry: false,
+        mutationFn: (request) => repositories.kitchenOps.recordTemperature(request),
+        onSuccess: onWritten,
+    });
+}
+
+export function useRecordCookingTemperatureMutation(): UseMutationResult<
+    void,
+    unknown,
+    RecordCookingTemperatureRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useTemperatureLogWritten();
+
+    return useMutation({
+        retry: false,
+        mutationFn: (request) => repositories.kitchenOps.recordCookingTemperature(request),
+        onSuccess: onWritten,
+    });
+}
+
+export function useSaveTemperatureUnitMutation(): UseMutationResult<
+    void,
+    unknown,
+    TemperatureUnitDraft
+> {
+    const repositories = useRepositories();
+    const onWritten = useTemperatureLogWritten();
+
+    return useMutation({
+        mutationFn: (draft) => repositories.kitchenOps.saveTemperatureUnit(draft),
         onSuccess: onWritten,
     });
 }

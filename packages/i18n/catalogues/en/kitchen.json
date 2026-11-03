@@ -142,7 +142,10 @@
             "rolePrimary": "Primary contact",
             "roleBilling": "Billing",
             "roleOperations": "Operations",
-            "roleSignatory": "Signatory"
+            "roleSignatory": "Signatory",
+            "sectionAllergies": "Allergies",
+            "sectionOrders": "Latest orders",
+            "openOrder": "Open"
         },
         "readyForApi": "Ready for API",
         "metricUnavailable": "Not connected yet",
@@ -224,7 +227,8 @@
                 "customerRequested": "The customer asked to cancel",
                 "kitchenUnableToFulfil": "The kitchen cannot fulfil it",
                 "deliveryUnavailable": "No delivery is available",
-                "addressUnreachable": "The address could not be reached"
+                "addressUnreachable": "The address could not be reached",
+                "deliveryFailed": "The delivery failed"
             },
             "status": {
                 "placed": "Placed",
@@ -257,7 +261,73 @@
             "deliveredAt": "Delivered",
             "driver": "Driver",
             "driverNone": "Nobody yet",
-            "preparingAt": "Started cooking"
+            "preparingAt": "Started cooking",
+            "dispositionLabel": "What happened to the food?",
+            "disposition": {
+                "returned": "Returned to stock",
+                "wasted": "Wasted"
+            },
+            "cancelNeedsManager": "Cooking has started, so a manager has to cancel this order.",
+            "deliveryFailedNote": "Delivery failed: {{reason}}",
+            "withCourier": "Out with {{name}}",
+            "redeliver": "Deliver again",
+            "closeFailed": "Close as failed",
+            "failDelivery": "Delivery failed",
+            "failedToast": "Order {{number}} is marked as failed.",
+            "redeliveredToast": "Order {{number}} is going out again.",
+            "closedFailedToast": "Order {{number}} is closed as failed.",
+            "deliveryAction": {
+                "failTitle": "Did the delivery of {{number}} fail?",
+                "failBody": "The order stays open for a manager, and no cash is recorded.",
+                "failConfirm": "Mark as failed",
+                "redeliverTitle": "Deliver {{number}} again?",
+                "redeliverBody": "It goes back to the drivers. Choose a new day or window if it is moving.",
+                "redeliverConfirm": "Deliver again",
+                "closeTitle": "Close {{number}} as failed?",
+                "closeBody": "This cancels the order. It cannot be undone.",
+                "closeConfirm": "Close as failed",
+                "dateLabel": "New day",
+                "keepDate": "Keep the same day",
+                "keepWindow": "Keep the same window"
+            },
+            "refunds": {
+                "heading": "Refunds",
+                "received": "Received",
+                "refunded": "Refunded",
+                "corrected": "Corrected as a mistake",
+                "pending": "Waiting for the owner",
+                "refundable": "Can still be refunded",
+                "open": "Refund or correct",
+                "approve": "Approve",
+                "reject": "Reject",
+                "confirm": "Record it",
+                "dialogTitle": "Refund or correct order {{number}}",
+                "dialogBody": "This adds an entry and keeps the receipts as they are. It records the money and does not send it.",
+                "kind": {
+                    "refund": "Refund",
+                    "receipt_correction": "Receipt correction"
+                },
+                "kindHint": {
+                    "refund": "Money went back to the customer. The order stays paid.",
+                    "receipt_correction": "The receipt was a mistake and the money never arrived. The amount goes back to outstanding."
+                },
+                "status": {
+                    "pending_approval": "Waiting for owner",
+                    "completed": "Done",
+                    "rejected": "Rejected"
+                },
+                "methodLabel": "How it went back",
+                "amountLabel": "Amount ({{currency}})",
+                "amountHint": "Up to {{refundable}}.",
+                "amountInvalid": "Enter an amount up to what can still be refunded.",
+                "reasonLabel": "Reason",
+                "windowClosed": "Refunds close 7 days after the last payment.",
+                "recordedToast": "Recorded.",
+                "waitingToast": "Sent to the owner for approval.",
+                "approvedToast": "Refund approved.",
+                "rejectedToast": "Refund rejected.",
+                "saveError": "This was not recorded."
+            }
         },
         "quotations": {
             "title": "Quotations",
@@ -433,7 +503,8 @@
             "countInvalid": "Enter what you counted — zero or more.",
             "exceedsShelf": "Only {{amount}} is on the shelf. If there is really more, post a Count first, then try again.",
             "parNotAboveThreshold": "The restock level must be above the reorder threshold.",
-            "notStocked": "Not stocked"
+            "notStocked": "Not stocked",
+            "fieldNotesRequired": "Why"
         },
         "supplyOrders": {
             "title": "Supply orders",
@@ -793,7 +864,9 @@
             "statActiveCaption": "offered on every picker",
             "statArchivedCaption": "kept for past receipts",
             "viewKind": "Supplier",
-            "viewFoot": "Reading the book needs the inventory view permission; every change needs manage."
+            "viewFoot": "Reading the book needs the inventory view permission; every change needs manage.",
+            "fieldPaymentDueDays": "Invoice due after (days)",
+            "paymentDueDaysPlaceholder": "30"
         },
         "procurement": {
             "title": "Procurement",
@@ -855,6 +928,18 @@
             "modeMarketBody": "Bought without an order. Choose the supplier — or none — and type what came.",
             "modeOrderTitle": "A delivery against an order",
             "modeOrderBody": "Pick the supply order. What is still to come is filled in and matched line by line.",
+            "columnOrder": "Order",
+            "openOrder": "Open order",
+            "awaitingTitle": "Awaiting delivery",
+            "awaitingReceive": "Receive",
+            "awaitingAll": "All {{count}} open orders",
+            "awaitingIssued": "Issued {{date}}",
+            "awaitingLines_one": "{{count}} line to come",
+            "awaitingLines_other": "{{count}} lines to come",
+            "openOrdersTitle_one": "{{count}} order is waiting for delivery here",
+            "openOrdersTitle_other": "{{count}} orders are waiting for delivery here",
+            "openOrdersBody": "If this delivery is one of them, receive it against the order. What is still to come is filled in, and the order is updated.",
+            "openOrdersAction": "Receive against an order",
             "fieldOrder": "Supply order",
             "ordersLoading": "Reading the open orders at this branch…",
             "supplierPlaceholder": "No supplier — a market run",
@@ -1252,7 +1337,6 @@
             "sheetTitle": "Technical sheet",
             "sheetSubtitle": "What this batch stood on when it was confirmed. It does not move when a price is published or the recipe is edited.",
             "sheetBasisHeading": "What it stood on",
-            "sheetVersionLabel": "Recipe version",
             "sheetPublicationLabel": "Price week",
             "sheetPublicationNone": "No weekly prices were standing.",
             "sheetNutritionHeading": "Nutrition",
@@ -1338,7 +1422,8 @@
             "expiryFromRecipe": "Made on plus {{days}}, from the recipe's shelf life.",
             "scanLabel": "Scan or type a lot",
             "scanNoMatch": "No batch carries that code",
-            "recipeNoOutput": "{{name}} makes no produced item, so a batch has nothing to put on the shelf. Set what it produces in the recipe editor first."
+            "recipeNoOutput": "{{name}} makes no produced item, so a batch has nothing to put on the shelf. Set what it produces in the recipe editor first.",
+            "sheetPublicationSet": "Weekly prices were standing."
         },
         "qc": {
             "title": "Quality control",
@@ -1378,8 +1463,8 @@
             "filteredEmptyTitle": "No checks match",
             "filteredEmptyBody": "Clear the search or the status to see every check.",
             "viewKind": "Quality check",
-            "holdNote": "This subject is on hold. Nothing it produced may be sold or consumed until somebody releases it.",
-            "footNote": "A hold stops the stock being used; a release lets it through.",
+            "holdNote": "This stock is set aside. It cannot be sold or used until somebody releases it, and any free stock of the same item stays usable. If the food failed, record it as waste first, then release.",
+            "footNote": "A hold sets the quantity it brought in aside; a release gives it back. Move the food away from the good stock yourself: the shelf is one number.",
             "fieldReference": "Reference",
             "statUnit": "checks",
             "statPendingCaption": "not decided yet",
@@ -1436,7 +1521,7 @@
             "summaryFootHold": "Opens and holds at once. Everything under this subject stops until someone releases it.",
             "statesTitle": "What a check can do",
             "statePending": "Opened, not decided. The stock moves as usual.",
-            "stateHold": "The stock can’t be used or sold.",
+            "stateHold": "The quantity it brought in can’t be used or sold.",
             "stateReleased": "Inspected and let through.",
             "createSubmitHold": "Open and hold",
             "createdHeldToast": "Check opened and on hold — {{subject}}.",
@@ -1456,7 +1541,7 @@
             "flagged": "Understated",
             "hintSpend": "what arrived this month",
             "hintCogs": "what confirmed orders consumed",
-            "hintRevenue": "sold across every book",
+            "hintRevenue": "sold across every book, less refunds",
             "hintMargin": "after cost of goods",
             "tileSpend": "Spend · {{month}}",
             "tileCogs": "COGS · {{month}}",
@@ -1489,12 +1574,15 @@
                 "kind": "Month",
                 "flaggedNote": "This month has unresolved consumption exceptions, so its cost of goods sold is understated by whatever those lines were. The margin inherits the same understatement.",
                 "currencyValue": "{{currency}} — one currency at a time, never mixed",
-                "openLedger": "Open the purchases ledger"
+                "openLedger": "Open the purchases ledger",
+                "withheldNote": "No margin is stated for this month because its cost is incomplete: {{lines}} sold lines with no cost, such as a dish with an empty recipe, {{exceptions}} unresolved stock exceptions and {{batches}} batches nobody could value. Revenue leaves delivery fees out."
             },
             "columnProductionConsumption": "Made with",
             "columnProductionWaste": "Batch waste",
             "columnProductionYield": "Batch yield",
-            "columnEstimatedMargin": "Est. margin"
+            "columnEstimatedMargin": "Est. margin",
+            "marginWithheld": "Margin withheld",
+            "columnRefunds": "Refunds (already off revenue)"
         },
         "exceptions": {
             "title": "Stock gaps",
@@ -1526,7 +1614,8 @@
                 "price": "Set unit price",
                 "unit": "Set the unit",
                 "product": "Fix the product",
-                "production": "See production plan"
+                "production": "See production plan",
+                "quality": "See quality control"
             },
             "searchPlaceholder": "Search by order, item, ingredient or reason",
             "filteredEmptyTitle": "No stock gaps match",
@@ -1547,7 +1636,8 @@
                 "no_ingredient_cost": "No cost to value COGS",
                 "insufficient_stock": "Not enough stock",
                 "no_net_content": "Sold unit size not set",
-                "reserved_for_production": "Reserved for production"
+                "reserved_for_production": "Reserved for production",
+                "quality_hold": "On quality hold"
             },
             "chip": "Retry writes stock",
             "statUnit": "exceptions",
@@ -1690,7 +1780,14 @@
             "toLabel": "To",
             "columnDay": "Day",
             "windowTooLongTitle_one": "Pick at most {{count}} day",
-            "windowTooLongTitle_other": "Pick at most {{count}} days"
+            "windowTooLongTitle_other": "Pick at most {{count}} days",
+            "adjustmentsHeading": "Came off the takings",
+            "adjustment": {
+                "refund": "Refund",
+                "receipt_correction": "Receipt correction",
+                "courier_fee": "Courier fee",
+                "short": "Short hand-in"
+            }
         },
         "batch": {
             "recipeLabel": "Recipe",
@@ -1765,6 +1862,192 @@
             "factPortionsPerBatch_one": "{{count}} portion per batch",
             "factPortionsPerBatch_other": "{{count}} portions per batch",
             "wasteAddedToInputs": "+{{percent}} % production waste"
+        },
+        "settlement": {
+            "driversHeading": "Drivers holding cash",
+            "driversEmpty": "No driver is holding cash.",
+            "couriersHeading": "Couriers owing cash",
+            "couriersEmpty": "No courier owes cash.",
+            "recentHeading": "Recent hand-ins",
+            "recentEmpty": "Nothing has been handed in yet.",
+            "columnDriver": "Driver",
+            "columnCourier": "Courier",
+            "columnRuns": "Runs",
+            "columnCollected": "Collected",
+            "columnDue": "Due",
+            "columnFee": "Fee",
+            "columnWhen": "When",
+            "columnParty": "From",
+            "columnHandedIn": "Handed in",
+            "columnShort": "Short",
+            "columnStatus": "Status",
+            "columnAction": "Action",
+            "settle": "Settle",
+            "settled": "Settled",
+            "signOff": "Sign off",
+            "signedOff": "Signed off",
+            "awaitingSignOff": "Waiting for a manager",
+            "signedOffToast": "Signed off.",
+            "dialogTitle": "Settle {{name}}",
+            "dialogBody": {
+                "driver": "Untick any run this hand-in does not cover. Their receipts are already recorded.",
+                "courier": "Untick any order this payment does not cover. Settling writes each order's receipt."
+            },
+            "feeNote": "Fees of {{fee}} come off, so {{net}} is due.",
+            "expenseNote": "Prepaid orders bring no cash. Their fees of {{expense}} are a kitchen expense.",
+            "prepaidFee": "Prepaid, fee {{fee}}",
+            "columnExpense": "Kitchen expense",
+            "amountLabel": "Handed in ({{currency}})",
+            "amountHint": "{{amount}} is due.",
+            "amountInvalid": "Enter an amount up to what is due.",
+            "shortTitle": "{{amount}} short",
+            "shortBody": "This is recorded against the hand-in for a manager to sign. Nothing else happens.",
+            "reasonLabel": "Why it is short",
+            "confirm": "Record hand-in",
+            "savedToast": "Hand-in recorded.",
+            "saveError": "The hand-in was not recorded.",
+            "loadErrorTitle": "The cash waiting to be settled could not be loaded."
+        },
+        "activity": {
+            "view": {
+                "stock": "Stock movements",
+                "audit": "Audit trail"
+            },
+            "columnWhen": "When",
+            "columnItem": "Item",
+            "columnReason": "Reason",
+            "columnQuantity": "Quantity",
+            "columnValue": "Value",
+            "columnActor": "Who",
+            "columnAction": "What happened",
+            "columnOrder": "Order",
+            "columnDetails": "Details",
+            "reason": {
+                "adjust": "Adjustment",
+                "waste": "Waste",
+                "receipt": "Delivery received",
+                "consume": "Used for an order",
+                "yield": "Batch yield"
+            },
+            "unattributed": "Unattributed",
+            "wastedOrder": "Wasted when order {{number}} was cancelled",
+            "wasteHeading": "Waste in this period",
+            "wasteNone": "No valued waste in this period.",
+            "unvalued_one": "1 waste entry has no cost held, so it adds nothing here.",
+            "unvalued_other": "{{count}} waste entries have no cost held, so they add nothing here.",
+            "emptyTitle": "Nothing was recorded in this period.",
+            "truncated": "Showing the newest 500. Narrow the dates to see the rest.",
+            "loadErrorTitle": "The activity could not be loaded."
+        },
+        "dailyClose": {
+            "openHeading": "Shifts to close",
+            "openEmpty": "No cash has moved since the last close.",
+            "recentHeading": "Recent closes",
+            "recentEmpty": "No shift has been closed yet.",
+            "clockNote": "Days are read on the kitchen clock, {{timezone}}.",
+            "loadErrorTitle": "The daily close could not be loaded.",
+            "columnShift": "Shift",
+            "columnCounter": "Counter cash",
+            "columnHandedIn": "Handed in",
+            "columnRefunds": "Cash refunds",
+            "columnAction": "Action",
+            "columnClosed": "Closed",
+            "columnFloat": "Float",
+            "columnExpected": "Expected",
+            "columnCounted": "Counted",
+            "columnVariance": "Variance",
+            "columnStatus": "Status",
+            "close": "Close",
+            "balanced": "Balanced",
+            "over": "Over",
+            "signOff": "Sign off",
+            "signedOff": "Signed off",
+            "signedOffToast": "The short close was signed off.",
+            "awaitingSignOff": "Waiting for a manager",
+            "dialogTitle": "Close {{date}}, {{currency}}",
+            "dialogBody": "Count what is in the till. The figures are read again when you confirm.",
+            "floatLabel": "Opening float ({{currency}})",
+            "countedLabel": "Counted now ({{currency}})",
+            "expectedNote": "Expected in the till: {{amount}}",
+            "amountInvalid": "Enter an amount.",
+            "shortTitle": "{{amount}} short",
+            "shortBody": "A manager signs this off. The app takes no pay decision.",
+            "reasonLabel": "Why is it short?",
+            "overReasonLabel": "Note (optional)",
+            "confirm": "Close the shift",
+            "savedToast": "The shift was closed.",
+            "saveError": "The shift was not closed.",
+            "branchLabel": "Till",
+            "allBranches": "All branches",
+            "totalHeading": "Kitchen total",
+            "totalNote": "Every branch's till together. Counted is each till's last count of the day.",
+            "columnDay": "Day",
+            "tillCount": "Tills: {{tills}}"
+        },
+        "payables": {
+            "owedHeading": "What is owed",
+            "owedEmpty": "Nothing is owed for deliveries.",
+            "paidHeading": "Recently paid",
+            "paidEmpty": "No delivery has been marked paid yet.",
+            "loadErrorTitle": "The payables could not be loaded.",
+            "totalsLabel": "Owed",
+            "columnSupplier": "Supplier",
+            "columnReceived": "Received",
+            "columnDue": "Due",
+            "columnAmount": "Amount",
+            "columnPrice": "Price",
+            "columnAction": "Action",
+            "columnPaid": "Paid",
+            "columnReference": "Reference",
+            "directPurchase": "Direct purchase",
+            "noDueDate": "No due date",
+            "overdue": "Overdue",
+            "priceMissing": "Price missing",
+            "priceWaiting": "Price waiting",
+            "priceApproved": "Approved",
+            "priceRise": "Up {{percent}}%",
+            "review": "Review",
+            "pay": "Mark paid",
+            "reviewTitle": "Prices on this delivery",
+            "reviewBody": "Each price against the last one paid. The goods are received either way.",
+            "reviewLine": "{{name}}: {{last}} to {{price}} (up {{percent}}%)",
+            "approve": "Approve the prices",
+            "approvedToast": "The prices were approved.",
+            "payTitle": "Mark {{supplier}} paid",
+            "payBody": "This writes down a payment you made. It sends no money.",
+            "referenceLabel": "Reference (optional)",
+            "dueLabel": "Due date",
+            "confirmPay": "Mark paid",
+            "paidToast": "The delivery was marked paid.",
+            "dueToast": "The due date was saved.",
+            "saveError": "That was not saved."
+        },
+        "dishMargins": {
+            "heading": "Dishes on sale",
+            "empty": "Margins are worked out overnight. They will appear here after the next run.",
+            "loadErrorTitle": "The dish margins could not be loaded.",
+            "asOf": "As of {{when}}.",
+            "targetNote": "Target margin: {{percent}}%.",
+            "noTarget": "No target is set. Set one in the service timings on branch operating.",
+            "columnDish": "Dish",
+            "columnChannel": "Sold to",
+            "columnPrice": "Price",
+            "columnCost": "Cost",
+            "columnMargin": "Margin",
+            "columnStatus": "Status",
+            "channel": {
+                "b2c": "Diners",
+                "b2b": "Business"
+            },
+            "belowTarget": "Below target",
+            "onTarget": "On target",
+            "marginValue": "{{percent}}%",
+            "withheld": {
+                "no_recipe": "Withheld: no published recipe",
+                "no_price": "Withheld: no list price",
+                "cost_incomplete": "Withheld: cost incomplete",
+                "currency_mismatch": "Withheld: two currencies"
+            }
         }
     },
     "kds": {
@@ -1798,11 +2081,19 @@
         "noBranchBody": "Choose the branch this screen is displaying before the board can show its tickets.",
         "mayContain": "May contain {{allergen}}",
         "handedOver": "Handed over",
+        "deliveryFailed": "Delivery failed",
         "waitingForDriver": "Waiting for the driver",
         "withDriver": "Out with the driver",
         "accept": "Accept",
         "accepted": "Accepted",
-        "upcoming": "Upcoming"
+        "upcoming": "Upcoming",
+        "soundOn": "Turn on sound",
+        "staleTitle": "This board may be out of date",
+        "staleBody": "The last refresh failed. Last updated {{time}}. It keeps trying by itself.",
+        "truncatedTitle": "Not every ticket fits on this board",
+        "truncatedBody": "More orders are waiting than the board can carry, and the newest are the ones missing. Open the order book to see them.",
+        "alarmTitle": "Not accepted yet",
+        "alarmBody": "Waited {{minutes}} min while open. Accept or start it now."
     },
     "driver": {
         "title": "Your deliveries",
@@ -1848,7 +2139,29 @@
         "pickUp": "Picked up",
         "pickedUpAt": "Picked up at {{at}}",
         "deliveredToast": "Delivered. Order {{reference}} is closed.",
-        "waitingForKitchen": "Waiting for the kitchen"
+        "waitingForKitchen": "Waiting for the kitchen",
+        "allergyTitle": "Allergy on this order",
+        "allergyNote": "Note: {{note}}",
+        "amountDue": "Collect {{amount}}",
+        "collectedLabel": "Cash collected ({{currency}})",
+        "collectedHint": "{{amount}} is due. Change it if the customer paid less.",
+        "collectedInvalid": "Enter an amount, like 12.50.",
+        "collectedTooMuch": "That is more than this order owes.",
+        "noCashNote": "Say why no cash was collected.",
+        "fail": "Could not deliver",
+        "failTitle": "Could not deliver this order?",
+        "failBody": "Bring the food back. A manager will decide what happens next, and no cash is recorded.",
+        "failConfirm": "Could not deliver",
+        "failReasonLabel": "What happened?",
+        "failNoteLabel": "Note (optional)",
+        "failedToast": "Order {{reference}} is with a manager now.",
+        "failReason": {
+            "no_answer": "No answer",
+            "wrong_address": "Wrong address",
+            "refused": "Customer refused it",
+            "unreachable": "Could not get there",
+            "other": "Something else"
+        }
     },
     "desk": {
         "title": "Order desk",
@@ -1998,7 +2311,7 @@
             "customerSearchTooShort": "Keep going — {{count}} characters or more to search.",
             "customerSearchErrorTitle": "The search could not be run",
             "customerNoneTitle": "Nobody matches that",
-            "customerNoneBody": "Try part of the name, or the telephone number with its country code. If this is a first-time caller, write them down below.",
+            "customerNoneBody": "Try part of the name, or the full telephone number: a registered customer who has not ordered here is found by number only. If this is a first-time caller, write them down below.",
             "customerCapped": "Showing the first {{limit}}. Narrow the search to reach the rest.",
             "customerChoose": "Choose",
             "customerRegular": "Ordered here before",
@@ -2094,10 +2407,28 @@
             "shortfall": {
                 "customer": "Choose the customer to place this order.",
                 "address": "Save the delivery address to place this order.",
-                "reference": "Write down the transfer reference to take a Whish payment."
+                "reference": "Write down the transfer reference to take a Whish payment.",
+                "allergy": "Tell the customer about the allergy conflict, then tick the box."
             },
             "zoneNoSlots": "The delivery zone for this address offers none of the kitchen’s slots. Tick one on the zone’s Delivery windows step.",
-            "heldStock": "On quality hold: {{names}}"
+            "heldStock": "On quality hold: {{names}}",
+            "allergyNoteLabel": "Allergy note",
+            "allergyNoteHint": "Anything the customer said about allergies. The kitchen will see it.",
+            "allergyConflictTitle": "This food conflicts with the customer’s allergies",
+            "allergyConflictMeal": "{{meal}} ({{allergens}})",
+            "allergyAcknowledge": "I told the customer about this",
+            "walkIn": "Walk-in, no name on the order",
+            "walkInChoose": "Walk-in customer",
+            "partyPending": "Choose the customer, or say this is a walk-in, and the menu opens. Allergies are marked on the dishes for a named customer.",
+            "customerRegistered": "Registered customer",
+            "customerAllergiesTitle": "Allergies on file",
+            "customerAllergiesNone": "This customer has said they have no allergies.",
+            "customerAllergiesUnknown": "Nobody has asked this customer about allergies yet. Ask before you take the order.",
+            "customerAllergiesError": "The allergies could not be read. Ask the customer before you take the order.",
+            "tileConflict": "Contains {{allergens}}",
+            "tileConflictDiet": "Conflicts with this customer's diet",
+            "offToday": "Off today",
+            "backOnToday": "Back on today"
         },
         "refusal": {
             "customer_required": "This kind of sale needs a customer. Go back and choose or add one.",
@@ -2112,12 +2443,26 @@
             "currency_mismatch": "Part of this basket is priced in another currency, so it cannot be sold in one go.",
             "item_unknown": "That article is no longer in the catalogue.",
             "item_not_published": "That article is not published, so it cannot be sold.",
+            "item_not_assessed": "Nobody has assessed that article for allergens, so it cannot be sold. Assess it in the catalogue first.",
+            "option_unknown": "An option chosen on this line is no longer offered. Open the line and choose again.",
+            "option_unlinked": "A sauce or side on this line has no recipe linked, so it cannot be sold. Link it under the dish’s options, or choose another.",
+            "quality_hold": "All that is left of this article is on quality hold. Release the check or choose something else.",
             "variant_unknown": "That pack no longer exists.",
             "variant_not_active": "That pack is not available.",
             "channel_unavailable": "That article is not offered at the counter. Publish it to the desk channel first.",
             "channel_not_trading": "The counter is not taking orders at the moment.",
             "unpriced": "That article has no counter price. Add it to a price list the desk uses.",
-            "window_not_offered": "The address’s delivery zone does not offer that slot. Choose another."
+            "window_not_offered": "The address’s delivery zone does not offer that slot. Choose another.",
+            "closed": "The kitchen is closed on that day. Choose another day.",
+            "kitchen_closed": "This kitchen has no open branch, so it cannot take this sale.",
+            "window_ended": "That slot has already ended today. Choose a later slot or another day.",
+            "lead_time_not_met": "That slot is too soon for the kitchen to prepare this order.",
+            "below_zone_minimum": "This order is below the delivery zone’s minimum.",
+            "item_unavailable_on_date": "That article is off or sold out on that day. Choose another day or remove it.",
+            "allergen_conflict": "This food conflicts with the customer’s allergies. Tick that you told them, then try again.",
+            "kitchen_not_open": "This kitchen has not gone live. A customer would be turned away; the desk can still take this.",
+            "kitchen_paused": "The kitchen is paused. A customer would be turned away; the desk can still take this.",
+            "window_full": "That slot has reached its limit. A customer would be turned away; the desk can still take this."
         },
         "columnPhone": "Telephone",
         "columnAgeing": "Ageing",
@@ -2127,6 +2472,8 @@
             "open": "Open now",
             "openCaption": "In this window",
             "late": "Past due",
+            "lateInfo": "Every open order past its due time, on any date, not only this view.",
+            "lateFilter": "Show every past due order, on any date",
             "lateCaption": "Past their due time",
             "needsDriverCaption": "Confirmed, nobody assigned",
             "unsettledCaption": "Money still to collect"
@@ -2181,6 +2528,27 @@
                 "paid_online": "The order was paid online.",
                 "legacy_consumption": "The order's stock was taken out before line-by-line tracking, so it cannot be edited."
             }
+        },
+        "courier": {
+            "open": "Hand to courier",
+            "title": "Hand to courier",
+            "description": "Order {{number}} leaves with them now. It can no longer be cancelled, and cash stays unpaid until the courier settles.",
+            "confirm": "Hand over",
+            "nameLabel": "Courier",
+            "referenceLabel": "Reference (optional)",
+            "feeLabel": "Fee in {{currency}} (optional)",
+            "feeInvalid": "Enter an amount, like 3.00.",
+            "handedToast": "Handed to {{name}}."
+        },
+        "pause": {
+            "button": "Pause kitchen",
+            "title": "Pause new customer orders",
+            "body": "Customers cannot order until the time runs out. The desk still can, and orders already placed carry on.",
+            "minutes_one": "{{count}} minute",
+            "minutes_other": "{{count}} minutes",
+            "pausedUntil": "Kitchen paused until {{time}}",
+            "pausedBody": "Customers are being turned away until then. The desk can still take orders.",
+            "resume": "Start again now"
         }
     },
     "calendar": {
@@ -2219,6 +2587,14 @@
         "noteZero": "0 is a true zero — the server walked that slot and found nothing. — means the day was never answered, which is a different fact and is never shown as a zero."
     },
     "families": {
+        "temperatureLogs": {
+            "name": "Temperature log",
+            "description": "Fridge and freezer readings twice a day, and each batch’s cooking core temperature."
+        },
+        "complaints": {
+            "name": "Complaints",
+            "description": "What went wrong with an order, what it cost and how it ended."
+        },
         "customers": {
             "name": "Customers",
             "description": "Who this kitchen sells to — consumers, businesses and guests — with their contacts and addresses, for reference."
@@ -2298,11 +2674,19 @@
         },
         "analytics": {
             "name": "Analytics",
-            "description": "Kitchen KPIs, production trends, and channel mix — sample figures until live reporting lands."
+            "description": "Orders, units sold, on-time rate and channel mix, read from the order book."
         },
         "costReport": {
             "name": "Cost report",
             "description": "Monthly spend and cost of goods sold beside selling revenue — the margin, at a glance."
+        },
+        "setup": {
+            "name": "Setup",
+            "description": "The steps before this kitchen takes customer orders, and the button that opens it."
+        },
+        "stockDuplicates": {
+            "name": "Duplicate stock",
+            "description": "Stock rows that share a name and need somebody to decide what they are."
         },
         "consumptionExceptions": {
             "name": "Stock gaps",
@@ -2351,85 +2735,80 @@
         "wholesale": {
             "name": "Wholesale setup",
             "description": "What a business customer needs before they can order from this kitchen."
+        },
+        "orderSettlement": {
+            "name": "Settle cash",
+            "description": "Cash handed in by drivers and couriers, and any short amount for a manager to sign."
+        },
+        "activity": {
+            "name": "Activity",
+            "description": "Who moved the stock, what the waste cost, and everything the audit trail recorded."
+        },
+        "orderClose": {
+            "name": "Daily close",
+            "description": "Float, cash count and variance for each shift."
+        },
+        "payables": {
+            "name": "Payables",
+            "description": "What is owed for deliveries, when it falls due, and prices waiting for approval."
+        },
+        "dishMargins": {
+            "name": "Dish margins",
+            "description": "What each dish earns at today's costs, against your target."
         }
     },
     "analytics": {
-        "title": "Kitchen analytics",
-        "subtitle": "Live views for kitchen staff — filter by date and segment and every chart, KPI, and row updates together.",
-        "theme": {
-            "dark": "Dark mode",
-            "light": "Light mode"
-        },
         "filters": {
             "from": "From",
-            "to": "To",
-            "segment": "Segment"
-        },
-        "segments": {
-            "all": "All",
-            "meals": "Meals",
-            "recipes": "Recipes",
-            "delivery": "Delivery",
-            "stock": "Stock"
+            "to": "To"
         },
         "kpi": {
-            "produced": "Units produced",
+            "orders": "Orders",
+            "units": "Units sold",
             "onTime": "On-time rate",
-            "review": "Review backlog",
-            "prep": "Avg prep time"
+            "leadTime": "Average lead time"
         },
         "trend": {
             "up": "↑ {{value}}%",
             "down": "↓ {{value}}%",
-            "flat": "No change"
+            "flat": "No change",
+            "noComparison": "Nothing to compare with"
+        },
+        "notEnoughData": "Not enough data",
+        "units": {
+            "hours": "h"
         },
         "charts": {
-            "productionTrend": "Production trend",
-            "channelVolume": "Volume by channel",
-            "statusMix": "Status mix",
-            "statusCenter": "Share",
+            "unitsTrend": "Units sold",
+            "perDay": "units a day",
+            "perWeek": "units a week",
+            "trendBarTitle": "{{label}} · {{value}} units",
+            "channelVolume": "Orders by channel",
             "channels": {
                 "subscription": "Subscription",
                 "aLaCarte": "À la carte",
                 "b2b": "B2B",
-                "pos": "POS",
-                "staff": "Staff meals"
+                "pos": "POS"
             },
-            "productionTrendUnit": "units per period",
-            "trendBarTitle": "{{label}} · {{value}} units"
-        },
-        "status": {
-            "all": "All statuses",
-            "onTrack": "On track",
-            "watch": "Watch",
-            "blocked": "Blocked"
+            "outcomeMix": "Order outcomes",
+            "outcomes": {
+                "fulfilled": "Fulfilled",
+                "open": "Open",
+                "cancelled": "Cancelled"
+            }
         },
         "table": {
-            "title": "Line items",
-            "subtitle": "Sort any column and filter by name or status — updates instantly with the dashboard filters.",
-            "caption": "Kitchen analytics line items",
-            "search": "Search rows",
-            "searchPlaceholder": "Name, segment, or update…",
-            "statusFilter": "Status filter",
-            "name": "Name",
-            "segment": "Segment",
-            "status": "Status",
-            "volume": "Volume",
-            "completion": "Done",
-            "avgMinutes": "Avg min",
-            "updated": "Updated",
-            "empty": "No rows match these filters.",
-            "sampleNote": "sample figures until live reporting lands"
+            "title": "Top items",
+            "caption": "Top items by units sold",
+            "name": "Item",
+            "type": "Type",
+            "orders": "Orders",
+            "units": "Units",
+            "share": "Share",
+            "lastOrdered": "Last ordered"
         },
-        "units": {
-            "count": "units",
-            "percent": "%",
-            "minutes": "min"
-        },
-        "window": {
-            "kind": "Line item",
-            "note": "These are sample figures until live reporting lands. Nothing on this screen is read from the order book."
-        }
+        "emptyTitle": "No orders in this range",
+        "emptyBody": "Orders placed in the selected range will appear here."
     },
     "review": {
         "title": "Needs review",
@@ -2683,7 +3062,7 @@
         "metaSeparator": " · ",
         "cancel": "Cancel",
         "save": "Save",
-        "forkAction": "Edit for this kitchen",
+        "forkAction": "Save a copy for this kitchen",
         "forkedToast": "{{name}} is now this kitchen’s own. Edit it freely.",
         "forkError": "That copy could not be made",
         "stepsLabel": "Form steps",
@@ -2720,7 +3099,7 @@
         "itemsPerUnit": "Items per pack",
         "itemsPerUnitHint": "Pieces in one purchase pack, where known.",
         "composition": "Composition (made from)",
-        "compositionHint": "The source sheet's own wording — a coarse ingredient list, not a formulation.",
+        "compositionHint": "A coarse ingredient list, not a formulation.",
         "subcategory": "Sub-category",
         "subcategoryPlaceholder": "Choose a sub-category",
         "subcategoryNone": "Filed at the top level",
@@ -2912,6 +3291,13 @@
         "mappingAdded": "An allergen mapping row was added.",
         "mappingRemoved": "An allergen mapping row was removed."
     },
+    "allergenAssessment": {
+        "notAssessed": "Not assessed",
+        "noRecipe": "No published recipe",
+        "calloutTitle": "Not assessed for allergens, so it is off sale",
+        "calloutBody": "Nobody has recorded what this contains. Publish a recipe or link its ingredients, or confirm it contains none of these: {{allergens}}",
+        "confirm": "Assessed: contains none of these"
+    },
     "stockBlockers": {
         "gateCheck": "Lowers stock when sold",
         "rowLabel": "Selling this doesn't lower stock: {{reasons}}",
@@ -2947,7 +3333,7 @@
         "versionCount_one": "{{count}} version",
         "versionCount_other": "{{count}} versions",
         "quarantined": "Awaiting review",
-        "noAllergens": "None derived",
+        "noAllergens": "None found in its ingredients",
         "emptyTitle": "This kitchen has no recipes yet",
         "emptyBody": "Write the first one, or wait for the import to bring the technical sheets in.",
         "filteredEmptyTitle": "Nothing matches those filters",
@@ -2987,7 +3373,7 @@
         "versionSelect": "View",
         "versionSelected": "Viewing",
         "versionUnavailableTitle": "This version's contents cannot be loaded",
-        "versionUnavailableBody": "The management API answers with the current version in full and every other one as a summary. Its number, its state and its publication date are shown; its lines are not available to read.",
+        "versionUnavailableBody": "Only the current version can be read in full. For older versions you can see the number, the state and the publication date, but not the ingredients.",
         "backToCurrentVersion": "Back to the current version",
         "immutableTitle": "This version is published and cannot be changed",
         "immutableBody": "Open a new draft from it. The draft starts as a copy — lines, outputs and method — and consumers keep reading the published version until the draft is published in turn.",
@@ -3071,8 +3457,8 @@
         "statReviewCaption": "held on an allergen change",
         "statReviewAction": "Show only the recipes awaiting review",
         "viewKind": "Recipe",
-        "viewAllergensSource": "Derived",
-        "viewAllergensCaption": "Derived from this version's lines. Correct it by editing the lines, not here.",
+        "viewAllergensSource": "From the ingredients",
+        "viewAllergensCaption": "Worked out from this version's ingredients. To change them, edit the ingredients.",
         "sourceKindLabel": "Kind",
         "tabsLabel": "Recipe steps",
         "tabDescription": "Description",
@@ -3101,8 +3487,6 @@
         "costPerPieceWithWaste": "Per piece + {{percent}}% waste",
         "productionWastePercent": "Production waste (%)",
         "packagingWastePercent": "Packaging waste (%)",
-        "b2bPriceHint": "To a kitchen or corporate buyer, excl. VAT",
-        "b2cPriceHint": "To a diner, incl. VAT",
         "marginNoBasis": "Needs a B2B price and a costed formulation",
         "compositionHint": "Computed from the ingredient database — not editable here",
         "sectionAllergenClasses": "Allergen classes",
@@ -3179,7 +3563,7 @@
         "sheetYieldWithPortions": "{{quantity}} {{unit}} · {{pieces}} portions",
         "sheetProductionAfterWaste": "Production / {{unit}} after waste",
         "sheetPackagingAfterWaste": "Packaging / {{unit}} after waste",
-        "sheetAllergensDerived": "Allergens (derived)",
+        "sheetAllergensDerived": "Allergens (from the ingredients)",
         "sheetRestrictedValue": "Yes — not for circulation",
         "publishChecksTitle": "Publish checks",
         "versionChip": "{{status}} v{{number}}",
@@ -3202,9 +3586,9 @@
         "checkYieldOk": "{{quantity}} {{unit}} per batch",
         "checkYieldMissing": "State the batch yield on the Production step",
         "checkAllergens": "Allergens confirmed",
-        "checkAllergensOk_one": "Derived from {{count}} raw material",
-        "checkAllergensOk_other": "Derived from {{count}} raw materials",
-        "checkAllergensUnmapped": "No allergen mapping recorded: {{names}}",
+        "checkAllergensOk_one": "Worked out from {{count}} raw material",
+        "checkAllergensOk_other": "Worked out from {{count}} raw materials",
+        "checkAllergensUnmapped": "Allergens not recorded for: {{names}}",
         "yieldQuantity": "Yield",
         "yieldPieces": "Pieces produced",
         "discard": "Discard",
@@ -3239,7 +3623,9 @@
         "savedAllToast": "All changes saved.",
         "allSavedBadge": "All saved",
         "listingNotSavedToast": "The Selling tab was not saved. It shows what to fix.",
-        "swappedToCopyToast": "This recipe now uses your kitchen’s copy of the ingredient. Save to keep it."
+        "swappedToCopyToast": "This recipe now uses your kitchen’s copy of the ingredient. Save to keep it.",
+        "offTodayToast": "Off the menu for today.",
+        "backOnTodayToast": "Back on the menu today."
     },
     "publish": {
         "action": "Publish",
@@ -3439,10 +3825,10 @@
         "recipeMissingBody": "Nothing is linked yet, so there are no lines to cost and no technical sheet to draw. Starting one writes a recipe named after this item and links it, and the tabs open on it.",
         "formulationStart": "Start the formulation",
         "formulationStartedToast": "{{name}} now has a formulation to fill in.",
-        "recipeNoneHint": "This product is bought in rather than cooked, so nothing is derived from a recipe.",
+        "recipeNoneHint": "This product is bought in rather than cooked, so it has no recipe.",
         "openRecipe": "Open the recipe",
         "dietsLabel": "Diet classifications",
-        "dietsNone": "None derived",
+        "dietsNone": "None found in its recipe",
         "dataQualityTitle": "The import left findings on this row",
         "quarantineTitle": "Quarantined for review",
         "quarantineBody": "This product’s allergen information contradicts a determination it was published against. Resolve the conflict on the ingredient; nothing on this screen can clear it.",
@@ -3502,11 +3888,11 @@
         "sectionDetails": "The meal",
         "sectionRecipe": "Recipe, allergens and channels",
         "sectionMargin": "Margin",
-        "recipeHint": "The recipe the meal’s figures and its allergen label come from. A meal with no recipe is bought in, and declares nothing derived.",
+        "recipeHint": "The recipe the meal’s figures and its allergen label come from. A meal with no recipe is bought in, and has neither.",
         "allergensLabel": "Declared allergens",
-        "allergensNone": "None derived",
+        "allergensNone": "None found in its recipe",
         "allergensProvenance": "Frozen from recipe version {{version}} when this meal was published. Change the recipe to change the label — it cannot be edited here.",
-        "allergensNoProvenance": "No recipe version is recorded, so nothing has been derived. Link a recipe to give this meal a label.",
+        "allergensNoProvenance": "No recipe is linked, so there is no allergen information. Link a recipe to give this meal a label.",
         "channelsLabel": "Sales channels",
         "channelsReadOnly": "Read-only here: this catalogue publishes a channel setter for products and none for meals.",
         "confidential": "Confidential",
@@ -3516,12 +3902,12 @@
         "publishBody": "Publishing is what makes a meal visible outside this kitchen.",
         "publishConsequence": "The meal appears on the public menu, in search and on its own page, with the name, description and allergen label below. Withdrawing it later is a separate, deliberate act.",
         "publishAllergensTitle": "The label this meal would carry",
-        "publishAllergensNone": "No allergen is declared. That means either nothing was derived or no recipe is linked — not that the dish is free of all fourteen classes.",
+        "publishAllergensNone": "No allergen is declared. That means none was found or no recipe is linked — not that the dish is free of all fourteen classes.",
         "publishBlockedTitle": "This meal cannot be published yet",
         "blockName": "Arabic name is missing — the public page falls back to English.",
         "blockDescription": "Add both descriptions before publishing.",
         "blockMealTypes": "No meal type is set, so nobody browsing by breakfast or lunch would find it.",
-        "blockUnsaved": "There are unsaved changes. Save them first — publishing publishes what the server holds, not what is on screen.",
+        "blockUnsaved": "There are unsaved changes. Save them first: publishing uses what was last saved, not what is on screen.",
         "publishedTitle": "This meal is on the public menu",
         "publishedBody": "Every consumer surface reads it now, with the name and label saved here.",
         "viewPublic": "See it on the menu",
@@ -3596,7 +3982,7 @@
         "inconsistentCount_one": "{{count}} row disagrees with its status",
         "inconsistentCount_other": "{{count}} rows disagree with their status",
         "emptyTitle": "This kitchen has no price lists yet",
-        "emptyBody": "Price lists arrive with the catalogue import. They cannot be created from this workspace — the management API publishes no create endpoint for them.",
+        "emptyBody": "Price lists arrive with the catalogue import. They can't be created here yet.",
         "filteredEmptyTitle": "Nothing matches those filters",
         "filteredEmptyBody": "Try a shorter search, or allow more statuses.",
         "noEntries": "Nothing priced yet",
@@ -3633,11 +4019,11 @@
         "publishExcludedTitle": "What will not reach a customer",
         "publishExcludedBody": "{{placeholders}} pending and {{market}} daily-priced entries carry no amount. They are excluded from every customer-facing price, before and after this publish — publishing does not turn them into prices.",
         "publishBlockedTitle": "This price list cannot be published yet",
-        "blockUnsaved": "There are unsaved changes. Save them first — publishing publishes what the server holds, not what is on screen.",
+        "blockUnsaved": "There are unsaved changes. Save them first: publishing uses what was last saved, not what is on screen.",
         "blockNoEntries": "It prices nothing.",
         "blockInconsistent_one": "{{count}} entry disagrees with its price status.",
         "blockInconsistent_other": "{{count}} entries disagree with their price status.",
-        "publishRefusedEntries": "The server refused this publish: at least one entry disagrees with its price status. A confirmed price needs an amount, and nothing else may carry one.",
+        "publishRefusedEntries": "This list can't be published yet: at least one entry doesn't match its price status. A confirmed price needs an amount, and nothing else may carry one.",
         "publishedToast": "{{name}} is published.",
         "viewKind": "Price list",
         "viewPending": "Not yet a price",
@@ -3865,8 +4251,8 @@
         "editTitle": "Plan",
         "stepsLabel": "Plan steps",
         "backToList": "Back to plans",
-        "notFoundTitle": "That is not a plan identifier",
-        "notFoundBody": "A plan is addressed by its identifier, or by “new” for one that does not exist yet.",
+        "notFoundTitle": "That plan isn't here",
+        "notFoundBody": "The link may be mistyped or out of date.",
         "loadErrorTitle": "That plan could not be loaded",
         "sectionDetails": "The plan",
         "matrixSaveError": "Those configurations were not saved",
@@ -3904,7 +4290,7 @@
         "blockInconsistentDurations_one": "{{count}} duration disagrees with its kind: a one-off carries no day count and a fixed-days duration needs a positive one.",
         "blockInconsistentDurations_other": "{{count}} durations disagree with their kind: a one-off carries no day count and a fixed-days duration needs a positive one.",
         "blockNoConfirmedPrice": "No price list carries a confirmed price for this plan or any of its configurations. Publishing it would advertise a placeholder.",
-        "blockUnsaved": "There are unsaved changes. Save them first — publishing publishes what the server holds, not what is on screen.",
+        "blockUnsaved": "There are unsaved changes. Save them first: publishing uses what was last saved, not what is on screen.",
         "publishRefusedPriceTitle": "That publish was refused: no confirmed price",
         "publishedTitle": "Published",
         "publishedBody": "This plan is on the public plans page and can be subscribed to.",
@@ -3929,7 +4315,10 @@
         "savePlan": "Save the plan",
         "addVariant": "Add a configuration",
         "oneOffExplainer": "A one-off is a single delivery, so it has no day count at all — not zero, none.",
-        "searchPlaceholder": "Search plans by name"
+        "searchPlaceholder": "Search plans by name",
+        "matrixUnsold_one": "{{count}} combination isn't on sale",
+        "matrixUnsold_other": "{{count}} combinations aren't on sale",
+        "matrixUnsoldBody": "A customer can't buy an empty cell. Add it, or leave it empty if you don't sell that size."
     },
     "time": {
         "formatHint": "24-hour clock, HH:mm — for example 08:00 or 18:30.",
@@ -4020,7 +4409,7 @@
         "archiveWindowCount_one": "{{count}} delivery window goes with it.",
         "archiveWindowCount_other": "{{count}} delivery windows go with it.",
         "archivedToast": "{{name}} was archived.",
-        "noBranches": "No branch serves it yet",
+        "noBranches": "Every branch of this kitchen",
         "titleChip": "No publication state",
         "createSummary": "Nothing is saved until you save it. Leaving this screen discards what you have typed.",
         "saveZone": "Save the zone",
@@ -4680,6 +5069,74 @@
         "itemFailure": "{{name}}: {{message}}",
         "itemsReadError": "Which items are on the channel could not be read."
     },
+    "setup": {
+        "subtitle": "Finish these steps, then open the kitchen to customers.",
+        "liveTitle": "This kitchen is open",
+        "liveBody": "Customers can order. Use the steps below to keep things in shape.",
+        "notOpenTitle": "Not open yet",
+        "notOpenBody": "Customers cannot order until you go live. The order desk can still take a sale.",
+        "open": "Open",
+        "goLive": "Go live",
+        "goLiveError": "The kitchen could not go live",
+        "liveToast": "The kitchen is open for orders.",
+        "step": {
+            "hours": {
+                "title": "Opening hours",
+                "body": "Say when this branch trades and when orders close."
+            },
+            "delivery": {
+                "title": "Delivery",
+                "body": "An active zone with at least one delivery window."
+            },
+            "menu": {
+                "title": "Menu",
+                "body": "At least one published dish or product."
+            },
+            "prices": {
+                "title": "Prices",
+                "body": "At least one active price list."
+            },
+            "team": {
+                "title": "Team",
+                "body": "Add the people who work here. Optional before going live."
+            }
+        }
+    },
+    "branchClosures": {
+        "title": "Holidays and closures",
+        "description": "Dates this branch is shut, whatever the week above says. Customers cannot order for these dates.",
+        "add": "Add closure",
+        "fromLabel": "First day shut",
+        "toLabel": "Last day shut",
+        "toHint": "Leave empty for one day.",
+        "noteLabel": "Note",
+        "empty": "No closures coming up.",
+        "remove": "Remove",
+        "addedToast": "Closure added.",
+        "saveError": "That closure could not be saved",
+        "newBranch": "New branch",
+        "newBranchSave": "Open branch",
+        "newBranchName": "Branch name",
+        "newBranchCity": "City",
+        "newBranchToast": "Branch opened. Set its hours next.",
+        "newBranchError": "That branch could not be opened"
+    },
+    "stockDuplicates": {
+        "caption": "Stock rows that share a name",
+        "columnName": "Name",
+        "columnReason": "Why it is here",
+        "columnShelves": "Rows",
+        "shelf": "{{code}}: {{quantity}} {{unit}}",
+        "emptyTitle": "Nothing to review",
+        "emptyBody": "Every stock row with a repeated name has been merged or dealt with.",
+        "reason": {
+            "different_units": "Counted in different units, so the quantities cannot be added",
+            "not_a_copy": "Same name, but neither is a copy of the other",
+            "both_have_history": "Both have stock history, so neither can be dropped",
+            "both_sold_as_products": "Both are sold as products",
+            "open_work": "An open order, receipt or stock figure still uses the row"
+        }
+    },
     "lens": {
         "label": "List summary and filters",
         "allIngredients": "All ingredients",
@@ -4797,6 +5254,207 @@
             "allergens": "Allergens recorded",
             "nutrition": "Nutrition confirmed",
             "price": "Unit price on file"
+        }
+    },
+    "alerts": {
+        "title": "Alerts",
+        "buttonLabel": "Alerts · {{n}} unread",
+        "freshMany": "{{n}} new alerts",
+        "empty": "No alerts yet.",
+        "loadError": "Alerts could not be loaded.",
+        "markAllRead": "Mark all read",
+        "open": "Open",
+        "openLabel": "Open: {{title}}",
+        "unreadDetail": "New · {{when}}",
+        "type": {
+            "unaccepted_manager": "Order {{number}} has not been accepted",
+            "unaccepted_owner": "Order {{number}} is still not accepted",
+            "allergy_order": "New order {{number}} has an allergy on it",
+            "severe_allergy": "New order {{number}} has a severe allergy on it",
+            "late_cancel": "Order {{number}} was cancelled after cooking started",
+            "delivery_failed": "Delivery failed for order {{number}}",
+            "no_cash_collected": "No cash was collected for order {{number}}",
+            "refund_approval": "A refund on order {{number}} needs your approval",
+            "stock_expiring": "Use by date coming up: {{number}}",
+            "temperature_out_of_range": "Temperature out of range: {{number}}",
+            "refund_approved": "Your refund on order {{number}} was approved",
+            "refund_rejected": "Your refund on order {{number}} was rejected",
+            "short_hand_in": "A cash hand-in came up short",
+            "short_close": "The cash close for {{number}} came up short",
+            "price_approval": "A delivery from {{number}} needs its price approved",
+            "dish_below_target": "{{number}} has fallen below your margin target",
+            "delivery_moved_closed": "Order {{number}} was moved off a closed day",
+            "delivery_closed_unmoved": "A delivery on {{number}} falls on a closed day"
+        }
+    },
+    "dishOptions": {
+        "title": "Dish options",
+        "aside": "Free changes a customer can make. Portions are the dish’s packs. Leaving something out keeps the allergens as they are. A sauce or side choice is linked to its recipe and adds that recipe’s allergens to the line.",
+        "recipe": "Recipe",
+        "recipePlaceholder": "Choose the sauce or side recipe",
+        "recipeMissing": "No recipe linked, so customers are not offered this choice.",
+        "recipeUnpublished": "This recipe has no published version, so the dish is off sale until it has one.",
+        "allergensAfterSave": "Its allergens show once the options are saved.",
+        "noAllergens": "The recipe declares no allergens.",
+        "kind": "Kind",
+        "kindRemove": "Leave out",
+        "kindChoice": "Choice",
+        "groupEn": "Group",
+        "groupAr": "Group in Arabic",
+        "nameEn": "Name",
+        "nameAr": "Name in Arabic",
+        "removeRow": "Remove this option",
+        "add": "Add an option",
+        "save": "Save options",
+        "saved": "Dish options saved.",
+        "lineAction": "Options and note for {{name}}",
+        "drawerTitle": "Options and note",
+        "apply": "Apply",
+        "noteLabel": "Note for the kitchen",
+        "lineNote": "Note: {{note}}"
+    },
+    "complaints": {
+        "sectionTitle": "Complaint",
+        "record": "Record a complaint",
+        "recordTitle": "Complaint on order {{number}}",
+        "recordConfirm": "Save complaint",
+        "recordedToast": "Complaint recorded.",
+        "openRecord": "Open",
+        "viewKind": "Complaint",
+        "figureAll": "All complaints",
+        "figureOpenAction": "Show open complaints",
+        "figureClosedAction": "Show closed complaints",
+        "mix": "{{open}} open, {{closed}} closed",
+        "stateOpen": "Open",
+        "stateClosed": "Closed",
+        "columnOrder": "Order",
+        "columnCause": "Cause",
+        "columnCost": "Cost to the kitchen",
+        "columnState": "State",
+        "costHint": "Your best figure. It can change until the complaint is closed.",
+        "fieldOpened": "Opened",
+        "fieldDescription": "What happened",
+        "fieldRemake": "Remade as",
+        "fieldOutcome": "Outcome",
+        "fieldRefund": "Refund",
+        "searchPlaceholder": "Search by order or what happened",
+        "loadErrorTitle": "Complaints could not be loaded",
+        "emptyTitle": "No complaints",
+        "emptyBody": "A complaint is recorded from its order’s page.",
+        "openOrder": "Open the order",
+        "close": "Close the complaint",
+        "closeTitle": "Close the complaint",
+        "closeConfirm": "Close it",
+        "remake": "Remake at no charge",
+        "remadeToast": "Remake placed: order {{number}}.",
+        "cause": {
+            "wrong_item": "Wrong item",
+            "missing_item": "Missing item",
+            "quality": "Food quality",
+            "late": "Late",
+            "foreign_object": "Foreign object",
+            "other": "Other"
+        },
+        "outcome": {
+            "remade": "Remade",
+            "refunded": "Refunded",
+            "apologised": "Apologised",
+            "no_action": "No action"
+        }
+    },
+    "temperature": {
+        "tabReadings": "Fridges and freezers",
+        "tabCooking": "Cooking",
+        "tabUnits": "Units",
+        "month": "Month",
+        "record": "Record a reading",
+        "recordBatch": "Record a core temperature",
+        "addUnit": "Add a unit",
+        "editUnit": "Edit the unit",
+        "print": "Print",
+        "printReadings": "Fridge and freezer temperatures, {{month}}",
+        "printCooking": "Cooking core temperatures, {{month}}",
+        "save": "Save",
+        "saved": "Reading saved.",
+        "savedOutOfRange": "Reading saved. It is out of range, so the managers have been alerted.",
+        "celsius": "{{value}}°C",
+        "columnDate": "Date",
+        "columnSlot": "Time of day",
+        "columnUnit": "Unit",
+        "columnReading": "Reading",
+        "columnState": "State",
+        "columnBy": "Recorded by",
+        "columnNote": "Note",
+        "columnWhen": "Recorded at",
+        "columnBatch": "Batch",
+        "columnCore": "Core temperature",
+        "fieldKind": "Kind",
+        "fieldRange": "Should hold",
+        "fieldMin": "Lowest (°C)",
+        "fieldMax": "Highest (°C)",
+        "fieldCelsius": "Temperature (°C)",
+        "inRange": "In range",
+        "outOfRange": "Out of range",
+        "active": "In use",
+        "retired": "Retired",
+        "loadErrorTitle": "The temperature log could not be loaded",
+        "emptyTitle": "No readings this month",
+        "emptyBody": "Readings are taken twice a day, per unit, and written once.",
+        "cookingEmptyTitle": "No core temperatures this month",
+        "cookingEmptyBody": "Record the core temperature of a batch as it cooks.",
+        "unitsEmptyTitle": "No units yet",
+        "unitsEmptyBody": "Add each fridge and freezer with the range it should hold.",
+        "kind": {
+            "fridge": "Fridge",
+            "freezer": "Freezer"
+        },
+        "slot": {
+            "am": "Morning",
+            "pm": "Evening"
+        }
+    },
+    "serviceTimings": {
+        "title": "Service timings",
+        "description": "These apply to the whole kitchen, not only this branch. Alert times count only while a branch is open.",
+        "save": "Save timings",
+        "savedToast": "Service timings saved.",
+        "saveError": "The service timings were not saved.",
+        "loadErrorTitle": "The service timings could not be loaded.",
+        "unit": "min",
+        "leadLabel": "Order lead time",
+        "leadHint": "How long before a delivery window an order must be placed.",
+        "alarmLabel": "Display alarm after",
+        "alarmHint": "How long an order waits before the kitchen display alarms.",
+        "managerLabel": "Alert managers after",
+        "managerHint": "Must be less than the owner alert.",
+        "ownerLabel": "Alert owner after",
+        "ownerHint": "How long an order waits before the owner is told.",
+        "refundLabel": "Owner approves refunds above",
+        "refundHint": "Counts everything refunded on one order. Managers refund up to this on their own.",
+        "refundUnit": "USD",
+        "capacityLabel": "Most orders per delivery slot",
+        "capacityHint": "Customers are told the slot is full past this. Leave it empty for no limit.",
+        "capacityUnit": "orders",
+        "priceLimitLabel": "Approve delivery prices above",
+        "priceLimitHint": "A price this far above the last one waits for approval before the invoice can be paid. Leave it empty for no approvals.",
+        "marginTargetLabel": "Dish margin target",
+        "marginTargetHint": "The owner is alerted when a dish falls below this. Leave it empty for no alerts.",
+        "percentUnit": "%"
+    },
+    "allergy": {
+        "title": "Allergy on this order",
+        "titleSevere": "Severe allergy on this order",
+        "badge": "Allergy",
+        "badgeSevere": "Severe allergy",
+        "item": "{{allergen}} ({{severity}})",
+        "conflictsWith": "conflicts with {{lines}}",
+        "note": "Note: {{note}}",
+        "acknowledged": "Customer told about the conflict.",
+        "severity": {
+            "avoidance": "avoids it",
+            "intolerance": "intolerance",
+            "allergy": "allergy",
+            "anaphylaxis": "life-threatening"
         }
     }
 }

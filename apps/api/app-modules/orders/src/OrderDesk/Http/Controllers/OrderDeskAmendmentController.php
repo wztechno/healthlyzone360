@@ -85,6 +85,8 @@ final class OrderDeskAmendmentController
                     : CarbonImmutable::createFromFormat('Y-m-d', $requestedDate)->startOfDay(),
                 windowCode: $payload['delivery_window_code'],
                 paymentMethod: $paymentMethod,
+                allergyNote: $payload['allergy_note'],
+                allergenConflictsAcknowledged: $payload['acknowledge_allergen_conflicts'],
             ),
             $ifMatch,
         );

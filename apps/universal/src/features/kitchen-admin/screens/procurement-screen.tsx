@@ -50,6 +50,8 @@ import {
 } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { AwaitingDeliveries } from '../awaiting-deliveries.tsx';
+import { ReceiptOpenOrder, ReceiptOrderRef } from '../receipt-order-ref.tsx';
 import { useViewedRecord } from '../use-viewed-record.ts';
 
 /**
@@ -69,7 +71,7 @@ import { useViewedRecord } from '../use-viewed-record.ts';
  *
  * **Post receipt** opens `/kitchen/procurement/new` — the market purchase, on a page of its own
  * (`post-receipt-screen.tsx`) rather than the dialog it used to be. A delivery against an issued
- * order goes to `/kitchen/procurement/receive` instead.
+ * order goes to `/kitchen/procurement/receive` instead, from Awaiting delivery above the book.
  */
 
 export function ProcurementScreen({ view }: { readonly view?: string | undefined }) {
@@ -149,6 +151,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                           row.supplier?.code,
                           row.documentRef,
                           row.supplierInvoiceRef,
+                          row.purchaseOrderNumber,
                       ]
                           .filter((value): value is string => value !== null && value !== undefined)
                           .some((value) => value.toLocaleLowerCase().includes(trimmed)),
@@ -229,7 +232,8 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
             role: 'metric',
             label: t('kitchen:ops.procurement.columnLines'),
             width: 70,
-            priority: 70,
+            // Below Order and Total, so a count is what leaves the default six, not the money.
+            priority: 45,
             value: (row) => String(row.lines.length),
             sort: (left, right, direction) =>
                 compareNumber(left.lines.length, right.lines.length, direction),
@@ -257,6 +261,23 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                 <Text variant="mono" tone="secondary" numberOfLines={1}>
                     {refsText(row, t)}
                 </Text>
+            ),
+        },
+        {
+            key: 'order',
+            role: 'meta',
+            label: t('kitchen:ops.procurement.columnOrder'),
+            width: 120,
+            priority: 55,
+            value: (row) => row.purchaseOrderNumber ?? '—',
+            sort: (left, right, direction) =>
+                compareText(left.purchaseOrderNumber, right.purchaseOrderNumber, direction),
+            render: (row) => (
+                <ReceiptOrderRef
+                    orderId={row.purchaseOrderId}
+                    orderNumber={row.purchaseOrderNumber}
+                    testID={`${goodsReceiptRowTestId(String(row.id))}-order`}
+                />
             ),
         },
         {
@@ -391,6 +412,12 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                         mono: true,
                     },
                     {
+                        key: 'order',
+                        label: t('kitchen:ops.procurement.columnOrder'),
+                        value: viewing.purchaseOrderNumber ?? '—',
+                        mono: true,
+                    },
+                    {
                         key: 'total',
                         label: t('kitchen:ops.procurement.columnTotal'),
                         value: totalText(viewing),
@@ -420,6 +447,12 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                     </Stack>
                 }
                 footNote={t('kitchen:ops.procurement.listFoot')}
+                statusContent={
+                    <ReceiptOpenOrder
+                        orderId={viewing.purchaseOrderId}
+                        testID="kitchen-procurement-view-open-order"
+                    />
+                }
                 {...(canViewCosts && viewing.costStatus !== 'complete'
                     ? {
                           primaryAction: {
@@ -438,6 +471,8 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
 
     return (
         <Cascade space="md" testID="kitchen-procurement-screen">
+            {canManage ? <AwaitingDeliveries /> : null}
+
             {/*
              * The Lens bar — the price states as figures over the mix, the lot and the search on the
              * query row, the way to suppliers and the unpriced queue beside Post receipt.

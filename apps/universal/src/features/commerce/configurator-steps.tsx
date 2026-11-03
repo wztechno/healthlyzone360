@@ -879,7 +879,7 @@ export interface PriceLabels {
  *
  * One arithmetic, readable top to bottom: a delivery day lists at X; the run buys N of them, so
  * before the discount it is X × N; the discount takes the gap to the total; the total is what the
- * server quoted; and a day after the discount is the figure a refund is computed from. The gross
+ * server quoted; and a day after the discount is the figure a delivery costs. The gross
  * and the saving are derived in one currency, and the authority for what is owed remains
  * `preview.total`, rendered as it arrived. It used to show a "weekly price" and a gross of four
  * calendar weeks beside a total of twenty-eight delivery days, so "before discount" was smaller

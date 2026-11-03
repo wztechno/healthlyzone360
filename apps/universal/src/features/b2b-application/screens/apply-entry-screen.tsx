@@ -1,5 +1,6 @@
 import { Button, Callout, Card, Heading, ListItem, Stack, Text } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
+import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -38,6 +39,7 @@ const TEST_ID = 'b2b-apply-entry';
 
 export function ApplyEntryScreen() {
     const { t } = useTranslation();
+    const formatter = useFormatter();
     const router = useRouter();
 
     const application = useB2BApplicationQuery();
@@ -114,7 +116,7 @@ export function ApplyEntryScreen() {
                             role="status"
                             title={t('b2bApplication:entry.resume')}
                             body={t('b2bApplication:entry.resumeBody', {
-                                date: current.createdAt,
+                                date: formatter.formatDate(current.createdAt),
                             })}
                         />
                         <Button

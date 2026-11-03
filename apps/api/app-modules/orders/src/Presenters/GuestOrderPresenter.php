@@ -143,6 +143,8 @@ final class GuestOrderPresenter
             // kitchen reformulates.
             'allergens' => $line->allergens,
             'pack_summary' => $line->pack_summary,
+            'options' => $line->selected_options ?? [],
+            'note' => $line->note,
         ];
     }
 

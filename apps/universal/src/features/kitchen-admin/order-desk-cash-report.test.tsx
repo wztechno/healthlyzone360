@@ -96,6 +96,7 @@ function seedRows(): readonly OrderDeskCashReportRow[] {
 function report(rows: readonly OrderDeskCashReportRow[]): OrderDeskCashReport {
     return {
         rows,
+        adjustments: [],
         // Derived by the server, never by the screen — two totals for one method, because two
         // currencies.
         totals: [
@@ -190,6 +191,7 @@ describe('order desk cash report — the ladder', () => {
         await renderReport(async () => ({
             rows: [],
             totals: [],
+            adjustments: [],
             meta: {
                 from: '2026-05-10',
                 to: '2026-05-10',

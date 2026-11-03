@@ -27,7 +27,6 @@ import type {
     ChangeAddressRequest,
     ChangeSlotRequest,
     CreateSubscriptionRequest,
-    CreditMemo,
     DeliveryAddress,
     PauseSubscriptionRequest,
     SetSubscriptionMealChoicesRequest,
@@ -61,7 +60,6 @@ import type { ApiFailure } from '../contracts/failure.ts';
 import type { CursorPage } from '../contracts/pagination.ts';
 import type {
     AllergenConflictsEnvelope,
-    CreditMemo as WireCreditMemo,
     PlanQuoteEnvelope,
     SubscriptionAddressRef,
     SubscriptionBalance as WireBalance,
@@ -304,27 +302,6 @@ export function mapSubscription(wire: WireSubscription): Subscription {
         skippedDates: wire.skipped_dates ?? [],
         createdAt: wire.created_at ?? wire.captured_at,
         updatedAt: wire.updated_at ?? wire.created_at ?? wire.captured_at,
-    };
-}
-
-/**
- * The refund, as a record rather than a payment.
- *
- * `reason` is the one value the backend's CHECK constraint admits and the contract types it as that
- * literal. The wire sends it as an open string; it is mapped to the literal rather than silently
- * widening the contract here.
- */
-export function mapCreditMemo(wire: WireCreditMemo, subscriptionId: SubscriptionId): CreditMemo {
-    return {
-        id: wire.id,
-        subscriptionId,
-        reason: 'subscription_cancelled',
-        unusedDays: wire.unused_days,
-        perDayPrice: money(wire.per_day_minor, wire.currency_code),
-        amount: money(wire.amount_minor, wire.currency_code),
-        status: wire.status,
-        settlement: 'manual',
-        recordedAt: wire.recorded_at,
     };
 }
 
@@ -659,16 +636,7 @@ export function createApiSubscriptionReads(transport: Transport): ApiSubscriptio
                         : { reason: request.reason },
             });
 
-            return {
-                subscription: mapSubscription(data.subscription),
-                creditMemo:
-                    data.credit_memo === null
-                        ? null
-                        : mapCreditMemo(
-                              data.credit_memo,
-                              SubscriptionId.unsafe(data.subscription.id),
-                          ),
-            };
+            return { subscription: mapSubscription(data.subscription) };
         },
 
         async setSubscriptionWeekdays(

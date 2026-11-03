@@ -314,6 +314,8 @@ export interface MealFilterBarProps {
     readonly currency: CurrencyCode;
     readonly sort: MenuSort;
     readonly onSort: (sort: MenuSort) => void;
+    /** Whether any meal shown has a rating. Without one, "Top rated" sorts nothing. */
+    readonly hasRatings?: boolean | undefined;
     /**
      * The catalogue's search field, drawn first on the bar (browse-06). The screen owns it — it
      * holds the draft and the debounce — and the bar only gives it its place: the start of the row
@@ -330,6 +332,7 @@ export function MealFilterBar({
     currency,
     sort,
     onSort,
+    hasRatings = true,
     search,
 }: MealFilterBarProps) {
     const { t } = useTranslation();
@@ -469,7 +472,9 @@ export function MealFilterBar({
             label={t('catalogue:meals.sortLabel')}
             labelHidden
             value={sort}
-            options={MENU_SORTS.map((option) => ({
+            options={MENU_SORTS.filter(
+                (option) => option !== 'rating' || hasRatings || sort === 'rating',
+            ).map((option) => ({
                 value: option,
                 label: t(`catalogue:meals.sort.${option}`),
             }))}

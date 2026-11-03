@@ -11,6 +11,7 @@ import type { KitchenAdminRepository } from './kitchen-admin.ts';
 import type { KitchenOpsRepository } from './kitchen-ops.ts';
 import type { KitchenOrdersRepository } from './kitchen-orders.ts';
 import type { KitchenCustomersRepository } from './kitchen-customers.ts';
+import type { StaffAlertsRepository } from './staff-alerts.ts';
 import type { KitchenQuotationsRepository } from './kitchen-quotations.ts';
 import type { MarketplaceRepository } from './marketplace.ts';
 import type { NutritionRepository } from './nutrition.ts';
@@ -221,7 +222,6 @@ export type {
     ChosenMeal,
     CommerceRepository,
     CreateSubscriptionRequest,
-    CreditMemo,
     DeliveryAddress,
     DeliverySlot,
     MealChoiceSource,
@@ -475,6 +475,12 @@ export type {
     ConsumptionExceptionFilter,
     ConsumptionExceptionRetry,
     ConsumptionExceptionTotals,
+    AddBranchClosureRequest,
+    BranchClosure,
+    CreateBranchRequest,
+    DuplicateStockGroup,
+    KitchenSetup,
+    KitchenSetupStep,
     ConsumptionExceptionReasonCode,
     CreateProductionOrderRequest,
     CreatePurchaseOrderInput,
@@ -494,8 +500,20 @@ export type {
     InventoryValueRow,
     LastPurchase,
     MeasurementUnitOption,
+    KitchenAnalyticsChannel,
+    KitchenAnalyticsChannelVolume,
+    KitchenAnalyticsDay,
+    KitchenAnalyticsFilter,
+    KitchenAnalyticsItem,
+    KitchenAnalyticsReport,
+    KitchenAnalyticsTotals,
     MonthlyCostReportFilter,
+    DishMargin,
+    DishMargins,
     MonthlyCostReportRow,
+    Payable,
+    PayablePriceRise,
+    Payables,
     OrderProposal,
     OrderProposalItem,
     OrderProposalOrigin,
@@ -554,6 +572,11 @@ export type {
     StockLevel,
     StockMovement,
     StockMovementReason,
+    ActivityEntry,
+    ActivityPage,
+    ActivityWindow,
+    StockActivity,
+    StockActivityMovement,
     StockWasteRequest,
     StockCountRequest,
     ReplaceSupplierContactsRequest,
@@ -579,7 +602,9 @@ export type {
 } from './kitchen-ops.ts';
 
 export {
+    KITCHEN_ORDER_CANCELLATION_DISPOSITIONS,
     KITCHEN_ORDER_CANCELLATION_REASONS,
+    KITCHEN_ORDER_PICKABLE_CANCELLATION_REASONS,
     KITCHEN_ORDER_FULFILMENT_TYPES,
     KITCHEN_ORDER_OPEN_STATUSES,
     KITCHEN_ORDER_PAYMENT_METHODS,
@@ -588,13 +613,22 @@ export {
 export type {
     CancelKitchenOrderRequest,
     KitchenOrder,
+    CloseFailedDeliveryRequest,
+    FailKitchenOrderDeliveryRequest,
+    HandToCourierRequest,
+    KitchenOrderCancellationDisposition,
     KitchenOrderCancellationReason,
+    KitchenOrderPickableCancellationReason,
+    RedeliverKitchenOrderRequest,
+    KitchenOrderAllergy,
+    KitchenOrderAllergyItem,
     KitchenOrderDelivery,
     KitchenOrderDeliveryRun,
     KitchenOrderFilters,
     KitchenOrderFulfilmentType,
     KitchenOrderLine,
     KitchenOrderLineAllergen,
+    KitchenDisplay,
     KitchenOrderPage,
     KitchenOrderPaymentMethod,
     KitchenOrderPaymentReceipt,
@@ -605,7 +639,13 @@ export type {
     KitchenOrderStatus,
     KitchenOrderTransitionRequest,
     RecordedKitchenOrderPayment,
+    DecideOrderRefundRequest,
+    OrderRefund,
+    OrderRefundKind,
+    OrderRefundLedger,
+    OrderRefundStatus,
     RecordKitchenOrderPaymentRequest,
+    RecordOrderRefundRequest,
 } from './kitchen-orders.ts';
 
 export {
@@ -630,17 +670,32 @@ export type {
     OrderDeskCalendarFilters,
     OrderDeskCalendarMeta,
     OrderDeskCalendarWindow,
+    CashRun,
+    CashSettlementRecord,
+    DailyCloseRecord,
+    DailyCloseTotal,
+    OpenDailyClose,
+    OrderDeskCloses,
+    TillBranch,
+    RecordDailyCloseRequest,
+    CourierCashOwed,
+    CourierCashRun,
+    DriverCashOwed,
     OrderDeskCashReport,
+    OrderDeskCashReportAdjustment,
     OrderDeskCashReportFilters,
     OrderDeskCashReportMeta,
     OrderDeskCashReportRow,
     OrderDeskCashReportTotal,
+    OrderDeskSettlements,
+    RecordCashSettlementRequest,
     OrderDeskCounterPayment,
     OrderDeskCustomer,
     OrderDeskCustomerAddress,
     OrderDeskCustomerContact,
     OrderDeskCustomerCreated,
     OrderDeskCustomerOrigin,
+    OrderDeskCustomerAllergies,
     OrderDeskCustomerSearch,
     OrderDeskDeliveryJob,
     OrderDeskDeliveryWindow,
@@ -671,9 +726,15 @@ export type {
     UpdateOrderDeskCustomerRequest,
 } from './order-desk.ts';
 
-export { DRIVER_JOB_STATUSES, DRIVER_JOB_TRACKING_STATUSES } from './driver-jobs.ts';
+export {
+    DELIVERY_FAILURE_REASONS,
+    DRIVER_JOB_STATUSES,
+    DRIVER_JOB_TRACKING_STATUSES,
+} from './driver-jobs.ts';
 export type {
     DeliverDriverJobRequest,
+    DeliveryFailureReason,
+    FailDeliveryRequest,
     DriverJob,
     DriverJobDelivery,
     DriverJobStatus,
@@ -695,6 +756,15 @@ export type {
     KitchenCustomersRepository,
     KitchenCustomerType,
 } from './kitchen-customers.ts';
+
+export { STAFF_ALERT_TYPES } from './staff-alerts.ts';
+export type {
+    KitchenServiceSettings,
+    StaffAlert,
+    StaffAlertList,
+    StaffAlertsRepository,
+    StaffAlertType,
+} from './staff-alerts.ts';
 
 export { KITCHEN_QUOTATION_STATUSES } from './kitchen-quotations.ts';
 export type {
@@ -1102,6 +1172,12 @@ export interface Repositories {
     readonly kitchenCustomers: KitchenCustomersRepository;
 
     /**
+     * The top-bar alerts addressed to the caller, and the kitchen's service timings that decide
+     * when they fire. See `./staff-alerts.ts`.
+     */
+    readonly staffAlerts: StaffAlertsRepository;
+
+    /**
      * One driver's run sheet, and the stamp that closes a job.
      *
      * Not a branch of `kitchenOrders` and not a branch of `commerce`. Both of those are *orders* —
@@ -1164,3 +1240,22 @@ export interface Repositories {
      */
     readonly accessAdmin: AccessAdminRepository;
 }
+export type * from './dish-options.ts';
+export { COMPLAINT_CAUSES, COMPLAINT_OUTCOMES } from './complaints.ts';
+export type {
+    ComplaintCause,
+    ComplaintOutcome,
+    OrderComplaint,
+    RecordComplaintRequest,
+    UpdateComplaintRequest,
+} from './complaints.ts';
+export type {
+    CookingTemperature,
+    RecordCookingTemperatureRequest,
+    RecordTemperatureRequest,
+    TemperatureLog,
+    TemperatureReading,
+    TemperatureSlot,
+    TemperatureUnit,
+    TemperatureUnitDraft,
+} from './temperature-logs.ts';

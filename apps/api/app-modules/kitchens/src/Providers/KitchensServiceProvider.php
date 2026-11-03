@@ -10,6 +10,7 @@ use Healthy360\Kitchens\Console\FormulateUnlinkedCommand;
 use Healthy360\Kitchens\Console\ImportKitchenWorkbookCommand;
 use Healthy360\Kitchens\Console\ImportV6CatalogueCommand;
 use Healthy360\Kitchens\Console\ImportV6RecipesCommand;
+use Healthy360\Kitchens\Console\MergeDuplicateStockCommand;
 use Healthy360\Kitchens\Console\OpenDeskChannelCommand;
 use Healthy360\Kitchens\Console\PriceFrozenShelfCommand;
 use Healthy360\Kitchens\Console\PriceRecipesFromCatalogueCommand;
@@ -18,6 +19,7 @@ use Healthy360\Kitchens\Console\RelinkRecipeLinesCommand;
 use Healthy360\Kitchens\Console\SeedApproximatePlanPricesCommand;
 use Healthy360\Kitchens\Console\SeedTestAccountsCommand;
 use Healthy360\Kitchens\Console\SimulateStockCommand;
+use Healthy360\Kitchens\Console\SuspectRecordsCommand;
 use Healthy360\Kitchens\Console\UnitNormalisationReportCommand;
 use Illuminate\Support\ServiceProvider;
 
@@ -54,6 +56,8 @@ class KitchensServiceProvider extends ServiceProvider
                 SimulateStockCommand::class,
                 PriceFrozenShelfCommand::class,
                 SeedTestAccountsCommand::class,
+                MergeDuplicateStockCommand::class,
+                SuspectRecordsCommand::class,
             ]);
         }
     }

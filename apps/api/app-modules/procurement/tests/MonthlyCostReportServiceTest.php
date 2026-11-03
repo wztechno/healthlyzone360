@@ -26,6 +26,7 @@ use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\Tenancy\TenantContext;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /*
@@ -270,6 +271,95 @@ it('excludes a cancelled order from COGS and from revenue', function (): void {
         // (30000 + 10000) ÷ 100, never the cancelled 99999.
         ->and($row['revenue_amount'])->toBe('400.000000')
         ->and($row['gross_margin_amount'])->toBe('340.000000');
+});
+
+it('counts food as revenue and leaves the delivery fee out', function (): void {
+    $order = reportOrder($this, OrderStatus::Fulfilled, 2000, '2026-08-10 10:00:00');
+    $order->forceFill(['subtotal_minor' => 1500, 'delivery_fee_minor' => 500])->save();
+
+    $row = rowFor($this->service->forOrganisation($this->orgId), '2026-08', 'USD');
+
+    expect($row['revenue_amount'])->toBe('15.000000');
+});
+
+/** A completed entry on the refund ledger. */
+function reportRefund(object $test, Order $order, int $amountMinor, string $decidedAt, string $kind = 'refund'): void
+{
+    DB::table('order_refunds')->insert([
+        'id' => (string) Str::uuid7(),
+        'organisation_id' => $test->orgId,
+        'order_id' => $order->getKey(),
+        'kind' => $kind,
+        'status' => 'completed',
+        'method' => 'cash_at_counter',
+        'amount_minor' => $amountMinor,
+        'currency_code' => $order->currency_code,
+        'reason' => 'Wrong dish',
+        'requested_by' => $test->tenant->user->getKey(),
+        'requested_at' => $decidedAt,
+        'decided_by' => $test->tenant->user->getKey(),
+        'decided_at' => $decidedAt,
+        'created_at' => $decidedAt,
+        'updated_at' => $decidedAt,
+    ]);
+}
+
+it('takes a refund off revenue and margin in the month the money went back', function (): void {
+    $order = reportOrder($this, OrderStatus::Fulfilled, 2000, '2026-08-30 10:00:00');
+    reportConsume($this, $order, '5.000000', '2026-08-30 10:00:00');
+    reportRefund($this, $order, 500, '2026-09-02 10:00:00');
+
+    $rows = $this->service->forOrganisation($this->orgId);
+
+    expect(rowFor($rows, '2026-08', 'USD')['revenue_amount'])->toBe('20.000000')
+        ->and(rowFor($rows, '2026-09', 'USD')['revenue_amount'])->toBe('-5.000000')
+        ->and(rowFor($rows, '2026-09', 'USD')['refunds_amount'])->toBe('5.000000');
+});
+
+it('counts refunds only up to the food, across months', function (): void {
+    $order = reportOrder($this, OrderStatus::Fulfilled, 2000, '2026-08-10 10:00:00');
+    $order->forceFill(['subtotal_minor' => 1500, 'delivery_fee_minor' => 500])->save();
+    reportRefund($this, $order, 1000, '2026-08-20 10:00:00');
+    reportRefund($this, $order, 1000, '2026-09-02 10:00:00');
+
+    $rows = $this->service->forOrganisation($this->orgId, '2026-09', '2026-09');
+
+    expect(rowFor($rows, '2026-09', 'USD')['refunds_amount'])->toBe('5.000000');
+});
+
+it('leaves receipt corrections and refunds on cancelled orders out of revenue', function (): void {
+    $sold = reportOrder($this, OrderStatus::Fulfilled, 2000, '2026-08-10 10:00:00');
+    reportRefund($this, $sold, 500, '2026-08-11 10:00:00', 'receipt_correction');
+    $cancelled = reportOrder($this, OrderStatus::Cancelled, 900, '2026-08-10 10:00:00');
+    reportRefund($this, $cancelled, 900, '2026-08-11 10:00:00');
+
+    $row = rowFor($this->service->forOrganisation($this->orgId), '2026-08', 'USD');
+
+    expect($row['revenue_amount'])->toBe('20.000000')
+        ->and($row['refunds_amount'])->toBe('0.000000');
+});
+
+it('withholds the margin when a sold line has no cost, and says so', function (): void {
+    $order = reportOrder($this, OrderStatus::Fulfilled, 2000, '2026-08-10 10:00:00');
+    reportLine($order, $this->meal, 2000);
+
+    $row = rowFor($this->service->forOrganisation($this->orgId), '2026-08', 'USD');
+
+    expect($row['is_margin_withheld'])->toBeTrue()
+        ->and($row['gross_margin_amount'])->toBeNull()
+        ->and($row['gross_margin_percent'])->toBeNull()
+        ->and($row['uncosted_line_count'])->toBe(1)
+        ->and($row['revenue_amount'])->toBe('20.000000');
+});
+
+it('withholds the margin of a month with an unresolved exception', function (): void {
+    $order = reportOrder($this, OrderStatus::Fulfilled, 2000, '2026-08-10 10:00:00');
+    reportException($this, $order);
+
+    $row = rowFor($this->service->forOrganisation($this->orgId), '2026-08', 'USD');
+
+    expect($row['is_margin_withheld'])->toBeTrue()
+        ->and($row['gross_margin_amount'])->toBeNull();
 });
 
 it('never sums figures across currencies', function (): void {

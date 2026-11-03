@@ -9,6 +9,8 @@ use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemAvailabilityDay;
+use Healthy360\Organisations\Enums\BranchStatus;
+use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\TenantContext;
@@ -94,6 +96,49 @@ final readonly class MealAvailabilityService
         );
 
         return $item;
+    }
+
+    /**
+     * "Off today", or back on: the one row for today, whatever else the calendar
+     * holds. Any item, not only a meal: a sauce runs out too, and `LineProbe` asks
+     * the calendar of everything.
+     *
+     * @return string the day it applied to
+     */
+    public function setOffToday(CatalogueItem $item, bool $off): string
+    {
+        $today = $this->dayOf((string) $item->organisation_id, CarbonImmutable::now());
+
+        CatalogueItemAvailabilityDay::withoutTenancy()->updateOrCreate(
+            ['catalogue_item_id' => $item->getKey(), 'date' => $today],
+            ['organisation_id' => $item->organisation_id, 'is_available' => ! $off, 'created_by' => $this->context->userId()],
+        );
+
+        $this->audit->record(
+            $off ? 'catalogue.item_off_today' : 'catalogue.item_back_on_today',
+            actorUserId: $this->context->userId(),
+            subjectType: 'catalogue_item',
+            subjectId: (string) $item->getKey(),
+            metadata: ['date' => $today],
+        );
+
+        return $today;
+    }
+
+    /**
+     * The date on the kitchen's wall at that moment: its first active branch's, as
+     * `LineProbe` reads it, or the application's clock with no branch.
+     */
+    public function dayOf(string $organisationId, CarbonImmutable $at): string
+    {
+        $timezone = OrganisationBranch::withoutTenancy()
+            ->where('organisation_id', $organisationId)
+            ->where('status', BranchStatus::Active->value)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->value('timezone');
+
+        return $at->setTimezone(is_string($timezone) && $timezone !== '' ? $timezone : (string) config('app.timezone', 'UTC'))->toDateString();
     }
 
     /**

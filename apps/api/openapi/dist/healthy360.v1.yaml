@@ -5801,6 +5801,665 @@ paths:
           $ref: '#/components/responses/PreconditionRequired'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/items/{item}/allergens-assessed:
+    post:
+      operationId: markCatalogueItemAllergensAssessed
+      tags:
+        - Sellable catalogue
+      summary: State a catalogue item contains none of the allergens
+      description: |
+        "Assessed: contains none of these". For an item with
+        `allergens_assessed: false` and nothing else to vouch for it: stamps
+        `allergens_assessed_at` and `allergens_assessed_by`, which puts it back
+        on sale, and writes the audit event `catalogue.item_allergens_assessed`.
+
+        An item already assessed by any route is refused `409`: a statement of
+        absence must not land on top of a recipe or ingredients saying otherwise.
+
+        No `If-Match`: it touches no field an editor holds, so it leaves
+        `lock_version` alone and cannot make an open form stale.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The assessed item.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogueItemEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/quality-control/temperature-log:
+    get:
+      operationId: getTemperatureLog
+      tags:
+        - Kitchen inventory & production
+      summary: A month of the branch's temperature log
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchIdRequired'
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: ^[0-9]{4}-[0-9]{2}$
+      responses:
+        '200':
+          description: Its units, and the month's readings and cooking temperatures.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TemperatureLog'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/quality-control/temperature-readings:
+    post:
+      operationId: recordTemperatureReading
+      tags:
+        - Kitchen inventory & production
+      summary: Record a unit's morning or evening reading
+      description: |
+        Once per unit, day and slot. The day and the person are the server's, so
+        a reading cannot be backdated. Outside the unit's range it alerts the
+        managers.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchIdRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - temperature_unit_id
+                - slot
+                - celsius
+              properties:
+                temperature_unit_id:
+                  $ref: '#/components/schemas/Uuid'
+                slot:
+                  type: string
+                  enum:
+                    - am
+                    - pm
+                celsius:
+                  type:
+                    - number
+                    - string
+                note:
+                  type:
+                    - string
+                    - 'null'
+                  maxLength: 200
+              additionalProperties: false
+      responses:
+        '201':
+          description: The reading.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - reading
+                    properties:
+                      reading:
+                        type: object
+                        required:
+                          - id
+                          - out_of_range
+                        properties:
+                          id:
+                            $ref: '#/components/schemas/Uuid'
+                          out_of_range:
+                            type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/quality-control/cooking-temperatures:
+    post:
+      operationId: recordCookingTemperature
+      tags:
+        - Kitchen inventory & production
+      summary: Record a batch's core temperature
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchIdRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - production_order_id
+                - celsius
+              properties:
+                production_order_id:
+                  $ref: '#/components/schemas/Uuid'
+                celsius:
+                  type:
+                    - number
+                    - string
+                note:
+                  type:
+                    - string
+                    - 'null'
+                  maxLength: 200
+              additionalProperties: false
+      responses:
+        '201':
+          description: The reading.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - cooking
+                    properties:
+                      cooking:
+                        type: object
+                        required:
+                          - id
+                        properties:
+                          id:
+                            $ref: '#/components/schemas/Uuid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/quality-control/temperature-units:
+    post:
+      operationId: createTemperatureUnit
+      tags:
+        - Kitchen inventory & production
+      summary: Add a fridge or a freezer
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchIdRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemperatureUnitRequest'
+      responses:
+        '201':
+          description: The unit.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - unit
+                    properties:
+                      unit:
+                        $ref: '#/components/schemas/TemperatureUnit'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/quality-control/temperature-units/{unit}:
+    patch:
+      operationId: updateTemperatureUnit
+      tags:
+        - Kitchen inventory & production
+      summary: Change a unit, its range, or retire it
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchIdRequired'
+        - name: unit
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemperatureUnitRequest'
+      responses:
+        '200':
+          description: The unit.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - unit
+                    properties:
+                      unit:
+                        $ref: '#/components/schemas/TemperatureUnit'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/complaints:
+    get:
+      operationId: listOrderComplaints
+      tags:
+        - Kitchen orders
+      summary: The kitchen's recent complaints
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+      responses:
+        '200':
+          description: Newest first, capped at 200.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - complaints
+                    properties:
+                      complaints:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/OrderComplaint'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/orders/{order}/complaints:
+    post:
+      operationId: recordOrderComplaint
+      tags:
+        - Kitchen orders
+      summary: Record what went wrong with an order
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: order
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - cause
+              properties:
+                cause:
+                  $ref: '#/components/schemas/OrderComplaintCause'
+                description:
+                  type:
+                    - string
+                    - 'null'
+                  maxLength: 500
+                cost_minor:
+                  type:
+                    - integer
+                    - 'null'
+                  minimum: 0
+              additionalProperties: false
+      responses:
+        '201':
+          description: The complaint.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - complaint
+                    properties:
+                      complaint:
+                        $ref: '#/components/schemas/OrderComplaint'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/complaints/{complaint}:
+    patch:
+      operationId: updateOrderComplaint
+      tags:
+        - Kitchen orders
+      summary: Change a complaint, or close it with an outcome
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: complaint
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cause:
+                  $ref: '#/components/schemas/OrderComplaintCause'
+                description:
+                  type:
+                    - string
+                    - 'null'
+                  maxLength: 500
+                cost_minor:
+                  type: integer
+                  minimum: 0
+                outcome:
+                  type:
+                    - string
+                    - 'null'
+                  enum:
+                    - refunded
+                    - apologised
+                    - no_action
+                    - null
+                order_refund_id:
+                  type:
+                    - string
+                    - 'null'
+                  format: uuid
+              additionalProperties: false
+      responses:
+        '200':
+          description: The complaint.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - complaint
+                    properties:
+                      complaint:
+                        $ref: '#/components/schemas/OrderComplaint'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/complaints/{complaint}/remake:
+    post:
+      operationId: remakeOrderComplaint
+      tags:
+        - Kitchen orders
+      summary: Place the zero-priced order that puts it right
+      description: |
+        Goes through the desk's placement, so it reaches the kitchen and the stock
+        as any order does. Once per complaint.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: complaint
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      responses:
+        '200':
+          description: The complaint, closed as remade.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - complaint
+                    properties:
+                      complaint:
+                        $ref: '#/components/schemas/OrderComplaint'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/items/{item}/options:
+    get:
+      operationId: listDishOptions
+      tags:
+        - Sellable catalogue
+      summary: A dish's free options
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: item
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      responses:
+        '200':
+          description: The options, in menu order.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - options
+                    properties:
+                      options:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/KitchenDishOption'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      operationId: replaceDishOptions
+      tags:
+        - Sellable catalogue
+      summary: Replace a dish's free options
+      description: The whole list. A row naming its `id` keeps it, so a basket holding that option still finds it.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: item
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceDishOptionsRequest'
+      responses:
+        '200':
+          description: The options as they now stand.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - options
+                    properties:
+                      options:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/KitchenDishOption'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/order-desk/items/{item}/choices:
+    get:
+      operationId: getOrderDeskDishChoices
+      tags:
+        - Order desk
+      summary: What the desk can change about a dish
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: item
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      responses:
+        '200':
+          description: Its free options, and its portions at the counter's prices.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - options
+                      - portions
+                    properties:
+                      options:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DishOption'
+                      portions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DishPortion'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/items/{item}/variants:
     put:
       operationId: replaceCatalogueItemVariants
@@ -6287,6 +6946,60 @@ paths:
                           $ref: '#/components/schemas/DerivedAllergen'
                   meta:
                     $ref: '#/components/schemas/DerivedAllergenMeta'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/items/{item}/off-today:
+    put:
+      operationId: takeCatalogueItemOffToday
+      tags:
+        - Sellable catalogue
+      summary: Take a dish off today
+      description: |
+        One press, today only on the kitchen's own clock, any kind of item. No
+        lock version: two people pressing it mean the same thing. Requires
+        `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: item
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/CatalogueItemOffToday'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      operationId: putCatalogueItemBackOnToday
+      tags:
+        - Sellable catalogue
+      summary: Put a dish back on today
+      description: Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: item
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/CatalogueItemOffToday'
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
@@ -8528,6 +9241,290 @@ paths:
           $ref: '#/components/responses/ResourceConflict'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /kitchen/branch-closures:
+    get:
+      operationId: listBranchClosures
+      tags:
+        - Kitchen operations
+      summary: Dates the current branch is shut
+      description: |
+        Closures that have not ended, soonest first. A closure answers `closed`
+        for its dates whatever the week says.
+
+        Requires `branch.view_current`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The closures.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BranchClosure'
+                  meta:
+                    type: object
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: addBranchClosure
+      tags:
+        - Kitchen operations
+      summary: Shut the current branch for some dates
+      description: |
+        Both ends inclusive. Audited.
+
+        Requires `branch.manage_current`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - closed_from
+                - closed_to
+              properties:
+                closed_from:
+                  type: string
+                  format: date
+                closed_to:
+                  type: string
+                  format: date
+                note:
+                  type:
+                    - string
+                    - 'null'
+                  maxLength: 160
+      responses:
+        '201':
+          description: The closure.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BranchClosure'
+                  meta:
+                    type: object
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /kitchen/branch-closures/{closure}:
+    delete:
+      operationId: removeBranchClosure
+      tags:
+        - Kitchen operations
+      summary: Take a closure back
+      description: |
+        Audited.
+
+        Requires `branch.manage_current`.
+      parameters:
+        - name: closure
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XBranchIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '204':
+          description: Removed.
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /kitchen/setup:
+    get:
+      operationId: getKitchenSetup
+      tags:
+        - Kitchen operations
+      summary: The steps before a new kitchen takes orders
+      description: |
+        Each step is read off the records themselves. `is_live` is false only
+        for a kitchen created since the gate shipped and not yet opened; such a
+        kitchen refuses customers with `kitchen_not_open` and warns the desk.
+
+        Requires `branch.view_current`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The checklist.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenSetupEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /kitchen/setup/go-live:
+    post:
+      operationId: goLiveKitchen
+      tags:
+        - Kitchen operations
+      summary: Open the kitchen for customer orders
+      description: |
+        Refused with `422` while a required step is unfinished. Idempotent and
+        audited.
+
+        Requires `organisation.update_current`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The checklist, now live.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenSetupEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /kitchen/branches:
+    post:
+      operationId: createKitchenBranch
+      tags:
+        - Kitchen operations
+      summary: Open another branch
+      description: |
+        The country is the kitchen's and the timezone defaults to its own.
+        Refused to a membership bound to one branch. Audited.
+
+        Requires `branch.manage_current`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  maxLength: 160
+                city:
+                  type:
+                    - string
+                    - 'null'
+                  maxLength: 120
+                address:
+                  type:
+                    - string
+                    - 'null'
+                  maxLength: 255
+                timezone:
+                  type:
+                    - string
+                    - 'null'
+      responses:
+        '201':
+          description: The branch.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - id
+                      - name
+                      - city
+                      - timezone
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      city:
+                        type:
+                          - string
+                          - 'null'
+                      timezone:
+                        type: string
+                  meta:
+                    type: object
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /kitchen/branch-operating:
     get:
       operationId: getBranchOperating
@@ -9222,9 +10219,9 @@ paths:
 
         Refusals are **`422 cart.line_refused`** carrying `details.reasons`: one
         `{reason, …context}` entry per problem, **all of them at once**, from the
-        vocabulary `item_unknown`, `item_not_published`, `variant_unknown`,
-        `variant_not_active`, `channel_not_trading`, `channel_unavailable`,
-        `unpriced`, `currency_mismatch`. A refusal that revealed one problem per
+        vocabulary `item_unknown`, `item_not_published`, `item_not_assessed`, `quality_hold`,
+        `variant_unknown`, `variant_not_active`, `channel_not_trading`,
+        `channel_unavailable`, `unpriced`, `currency_mismatch`. A refusal that revealed one problem per
         attempt would turn one fix into three round trips.
 
         The whole cart comes back beside the line, because the write pushed the
@@ -9396,9 +10393,10 @@ paths:
         and refuses the whole order with `409 order.placement_refused`; a
         preview has no transaction to abort, so the same facts — `cart_empty`,
         `address_missing`, `address_not_deliverable`, `area_not_served`,
-        `zone_suspended`, `currency_mismatch`, `window_not_offered`, plus the
-        line-probe vocabulary —
-        come back as `warnings` inside an ordinary `200`. Deliberately the
+        `zone_suspended`, `currency_mismatch`, `window_not_offered`, `closed`,
+        `date_in_the_past`, `cut_off_passed`, `kitchen_closed`, `window_ended`,
+        `lead_time_not_met`, `below_zone_minimum`, `kitchen_paused`, `window_full`,
+        plus the line-probe vocabulary — come back as `warnings` inside an ordinary `200`. Deliberately the
         *same words* placement would refuse with: a customer taught one
         vocabulary for "we don't deliver there" on the cart screen and a
         different one at checkout has been taught nothing at all.
@@ -9497,9 +10495,18 @@ paths:
         `address_not_deliverable`, `area_not_served`, `zone_suspended`,
         `window_not_offered` (with `delivery_window_code` and
         `delivery_zone_id` — the slot is not one the address's zone offers),
-        `currency_mismatch`, `mixed_delivery_dates`, `cut_off_passed`,
-        `branch_closed`, `date_in_the_past`, plus the whole line vocabulary
-        folded in per line with the offending `cart_item_id`. A checkout that
+        `currency_mismatch`, `mixed_delivery_dates`, `cut_off_passed`, `closed`,
+        `date_in_the_past`, `kitchen_closed` (the kitchen has no active branch),
+        `window_ended` (the slot asked for today is over), `lead_time_not_met`
+        (with `earliest_at` and `lead_minutes`), `below_zone_minimum` (with
+        `minimum_minor` and `currency_code`), `kitchen_paused` (with
+        `paused_until`), `window_full` (with `requested_date` and
+        `delivery_window_code`), plus the whole line vocabulary,
+        `item_unavailable_on_date` included (with `on` and `cause`: `day_off`,
+        `sold_out` or `cut_off_passed`),
+        folded in per line with the offending `cart_item_id`. A cart with no
+        branch is checked against the zone's branch, then every active branch of
+        the kitchen, and refused only when all of them refuse. A checkout that
         revealed one problem per attempt — verify your email, now add an address,
         now that article is withdrawn, now the cut-off has passed — is four round
         trips and a lost customer.
@@ -11133,8 +12140,7 @@ paths:
       description: |
         The most recent 50 receipts, newest first, each with its lines —
         a receipt without them is only half the record. `purchase_order_id`
-        is always null in v1 (O2): there is no purchase-order surface yet
-        to have created one.
+        and `purchase_order_number` are null on a market purchase.
 
         `supplier_lot` answers the recall question — which deliveries brought
         lot X — as an exact match on any of a receipt's lines. `from` and `to`
@@ -11438,6 +12444,211 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/reports/dish-margins:
+    get:
+      operationId: getDishMargins
+      tags:
+        - Reports
+      summary: What each dish on sale earns, lowest first
+      description: |
+        As of the last overnight run. The margin is withheld, with a reason, when
+        there is no published recipe, no list price, an incomplete cost, or a price
+        and a cost in two currencies. `is_below_target` reads the target as it
+        stands now. Requires `recipe.view_costs_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The dishes.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DishMarginsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/procurement/payables:
+    get:
+      operationId: getProcurementPayables
+      tags:
+        - Procurement
+      summary: What is owed for deliveries
+      description: |
+        Unpaid deliveries, oldest due first, with any price waiting for approval,
+        and the last thirty paid. A delivery from before payables existed and a
+        direct purchase are not listed. Requires `inventory.view_costs_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The list.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayablesEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/procurement/payables/{goodsReceipt}/approve-price:
+    post:
+      operationId: approveProcurementPayablePrice
+      tags:
+        - Procurement
+      summary: Agree to a delivery's price rise
+      description: |
+        `409` unless a price is waiting. Audited as `procurement.price_approved`.
+        Requires `inventory.approve_payables_organisation`.
+      parameters:
+        - name: goodsReceipt
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The list after the change.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayablesEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/procurement/payables/{goodsReceipt}/pay:
+    post:
+      operationId: payProcurementPayable
+      tags:
+        - Procurement
+      summary: Write down that a delivery was paid
+      description: |
+        Records a payment made by hand; nothing here sends money. `409` while a
+        price waits, while a line has no price, or when already paid. Audited as
+        `procurement.payable_paid`. Requires `inventory.approve_payables_organisation`.
+      parameters:
+        - name: goodsReceipt
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reference:
+                  type:
+                    - string
+                    - 'null'
+                  maxLength: 120
+      responses:
+        '200':
+          description: The list after the change.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayablesEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/procurement/payables/{goodsReceipt}/due-date:
+    put:
+      operationId: setProcurementPayableDueDate
+      tags:
+        - Procurement
+      summary: Move a delivery's due date
+      description: |
+        Null clears it. Audited as `procurement.payable_due_changed`.
+        Requires `inventory.approve_payables_organisation`.
+      parameters:
+        - name: goodsReceipt
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - due_on
+              properties:
+                due_on:
+                  type:
+                    - string
+                    - 'null'
+                  format: date
+      responses:
+        '200':
+          description: The list after the change.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayablesEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '429':
@@ -11801,6 +13012,70 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/reports/kitchen-analytics:
+    get:
+      operationId: getKitchenAnalyticsReport
+      tags:
+        - Kitchen orders
+      summary: What the order book did over a range of days
+      description: |
+        Organisation-wide order volume for the kitchen analytics screen, over an
+        inclusive range of days and over the equal range immediately before it.
+        An order belongs to the day it was placed on, read on its branch's clock
+        (UTC when it has no branch).
+
+        `orders` and `units` count non-cancelled orders; `units` sums their line
+        quantities. `on_time` counts fulfilled orders with a requested delivery
+        date that were fulfilled no later than the end of their delivery window
+        on that date (end of day when no window); `fulfilled_with_due` is its
+        denominator. `avg_lead_minutes` is the mean of fulfilled minus placed,
+        over fulfilled orders, or null when there are none.
+
+        `days` carries every date of the range, zero-filled. `channels` always
+        carries the four keys in order: an order with a subscription-priced line
+        is `subscription`; else one under a B2B agreement or on a `b2b` or
+        `corporate` channel is `b2b`; else one on a `pos` channel is `pos`; else
+        `a_la_carte`. `items` is the top 50 catalogue items by units.
+
+        No money is read, so it sits behind `order.view_organisation`. The range
+        may span at most 366 days.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          description: First day of the range, inclusive.
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          description: Last day of the range, inclusive; not before `from`, at most 366 days after it counted inclusively.
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The report for the range and the range before it.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenAnalyticsReportResponse'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/procurement/weekly-prices:
     get:
       operationId: listWeeklyPrices
@@ -12029,6 +13304,37 @@ paths:
                 $ref: '#/components/schemas/ConsumptionExceptionCollection'
         '400':
           $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/inventory/duplicates:
+    get:
+      operationId: listDuplicateStock
+      tags:
+        - Kitchen inventory & production
+      summary: Stock shelves that repeat a name and need a person
+      description: |
+        Shelves in this kitchen sharing one name that could not be merged
+        automatically, each group with its reason. Read live and unpaged. An
+        empty list means nothing needs a person.
+
+        Requires `inventory.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The groups of shelves waiting for a person.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DuplicateStockEnvelope'
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
@@ -13013,6 +14319,12 @@ paths:
           description: Restrict to one lifecycle state. Omitted, everything is listed.
           schema:
             $ref: '#/components/schemas/OrderStatus'
+        - name: customer_account_id
+          in: query
+          required: false
+          description: One customer's orders, for their record in the kitchen's book.
+          schema:
+            $ref: '#/components/schemas/Uuid'
         - name: requested_delivery_date
           in: query
           required: false
@@ -13260,7 +14572,7 @@ paths:
         second press, or a press on a ready, fulfilled or cancelled order, is
         `409`.
 
-        Requires `order.manage_organisation`.
+        Requires `order.manage_organisation` or `order.prepare_organisation`.
       parameters:
         - $ref: '#/components/parameters/OrderPath'
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -13304,7 +14616,7 @@ paths:
         `/fulfil`. Reachable from `confirmed` only, once — a second press is
         `409`.
 
-        Requires `order.manage_organisation`.
+        Requires `order.manage_organisation` or `order.prepare_organisation`.
       parameters:
         - $ref: '#/components/parameters/OrderPath'
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -13369,7 +14681,15 @@ paths:
         it is the transition where getting it wrong costs a customer their
         dinner.
 
-        Requires `order.manage_organisation`.
+        Requires `order.manage_organisation`. **Once cooking has started** it also
+        needs `order.supervise_organisation` (`403` without it) and a
+        `disposition` (`422` without it), and the owner is alerted.
+
+        **Food on the road cannot be cancelled.** A run picked up and not closed
+        answers `409 order.out_for_delivery`: it ends as delivered or failed. A
+        run that has not been picked up ends as `cancelled`, so it leaves every
+        driver's sheet, and a later pick-up is refused. A failed run answers
+        `409 resource.conflict`: it is sent out again or closed as failed.
       parameters:
         - $ref: '#/components/parameters/OrderPath'
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -13384,6 +14704,373 @@ paths:
       responses:
         '200':
           description: The cancelled order, carrying the reason it was cancelled for.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenOrderEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/orders/{order}/delivery/courier:
+    post:
+      operationId: handKitchenOrderToCourier
+      tags:
+        - Kitchen orders
+      summary: Hand an order to a courier
+      description: |
+        Records the courier, stamps `picked_up_at` and moves the run to
+        `in_transit`, with no driver, so it reaches no run sheet. From there nobody
+        can cancel it: staff close it with `fulfil`, which writes no receipt, or
+        with `delivery/fail`. Cash from a courier stays unpaid until batch
+        settlement.
+
+        The food must be ready and the run not yet picked up, or `409`. Audited as
+        `delivery.job_handed_to_courier`. Requires `order.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HandToCourierRequest'
+      responses:
+        '200':
+          description: The order, as the kitchen reads it.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenOrderEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/orders/{order}/delivery/fail:
+    post:
+      operationId: failKitchenOrderDelivery
+      tags:
+        - Kitchen orders
+      summary: Say a courier's delivery failed
+      description: |
+        The kitchen's own version of `POST /driver/jobs/{job}/fail`, for a run with
+        no driver's phone behind it. The run must be `in_transit`, or `409`. The
+        order stays `confirmed`, no money moves and the managers are alerted.
+        Audited as `delivery.job_failed`. Requires `order.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FailDeliveryRequest'
+      responses:
+        '200':
+          description: The order, as the kitchen reads it.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenOrderEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/orders/{order}/refunds:
+    get:
+      operationId: getOrderRefunds
+      tags:
+        - Kitchen orders
+      summary: An order's refund ledger and where it stands
+      description: |
+        Every entry, newest first, with what the receipts say arrived and how
+        much can still be taken back. Requires `order.supervise_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The order's refund ledger.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderRefundLedgerEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: storeOrderRefund
+      tags:
+        - Kitchen orders
+      summary: Refund money, or correct a mistaken receipt
+      description: |
+        Writes an entry and never touches a receipt. A `refund` leaves the order
+        paid. A `receipt_correction` says the money never arrived, so the balance
+        comes back as outstanding. Both are capped together at the order's
+        receipts, refused as `409 payment.refund_exceeds_capture`.
+
+        Refused as `409 resource.conflict` once seven days have passed since the
+        order's latest receipt. An entry taking this order's refunds above the
+        kitchen's `refund_approval_above_minor` waits as `pending_approval` and
+        alerts the owner, unless the caller holds
+        `order.approve_refund_organisation`. Audited as `order.refund_requested`
+        or `order.refund_completed`. Requires `order.supervise_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreOrderRefundRequest'
+      responses:
+        '201':
+          description: The order's refund ledger, with the new entry in it.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderRefundLedgerEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/orders/{order}/refunds/{refund}/approve:
+    post:
+      operationId: approveOrderRefund
+      tags:
+        - Kitchen orders
+      summary: Approve a refund that waited for the owner
+      description: |
+        Audited as `order.refund_completed`. `409` once decided. Requires
+        `order.approve_refund_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - name: refund
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The order's refund ledger.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderRefundLedgerEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/orders/{order}/refunds/{refund}/reject:
+    post:
+      operationId: rejectOrderRefund
+      tags:
+        - Kitchen orders
+      summary: Reject a refund that waited for the owner
+      description: |
+        The entry stays on the ledger as `rejected` and takes no money. Audited
+        as `order.refund_rejected`. `409` once decided. Requires
+        `order.approve_refund_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - name: refund
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The order's refund ledger.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderRefundLedgerEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/orders/{order}/delivery/redeliver:
+    post:
+      operationId: redeliverKitchenOrder
+      tags:
+        - Kitchen orders
+      summary: Send a failed delivery out again
+      description: |
+        Returns the run to `pending` and `awaiting_assignment`, clearing the
+        driver, the pick-up, the failure and any courier. `ready_at` stands, so it
+        is offered to drivers at once. `409` unless the run has `failed`.
+
+        A new `date` or `window` updates the order and runs the rules a desk sale
+        runs, refused as `409 order.placement_refused`. Audited as
+        `delivery.job_reopened`. Requires `order.supervise_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedeliverOrderRequest'
+      responses:
+        '200':
+          description: The order, as the kitchen reads it.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenOrderEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/orders/{order}/delivery/close-failed:
+    post:
+      operationId: closeFailedKitchenOrderDelivery
+      tags:
+        - Kitchen orders
+      summary: Close a failed delivery
+      description: |
+        Cancels the order with `delivery_failed` and the `disposition`, so `wasted`
+        keeps the stock deducted. The run stays `failed`, as the record of what
+        happened. `409` unless the run has `failed`. Audited as `order.cancelled`.
+        Requires `order.supervise_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloseFailedDeliveryRequest'
+      responses:
+        '200':
+          description: The order, as the kitchen reads it.
           headers:
             X-Correlation-Id:
               $ref: '#/components/headers/XCorrelationId'
@@ -13673,6 +15360,17 @@ paths:
           schema:
             type: string
             maxLength: 60
+        - name: lens
+          in: query
+          required: false
+          description: |
+            `past_due` lists every open order whose `due_at` has passed, whatever
+            its date, in place of `window`. An order that names no day is due from
+            `placed_at`. The other filters still apply.
+          schema:
+            type: string
+            enum:
+              - past_due
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
@@ -13718,16 +15416,18 @@ paths:
 
         Line refusals sit on the line, in `lines[].refusals`, using the same
         vocabulary the placement refusal folds in per article — `item_unknown`,
-        `item_not_published`, `variant_unknown`, `variant_not_active`,
-        `channel_unavailable`, `unpriced`, `currency_mismatch`,
-        `channel_not_trading`. Order-level refusals sit in the top-level
+        `item_not_published`, `item_not_assessed`, `quality_hold`, `variant_unknown`, `variant_not_active`,
+        `channel_unavailable`, `item_unavailable_on_date`, `unpriced`,
+        `currency_mismatch`, `channel_not_trading`. Order-level refusals sit in the top-level
         `refusals`, and are the three families an agent can actually do something
         about: the fulfilment **shape** (`customer_required`,
         `address_required`, `address_not_applicable`), the **destination**
         (`address_not_deliverable`, `area_not_served`, `zone_suspended`,
         `window_not_offered`, and a `currency_mismatch` whose `subject` is
         `delivery_fee`), and the
-        **schedule** (`cut_off_passed`, `branch_closed`, `date_in_the_past`).
+        **schedule** (`cut_off_passed`, `closed`, `date_in_the_past`,
+        `kitchen_closed`, `window_ended`). The desk is not asked the lead time or
+        the zone minimum.
 
         **`quotable` is the field a screen branches on.** It is false whenever
         *any* refusal exists, line-level or order-level, because the placement
@@ -14056,6 +15756,302 @@ paths:
           $ref: '#/components/responses/PreconditionRequired'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/staff-notifications:
+    get:
+      operationId: listStaffNotifications
+      tags:
+        - Order desk
+      summary: The caller's own recent staff alerts
+      description: |
+        The bell: the 30 most recent alerts addressed to the caller, newest
+        first, with `meta.unread_count` counting every unread one, so it can be
+        higher than the unread rows on this page.
+
+        Filtered on the caller's `user_id` as well as the organisation: the
+        policy says whose kitchen a row belongs to, not whose bell it rings.
+
+        Requires `order.supervise_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The caller's recent alerts, newest first.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffNotificationsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/staff-notifications/read-all:
+    post:
+      operationId: markAllStaffNotificationsRead
+      tags:
+        - Order desk
+      summary: Mark all the caller's alerts read
+      description: |
+        Every one of the caller's unread alerts, including those older than the
+        page the bell shows. A colleague's are untouched.
+
+        Requires `order.supervise_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '204':
+          description: Nothing of the caller's is left unread.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/staff-notifications/{notification}/read:
+    post:
+      operationId: markStaffNotificationRead
+      tags:
+        - Order desk
+      summary: Mark one of the caller's alerts read
+      description: |
+        A colleague's row answers `404`, as a row that does not exist does.
+        Reading a row twice keeps the first `read_at`.
+
+        Requires `order.supervise_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: notification
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '204':
+          description: The alert is read.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/kitchen-display:
+    get:
+      operationId: getKitchenDisplay
+      tags:
+        - Kitchen orders
+      summary: The wall board
+      description: |
+        Every open order and whatever was fulfilled in the last day, oldest
+        first with the open work ahead of the finished, so a board that hits the
+        cap of 500 loses a finished ticket before an open one. Past the cap,
+        `truncated` is true and the screen says so. Unpaged, because a kitchen
+        display that shows the first page of its work has lost the rest.
+
+        Finished work is the last 24 hours because the screen decides what
+        "today" means on its own clock, and every today falls inside them.
+
+        Another branch's ticket is on this list. The board decides what belongs
+        on its own wall, because `branch_id` is null on an order delivered through
+        an organisation-wide zone and a server filter would drop it.
+
+        `unaccepted_open_minutes` holds each `placed` order's waiting time,
+        counted only while a branch that can serve it is open, so a screen never
+        works out opening hours. An order is alarming once its figure reaches
+        `alarm_after_minutes`. An order for a later day has no figure until that
+        day, and its count then starts at the start of that day.
+
+        Requires `order.view_organisation` or `order.prepare_organisation`. A
+        caller with only the second reads the wall without the order book: every
+        money figure is `0`, price list references and the street address are
+        null, and the allergy block is untouched.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The board.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenDisplayEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/kitchen-pause:
+    post:
+      operationId: pauseKitchen
+      tags:
+        - Kitchen operations
+      summary: Stop taking new customer orders for a while
+      description: |
+        Customers are refused `kitchen_paused` until the time runs out; the
+        desk's quote warns instead. Subscription days and accepted quotations
+        carry on. Requires `order.supervise_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - minutes
+              properties:
+                minutes:
+                  type: integer
+                  minimum: 1
+                  maximum: 720
+      responses:
+        '200':
+          description: The kitchen's service settings, with the pause set.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/KitchenServiceSettings'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      operationId: resumeKitchen
+      tags:
+        - Kitchen operations
+      summary: Start taking customer orders again early
+      description: Requires `order.supervise_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The kitchen's service settings, with the pause cleared.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/KitchenServiceSettings'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/kitchen-service-settings:
+    get:
+      operationId: getKitchenServiceSettings
+      tags:
+        - Kitchen operations
+      summary: This kitchen's service timings
+      description: |
+        One row per organisation, created with defaults the first time it is
+        read, in whole minutes.
+
+        Requires `catalogue.manage_organisation` or
+        `order.manage_organisation`: the kitchen display reads its alarm minutes
+        from here.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The kitchen's timings.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenServiceSettingsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      operationId: updateKitchenServiceSettings
+      tags:
+        - Kitchen operations
+      summary: Replace this kitchen's service timings
+      description: |
+        All four values together. No `If-Match`: the row carries no
+        `lock_version`. `manager_alert_after_minutes` must be less than
+        `owner_alert_after_minutes`.
+
+        Requires `catalogue.manage_organisation`. Changing
+        `refund_approval_above_minor` also takes
+        `order.approve_refund_organisation`, and changing
+        `price_approval_above_percent` takes
+        `inventory.approve_payables_organisation`: a manager may not raise the limit
+        they work under. Sending either unchanged takes nothing extra.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KitchenServiceSettings'
+      responses:
+        '200':
+          description: The timings as stored.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenServiceSettingsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/customers:
     get:
       operationId: listKitchenCustomers
@@ -14182,20 +16178,25 @@ paths:
         carries behind the same code. A search revealing more than the queue
         would make the queue's gating pointless.
 
-        ## Scope: two arms, and the application is the whole control
+        ## Scope: four arms, and the application is most of the control
 
-        An account is returned only when **either** this organisation holds at
-        least one order against it, **or** its origin is `staff` and it was
-        created by a user holding an **active** membership of this organisation.
+        An account is returned only when this organisation holds an order or a
+        subscription against it, **or** its origin is `staff` and it was created
+        by a user holding an **active** membership of this organisation, **or**
+        a query of its exact E.164 number linked it to this kitchen.
 
-        There is no third arm and no database predicate doing this work. A
-        `customer_accounts` row carries no organisation — the same person orders
+        That last arm is how a registered customer's first call reaches the desk.
+        Nothing searches consumers by name: a number the caller read out is the
+        only door, and the link it writes is audited.
+
+        A `customer_accounts` row carries no organisation — the same person orders
         from four kitchens with one account — and a staff-provisioned account has
         neither a user nor an organisation, which is the shape the row-level
         security policy admits to every kitchen session. The scoping rule, the
         permission code, and the fact that an account identifier is otherwise
-        unobtainable are the entire isolation story, and the schema migration
-        that made such rows possible states that rather than implying otherwise.
+        unobtainable are the isolation story for those rows, and the schema
+        migration that made them possible states that rather than implying
+        otherwise.
 
         A consequence worth naming: a member of staff who works at two kitchens
         holds an active membership of both, so a caller they wrote down at one is
@@ -14421,6 +16422,46 @@ paths:
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/order-desk/customers/{account}/allergies:
+    get:
+      operationId: getOrderDeskCustomerAllergies
+      tags:
+        - Order desk
+      summary: What the chosen customer has declared
+      description: |
+        Read once a customer is chosen, so the agent can say it back before any
+        dish is added. Special-category data: the read states its purpose
+        (`order_fulfilment`) and is recorded. Codes and severities only, never
+        the customer's free text.
+
+        Outside the desk's rule answers `404`, as the desk's other customer
+        operations do.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: account
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The declaration.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskCustomerAllergiesEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /catalogue/order-desk/customers/{account}/addresses:
@@ -15171,7 +17212,7 @@ paths:
         This kitchen's **active** delivery windows, in display order — the set
         a desk agent picks a sale's slot from. The same rows and the same shape
         as `GET /catalogue/delivery-windows`, with withdrawn windows left out
-        and behind `order.create_on_behalf_organisation` rather than
+        and behind `order.create_on_behalf_organisation` or `order.supervise_organisation` rather than
         `delivery_zone.manage_organisation`, which governs the kitchen's map
         and which a desk agent need not hold.
       parameters:
@@ -15250,6 +17291,335 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/activity:
+    get:
+      operationId: getKitchenActivity
+      tags:
+        - Kitchen orders
+      summary: The kitchen's audit trail
+      description: |
+        Newest first, at most 500 rows, with `meta.truncated`. A window of at most
+        31 UTC days. Read-only. Requires `audit.view_organisation`.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The trail.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenActivityEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/stock-activity:
+    get:
+      operationId: getStockActivity
+      tags:
+        - Kitchen orders
+      summary: Every stock movement, who made it and what it was worth
+      description: |
+        Newest first, at most 500 rows, with `meta.truncated`. `waste` totals waste
+        movements and what was cooked for orders cancelled as `wasted`, per
+        currency; `unvalued_waste_count` says how many had no cost to add. A row
+        with `attributed: false` predates the actor column or was made by a job.
+        A window of at most 31 UTC days. Read-only. Requires
+        `audit.view_organisation`.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The movements.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockActivityEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/order-desk/settlements:
+    get:
+      operationId: getOrderDeskSettlements
+      tags:
+        - Order desk
+      summary: Cash still on the road, and recent hand-ins
+      description: |
+        Every own driver holding cash from delivered runs, every courier with
+        delivered orders still owing or a prepaid run's fee to record, and the
+        last fifty hand-ins. Every delivered run waits, however old. There is no
+        shift table: a driver's shift is whatever they have not yet handed in.
+        Each party is listed per branch, because a hand-in goes into one
+        branch's till. Requires `order.settle_cash_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: What is owed, and what came back.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskSettlementsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: storeOrderDeskSettlement
+      tags:
+        - Order desk
+      summary: Settle runs against what was handed in
+      description: |
+        A driver's receipts already exist, so this records the cash reaching the
+        kitchen. A courier's do not, so this writes each order's receipt for its
+        full balance and carries the courier's fees on the settlement. A prepaid
+        courier run expects no cash and writes no receipt; its fee is recorded as
+        `expense_minor`, a kitchen expense outside the hand-in.
+
+        One driver or one courier, in one currency, for one branch. `409 resource.conflict` when a
+        run is no longer waiting. `422` above what the runs brought in, or short
+        with no `short_reason`. A short hand-in waits for a manager's sign-off; the
+        app takes no pay decision from it. Audited as `order.cash_settled`.
+        Requires `order.settle_cash_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreOrderDeskSettlementRequest'
+      responses:
+        '201':
+          description: The settlement.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashSettlementEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/order-desk/settlements/{settlement}/sign-off:
+    post:
+      operationId: signOffOrderDeskSettlement
+      tags:
+        - Order desk
+      summary: Accept a short hand-in
+      description: |
+        `409` unless it is short and unsigned. Audited as
+        `order.cash_short_signed_off`. Requires `order.supervise_organisation`.
+      parameters:
+        - name: settlement
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The settlement.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashSettlementEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/order-desk/closes:
+    get:
+      operationId: getOrderDeskCloses
+      tags:
+        - Order desk
+      summary: What should be in the till, and recent closes
+      description: |
+        Each till, one per branch and currency, with cash moving since its last
+        close, in the kitchen's local time; the kitchen's branches; the kitchen
+        total per local day; and the last fifty closes. A shift is everything
+        since that till's last close. Requires `order.settle_cash_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The open shifts and the recent closes.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskClosesEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: storeOrderDeskClose
+      tags:
+        - Order desk
+      summary: Close the shift against a cash count
+      description: |
+        Expected is the float, plus counter cash, plus hand-ins, less cash refunds,
+        all read for the branch's till at the moment of the close. No `branch_id`
+        closes the kitchen's first branch. `422` when short with no
+        `variance_reason`. A short close waits for a manager's sign-off; the app
+        takes no pay decision from it. Audited as `order.daily_closed`.
+        Requires `order.settle_cash_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreOrderDeskCloseRequest'
+      responses:
+        '201':
+          description: The close.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyCloseEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/order-desk/closes/{close}/sign-off:
+    post:
+      operationId: signOffOrderDeskClose
+      tags:
+        - Order desk
+      summary: Accept a short close
+      description: |
+        `409` unless it is short and unsigned. Audited as
+        `order.daily_close_signed_off`. Requires `order.supervise_organisation`.
+      parameters:
+        - name: close
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The close.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyCloseEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/order-desk/cash-report:
     get:
       operationId: getOrderDeskCashReport
@@ -15269,9 +17639,8 @@ paths:
         This is that answer and deliberately not more. **It cannot tell anybody
         whether the cash box balances**, because nothing on this platform has
         ever been told what was in it. A real drawer reconciliation is a later
-        table — an opening float, a closing count, a named variance — and when it
-        lands, this operation keeps reading the same ledger rather than being
-        replaced by it.
+        table — an opening float, a closing count, a named variance — and that is
+        now `/catalogue/order-desk/closes`, which reads this same ledger.
 
         ## The day boundary is UTC, and `meta.timezone` says so
 
@@ -17298,7 +19667,7 @@ paths:
         **Only the caller's own run, only once, and only once it is ready.**
         A job that is not the caller's is `404`; one whose order the kitchen
         has not marked ready, or that is not `assigned` (already picked up,
-        delivered or cancelled), is `409 resource.conflict`. No `If-Match`:
+        delivered, failed or cancelled), is `409 resource.conflict`. No `If-Match`:
         nobody races a driver for their own job. Audited as
         `delivery.job_picked_up`.
       parameters:
@@ -17358,28 +19727,27 @@ paths:
         - Delivery
       summary: Mark a run delivered
       description: |
-        Sets the job to `delivered`, stamps the time, and stores whatever the
-        driver typed as proof.
+        Sets the job to `delivered`, stamps the time, and stores the driver's
+        `note` on the job.
 
         **It also fulfils the order, as the driver**, in the same transaction:
-        the customer sees it delivered at once, and whatever cash is still owed
-        on a cash order is receipted to the driver who took it. An order that is
-        already fulfilled or was cancelled is left as it is.
+        the customer sees it delivered at once. An order that is already
+        fulfilled or was cancelled is left as it is.
+
+        **`collected_minor` is what becomes a receipt**, against the driver. It
+        is required on a cash order. A short amount leaves the rest outstanding,
+        and more than is owed is `422`. Zero needs a `note` and alerts the
+        managers, unless nothing is owed. On a WISH order it is ignored and no
+        receipt is written, because a transfer is only paid once somebody has
+        checked its reference.
 
         **A job that is not the caller's is `404`, and it is decided before
         the body is looked at.** A request with somebody else's job and a
         thousand-character note answers `404`, not `422` — which is the right
         order, because the note is nobody's business until the job is.
 
-        **`proof_of_delivery_notes` is replace-or-clear.** Omitting the key
-        writes `null` over whatever was there. There is no partial update: the
-        one field this endpoint owns is stated every time or not at all.
-
-        **No state guard and no `Idempotency-Key`.** A job already delivered
-        is delivered again, which succeeds — a driver on a bad connection
-        pressing the button twice must not meet a conflict dialog — but it
-        does overwrite the note and the timestamp, so a client should not
-        retry blindly with a different body.
+        **A closed run is `409`.** The job update is conditional on the run being
+        open, so a second press writes no second receipt.
       parameters:
         - $ref: '#/components/parameters/DeliveryJobPath'
         - $ref: '#/components/parameters/XOrganisationIdRequired'
@@ -17436,6 +19804,80 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /driver/jobs/{job}/fail:
+    post:
+      operationId: failDriverJob
+      tags:
+        - Delivery
+      summary: Say a run could not be delivered
+      description: |
+        Sets the job to `failed` with the reason and note, and takes it off the
+        driver's sheet. The order stays `confirmed`, no money moves, and the
+        managers are alerted. A manager then re-delivers it or closes it as
+        failed.
+
+        A job that is not the caller's is `404`. One not `in_transit` is `409
+        resource.conflict`. Audited as `delivery.job_failed`.
+      parameters:
+        - $ref: '#/components/parameters/DeliveryJobPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FailDeliveryRequest'
+      responses:
+        '200':
+          description: The job, failed.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - meta
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - job
+                    properties:
+                      job:
+                        type: object
+                        required:
+                          - id
+                          - status
+                        properties:
+                          id:
+                            $ref: '#/components/schemas/Uuid'
+                          status:
+                            allOf:
+                              - $ref: '#/components/schemas/DeliveryJobStatus'
+                            description: Always `failed` on success.
+                        additionalProperties: false
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/ContextRequired'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '429':
@@ -22252,23 +24694,13 @@ paths:
       operationId: cancelSubscription
       tags:
         - Subscriptions
-      summary: End a subscription and record what is owed
+      summary: End a subscription
       description: |
-        **The credit memo comes back in the same response, and that is the point
-        of the operation rather than a convenience.** The refund is recorded as
-        an obligation for manual settlement — no money moves — and a customer
-        who cancels twelve unused days of a plan they paid for is owed a number
-        on the screen at that moment. A client that had to make a second call
-        would render "cancelled" with nothing beside it, which reads as "and that
-        is that".
-
-        `credit_memo` is **null** when nothing is owed, which is not the same as
-        an empty object: a zero memo would be an obligation somebody eventually
-        tries to settle.
+        Nothing comes back beside the subscription. It is paid per delivery, so no
+        money is held and there is nothing to credit.
 
         There is no DELETE. A cancelled subscription keeps its captured price and
-        its history, because the memo multiplies the price it actually paid and a
-        deleted row could not explain the number.
+        its history.
       parameters:
         - $ref: '#/components/parameters/SubscriptionPath'
         - $ref: '#/components/parameters/IfMatch'
@@ -24406,6 +26838,29 @@ components:
       schema:
         $ref: '#/components/schemas/Uuid'
   responses:
+    CatalogueItemOffToday:
+      description: The day it applied to, and where the item now stands.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                type: object
+                required:
+                  - date
+                  - off_today
+                properties:
+                  date:
+                    type: string
+                    format: date
+                  off_today:
+                    type: boolean
     NutritionProviderFailure:
       description: Nutrition provider temporarily unavailable or requires administrator configuration. details.retryable distinguishes the cases.
       content:
@@ -25791,6 +28246,7 @@ components:
         - cart.channel_refused
         - shop.view_only
         - order.placement_refused
+        - order.out_for_delivery
         - b2b.application_state_invalid
         - b2b.documents_incomplete
         - b2b.signatory_required
@@ -28231,6 +30687,8 @@ components:
         - pack_count
         - default_pack
         - stock_blockers
+        - allergens_assessed
+        - on_sale_without_recipe
       description: |
         One catalogue item selling a recipe, as the recipe book draws it beside
         the row: the item's own columns, plus two facts read for the whole
@@ -28320,6 +30778,19 @@ components:
             stock). The publish gate refuses on the same codes.
           items:
             type: string
+        allergens_assessed:
+          type: boolean
+          description: |
+            Whether anyone has assessed this item for allergens: a published
+            recipe version with a line, an allergen through its ingredients, an
+            ingredient link, or staff stating it contains none. False takes it
+            off sale, and `POST /catalogue/items/{item}/allergens-assessed` is
+            one way back. Always true for a subscription plan, which is not food.
+        on_sale_without_recipe:
+          type: boolean
+          description: |
+            A meal, sauce, dressing or frozen meal on sale with no published
+            recipe. A warning for staff: it stays on sale.
         pack_count:
           type: integer
           minimum: 0
@@ -30308,6 +32779,8 @@ components:
         - status
         - data_quality_flags
         - stock_blockers
+        - allergens_assessed
+        - on_sale_without_recipe
         - lock_version
       description: |
         The administrative shape of a sellable item. Carries **both** names and
@@ -30515,6 +32988,19 @@ components:
             stock). The publish gate refuses on the same codes.
           items:
             type: string
+        allergens_assessed:
+          type: boolean
+          description: |
+            Whether anyone has assessed this item for allergens: a published
+            recipe version with a line, an allergen through its ingredients, an
+            ingredient link, or staff stating it contains none. False takes it
+            off sale, and `POST /catalogue/items/{item}/allergens-assessed` is
+            one way back. Always true for a subscription plan, which is not food.
+        on_sale_without_recipe:
+          type: boolean
+          description: |
+            A meal, sauce, dressing or frozen meal on sale with no published
+            recipe. A warning for staff: it stays on sale.
         source_system:
           type:
             - string
@@ -32840,6 +35326,14 @@ components:
             - 'null'
           minimum: 1
           description: A promise, not a measurement. Null means none has been made.
+        area_count:
+          type: integer
+          minimum: 0
+          description: Areas this zone covers. On the list only; the areas themselves are `…/{zone}/areas`.
+        inactive_area_count:
+          type: integer
+          minimum: 0
+          description: How many of those the gazetteer has withdrawn. On the list only.
         status:
           $ref: '#/components/schemas/DeliveryZoneStatus'
         is_active:
@@ -33208,6 +35702,12 @@ components:
         - image_placeholder_id
         - is_verified
       properties:
+        paused_until:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: On the single kitchen read only. When the kitchen's timed pause on new orders ends; null when it is taking orders.
         id:
           $ref: '#/components/schemas/Uuid'
         name:
@@ -33512,6 +36012,409 @@ components:
         calculation:
           $ref: '#/components/schemas/MarketplaceNutritionCalculation'
       additionalProperties: false
+    TemperatureUnitRequest:
+      type: object
+      required:
+        - name
+        - kind
+        - min_c
+        - max_c
+      properties:
+        name:
+          type: string
+          maxLength: 80
+        kind:
+          type: string
+          enum:
+            - fridge
+            - freezer
+        min_c:
+          type:
+            - number
+            - string
+        max_c:
+          type:
+            - number
+            - string
+        active:
+          type: boolean
+      additionalProperties: false
+    TemperatureUnit:
+      type: object
+      required:
+        - id
+        - name
+        - kind
+        - min_c
+        - max_c
+        - active
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+        kind:
+          type: string
+          enum:
+            - fridge
+            - freezer
+        min_c:
+          type: string
+        max_c:
+          type: string
+        active:
+          type: boolean
+      additionalProperties: false
+    TemperatureReading:
+      type: object
+      required:
+        - id
+        - temperature_unit_id
+        - unit_name
+        - reading_date
+        - slot
+        - celsius
+        - out_of_range
+        - note
+        - recorded_by_name
+        - recorded_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        temperature_unit_id:
+          $ref: '#/components/schemas/Uuid'
+        unit_name:
+          type: string
+        reading_date:
+          type: string
+          format: date
+        slot:
+          type: string
+          enum:
+            - am
+            - pm
+        celsius:
+          type: string
+        out_of_range:
+          type: boolean
+        note:
+          type:
+            - string
+            - 'null'
+        recorded_by_name:
+          type:
+            - string
+            - 'null'
+        recorded_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      additionalProperties: false
+    CookingTemperature:
+      type: object
+      required:
+        - id
+        - production_order_id
+        - batch_label
+        - recipe
+        - celsius
+        - note
+        - recorded_by_name
+        - recorded_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        production_order_id:
+          $ref: '#/components/schemas/Uuid'
+        batch_label:
+          type:
+            - string
+            - 'null'
+        recipe:
+          type:
+            - string
+            - 'null'
+        celsius:
+          type: string
+        note:
+          type:
+            - string
+            - 'null'
+        recorded_by_name:
+          type:
+            - string
+            - 'null'
+        recorded_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+    TemperatureLog:
+      type: object
+      required:
+        - units
+        - readings
+        - cooking
+      properties:
+        units:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemperatureUnit'
+        readings:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemperatureReading'
+        cooking:
+          type: array
+          items:
+            $ref: '#/components/schemas/CookingTemperature'
+      additionalProperties: false
+    OrderComplaintCause:
+      type: string
+      enum:
+        - wrong_item
+        - missing_item
+        - quality
+        - late
+        - foreign_object
+        - other
+    OrderComplaint:
+      type: object
+      required:
+        - id
+        - order_id
+        - order_number
+        - cause
+        - description
+        - cost_minor
+        - currency_code
+        - outcome
+        - remake_order_id
+        - remake_order_number
+        - order_refund_id
+        - created_at
+        - closed_at
+      description: |
+        What went wrong with an order, what it cost and how it ended. `outcome`
+        is null while it is open.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        order_id:
+          $ref: '#/components/schemas/Uuid'
+        order_number:
+          type:
+            - string
+            - 'null'
+        cause:
+          $ref: '#/components/schemas/OrderComplaintCause'
+        description:
+          type:
+            - string
+            - 'null'
+        cost_minor:
+          type: integer
+        currency_code:
+          type: string
+        outcome:
+          type:
+            - string
+            - 'null'
+          enum:
+            - remade
+            - refunded
+            - apologised
+            - no_action
+            - null
+        remake_order_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        remake_order_number:
+          type:
+            - string
+            - 'null'
+        order_refund_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        closed_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      additionalProperties: false
+    DishOption:
+      type: object
+      required:
+        - id
+        - kind
+        - group_en
+        - group_ar
+        - name_en
+        - name_ar
+      description: |
+        A free change to a dish: `remove` leaves something out, `choice` picks
+        one from a group such as Sauce. Neither has a price; the only priced
+        choice is the portion, which is a pack.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        kind:
+          type: string
+          enum:
+            - remove
+            - choice
+        group_en:
+          type:
+            - string
+            - 'null'
+        group_ar:
+          type:
+            - string
+            - 'null'
+        name_en:
+          type: string
+        name_ar:
+          type: string
+        allergens:
+          type:
+            - array
+            - 'null'
+          description: |
+            On an offered option only (the meal detail and the desk's choices),
+            never on a line's stored options. What the option adds to the plate:
+            empty on a removal, a `choice`'s linked recipe's published label
+            otherwise, and null when that recipe has no published version, which
+            means unassessed, never "no allergens".
+          items:
+            $ref: '#/components/schemas/OrderLineAllergen'
+      additionalProperties: false
+    KitchenDishOption:
+      type: object
+      required:
+        - id
+        - kind
+        - group_en
+        - group_ar
+        - name_en
+        - name_ar
+        - recipe_id
+        - allergens
+      description: |
+        A dish option as the kitchen edits it. A `choice` links the sauce or side
+        recipe it is and takes its allergens from that recipe's published version;
+        `allergens` is null when the link is missing or the recipe has no published
+        version. A choice with no `recipe_id` is not offered to customers or the desk.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        kind:
+          type: string
+          enum:
+            - remove
+            - choice
+        group_en:
+          type:
+            - string
+            - 'null'
+        group_ar:
+          type:
+            - string
+            - 'null'
+        name_en:
+          type: string
+        name_ar:
+          type: string
+        recipe_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        allergens:
+          type:
+            - array
+            - 'null'
+          items:
+            $ref: '#/components/schemas/OrderLineAllergen'
+      additionalProperties: false
+    DishPortion:
+      type: object
+      required:
+        - catalogue_item_variant_id
+        - name_en
+        - name_ar
+        - unit_price_minor
+        - currency_code
+      description: A pack the customer can pick, at its price on the channel asked about.
+      properties:
+        catalogue_item_variant_id:
+          $ref: '#/components/schemas/Uuid'
+        name_en:
+          type: string
+        name_ar:
+          type: string
+        unit_price_minor:
+          type: integer
+        currency_code:
+          type: string
+      additionalProperties: false
+    ReplaceDishOptionsRequest:
+      type: object
+      required:
+        - options
+      properties:
+        options:
+          type: array
+          maxItems: 40
+          items:
+            type: object
+            required:
+              - kind
+              - name_en
+              - name_ar
+            properties:
+              id:
+                type:
+                  - string
+                  - 'null'
+                format: uuid
+              kind:
+                type: string
+                enum:
+                  - remove
+                  - choice
+              group_en:
+                type:
+                  - string
+                  - 'null'
+                maxLength: 80
+              group_ar:
+                type:
+                  - string
+                  - 'null'
+                maxLength: 80
+              name_en:
+                type: string
+                maxLength: 120
+              name_ar:
+                type: string
+                maxLength: 120
+              recipe_id:
+                type:
+                  - string
+                  - 'null'
+                format: uuid
+                description: Required on a `choice`, a recipe of this kitchen's; null on a removal.
+            additionalProperties: false
+      additionalProperties: false
     MarketplaceMeal:
       type: object
       required:
@@ -33540,6 +36443,16 @@ components:
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
+        options:
+          type: array
+          description: On the detail only. The dish's free options.
+          items:
+            $ref: '#/components/schemas/DishOption'
+        portions:
+          type: array
+          description: On the detail only. Empty unless there are two packs to pick between.
+          items:
+            $ref: '#/components/schemas/DishPortion'
         kitchen_id:
           $ref: '#/components/schemas/Uuid'
         kitchen_name:
@@ -34679,11 +37592,25 @@ components:
         because the food could be made but not delivered — the kitchen's fault
         in a different way, and the one an operations team can fix.
         `payment_failed` is **not** here: there is nothing to fail.
+
+        `delivery_failed` is set only by closing a failed delivery
+        (`POST /catalogue/orders/{order}/delivery/close-failed`), and
+        `CancelOrderRequest` does not accept it.
       enum:
         - customer_requested
         - kitchen_unable_to_fulfil
         - delivery_unavailable
         - address_unreachable
+        - delivery_failed
+    CancellationDisposition:
+      type: string
+      description: |
+        What became of the food on an order cancelled after cooking started.
+        `returned` restores the stock. `wasted` leaves the deduction in place, so
+        the cost stays counted.
+      enum:
+        - returned
+        - wasted
     PaymentMethod:
       type: string
       description: |
@@ -34808,6 +37735,22 @@ components:
             The day the line is wanted, `YYYY-MM-DD`. Part of the line's
             identity rather than a decoration: two quantities of the same meal
             for two different days are two lines.
+        option_ids:
+          type:
+            - array
+            - 'null'
+          maxItems: 40
+          items:
+            $ref: '#/components/schemas/Uuid'
+          description: |
+            The dish's free options chosen, from `options` on its detail. Part of
+            the line's identity, with `note`: the same dish made differently is
+            another line.
+        note:
+          type:
+            - string
+            - 'null'
+          maxLength: 300
       additionalProperties: false
     SetCartItemQuantityRequest:
       type: object
@@ -34860,6 +37803,19 @@ components:
             - string
             - 'null'
           format: date
+        options:
+          type: array
+          description: |
+            The dish's free options this line chose, as they stood when it was
+            chosen. Removing an ingredient never changes `allergens`: the kitchen
+            may still cross-contact.
+          items:
+            $ref: '#/components/schemas/DishOption'
+        note:
+          type:
+            - string
+            - 'null'
+          maxLength: 300
         created_at:
           type:
             - string
@@ -35121,8 +38077,14 @@ components:
             vocabulary `409 order.placement_refused` uses at placement:
             `cart_empty`, `address_missing`, `address_not_deliverable`,
             `area_not_served`, `zone_suspended`, `currency_mismatch`,
-            `window_not_offered`, `allergen_conflict`, plus the line-probe vocabulary. Deduplicated — three lines refused for the
+            `window_not_offered`, `allergen_conflict`, `closed`, `date_in_the_past`,
+            `cut_off_passed`, `kitchen_closed`, `window_ended`, `lead_time_not_met`,
+            `below_zone_minimum`, `kitchen_paused`, `window_full`, plus the
+            line-probe vocabulary. Deduplicated — three lines refused for the
             same reason read as one fact, not three repeats of it.
+            `stock_short` alone is not a refusal: a line needs more than the
+            free stock, and stock on quality hold never counts as free. The
+            order still places.
         offered_window_codes:
           type:
             - array
@@ -35208,7 +38170,20 @@ components:
         - reason
       properties:
         reason:
-          $ref: '#/components/schemas/CancellationReason'
+          type: string
+          description: Why it is being cancelled. `delivery_failed` is not offered here.
+          enum:
+            - customer_requested
+            - kitchen_unable_to_fulfil
+            - delivery_unavailable
+            - address_unreachable
+        disposition:
+          oneOf:
+            - $ref: '#/components/schemas/CancellationDisposition'
+            - type: 'null'
+          description: |
+            Required once cooking has started (`preparing_at` or `ready_at`
+            set), and ignored before that.
       additionalProperties: false
     OrderLineAllergen:
       type: object
@@ -35298,6 +38273,19 @@ components:
           description: |
             The pack as the customer bought it — size, unit, pieces, net weight.
             Never a cost and never a supplier.
+        options:
+          type: array
+          description: |
+            The dish's free options this line chose, as they stood when it was
+            chosen. Removing an ingredient never changes `allergens`: the kitchen
+            may still cross-contact.
+          items:
+            $ref: '#/components/schemas/DishOption'
+        note:
+          type:
+            - string
+            - 'null'
+          maxLength: 300
       additionalProperties: false
     KitchenOrderLine:
       allOf:
@@ -35473,6 +38461,14 @@ components:
               type:
                 - string
                 - 'null'
+            picked_up_at:
+              type:
+                - string
+                - 'null'
+              format: date-time
+              description: |
+                When a driver or a courier took the food. Set means the order
+                can no longer be cancelled: it ends as delivered or failed.
     StockItem:
       type: object
       required:
@@ -35794,6 +38790,7 @@ components:
         - address
         - payment_terms
         - lead_time_days
+        - payment_due_days
         - notes
         - archived_at
         - contact_count
@@ -35853,6 +38850,13 @@ components:
           minimum: 0
           maximum: 365
           description: Days between issuing an order and expecting it. 0 is a same-morning market run.
+        payment_due_days:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          maximum: 365
+          description: Days after the invoice a delivery falls due. Null works out no due date.
         notes:
           type:
             - string
@@ -37129,6 +40133,13 @@ components:
             - 'null'
           minimum: 0
           maximum: 365
+        payment_due_days:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          maximum: 365
+          description: Days after the invoice a delivery falls due. Null works out no due date.
         notes:
           type:
             - string
@@ -37198,6 +40209,13 @@ components:
             - 'null'
           minimum: 0
           maximum: 365
+        payment_due_days:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          maximum: 365
+          description: Days after the invoice a delivery falls due. Null works out no due date.
         notes:
           type:
             - string
@@ -37529,6 +40547,7 @@ components:
         - invoice_date
         - variance_note
         - purchase_order_id
+        - purchase_order_number
         - received_at
         - received_on
         - cost_status
@@ -37605,6 +40624,14 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
+        purchase_order_number:
+          type:
+            - string
+            - 'null'
+          description: |
+            The number of the order this delivery settled, or null for a market
+            purchase. The number alone: reading the order takes
+            `inventory.order_supplies_organisation`.
         received_at:
           type:
             - string
@@ -38249,6 +41276,7 @@ components:
         - supplier
         - document_ref
         - purchase_order_id
+        - purchase_order_number
         - cost_status
         - stock_item_id
         - item_code
@@ -38294,6 +41322,10 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
+        purchase_order_number:
+          type:
+            - string
+            - 'null'
         cost_status:
           oneOf:
             - $ref: '#/components/schemas/ReceiptCostStatus'
@@ -38882,8 +41914,11 @@ components:
         - waste_amount
         - waste_quantity
         - revenue_amount
+        - refunds_amount
         - gross_margin_amount
         - gross_margin_percent
+        - is_margin_withheld
+        - uncosted_line_count
         - meal_revenue_amount
         - product_revenue_amount
         - other_revenue_amount
@@ -38954,15 +41989,29 @@ components:
           description: Total wasted quantity this month, the honest note when waste carries no cost.
         revenue_amount:
           type: string
-          description: Selling revenue — Σ order totals for confirmed/fulfilled orders, converted from minor to major units.
-        gross_margin_amount:
+          description: Selling revenue — Σ order subtotals for confirmed/fulfilled orders, delivery fees left out, less `refunds_amount`, converted from minor to major units.
+        refunds_amount:
           type: string
-          description: Revenue minus COGS, major units.
+          description: Refunds that completed this month, major units, each order's counted up to its food subtotal. Already taken off `revenue_amount`.
+        gross_margin_amount:
+          type:
+            - string
+            - 'null'
+          description: Revenue minus COGS, major units; null when `is_margin_withheld`.
         gross_margin_percent:
           type:
             - string
             - 'null'
-          description: Margin as a percentage of revenue; null when revenue is zero.
+          description: Margin as a percentage of revenue; null when revenue is zero or when `is_margin_withheld`.
+        is_margin_withheld:
+          type: boolean
+          description: |
+            The month's cost is known to be incomplete, so no margin is published:
+            `exception_count`, `uncosted_line_count` and `unvalued_batch_count`
+            say why.
+        uncosted_line_count:
+          type: integer
+          description: Sold lines that drew no costed stock, such as a dish on sale with an empty recipe.
         meal_revenue_amount:
           type: string
           description: Revenue from meal lines, major units.
@@ -39075,6 +42124,163 @@ components:
                 $ref: '#/components/schemas/MonthlyCostReportRow'
         meta:
           $ref: '#/components/schemas/Meta'
+    KitchenAnalyticsTotals:
+      type: object
+      required:
+        - orders
+        - units
+        - cancelled
+        - fulfilled
+        - open
+        - fulfilled_with_due
+        - on_time
+        - avg_lead_minutes
+      properties:
+        orders:
+          type: integer
+          minimum: 0
+          description: Orders placed in the range that are not cancelled.
+        units:
+          type: number
+          minimum: 0
+          description: Sum of line quantities over those orders.
+        cancelled:
+          type: integer
+          minimum: 0
+        fulfilled:
+          type: integer
+          minimum: 0
+        open:
+          type: integer
+          minimum: 0
+          description: Orders still placed or confirmed.
+        fulfilled_with_due:
+          type: integer
+          minimum: 0
+          description: Fulfilled orders that carry a requested delivery date — the on-time denominator.
+        on_time:
+          type: integer
+          minimum: 0
+          description: Of those, fulfilled no later than the end of the delivery window on the requested date.
+        avg_lead_minutes:
+          type:
+            - integer
+            - 'null'
+          description: Mean minutes from placed to fulfilled over fulfilled orders; null when none.
+      additionalProperties: false
+    KitchenAnalyticsReport:
+      type: object
+      required:
+        - from
+        - to
+        - current
+        - previous
+        - days
+        - channels
+        - items
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        current:
+          $ref: '#/components/schemas/KitchenAnalyticsTotals'
+        previous:
+          $ref: '#/components/schemas/KitchenAnalyticsTotals'
+        days:
+          type: array
+          items:
+            type: object
+            required:
+              - date
+              - orders
+              - units
+            properties:
+              date:
+                type: string
+                format: date
+              orders:
+                type: integer
+                minimum: 0
+              units:
+                type: number
+                minimum: 0
+            additionalProperties: false
+        channels:
+          type: array
+          items:
+            type: object
+            required:
+              - key
+              - orders
+              - units
+            properties:
+              key:
+                type: string
+                enum:
+                  - subscription
+                  - b2b
+                  - pos
+                  - a_la_carte
+              orders:
+                type: integer
+                minimum: 0
+              units:
+                type: number
+                minimum: 0
+            additionalProperties: false
+        items:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            required:
+              - catalogue_item_id
+              - name_en
+              - name_ar
+              - item_type
+              - orders
+              - units
+              - last_ordered_at
+            properties:
+              catalogue_item_id:
+                type: string
+                format: uuid
+              name_en:
+                type: string
+                description: The name on the item's most recent order line.
+              name_ar:
+                type:
+                  - string
+                  - 'null'
+              item_type:
+                type:
+                  - string
+                  - 'null'
+                description: The catalogue item's type (`product`, `meal`, `subscription_plan`, `sauce`, `dressing`).
+              orders:
+                type: integer
+                minimum: 0
+              units:
+                type: number
+                minimum: 0
+              last_ordered_at:
+                type: string
+                format: date-time
+            additionalProperties: false
+      additionalProperties: false
+    KitchenAnalyticsReportResponse:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          $ref: '#/components/schemas/KitchenAnalyticsReport'
+        meta:
+          $ref: '#/components/schemas/Meta'
     ConsumptionExceptionReasonCode:
       type: string
       description: |
@@ -39088,7 +42294,8 @@ components:
         spoken for by a confirmed batch — talk to the kitchen, or release the
         claim. `no_net_content` is an item that sells from finished stock without
         saying how much of the shelf one sold unit takes, which is a field
-        somebody can go and fill in.
+        somebody can go and fill in. `quality_hold` is a shelf set aside by a held
+        quality check: release the check, or throw the food away.
       enum:
         - no_branch
         - no_catalogue_item
@@ -39103,6 +42310,7 @@ components:
         - insufficient_stock
         - no_net_content
         - reserved_for_production
+        - quality_hold
     ConsumptionException:
       type: object
       required:
@@ -39258,6 +42466,113 @@ components:
                 $ref: '#/components/schemas/ConsumptionException'
         meta:
           $ref: '#/components/schemas/Meta'
+    KitchenSetupEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - is_live
+            - steps
+          properties:
+            is_live:
+              type: boolean
+            steps:
+              type: array
+              items:
+                type: object
+                required:
+                  - key
+                  - done
+                  - required
+                properties:
+                  key:
+                    type: string
+                    enum:
+                      - hours
+                      - delivery
+                      - menu
+                      - prices
+                      - team
+                  done:
+                    type: boolean
+                  required:
+                    type: boolean
+        meta:
+          type: object
+    BranchClosure:
+      type: object
+      required:
+        - id
+        - closed_from
+        - closed_to
+        - note
+      properties:
+        id:
+          type: string
+          format: uuid
+        closed_from:
+          type: string
+          format: date
+        closed_to:
+          type: string
+          format: date
+        note:
+          type:
+            - string
+            - 'null'
+    DuplicateStockEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - reason
+              - shelves
+            properties:
+              name:
+                type: string
+              reason:
+                type: string
+                enum:
+                  - different_units
+                  - not_a_copy
+                  - both_have_history
+                  - both_sold_as_products
+                  - open_work
+              shelves:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - code
+                    - unit_code
+                    - quantity
+                    - has_history
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    code:
+                      type: string
+                    unit_code:
+                      type: string
+                    quantity:
+                      type: string
+                    has_history:
+                      type: boolean
+        meta:
+          type: object
     ConsumptionExceptionCountEnvelope:
       type: object
       required:
@@ -40497,6 +43812,10 @@ components:
         - assigned_at
         - picked_up_at
         - delivered_at
+        - failed_at
+        - failure_reason
+        - failure_note
+        - courier_name
       properties:
         status:
           $ref: '#/components/schemas/DeliveryJobStatus'
@@ -40522,6 +43841,24 @@ components:
             - string
             - 'null'
           format: date-time
+        failed_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        failure_reason:
+          oneOf:
+            - $ref: '#/components/schemas/DeliveryFailureReason'
+            - type: 'null'
+        failure_note:
+          type:
+            - string
+            - 'null'
+        courier_name:
+          type:
+            - string
+            - 'null'
+          description: The courier carrying it. There is then no driver.
       additionalProperties: false
     KitchenOrder:
       type: object
@@ -40549,6 +43886,7 @@ components:
         - placed_on_behalf_by
         - lock_version
         - amendable
+        - allergy
         - line_count
         - lines
         - plan_day
@@ -40647,6 +43985,11 @@ components:
           oneOf:
             - $ref: '#/components/schemas/CancellationReason'
             - type: 'null'
+        cancellation_disposition:
+          oneOf:
+            - $ref: '#/components/schemas/CancellationDisposition'
+            - type: 'null'
+          description: What became of the food on a cancellation after cooking started. Null otherwise.
         delivery_run:
           oneOf:
             - $ref: '#/components/schemas/KitchenOrderDeliveryRun'
@@ -40674,6 +44017,11 @@ components:
         lock_version:
           type: integer
           minimum: 0
+        allergy:
+          oneOf:
+            - $ref: '#/components/schemas/KitchenOrderAllergy'
+            - type: 'null'
+          description: Null when nothing was declared and nothing noted.
         amendable:
           type: boolean
           description: |
@@ -40779,6 +44127,124 @@ components:
           properties:
             order:
               $ref: '#/components/schemas/KitchenOrder'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    OrderRefundKind:
+      type: string
+      enum:
+        - refund
+        - receipt_correction
+    OrderRefundStatus:
+      type: string
+      enum:
+        - pending_approval
+        - completed
+        - rejected
+    StoreOrderRefundRequest:
+      type: object
+      required:
+        - kind
+        - method
+        - amount_minor
+        - reason
+      properties:
+        kind:
+          $ref: '#/components/schemas/OrderRefundKind'
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        amount_minor:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 300
+      additionalProperties: false
+    OrderRefund:
+      type: object
+      required:
+        - id
+        - kind
+        - status
+        - method
+        - amount_minor
+        - currency_code
+        - reason
+        - requested_by_name
+        - requested_at
+        - decided_by_name
+        - decided_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        kind:
+          $ref: '#/components/schemas/OrderRefundKind'
+        status:
+          $ref: '#/components/schemas/OrderRefundStatus'
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        amount_minor:
+          type: integer
+          minimum: 1
+        currency_code:
+          type: string
+        reason:
+          type: string
+        requested_by_name:
+          type:
+            - string
+            - 'null'
+        requested_at:
+          type: string
+          format: date-time
+        decided_by_name:
+          type:
+            - string
+            - 'null'
+        decided_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    OrderRefundLedgerEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - received_minor
+            - refunded_minor
+            - corrected_minor
+            - pending_minor
+            - refundable_minor
+            - window_closes_at
+            - entries
+          properties:
+            received_minor:
+              type: integer
+              description: The receipts as written.
+            refunded_minor:
+              type: integer
+            corrected_minor:
+              type: integer
+            pending_minor:
+              type: integer
+              description: Waiting for the owner, and already counted against the cap.
+            refundable_minor:
+              type: integer
+            window_closes_at:
+              type:
+                - string
+                - 'null'
+              format: date-time
+              description: Seven days after the latest receipt. Null with no receipts.
+            entries:
+              type: array
+              items:
+                $ref: '#/components/schemas/OrderRefund'
         meta:
           $ref: '#/components/schemas/Meta'
     StorePaymentReceiptRequest:
@@ -40963,6 +44429,69 @@ components:
           additionalProperties: false
         meta:
           $ref: '#/components/schemas/Meta'
+    KitchenOrderAllergy:
+      type: object
+      required:
+        - severe
+        - items
+        - note
+        - acknowledged_at
+      description: |
+        What the kitchen must know about who is eating. Health data: reading it
+        is recorded with a purpose of use. Served to whoever may open the order,
+        and never on a customer or guest shape.
+      properties:
+        severe:
+          type: boolean
+          description: Any declared allergy has the severity `anaphylaxis`.
+        items:
+          type: array
+          description: |
+            Every allergy declared at placement, conflicting with anything or
+            not. Empty for a walk-in with only a note. Refreshed when the order
+            is edited.
+          items:
+            $ref: '#/components/schemas/KitchenOrderAllergyItem'
+        note:
+          type:
+            - string
+            - 'null'
+          description: Free text taken at the desk.
+        acknowledged_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: When a conflict was seen and the order went ahead anyway.
+      additionalProperties: false
+    KitchenOrderAllergyItem:
+      type: object
+      required:
+        - allergen_code
+        - severity
+        - notes
+        - conflicts_with_line
+      properties:
+        allergen_code:
+          type: string
+        severity:
+          type: string
+          enum:
+            - avoidance
+            - intolerance
+            - allergy
+            - anaphylaxis
+        notes:
+          type:
+            - string
+            - 'null'
+          description: The customer's own words.
+        conflicts_with_line:
+          type: array
+          description: The ids of this order's lines that conflict with this allergy.
+          items:
+            $ref: '#/components/schemas/Uuid'
+      additionalProperties: false
     OrderDeskWindow:
       type: string
       enum:
@@ -41163,11 +44692,34 @@ components:
                 - window
                 - today
                 - timezone
+                - past_due_count
+                - overdue_count
+                - overdue_grace_minutes
               properties:
                 count:
                   type: integer
                   minimum: 0
                   description: Rows in this response.
+                past_due_count:
+                  type: integer
+                  minimum: 0
+                  description: |
+                    Open orders whose `due_at` has passed, across all dates, whatever
+                    this view shows and however many rows it was capped to. An order
+                    that names no day is due from `placed_at`. Inside the kitchen,
+                    and the branch when one is named.
+                overdue_count:
+                  type: integer
+                  minimum: 0
+                  description: |
+                    Those at least `overdue_grace_minutes` past due, the same order
+                    the due badge draws red.
+                overdue_grace_minutes:
+                  type: integer
+                  minimum: 0
+                  description: |
+                    The grace itself, so a client reads the rule and never keeps a
+                    copy of it.
                 limit:
                   type: integer
                   description: |
@@ -41240,6 +44792,19 @@ components:
           examples:
             - '0.3500'
             - 3
+        option_ids:
+          type:
+            - array
+            - 'null'
+          maxItems: 40
+          items:
+            $ref: '#/components/schemas/Uuid'
+          description: The dish's free options chosen. Lines made differently do not merge.
+        note:
+          type:
+            - string
+            - 'null'
+          maxLength: 300
       additionalProperties: false
     OrderDeskSaleBase:
       type: object
@@ -41366,6 +44931,18 @@ components:
             A new intended method. It must suit how the order leaves —
             `cash_on_delivery` on a delivery, `cash_at_counter` otherwise, `wish`
             on either — or `422` on this field.
+        allergy_note:
+          type:
+            - string
+            - 'null'
+          maxLength: 500
+          description: A new allergy note. Absent keeps the stored one; empty or null clears it.
+        acknowledge_allergen_conflicts:
+          type: boolean
+          description: |
+            The customer was told about the basket's allergen conflicts. Every
+            edit re-checks them, so without this a conflict that remains is
+            refused `allergen_conflict`, whatever an earlier edit acknowledged.
     QuoteOrderDeskRequest:
       allOf:
         - $ref: '#/components/schemas/OrderDeskSaleBase'
@@ -41409,6 +44986,19 @@ components:
                 member of this organisation, the rule `POST /delivery/jobs/{job}/
                 assign` applies. Requires `order.manage_organisation`. Omit it to
                 leave the run in the unassigned pool.
+            allergy_note:
+              type:
+                - string
+                - 'null'
+              maxLength: 500
+              description: Any allergy the customer mentioned. How a walk-in with no profile is covered.
+            acknowledge_allergen_conflicts:
+              type: boolean
+              description: |
+                The customer was told about the basket's allergen conflicts
+                (`allergen_conflicts` on the quote). Absent or false, a named
+                customer's conflict is refused `allergen_conflict`. The caller
+                is recorded as who acknowledged it.
           additionalProperties: false
           description: |
             The quote's body plus two fields, and the two do different jobs.
@@ -41512,13 +45102,14 @@ components:
           type: string
           description: |
             The stable key. Line-level: `item_unknown`, `item_not_published`,
-            `variant_unknown`, `variant_not_active`, `channel_unavailable`,
-            `unpriced`, `currency_mismatch`, `channel_not_trading`. Order-level:
+            `item_not_assessed`, `quality_hold`, `variant_unknown`, `variant_not_active`, `channel_unavailable`,
+            `item_unavailable_on_date`, `unpriced`, `currency_mismatch`,
+            `channel_not_trading`. Order-level:
             `customer_required`, `address_required`, `address_not_applicable`,
             `address_not_deliverable`, `area_not_served`, `zone_suspended`,
             `window_not_offered`, `currency_mismatch` (with
-            `subject: delivery_fee`), `cut_off_passed`,
-            `branch_closed`, `date_in_the_past`.
+            `subject: delivery_fee`), `cut_off_passed`, `closed`,
+            `date_in_the_past`, `kitchen_closed`, `window_ended`.
       additionalProperties: true
     OrderDeskQuoteLine:
       type: object
@@ -41579,6 +45170,14 @@ components:
           minLength: 3
           maxLength: 3
           description: The price's currency where there is one, and the counter's own tariff currency where there is not.
+        option_ids:
+          type: array
+          items:
+            $ref: '#/components/schemas/Uuid'
+        note:
+          type:
+            - string
+            - 'null'
         refusals:
           type: array
           items:
@@ -41603,6 +45202,8 @@ components:
         - refusals
         - quotable
         - offered_window_codes
+        - allergen_conflicts
+        - service_warnings
       description: |
         What this basket would come to, and everything standing in the way of it.
 
@@ -41666,6 +45267,22 @@ components:
             codes that zone offers, in display order — the desk's slot picker
             shows only these. Null otherwise (pickup, counter, no address, an
             unserved area).
+        allergen_conflicts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AllergenConflict'
+          description: |
+            The basket's meals that clash with the named customer's declared
+            allergies, one per meal. **Not a refusal and no part of `quotable`:**
+            the sale goes ahead once the agent says the customer was told
+            (`acknowledge_allergen_conflicts`).
+        service_warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderDeskQuoteRefusal'
+          description: |
+            `kitchen_paused` and `window_full`, which refuse a customer and only
+            warn the desk: the agent reads them and decides. No part of `quotable`.
       additionalProperties: false
     OrderDeskQuoteEnvelope:
       type: object
@@ -41966,6 +45583,180 @@ components:
               oneOf:
                 - $ref: '#/components/schemas/KitchenCustomerCompany'
                 - type: 'null'
+    StaffNotificationType:
+      type: string
+      enum:
+        - unaccepted_manager
+        - unaccepted_owner
+        - allergy_order
+        - late_cancel
+        - delivery_failed
+        - no_cash_collected
+        - refund_approval
+        - stock_expiring
+        - temperature_out_of_range
+        - refund_approved
+        - refund_rejected
+        - short_hand_in
+        - short_close
+        - price_approval
+        - dish_below_target
+        - delivery_moved_closed
+        - delivery_closed_unmoved
+    StaffNotification:
+      type: object
+      required:
+        - id
+        - type
+        - order_id
+        - order_number
+        - severe
+        - read_at
+        - created_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        type:
+          $ref: '#/components/schemas/StaffNotificationType'
+        order_id:
+          $ref: '#/components/schemas/Uuid'
+        order_number:
+          type: string
+        severe:
+          type: boolean
+        read_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+    StaffNotificationsEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/StaffNotification'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required:
+                - count
+                - unread_count
+              properties:
+                count:
+                  type: integer
+                  minimum: 0
+                unread_count:
+                  type: integer
+                  minimum: 0
+                  description: Every unread alert of the caller's, not only those returned.
+    KitchenServiceSettings:
+      type: object
+      required:
+        - order_lead_minutes
+        - alarm_after_minutes
+        - manager_alert_after_minutes
+        - owner_alert_after_minutes
+        - refund_approval_above_minor
+      properties:
+        order_lead_minutes:
+          type: integer
+          minimum: 0
+          maximum: 10080
+        alarm_after_minutes:
+          type: integer
+          minimum: 1
+          maximum: 10080
+        manager_alert_after_minutes:
+          type: integer
+          minimum: 1
+          maximum: 10080
+        owner_alert_after_minutes:
+          type: integer
+          minimum: 1
+          maximum: 10080
+        refund_approval_above_minor:
+          type: integer
+          minimum: 0
+          description: Refunds on one order above this, in minor units, need the owner.
+        price_approval_above_percent:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          maximum: 1000
+          description: A delivery priced this far above the last price needs approval. Null turns approvals off.
+        dish_margin_target_percent:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+          maximum: 99
+          description: The margin a dish should clear. Null turns the alert off.
+        orders_per_window:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+          maximum: 1000
+          description: The most orders one window takes on one day. Null means no limit.
+        paused_until:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          readOnly: true
+          description: New customer orders are refused until then. Set through `kitchen-pause`.
+    KitchenDisplayEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - orders
+            - truncated
+            - alarm_after_minutes
+            - unaccepted_open_minutes
+          properties:
+            orders:
+              type: array
+              items:
+                $ref: '#/components/schemas/KitchenOrder'
+            truncated:
+              type: boolean
+              description: More orders qualified than the 500 returned.
+            alarm_after_minutes:
+              type: integer
+              minimum: 1
+              description: This kitchen's setting, in minutes while open.
+            unaccepted_open_minutes:
+              type: object
+              description: Each `placed` order's open minutes waited, keyed by order id. An order for a later day is absent.
+              additionalProperties:
+                type: integer
+                minimum: 0
+        meta:
+          $ref: '#/components/schemas/Meta'
+    KitchenServiceSettingsEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          $ref: '#/components/schemas/KitchenServiceSettings'
+        meta:
+          $ref: '#/components/schemas/Meta'
     KitchenCustomersEnvelope:
       type: object
       required:
@@ -42072,6 +45863,40 @@ components:
             first arm of the scoping rule restated as a fact: a `false` here
             means the row is visible on the second arm alone, because somebody
             who works at this kitchen wrote them down.
+    OrderDeskCustomerAllergiesEnvelope:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - declared
+            - declares_no_allergens
+            - allergens
+          properties:
+            declared:
+              type: boolean
+              description: False when nobody has ever asked, which is not the same as no allergens.
+            declares_no_allergens:
+              type: boolean
+            allergens:
+              type: array
+              items:
+                type: object
+                required:
+                  - allergen_code
+                  - severity
+                properties:
+                  allergen_code:
+                    type: string
+                  severity:
+                    type: string
+                    enum:
+                      - avoidance
+                      - intolerance
+                      - allergy
+                      - anaphylaxis
     OrderDeskCustomersEnvelope:
       type: object
       required:
@@ -42721,6 +46546,875 @@ components:
             - string
             - 'null'
           maxLength: 20
+    CashRun:
+      type: object
+      required:
+        - job_id
+        - order_id
+        - order_number
+        - delivered_at
+        - amount_minor
+      properties:
+        job_id:
+          $ref: '#/components/schemas/Uuid'
+        order_id:
+          $ref: '#/components/schemas/Uuid'
+        order_number:
+          type: string
+        delivered_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        amount_minor:
+          type: integer
+          description: The driver's cash from this run, or what the order still owes a courier's run.
+    CourierCashRun:
+      allOf:
+        - $ref: '#/components/schemas/CashRun'
+        - type: object
+          required:
+            - fee_minor
+            - prepaid
+            - reference
+          properties:
+            fee_minor:
+              type: integer
+              minimum: 0
+            prepaid:
+              type: boolean
+              description: The order owed nothing at the door, or was paid by Whish. Its amount is zero and its fee is a kitchen expense.
+            reference:
+              type:
+                - string
+                - 'null'
+    DriverCashOwed:
+      type: object
+      required:
+        - driver_user_id
+        - display_name
+        - branch_id
+        - branch_name
+        - currency_code
+        - collected_minor
+        - runs
+      properties:
+        driver_user_id:
+          $ref: '#/components/schemas/Uuid'
+        display_name:
+          type:
+            - string
+            - 'null'
+        branch_id:
+          $ref: '#/components/schemas/NullableTillBranchId'
+        branch_name:
+          type:
+            - string
+            - 'null'
+        currency_code:
+          type: string
+        collected_minor:
+          type: integer
+        runs:
+          type: array
+          items:
+            $ref: '#/components/schemas/CashRun'
+    CourierCashOwed:
+      type: object
+      required:
+        - courier_name
+        - branch_id
+        - branch_name
+        - currency_code
+        - due_minor
+        - fee_minor
+        - expense_minor
+        - runs
+      properties:
+        courier_name:
+          type: string
+        branch_id:
+          $ref: '#/components/schemas/NullableTillBranchId'
+        branch_name:
+          type:
+            - string
+            - 'null'
+        currency_code:
+          type: string
+        due_minor:
+          type: integer
+        fee_minor:
+          type: integer
+          description: Fees on cash-on-delivery runs, netted from the hand-in.
+        expense_minor:
+          type: integer
+          description: Fees on prepaid runs, a kitchen expense. Never netted from the hand-in.
+        runs:
+          type: array
+          items:
+            $ref: '#/components/schemas/CourierCashRun'
+    DishMargin:
+      type: object
+      required:
+        - id
+        - catalogue_item_id
+        - name_en
+        - name_ar
+        - channel
+        - price_amount
+        - cost_amount
+        - currency_code
+        - margin_percent
+        - withheld_reason
+        - is_below_target
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        catalogue_item_id:
+          $ref: '#/components/schemas/Uuid'
+        name_en:
+          type: string
+        name_ar:
+          type:
+            - string
+            - 'null'
+        channel:
+          type: string
+          enum:
+            - b2c
+            - b2b
+        price_amount:
+          type:
+            - string
+            - 'null'
+        cost_amount:
+          type:
+            - string
+            - 'null'
+        currency_code:
+          type:
+            - string
+            - 'null'
+        margin_percent:
+          type:
+            - string
+            - 'null'
+        withheld_reason:
+          type:
+            - string
+            - 'null'
+          enum:
+            - no_recipe
+            - no_price
+            - cost_incomplete
+            - currency_mismatch
+            - null
+        is_below_target:
+          type: boolean
+    DishMarginsEnvelope:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - target_percent
+            - computed_at
+            - dishes
+          properties:
+            target_percent:
+              type:
+                - integer
+                - 'null'
+            computed_at:
+              type:
+                - string
+                - 'null'
+              format: date-time
+            dishes:
+              type: array
+              items:
+                $ref: '#/components/schemas/DishMargin'
+    PayablePriceRise:
+      type: object
+      required:
+        - name_en
+        - last_unit_price_amount
+        - unit_price_amount
+        - price_variance_percent
+      properties:
+        name_en:
+          type:
+            - string
+            - 'null'
+        last_unit_price_amount:
+          type: string
+        unit_price_amount:
+          type: string
+        price_variance_percent:
+          type: string
+    Payable:
+      type: object
+      required:
+        - id
+        - supplier_name_en
+        - supplier_name_ar
+        - document_ref
+        - supplier_invoice_ref
+        - received_on
+        - due_on
+        - is_overdue
+        - payment_status
+        - paid_at
+        - paid_reference
+        - price_approval_status
+        - amount
+        - currency_code
+        - price_rises
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        supplier_name_en:
+          type:
+            - string
+            - 'null'
+        supplier_name_ar:
+          type:
+            - string
+            - 'null'
+        document_ref:
+          type:
+            - string
+            - 'null'
+        supplier_invoice_ref:
+          type:
+            - string
+            - 'null'
+        received_on:
+          type:
+            - string
+            - 'null'
+          format: date
+        due_on:
+          type:
+            - string
+            - 'null'
+          format: date
+        is_overdue:
+          type: boolean
+        payment_status:
+          type: string
+          enum:
+            - unpaid
+            - paid
+            - not_tracked
+        paid_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        paid_reference:
+          type:
+            - string
+            - 'null'
+        price_approval_status:
+          type:
+            - string
+            - 'null'
+          enum:
+            - pending
+            - approved
+            - null
+        amount:
+          type:
+            - string
+            - 'null'
+          description: Major units. Null while a line has no price.
+        currency_code:
+          type:
+            - string
+            - 'null'
+        price_rises:
+          type: array
+          items:
+            $ref: '#/components/schemas/PayablePriceRise'
+    PayablesEnvelope:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - today
+            - totals
+            - unpaid
+            - paid
+          properties:
+            today:
+              type: string
+              format: date
+            totals:
+              type: array
+              items:
+                type: object
+                required:
+                  - currency_code
+                  - amount
+                properties:
+                  currency_code:
+                    type: string
+                  amount:
+                    type: string
+            unpaid:
+              type: array
+              items:
+                $ref: '#/components/schemas/Payable'
+            paid:
+              type: array
+              items:
+                $ref: '#/components/schemas/Payable'
+    NullableTillBranchId:
+      type:
+        - string
+        - 'null'
+      format: uuid
+      description: The branch whose till this is. Null on a kitchen with no branch, and on rows from before tills were per branch, which count as the kitchen's first branch.
+    OpenDailyClose:
+      type: object
+      required:
+        - branch_id
+        - branch_name
+        - currency_code
+        - business_date
+        - opened_at
+        - suggested_float_minor
+        - counter_cash_minor
+        - handed_in_minor
+        - cash_refunds_minor
+      properties:
+        branch_id:
+          $ref: '#/components/schemas/NullableTillBranchId'
+        branch_name:
+          type:
+            - string
+            - 'null'
+        currency_code:
+          type: string
+        business_date:
+          type: string
+          format: date
+        opened_at:
+          type: string
+          format: date-time
+        suggested_float_minor:
+          type: integer
+        counter_cash_minor:
+          type: integer
+        handed_in_minor:
+          type: integer
+        cash_refunds_minor:
+          type: integer
+    DailyClose:
+      type: object
+      required:
+        - id
+        - branch_id
+        - branch_name
+        - currency_code
+        - business_date
+        - opened_at
+        - closed_at
+        - opening_float_minor
+        - counter_cash_minor
+        - handed_in_minor
+        - cash_refunds_minor
+        - expected_minor
+        - counted_minor
+        - variance_minor
+        - variance_reason
+        - recorded_by_name
+        - signed_off_by_name
+        - signed_off_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        branch_id:
+          $ref: '#/components/schemas/NullableTillBranchId'
+        branch_name:
+          type:
+            - string
+            - 'null'
+        currency_code:
+          type: string
+        business_date:
+          type: string
+          format: date
+        opened_at:
+          type: string
+          format: date-time
+        closed_at:
+          type: string
+          format: date-time
+        opening_float_minor:
+          type: integer
+        counter_cash_minor:
+          type: integer
+        handed_in_minor:
+          type: integer
+        cash_refunds_minor:
+          type: integer
+        expected_minor:
+          type: integer
+        counted_minor:
+          type: integer
+        variance_minor:
+          type: integer
+          description: Counted less expected. Negative is short.
+        variance_reason:
+          type:
+            - string
+            - 'null'
+        recorded_by_name:
+          type:
+            - string
+            - 'null'
+        signed_off_by_name:
+          type:
+            - string
+            - 'null'
+        signed_off_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    OrderDeskClosesEnvelope:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - timezone
+            - branches
+            - open
+            - totals
+            - closes
+          properties:
+            timezone:
+              type: string
+              description: The kitchen's clock, which the business dates are read on.
+            branches:
+              type: array
+              description: Every branch, so every till, the kitchen's first branch first.
+              items:
+                type: object
+                required:
+                  - id
+                  - name
+                properties:
+                  id:
+                    $ref: '#/components/schemas/Uuid'
+                  name:
+                    type: string
+            open:
+              type: array
+              items:
+                $ref: '#/components/schemas/OpenDailyClose'
+            totals:
+              type: array
+              description: The kitchen total per local day and currency, newest first, fourteen days with a close at most. Cash moved and variance sum every shift; counted is each till's last count of the day.
+              items:
+                $ref: '#/components/schemas/DailyCloseTotal'
+            closes:
+              type: array
+              items:
+                $ref: '#/components/schemas/DailyClose'
+    DailyCloseTotal:
+      type: object
+      required:
+        - business_date
+        - currency_code
+        - till_count
+        - counter_cash_minor
+        - handed_in_minor
+        - cash_refunds_minor
+        - counted_minor
+        - variance_minor
+      properties:
+        business_date:
+          type: string
+          format: date
+        currency_code:
+          type: string
+        till_count:
+          type: integer
+        counter_cash_minor:
+          type: integer
+        handed_in_minor:
+          type: integer
+        cash_refunds_minor:
+          type: integer
+        counted_minor:
+          type: integer
+        variance_minor:
+          type: integer
+    DailyCloseEnvelope:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - close
+          properties:
+            close:
+              $ref: '#/components/schemas/DailyClose'
+    StoreOrderDeskCloseRequest:
+      type: object
+      required:
+        - currency_code
+        - opening_float_minor
+        - counted_minor
+      properties:
+        branch_id:
+          description: The branch whose till is counted. Omitted or null is the kitchen's first branch.
+          type:
+            - string
+            - 'null'
+          format: uuid
+        currency_code:
+          type: string
+        opening_float_minor:
+          type: integer
+          minimum: 0
+        counted_minor:
+          type: integer
+          minimum: 0
+        variance_reason:
+          type:
+            - string
+            - 'null'
+          maxLength: 300
+    CashSettlement:
+      type: object
+      required:
+        - id
+        - kind
+        - party_name
+        - branch_id
+        - branch_name
+        - currency_code
+        - expected_minor
+        - fee_minor
+        - expense_minor
+        - handed_in_minor
+        - short_minor
+        - short_reason
+        - recorded_by_name
+        - recorded_at
+        - signed_off_by_name
+        - signed_off_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        kind:
+          type: string
+          enum:
+            - driver
+            - courier
+        party_name:
+          type:
+            - string
+            - 'null'
+        branch_id:
+          $ref: '#/components/schemas/NullableTillBranchId'
+        branch_name:
+          type:
+            - string
+            - 'null'
+        currency_code:
+          type: string
+        expected_minor:
+          type: integer
+        fee_minor:
+          type: integer
+        expense_minor:
+          type: integer
+          description: Couriers' fees on prepaid runs, a kitchen expense outside the hand-in.
+        handed_in_minor:
+          type: integer
+        short_minor:
+          type: integer
+        short_reason:
+          type:
+            - string
+            - 'null'
+        recorded_by_name:
+          type:
+            - string
+            - 'null'
+        recorded_at:
+          type: string
+          format: date-time
+        signed_off_by_name:
+          type:
+            - string
+            - 'null'
+        signed_off_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    StoreOrderDeskSettlementRequest:
+      type: object
+      required:
+        - job_ids
+        - handed_in_minor
+      properties:
+        job_ids:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/Uuid'
+        handed_in_minor:
+          type: integer
+          minimum: 0
+        short_reason:
+          type:
+            - string
+            - 'null'
+          maxLength: 300
+      additionalProperties: false
+    CashSettlementEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - settlement
+          properties:
+            settlement:
+              $ref: '#/components/schemas/CashSettlement'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    OrderDeskSettlementsEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - drivers
+            - couriers
+            - settlements
+          properties:
+            drivers:
+              type: array
+              items:
+                $ref: '#/components/schemas/DriverCashOwed'
+            couriers:
+              type: array
+              items:
+                $ref: '#/components/schemas/CourierCashOwed'
+            settlements:
+              type: array
+              items:
+                $ref: '#/components/schemas/CashSettlement'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    KitchenActivityEntry:
+      type: object
+      required:
+        - id
+        - at
+        - action
+        - actor_name
+        - subject_type
+        - order_number
+        - metadata
+      properties:
+        id:
+          type: string
+        at:
+          type: string
+          format: date-time
+        action:
+          type: string
+        actor_name:
+          type:
+            - string
+            - 'null'
+        subject_type:
+          type: string
+        order_number:
+          type:
+            - string
+            - 'null'
+        metadata:
+          type: object
+          additionalProperties: true
+    KitchenActivityEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/KitchenActivityEntry'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required:
+                - truncated
+              properties:
+                truncated:
+                  type: boolean
+    StockActivityMovement:
+      type: object
+      required:
+        - id
+        - at
+        - item_name
+        - unit
+        - reason
+        - quantity_delta
+        - cost_minor
+        - currency_code
+        - notes
+        - order_number
+        - wasted_order
+        - attributed
+        - actor_name
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        at:
+          type: string
+          format: date-time
+        item_name:
+          type: string
+        unit:
+          type: string
+        reason:
+          type: string
+          enum:
+            - adjust
+            - waste
+            - receipt
+            - consume
+            - yield
+        quantity_delta:
+          type: string
+        cost_minor:
+          type:
+            - integer
+            - 'null'
+        currency_code:
+          type:
+            - string
+            - 'null'
+        notes:
+          type:
+            - string
+            - 'null'
+        order_number:
+          type:
+            - string
+            - 'null'
+        wasted_order:
+          type: boolean
+          description: A deduction for an order cancelled as wasted.
+        attributed:
+          type: boolean
+        actor_name:
+          type:
+            - string
+            - 'null'
+    StockActivityEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - movements
+            - waste
+            - unvalued_waste_count
+          properties:
+            movements:
+              type: array
+              items:
+                $ref: '#/components/schemas/StockActivityMovement'
+            waste:
+              type: array
+              items:
+                type: object
+                required:
+                  - currency_code
+                  - amount_minor
+                properties:
+                  currency_code:
+                    type: string
+                  amount_minor:
+                    type: integer
+            unvalued_waste_count:
+              type: integer
+              minimum: 0
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required:
+                - truncated
+              properties:
+                truncated:
+                  type: boolean
+    OrderDeskCashReportAdjustment:
+      type: object
+      required:
+        - day
+        - kind
+        - display_name
+        - currency_code
+        - entry_count
+        - amount_minor_sum
+      properties:
+        day:
+          type: string
+          format: date
+        kind:
+          type: string
+          enum:
+            - refund
+            - receipt_correction
+            - courier_fee
+            - short
+        display_name:
+          type:
+            - string
+            - 'null'
+          description: The person who recorded a refund, the courier, or the driver who was short.
+        currency_code:
+          type: string
+        entry_count:
+          type: integer
+        amount_minor_sum:
+          type: integer
     OrderDeskCashReportRow:
       type: object
       required:
@@ -42814,8 +47508,17 @@ components:
           required:
             - rows
             - totals
+            - adjustments
           additionalProperties: false
           properties:
+            adjustments:
+              type: array
+              description: |
+                What came off those takings: refunds and corrections that
+                completed, couriers' fees and short hand-ins. Beside the rows
+                rather than netted into them.
+              items:
+                $ref: '#/components/schemas/OrderDeskCashReportAdjustment'
             rows:
               type: array
               description: |
@@ -43378,6 +48081,19 @@ components:
             - object
             - 'null'
           additionalProperties: true
+        options:
+          type: array
+          description: |
+            The dish's free options this line chose, as they stood when it was
+            chosen. Removing an ingredient never changes `allergens`: the kitchen
+            may still cross-contact.
+          items:
+            $ref: '#/components/schemas/DishOption'
+        note:
+          type:
+            - string
+            - 'null'
+          maxLength: 300
       additionalProperties: false
     GuestOrder:
       type: object
@@ -43467,6 +48183,7 @@ components:
             - kitchen_unable_to_fulfil
             - delivery_unavailable
             - address_unreachable
+            - delivery_failed
             - null
         lines:
           type: array
@@ -46288,6 +51005,11 @@ components:
         - assigned_at
         - picked_up_at
         - ready_at
+        - allergy_allergen_codes
+        - allergy_note
+        - amount_due_minor
+        - currency_code
+        - payment_method
         - delivery
       properties:
         id:
@@ -46321,6 +51043,34 @@ components:
             - 'null'
           format: date-time
           description: When the kitchen marked the food ready. Picked up is refused until then, and a run is only offered under `available` once it is set.
+        allergy_allergen_codes:
+          type: array
+          items:
+            type: string
+          description: |
+            The allergens declared on this order, empty when there are none.
+            Names only: the customer's own notes and severities stay with the kitchen.
+        allergy_note:
+          type:
+            - string
+            - 'null'
+          description: |
+            The order's free allergy note, as the desk wrote it — the only allergy
+            record a walk-in order has. Shown to the driver beside the codes
+            (owner, 3 Nov 2026).
+        amount_due_minor:
+          type: integer
+          minimum: 0
+          description: The order's total less its receipts, never below zero.
+        currency_code:
+          type:
+            - string
+            - 'null'
+        payment_method:
+          type:
+            - string
+            - 'null'
+          description: A `wish` order has nothing to collect at the door, whatever it still owes.
         delivery:
           $ref: '#/components/schemas/DriverJobDelivery'
       additionalProperties: false
@@ -46333,10 +51083,74 @@ components:
 
         `driver_user_id` is absent because it would say the same thing on every
         row — the caller's own id, which they already have — and the dispatch
-        board is the surface where whose job it is is worth answering. Money is
-        absent for a related reason: a driver collecting cash on delivery is a
-        real flow and it belongs to the receipts ledger, not bolted onto a run
-        sheet.
+        board is the surface where whose job it is is worth answering.
+    DeliveryFailureReason:
+      type: string
+      description: Why a run came back.
+      enum:
+        - no_answer
+        - wrong_address
+        - refused
+        - unreachable
+        - other
+    FailDeliveryRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          $ref: '#/components/schemas/DeliveryFailureReason'
+        note:
+          type:
+            - string
+            - 'null'
+          maxLength: 1000
+      additionalProperties: false
+    RedeliverOrderRequest:
+      type: object
+      properties:
+        date:
+          type:
+            - string
+            - 'null'
+          format: date
+          description: A new day for the order, if it is moving.
+        window:
+          type:
+            - string
+            - 'null'
+          maxLength: 64
+          description: A new delivery window code, if it is moving.
+      additionalProperties: false
+    CloseFailedDeliveryRequest:
+      type: object
+      required:
+        - disposition
+      properties:
+        disposition:
+          $ref: '#/components/schemas/CancellationDisposition'
+      additionalProperties: false
+    HandToCourierRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        reference:
+          type:
+            - string
+            - 'null'
+          maxLength: 120
+          description: The courier's own tracking reference.
+        fee_minor:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          description: What the courier charges, held for settlement.
+      additionalProperties: false
     AssignDeliveryJobRequest:
       type: object
       required:
@@ -46390,14 +51204,18 @@ components:
     DeliverDriverJobRequest:
       type: object
       properties:
-        proof_of_delivery_notes:
+        collected_minor:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          description: What the driver took, in the order's currency. Required on a cash order, ignored on WISH.
+        note:
           type:
             - string
             - 'null'
           maxLength: 1000
-          description: |
-            **Replace-or-clear.** Omitting the key writes `null` over whatever
-            was there; there is no partial update of this field.
+          description: Stored on the job. Required when `collected_minor` is zero and money is owed.
       additionalProperties: false
     PaymentMethodKind:
       type: string
@@ -48980,16 +53798,6 @@ components:
                 $ref: '#/components/schemas/SubscriptionDay'
         meta:
           $ref: '#/components/schemas/Meta'
-    CreditMemoStatus:
-      type: string
-      description: |
-        `recorded` means the platform has computed what is owed; `settled`
-        means a human has told it the money changed hands. There is deliberately
-        no `paid` or `refunded` — the platform has no payment rail, and a status
-        implying it had one would be the first thing a report believed.
-      enum:
-        - recorded
-        - settled
     SubscriptionBalance:
       type: object
       description: |
@@ -49401,57 +54209,6 @@ components:
               properties:
                 count:
                   type: integer
-    CreditMemo:
-      type: object
-      description: |
-        What a kitchen owes a customer whose subscription was cancelled early —
-        a record of an **obligation**, never of a payment.
-
-        `settlement` is stated on the wire rather than left to be inferred from
-        the status vocabulary. It is the one sentence a customer cancelling most
-        needs: no money has moved, and somebody will be in touch. A client left
-        to infer it would eventually render `recorded` as "refunded".
-      required:
-        - id
-        - reason
-        - unused_days
-        - per_day_minor
-        - amount_minor
-        - currency_code
-        - status
-        - settlement
-        - recorded_at
-      properties:
-        id:
-          $ref: '#/components/schemas/Uuid'
-        reason:
-          type: string
-          examples:
-            - subscription_cancelled
-        unused_days:
-          type: integer
-        per_day_minor:
-          type: integer
-          description: The effective price actually paid, so the discount already enjoyed on delivered days is not clawed back.
-        amount_minor:
-          type: integer
-        currency_code:
-          $ref: '#/components/schemas/CurrencyCode'
-        status:
-          $ref: '#/components/schemas/CreditMemoStatus'
-        settlement:
-          type: string
-          enum:
-            - manual
-          description: Always `manual` in this phase. The platform has no payment rail.
-        recorded_at:
-          type: string
-          format: date-time
-        settled_at:
-          type:
-            - string
-            - 'null'
-          format: date-time
     SubscriptionMealChoice:
       type: object
       description: |
@@ -49611,18 +54368,9 @@ components:
           type: object
           required:
             - subscription
-            - credit_memo
           properties:
             subscription:
               $ref: '#/components/schemas/Subscription'
-            credit_memo:
-              description: |
-                Null when nothing is owed, and that is not the same as an empty
-                object: a zero memo would be an obligation somebody eventually
-                tries to settle, so none is written.
-              oneOf:
-                - $ref: '#/components/schemas/CreditMemo'
-                - type: 'null'
         meta:
           $ref: '#/components/schemas/Meta'
     PlanQuote:

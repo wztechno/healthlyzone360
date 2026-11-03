@@ -6,8 +6,11 @@ namespace Healthy360\Delivery\Http\Controllers;
 
 use Carbon\CarbonImmutable;
 use Closure;
+use Healthy360\Audit\Enums\PurposeOfUse;
+use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Delivery\Models\DeliveryJob;
 use Healthy360\Support\Api\ApiResponse;
+use Healthy360\Support\Enums\DataClassification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -84,14 +87,40 @@ use Illuminate\Support\Facades\DB;
  * order — `OrderDeskQueue::contactsForOrders()` records why — and a guest or an
  * anonymised account answers `null`.
  *
+ * ## Which allergens are on the order, and nothing more
+ *
+ * `allergy_allergen_codes` is the codes from the order's own snapshot, so a
+ * driver handing a bag to somebody can say what to watch for. The customer's own
+ * notes and the severities stay with the kitchen: they are health detail, and a
+ * run sheet has no decision that turns on them. Even the codes are
+ * `SpecialCategory`, so the read is recorded, daily because this sheet polls.
+ *
+ * `allergy_note` is the order's free note, as the desk wrote it. A walk-in has
+ * no saved profile and so no codes, and the note is all there is: the owner ruled
+ * on 3 Nov 2026 that the driver sees it, as they see a profile's codes. Its read
+ * is recorded the same way.
+ *
  * ## What is still deliberately absent
  *
  * `driver_user_id`. It would say the same thing on every row — the caller's own
  * id, which they already have — and the dispatch board is the surface where
- * whose job it is is a question worth answering. Money is absent for the same
- * class of reason: a driver collecting cash on delivery is a real flow, and it
- * is `order_payment_receipts`' to build when somebody builds it, not a total
- * bolted onto a run sheet.
+ * whose job it is is a question worth answering.
+ *
+ * ## What the driver has to collect
+ *
+ * `amount_due_minor` is the order's total less its receipts, with any receipt
+ * corrected as a mistake counted back in, never below zero. It
+ * is worked out in the sheet's own statement, so a long run sheet costs no extra
+ * reads, and `order_payment_receipts` is read as a table for the reason `orders`
+ * is. The driver needs it at the door, and what they say they took is what
+ * becomes a receipt (`DriverJobDeliverController`). `payment_method` comes with
+ * it because a WISH order has nothing to collect, whatever it still owes.
+ *
+ * ## A courier's run is on neither list
+ *
+ * A handover to a courier clears `driver_user_id` and moves the run to
+ * `in_transit`, so it matches neither `jobs` nor `available`. No filter here says
+ * so because none is needed; `CourierHandoverTest` holds that line.
  *
  * **Scoped in the query, not filtered afterwards.** `jobs`' `where
  * driver_user_id = me` *is* its isolation, on top of the organisation scope the
@@ -104,7 +133,7 @@ final class DriverJobIndexController
      *
      * @var list<string>
      */
-    private const array CLOSED_STATUSES = ['delivered', 'cancelled'];
+    private const array CLOSED_STATUSES = ['delivered', 'cancelled', 'failed'];
 
     /**
      * The order's half of a run sheet row, aliased so the joined values land as
@@ -129,6 +158,10 @@ final class DriverJobIndexController
         'orders.delivery_window_code as delivery_window_code',
         'orders.requested_delivery_date as requested_delivery_date',
         'orders.ready_at as order_ready_at',
+        'orders.allergy_snapshot as allergy_snapshot',
+        'orders.allergy_note as allergy_note',
+        'orders.currency_code as currency_code',
+        'orders.payment_method as payment_method',
         'ca.display_name as customer_name',
     ];
 
@@ -156,6 +189,23 @@ final class DriverJobIndexController
             limit 1
         )) as delivery_phone
         SQL;
+
+    /** What is still owed, in the row's own statement rather than a read per job. */
+    private const string AMOUNT_DUE_SQL = <<<'SQL'
+        greatest(orders.total_minor - coalesce((
+            select sum(receipts.amount_minor)
+            from order_payment_receipts as receipts
+            where receipts.order_id = orders.id
+        ), 0) + coalesce((
+            select sum(corrections.amount_minor)
+            from order_refunds as corrections
+            where corrections.order_id = orders.id
+              and corrections.kind = 'receipt_correction'
+              and corrections.status = 'completed'
+        ), 0), 0) as amount_due_minor
+        SQL;
+
+    public function __construct(private readonly AuditRecorder $audit) {}
 
     public function __invoke(): JsonResponse
     {
@@ -193,6 +243,7 @@ final class DriverJobIndexController
             ->select('delivery_jobs.*')
             ->addSelect(self::ORDER_COLUMNS)
             ->addSelect(DB::raw(self::PHONE_SQL))
+            ->addSelect(DB::raw(self::AMOUNT_DUE_SQL))
             // An inner join would be the truer statement of the schema — the
             // foreign key is NOT NULL and cascades — but a left join is what
             // keeps a driver's whole sheet from disappearing if one order ever
@@ -222,6 +273,11 @@ final class DriverJobIndexController
      *     assigned_at: string|null,
      *     picked_up_at: string|null,
      *     ready_at: string|null,
+     *     allergy_allergen_codes: list<string>,
+     *     allergy_note: string|null,
+     *     amount_due_minor: int,
+     *     currency_code: string|null,
+     *     payment_method: string|null,
      *     delivery: array{
      *         line_one: string|null,
      *         building: string|null,
@@ -250,6 +306,11 @@ final class DriverJobIndexController
             // When the kitchen marked the food ready; the driver's Picked up
             // waits for it (HA-28).
             'ready_at' => $this->instant($job, 'order_ready_at'),
+            'allergy_allergen_codes' => $this->allergenCodes($job),
+            'allergy_note' => $this->allergyNote($job),
+            'amount_due_minor' => (int) $job->getAttribute('amount_due_minor'),
+            'currency_code' => $this->text($job, 'currency_code'),
+            'payment_method' => $this->text($job, 'payment_method'),
             'delivery' => [
                 'line_one' => $this->text($job, 'delivery_line_one'),
                 // The half of the snapshot a courier navigates by: the street
@@ -270,6 +331,54 @@ final class DriverJobIndexController
                 'phone' => $this->text($job, 'delivery_phone'),
             ],
         ];
+    }
+
+    /**
+     * The allergen codes on the order's snapshot, and the recorded read of them.
+     *
+     * The joined column is the raw JSON: there is no cast on this model for it.
+     *
+     * @return list<string>
+     */
+    private function allergenCodes(DeliveryJob $job): array
+    {
+        /** @var list<array{allergen_code: string}> $allergies */
+        $allergies = json_decode($this->text($job, 'allergy_snapshot') ?? '[]', true, flags: JSON_THROW_ON_ERROR);
+
+        if ($allergies === []) {
+            return [];
+        }
+
+        $this->recordAllergyRead($job);
+
+        return array_column($allergies, 'allergen_code');
+    }
+
+    /**
+     * The order's free allergy note, recorded as read like the codes: for a
+     * walk-in it is the only allergy record there is.
+     */
+    private function allergyNote(DeliveryJob $job): ?string
+    {
+        $note = $this->text($job, 'allergy_note');
+
+        if ($note !== null) {
+            $this->recordAllergyRead($job);
+        }
+
+        return $note;
+    }
+
+    private function recordAllergyRead(DeliveryJob $job): void
+    {
+        $this->audit->recordAccessDaily(
+            'order.allergy_read',
+            PurposeOfUse::OrderFulfilment,
+            DataClassification::SpecialCategory,
+            (string) auth()->id(),
+            'order',
+            $job->order_id,
+        );
     }
 
     /**

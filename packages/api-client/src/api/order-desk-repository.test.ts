@@ -106,9 +106,20 @@ const META = {
     window: 'today',
     today: '2026-08-15',
     timezone: 'Asia/Dubai',
+    past_due_count: 11,
+    overdue_count: 9,
+    overdue_grace_minutes: 30,
 };
 
 describe('createApiOrderDeskRepository — listQueue', () => {
+    it('asks for the past due lens by name', async () => {
+        const { repository, calls } = harness([{ status: 200, body: { data: [], meta: META } }]);
+
+        await repository.listQueue({ window: 'today', lens: 'past_due' });
+
+        expect(calls[0]?.path).toBe('/catalogue/order-desk/queue?window=today&lens=past_due');
+    });
+
     it('reads the literal path with no query at all when nothing is filtered', async () => {
         const { repository, calls } = harness([
             { status: 200, body: { data: [wireRow()], meta: META } },
@@ -298,6 +309,9 @@ describe('createApiOrderDeskRepository — listQueue', () => {
             // Not sent by this wire, and only `window: 'range'` names them: absent reads as no span.
             from: null,
             to: null,
+            pastDueCount: 11,
+            overdueCount: 9,
+            overdueGraceMinutes: 30,
             today: '2026-08-15',
             timezone: 'Asia/Dubai',
         });
@@ -1370,6 +1384,7 @@ describe('createApiOrderDeskRepository — getCashReport', () => {
 
     const CASH_BODY = {
         data: {
+            adjustments: [],
             rows: [
                 {
                     day: '2026-05-10',

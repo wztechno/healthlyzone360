@@ -892,7 +892,7 @@ it('publishes every context change to the session, wherever it happens', functio
         ->and(RuntimeRole::setting('app.branch_id'))->toBe('');
 });
 
-it('protects exactly the twelve declared tables and no others', function (): void {
+it('protects exactly the fourteen declared tables and no others', function (): void {
     $protected = DB::table('pg_tables')
         ->where('schemaname', 'public')
         ->where('rowsecurity', true)
@@ -919,11 +919,42 @@ it('protects exactly the twelve declared tables and no others', function (): voi
     // tenant-writable for the first time. Its sibling `membership_roles` is
     // still out, deliberately — `PermissionChecker` reads it on a hotter path,
     // so it waits for its own migration and its own evidence.
+    //
+    // P0 Stage 1 brings in `kitchen_service_settings` and `staff_notifications`,
+    // both on the plain organisation policy; `StaffAlertTablesRlsTest` proves
+    // them.
+    //
+    // Stage 2's `kitchen_customer_links` joins on the same policy: it is what the
+    // seventh arm of the customer policy reads (`OrderDeskRegisteredCallerTest`).
+    //
+    // P0 Stage 3 brings in `order_refunds` and `cash_settlements`, on the same
+    // policy.
+    //
+    // P1 Wave A's `branch_closures` joins for its writes. Reads stay open, as
+    // `branch_opening_hours` is: a closure is a public fact about a place, read
+    // from carts with no organisation declared.
+    //
+    // P1 Wave C's `daily_closes` and `dish_margins` join on the plain organisation
+    // policy.
+    //
+    // Wave B's `catalogue_item_options` is shaped like `branch_closures`: a menu
+    // is public, so only its writes join. Its `order_complaints` is on the plain
+    // organisation policy, as are the temperature log's three tables.
     expect($protected)->toBe([
         'audit_logs',
+        'branch_closures',
+        'cash_settlements',
+        'catalogue_item_options',
         'consent_grants',
+        'cooking_temperatures',
         'customer_accounts',
+        'daily_closes',
+        'dish_margins',
         'feature_entitlements',
+        'kitchen_customer_links',
+        'kitchen_service_settings',
+        'order_complaints',
+        'order_refunds',
         'organisation_branches',
         'organisation_memberships',
         'price_list_items',
@@ -932,6 +963,9 @@ it('protects exactly the twelve declared tables and no others', function (): voi
         'recipe_versions',
         'role_permissions',
         'roles',
+        'staff_notifications',
+        'temperature_readings',
+        'temperature_units',
     ]);
 });
 
@@ -1017,7 +1051,10 @@ it('still migrates and seeds under the owner role with row-level security enable
     // `organisationTemplateRoleCodes()` in PermissionRegistryTest names the same
     // set, and `DatabaseSeederTest` checks that the seeder wrote exactly the
     // registry's roles; the three together are this pin.
-    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(11)
+    //
+    // AA1 added procurement_manager and finance_manager, and P1 Wave A added
+    // kitchen_driver for the owner's own drivers, which makes twelve.
+    expect(Role::withoutTenancy()->whereNull('organisation_id')->count())->toBe(12)
         ->and(OrganisationBranch::withoutTenancy()->count())->toBeGreaterThan(2)
         ->and(OrganisationMembership::withoutTenancy()->count())->toBeGreaterThan(2)
         ->and(ConsentDefinition::query()->count())->toBeGreaterThan(1);

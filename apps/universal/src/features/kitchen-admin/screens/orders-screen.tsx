@@ -1,29 +1,37 @@
 import { OrderId } from '@healthy360/domain-types';
 import type {
+    DeliveryFailureReason,
     KitchenOrder,
-    KitchenOrderCancellationReason,
+    KitchenOrderCancellationDisposition,
     KitchenOrderFilters,
     KitchenOrderLine,
+    KitchenOrderPickableCancellationReason,
     KitchenOrderStatus,
 } from '@healthy360/api-client/contracts';
 import {
-    KITCHEN_ORDER_CANCELLATION_REASONS,
+    DELIVERY_FAILURE_REASONS,
+    KITCHEN_ORDER_CANCELLATION_DISPOSITIONS,
+    KITCHEN_ORDER_PICKABLE_CANCELLATION_REASONS,
     KITCHEN_ORDER_STATUSES,
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
+    Callout,
     Cascade,
+    DatePickerButton,
     Dialog,
     EmptyState,
     ErrorState,
     FilterChip,
     Inline,
     IssueTrayFrame,
+    Select,
     Stack,
     Table,
     TableSkeleton,
     Text,
+    TextInputField,
     useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
@@ -41,16 +49,21 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { dishOptionsLine } from '../../../ui/dish-choices.tsx';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { useWindowName } from '../order-desk/use-window-name.ts';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     useCancelOrderMutation,
+    useCloseFailedDeliveryMutation,
     useConfirmOrderMutation,
+    useFailDeliveryMutation,
     useFulfilOrderMutation,
     useKitchenOrderQuery,
     useKitchenOrdersQuery,
+    useRedeliverOrderMutation,
 } from '../../../data/kitchen-orders-hooks.ts';
+import { useOrderDeskDeliveryWindowsQuery } from '../../../data/order-desk-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
@@ -69,18 +82,25 @@ import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import {
     ORDER_CREATE_ON_BEHALF_PERMISSION,
     ORDER_MANAGE_PERMISSION,
+    ORDER_SUPERVISE_PERMISSION,
     ORDER_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { humaniseCode } from '../format.ts';
+import { OrderComplaintAction } from '../order-complaint-action.tsx';
+import { OrderRefundsSection } from '../order-refunds-section.tsx';
 import {
     canCancelKitchenOrder,
     canConfirmKitchenOrder,
     canFulfilKitchenOrder,
+    deliveryFailureReasonKey,
+    kitchenOrderCancellationDispositionKey,
     kitchenOrderCancellationReasonKey,
     kitchenOrderFulfilmentTypeKey,
     kitchenOrderRowTestId,
     kitchenOrderStatusKey,
     kitchenOrderStatusTone,
+    allergenLabel,
+    allergyBanner,
 } from '../ops-format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import {
@@ -576,6 +596,16 @@ function OrderLinesTable({
                             {line.variantLabel}
                         </Text>
                     )}
+                    {dishOptionsLine(line.options, 'en', t) === null ? null : (
+                        <Text variant="caption" testID={`${testID}-options`}>
+                            {dishOptionsLine(line.options, 'en', t)}
+                        </Text>
+                    )}
+                    {line.note == null ? null : (
+                        <Text variant="caption" testID={`${testID}-note`}>
+                            {t('kitchen:dishOptions.lineNote', { note: line.note })}
+                        </Text>
+                    )}
                     {/* A subscription day: which dish is for which sitting, under the plan. */}
                     {isPlanDayLine(order, line) ? (
                         <PlanDayMeals order={order} testID={`${testID}-plan-day`} />
@@ -592,7 +622,7 @@ function OrderLinesTable({
                                     tone={
                                         allergen.containment === 'contains' ? 'danger' : 'warning'
                                     }
-                                    label={allergen.allergenCode}
+                                    label={allergenLabel(allergen.allergenCode, t)}
                                 />
                             ))}
                         </Inline>
@@ -657,6 +687,7 @@ function OrderRecord({
     const router = useRouter();
     const canManage = useCan(ORDER_MANAGE_PERMISSION);
     const canSell = useCan(ORDER_CREATE_ON_BEHALF_PERMISSION);
+    const canSupervise = useCan(ORDER_SUPERVISE_PERMISSION);
 
     const detail = useKitchenOrderQuery(seed.id);
     const confirmOrder = useConfirmOrderMutation();
@@ -664,14 +695,27 @@ function OrderRecord({
     const cancelOrder = useCancelOrderMutation();
 
     const [cancelling, setCancelling] = useState(false);
-    const [reason, setReason] = useState<KitchenOrderCancellationReason | null>(null);
+    const [reason, setReason] = useState<KitchenOrderPickableCancellationReason | null>(null);
+    const [disposition, setDisposition] = useState<KitchenOrderCancellationDisposition | null>(
+        null,
+    );
     const [delivering, setDelivering] = useState(false);
+    const [deliveryAction, setDeliveryAction] = useState<DeliveryAction | null>(null);
 
     const order = detail.data ?? null;
     // A delivery order's normal end is the driver's Mark delivered (HA-19). Closing it here is
     // the escape hatch, offered once it is ready and behind a confirmation, because it also ends
     // the driver's run (HA-29).
     const isDelivery = order?.fulfilmentType === 'delivery';
+    // Cooking has started, so cancelling takes a manager and an answer about the food. Once it has
+    // been picked up nobody can cancel it: it ends as delivered or failed.
+    const started = (order?.preparingAt ?? order?.readyAt ?? null) !== null;
+    const pickedUp = (order?.delivery.pickedUpAt ?? null) !== null;
+    const run = order?.deliveryRun ?? null;
+    // A failed run waits for a manager, and is not marked delivered until it has been sent out again.
+    const failed = run?.status === 'failed';
+    const courierName = run?.courierName ?? null;
+    const withCourier = run?.status === 'in_transit' && courierName !== null;
     const detailFailure = toFailure(detail.error);
     const actionPending = confirmOrder.isPending || fulfilOrder.isPending || cancelOrder.isPending;
     const actionFailure =
@@ -721,12 +765,18 @@ function OrderRecord({
     function closeCancel() {
         setCancelling(false);
         setReason(null);
+        setDisposition(null);
     }
 
     function submitCancellation() {
         if (order === null || reason === null) return;
         cancelOrder.mutate(
-            { id: order.id, lockVersion: order.lockVersion, reason },
+            {
+                id: order.id,
+                lockVersion: order.lockVersion,
+                reason,
+                ...(disposition === null ? {} : { disposition }),
+            },
             {
                 onSuccess: (next) => {
                     closeCancel();
@@ -811,16 +861,73 @@ function OrderRecord({
             {order === null || !isDelivery || !canFulfilKitchenOrder(order.status) ? null : (
                 // Where the run stands, in the kitchen display's words.
                 <Text variant="caption" tone="secondary" testID="kitchen-orders-detail-run-state">
-                    {t(
-                        (order.readyAt ?? null) === null
-                            ? 'kitchen:ops.orders.notReadyYet'
-                            : (order.deliveryRun?.pickedUpAt ?? null) === null
-                              ? 'kitchen:kds.waitingForDriver'
-                              : 'kitchen:kds.withDriver',
-                    )}
+                    {failed
+                        ? [
+                              t('kitchen:ops.orders.deliveryFailedNote', {
+                                  reason: t(deliveryFailureReasonKey(run.failureReason ?? 'other')),
+                              }),
+                              run.failureNote,
+                          ]
+                              .filter((part) => part !== null && part !== undefined)
+                              .join(t('kitchen:common.listSeparator'))
+                        : withCourier
+                          ? t('kitchen:ops.orders.withCourier', { name: courierName })
+                          : t(
+                                (order.readyAt ?? null) === null
+                                    ? 'kitchen:ops.orders.notReadyYet'
+                                    : (order.deliveryRun?.pickedUpAt ?? null) === null
+                                      ? 'kitchen:kds.waitingForDriver'
+                                      : 'kitchen:kds.withDriver',
+                            )}
                 </Text>
             )}
-            {!canManage || order === null ? null : canCancelKitchenOrder(order.status) ? (
+            {order === null || !failed || !canSupervise ? null : (
+                <Inline space="xs" wrap>
+                    <Button
+                        testID="kitchen-orders-redeliver"
+                        variant="secondary"
+                        size="sm"
+                        label={t('kitchen:ops.orders.redeliver')}
+                        disabled={actionPending}
+                        onPress={() => {
+                            setDeliveryAction('redeliver');
+                        }}
+                    />
+                    <Button
+                        testID="kitchen-orders-close-failed"
+                        variant="secondary"
+                        size="sm"
+                        label={t('kitchen:ops.orders.closeFailed')}
+                        disabled={actionPending}
+                        onPress={() => {
+                            setDeliveryAction('close');
+                        }}
+                    />
+                </Inline>
+            )}
+            {order === null || !withCourier || !canManage ? null : (
+                <View className="flex-row">
+                    <Button
+                        testID="kitchen-orders-fail-delivery"
+                        variant="secondary"
+                        size="sm"
+                        label={t('kitchen:ops.orders.failDelivery')}
+                        disabled={actionPending}
+                        onPress={() => {
+                            setDeliveryAction('fail');
+                        }}
+                    />
+                </View>
+            )}
+            {!canManage || order === null ? null : !canCancelKitchenOrder(order.status) ? (
+                <Text variant="caption" tone="secondary" testID="kitchen-orders-detail-closed">
+                    {t('kitchen:ops.orders.nothingToDo')}
+                </Text>
+            ) : pickedUp ? null : started && !canSupervise ? (
+                <Text variant="caption" tone="secondary" testID="kitchen-orders-cancel-manager">
+                    {t('kitchen:ops.orders.cancelNeedsManager')}
+                </Text>
+            ) : (
                 <View className="flex-row">
                     <Button
                         testID="kitchen-orders-cancel"
@@ -834,10 +941,6 @@ function OrderRecord({
                         }}
                     />
                 </View>
-            ) : (
-                <Text variant="caption" tone="secondary" testID="kitchen-orders-detail-closed">
-                    {t('kitchen:ops.orders.nothingToDo')}
-                </Text>
             )}
         </Stack>
     );
@@ -848,7 +951,13 @@ function OrderRecord({
             key: 'items',
             title: t('kitchen:ops.orders.linesHeading'),
             content: (
-                <View testID="kitchen-orders-detail-lines">
+                <View testID="kitchen-orders-detail-lines" className="flex-col gap-snug">
+                    {shown.allergy === null ? null : (
+                        <Callout
+                            {...allergyBanner(shown.allergy, shown.lines, locale, t)}
+                            testID="kitchen-orders-detail-allergy"
+                        />
+                    )}
                     <OrderLinesTable order={shown} testID="kitchen-orders-detail-lines-table" />
                 </View>
             ),
@@ -934,6 +1043,7 @@ function OrderRecord({
                                 testID="kitchen-orders-detail-driver"
                                 label={t('kitchen:ops.orders.driver')}
                                 value={
+                                    shown.deliveryRun?.courierName ??
                                     shown.deliveryRun?.driverName ??
                                     t('kitchen:ops.orders.driverNone')
                                 }
@@ -969,6 +1079,17 @@ function OrderRecord({
                             value={t(kitchenOrderCancellationReasonKey(shown.cancellationReason))}
                         />
                     )}
+                    {(shown.cancellationDisposition ?? null) === null ? null : (
+                        <FactRow
+                            testID="kitchen-orders-detail-cancellation-disposition"
+                            label={t('kitchen:ops.orders.dispositionLabel')}
+                            value={t(
+                                kitchenOrderCancellationDispositionKey(
+                                    shown.cancellationDisposition ?? 'returned',
+                                ),
+                            )}
+                        />
+                    )}
                 </Stack>
             ),
         },
@@ -989,6 +1110,19 @@ function OrderRecord({
                     retrying={detail.isFetching}
                 />
             ),
+        });
+    }
+
+    if (order !== null && canSupervise) {
+        sections.push({
+            key: 'refunds',
+            title: t('kitchen:ops.orders.refunds.heading'),
+            content: <OrderRefundsSection order={order} />,
+        });
+        sections.push({
+            key: 'complaint',
+            title: t('kitchen:complaints.sectionTitle'),
+            content: <OrderComplaintAction order={order} />,
         });
     }
 
@@ -1039,7 +1173,7 @@ function OrderRecord({
                     },
                 }
               : canFulfilKitchenOrder(order.status) && isDelivery
-                ? (order.readyAt ?? null) === null
+                ? (order.readyAt ?? null) === null || failed
                     ? undefined
                     : {
                           label: t('kitchen:ops.orders.markDelivered'),
@@ -1142,7 +1276,11 @@ function OrderRecord({
                             variant="danger"
                             label={t('kitchen:ops.orders.cancelConfirm')}
                             loading={cancelOrder.isPending}
-                            disabled={reason === null || actionPending}
+                            disabled={
+                                reason === null ||
+                                (started && disposition === null) ||
+                                actionPending
+                            }
                             onPress={submitCancellation}
                         />
                     </>
@@ -1152,11 +1290,11 @@ function OrderRecord({
                     <Text variant="strong">{t('kitchen:ops.orders.cancelReasonLabel')}</Text>
                     {/*
                      * Chips rather than a `Select`: the reason is required, there are exactly four
-                     * of them and the enum is closed, so every option can be on screen at the
-                     * moment of the decision instead of behind a second modal.
+                     * a person can pick and the enum is closed, so every option can be on screen at
+                     * the moment of the decision instead of behind a second modal.
                      */}
                     <Inline space="xs" wrap testID="kitchen-orders-cancel-reasons">
-                        {KITCHEN_ORDER_CANCELLATION_REASONS.map((candidate) => (
+                        {KITCHEN_ORDER_PICKABLE_CANCELLATION_REASONS.map((candidate) => (
                             <FilterChip
                                 key={candidate}
                                 testID={`kitchen-orders-cancel-reason-${candidate}`}
@@ -1168,6 +1306,24 @@ function OrderRecord({
                             />
                         ))}
                     </Inline>
+                    {!started ? null : (
+                        <>
+                            <Text variant="strong">{t('kitchen:ops.orders.dispositionLabel')}</Text>
+                            <Inline space="xs" wrap testID="kitchen-orders-cancel-dispositions">
+                                {KITCHEN_ORDER_CANCELLATION_DISPOSITIONS.map((candidate) => (
+                                    <FilterChip
+                                        key={candidate}
+                                        testID={`kitchen-orders-cancel-disposition-${candidate}`}
+                                        label={t(kitchenOrderCancellationDispositionKey(candidate))}
+                                        selected={disposition === candidate}
+                                        onChange={() => {
+                                            setDisposition(candidate);
+                                        }}
+                                    />
+                                ))}
+                            </Inline>
+                        </>
+                    )}
                     {cancelOrder.error === null ? null : (
                         <Text testID="kitchen-orders-cancel-error" tone="danger">
                             {toFailure(cancelOrder.error)?.message ??
@@ -1176,7 +1332,211 @@ function OrderRecord({
                     )}
                 </Stack>
             </Dialog>
+
+            {deliveryAction === null || order === null ? null : (
+                <DeliveryActionDialog
+                    action={deliveryAction}
+                    order={order}
+                    onClose={() => {
+                        setDeliveryAction(null);
+                    }}
+                />
+            )}
         </IssueTrayFrame>
+    );
+}
+
+type DeliveryAction = 'fail' | 'redeliver' | 'close';
+
+/** The empty choice in the window picker: the order keeps the one it has. */
+const KEEP_WINDOW = '';
+
+/**
+ * What the kitchen does about a run: say a courier's delivery failed, send a failed one out again,
+ * or close it. Mounted only while open, so every opening starts clean.
+ */
+function DeliveryActionDialog({
+    action,
+    order,
+    onClose,
+}: {
+    readonly action: DeliveryAction;
+    readonly order: KitchenOrder;
+    readonly onClose: () => void;
+}) {
+    const { t } = useTranslation();
+    const { locale } = useLocale();
+    const toast = useToast();
+    // Open to the desk and to supervisors. Anyone else can still move the day.
+    const canBook = useCan(ORDER_CREATE_ON_BEHALF_PERMISSION);
+    const canSupervise = useCan(ORDER_SUPERVISE_PERMISSION);
+    const windows = useOrderDeskDeliveryWindowsQuery(
+        action === 'redeliver' && (canBook || canSupervise),
+    );
+
+    const failDelivery = useFailDeliveryMutation();
+    const redeliver = useRedeliverOrderMutation();
+    const closeFailed = useCloseFailedDeliveryMutation();
+
+    const [reason, setReason] = useState<DeliveryFailureReason | null>(null);
+    const [note, setNote] = useState('');
+    const [date, setDate] = useState('');
+    const [window, setWindow] = useState(KEEP_WINDOW);
+    const [disposition, setDisposition] = useState<KitchenOrderCancellationDisposition | null>(
+        null,
+    );
+
+    const pending = failDelivery.isPending || redeliver.isPending || closeFailed.isPending;
+    const failure =
+        toFailure(failDelivery.error) ?? toFailure(redeliver.error) ?? toFailure(closeFailed.error);
+    const ready =
+        action === 'fail' ? reason !== null : action === 'close' ? disposition !== null : true;
+    const number = order.orderNumber;
+
+    function done(message: string) {
+        onClose();
+        toast.show({ testID: 'kitchen-orders-delivery-toast', tone: 'success', message });
+    }
+
+    function submit() {
+        const version = { id: order.id, lockVersion: order.lockVersion };
+        if (action === 'fail' && reason !== null) {
+            failDelivery.mutate(
+                { id: order.id, reason, note },
+                { onSuccess: () => done(t('kitchen:ops.orders.failedToast', { number })) },
+            );
+        } else if (action === 'close' && disposition !== null) {
+            closeFailed.mutate(
+                { ...version, disposition },
+                { onSuccess: () => done(t('kitchen:ops.orders.closedFailedToast', { number })) },
+            );
+        } else if (action === 'redeliver') {
+            redeliver.mutate(
+                {
+                    ...version,
+                    ...(date === '' ? {} : { date }),
+                    ...(window === KEEP_WINDOW ? {} : { window }),
+                },
+                { onSuccess: () => done(t('kitchen:ops.orders.redeliveredToast', { number })) },
+            );
+        }
+    }
+
+    return (
+        <Dialog
+            testID="kitchen-orders-delivery-dialog"
+            open
+            onClose={onClose}
+            title={t(`kitchen:ops.orders.deliveryAction.${action}Title`, { number })}
+            description={t(`kitchen:ops.orders.deliveryAction.${action}Body`)}
+            actions={
+                <>
+                    <Button
+                        testID="kitchen-orders-delivery-dismiss"
+                        variant="quiet"
+                        label={t('kitchen:common.cancel')}
+                        onPress={onClose}
+                    />
+                    <Button
+                        testID="kitchen-orders-delivery-confirm"
+                        {...(action === 'redeliver' ? {} : { variant: 'danger' as const })}
+                        label={t(`kitchen:ops.orders.deliveryAction.${action}Confirm`)}
+                        loading={pending}
+                        disabled={!ready || pending}
+                        onPress={submit}
+                    />
+                </>
+            }
+        >
+            <Stack space="sm">
+                {action !== 'fail' ? null : (
+                    <>
+                        <Text variant="strong">{t('kitchen:driver.failReasonLabel')}</Text>
+                        <Inline space="xs" wrap testID="kitchen-orders-delivery-reasons">
+                            {DELIVERY_FAILURE_REASONS.map((candidate) => (
+                                <FilterChip
+                                    key={candidate}
+                                    testID={`kitchen-orders-delivery-reason-${candidate}`}
+                                    label={t(deliveryFailureReasonKey(candidate))}
+                                    selected={reason === candidate}
+                                    onChange={() => {
+                                        setReason(candidate);
+                                    }}
+                                />
+                            ))}
+                        </Inline>
+                        <TextInputField
+                            testID="kitchen-orders-delivery-note"
+                            id="kitchen-orders-delivery-note"
+                            label={t('kitchen:driver.failNoteLabel')}
+                            value={note}
+                            onChangeText={setNote}
+                            multiline
+                            maxLength={1000}
+                        />
+                    </>
+                )}
+                {action !== 'redeliver' ? null : (
+                    <>
+                        <DatePickerButton
+                            testID="kitchen-orders-delivery-date"
+                            label={t('kitchen:ops.orders.deliveryAction.dateLabel')}
+                            labelVisible
+                            placeholder={t('kitchen:ops.orders.deliveryAction.keepDate')}
+                            value={date}
+                            onChange={setDate}
+                            onClear={() => {
+                                setDate('');
+                            }}
+                        />
+                        {(windows.data ?? []).length === 0 ? null : (
+                            <Select<string>
+                                testID="kitchen-orders-delivery-window"
+                                label={t('kitchen:ops.orders.deliveryWindow')}
+                                size="sm"
+                                value={window}
+                                onChange={setWindow}
+                                options={[
+                                    {
+                                        value: KEEP_WINDOW,
+                                        label: t('kitchen:ops.orders.deliveryAction.keepWindow'),
+                                    },
+                                    ...(windows.data ?? []).map((candidate) => ({
+                                        value: candidate.code,
+                                        label: locale.toLowerCase().startsWith('ar')
+                                            ? candidate.nameAr
+                                            : candidate.nameEn,
+                                    })),
+                                ]}
+                            />
+                        )}
+                    </>
+                )}
+                {action !== 'close' ? null : (
+                    <>
+                        <Text variant="strong">{t('kitchen:ops.orders.dispositionLabel')}</Text>
+                        <Inline space="xs" wrap testID="kitchen-orders-delivery-dispositions">
+                            {KITCHEN_ORDER_CANCELLATION_DISPOSITIONS.map((candidate) => (
+                                <FilterChip
+                                    key={candidate}
+                                    testID={`kitchen-orders-delivery-disposition-${candidate}`}
+                                    label={t(kitchenOrderCancellationDispositionKey(candidate))}
+                                    selected={disposition === candidate}
+                                    onChange={() => {
+                                        setDisposition(candidate);
+                                    }}
+                                />
+                            ))}
+                        </Inline>
+                    </>
+                )}
+                {failure === null ? null : (
+                    <Text testID="kitchen-orders-delivery-error" tone="danger" role="alert">
+                        {failure.message}
+                    </Text>
+                )}
+            </Stack>
+        </Dialog>
     );
 }
 

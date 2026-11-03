@@ -6,6 +6,8 @@ namespace Healthy360\Orders\Services;
 
 use Healthy360\Customers\Closure\Contracts\OrderAnonymisation;
 use Healthy360\Orders\Models\Order;
+use Healthy360\Orders\Models\OrderLine;
+use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Illuminate\Contracts\Database\Query\Expression;
 use Illuminate\Support\Facades\DB;
 
@@ -43,6 +45,18 @@ use Illuminate\Support\Facades\DB;
  * still a join key back to a hash and there is nothing left for it to be
  * useful for.
  *
+ * **The four allergy columns go too**, for a harder reason than an address: they
+ * are health data, the snapshot carries the customer's own notes, and the books
+ * have no use for any of it.
+ *
+ * **Two free-text fields beside the order go with it.** `order_lines.note` is what
+ * a customer asked the kitchen for, and `order_complaints.description` is what
+ * staff wrote about them; either can name a person or a health condition. The
+ * line and the complaint survive, cause and cost included. A complaint sits under
+ * row-level security by kitchen and a closure runs in none, so each kitchen is
+ * entered in turn. Neither has a part in the return value or its guard: the count
+ * is of orders, and these run even on an order with no address to redact.
+ *
  * **The marker is conditional now, and that is a constraint rather than a
  * preference.** `delivery_line_one` was NOT NULL when this was written, so it
  * was overwritten with a placeholder rather than emptied: a reader looking at a
@@ -72,6 +86,8 @@ use Illuminate\Support\Facades\DB;
  */
 final readonly class OrderSnapshotRedaction implements OrderAnonymisation
 {
+    public function __construct(private DatabaseTenantContext $database) {}
+
     /**
      * What replaces the one address line that cannot be null.
      *
@@ -103,6 +119,8 @@ final readonly class OrderSnapshotRedaction implements OrderAnonymisation
 
     public function anonymiseFor(string $customerAccountId): int
     {
+        $this->redactFreeText($customerAccountId);
+
         // The `where` over the already-redacted shape is the idempotence the
         // contract promises: finalisation may run twice — a queue retry after a
         // timeout is the normal case — and the second run must match no rows
@@ -123,6 +141,10 @@ final readonly class OrderSnapshotRedaction implements OrderAnonymisation
                     ->orWhereNotNull('delivery_apartment')
                     ->orWhereNotNull('delivery_directions')
                     ->orWhereNotNull('delivery_contact_point_id')
+                    ->orWhereNotNull('allergy_snapshot')
+                    ->orWhereNotNull('allergy_note')
+                    ->orWhereNotNull('allergy_acknowledged_at')
+                    ->orWhereNotNull('allergy_acknowledged_by')
                     ->orWhere('delivery_line_one', '!=', self::REDACTED);
             })
             ->update([
@@ -134,8 +156,31 @@ final readonly class OrderSnapshotRedaction implements OrderAnonymisation
                 'delivery_apartment' => null,
                 'delivery_directions' => null,
                 'delivery_contact_point_id' => null,
+                'allergy_snapshot' => null,
+                'allergy_note' => null,
+                'allergy_acknowledged_at' => null,
+                'allergy_acknowledged_by' => null,
                 'updated_at' => now(),
             ]);
+    }
+
+    private function redactFreeText(string $customerAccountId): void
+    {
+        $orders = Order::query()->where('customer_account_id', $customerAccountId);
+
+        OrderLine::query()
+            ->whereIn('order_id', (clone $orders)->select('id'))
+            ->whereNotNull('note')
+            ->update(['note' => null]);
+
+        foreach ((clone $orders)->distinct()->pluck('organisation_id') as $organisationId) {
+            $this->database->during(null, (string) $organisationId, null, static function () use ($orders): void {
+                DB::table('order_complaints')
+                    ->whereIn('order_id', (clone $orders)->select('id'))
+                    ->whereNotNull('description')
+                    ->update(['description' => null]);
+            });
+        }
     }
 
     /**

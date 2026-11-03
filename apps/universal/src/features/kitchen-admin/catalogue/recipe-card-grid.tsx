@@ -9,6 +9,7 @@ import { EntityImage, MediaChip } from '../../../media/entity-image.tsx';
 import { BrowseCard } from '../../../ui/browse-card.tsx';
 import { CardGrid, CardGridItem } from '../../marketplace/section-header.tsx';
 import { displayName, recipeRowTestId, statusShortKey, statusTone } from '../format.ts';
+import { allergenLabel } from '../ops-format.ts';
 import { kindsLabel, recipeCategoryLabel, recipeHandle, recipePhotoId } from './recipe-columns.tsx';
 
 /**
@@ -122,7 +123,7 @@ export function RecipeCardGrid({
                                     ? undefined
                                     : row.allergenCodes.map((code) => ({
                                           key: code,
-                                          label: code,
+                                          label: allergenLabel(code, t),
                                           tone: 'warning' as const,
                                           icon: null,
                                       }))

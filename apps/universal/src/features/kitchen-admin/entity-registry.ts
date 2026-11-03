@@ -95,6 +95,32 @@ export const PRODUCTION_VIEW_COSTS_PERMISSION = 'production.view_costs_organisat
 export const ORDER_CREATE_ON_BEHALF_PERMISSION = 'order.create_on_behalf_organisation';
 
 /**
+ * Who decides about an order once cooking has started, and who staff alerts reach. Held by the
+ * owner, the administrator and the kitchen manager; the desk agent stays on
+ * `order.manage_organisation`.
+ */
+export const ORDER_SUPERVISE_PERMISSION = 'order.supervise_organisation';
+
+/** The kitchen's audit trail, on the Activity page. */
+export const AUDIT_VIEW_PERMISSION = 'audit.view_organisation';
+
+/** Counting what drivers and couriers hand in. The cashier's and the managers' above them. */
+export const ORDER_SETTLE_CASH_PERMISSION = 'order.settle_cash_organisation';
+
+/** The owner's answer to a refund above the kitchen's limit. */
+export const ORDER_APPROVE_REFUND_PERMISSION = 'order.approve_refund_organisation';
+
+/**
+ * The kitchen display alone: read the wall, press Start, press Ready. Held by the chef and the cook,
+ * who read no order book, and the server takes the money off what it sends them.
+ */
+export const ORDER_PREPARE_PERMISSION = 'order.prepare_organisation';
+
+/** Reading the setup checklist, and the owner's call to open the kitchen. */
+export const KITCHEN_SETUP_PERMISSION = 'branch.view_current';
+export const GO_LIVE_PERMISSION = 'organisation.update_current';
+
+/**
  * Writing down a customer the kitchen has never met — a cold caller with no login.
  *
  * Separate from placing on their behalf because the two are refused separately: a desk that may take
@@ -121,6 +147,9 @@ export const B2B_QUOTATION_QUOTE_PERMISSION = 'b2b_quotation.quote_organisation'
  * who counts stock and posts receipts does not thereby see what those receipts cost.
  */
 export const INVENTORY_VIEW_COSTS_PERMISSION = 'inventory.view_costs_organisation';
+
+/** Agreeing to a delivery's price rise, and saying a supplier's invoice was paid. */
+export const INVENTORY_APPROVE_PAYABLES_PERMISSION = 'inventory.approve_payables_organisation';
 
 /**
  * The plain inventory read/write pair (INV1.0). The consumption-exception review surface (INV1.5)
@@ -339,6 +368,30 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: null,
     },
     {
+        key: 'order-settlement',
+        kind: 'workbench',
+        group: 'orderDesk',
+        nameKey: 'kitchen:families.orderSettlement.name',
+        descriptionKey: 'kitchen:families.orderSettlement.description',
+        icon: 'banknote',
+        href: '/kitchen/order-desk/settlement',
+        permission: ORDER_SETTLE_CASH_PERMISSION,
+        // Its writes are this one code too: a page that only reads it has nothing to show.
+        managePermission: null,
+    },
+    {
+        key: 'order-close',
+        kind: 'workbench',
+        group: 'orderDesk',
+        nameKey: 'kitchen:families.orderClose.name',
+        descriptionKey: 'kitchen:families.orderClose.description',
+        icon: 'banknote',
+        href: '/kitchen/order-desk/close',
+        // The settlement's seat: whoever counts the cash. Sign-off asks the manager code on the page.
+        permission: ORDER_SETTLE_CASH_PERMISSION,
+        managePermission: null,
+    },
+    {
         key: 'order-cash-report',
         // A view like its three siblings, and the plainest of them: it reads one append-only ledger
         // and writes nothing. The receipts it counts are created by the sale wizard and by the
@@ -398,7 +451,20 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // `▤`, the ruled sheet — closest glyph for a dashboard of figures until a chart icon lands.
         icon: 'chartColumn',
         href: '/kitchen/analytics',
-        permission: CATALOGUE_VIEW_PERMISSION,
+        // Order counts and units read from the order book — no money — so the book's own read code.
+        permission: ORDER_VIEW_PERMISSION,
+        managePermission: null,
+    },
+    {
+        key: 'dish-margins',
+        kind: 'workbench',
+        group: 'workbench',
+        nameKey: 'kitchen:families.dishMargins.name',
+        descriptionKey: 'kitchen:families.dishMargins.description',
+        icon: 'calculator',
+        href: '/kitchen/dish-margins',
+        // What a dish costs, so the code that opens a recipe's money. Nothing is written here.
+        permission: RECIPE_VIEW_COSTS_PERMISSION,
         managePermission: null,
     },
     {
@@ -415,9 +481,32 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // The second card gated on the cost permission (INV1.1), and for the same reason as the
         // purchases ledger: this report exposes spend, COGS and the margin reconstructable from
         // cost and revenue, so a person without `inventory.view_costs_organisation` never sees it.
-        // Unlike analytics — sample figures behind the plain view code — this is real money, so it
+        // Unlike analytics — counts behind the order book's read code — this is real money, so it
         // takes the money code. Nothing is written from a report.
         permission: INVENTORY_VIEW_COSTS_PERMISSION,
+        managePermission: null,
+    },
+    {
+        key: 'setup',
+        kind: 'workbench',
+        group: 'workbench',
+        nameKey: 'kitchen:families.setup.name',
+        descriptionKey: 'kitchen:families.setup.description',
+        icon: 'circleCheck',
+        href: '/kitchen/setup',
+        permission: KITCHEN_SETUP_PERMISSION,
+        managePermission: GO_LIVE_PERMISSION,
+    },
+    {
+        // What the duplicate-stock merge could not settle alone. Reads only.
+        key: 'stock-duplicates',
+        kind: 'workbench',
+        group: 'workbench',
+        nameKey: 'kitchen:families.stockDuplicates.name',
+        descriptionKey: 'kitchen:families.stockDuplicates.description',
+        icon: 'alert',
+        href: '/kitchen/stock-duplicates',
+        permission: INVENTORY_VIEW_PERMISSION,
         managePermission: null,
     },
     {
@@ -638,6 +727,18 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: ORDER_MANAGE_PERMISSION,
     },
     {
+        key: 'activity',
+        kind: 'workbench',
+        group: 'operations',
+        nameKey: 'kitchen:families.activity.name',
+        descriptionKey: 'kitchen:families.activity.description',
+        icon: 'scrollText',
+        href: '/kitchen/activity',
+        permission: AUDIT_VIEW_PERMISSION,
+        // Read-only: nothing here writes, by design.
+        managePermission: null,
+    },
+    {
         key: 'stock',
         kind: 'managed',
         group: 'operations',
@@ -725,6 +826,18 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: null,
     },
     {
+        key: 'payables',
+        kind: 'workbench',
+        group: 'operations',
+        nameKey: 'kitchen:families.payables.name',
+        descriptionKey: 'kitchen:families.payables.description',
+        icon: 'banknote',
+        href: '/kitchen/payables',
+        // Rows of money, so the cost code reads them. Its acts ask their own code on the page.
+        permission: INVENTORY_VIEW_COSTS_PERMISSION,
+        managePermission: null,
+    },
+    {
         key: 'batch',
         // A reading of one recipe version, not a family of records: nothing is created, nothing has
         // a lifecycle and nothing is written. The production order this page's arithmetic would
@@ -787,6 +900,28 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // Nothing is written from a register. Every edge a batch has — confirm, start, complete,
         // abandon, call off — lives on the batch itself, which holds the lock version.
         managePermission: null,
+    },
+    {
+        key: 'temperatureLogs',
+        kind: 'managed',
+        group: 'operations',
+        nameKey: 'kitchen:families.temperatureLogs.name',
+        descriptionKey: 'kitchen:families.temperatureLogs.description',
+        icon: 'badgeCheck',
+        href: '/kitchen/temperature-logs',
+        permission: INVENTORY_VIEW_PERMISSION,
+        managePermission: INVENTORY_MANAGE_PERMISSION,
+    },
+    {
+        key: 'complaints',
+        kind: 'managed',
+        group: 'operations',
+        nameKey: 'kitchen:families.complaints.name',
+        descriptionKey: 'kitchen:families.complaints.description',
+        icon: 'alert',
+        href: '/kitchen/complaints',
+        permission: ORDER_SUPERVISE_PERMISSION,
+        managePermission: ORDER_SUPERVISE_PERMISSION,
     },
     {
         key: 'qc',

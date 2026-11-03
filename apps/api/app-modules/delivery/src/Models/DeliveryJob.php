@@ -32,10 +32,9 @@ use Healthy360\Tenancy\Contracts\OrganisationScoped;
  *
  * **`lock_version` guards assignment, and nothing else on this row.** A
  * dispatch board is a shared screen, and two dispatchers can see the same
- * unassigned run and the same free driver. The driver's own `deliver` stamp is
- * deliberately unguarded — nobody is racing a driver for their own job, and a
- * conflict dialog on a phone at somebody's door is worse than a re-stamped
- * timestamp.
+ * unassigned run and the same free driver. The driver's own `deliver` takes no
+ * validator, because nobody is racing a driver for their own job, but it is
+ * conditional on the run being open: a second press would be a second receipt.
  *
  * @property string $id
  * @property string $organisation_id
@@ -48,6 +47,12 @@ use Healthy360\Tenancy\Contracts\OrganisationScoped;
  * @property CarbonImmutable|null $assigned_at
  * @property CarbonImmutable|null $picked_up_at
  * @property CarbonImmutable|null $delivered_at
+ * @property CarbonImmutable|null $failed_at
+ * @property string|null $failure_reason one of `DeliveryFailureReason`
+ * @property string|null $failure_note
+ * @property string|null $courier_name set when a courier company took it; there is then no driver
+ * @property string|null $courier_reference
+ * @property int|null $courier_fee_minor
  * @property int $lock_version
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
@@ -62,6 +67,8 @@ class DeliveryJob extends BaseModel implements OrganisationScoped
             'assigned_at' => 'immutable_datetime',
             'picked_up_at' => 'immutable_datetime',
             'delivered_at' => 'immutable_datetime',
+            'failed_at' => 'immutable_datetime',
+            'courier_fee_minor' => 'integer',
             'lock_version' => 'integer',
         ];
     }

@@ -61,6 +61,7 @@ import { createApiKitchenOpsRepository } from './kitchen-ops-repository.ts';
 import { createApiKitchenOrdersRepository } from './kitchen-orders-repository.ts';
 import { createApiKitchenCustomersRepository } from './kitchen-customers-repository.ts';
 import { createApiKitchenQuotationsRepository } from './kitchen-quotations-repository.ts';
+import { createApiStaffAlertsRepository } from './staff-alerts-repository.ts';
 import { createApiSubscriptionReads } from './subscription-repository.ts';
 import { createApiVerificationRepository } from './verification-repository.ts';
 import {
@@ -544,6 +545,7 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
         orderDesk: createApiOrderDeskRepository(transport),
         kitchenQuotations: createApiKitchenQuotationsRepository(transport),
         kitchenCustomers: createApiKitchenCustomersRepository(transport),
+        staffAlerts: createApiStaffAlertsRepository(transport),
         driverJobs: createApiDriverJobsRepository(transport),
         invitations: createApiInvitationsRepository(transport),
         platformAdmin: createApiPlatformAdminRepository(transport),

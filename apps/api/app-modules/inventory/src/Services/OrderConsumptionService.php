@@ -128,6 +128,7 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         'insufficient_stock',
         'reserved_for_production',
         'no_net_content',
+        'quality_hold',
     ];
 
     public function __construct(
@@ -136,6 +137,7 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         private MealExplosion $explosion,
         private ConsumptionValuation $valuation,
         private OrderLineEstimator $estimator,
+        private StockQuarantine $quarantine,
     ) {}
 
     public function consume(Order $order, ?iterable $lines = null): void
@@ -939,17 +941,25 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
             // buying, the second by talking to the kitchen about the batch.
             // Reporting both as `insufficient_stock` would make a week of
             // over-eager reservations read as a week of stockouts.
-            $failures[] = $exception->isBlockedByReservation()
-                ? $this->failure(
+            //
+            // A quality hold is a third answer: release it, or throw the food away.
+            $failures[] = match (true) {
+                $exception->isBlockedByReservation() && $this->quarantine->isHolding($branchId, (string) $stockItem->getKey()) => $this->failure(
+                    (string) $item->getKey(),
+                    'quality_hold',
+                    'Ingredient '.$ingredientId.': '.$consumedInStockUnit.' could not be deducted because the stock is on quality hold.',
+                ),
+                $exception->isBlockedByReservation() => $this->failure(
                     (string) $item->getKey(),
                     'reserved_for_production',
                     'Ingredient '.$ingredientId.': '.$consumedInStockUnit.' could not be deducted because production has claimed the stock.',
-                )
-                : $this->failure(
+                ),
+                default => $this->failure(
                     (string) $item->getKey(),
                     'insufficient_stock',
                     'Ingredient '.$ingredientId.': not enough stock to deduct '.$consumedInStockUnit.'.',
-                );
+                ),
+            };
 
             return;
         }

@@ -23,8 +23,10 @@ import { compareDisplayed } from './use-column-controls.tsx';
  * in the app, a fresh one per test. Nothing is written to disk, so a refreshed or pasted print URL
  * finds no job and says so (`transfer.print.expired*`) rather than printing a stale list.
  */
+export type PrintResource = TransferResource | 'temperature-logs';
+
 export interface ListPrintJob {
-    readonly resource: TransferResource;
+    readonly resource: PrintResource;
     readonly title: string;
     /** ISO timestamp of the moment the job was made. */
     readonly printedAt: string;
@@ -47,7 +49,7 @@ export interface ListPrintSort<Row> {
 }
 
 export function listPrintJob<Row>(input: {
-    readonly resource: TransferResource;
+    readonly resource: PrintResource;
     readonly title: string;
     readonly columns: readonly DataListColumn<Row>[];
     readonly rows: readonly Row[];
@@ -87,12 +89,12 @@ export function listPrintJob<Row>(input: {
     };
 }
 
-const scopes = new WeakMap<object, Map<TransferResource, ListPrintJob>>();
+const scopes = new WeakMap<object, Map<PrintResource, ListPrintJob>>();
 
-function scopeOf(owner: object): Map<TransferResource, ListPrintJob> {
+function scopeOf(owner: object): Map<PrintResource, ListPrintJob> {
     const existing = scopes.get(owner);
     if (existing !== undefined) return existing;
-    const created = new Map<TransferResource, ListPrintJob>();
+    const created = new Map<PrintResource, ListPrintJob>();
     scopes.set(owner, created);
     return created;
 }
@@ -101,7 +103,7 @@ export interface ListPrintControl {
     /** Holds the job and opens `/kitchen/{resource}/print`. */
     readonly start: (job: ListPrintJob) => void;
     /** The job last started for `resource` in this cache, or `null` (refreshed, pasted, signed out). */
-    readonly read: (resource: TransferResource) => ListPrintJob | null;
+    readonly read: (resource: PrintResource) => ListPrintJob | null;
 }
 
 export function useListPrint(): ListPrintControl {
@@ -117,7 +119,7 @@ export function useListPrint(): ListPrintControl {
     );
 
     const read = useCallback(
-        (resource: TransferResource) => scopes.get(queryClient)?.get(resource) ?? null,
+        (resource: PrintResource) => scopes.get(queryClient)?.get(resource) ?? null,
         [queryClient],
     );
 

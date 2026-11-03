@@ -181,7 +181,7 @@ volume. Add it back the moment anything needs pre-signed URLs.
 | Variable | Default | Effect |
 | --- | --- | --- |
 | `DEMO_PASSWORD` | `password` | Sets one shared password on the four known logins, this run only |
-| `API_RATE_LIMIT` | 600 here, 60 shipped | Requests/minute — see §7 |
+| `API_RATE_LIMIT` | 600 | Requests/minute — see §7 |
 | `SWAP_SIZE` | `5G` | `bootstrap-droplet.sh` only |
 
 ---
@@ -311,9 +311,9 @@ curl -sS -o /dev/null -w '%{http_code}\n' https://157-230-121-66.nip.io/<suspect
 **6. The API throttle is per-user, not per-tester.** `config/api.php` →
 `Limit::perMinute()` keyed on user id. Testers share seeded personas, so they
 share one bucket, and a single kitchen workspace dashboard costs ~20 requests on
-load. At the shipped 60/min everything after the first request 429s and every
-tile reads "Count unavailable". The instance runs `API_RATE_LIMIT=600`; the
-default is untouched at 60.
+load. At 60/min everything after the first request 429s and every tile reads
+"Count unavailable". The instance runs `API_RATE_LIMIT=600`, which is now also
+the shipped default.
 
 ### Diagnosing
 

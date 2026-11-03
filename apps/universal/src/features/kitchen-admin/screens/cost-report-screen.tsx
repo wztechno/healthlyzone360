@@ -10,7 +10,7 @@ import {
 } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { Gate } from '../../../access/gate.tsx';
@@ -51,7 +51,8 @@ import { PeriodScope, periodWindows } from '../catalogue/period-scope.tsx';
  *
  * The tray's two cards — COGS understated, spend incomplete — were taken off on 2026-11-02, the
  * user's call. A month with unresolved consumption exceptions still carries its `Understated` badge
- * in the table, and its record says why.
+ * in the table, and its record says why. A month whose cost is incomplete says so the same way, with
+ * `Margin withheld`: a margin over the costed half would read as a complete one and be too high.
  *
  * ## One currency at a time
  *
@@ -66,7 +67,8 @@ import { PeriodScope, periodWindows } from '../catalogue/period-scope.tsx';
  * ## The window is in months
  *
  * The Period shortcut offers months (This month, Last month, Last 3 months, This year) and the two
- * day pickers stand for the months they fall in — the query sends `YYYY-MM`. It opens on This month.
+ * day pickers stand for the months they fall in — the query sends `YYYY-MM`. It opens on This month,
+ * or on the latest month with figures when this one has none yet.
  *
  * ## The range and the open month are in the address
  *
@@ -93,6 +95,13 @@ function isMonthOrEmpty(value: string): boolean {
 function isIsoDay(value: unknown): value is string {
     return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
+/** A `YYYY-MM` as the first and last day the range pickers show. */
+function monthWindow(month: string): { from: string; to: string } {
+    const [year, monthNumber] = month.split('-').map(Number);
+    const lastDay = new Date(Date.UTC(year ?? 1970, monthNumber ?? 1, 0)).getUTCDate();
+    return { from: `${month}-01`, to: `${month}-${String(lastDay).padStart(2, '0')}` };
+}
+
 function CostReport() {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -118,6 +127,13 @@ function CostReport() {
     );
     const report = useCostReportQuery(filter);
     const rows = useMemo(() => report.data ?? [], [report.data]);
+    // A new month opens empty. With no range asked for, go to the latest month that has figures.
+    const defaulted = !isIsoDay(params.from) && !isIsoDay(params.to);
+    const history = useCostReportQuery({}, defaulted && report.data?.length === 0);
+    const latestWithData = history.data?.[0]?.month;
+    useEffect(() => {
+        if (latestWithData !== undefined) router.setParams(monthWindow(latestWithData));
+    }, [latestWithData, router]);
     const currencies = useMemo(() => [...new Set(rows.map((row) => row.currencyCode))], [rows]);
     // No currency picker: the report shows the first currency the answer carries.
     const activeCurrency = currencies[0] ?? null;
@@ -173,6 +189,13 @@ function CostReport() {
                             testID={`kitchen-cost-report-${row.month}-flag`}
                             tone="warning"
                             label={t('kitchen:ops.costReport.flagged')}
+                        />
+                    ) : null}
+                    {row.isMarginWithheld ? (
+                        <Badge
+                            testID={`kitchen-cost-report-${row.month}-withheld`}
+                            tone="warning"
+                            label={t('kitchen:ops.costReport.marginWithheld')}
                         />
                     ) : null}
                 </View>
@@ -329,15 +352,27 @@ function CostReport() {
                 }}
                 title={viewing.month}
                 kind={t('kitchen:ops.costReport.window.kind')}
-                {...(viewing.hasDataQualityFlag
+                {...(viewing.isMarginWithheld
                     ? {
                           status: {
-                              label: t('kitchen:ops.costReport.flagged'),
+                              label: t('kitchen:ops.costReport.marginWithheld'),
                               tone: 'warning' as const,
                           },
-                          note: t('kitchen:ops.costReport.window.flaggedNote'),
+                          note: t('kitchen:ops.costReport.window.withheldNote', {
+                              lines: viewing.uncostedLineCount,
+                              exceptions: viewing.exceptionCount,
+                              batches: viewing.unvaluedBatchCount,
+                          }),
                       }
-                    : {})}
+                    : viewing.hasDataQualityFlag
+                      ? {
+                            status: {
+                                label: t('kitchen:ops.costReport.flagged'),
+                                tone: 'warning' as const,
+                            },
+                            note: t('kitchen:ops.costReport.window.flaggedNote'),
+                        }
+                      : {})}
                 fields={[
                     {
                         key: 'spend',
@@ -355,6 +390,12 @@ function CostReport() {
                         key: 'revenue',
                         label: t('kitchen:ops.costReport.columnRevenue'),
                         value: withCode(viewing.revenueAmount),
+                        mono: true,
+                    },
+                    {
+                        key: 'refunds',
+                        label: t('kitchen:ops.costReport.columnRefunds'),
+                        value: withCode(viewing.refundsAmount),
                         mono: true,
                     },
                     {

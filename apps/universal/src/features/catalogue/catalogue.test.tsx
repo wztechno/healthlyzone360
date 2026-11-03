@@ -1251,6 +1251,9 @@ function CartProbe() {
 }
 
 describe('MealDetailScreen', () => {
+    /** What an add carries when nobody picked a size, a choice or typed a note. */
+    const PLAIN_ADD = { catalogueItemVariantId: null, optionIds: [], note: '' };
+
     it('keeps the obligations below the design: the full facts, their provenance and the disclaimer', async () => {
         await renderStubScreen(<MealDetailScreen mealId={String(DETAIL_MEAL.id)} />, {
             repositories: CATALOGUE_REPOSITORIES,
@@ -1500,6 +1503,7 @@ describe('MealDetailScreen', () => {
 
         await waitFor(() => {
             expect(repositories.commerce.addCartItem).toHaveBeenCalledWith(cartId, {
+                ...PLAIN_ADD,
                 mealId: DETAIL_MEAL.id,
                 quantity: 1,
             });
@@ -1536,7 +1540,7 @@ describe('MealDetailScreen', () => {
         expect(screen.queryByTestId('basket-add-failed')).toBeNull();
     });
 
-    it('adds the meal and says plainly that a typed note cannot reach the kitchen yet', async () => {
+    it('adds the meal with the typed note for the kitchen', async () => {
         const cartId = uuid(9, 5) as CartId;
         const cart = (): Cart => ({
             id: cartId,
@@ -1567,14 +1571,16 @@ describe('MealDetailScreen', () => {
         );
         await fireEvent.press(screen.getByTestId('meal-detail-add-to-basket'));
 
-        // The meal still goes in — the request simply has no field for the note.
+        // The note rides on the line to the kitchen ticket.
         await waitFor(() => {
             expect(repositories.commerce.addCartItem).toHaveBeenCalledWith(cartId, {
+                ...PLAIN_ADD,
+                note: 'No coriander, please',
                 mealId: DETAIL_MEAL.id,
                 quantity: 1,
             });
         });
-        await waitFor(() => screen.getByTestId('prototype-notice'));
+        expect(screen.queryByTestId('prototype-notice')).toBeNull();
     });
 
     /**
@@ -1626,6 +1632,7 @@ describe('MealDetailScreen', () => {
         await fireEvent.press(screen.getByTestId('meal-detail-add-to-basket'));
         await waitFor(() => {
             expect(repositories.commerce.addCartItem).toHaveBeenCalledWith(cartId, {
+                ...PLAIN_ADD,
                 mealId: DETAIL_MEAL.id,
                 quantity: 3,
             });
@@ -1727,6 +1734,7 @@ describe('MealDetailScreen', () => {
 
             await waitFor(() => {
                 expect(commerce.addCartItem).toHaveBeenCalledWith(newCartId, {
+                    ...PLAIN_ADD,
                     mealId: DETAIL_MEAL.id,
                     quantity: 1,
                 });
@@ -1786,6 +1794,7 @@ describe('MealDetailScreen', () => {
         expect(repositories.commerce.getCart).toHaveBeenCalledTimes(1);
         expect(repositories.commerce.addCartItem).toHaveBeenCalledTimes(2);
         expect(repositories.commerce.addCartItem).toHaveBeenLastCalledWith(cartId, {
+            ...PLAIN_ADD,
             mealId: DETAIL_MEAL.id,
             quantity: 1,
         });

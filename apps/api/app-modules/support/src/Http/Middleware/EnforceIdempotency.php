@@ -46,7 +46,8 @@ use Symfony\Component\HttpFoundation\Response;
  * ## What is stored
  *
  * The fingerprint, never the body (plan §12), and the response *envelope* —
- * which is already the redacted, presenter-shaped view a client received.
+ * the presenter-shaped view a client received, encrypted at rest because one
+ * envelope (a new staff account's) carries an initial password.
  *
  * ## The subject
  *
@@ -214,7 +215,8 @@ final class EnforceIdempotency
             return;
         }
 
-        IdempotencyKey::query()->whereKey($id)->update([
+        // Through the model so the snapshot is encrypted (see its cast).
+        IdempotencyKey::query()->whereKey($id)->first()?->update([
             'response_status' => (string) $response->getStatusCode(),
             'response_snapshot' => $body,
         ]);

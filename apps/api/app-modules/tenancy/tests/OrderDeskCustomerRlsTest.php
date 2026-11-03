@@ -275,3 +275,42 @@ it('keeps every read arm when the policy is rewritten, the subscription arm incl
         ->and($read)->toContain('subscriptions s')
         ->and($read)->toContain('corporate_programmes cp');
 });
+
+it('lets a kitchen read a customer linked to it, and only that kitchen, and never write', function (): void {
+    DB::table('kitchen_customer_links')->insert([
+        'organisation_id' => $this->kitchen->organisation->getKey(),
+        'customer_account_id' => $this->registered->getKey(),
+        'created_at' => now(),
+    ]);
+
+    RuntimeRole::context((string) $this->kitchen->user->getKey(), (string) $this->kitchen->organisation->getKey());
+
+    $read = fn (): array => DB::table('customer_accounts')
+        ->where('id', $this->registered->getKey())
+        ->pluck('display_name')
+        ->all();
+
+    expect(RuntimeRole::run($read))->toBe(['Ramy Haddad']);
+
+    $written = RuntimeRole::run(fn (): int => DB::table('customer_accounts')
+        ->where('id', $this->registered->getKey())
+        ->update(['display_name' => 'Rewritten']));
+
+    expect($written)->toBe(0);
+
+    RuntimeRole::context((string) $this->other->user->getKey(), (string) $this->other->organisation->getKey());
+
+    expect(RuntimeRole::run($read))->toBe([]);
+});
+
+it('keeps a link where only its kitchen can see or write it', function (): void {
+    DB::table('kitchen_customer_links')->insert([
+        'organisation_id' => $this->kitchen->organisation->getKey(),
+        'customer_account_id' => $this->registered->getKey(),
+        'created_at' => now(),
+    ]);
+
+    RuntimeRole::context((string) $this->other->user->getKey(), (string) $this->other->organisation->getKey());
+
+    expect(RuntimeRole::run(fn (): int => DB::table('kitchen_customer_links')->count()))->toBe(0);
+});

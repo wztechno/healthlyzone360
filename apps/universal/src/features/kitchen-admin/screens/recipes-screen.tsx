@@ -36,6 +36,8 @@ import {
     useRecipeQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import type { RecipeKindCounts } from '../../../data/kitchen-admin-hooks.ts';
+import { toFailure } from '../../../data/hooks.ts';
+import { useSetItemOffTodayMutation } from '../../../data/order-desk-hooks.ts';
 import { useSession } from '../../../session/session-provider.tsx';
 import {
     CATALOGUE_MANAGE_PERMISSION,
@@ -204,6 +206,34 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
     const toast = useToast();
     const canManage = useCan(RECIPE_MANAGE_PERMISSION);
     const canManageCatalogue = useCan(CATALOGUE_MANAGE_PERMISSION);
+    const offToday = useSetItemOffTodayMutation();
+    const switchOff = canManageCatalogue
+        ? (itemId: string, off: boolean) => {
+              offToday.mutate(
+                  { itemId, off },
+                  {
+                      onSuccess: () => {
+                          toast.show({
+                              testID: 'kitchen-recipes-off-today-toast',
+                              tone: 'success',
+                              message: t(
+                                  off
+                                      ? 'kitchen:recipes.offTodayToast'
+                                      : 'kitchen:recipes.backOnTodayToast',
+                              ),
+                          });
+                      },
+                      onError: (error: unknown) => {
+                          toast.show({
+                              testID: 'kitchen-recipes-off-today-error-toast',
+                              tone: 'danger',
+                              message: toFailure(error)?.message ?? t('errors:generic.body'),
+                          });
+                      },
+                  },
+              );
+          }
+        : null;
     const canWithdraw = useCan(CATALOGUE_PUBLISH_PERMISSION);
     const list = useRecipeList(view);
     const print = useListPrint();
@@ -582,7 +612,7 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                             }}
                             rowActionsLabel={t('kitchen:list.rowActions')}
                             rowActions={(row) =>
-                                rowActions(row, list, t, toast, canManage, canWithdraw)
+                                rowActions(row, list, t, toast, canManage, canWithdraw, switchOff)
                             }
                         />
                     ) : (
@@ -600,7 +630,7 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                             }}
                             rowActionsLabel={t('kitchen:list.rowActions')}
                             rowActions={(row) =>
-                                rowActions(row, list, t, toast, canManage, canWithdraw)
+                                rowActions(row, list, t, toast, canManage, canWithdraw, switchOff)
                             }
                         />
                     )}
@@ -840,9 +870,11 @@ function rowActions(
     toast: ReturnType<typeof useToast>,
     canManage: boolean,
     canWithdraw: boolean,
+    switchOff: ((itemId: string, off: boolean) => void) | null,
 ): readonly MenuItem[] {
     const testID = recipeRowTestId(String(row.id));
     const live = row.meta.status !== 'retired';
+    const selling = row.soldAs?.find((sold) => sold.status === 'published');
 
     return [
         {
@@ -881,6 +913,29 @@ function rowActions(
                                   }),
                               });
                           });
+                      },
+                  },
+              ]
+            : []),
+        // Both, always: the row has no calendar state to pick one, and either press is idempotent.
+        ...(switchOff !== null && selling !== undefined
+            ? [
+                  {
+                      key: 'offToday',
+                      label: t('kitchen:desk.sale.offToday'),
+                      icon: 'ban' as const,
+                      testID: `${testID}-off-today`,
+                      onSelect: () => {
+                          switchOff(selling.id, true);
+                      },
+                  },
+                  {
+                      key: 'backOnToday',
+                      label: t('kitchen:desk.sale.backOnToday'),
+                      icon: 'check' as const,
+                      testID: `${testID}-back-on-today`,
+                      onSelect: () => {
+                          switchOff(selling.id, false);
                       },
                   },
               ]

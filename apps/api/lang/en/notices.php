@@ -14,6 +14,30 @@ declare(strict_types=1);
 */
 
 return [
+    'order' => [
+        'action' => 'See your order',
+        'confirmed' => [
+            'heading' => ':kitchen confirmed your order :number',
+            'body' => 'The kitchen has your order and will start on it in time for your delivery.',
+        ],
+        'out_for_delivery' => [
+            'heading' => 'Your order :number is on its way',
+            'body' => 'Your order has left :kitchen and is coming to you now.',
+        ],
+        'delivered' => [
+            'heading' => 'Your order :number was delivered',
+            'body' => 'Thank you for ordering from :kitchen. Enjoy your meal.',
+        ],
+        'cancelled' => [
+            'heading' => 'Your order :number was cancelled',
+            'body' => ':kitchen cancelled this order. If you have any questions, please contact the kitchen.',
+        ],
+        'delivery_failed' => [
+            'heading' => 'We could not deliver your order :number',
+            'body' => 'The driver could not reach you. :kitchen will contact you about what happens next.',
+        ],
+    ],
+
     'quotation' => [
         'submitted' => [
             'heading' => 'New quotation request :reference from :buyer',
@@ -77,5 +101,81 @@ return [
         'more' => '…and :count more.',
         'holes' => '{1} :count day has demand nobody could work out (a missing recipe or menu).|[2,*] :count days have demand nobody could work out (a missing recipe or menu).',
         'action' => 'Open the buy list',
+    ],
+    'staff_alert' => [
+        'action' => 'Open kitchen orders',
+        'action_page' => 'Open the page',
+        'total' => 'Order total: :total.',
+        'amount' => 'Amount: :total.',
+        'unaccepted_manager' => [
+            'heading' => 'Order :number has not been accepted',
+            'line' => 'It has passed its alert time and nobody in the kitchen has accepted it.',
+            'sms' => 'Healthy360: order :number has not been accepted. Please check the kitchen.',
+        ],
+        'unaccepted_owner' => [
+            'heading' => 'Order :number is still not accepted',
+            'line' => 'Your managers were alerted and the order is still waiting.',
+            'sms' => 'Healthy360: order :number is still not accepted after your managers were alerted.',
+        ],
+        'allergy_order' => [
+            'heading' => 'New order :number has an allergy on it',
+            'line' => 'Read the allergy details on the order before it is cooked.',
+        ],
+        'late_cancel' => [
+            'heading' => 'Order :number was cancelled after cooking started',
+            'line' => 'Check what was already made for it.',
+        ],
+        'delivery_failed' => [
+            'heading' => 'Delivery failed for order :number',
+            'line' => 'The order needs a decision from you.',
+        ],
+        'no_cash_collected' => [
+            'heading' => 'No cash was collected for order :number',
+            'line' => 'The driver delivered it without collecting any cash. Follow it up with the driver.',
+        ],
+        'refund_approval' => [
+            'heading' => 'A refund on order :number needs your approval',
+            'line' => 'It is above your kitchen limit. Open the order to approve or reject it.',
+        ],
+        'refund_approved' => [
+            'heading' => 'Your refund on order :number was approved',
+            'line' => 'The owner approved it, so it now counts as paid back.',
+        ],
+        'refund_rejected' => [
+            'heading' => 'Your refund on order :number was rejected',
+            'line' => 'The owner rejected it, so nothing is paid back.',
+        ],
+        'short_hand_in' => [
+            'heading' => 'A cash hand-in came up short',
+            'line' => 'It needs a manager to sign it off.',
+        ],
+        'short_close' => [
+            'heading' => 'The cash close for :number came up short',
+            'line' => 'It needs a manager to sign it off.',
+        ],
+        'price_approval' => [
+            'heading' => 'A delivery from :number needs its price approved',
+            'line' => 'A price rose above your limit. The goods are received, and the invoice cannot be marked paid until it is approved.',
+        ],
+        'dish_below_target' => [
+            'heading' => ':number has fallen below your margin target',
+            'line' => 'Its cost has moved. Check the price or the recipe.',
+        ],
+        'delivery_moved_closed' => [
+            'heading' => 'Order :number was moved off a closed day',
+            'line' => 'Its delivery fell on a day the kitchen is closed, so it moved to the next open day. Change the date or tell the customer.',
+        ],
+        'delivery_closed_unmoved' => [
+            'heading' => 'A delivery on :number falls on a closed day',
+            'line' => 'No open day was found in the next two weeks, so its date was left as it was. Change the closure or the delivery, and tell the customer.',
+        ],
+        'temperature_out_of_range' => [
+            'heading' => 'Temperature out of range: :number',
+            'line' => 'Check the unit and move the food if you need to. The reading is on the temperature log.',
+        ],
+        'stock_expiring' => [
+            'heading' => 'Use by date coming up: :number',
+            'line' => 'Check the shelf. Use it first, or record it as waste once the date passes.',
+        ],
     ],
 ];

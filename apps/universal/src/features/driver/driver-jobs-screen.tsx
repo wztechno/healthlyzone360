@@ -1,11 +1,18 @@
-import type { DriverJob, DriverJobDelivery } from '@healthy360/api-client/contracts';
+import { DELIVERY_FAILURE_REASONS } from '@healthy360/api-client/contracts';
+import type {
+    DeliveryFailureReason,
+    DriverJob,
+    DriverJobDelivery,
+} from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
+    Callout,
     Card,
     Dialog,
     EmptyState,
     ErrorState,
+    FilterChip,
     Heading,
     Inline,
     Skeleton,
@@ -15,7 +22,9 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type { BadgeTone } from '@healthy360/design-system';
+import { minorAmountToInput, minorUnitExponent, parseMinorAmount } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
+import type { Formatter } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -24,6 +33,7 @@ import {
     toFailure,
     useClaimDriverJobMutation,
     useDeliverDriverJobMutation,
+    useFailDriverJobMutation,
     usePickUpDriverJobMutation,
     useDriverJobsQuery,
 } from '../../data/driver-jobs-hooks.ts';
@@ -46,10 +56,16 @@ import { useOnlineStatus } from '../../online/online-status.tsx';
  * ## What a row says
  *
  * The number printed on the bag, both status axes, where the food is going in enough detail to find
- * a door, when the run was handed over, and who to ask for and the number to ring when the building
- * still cannot be found. That is what somebody standing next to a van needs and it is the whole of what the wire
- * carries — no money (a driver collecting cash belongs to the receipts ledger, not to a run sheet)
- * and no `driverUserId` (it would say "you" on every row).
+ * a door, when the run was handed over, who to ask for and the number to ring when the building
+ * still cannot be found, and the cash to collect. That is what somebody standing next to a van needs
+ * and it is the whole of what the wire carries. The amount is the order's total less what has
+ * already been received, drawn on a cash order that still owes something; a WISH order has nothing
+ * to collect at the door. `driverUserId` is absent, because it would say "you" on every row.
+ *
+ * **The allergens on the order are named, with the order's own note.** Whoever takes the bag at the
+ * door may need to hear it. A saved profile's notes and severity stay with the kitchen, and the wire
+ * does not carry them, so this banner is one tone for every order. The order's free note does reach
+ * it: a walk-in has no profile, and the note is all the allergy record it has (owner, 3 Nov 2026).
  *
  * **The heading falls back visibly.** `orderNumber` is nullable on the wire, so a job without one
  * shows the order identifier — which is what this screen showed on every row before the number
@@ -70,17 +86,22 @@ import { useOnlineStatus } from '../../online/online-status.tsx';
  * collected" and "collected" are one dispatch state and two promises, and a driver deciding what to
  * do next needs the second as much as the first.
  *
- * ## Delivering is a stamp, and the dialog is why it is not a single tap
+ * ## Delivering says what was collected, and the dialog is why it is not a single tap
  *
- * The write is idempotent and irreversible in the same breath: it sets `delivered` over whatever
- * was there, and there is no lock version, no conflict and no undo. A bare button on a phone in a
- * pocket would close jobs by accident, so the action opens a confirmation — which is also the only
- * place the optional proof-of-delivery note can be typed. The note is replace-or-clear on the wire;
- * leaving the field empty is the same request with `null` in it, which is what an empty field
- * honestly means here.
+ * The write is irreversible and there is no undo. A bare button on a phone in a pocket would close
+ * jobs by accident, so the action opens a confirmation, which is also where the driver says what
+ * they took. The field opens on the amount due and they change it if the customer paid less; what
+ * they say becomes a receipt against them. Zero needs a note, because it tells a manager something
+ * went wrong at the door. A paid order asks nothing, and a WISH order hides the field.
  *
  * After a successful stamp the run sheet re-reads and the job leaves the list, because the endpoint
  * excludes terminal jobs, and a toast says so — once the server has answered, never before.
+ *
+ * ## A run that could not be delivered
+ *
+ * Beside Mark delivered sits **Could not deliver**, with a reason and an optional note. The order
+ * stays open for a manager to send out again or close, nothing is collected, and the job leaves the
+ * sheet.
  *
  * ## Picked up comes first (HA-19)
  *
@@ -150,6 +171,19 @@ function areaNameFor(delivery: DriverJobDelivery, locale: string): string | null
     return preferred ?? other;
 }
 
+/** The cash a job asks for, or nothing to collect: paid already, or a WISH transfer. */
+function amountToCollect(job: DriverJob): number {
+    return job.paymentMethod === 'wish' ? 0 : job.amountDueMinor;
+}
+
+/**
+ * Money in the reader's format. Inline rather than `marketplace/format.ts`'s `formatMoney` for the
+ * reason {@link areaNameFor} is: that module pulls the nutrition package into a phone bundle.
+ */
+function moneyText(formatter: Formatter, amountMinor: number, currency: DriverJob['currencyCode']) {
+    return formatter.formatCurrency(amountMinor / 10 ** minorUnitExponent(currency), currency);
+}
+
 export function DriverJobsScreen() {
     return (
         <Gate area="driver" testID="driver-jobs">
@@ -161,29 +195,48 @@ export function DriverJobsScreen() {
 function DriverJobs() {
     const { t } = useTranslation();
     const { locale } = useLocale();
+    const formatter = useFormatter();
     const { online } = useOnlineStatus();
 
     const jobs = useDriverJobsQuery(true, { refetchInterval: online ? DRIVER_POLL_MS : false });
     const deliver = useDeliverDriverJobMutation();
     const claim = useClaimDriverJobMutation();
     const pickUp = usePickUpDriverJobMutation();
+    const fail = useFailDriverJobMutation();
     const toast = useToast();
 
     /** The job the confirmation is open for. `null` closes the dialog. */
     const [delivering, setDelivering] = useState<DriverJob | null>(null);
     const [notes, setNotes] = useState('');
+    const [collected, setCollected] = useState('');
+
+    /** The job the could-not-deliver dialog is open for. `null` closes it. */
+    const [failing, setFailing] = useState<DriverJob | null>(null);
+    const [failReason, setFailReason] = useState<DeliveryFailureReason | null>(null);
+    const [failNote, setFailNote] = useState('');
+
+    const owed = delivering === null ? 0 : amountToCollect(delivering);
+    const collectedMinor =
+        delivering === null || owed === 0
+            ? 0
+            : parseMinorAmount(collected, delivering.currencyCode);
+    const tooMuch = collectedMinor !== null && collectedMinor > owed;
+    const noCash = owed > 0 && collectedMinor === 0;
+    const canDeliver = collectedMinor !== null && !tooMuch && !(noCash && notes.trim() === '');
 
     const listFailure = toFailure(jobs.error);
     const actionFailure = toFailure(deliver.error);
     const claimFailure = toFailure(claim.error);
     const pickUpFailure = toFailure(pickUp.error);
+    const failFailure = toFailure(fail.error);
     const rows = jobs.data?.jobs ?? [];
     const available = jobs.data?.available ?? [];
-    const busy = deliver.isPending || claim.isPending || pickUp.isPending;
+    const busy = deliver.isPending || claim.isPending || pickUp.isPending || fail.isPending;
 
     function openDeliver(job: DriverJob) {
         deliver.reset();
         setNotes('');
+        setCollected(minorAmountToInput(amountToCollect(job), job.currencyCode));
         setDelivering(job);
     }
 
@@ -196,7 +249,13 @@ function DriverJobs() {
         if (delivering === null) return;
         const reference = delivering.orderNumber ?? String(delivering.orderId);
         deliver.mutate(
-            { jobId: delivering.id, notes: notes.trim() === '' ? undefined : notes },
+            {
+                jobId: delivering.id,
+                // Never asked of a WISH order; zero on a cash order with nothing left to pay.
+                collectedMinor:
+                    delivering.paymentMethod === 'wish' ? undefined : (collectedMinor ?? undefined),
+                note: notes.trim() === '' ? undefined : notes,
+            },
             {
                 onSuccess: () => {
                     closeDeliver();
@@ -204,6 +263,31 @@ function DriverJobs() {
                         testID: 'driver-jobs-delivered',
                         tone: 'success',
                         message: t('kitchen:driver.deliveredToast', { reference }),
+                    });
+                },
+            },
+        );
+    }
+
+    function openFail(job: DriverJob) {
+        fail.reset();
+        setFailReason(null);
+        setFailNote('');
+        setFailing(job);
+    }
+
+    function submitFail() {
+        if (failing === null || failReason === null) return;
+        const reference = failing.orderNumber ?? String(failing.orderId);
+        fail.mutate(
+            { jobId: failing.id, reason: failReason, note: failNote },
+            {
+                onSuccess: () => {
+                    setFailing(null);
+                    toast.show({
+                        testID: 'driver-jobs-failed',
+                        tone: 'warning',
+                        message: t('kitchen:driver.failedToast', { reference }),
                     });
                 },
             },
@@ -290,6 +374,7 @@ function DriverJobs() {
                                             openDeliver(picked);
                                         }
                                     }}
+                                    onFail={job.status === 'in_transit' ? openFail : undefined}
                                 />
                             ))}
                         </Stack>
@@ -338,7 +423,7 @@ function DriverJobs() {
                             testID="driver-jobs-deliver-confirm"
                             label={t('kitchen:driver.deliverConfirm')}
                             loading={deliver.isPending}
-                            disabled={deliver.isPending}
+                            disabled={!canDeliver || deliver.isPending}
                             onPress={submitDeliver}
                         />
                     </>
@@ -354,12 +439,38 @@ function DriverJobs() {
                             })}
                         </Text>
                     )}
+                    {delivering === null || owed === 0 ? null : (
+                        <TextInputField
+                            testID="driver-jobs-deliver-amount"
+                            id="driver-jobs-deliver-amount"
+                            label={t('kitchen:driver.collectedLabel', {
+                                currency: delivering.currencyCode,
+                            })}
+                            hint={t('kitchen:driver.collectedHint', {
+                                amount: moneyText(formatter, owed, delivering.currencyCode),
+                            })}
+                            placeholder={t('kitchen:fields.amountPlaceholder')}
+                            {...(collected.trim() !== '' && collectedMinor === null
+                                ? { error: t('kitchen:driver.collectedInvalid') }
+                                : tooMuch
+                                  ? { error: t('kitchen:driver.collectedTooMuch') }
+                                  : {})}
+                            value={collected}
+                            onChangeText={setCollected}
+                            inputMode="decimal"
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                        />
+                    )}
                     <TextInputField
                         testID="driver-jobs-deliver-notes"
                         id="driver-jobs-deliver-notes"
                         label={t('kitchen:driver.notesLabel')}
                         placeholder={t('kitchen:driver.notesPlaceholder')}
                         hint={t('kitchen:driver.notesHint')}
+                        {...(noCash && notes.trim() === ''
+                            ? { error: t('kitchen:driver.noCashNote') }
+                            : {})}
                         value={notes}
                         onChangeText={setNotes}
                         multiline
@@ -369,6 +480,68 @@ function DriverJobs() {
                     {actionFailure === null ? null : (
                         <Text testID="driver-jobs-deliver-error" tone="danger">
                             {actionFailure.message}
+                        </Text>
+                    )}
+                </Stack>
+            </Dialog>
+
+            <Dialog
+                testID="driver-jobs-fail-dialog"
+                open={failing !== null}
+                onClose={() => {
+                    setFailing(null);
+                }}
+                title={t('kitchen:driver.failTitle')}
+                description={t('kitchen:driver.failBody')}
+                actions={
+                    <>
+                        <Button
+                            testID="driver-jobs-fail-dismiss"
+                            variant="quiet"
+                            label={t('kitchen:driver.deliverDismiss')}
+                            onPress={() => {
+                                setFailing(null);
+                            }}
+                        />
+                        <Button
+                            testID="driver-jobs-fail-confirm"
+                            variant="danger"
+                            label={t('kitchen:driver.failConfirm')}
+                            loading={fail.isPending}
+                            disabled={failReason === null || fail.isPending}
+                            onPress={submitFail}
+                        />
+                    </>
+                }
+            >
+                <Stack space="sm">
+                    <Text variant="strong">{t('kitchen:driver.failReasonLabel')}</Text>
+                    <Inline space="xs" wrap testID="driver-jobs-fail-reasons">
+                        {DELIVERY_FAILURE_REASONS.map((candidate) => (
+                            <FilterChip
+                                key={candidate}
+                                testID={`driver-jobs-fail-reason-${candidate}`}
+                                label={t(`kitchen:driver.failReason.${candidate}`)}
+                                selected={failReason === candidate}
+                                onChange={() => {
+                                    setFailReason(candidate);
+                                }}
+                            />
+                        ))}
+                    </Inline>
+                    <TextInputField
+                        testID="driver-jobs-fail-note"
+                        id="driver-jobs-fail-note"
+                        label={t('kitchen:driver.failNoteLabel')}
+                        value={failNote}
+                        onChangeText={setFailNote}
+                        multiline
+                        maxLength={1000}
+                        autoCapitalize="sentences"
+                    />
+                    {failFailure === null ? null : (
+                        <Text testID="driver-jobs-fail-error" tone="danger">
+                            {failFailure.message}
                         </Text>
                     )}
                 </Stack>
@@ -412,6 +585,8 @@ interface JobCardProps {
     /** Collect or deliver one of the caller's own runs, or claim one from the pool. */
     readonly action: 'pickUp' | 'deliver' | 'claim';
     readonly onAction: (job: DriverJob) => void;
+    /** Offered only on a run that is on the road. */
+    readonly onFail?: ((job: DriverJob) => void) | undefined;
 }
 
 /**
@@ -420,7 +595,7 @@ interface JobCardProps {
  * The card takes no `onPress`. It holds a button, and a pressable card around a button is both an
  * axe `nested-interactive` violation and a way to deliver an order with a mistimed thumb.
  */
-function JobCard({ job, locale, disabled, action, onAction }: JobCardProps) {
+function JobCard({ job, locale, disabled, action, onAction, onFail }: JobCardProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const testID = `driver-job-${job.id}`;
@@ -451,6 +626,37 @@ function JobCard({ job, locale, disabled, action, onAction }: JobCardProps) {
                 <Heading level={2} testID={`${testID}-order`}>
                     {job.orderNumber ?? String(job.orderId)}
                 </Heading>
+
+                {amountToCollect(job) === 0 ? null : (
+                    <Text variant="bodyStrong" testID={`${testID}-amount-due`}>
+                        {t('kitchen:driver.amountDue', {
+                            amount: moneyText(formatter, amountToCollect(job), job.currencyCode),
+                        })}
+                    </Text>
+                )}
+
+                {job.allergyAllergenCodes.length === 0 && job.allergyNote === null ? null : (
+                    <Callout
+                        testID={`${testID}-allergy`}
+                        tone="warning"
+                        icon="warning"
+                        title={t('kitchen:driver.allergyTitle')}
+                        // A walk-in's note is the whole record, so it rides in the same banner
+                        // as a saved profile's allergens (owner, 3 Nov 2026).
+                        body={[
+                            job.allergyAllergenCodes
+                                .map((code) =>
+                                    t(`marketplace:allergens.${code}`, { defaultValue: code }),
+                                )
+                                .join(t('kitchen:common.listSeparator')),
+                            job.allergyNote === null
+                                ? ''
+                                : t('kitchen:driver.allergyNote', { note: job.allergyNote }),
+                        ]
+                            .filter((part) => part !== '')
+                            .join('\n')}
+                    />
+                )}
 
                 <Inline space="xs" wrap testID={`${testID}-statuses`}>
                     <Badge
@@ -558,6 +764,18 @@ function JobCard({ job, locale, disabled, action, onAction }: JobCardProps) {
                         disabled={disabled}
                         onPress={() => {
                             onAction(job);
+                        }}
+                    />
+                )}
+                {onFail === undefined ? null : (
+                    <Button
+                        testID={`${testID}-fail`}
+                        block
+                        variant="secondary"
+                        label={t('kitchen:driver.fail')}
+                        disabled={disabled}
+                        onPress={() => {
+                            onFail(job);
                         }}
                     />
                 )}

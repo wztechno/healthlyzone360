@@ -22,14 +22,14 @@ use Illuminate\Http\JsonResponse;
  *
  * ## Every active member is listed, and that is not an oversight
  *
- * **There is no driver role, by design.** The platform has eight template roles
- * and none of them is `driver`, and the delivery module's own routing comment
- * states the reason: *a driver is staff of the kitchen whose jobs these are*.
- * The driver surface narrows by `driver_user_id` rather than by a permission
- * code, because holding the run is what makes it yours. Inventing a role here
- * would mean a kitchen could not hand tonight's late delivery to the chef who
- * offered to drop it off on the way home — which is how small kitchens actually
- * work, and the platform has no business having an opinion about it.
+ * **The Driver role names a job and gates nothing here.** `kitchen_driver` grants
+ * no order code, and the delivery module's own routing comment states the reason:
+ * *a driver is staff of the kitchen whose jobs these are*. The driver surface
+ * narrows by `driver_user_id` rather than by a permission code, because holding
+ * the run is what makes it yours. Narrowing this list to the role would mean a
+ * kitchen could not hand tonight's late delivery to the chef who offered to drop
+ * it off on the way home — which is how small kitchens actually work, and the
+ * platform has no business having an opinion about it.
  *
  * So the endpoint answers a question of *fact* — who works here, right now —
  * and the **picker** is where a kitchen's operating judgement lives. A dispatcher

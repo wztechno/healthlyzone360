@@ -16,10 +16,10 @@
         "expiresToday": "تنتهي اليوم.",
         "role": {
             "kitchen_owner": "مالك المطبخ",
-            "kitchen_manager": "مدير المطبخ",
+            "kitchen_manager": "المدير",
             "commercial_manager": "المدير التجاري",
-            "organisation_owner": "مالك المنشأة",
-            "order_desk_agent": "موظف مكتب الطلبات",
+            "organisation_owner": "المالك",
+            "order_desk_agent": "أمين الصندوق",
             "unknown": "{{code}}"
         }
     },

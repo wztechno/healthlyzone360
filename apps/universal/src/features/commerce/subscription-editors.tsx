@@ -8,15 +8,13 @@ import {
     Text,
 } from '@healthy360/design-system';
 import type {
-    CreditMemo,
     SubscriptionBalance,
     SubscriptionQuote,
 } from '@healthy360/api-client/contracts';
-import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 
 import { toFailure } from '../../data/commerce-hooks.ts';
-import { formatMoney, weekdayKey } from '../marketplace/format.ts';
+import { weekdayKey } from '../marketplace/format.ts';
 
 /**
  * The three S1 editors, and the dialog that ends a subscription.
@@ -62,8 +60,8 @@ export function DialogFailure({
 export interface CancelSubscriptionDialogProps {
     readonly open: boolean;
     readonly balance: SubscriptionBalance | undefined;
-    /** Set once the cancellation has happened, so the dialog can report what it produced. */
-    readonly memo: CreditMemo | null | undefined;
+    /** Set once the cancellation has happened, so the dialog can say so. */
+    readonly cancelled: boolean;
     readonly pending: boolean;
     /** The refusal of the last attempt, drawn inside the dialog ({@link DialogFailure}). */
     readonly error?: unknown;
@@ -73,31 +71,13 @@ export interface CancelSubscriptionDialogProps {
 }
 
 /**
- * "Cancel this subscription."
- *
- * ## It states the amount *before* the button, not after
- *
- * The refund is computable from data the screen already holds — remaining days × the effective
- * per-day price — so the dialog prints it as the consequence rather than revealing it on the
- * confirmation screen. A person deciding whether to cancel is deciding about that number, and
- * showing it afterwards would make the dialog a formality rather than a decision.
- *
- * The amount shown is a *statement of what will be recorded*, and the copy says so. It is not a
- * quotation the server has agreed to: the server recomputes it and answers with the memo it
- * actually wrote, which is what the success state then shows. When the two ever disagree, the
- * server's is the one on screen at the end.
- *
- * ## And it says settlement is manual
- *
- * Nothing in this system moves money. A credit memo is a record somebody settles by hand, and a
- * dialog that said "you will be refunded" would be promising a transfer no code performs. The
- * sentence is in the dialog and repeated on the receipt, because it is the part most likely to be
- * misremembered.
+ * "Cancel this subscription." It states what stops, and promises no money: a subscription is paid per
+ * delivery, so nothing is held and nothing comes back.
  */
 export function CancelSubscriptionDialog({
     open,
     balance,
-    memo,
+    cancelled,
     pending,
     error,
     onClose,
@@ -105,10 +85,8 @@ export function CancelSubscriptionDialog({
     testID = 'subscription-cancel',
 }: CancelSubscriptionDialogProps) {
     const { t } = useTranslation();
-    const formatter = useFormatter();
 
     const remaining = balance?.days.remaining ?? 0;
-    const perDay = balance === undefined ? null : formatMoney(formatter, balance.perDayPrice);
 
     return (
         <Dialog
@@ -118,7 +96,7 @@ export function CancelSubscriptionDialog({
             title={t('commerce:cancel.title')}
             description={t('commerce:cancel.body')}
             actions={
-                memo === undefined ? (
+                !cancelled ? (
                     <>
                         <Button
                             testID={`${testID}-dismiss`}
@@ -144,7 +122,7 @@ export function CancelSubscriptionDialog({
             }
         >
             <Stack space="sm">
-                {memo === undefined ? (
+                {!cancelled ? (
                     <>
                         <Callout
                             testID={`${testID}-consequence`}
@@ -155,53 +133,16 @@ export function CancelSubscriptionDialog({
                             body={t('commerce:cancel.consequenceBody', { count: remaining })}
                         />
 
-                        {remaining > 0 && perDay !== null && balance !== undefined ? (
-                            <Text testID={`${testID}-estimate`}>
-                                {t('commerce:cancel.estimate', {
-                                    count: remaining,
-                                    perDay,
-                                    amount: formatMoney(formatter, {
-                                        amount: remaining * balance.perDayPrice.amount,
-                                        currency: balance.perDayPrice.currency,
-                                    }),
-                                })}
-                            </Text>
-                        ) : (
-                            <Text tone="secondary" testID={`${testID}-no-refund`}>
-                                {t('commerce:cancel.noRefund')}
-                            </Text>
-                        )}
-
-                        <Text tone="secondary" variant="caption" testID={`${testID}-manual`}>
-                            {t('commerce:cancel.manualSettlement')}
-                        </Text>
-
                         <DialogFailure error={error} testID={`${testID}-failure`} />
                     </>
-                ) : memo === null ? (
-                    <Callout
-                        testID={`${testID}-result-none`}
-                        role="status"
-                        tone="info"
-                        title={t('commerce:cancel.doneTitle')}
-                        body={t('commerce:cancel.doneNoMemo')}
-                    />
                 ) : (
-                    <Stack space="sm">
-                        <Callout
-                            testID={`${testID}-result`}
-                            role="status"
-                            tone="success"
-                            title={t('commerce:cancel.doneTitle')}
-                            body={t('commerce:cancel.doneMemo', {
-                                amount: formatMoney(formatter, memo.amount),
-                                count: memo.unusedDays,
-                            })}
-                        />
-                        <Text tone="secondary" variant="caption" testID={`${testID}-memo-manual`}>
-                            {t('commerce:cancel.manualSettlement')}
-                        </Text>
-                    </Stack>
+                    <Callout
+                        testID={`${testID}-result`}
+                        role="status"
+                        tone="success"
+                        title={t('commerce:cancel.doneTitle')}
+                        body={t('commerce:cancel.doneBody')}
+                    />
                 )}
             </Stack>
         </Dialog>

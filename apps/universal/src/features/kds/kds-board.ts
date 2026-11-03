@@ -43,10 +43,9 @@ import { todayIso } from '../commerce/dates.ts';
  *
  * ## Oldest first
  *
- * The endpoint answers newest first, which is right for a book somebody is reading and wrong for a
- * queue somebody is working: the ticket that has waited longest is the one that needs starting.
- * Incoming and In preparation are therefore reversed into oldest-first. Ready keeps newest first —
- * the thing just bumped is the thing being looked for.
+ * The ticket that has waited longest is the one that needs starting, so Incoming and In preparation
+ * run oldest first, as the display endpoint answers. Ready is newest first — the thing just bumped is
+ * the thing being looked for.
  *
  * ## Which branch's tickets — and why the answer is not the endpoint's `branch_id` filter
  *
@@ -57,7 +56,8 @@ import { todayIso } from '../commerce/dates.ts';
  * unattributed order from it, and a display that hides real tickets is worse than no display: the
  * food is still ordered, and nobody is cooking it.
  *
- * So the board asks the endpoint for the book and decides here, with {@link ticketBelongsToBranch}:
+ * So the display endpoint names no branch and the board decides here, with
+ * {@link ticketBelongsToBranch}:
  *
  * * `branchId === null` — nobody has said which kitchen. Whoever is looking at this wall is a
  *   kitchen that may cook it, so it is shown.
@@ -157,7 +157,7 @@ export function isUpcoming(order: KitchenOrder, now: Date): boolean {
 }
 
 /**
- * Splits one page of orders into the three columns, keeping only what this branch should see.
+ * Splits the board's orders into the three columns, keeping only what this branch should see.
  *
  * `cancelled` reaches none of them, and neither does another kitchen's attributed work.
  */
@@ -237,6 +237,35 @@ export function ticketAgeTone(minutes: number): BadgeTone {
     if (minutes >= KDS_LATE_MINUTES) return 'danger';
     if (minutes >= KDS_WARNING_MINUTES) return 'warning';
     return 'neutral';
+}
+
+/**
+ * Whether a placed ticket has waited past the kitchen's limit. Both figures are the server's, in
+ * minutes while a branch was open, so a client never works out opening hours.
+ */
+export function isAlarming(openMinutes: number, alarmAfterMinutes: number): boolean {
+    return openMinutes >= alarmAfterMinutes;
+}
+
+/** The tickets on this wall a sounding tone is about: placed, and this branch's or nobody's. */
+export function placedTicketIds(
+    orders: readonly KitchenOrder[],
+    branchId: BranchId | null,
+): readonly string[] {
+    return orders
+        .filter((order) => order.status === 'placed' && ticketBelongsToBranch(order, branchId))
+        .map((order) => String(order.id));
+}
+
+/**
+ * The tickets this page load has not met yet. Same rule as the bell's: before the first read
+ * (`seen === null`) nothing is new, so a reload never replays what is already on the wall.
+ */
+export function unseenTickets(
+    ids: readonly string[],
+    seen: ReadonlySet<string> | null,
+): readonly string[] {
+    return seen === null ? [] : ids.filter((id) => !seen.has(id));
 }
 
 /* ── identifiers used by tests and Playwright ────────────────────────────────────────────────── */

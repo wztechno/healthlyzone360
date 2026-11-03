@@ -1,4 +1,10 @@
-import { checkDeskPhone, dialFor, isBlankPhone, normaliseDeskPhone } from './desk-phone.ts';
+import {
+    checkDeskPhone,
+    deskSearchTerm,
+    dialFor,
+    isBlankPhone,
+    normaliseDeskPhone,
+} from './desk-phone.ts';
 
 describe('desk phone', () => {
     it('opens on the kitchen country code', () => {
@@ -46,5 +52,15 @@ describe('desk phone', () => {
         expect(normaliseDeskPhone('+961 03-123 456')).toBe('+9613123456');
         expect(normaliseDeskPhone('+961 70 123 456')).toBe('+96170123456');
         expect(normaliseDeskPhone('+1 555 0100 222')).toBe('+15550100222');
+    });
+});
+
+describe('deskSearchTerm', () => {
+    it('gives a number typed the local way the kitchen code, and leaves a name alone', () => {
+        expect(deskSearchTerm('70 123 456', '+961')).toBe('+96170123456');
+        expect(deskSearchTerm('03-123 456', '+961')).toBe('+9613123456');
+        expect(deskSearchTerm('Layla', '+961')).toBe('Layla');
+        expect(deskSearchTerm('+96170123456', '+961')).toBe('+96170123456');
+        expect(deskSearchTerm('70 123 456', null)).toBe('70 123 456');
     });
 });

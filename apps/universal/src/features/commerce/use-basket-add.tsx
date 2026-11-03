@@ -1,5 +1,5 @@
 import { Button, Dialog, useToast } from '@healthy360/design-system';
-import type { ApiFailure, Cart, MarketplaceMeal } from '@healthy360/api-client/contracts';
+import type { ApiFailure, Cart, DishLineChoices, MarketplaceMeal } from '@healthy360/api-client/contracts';
 import type { KitchenId } from '@healthy360/domain-types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult } from '@tanstack/react-query';
@@ -115,6 +115,8 @@ export interface BasketMeal {
     readonly kitchenId?: KitchenId | undefined;
     readonly allergens?: readonly string[] | undefined;
     readonly name?: string | undefined;
+    /** What the meal page chose: a portion, its free options, a note. A grid's Add has none. */
+    readonly choices?: DishLineChoices | undefined;
 }
 
 export interface BasketAdd {
@@ -196,7 +198,11 @@ function useBasketAddMutation(): UseMutationResult<Cart, unknown, AddVariables> 
                           meal.kitchenId === undefined ? {} : { kitchenId: meal.kitchenId },
                       )
                   ).id;
-            return repositories.commerce.addCartItem(cartId, { mealId: meal.id, quantity });
+            return repositories.commerce.addCartItem(cartId, {
+                mealId: meal.id,
+                quantity,
+                ...meal.choices,
+            });
         },
         onSuccess: (cart) => {
             // Written rather than invalidated: the screen reports the new item count in the same
@@ -249,7 +255,12 @@ export function useBasketAdd({
         href: '/sign-in' | '/register' | '/verify-email',
         { meal, quantity }: Asked,
     ) => {
-        writePendingAdd({ mealId: meal.id, quantity, kitchenId: meal.kitchenId });
+        writePendingAdd({
+            mealId: meal.id,
+            quantity,
+            kitchenId: meal.kitchenId,
+            choices: meal.choices,
+        });
         if (href === '/verify-email') {
             router.push(withReturnTo(href, here) as never);
             return;

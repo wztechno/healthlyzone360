@@ -4,13 +4,21 @@ declare(strict_types=1);
 
 namespace Healthy360\Orders\Presenters;
 
+use Carbon\CarbonImmutable;
+use Healthy360\Audit\Enums\PurposeOfUse;
+use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Orders\Contracts\OrderPlanDays;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
 use Healthy360\Orders\Models\OrderPaymentReceipt;
+use Healthy360\Orders\Models\OrderRefund;
 use Healthy360\Orders\Services\OrderAmendability;
 use Healthy360\Orders\Services\OrderWindowNames;
 use Healthy360\Orders\Services\PriceOverride;
+use Healthy360\Support\Enums\DataClassification;
+use Healthy360\Tenancy\TenantContext;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The two wire shapes of an order, built separately on purpose.
@@ -60,6 +68,8 @@ use Healthy360\Orders\Services\PriceOverride;
  *   was made, which route to market took the money, and which slice of the
  *   delivery map the address fell into. All three are the kitchen's operating
  *   arrangements; none of them changes anything the customer can do.
+ * * **`allergy`** — what they declared is already theirs on their own profile,
+ *   and the note and the acknowledgement are the kitchen's working record.
  *
  * The **amounts are shown to both**, and that is not an oversight either.
  * `Order` classifies them `Internal` rather than `Confidential` because what
@@ -95,6 +105,8 @@ final class OrderPresenter
         private readonly OrderWindowNames $windows,
         private readonly OrderAmendability $amendability,
         private readonly OrderPlanDays $plans,
+        private readonly AuditRecorder $audit,
+        private readonly TenantContext $context,
     ) {}
 
     /**
@@ -116,7 +128,7 @@ final class OrderPresenter
      * The receipt.
      *
      * @param  iterable<int, OrderLine>  $lines
-     * @param  array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null}|null  $run  the order's delivery run, from `OrderDeliveryRuns`
+     * @param  array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null, failed_at: string|null, failure_reason: string|null, failure_note: string|null, courier_name: string|null}|null  $run  the order's delivery run, from `OrderDeliveryRuns`
      * @return array{
      *     id: string,
      *     order_number: string,
@@ -167,7 +179,9 @@ final class OrderPresenter
      *         line_total_minor: int,
      *         currency_code: string,
      *         allergens: list<array{allergen_code: string, containment: string}>,
-     *         pack_summary: array<string, mixed>|null
+     *         pack_summary: array<string, mixed>|null,
+     *         options: list<array<string, string|null>>,
+     *         note: string|null
      *     }>,
      *     created_at: string|null
      * }
@@ -225,14 +239,57 @@ final class OrderPresenter
             // The two moments of the drive that are the customer's to know
             // (HA-19): when the driver collected the food and when they handed
             // it over. Times only — who drove it is an employee's name, which
-            // this shape never carries (see `placed_on_behalf_by` above).
-            'out_for_delivery_at' => $run['picked_up_at'] ?? null,
+            // this shape never carries (see `placed_on_behalf_by` above). A
+            // failed run has come back, so it is no longer out for delivery.
+            'out_for_delivery_at' => ($run['status'] ?? null) === 'failed' ? null : ($run['picked_up_at'] ?? null),
             'delivered_at' => $run['delivered_at'] ?? null,
             'cancelled_at' => $order->cancelled_at?->toIso8601String(),
             'cancellation_reason' => $order->cancellation_reason?->value,
             'line_count' => count($presented),
             'lines' => $presented,
             'created_at' => $order->created_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * A ticket as the line reads it: the same shape, no money and no street
+     * address. Zeros and nulls rather than absent keys, so one contract serves
+     * both audiences; the wall draws none of these fields. Every answer a cook
+     * can reach goes through this: the wall, and the Start and Ready presses.
+     *
+     * @param  array<string, mixed>  $ticket
+     * @return array<string, mixed>
+     */
+    public function forTheLine(array $ticket): array
+    {
+        /** @var array<string, mixed> $delivery */
+        $delivery = $ticket['delivery'];
+
+        /** @var list<array<string, mixed>> $lines */
+        $lines = $ticket['lines'];
+
+        return [
+            ...$ticket,
+            'subtotal_minor' => 0,
+            'delivery_fee_minor' => 0,
+            'total_minor' => 0,
+            'delivery' => [
+                ...$delivery,
+                'line_one' => null,
+                'line_two' => null,
+                'building' => null,
+                'floor' => null,
+                'apartment' => null,
+                'directions' => null,
+                'contact_point_id' => null,
+            ],
+            'lines' => array_map(static fn (array $line): array => [
+                ...$line,
+                'unit_price_minor' => 0,
+                'line_total_minor' => 0,
+                'price_list_id' => null,
+                'price_list_item_id' => null,
+            ], $lines),
         ];
     }
 
@@ -252,8 +309,12 @@ final class OrderPresenter
      * still edit this order. A list passes it in, worked out for the whole page
      * at once; a single order leaves it null and it is asked here.
      *
+     * `allergy` is served to anyone who may open the order, because the cook is
+     * the audience it was written for. It is `SpecialCategory`, so `allergy()`
+     * records the read.
+     *
      * @param  iterable<int, OrderLine>  $lines
-     * @param  array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null}|null  $run  the order's delivery run, from `OrderDeliveryRuns`
+     * @param  array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null, failed_at: string|null, failure_reason: string|null, failure_note: string|null, courier_name: string|null}|null  $run  the order's delivery run, from `OrderDeliveryRuns`
      * @return array{
      *     id: string,
      *     order_number: string,
@@ -287,7 +348,8 @@ final class OrderPresenter
      *         window_code: string|null,
      *         window_name_en: string|null,
      *         window_name_ar: string|null,
-     *         requested_date: string|null
+     *         requested_date: string|null,
+     *         picked_up_at: string|null
      *     },
      *     placed_at: string,
      *     confirmed_at: string|null,
@@ -296,11 +358,13 @@ final class OrderPresenter
      *     fulfilled_at: string|null,
      *     cancelled_at: string|null,
      *     cancellation_reason: string|null,
-     *     delivery_run: array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null}|null,
+     *     cancellation_disposition: string|null,
+     *     delivery_run: array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null, failed_at: string|null, failure_reason: string|null, failure_note: string|null, courier_name: string|null}|null,
      *     created_by: string|null,
      *     placed_on_behalf_by: string|null,
      *     lock_version: int,
      *     amendable: bool,
+     *     allergy: array{severe: bool, items: list<array{allergen_code: string, severity: string, notes: string|null, conflicts_with_line: list<string>}>, note: string|null, acknowledged_at: string|null}|null,
      *     line_count: int,
      *     lines: list<array{
      *         id: string,
@@ -315,6 +379,8 @@ final class OrderPresenter
      *         currency_code: string,
      *         allergens: list<array{allergen_code: string, containment: string}>,
      *         pack_summary: array<string, mixed>|null,
+     *         options: list<array<string, string|null>>,
+     *         note: string|null,
      *         price_list_id: string|null,
      *         price_list_item_id: string|null
      *     }>,
@@ -381,6 +447,9 @@ final class OrderPresenter
                 'window_name_en' => $this->windows->for($order->organisation_id, $order->delivery_window_code)['en'] ?? null,
                 'window_name_ar' => $this->windows->for($order->organisation_id, $order->delivery_window_code)['ar'] ?? null,
                 'requested_date' => $order->requested_delivery_date?->toDateString(),
+                // When a driver or a courier took it. Set means nobody can cancel
+                // it any more, and every reader that decides that reads it here.
+                'picked_up_at' => $run['picked_up_at'] ?? null,
             ],
             'placed_at' => $order->placed_at->toIso8601String(),
             'confirmed_at' => $order->confirmed_at?->toIso8601String(),
@@ -389,6 +458,7 @@ final class OrderPresenter
             'fulfilled_at' => $order->fulfilled_at?->toIso8601String(),
             'cancelled_at' => $order->cancelled_at?->toIso8601String(),
             'cancellation_reason' => $order->cancellation_reason?->value,
+            'cancellation_disposition' => $order->cancellation_disposition?->value,
             // The delivery run, when there is one (HA-19): who drove it and when
             // they were given it, collected it and handed it over. Null for a
             // pickup or counter order, and for a delivery order not yet
@@ -404,11 +474,45 @@ final class OrderPresenter
             // Whether the Order Desk may still edit it. The server decides, so
             // the button and the edit it leads to cannot disagree.
             'amendable' => $amendable,
+            'allergy' => $this->allergy($order),
             'line_count' => count($presented),
             'lines' => $presented,
             'plan_day' => $this->planDay((string) $order->getKey(), $held),
             'created_at' => $order->created_at?->toIso8601String(),
             'updated_at' => $order->updated_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * What the kitchen must know about who is eating, or null when nothing was
+     * declared and nothing noted.
+     *
+     * Health data read by staff: `requiresPurposeOfUse()` asks for an access event
+     * stating why, and it is daily rather than per read because this shape is what
+     * the kitchen display polls.
+     *
+     * @return array{severe: bool, items: list<array{allergen_code: string, severity: string, notes: string|null, conflicts_with_line: list<string>}>, note: string|null, acknowledged_at: string|null}|null
+     */
+    private function allergy(Order $order): ?array
+    {
+        if ($order->allergy_snapshot === null && $order->allergy_note === null) {
+            return null;
+        }
+
+        $this->audit->recordAccessDaily(
+            'order.allergy_read',
+            PurposeOfUse::OrderFulfilment,
+            DataClassification::SpecialCategory,
+            $this->context->userId(),
+            'order',
+            (string) $order->getKey(),
+        );
+
+        return [
+            'severe' => $order->hasSevereAllergy(),
+            'items' => $order->allergy_snapshot ?? [],
+            'note' => $order->allergy_note,
+            'acknowledged_at' => $order->allergy_acknowledged_at?->toIso8601String(),
         ];
     }
 
@@ -534,6 +638,40 @@ final class OrderPresenter
     }
 
     /**
+     * An order's refund ledger and where it stands. A name is null for a person
+     * with no profile yet.
+     *
+     * @param  array{received_minor: int, refunded_minor: int, corrected_minor: int, pending_minor: int, refundable_minor: int, window_closes_at: CarbonImmutable|null}  $position
+     * @param  EloquentCollection<int, OrderRefund>  $entries
+     * @return array<string, mixed>
+     */
+    public function refundLedger(array $position, EloquentCollection $entries): array
+    {
+        $names = DB::table('user_profiles')
+            ->whereIn('user_id', $entries->pluck('requested_by')->merge($entries->pluck('decided_by'))->filter()->unique()->values())
+            ->selectRaw("user_id, nullif(trim(coalesce(given_name, '') || ' ' || coalesce(family_name, '')), '') as name")
+            ->pluck('name', 'user_id');
+
+        return [
+            ...$position,
+            'window_closes_at' => $position['window_closes_at']?->toIso8601String(),
+            'entries' => $entries->map(fn (OrderRefund $entry): array => [
+                'id' => (string) $entry->getKey(),
+                'kind' => $entry->kind->value,
+                'status' => $entry->status->value,
+                'method' => $entry->method->value,
+                'amount_minor' => $entry->amount_minor,
+                'currency_code' => $entry->currency_code,
+                'reason' => $entry->reason,
+                'requested_by_name' => $names[$entry->requested_by] ?? null,
+                'requested_at' => $entry->requested_at->toIso8601String(),
+                'decided_by_name' => $entry->decided_by === null ? null : ($names[$entry->decided_by] ?? null),
+                'decided_at' => $entry->decided_at?->toIso8601String(),
+            ])->values()->all(),
+        ];
+    }
+
+    /**
      * `quantity` is the decimal **string** the column holds, never coerced to a
      * number: it is the figure the line total was computed from, and a receipt
      * that rendered 0.35 kg as 0.34999999 would not reconcile against the
@@ -551,7 +689,9 @@ final class OrderPresenter
      *     line_total_minor: int,
      *     currency_code: string,
      *     allergens: list<array{allergen_code: string, containment: string}>,
-     *     pack_summary: array<string, mixed>|null
+     *     pack_summary: array<string, mixed>|null,
+     *     options: list<array<string, string|null>>,
+     *     note: string|null
      * }
      */
     private function customerLine(OrderLine $line): array
@@ -569,6 +709,8 @@ final class OrderPresenter
             'currency_code' => $line->currency_code,
             'allergens' => $line->allergens,
             'pack_summary' => $line->pack_summary,
+            'options' => $line->selected_options ?? [],
+            'note' => $line->note,
         ];
     }
 
@@ -586,6 +728,8 @@ final class OrderPresenter
      *     currency_code: string,
      *     allergens: list<array{allergen_code: string, containment: string}>,
      *     pack_summary: array<string, mixed>|null,
+     *     options: list<array<string, string|null>>,
+     *     note: string|null,
      *     price_list_id: string|null,
      *     price_list_item_id: string|null
      * }
@@ -605,6 +749,8 @@ final class OrderPresenter
             'currency_code' => $line->currency_code,
             'allergens' => $line->allergens,
             'pack_summary' => $line->pack_summary,
+            'options' => $line->selected_options ?? [],
+            'note' => $line->note,
             'price_list_id' => $line->price_list_id,
             'price_list_item_id' => $line->price_list_item_id,
         ];

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Healthy360\Orders\Contracts;
 
+use Healthy360\Delivery\Enums\DeliveryFailureReason;
 use Healthy360\Orders\Models\Order;
+use Healthy360\Support\Api\Exceptions\ApiException;
 
 /**
  * The seam through which a confirmed delivery order becomes a job somebody has
@@ -37,20 +39,27 @@ use Healthy360\Orders\Models\Order;
  * unique index on `delivery_jobs.order_id` rather than on a read-then-write,
  * which is the only version of the guarantee that survives concurrency.
  *
- * **There is deliberately no reverse.** `cancel()` calls nothing here, unlike
- * `OrderStockConsumption::restore()`: stock is a quantity that must balance, and
- * a delivery job is a *record of work* whose own status lifecycle belongs to the
- * delivery module. A cancelled order keeps its job row, and cancelling the run
- * is a dispatch decision made on the dispatch board — deleting it from under
- * that board would erase the fact that a driver was once sent.
+ * **A cancelled order closes its run.** This used to be declined, on the ground
+ * that calling a run off was a decision for the dispatch board. The live audit
+ * reversed that: an order cancelled after Ready stayed on offer to drivers, and
+ * one could collect food for a customer who had been told it was off. So
+ * {@link cancel()} runs first inside the cancellation's own transaction. Nothing
+ * is erased, the row stays as the record that a run existed, and food already on
+ * the road refuses the cancellation rather than being called back by a column.
  *
  * **Fulfilment does reach the run (HA-29).** The kitchen can close a delivery
  * order by hand — the driver's phone died, a colleague drove it — and an order
  * the book calls delivered over a run still open is a driver claiming, picking
  * up and carrying food that has already arrived. {@see close()} marks the run
- * delivered in the fulfil's own transaction. It is not the reverse the
- * paragraph above declines: nothing is erased, the run simply ends where the
- * order did.
+ * delivered in the fulfil's own transaction, and for the same reason: the run
+ * ends where the order did. The one run it refuses is a failed one: food that came
+ * back cannot be quietly marked delivered, and has to be sent out again first.
+ *
+ * **A run can come back.** {@link fail()} is the door nobody answered, and it
+ * leaves the order `confirmed`. {@link reopen()} is the manager sending it out
+ * again, and {@link handToCourier()} is a run leaving with somebody the kitchen
+ * does not employ. All three are refused from the wrong state rather than ignored:
+ * unlike a retried confirm, each is somebody asking for something to happen.
  */
 interface DeliveryJobProjection
 {
@@ -69,7 +78,46 @@ interface DeliveryJobProjection
      *
      * A no-op for a run already delivered or cancelled — the driver's own
      * Mark delivered reaches here after it has closed the run — and for an
-     * order that has none.
+     * order that has none. Refuses a failed run, rolling the fulfil back.
+     *
+     * @throws ApiException `resource.conflict`
      */
     public function close(Order $order): void;
+
+    /**
+     * End this order's run because the order was cancelled, so no driver can
+     * claim it or pick it up.
+     *
+     * A no-op for a run already closed, a failed one included, and for an order
+     * that has none. Throws when the food is on the road, refusing the caller's
+     * whole transaction: a run picked up and not closed ends as delivered or
+     * failed, never cancelled.
+     *
+     * @throws ApiException `order.out_for_delivery`
+     */
+    public function cancel(Order $order): void;
+
+    /**
+     * The run came back: `failed`, off every sheet, with why. Only from `in_transit`.
+     *
+     * @throws ApiException `resource.conflict`
+     */
+    public function fail(Order $order, DeliveryFailureReason $reason, ?string $note): void;
+
+    /**
+     * Send a failed run out again: back to `pending` and `awaiting_assignment`,
+     * with the driver, the pick-up, the failure and any courier cleared. Only from
+     * `failed`. The order's `ready_at` stands, so drivers are offered it at once.
+     *
+     * @throws ApiException `resource.conflict`
+     */
+    public function reopen(Order $order): void;
+
+    /**
+     * A courier took the food: `in_transit`, picked up now, with no driver. Only
+     * from a run nobody has picked up.
+     *
+     * @throws ApiException `resource.conflict`
+     */
+    public function handToCourier(Order $order, string $name, ?string $reference, ?int $feeMinor): void;
 }

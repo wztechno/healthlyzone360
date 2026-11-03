@@ -3,7 +3,7 @@
     "common": {
         "listSeparator": ", ",
         "cancel": "Cancel",
-        "noPayment": "No payment is taken anywhere in this prototype.",
+        "noPayment": "Nothing is charged online. You pay the kitchen directly.",
         "close": "Close"
     },
     "validation": {
@@ -40,7 +40,21 @@
         "subscription_no_delivery_days": "No delivery days have been chosen, so this subscription would never deliver.",
         "subscription_delivery_day_unavailable": "This plan does not deliver on one of the days you chose.",
         "subscription_unknown_slot": "That delivery window is not one this kitchen offers.",
-        "checkout_window_not_offered": "The delivery zone for this address does not offer that slot. Choose another."
+        "checkout_window_not_offered": "The delivery zone for this address does not offer that slot. Choose another.",
+        "checkout_closed": "The kitchen is closed on that day. Choose another date.",
+        "checkout_date_in_the_past": "That delivery date has already passed. Choose a later one.",
+        "checkout_cut_off_passed": "The kitchen's cut-off for that day has passed. Choose a later date.",
+        "checkout_kitchen_closed": "This kitchen is not taking orders at the moment.",
+        "checkout_window_ended": "That delivery slot has already ended today. Choose a later slot or another day.",
+        "checkout_lead_time_not_met": "That delivery slot is too soon for the kitchen to prepare your order. Choose a later slot or another day.",
+        "checkout_below_zone_minimum": "This order is below the minimum for delivery to this address. Add more to your basket.",
+        "checkout_item_unavailable_on_date": "Something in your basket is not available on that day. Choose another date or remove it.",
+        "checkout_item_not_assessed": "Something in your basket is not on sale right now because its allergens have not been checked. Remove it to continue.",
+        "checkout_quality_hold": "Something in your basket is not available right now. Remove it to continue.",
+        "checkout_kitchen_not_open": "This kitchen is not open for orders yet.",
+        "checkout_kitchen_paused": "This kitchen has paused new orders for a short while. Please try again soon.",
+        "checkout_window_full": "That delivery slot is full. Choose another slot or another day.",
+        "checkout_stock_short": "Some of what is in your basket is running low. The kitchen may contact you if it cannot make all of it."
     },
     "address": {
         "label": "Name for this address",
@@ -412,14 +426,8 @@
         "consequenceTitle": "What stops",
         "consequenceBody_one": "Your 1 remaining delivery day will not be delivered.",
         "consequenceBody_other": "Your {{count}} remaining delivery days will not be delivered.",
-        "estimate_one": "We will record a credit of {{amount}} — 1 unused day at {{perDay}}.",
-        "estimate_other": "We will record a credit of {{amount}} — {{count}} unused days at {{perDay}}.",
-        "noRefund": "There is no unused balance left, so nothing will be credited.",
-        "manualSettlement": "A credit is recorded against your account and settled by hand. No money moves automatically.",
         "doneTitle": "Subscription cancelled",
-        "doneMemo_one": "A credit of {{amount}} has been recorded for 1 unused day.",
-        "doneMemo_other": "A credit of {{amount}} has been recorded for {{count}} unused days.",
-        "doneNoMemo": "There was no unused balance, so nothing was credited."
+        "doneBody": "No more deliveries will be made."
     },
     "weekdays": {
         "open": "Change delivery days",

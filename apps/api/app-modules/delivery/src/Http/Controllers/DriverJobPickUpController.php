@@ -7,6 +7,9 @@ namespace Healthy360\Delivery\Http\Controllers;
 use Carbon\CarbonImmutable;
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Delivery\Models\DeliveryJob;
+use Healthy360\Orders\Enums\CustomerOrderEvent;
+use Healthy360\Orders\Models\Order;
+use Healthy360\Orders\Services\CustomerOrderNotices;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -30,14 +33,19 @@ use Illuminate\Support\Facades\DB;
  * **Only the driver whose run it is, and only once.** `driver_user_id = me AND
  * status = 'assigned'` travels inside the `UPDATE`, the claim's own shape: a run
  * that is somebody else's or does not exist is `404`, and one already picked up
- * or delivered is `409`. No `If-Match`, for the reason `DeliveryJob` gives for
- * deliver: nobody races a driver for their own job.
+ * or delivered is `409`. No `If-Match`: nobody races a driver for their own job.
+ *
+ * **A cancelled order racing this has one winner.** The `status = 'assigned'`
+ * guard and `DeliveryJobProjector::cancel()` contend for the same row, so a run
+ * cancelled a moment ago finds nothing to update here and is refused, and a run
+ * picked up a moment ago refuses the cancellation.
  */
 final class DriverJobPickUpController
 {
     public function __construct(
         private readonly AuditRecorder $audit,
         private readonly TenantContext $context,
+        private readonly CustomerOrderNotices $notices,
     ) {}
 
     /**
@@ -53,8 +61,9 @@ final class DriverJobPickUpController
             throw new ApiException(ErrorCode::ResourceNotFound);
         }
 
-        // Closed by the kitchen by hand (HA-29), or delivered already.
-        if (in_array($record->status, ['delivered', 'cancelled'], true)) {
+        // Closed by the kitchen by hand (HA-29), delivered already, or failed: a
+        // failed run goes out again only through a manager's re-deliver.
+        if (in_array($record->status, ['delivered', 'cancelled', 'failed'], true)) {
             throw new ApiException(ErrorCode::ResourceConflict, 'This run is already closed.');
         }
 
@@ -78,10 +87,16 @@ final class DriverJobPickUpController
             ]);
 
         if ($updated === 0) {
-            throw new ApiException(ErrorCode::ResourceConflict, 'This run has already been picked up.');
+            throw new ApiException(ErrorCode::ResourceConflict, 'This run is no longer waiting to be picked up.');
         }
 
         $record->refresh();
+
+        $order = Order::query()->whereKey($record->order_id)->first();
+
+        if ($order instanceof Order) {
+            $this->notices->send($order, CustomerOrderEvent::OutForDelivery);
+        }
 
         $this->audit->record(
             'delivery.job_picked_up',

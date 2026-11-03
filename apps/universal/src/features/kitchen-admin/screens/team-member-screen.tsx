@@ -1,8 +1,13 @@
 import type { MembershipRoleAssignment, PermissionDomain } from '@healthy360/api-client/contracts';
-import { isReactivatableMember, isWorkingMember } from '@healthy360/api-client/contracts';
+import {
+    apiFailure,
+    isReactivatableMember,
+    isWorkingMember,
+} from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
+    Callout,
     Cascade,
     Dialog,
     ErrorState,
@@ -20,8 +25,6 @@ import { useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
-
-import { apiFailure } from '@healthy360/api-client/contracts';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import {
@@ -257,13 +260,35 @@ function TeamMemberEditor() {
         );
     }
 
+    // `record === undefined` with no failure means the row vanished between the list and this
+    // screen — somebody else ended the membership. It reads as the same bad link, with a way back.
+    if (
+        failure?.code === 'resource.not_found' ||
+        (failure === null && (record === undefined || name === null))
+    ) {
+        return (
+            <Callout
+                testID="kitchen-team-member-missing"
+                role="alert"
+                tone="warning"
+                title={t('accessAdmin:member.notFoundTitle')}
+                body={t('accessAdmin:member.notFoundBody')}
+                actions={
+                    <Button
+                        testID="kitchen-team-member-missing-back"
+                        variant="quiet"
+                        label={t('accessAdmin:member.backToList')}
+                        onPress={back.leave}
+                    />
+                }
+            />
+        );
+    }
+
     if (failure !== null || record === undefined || name === null) {
         return (
             <ErrorState
                 testID="kitchen-team-member-error"
-                // `record === undefined` with no failure means the row vanished between the list and
-                // this screen — somebody else ended the membership. Answered as a not-found rather
-                // than as a blank page, which is what the reader would otherwise be shown.
                 failure={failure ?? apiFailure('resource.not_found')}
                 onRetry={() => {
                     void member.refetch();

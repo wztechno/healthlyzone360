@@ -666,6 +666,34 @@ describe('KitchenProfileScreen', () => {
         }));
     }
 
+    it('reads a kitchen by its slug rather than loading forever', async () => {
+        const bySlug = jest.fn(async () => Promise.resolve(VERDANT));
+
+        await renderStubScreen(<KitchenProfileScreen kitchenId="verdant-kitchen" />, {
+            repositories: { marketplace: { getKitchen: bySlug, listMeals } },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-hero-title')).toHaveTextContent('Verdant Kitchen');
+        });
+        expect(bySlug).toHaveBeenCalledWith('verdant-kitchen');
+    });
+
+    it('says when a timed pause ends, and says nothing when there is none', async () => {
+        await renderStubScreen(<KitchenProfileScreen kitchenId={String(VERDANT.id)} />, {
+            repositories: {
+                marketplace: {
+                    getKitchen: async () => ({ ...VERDANT, pausedUntil: '2026-11-03T15:00:00Z' }),
+                    listMeals,
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-paused')).toBeTruthy();
+        });
+    });
+
     it('opens on the canopy hero, the standing facts and the order panel', async () => {
         await renderStubScreen(<KitchenProfileScreen kitchenId={String(VERDANT.id)} />, {
             repositories: { marketplace: { getKitchen, listMeals } },
@@ -2165,6 +2193,52 @@ describe('the shop’s staff view', () => {
         expect(getCart).not.toHaveBeenCalled();
         expect(addCartItem).not.toHaveBeenCalled();
         expect(readPendingAdd()).toBeNull();
+    });
+});
+
+describe('the customer area while the router reports the bare area', () => {
+    /*
+     * What a reload does. The gate holds the area's navigator back until the session is known, and
+     * until it mounts the router reads `/customer` with no params, though the address was deeper.
+     */
+    const restoring = () => {
+        routerMock.__set({ pathname: '/customer', params: {} });
+    };
+
+    it.each(['/customer/account', '/customer/checkout', '/customer/orders/order-1'])(
+        'keeps %s on a reload',
+        async (pathname) => {
+            routerMock.__set({ pathname });
+            await renderStubScreen(<CustomerLayout />, { session: CONSUMER_SESSION });
+
+            await act(async () => {
+                restoring();
+            });
+
+            await screen.findByTestId('marketplace-shell');
+            expect(routerMock.__redirect).not.toHaveBeenCalledWith('/discover');
+        },
+    );
+
+    it('keeps a business buyer on the wholesale checkout on a reload', async () => {
+        routerMock.__set({ pathname: '/customer/checkout', params: { channel: 'wholesale' } });
+        await renderStubScreen(<CustomerLayout />, { session: BUSINESS_BUYER_SESSION });
+
+        await act(async () => {
+            restoring();
+        });
+
+        await screen.findByTestId('marketplace-workspaces-button');
+        expect(routerMock.__redirect).not.toHaveBeenCalledWith('/discover');
+    });
+
+    it('still forwards the bare link itself', async () => {
+        routerMock.__set({ pathname: '/customer' });
+        await renderStubScreen(<CustomerLayout />, { session: CONSUMER_SESSION });
+
+        await waitFor(() => {
+            expect(routerMock.__redirect).toHaveBeenCalledWith('/discover');
+        });
     });
 });
 

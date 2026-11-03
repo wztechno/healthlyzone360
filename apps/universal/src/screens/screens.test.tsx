@@ -766,6 +766,24 @@ describe('DevicesScreen', () => {
         expect(screen.queryByTestId('devices-unrecognised')).toBeNull();
     });
 
+    it('signs out every other session after a confirmation, and leaves this one', async () => {
+        const revoke = jest.fn(() => Promise.resolve());
+
+        await renderStubScreen(<DevicesScreen />, {
+            session: dietitianSession(),
+            repositories: { devices: { list: async () => [LAPTOP, PHONE, TABLET], revoke } },
+        });
+        await waitFor(() => screen.getByTestId('devices-revoke-others'));
+
+        await fireEvent.press(screen.getByTestId('devices-revoke-others'));
+        await fireEvent.press(screen.getByTestId('revoke-others-dialog-confirm'));
+
+        await waitFor(() => {
+            expect(revoke).toHaveBeenCalledTimes(2);
+        });
+        expect(revoke).not.toHaveBeenCalledWith(LAPTOP.id);
+    });
+
     it('asks for confirmation before revoking', async () => {
         await renderStubScreen(<DevicesScreen />, {
             session: dietitianSession(),

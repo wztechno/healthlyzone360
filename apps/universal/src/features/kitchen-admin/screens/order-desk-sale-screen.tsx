@@ -15,7 +15,9 @@ import {
     Badge,
     Button,
     Callout,
+    Checkbox,
     DatePickerButton,
+    Drawer,
     EmptyState,
     ErrorState,
     FormSection,
@@ -45,10 +47,12 @@ import {
 import { useKitchenOrderQuery } from '../../../data/kitchen-orders-hooks.ts';
 import {
     useAmendOrderDeskOrderMutation,
+    useDishChoicesQuery,
     useOrderDeskDeliveryWindowsQuery,
     useOrderDeskDriversQuery,
     useOrderDeskQuoteQuery,
     usePlaceOrderDeskSaleMutation,
+    useSetItemOffTodayMutation,
 } from '../../../data/order-desk-hooks.ts';
 import { EntityImage } from '../../../media/entity-image.tsx';
 import { todayIso } from '../../commerce/dates.ts';
@@ -56,19 +60,26 @@ import { formatMoney } from '../../marketplace/format.ts';
 import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
-import { ORDER_CREATE_ON_BEHALF_PERMISSION, ORDER_MANAGE_PERMISSION } from '../entity-registry.ts';
+import {
+    CATALOGUE_MANAGE_PERMISSION,
+    ORDER_CREATE_ON_BEHALF_PERMISSION,
+    ORDER_MANAGE_PERMISSION,
+} from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { ChoiceTiles } from '../choice-tiles.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs } from '../record-form-opening.tsx';
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
-import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
+import { allergenLabel, kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import type { BasketLine } from '../order-desk/basket.ts';
+import { DishChoiceFields, dishOptionsLine } from '../../../ui/dish-choices.tsx';
+import type { DishChoiceValue } from '../../../ui/dish-choices.tsx';
 import {
     MAX_LINE_QUANTITY,
     addItem,
     isQuotableBasket,
     basketKey,
+    changeLine,
     lineKey,
     quantityAsNumber,
     quantityFromNumber,
@@ -81,6 +92,7 @@ import {
     initialSaleState,
     needsAddress,
     needsCustomer,
+    partyChosen,
     paymentMethodsFor,
     saleShortfall,
     saleStateFromOrder,
@@ -91,6 +103,7 @@ import {
     withCustomer,
     withFulfilmentType,
     withPaymentMethod,
+    withWalkIn,
 } from '../order-desk/sale-state.ts';
 import { useDebouncedValue } from '../order-desk/use-debounced-value.ts';
 
@@ -103,12 +116,16 @@ import { useDebouncedValue } from '../order-desk/use-debounced-value.ts';
  * is one page now, laid out the way `4f` draws the till: the menu as a grid of products, tapped onto
  * a ticket that runs beside it.
  *
+ * The Customer card opens the page, above both columns, and the menu stays shut until it is
+ * answered: somebody named, or an explicit Walk-in. The menu has to know who it is for, because
+ * each tile marks what that customer is allergic to (the shelf quote's `allergenConflicts`).
+ *
  * The page has two stages, and the ticket stays beside both. In the **menu** stage the agent picks
  * the food and the ticket's one button is Charge. Charge opens the **checkout** stage in the
  * menu's column: a Back button, then how the order leaves — counter, collection or delivery, three
- * cards with none chosen yet. A counter sale needs nothing else; a **collection** opens a Customer
- * card and a **delivery** a Customer card and an Address card, each folding to one line once it is
- * answered. Only once the kind is chosen does the ticket offer the payment methods and the button
+ * cards with none chosen yet. A counter sale needs nothing else; a **collection** must name a
+ * customer, so a walk-in reopens that card, and a **delivery** also opens an Address card, each
+ * folding to one line once it is answered. Only once the kind is chosen does the ticket offer the payment methods and the button
  * that places the sale, and it says what is still missing — `saleShortfall` in
  * `order-desk/sale-state.ts`, which also owns what choosing the kind clears. The stage is this
  * screen's own state, not the sale's: emptying the ticket goes back to the menu.
@@ -143,12 +160,19 @@ import { useDebouncedValue } from '../order-desk/use-debounced-value.ts';
  * (`order-desk/sale-customer.tsx`). A refused sale or edit stays on the ticket, beside the button
  * that was pressed, with the edit's own reasons and its conflict.
  *
+ * ## Allergies at the desk
+ *
+ * Any sale can take a note. What a named customer declared is said on their card as soon as they
+ * are chosen. Their allergen conflicts come back on both quotes, beside the refusals rather than
+ * among them: a tile says so and can still be tapped, and the sale can go ahead once the agent ticks
+ * that the customer was told. The tick is about the basket it was given for, so changing the food or the customer clears
+ * it, and an edit asks again because the server re-checks every edit.
+ *
  * ## What the design draws that this does not
  *
  * - **VAT.** The quote carries a subtotal, an optional fee and a total — no tax line. A tax figure
  *   worked out here would be the one number on the ticket the server never agreed to.
  * - **A ticket number.** The order number exists once the order does.
- * - **+ Customer on a counter sale.** Counter sales are anonymous in v1; `sale-state.ts` says why.
  * - **Packs.** The wire addresses a pack by `catalogue_item_variant_id`, and the catalogue listing
  *   exposes pack variants by `code` with no identifier — so the menu sells the plain article, and the
  *   basket keys on `(article, pack)` anyway so that packs land as a menu change rather than a rewrite.
@@ -250,6 +274,7 @@ const SHORTFALL_KEYS: Readonly<Record<Exclude<SaleShortfall, 'items'>, string>> 
     customer: 'kitchen:desk.sale.shortfall.customer',
     address: 'kitchen:desk.sale.shortfall.address',
     reference: 'kitchen:desk.sale.shortfall.reference',
+    allergy: 'kitchen:desk.sale.shortfall.allergy',
 };
 
 /** One button on the menu. */
@@ -291,10 +316,17 @@ function Sale() {
      * is this screen's to remember, and the ticket offers no payment until it is.
      */
     const [kindChosen, setKindChosen] = useState(false);
+    /**
+     * The schedule's day, for a new sale's quote. Held here because the schedule is worked out from
+     * the quote's own offered slots, and kept in step during render below.
+     */
+    const [quotedDay, setQuotedDay] = useState<string | null>(null);
     const [section, setSection] = useState<MenuSection>('meals');
     const [query, setQuery] = useState('');
     /** The counter sale just rung up, said on the ticket until the next tap starts another. */
     const [sold, setSold] = useState<KitchenOrder | null>(null);
+    /** Bumped by each counter sale, so the next customer starts on an empty search. */
+    const [saleNumber, setSaleNumber] = useState(0);
     /*
      * The body row's width, read from the node rather than from `onLayout`: on the web `onLayout`
      * is a `ResizeObserver` that delivered one early width and nothing after it, so the tiles were
@@ -373,7 +405,9 @@ function Sale() {
     );
 
     function update(next: SaleState) {
-        setState(next);
+        const basketMoved =
+            next.lines !== state.lines || next.customerAccountId !== state.customerAccountId;
+        setState(basketMoved ? { ...next, allergyAcknowledged: false } : next);
         setSold(null);
         place.reset();
         amend.reset();
@@ -398,6 +432,11 @@ function Sale() {
             ...(state.customerAddressId === null
                 ? {}
                 : { customerAddressId: state.customerAddressId }),
+            // A new sale is asked about the day it will be placed for: the calendar and the
+            // kitchen's hours answer for that day, not for today.
+            ...(editOrderId === null && quotedDay !== null
+                ? { requestedDeliveryDate: quotedDay }
+                : {}),
             // An edit is quoted on the order's own channel and on the day and slot the save will
             // keep or send, so the total read out is the total saved.
             ...(editOrderId === null
@@ -420,6 +459,7 @@ function Sale() {
         state.requestedDeliveryDate,
         state.deliveryWindowCode,
         editOrderId,
+        quotedDay,
     ]);
 
     const quotedRequest = useDebouncedValue(saleRequest, QUOTE_DEBOUNCE_MS);
@@ -457,6 +497,10 @@ function Sale() {
                 requestedDeliveryDate: state.requestedDeliveryDate ?? today,
                 deliveryWindowCode: state.deliveryWindowCode,
             };
+    // Null until the agent says how it leaves: the menu is a counter tariff until then.
+    const saleDay = isEditing || kindChosen ? (schedule?.requestedDeliveryDate ?? null) : null;
+    const newSaleDay = isEditing ? null : saleDay;
+    if (newSaleDay !== quotedDay) setQuotedDay(newSaleDay);
 
     /**
      * Save an edit. The basket is sent whole; the day, the slot and the method only when the agent
@@ -488,6 +532,10 @@ function Sale() {
                 ...(state.paymentMethod === was.paymentMethod
                     ? {}
                     : { paymentMethod: state.paymentMethod }),
+                ...(state.allergyNote.trim() === was.allergyNote
+                    ? {}
+                    : { allergyNote: state.allergyNote.trim() }),
+                ...(state.allergyAcknowledged ? { acknowledgeAllergenConflicts: true } : {}),
             },
             {
                 onSuccess: (order) => {
@@ -535,6 +583,10 @@ function Sale() {
                               : { deliveryWindowCode: schedule.deliveryWindowCode }),
                       }),
                 ...(state.driverUserId === null ? {} : { driverUserId: state.driverUserId }),
+                ...(state.allergyNote.trim() === ''
+                    ? {}
+                    : { allergyNote: state.allergyNote.trim() }),
+                ...(state.allergyAcknowledged ? { acknowledgeAllergenConflicts: true } : {}),
                 ...(counter && state.payment !== null
                     ? {
                           payment: {
@@ -556,6 +608,7 @@ function Sale() {
                         setStage('menu');
                         setKindChosen(false);
                         setSold(order);
+                        setSaleNumber((number) => number + 1);
                         toast.show({
                             testID: 'kitchen-order-desk-sale-sold-toast',
                             tone: 'success',
@@ -688,6 +741,24 @@ function Sale() {
                     />
                 )}
             </View>
+            {/* How it leaves and who it is for are fixed for the life of an order. */}
+            {isEditing ? null : (
+                <CustomerSection
+                    key={saleNumber}
+                    customerAccountId={state.customerAccountId}
+                    walkIn={state.walkIn}
+                    walkInOffered={!kindChosen || !needsCustomer(state.fulfilmentType)}
+                    onChoose={(customer) => {
+                        update(withCustomer(state, customer.id));
+                    }}
+                    onWalkIn={() => {
+                        update(withWalkIn(state));
+                    }}
+                    onUndoWalkIn={() => {
+                        update({ ...state, walkIn: false });
+                    }}
+                />
+            )}
             <View
                 // Both measurement paths, each inert on the other's platform — as `CatalogueList`.
                 ref={Platform.OS === 'web' ? port.ref : undefined}
@@ -705,7 +776,6 @@ function Sale() {
                     className="z-auto min-w-0 flex-col gap-base"
                     style={[column, stage === 'checkout' ? null : HIDDEN]}
                 >
-                    {/* How it leaves and who it is for are fixed for the life of an order. */}
                     {isEditing ? null : (
                         <KindPicker
                             value={kindChosen ? state.fulfilmentType : null}
@@ -717,15 +787,6 @@ function Sale() {
                     )}
 
                     <>
-                        {!isEditing && kindChosen && needsCustomer(state.fulfilmentType) ? (
-                            <CustomerSection
-                                customerAccountId={state.customerAccountId}
-                                onChoose={(customer) => {
-                                    update(withCustomer(state, customer.id));
-                                }}
-                            />
-                        ) : null}
-
                         {editOrder !== null && needsAddress(state.fulfilmentType) ? (
                             <FormSection
                                 variant="card"
@@ -818,40 +879,53 @@ function Sale() {
                     className="z-auto min-w-0 flex-col gap-snug"
                     style={[column, stage === 'menu' ? null : HIDDEN]}
                 >
-                    <CatalogueToolbar<MenuSection>
-                        testID="kitchen-order-desk-sale-menu-toolbar"
-                        search={query}
-                        onSearchChange={setQuery}
-                        searchLabel={t('kitchen:desk.sale.pickerSearchLabel')}
-                        searchPlaceholder={t('kitchen:desk.sale.pickerSearchPlaceholder')}
-                        statusLabel={t('kitchen:desk.sale.sectionsLabel')}
-                        statusSegments={MENU_SECTIONS.map((candidate) => ({
-                            value: candidate,
-                            label: t(SECTION_LABEL_KEYS[candidate]),
-                        }))}
-                        status={section}
-                        onStatusChange={setSection}
-                    />
-                    <MenuGrid
-                        tileWidth={grid.tileWidth}
-                        columns={grid.columns}
-                        section={section}
-                        query={query}
-                        customerAccountId={state.customerAccountId}
-                        amendingOrderId={editOrderId === null ? null : String(editOrderId)}
-                        lines={state.lines}
-                        onAdd={(tile) => {
-                            update({
-                                ...state,
-                                lines: addItem(state.lines, {
-                                    catalogueItemId: tile.id,
-                                    catalogueItemVariantId: null,
-                                    name: tile.name,
-                                    variantLabel: null,
-                                }),
-                            });
-                        }}
-                    />
+                    {!isEditing && !partyChosen(state) ? (
+                        <Text
+                            variant="caption"
+                            tone="secondary"
+                            testID="kitchen-order-desk-sale-party-pending"
+                        >
+                            {t('kitchen:desk.sale.partyPending')}
+                        </Text>
+                    ) : (
+                        <>
+                            <CatalogueToolbar<MenuSection>
+                                testID="kitchen-order-desk-sale-menu-toolbar"
+                                search={query}
+                                onSearchChange={setQuery}
+                                searchLabel={t('kitchen:desk.sale.pickerSearchLabel')}
+                                searchPlaceholder={t('kitchen:desk.sale.pickerSearchPlaceholder')}
+                                statusLabel={t('kitchen:desk.sale.sectionsLabel')}
+                                statusSegments={MENU_SECTIONS.map((candidate) => ({
+                                    value: candidate,
+                                    label: t(SECTION_LABEL_KEYS[candidate]),
+                                }))}
+                                status={section}
+                                onStatusChange={setSection}
+                            />
+                            <MenuGrid
+                                tileWidth={grid.tileWidth}
+                                columns={grid.columns}
+                                section={section}
+                                query={query}
+                                customerAccountId={state.customerAccountId}
+                                amendingOrderId={editOrderId === null ? null : String(editOrderId)}
+                                saleDay={saleDay}
+                                lines={state.lines}
+                                onAdd={(tile) => {
+                                    update({
+                                        ...state,
+                                        lines: addItem(state.lines, {
+                                            catalogueItemId: tile.id,
+                                            catalogueItemVariantId: null,
+                                            name: tile.name,
+                                            variantLabel: null,
+                                        }),
+                                    });
+                                }}
+                            />
+                        </>
+                    )}
                 </View>
 
                 <Ticket
@@ -1112,6 +1186,7 @@ function MenuGrid({
     query,
     customerAccountId,
     amendingOrderId,
+    saleDay,
     lines,
     onAdd,
 }: {
@@ -1124,6 +1199,8 @@ function MenuGrid({
     readonly customerAccountId: string | null;
     /** On an edit, the shelf is priced on that order's channel — a web-shop order's, say. */
     readonly amendingOrderId: string | null;
+    /** The day the sale is for, so a dish off today can still be sold for tomorrow. */
+    readonly saleDay: string | null;
     readonly lines: readonly BasketLine[];
     readonly onAdd: (tile: MenuTile) => void;
 }) {
@@ -1195,10 +1272,17 @@ function MenuGrid({
                       })),
                       ...(customerAccountId === null ? {} : { customerAccountId }),
                       ...(amendingOrderId === null ? {} : { amendingOrderId }),
+                      ...(saleDay === null ? {} : { requestedDeliveryDate: saleDay }),
                   },
-        [tiles, customerAccountId, amendingOrderId],
+        [tiles, customerAccountId, amendingOrderId, saleDay],
     );
     const shelf = useOrderDeskQuoteQuery(shelfRequest);
+    /* Off today is about today: on another day's menu, or an edit, the button would mislead. */
+    const canSwitch =
+        useCan(CATALOGUE_MANAGE_PERMISSION) &&
+        amendingOrderId === null &&
+        (saleDay === null || saleDay === todayIso());
+    const offToday = useSetItemOffTodayMutation();
     const shelfById = useMemo(() => {
         const map = new Map<string, OrderDeskQuoteLine>();
         for (const line of shelf.data?.lines ?? []) {
@@ -1206,6 +1290,17 @@ function MenuGrid({
         }
         return map;
     }, [shelf.data]);
+    // What this customer must not eat, by tile. The agent is warned, never stopped.
+    const conflictsById = useMemo(
+        () =>
+            new Map(
+                (shelf.data?.allergenConflicts ?? []).map((conflict) => [
+                    String(conflict.mealId),
+                    conflict.allergenCodes,
+                ]),
+            ),
+        [shelf.data],
+    );
 
     const quantities = useMemo(() => {
         const map = new Map<string, number>();
@@ -1245,26 +1340,52 @@ function MenuGrid({
                     <View className="flex-row flex-wrap gap-snug">
                         {tiles.map((tile) => {
                             const quoted = shelfById.get(tile.id) ?? null;
+                            const isOff = (quoted?.refusals ?? []).some(
+                                (refusal) => refusal.context['cause'] === 'day_off',
+                            );
                             return (
-                                <MenuTileButton
+                                <View
                                     key={tile.id}
-                                    tile={tile}
-                                    name={displayName(tile.name, locale).value}
-                                    width={tileWidth}
-                                    price={
-                                        quoted?.unitPriceMinor == null
-                                            ? null
-                                            : formatMoney(formatter, {
-                                                  amount: quoted.unitPriceMinor,
-                                                  currency: quoted.currencyCode,
-                                              })
-                                    }
-                                    refused={quoted !== null && quoted.refusals.length > 0}
-                                    count={quantities.get(tile.id) ?? 0}
-                                    onAdd={() => {
-                                        onAdd(tile);
-                                    }}
-                                />
+                                    className="flex-col gap-hair"
+                                    style={{ width: tileWidth }}
+                                >
+                                    <MenuTileButton
+                                        tile={tile}
+                                        name={displayName(tile.name, locale).value}
+                                        width={tileWidth}
+                                        price={
+                                            quoted?.unitPriceMinor == null
+                                                ? null
+                                                : formatMoney(formatter, {
+                                                      amount: quoted.unitPriceMinor,
+                                                      currency: quoted.currencyCode,
+                                                  })
+                                        }
+                                        refused={quoted !== null && quoted.refusals.length > 0}
+                                        conflict={conflictsById.get(tile.id) ?? null}
+                                        count={quantities.get(tile.id) ?? 0}
+                                        onAdd={() => {
+                                            onAdd(tile);
+                                        }}
+                                    />
+                                    {canSwitch ? (
+                                        <Button
+                                            testID={`kitchen-order-desk-sale-tile-${tile.id}-off-today`}
+                                            size="sm"
+                                            variant="quiet"
+                                            block
+                                            label={t(
+                                                isOff
+                                                    ? 'kitchen:desk.sale.backOnToday'
+                                                    : 'kitchen:desk.sale.offToday',
+                                            )}
+                                            disabled={offToday.isPending}
+                                            onPress={() => {
+                                                offToday.mutate({ itemId: tile.id, off: !isOff });
+                                            }}
+                                        />
+                                    ) : null}
+                                </View>
                             );
                         })}
                     </View>
@@ -1293,6 +1414,7 @@ function MenuTileButton({
     width,
     price,
     refused,
+    conflict,
     count,
     onAdd,
 }: {
@@ -1303,11 +1425,24 @@ function MenuTileButton({
     readonly price: string | null;
     /** The desk does not sell this — the shelf quote refused it. */
     readonly refused: boolean;
+    /** The allergen codes this dish conflicts on for the chosen customer; `null` when it does not. */
+    readonly conflict: readonly string[] | null;
     readonly count: number;
     readonly onAdd: () => void;
 }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
+
+    const conflictLabel =
+        conflict === null
+            ? null
+            : conflict.length === 0
+              ? t('kitchen:desk.sale.tileConflictDiet')
+              : t('kitchen:desk.sale.tileConflict', {
+                    allergens: conflict
+                        .map((code) => allergenLabel(code, t))
+                        .join(t('kitchen:common.listSeparator')),
+                });
 
     const label = [
         price === null
@@ -1315,6 +1450,7 @@ function MenuTileButton({
             : t('kitchen:desk.sale.addItemPriced', { item: name, price }),
         count > 0 ? t('kitchen:desk.sale.onTicket', { count }) : null,
         refused ? t('kitchen:desk.sale.notSold') : null,
+        conflictLabel,
     ]
         .filter((part) => part !== null)
         .join('. ');
@@ -1334,7 +1470,9 @@ function MenuTileButton({
             className={
                 refused
                     ? 'relative flex-col overflow-hidden rounded border border-stroke-subtle bg-surface-sunken opacity-60'
-                    : 'relative flex-col overflow-hidden rounded border border-stroke-subtle bg-surface-raised shadow-elevation-card active:opacity-80 web:hover:border-surface-brand'
+                    : conflict !== null
+                      ? 'relative flex-col overflow-hidden rounded border border-danger-border bg-surface-raised shadow-elevation-card active:opacity-80'
+                      : 'relative flex-col overflow-hidden rounded border border-stroke-subtle bg-surface-raised shadow-elevation-card active:opacity-80 web:hover:border-surface-brand'
             }
         >
             <EntityImage
@@ -1358,6 +1496,14 @@ function MenuTileButton({
                 >
                     {refused ? t('kitchen:desk.sale.notSold') : (price ?? EM_DASH)}
                 </Text>
+                {conflictLabel === null ? null : (
+                    <Badge
+                        testID={`kitchen-order-desk-sale-tile-${tile.id}-conflict`}
+                        tone="danger"
+                        icon="warning"
+                        label={conflictLabel}
+                    />
+                )}
             </View>
             {count > 0 ? (
                 <View className="absolute end-1.5 top-1.5" aria-hidden>
@@ -1457,15 +1603,29 @@ function Ticket({
     const quotedByKey = useMemo(() => {
         const map = new Map<string, OrderDeskQuoteLine>();
         for (const line of quote?.lines ?? []) {
-            map.set(basketKey(line.catalogueItemId, line.catalogueItemVariantId), line);
+            map.set(
+                basketKey(
+                    line.catalogueItemId,
+                    line.catalogueItemVariantId,
+                    line.optionIds,
+                    line.note ?? null,
+                ),
+                line,
+            );
         }
         return map;
     }, [quote]);
 
     const lines = state.lines;
+    // The row whose options and note are open.
+    const [choosing, setChoosing] = useState<string | null>(null);
+    const choosingLine = lines.find((line) => lineKey(line) === choosing);
     const counter = state.fulfilmentType === 'counter';
     const itemCount = lines.reduce((sum, line) => sum + (quantityAsNumber(line.quantity) ?? 0), 0);
-    const shortfall = saleShortfall(state, editing !== null);
+    // Beside the refusals, not among them: a conflict is told to the customer, then sold.
+    const allergenConflicts = quote?.allergenConflicts ?? [];
+    const untold = allergenConflicts.length > 0 && !state.allergyAcknowledged;
+    const shortfall = saleShortfall(state, editing !== null) ?? (untold ? 'allergy' : null);
     const refusalReasons =
         placeFailure?.code === 'order.placement_refused' ? placeFailure.reasons : [];
     // An edit sent against a version somebody else has since moved.
@@ -1608,6 +1768,18 @@ function Ticket({
                                             </View>
                                             <View className="flex-row items-center gap-hair">
                                                 <IconButton
+                                                    testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-options`}
+                                                    icon={<Icon name="pen" size="sm" />}
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    label={t('kitchen:dishOptions.lineAction', {
+                                                        name,
+                                                    })}
+                                                    onPress={() => {
+                                                        setChoosing(key);
+                                                    }}
+                                                />
+                                                <IconButton
                                                     testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-decrement`}
                                                     icon={<Icon name="minus" size="sm" />}
                                                     variant="secondary"
@@ -1670,6 +1842,18 @@ function Ticket({
                                                 </Text>
                                             </View>
                                         </View>
+                                        {dishOptionsLine(line.options, locale, t) === null ? null : (
+                                            <Text variant="caption" tone="secondary">
+                                                {dishOptionsLine(line.options, locale, t)}
+                                            </Text>
+                                        )}
+                                        {line.note == null || line.note === '' ? null : (
+                                            <Text variant="caption" tone="secondary">
+                                                {t('kitchen:dishOptions.lineNote', {
+                                                    note: line.note,
+                                                })}
+                                            </Text>
+                                        )}
                                         {refusals.map((refusal) => (
                                             <Text
                                                 key={refusal.reason}
@@ -1680,7 +1864,7 @@ function Ticket({
                                                 {refusalText(refusal)}
                                             </Text>
                                         ))}
-                                        {/* A warning, never a block: the sale can still go ahead. */}
+                                        {/* A warning while free stock is left; a refusal beside it once none is. */}
                                         {(quoted?.heldStock ?? []).length === 0 ? null : (
                                             <Text
                                                 variant="caption"
@@ -1700,6 +1884,24 @@ function Ticket({
                         </ScrollView>
                     )}
 
+                    {choosingLine === undefined ? null : (
+                        <DishChoicesDrawer
+                            key={lineKey(choosingLine)}
+                            line={choosingLine}
+                            money={money}
+                            onClose={() => {
+                                setChoosing(null);
+                            }}
+                            onSave={(change) => {
+                                onState({
+                                    ...state,
+                                    lines: changeLine(lines, lineKey(choosingLine), change),
+                                });
+                                setChoosing(null);
+                            }}
+                        />
+                    )}
+
                     {lines.length === 0 ? null : (
                         <Totals
                             quote={quote}
@@ -1709,6 +1911,18 @@ function Ticket({
                             refusalText={refusalText}
                         />
                     )}
+
+                    {/* The agent's to weigh: a customer would be refused, the desk is only told. */}
+                    {(quote?.serviceWarnings ?? []).map((warning) => (
+                        <Text
+                            key={warning.reason}
+                            variant="caption"
+                            tone="warning"
+                            testID={`kitchen-order-desk-sale-service-warning-${warning.reason}`}
+                        >
+                            {refusalText(warning)}
+                        </Text>
+                    ))}
 
                     {paying ? (
                         <PaymentMethods
@@ -1737,6 +1951,63 @@ function Ticket({
                             autoCapitalize="characters"
                             autoCorrect={false}
                         />
+                    ) : null}
+
+                    {paying ? (
+                        <TextInputField
+                            testID="kitchen-order-desk-sale-allergy-note"
+                            id="kitchen-order-desk-sale-allergy-note"
+                            label={t('kitchen:desk.sale.allergyNoteLabel')}
+                            hint={t('kitchen:desk.sale.allergyNoteHint')}
+                            size="sm"
+                            maxLength={500}
+                            value={state.allergyNote}
+                            onChangeText={(allergyNote) => {
+                                onState({ ...state, allergyNote });
+                            }}
+                            autoCapitalize="sentences"
+                        />
+                    ) : null}
+
+                    {paying && allergenConflicts.length > 0 ? (
+                        <View className="flex-col gap-tight">
+                            <Callout
+                                testID="kitchen-order-desk-sale-allergy-conflict"
+                                tone="danger"
+                                icon="warning"
+                                role="alert"
+                                title={t('kitchen:desk.sale.allergyConflictTitle')}
+                                body={allergenConflicts
+                                    .map((conflict) => {
+                                        const line = lines.find(
+                                            (candidate) =>
+                                                candidate.catalogueItemId ===
+                                                String(conflict.mealId),
+                                        );
+                                        const meal =
+                                            line === undefined
+                                                ? EM_DASH
+                                                : displayName(line.name, locale).value;
+                                        return conflict.allergenCodes.length === 0
+                                            ? meal
+                                            : t('kitchen:desk.sale.allergyConflictMeal', {
+                                                  meal,
+                                                  allergens: conflict.allergenCodes
+                                                      .map((code) => allergenLabel(code, t))
+                                                      .join(t('kitchen:common.listSeparator')),
+                                              });
+                                    })
+                                    .join('\n')}
+                            />
+                            <Checkbox
+                                testID="kitchen-order-desk-sale-allergy-ack"
+                                label={t('kitchen:desk.sale.allergyAcknowledge')}
+                                checked={state.allergyAcknowledged}
+                                onChange={(allergyAcknowledged) => {
+                                    onState({ ...state, allergyAcknowledged });
+                                }}
+                            />
+                        </View>
                     ) : null}
 
                     {placeFailure === null ? null : conflicted ? (
@@ -1998,5 +2269,94 @@ function PaymentMethods({
                 );
             })}
         </View>
+    );
+}
+
+/**
+ * One row's portion, free options and note. Portions are packs, so the row's quote prices the
+ * choice; nothing here works out a price.
+ */
+function DishChoicesDrawer({
+    line,
+    money,
+    onClose,
+    onSave,
+}: {
+    readonly line: BasketLine;
+    readonly money: (amount: number, currency: OrderDeskQuote['currencyCode']) => string;
+    readonly onClose: () => void;
+    readonly onSave: (change: Parameters<typeof changeLine>[2]) => void;
+}) {
+    const { t } = useTranslation();
+    const { locale } = useLocale();
+    const read = useDishChoicesQuery(line.catalogueItemId);
+    const [value, setValue] = useState<DishChoiceValue>({
+        catalogueItemVariantId: line.catalogueItemVariantId,
+        optionIds: line.options?.map((option) => option.id) ?? [],
+    });
+    const [note, setNote] = useState(line.note ?? '');
+
+    const options = read.data?.options ?? [];
+    const portions = read.data?.portions ?? [];
+    const portion = portions.find(
+        (candidate) => candidate.catalogueItemVariantId === value.catalogueItemVariantId,
+    );
+
+    return (
+        <Drawer
+            testID="kitchen-order-desk-sale-choices"
+            open
+            onClose={onClose}
+            title={t('kitchen:dishOptions.drawerTitle')}
+            footer={
+                <Button
+                    testID="kitchen-order-desk-sale-choices-save"
+                    label={t('kitchen:dishOptions.apply')}
+                    onPress={() => {
+                        onSave({
+                            catalogueItemVariantId: value.catalogueItemVariantId,
+                            variantLabel:
+                                portion === undefined
+                                    ? line.variantLabel
+                                    : displayName(
+                                          { en: portion.nameEn, ar: portion.nameAr },
+                                          locale,
+                                      ).value,
+                            options: options.filter((option) =>
+                                value.optionIds.includes(option.id),
+                            ),
+                            note: note.trim(),
+                        });
+                    }}
+                />
+            }
+        >
+            <View className="flex-col gap-snug">
+                {options.length === 0 && portions.length === 0 ? null : (
+                    <DishChoiceFields
+                        testID="kitchen-order-desk-sale-choices-fields"
+                        size="sm"
+                        options={options}
+                        portions={portions}
+                        value={value}
+                        onChange={setValue}
+                        formatPrice={(choice) =>
+                            money(choice.unitPriceMinor, choice.currencyCode)
+                        }
+                    />
+                )}
+                <TextInputField
+                    testID="kitchen-order-desk-sale-choices-note"
+                    id="kitchen-order-desk-sale-choices-note"
+                    label={t('kitchen:dishOptions.noteLabel')}
+                    size="sm"
+                    multiline
+                    numberOfLines={2}
+                    maxLength={300}
+                    value={note}
+                    onChangeText={setNote}
+                />
+            </View>
+        </Drawer>
     );
 }

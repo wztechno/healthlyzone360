@@ -35,6 +35,8 @@ class TemplateRoleSeeder extends Seeder
                 [
                     'name_en' => $template['name_en'],
                     'name_ar' => $template['name_ar'],
+                    'description_en' => $template['description_en'],
+                    'description_ar' => $template['description_ar'],
                     'is_system' => true,
                 ],
             );

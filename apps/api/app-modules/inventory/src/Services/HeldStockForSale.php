@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace Healthy360\Inventory\Services;
 
+use Healthy360\Cart\Contracts\QuarantinedStock;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Orders\Contracts\HeldStockLookup;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Inventory's answer to Orders' {@see HeldStockLookup}.
+ * Inventory's answer to Orders' {@see HeldStockLookup} and Cart's {@see QuarantinedStock}.
  *
  * What a sale draws is read exactly as consumption reads it: a thing sold from
  * finished stock draws its own ingredient, anything else is exploded by
@@ -21,11 +23,52 @@ use Illuminate\Support\Facades\DB;
  *
  * Ingredient grain, not lot grain: stock is not tracked per receipt, so "some of
  * this shelf arrived on a held delivery" is the most the data can say — which is
- * exactly a warning's job.
+ * exactly a warning's job. The refusal is a sharper question, answered by
+ * {@see StockQuarantine}: whether anything but held stock is left to sell.
  */
-final readonly class HeldStockForSale implements HeldStockLookup
+final readonly class HeldStockForSale implements HeldStockLookup, QuarantinedStock
 {
-    public function __construct(private MealExplosion $explosion) {}
+    public function __construct(private MealExplosion $explosion, private StockQuarantine $quarantine) {}
+
+    public function refuses(string $organisationId, CatalogueItem $item, string $quantity): bool
+    {
+        // ponytail: how much of a finished shelf one sold unit takes is the consume
+        // path's arithmetic, so the refusal asks only whether anything free is left.
+        // A sale of more than is free meets the hold at the deduction.
+        return $this->anyShelf($organisationId, $item, $quantity, $this->quarantine->coversOnlyHeld(...), '0.0001');
+    }
+
+    public function shortOfFree(string $organisationId, CatalogueItem $item, string $quantity): bool
+    {
+        // A finished shelf's draw is unknown here (see refuses()), so any hold on
+        // it warns: a warning is the safe side to be wrong on.
+        return $this->anyShelf($organisationId, $item, $quantity, $this->quarantine->shortOfFree(...), (string) PHP_INT_MAX);
+    }
+
+    /**
+     * @param  callable(string, string, numeric-string): bool  $test  asked of each shelf the sale draws, with what it draws
+     * @param  numeric-string  $finishedDraw  what a finished-stock sale is taken to draw
+     */
+    private function anyShelf(string $organisationId, CatalogueItem $item, string $quantity, callable $test, string $finishedDraw): bool
+    {
+        if (! $this->quarantine->anyHeld($organisationId)) {
+            return false;
+        }
+
+        if ($item->sellsFromFinishedStock()) {
+            $shelf = $item->ingredient_id === null ? null : $this->explosion->resolveStockItem($organisationId, (string) $item->ingredient_id, null);
+
+            return $shelf instanceof StockItem && $test($organisationId, (string) $shelf->getKey(), $finishedDraw);
+        }
+
+        foreach ($this->explosion->explode($organisationId, $item, $quantity, null)->rows as $row) {
+            if ($test($organisationId, $row['stock_item_id'], $row['quantity'])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     public function heldFor(string $organisationId, ?string $branchId, CatalogueItem $item, string $quantity): array
     {

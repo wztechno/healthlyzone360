@@ -267,7 +267,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
     const suppliers = useSuppliersQuery();
     const stockItems = useStockItemsQuery();
     const reference = useProcurementReferenceQuery();
-    const orders = useReceivableOrdersQuery(branchId, null, orderMode);
+    const orders = useReceivableOrdersQuery(branchId);
     const postReceipt = usePostGoodsReceiptMutation();
     const createSupplier = useCreateSupplierMutation();
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
@@ -348,6 +348,14 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
     }, [suppliers.data, locale]);
 
     const orderRows = useMemo(() => orders.data ?? [], [orders.data]);
+    // A delivery typed in here as a market purchase leaves its order open, so say so before it is.
+    const waitingOrders = useMemo(
+        () =>
+            supplierId === null
+                ? orderRows
+                : orderRows.filter((row) => String(row.supplier?.id) === supplierId),
+        [orderRows, supplierId],
+    );
     const order = useMemo<ReceivableOrder | null>(
         () => orderRows.find((row) => String(row.id) === orderId) ?? null,
         [orderRows, orderId],
@@ -637,6 +645,18 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                 outstandingQuantity: line.outstandingQuantity,
                 quantitySource: 'prefill' as const,
             }));
+    }
+
+    /** To the delivery page, with the order already chosen when there is only one it could be. */
+    function receiveWaitingOrder() {
+        const only = waitingOrders.length === 1 ? waitingOrders[0] : undefined;
+        guard.intercept(() => {
+            router.push(
+                withQuery('/kitchen/procurement/receive', {
+                    order: only === undefined ? null : String(only.id),
+                }) as never,
+            );
+        });
     }
 
     function chooseOrder(next: string | null) {
@@ -1197,6 +1217,26 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                         guard.markDirty();
                                     }}
                                 />
+                                {!orderMode && waitingOrders.length > 0 ? (
+                                    <Callout
+                                        testID="kitchen-post-receipt-open-orders"
+                                        tone="info"
+                                        title={t('kitchen:ops.procurement.openOrdersTitle', {
+                                            count: waitingOrders.length,
+                                        })}
+                                        body={t('kitchen:ops.procurement.openOrdersBody')}
+                                        actions={
+                                            <Button
+                                                testID="kitchen-post-receipt-open-orders-receive"
+                                                variant="secondary"
+                                                label={t(
+                                                    'kitchen:ops.procurement.openOrdersAction',
+                                                )}
+                                                onPress={receiveWaitingOrder}
+                                            />
+                                        }
+                                    />
+                                ) : null}
                             </FormSection>
 
                             <FormSection

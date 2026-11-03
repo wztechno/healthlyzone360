@@ -225,25 +225,3 @@ export function simulateBalance(input: BalanceSimulationInput): BalanceSimulatio
 
     return { weeks, lastDelivery, skippedWeeks: skippedInRun };
 }
-
-/**
- * What cancelling after a given number of weeks would credit back (§3): the unused days at the
- * per-day price actually paid. The discount already enjoyed on delivered days is not taken back,
- * which is why the multiplier is the *effective* price and not the list one.
- */
-export function cancellationCredit(
-    simulation: BalanceSimulation,
-    days: number,
-    afterWeeks: number,
-    perDay: Money,
-): { readonly usedDays: number; readonly unusedDays: number; readonly credit: Money } {
-    const usedDays = simulation.weeks
-        .slice(0, afterWeeks)
-        .reduce((total, week) => total + week.used, 0);
-    const unusedDays = Math.max(0, days - usedDays);
-    return {
-        usedDays,
-        unusedDays,
-        credit: { amount: unusedDays * perDay.amount, currency: perDay.currency },
-    };
-}

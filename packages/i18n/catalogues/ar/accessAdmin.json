@@ -84,7 +84,10 @@
         "saved_two": "تم الحفظ. يحمل {{name}} الآن دورين.",
         "saved_few": "تم الحفظ. يحمل {{name}} الآن {{count}} أدوار.",
         "saved_many": "تم الحفظ. يحمل {{name}} الآن {{count}} دورًا.",
-        "saved_other": "تم الحفظ. يحمل {{name}} الآن {{count}} دور."
+        "saved_other": "تم الحفظ. يحمل {{name}} الآن {{count}} دور.",
+        "notFoundTitle": "عضو الفريق هذا غير موجود هنا",
+        "notFoundBody": "قد يكون الرابط قديمًا، أو ربما غادر المطبخ.",
+        "backToList": "العودة إلى الفريق"
     },
     "roles": {
         "title": "الأدوار",
@@ -158,7 +161,10 @@
         "deleteBlocked_two": "ما زال شخصان يحملان هذا الدور. امنحهما دورًا آخر أولًا.",
         "deleteBlocked_few": "ما زال {{count}} أشخاص يحملون هذا الدور. امنحهم دورًا آخر أولًا.",
         "deleteBlocked_many": "ما زال {{count}} شخصًا يحملون هذا الدور. امنحهم دورًا آخر أولًا.",
-        "deleteBlocked_other": "ما زال {{count}} شخص يحملون هذا الدور. امنحهم دورًا آخر أولًا."
+        "deleteBlocked_other": "ما زال {{count}} شخص يحملون هذا الدور. امنحهم دورًا آخر أولًا.",
+        "notFoundTitle": "هذا الدور غير موجود هنا",
+        "notFoundBody": "قد يكون الرابط قديمًا، أو ربما حُذف الدور.",
+        "backToList": "كل الأدوار"
     },
     "pages": {
         "levels": {
@@ -337,6 +343,12 @@
         "order.manage_organisation": {
             "name": "تأكيد الطلبات وتنفيذها وإلغاؤها"
         },
+        "order.prepare_organisation": {
+            "name": "العمل على شاشة المطبخ"
+        },
+        "order.supervise_organisation": {
+            "name": "إلغاء الطلبات بعد بدء الطهي وتلقي تنبيهات الطلبات"
+        },
         "order.view_customer_contact_organisation": {
             "name": "الاطّلاع على بيانات تواصل العملاء وعناوينهم وسجلات شركاتهم"
         },
@@ -393,6 +405,15 @@
         },
         "user.manage_organisation": {
             "name": "إنشاء حسابات دخول"
+        },
+        "order.approve_refund_organisation": {
+            "name": "الموافقة على الاسترداد فوق حد المطبخ"
+        },
+        "order.settle_cash_organisation": {
+            "name": "تسجيل النقد الذي يسلّمه السائقون وشركات التوصيل"
+        },
+        "inventory.approve_payables_organisation": {
+            "name": "الموافقة على أسعار التوريد وتسجيل الفواتير كمدفوعة"
         }
     }
 }

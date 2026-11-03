@@ -435,6 +435,10 @@ final readonly class MealExplosion
      * shelf has never held stock here takes from its original's, the same way
      * `WeeklyPriceLookup` lends a copy its original's price. Once something is
      * received or counted onto the copy's own shelf, that shelf wins.
+     *
+     * The other way round too. A pair merged onto the copy's shelf
+     * ({@see DuplicateStockShelves}) leaves the original with none, and a recipe
+     * still on the library row draws on the copy's.
      */
     public function resolveStockItem(string $organisationId, string $ingredientId, ?string $branchId): ?StockItem
     {
@@ -450,7 +454,16 @@ final readonly class MealExplosion
             ->value('forked_from_ingredient_id');
 
         if ($originalId === null) {
-            return $own;
+            if ($own instanceof StockItem) {
+                return $own;
+            }
+
+            $copyId = Ingredient::withoutTenancy()
+                ->where('organisation_id', $organisationId)
+                ->where('forked_from_ingredient_id', $ingredientId)
+                ->value('id');
+
+            return $copyId === null ? null : $this->stockItemOf($organisationId, (string) $copyId, $branchId);
         }
 
         return $this->stockItemOf($organisationId, (string) $originalId, $branchId) ?? $own;

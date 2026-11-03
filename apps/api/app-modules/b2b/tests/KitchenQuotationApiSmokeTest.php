@@ -66,6 +66,7 @@ function kitchenQuotationSmokeSubmitted(mixed $test, int $count = 2): array
     $meals = CatalogueItem::withoutTenancy()
         ->where('organisation_id', $test->kitchen->getKey())
         ->where('item_type', CatalogueItemType::Meal->value)
+        ->allergensAssessed()
         ->orderBy('created_at')
         ->take($count)
         ->get();
@@ -140,6 +141,7 @@ it('names every line and the programme, from both sides of the relationship', fu
     $names = CatalogueItem::withoutTenancy()
         ->where('organisation_id', $this->kitchen->getKey())
         ->where('item_type', CatalogueItemType::Meal->value)
+        ->allergensAssessed()
         ->orderBy('created_at')
         ->take($quotation['lineCount'])
         ->pluck('name_en')

@@ -1,11 +1,22 @@
 import type {
     CancelKitchenOrderRequest,
+    CloseFailedDeliveryRequest,
+    FailKitchenOrderDeliveryRequest,
+    HandToCourierRequest,
+    KitchenDisplay,
     KitchenOrder,
     KitchenOrderFilters,
     KitchenOrderPage,
     KitchenOrderTransitionRequest,
     RecordKitchenOrderPaymentRequest,
     RecordedKitchenOrderPayment,
+    RedeliverKitchenOrderRequest,
+    DecideOrderRefundRequest,
+    OrderRefundLedger,
+    RecordOrderRefundRequest,
+    OrderComplaint,
+    RecordComplaintRequest,
+    UpdateComplaintRequest,
 } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -45,23 +56,6 @@ import { useRepositories, useRepositoryContext } from './repository-provider.tsx
 
 export { toFailure } from './hooks.ts';
 
-export interface KitchenOrdersQueryOptions {
-    /**
-     * Poll cadence in milliseconds, or `false` (the default) for a list that only refetches when
-     * something asks it to.
-     *
-     * It exists for the kitchen display, which is a wall screen nobody touches: an order placed
-     * while the tablet sits on a shelf has to appear without a person pulling to refresh, and this
-     * client slice has no push channel to deliver it. Every other caller leaves it off — the order
-     * book is worked by somebody who is already causing invalidations by acting on it, and a timer
-     * behind that would refetch a list under the person's cursor for nothing.
-     *
-     * `false` rather than `undefined` as the default so the option reads the same way in the query
-     * as it does at the call site.
-     */
-    readonly refetchInterval?: number | false | undefined;
-}
-
 /**
  * One page of orders, newest first.
  *
@@ -72,17 +66,39 @@ export interface KitchenOrdersQueryOptions {
 export function useKitchenOrdersQuery(
     filters?: KitchenOrderFilters,
     enabled = true,
-    options: KitchenOrdersQueryOptions = {},
 ): UseQueryResult<KitchenOrderPage> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.kitchenOrders.list(filters),
         enabled: enabled && repositories !== null,
-        refetchInterval: options.refetchInterval ?? false,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOrders.listOrders(filters);
+        },
+    });
+}
+
+/**
+ * The wall board.
+ *
+ * It takes a poll cadence because a wall screen is one nobody touches: an order placed while the
+ * tablet sits on a shelf has to appear without a person pulling to refresh, and this client slice
+ * has no push channel to deliver it.
+ */
+export function useKitchenDisplayQuery(
+    enabled: boolean,
+    refetchInterval: number | false,
+): UseQueryResult<KitchenDisplay> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOrders.display(),
+        enabled: enabled && repositories !== null,
+        refetchInterval,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOrders.getDisplay();
         },
     });
 }
@@ -135,16 +151,21 @@ function useKitchenOrderWriteEffects(): (order: KitchenOrder) => void {
         // The answer into every cached list too, so a KDS ticket moves the moment Ready lands
         // rather than when the refetch below does — seconds on a slow server, and the board looked
         // as if nothing had happened.
-        queryClient.setQueriesData<{ readonly items?: readonly KitchenOrder[] }>(
-            // The whole family; the guard below leaves anything that is not a page of orders.
+        const withFresh = (rows: readonly KitchenOrder[]): readonly KitchenOrder[] =>
+            rows.map((row) => (row.id === order.id ? order : row));
+        queryClient.setQueriesData<{
+            readonly items?: readonly KitchenOrder[];
+            readonly orders?: readonly KitchenOrder[];
+        }>(
+            // The whole family; the guards below leave anything that is not a page of orders. The
+            // book's pages hold `items`, the kitchen display's holds `orders`.
             { queryKey: queryKeys.kitchenOrders.all() },
-            (page) =>
-                page === undefined || !Array.isArray(page.items)
-                    ? page
-                    : {
-                          ...page,
-                          items: page.items.map((row) => (row.id === order.id ? order : row)),
-                      },
+            (page) => {
+                if (page === undefined) return page;
+                if (Array.isArray(page.items)) return { ...page, items: withFresh(page.items) };
+                if (Array.isArray(page.orders)) return { ...page, orders: withFresh(page.orders) };
+                return page;
+            },
         );
         void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders.all() });
         void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
@@ -223,6 +244,70 @@ export function useFulfilOrderMutation(): UseMutationResult<
  * `reason` is required and is one of four fixed values — there is no free-text note to collect, so
  * the confirm dialog behind this is a choice, not a form.
  */
+/** A courier took the food. The desk's "Hand to courier". */
+export function useHandToCourierMutation(): UseMutationResult<
+    KitchenOrder,
+    unknown,
+    HandToCourierRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOrderWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: HandToCourierRequest) =>
+            repositories.kitchenOrders.handToCourier(request),
+        onSuccess: onWritten,
+    });
+}
+
+/** A courier's run came back. */
+export function useFailDeliveryMutation(): UseMutationResult<
+    KitchenOrder,
+    unknown,
+    FailKitchenOrderDeliveryRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOrderWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: FailKitchenOrderDeliveryRequest) =>
+            repositories.kitchenOrders.failDelivery(request),
+        onSuccess: onWritten,
+    });
+}
+
+/** Send a failed run out again. */
+export function useRedeliverOrderMutation(): UseMutationResult<
+    KitchenOrder,
+    unknown,
+    RedeliverKitchenOrderRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOrderWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: RedeliverKitchenOrderRequest) =>
+            repositories.kitchenOrders.redeliverOrder(request),
+        onSuccess: onWritten,
+    });
+}
+
+/** Cancel a failed delivery with `delivery_failed`. */
+export function useCloseFailedDeliveryMutation(): UseMutationResult<
+    KitchenOrder,
+    unknown,
+    CloseFailedDeliveryRequest
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOrderWriteEffects();
+
+    return useMutation({
+        mutationFn: (request: CloseFailedDeliveryRequest) =>
+            repositories.kitchenOrders.closeFailedDelivery(request),
+        onSuccess: onWritten,
+    });
+}
+
 export function useCancelOrderMutation(): UseMutationResult<
     KitchenOrder,
     unknown,
@@ -271,6 +356,59 @@ export function useCancelOrderMutation(): UseMutationResult<
  * retry would also risk a second receipt against a fresh idempotency key, which is money written down
  * twice.
  */
+export function useOrderRefundsQuery(orderId: OrderId): UseQueryResult<OrderRefundLedger> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOrders.refunds(orderId),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOrders.getRefunds(orderId);
+        },
+    });
+}
+
+/** No retry: a silent second attempt would be a second refund under a fresh idempotency key. */
+export function useRecordOrderRefundMutation(): UseMutationResult<
+    OrderRefundLedger,
+    unknown,
+    RecordOrderRefundRequest
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: false,
+        mutationFn: (request: RecordOrderRefundRequest) =>
+            repositories.kitchenOrders.recordRefund(request),
+        onSuccess: (ledger, request) => {
+            queryClient.setQueryData(queryKeys.kitchenOrders.refunds(request.orderId), ledger);
+            // A correction moves the desk row's received figure.
+            void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
+        },
+    });
+}
+
+export function useDecideOrderRefundMutation(): UseMutationResult<
+    OrderRefundLedger,
+    unknown,
+    DecideOrderRefundRequest
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: false,
+        mutationFn: (request: DecideOrderRefundRequest) =>
+            repositories.kitchenOrders.decideRefund(request),
+        onSuccess: (ledger, request) => {
+            queryClient.setQueryData(queryKeys.kitchenOrders.refunds(request.orderId), ledger);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
+        },
+    });
+}
+
 export function useRecordOrderPaymentMutation(): UseMutationResult<
     RecordedKitchenOrderPayment,
     unknown,
@@ -286,6 +424,76 @@ export function useRecordOrderPaymentMutation(): UseMutationResult<
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
             void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders.all() });
+        },
+    });
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * Complaints
+ * ---------------------------------------------------------------------------------------------- */
+
+export function useOrderComplaintsQuery(): UseQueryResult<readonly OrderComplaint[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOrders.complaints(),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.kitchenOrders.listComplaints();
+        },
+    });
+}
+
+export function useRecordComplaintMutation(): UseMutationResult<
+    OrderComplaint,
+    unknown,
+    RecordComplaintRequest
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: false,
+        mutationFn: (request) => repositories.kitchenOrders.recordComplaint(request),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: queryKeys.kitchenOrders.complaints(),
+            });
+        },
+    });
+}
+
+export function useUpdateComplaintMutation(): UseMutationResult<
+    OrderComplaint,
+    unknown,
+    UpdateComplaintRequest
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: false,
+        mutationFn: (request) => repositories.kitchenOrders.updateComplaint(request),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: queryKeys.kitchenOrders.complaints(),
+            });
+        },
+    });
+}
+
+/** No retry: a silent second attempt is refused, but only after somebody read the error. */
+export function useRemakeComplaintMutation(): UseMutationResult<OrderComplaint, unknown, string> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: false,
+        mutationFn: (complaintId) => repositories.kitchenOrders.remakeComplaint(complaintId),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders.all() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
         },
     });
 }

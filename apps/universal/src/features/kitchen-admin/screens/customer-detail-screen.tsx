@@ -17,17 +17,25 @@ import {
 } from '@healthy360/design-system';
 import type { BadgeTone, RecordWindowField } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
+import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { Gate } from '../../../access/gate.tsx';
+import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useKitchenCustomerQuery } from '../../../data/kitchen-customers-hooks.ts';
+import { useKitchenOrdersQuery } from '../../../data/kitchen-orders-hooks.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { formatMoney } from '../../marketplace/format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { ORDER_VIEW_CUSTOMER_CONTACT_PERMISSION } from '../entity-registry.ts';
+import {
+    ORDER_VIEW_CUSTOMER_CONTACT_PERMISSION,
+    ORDER_VIEW_PERMISSION,
+} from '../entity-registry.ts';
 import { prefersArabic } from '../format.ts';
+import { kitchenOrderStatusKey } from '../ops-format.ts';
+import { ChosenAllergies } from '../order-desk/sale-customer.tsx';
 import { customerName, customerTypeKey, customerTypeTone } from './customers-screen.tsx';
 
 /**
@@ -38,6 +46,9 @@ import { customerName, customerTypeKey, customerTypeTone } from './customers-scr
  * An account outside this kitchen's book answers `resource.not_found` from the server, drawn here as
  * the same not-found state a hand-typed link gets.
  */
+
+/** How many of a customer's orders their record lists. The orders page has the rest. */
+const RECENT_ORDERS = 10;
 
 export interface CustomerDetailScreenProps {
     readonly customer: string | undefined;
@@ -132,6 +143,7 @@ function CustomerView({
 }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    const canSeeOrders = useCan(ORDER_VIEW_PERMISSION);
 
     const fields: RecordWindowField[] = [
         {
@@ -190,6 +202,20 @@ function CustomerView({
             fields={fields}
             sections={[
                 {
+                    key: 'allergies',
+                    title: t('kitchen:ops.customers.sectionAllergies'),
+                    content: <ChosenAllergies customerAccountId={String(detail.id)} />,
+                },
+                ...(canSeeOrders
+                    ? [
+                          {
+                              key: 'orders',
+                              title: t('kitchen:ops.customers.sectionOrders'),
+                              content: <CustomerOrders customerAccountId={String(detail.id)} />,
+                          },
+                      ]
+                    : []),
+                {
                     key: 'contacts',
                     title: t('kitchen:ops.customers.sectionContacts'),
                     content: <ContactList contacts={detail.contacts} />,
@@ -210,6 +236,70 @@ function CustomerView({
                       ]),
             ]}
         />
+    );
+}
+
+/** Their latest orders, each opening where every order opens. */
+function CustomerOrders({ customerAccountId }: { readonly customerAccountId: string }) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const router = useRouter();
+    const orders = useKitchenOrdersQuery({ customerAccountId, limit: RECENT_ORDERS });
+    const failure = toFailure(orders.error);
+
+    if (failure !== null) {
+        return (
+            <ErrorState
+                testID="kitchen-customer-orders-error"
+                failure={failure}
+                onRetry={() => {
+                    void orders.refetch();
+                }}
+                retrying={orders.isFetching}
+            />
+        );
+    }
+
+    if (orders.data === undefined) {
+        return (
+            <TableSkeleton
+                testID="kitchen-customer-orders-loading"
+                partTestID="kitchen-customer-orders"
+            />
+        );
+    }
+
+    if (orders.data.items.length === 0) {
+        return <Text tone="secondary">{t('kitchen:ops.customers.neverOrdered')}</Text>;
+    }
+
+    return (
+        <Stack space="sm" testID="kitchen-customer-orders">
+            {orders.data.items.map((order) => (
+                <Inline key={String(order.id)} space="sm" wrap>
+                    <Text variant="mono">{order.orderNumber}</Text>
+                    <Text tone="secondary">{formatter.formatDate(order.placedAt)}</Text>
+                    <Text variant="mono">
+                        {formatMoney(formatter, {
+                            amount: order.totalMinor,
+                            currency: order.currencyCode,
+                        })}
+                    </Text>
+                    <Badge tone="neutral" label={t(kitchenOrderStatusKey(order.status))} />
+                    <Button
+                        testID={`kitchen-customer-order-${String(order.id)}`}
+                        size="sm"
+                        variant="quiet"
+                        label={t('kitchen:ops.customers.openOrder')}
+                        onPress={() => {
+                            router.push(
+                                `/kitchen/orders?view=${encodeURIComponent(String(order.id))}` as never,
+                            );
+                        }}
+                    />
+                </Inline>
+            ))}
+        </Stack>
     );
 }
 

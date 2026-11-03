@@ -19,6 +19,7 @@ use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 /**
  * GET /api/v1/catalogue/orders — one kitchen's book, newest first.
@@ -74,6 +75,7 @@ final class KitchenOrderIndexController
         $this->applyRequestedDate($request, $query);
         $this->applyBranch($request, $query);
         $this->applySearch($request, $query);
+        $this->applyCustomer($request, $query);
 
         $limit = CursorPage::limit($request);
         CursorPage::constrain($query, $limit, CursorPage::cursor($request), newestFirst: true);
@@ -187,6 +189,32 @@ final class KitchenOrderIndexController
         $needle = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], mb_strtolower(trim($term))).'%';
 
         $query->whereRaw('lower(order_number) like ?', [$needle]);
+    }
+
+    /**
+     * One customer's orders, for their record in the kitchen's book.
+     *
+     * @param  Builder<Order>  $query
+     *
+     * @throws ApiException
+     */
+    private function applyCustomer(Request $request, Builder $query): void
+    {
+        $customer = $request->query('customer_account_id');
+
+        if ($customer === null || $customer === '') {
+            return;
+        }
+
+        if (! is_string($customer) || ! Str::isUuid($customer)) {
+            throw new ApiException(
+                ErrorCode::RequestInvalid,
+                'The customer filter must be a customer account id.',
+                ['parameter' => 'customer_account_id'],
+            );
+        }
+
+        $query->where('customer_account_id', $customer);
     }
 
     /**

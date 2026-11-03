@@ -31,10 +31,13 @@ use Illuminate\Support\Facades\DB;
  *
  * ## Who can be corrected
  *
- * Exactly the customers the desk can pick for a collection or a delivery: the
- * account is put through `DeskCustomerDirectory::isInScope()`, the rule the
- * search and the address endpoint apply, and anything outside it answers
- * `404 resource.not_found` for the reason those two give.
+ * The customers this kitchen has a tie of its own to:
+ * `DeskCustomerDirectory::hasKitchenTie()`. That is the search's rule less the
+ * telephone link: a linked caller can be sold to and their addresses added, but
+ * a link comes from knowing a number, so it does not reach the name and number
+ * every other kitchen uses. Anything outside the rule answers
+ * `404 resource.not_found`, for the reason the search and the address endpoint
+ * give.
  *
  * ## The name is the account's
  *
@@ -155,7 +158,7 @@ final class OrderDeskCustomerUpdateController
     {
         $account = CustomerAccount::query()->whereKey($accountId)->first();
 
-        if (! $account instanceof CustomerAccount || ! $this->directory->isInScope($organisationId, $account)) {
+        if (! $account instanceof CustomerAccount || ! $this->directory->hasKitchenTie($organisationId, $account)) {
             throw new ApiException(ErrorCode::ResourceNotFound, 'That customer account could not be read.');
         }
 

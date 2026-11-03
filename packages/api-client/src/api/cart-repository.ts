@@ -20,7 +20,7 @@ import type {
     CheckoutPreview as WireCheckoutPreview,
     MarketplaceMeal as WireMeal,
 } from '../generated/types.ts';
-import { mapMarketplaceMeal, pathSegment } from './marketplace-mappers.ts';
+import { mapDishOption, mapMarketplaceMeal, pathSegment } from './marketplace-mappers.ts';
 import type { Transport } from './transport.ts';
 
 /**
@@ -154,7 +154,12 @@ async function mapCartLine(
     }
 
     const meal = await lookupMeal(line.catalogue_item_id);
-    const unitPrice = meal.price;
+    // A portion is a pack with its own price; the meal's own is the default pack's.
+    const portion = meal.portions?.find(
+        (candidate) => candidate.catalogueItemVariantId === line.catalogue_item_variant_id,
+    );
+    const unitPrice =
+        portion === undefined ? meal.price : money(portion.unitPriceMinor, meal.price.currency);
     const lineTotal = money(unitPrice.amount * quantity, unitPrice.currency);
 
     return {
@@ -168,6 +173,8 @@ async function mapCartLine(
         lineTotal,
         allergens: meal.allergens,
         deliveryDate: line.delivery_date,
+        options: (line.options ?? []).map(mapDishOption),
+        note: line.note ?? null,
     };
 }
 
@@ -386,6 +393,15 @@ export function createApiCartSurface(transport: Transport): ApiCartSurface {
                     ...(request.deliveryDate === undefined
                         ? {}
                         : { delivery_date: request.deliveryDate }),
+                    ...(request.catalogueItemVariantId == null
+                        ? {}
+                        : { catalogue_item_variant_id: request.catalogueItemVariantId }),
+                    ...(request.optionIds === undefined || request.optionIds.length === 0
+                        ? {}
+                        : { option_ids: request.optionIds }),
+                    ...(request.note === undefined || request.note.trim() === ''
+                        ? {}
+                        : { note: request.note }),
                 },
             });
             return hydrate(payload.cart, sessionChannelCode);

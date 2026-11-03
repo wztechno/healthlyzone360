@@ -70,6 +70,11 @@ function driverJob(overrides: Partial<DriverJob> = {}): DriverJob {
         assignedAt: '2026-08-16T06:40:00.000Z',
         pickedUpAt: null,
         readyAt: '2026-08-16T06:35:00.000Z',
+        allergyAllergenCodes: [],
+        allergyNote: null,
+        amountDueMinor: 3000,
+        currencyCode: 'USD',
+        paymentMethod: 'cash_on_delivery',
         delivery: driverDelivery(),
         ...overrides,
     };
@@ -148,7 +153,10 @@ function renderRunSheet(
     overrides: {
         readonly listJobs?: () => readonly DriverJob[] | Promise<readonly DriverJob[]>;
         readonly available?: () => readonly DriverJob[];
-        readonly deliverJob?: (jobId: string, request?: { notes?: string | undefined }) => void;
+        readonly deliverJob?: (
+            jobId: string,
+            request?: { collectedMinor?: number | undefined; note?: string | undefined },
+        ) => void;
         readonly claimJob?: (jobId: string) => void;
         readonly pickUpJob?: (jobId: string) => void;
     } = {},
@@ -182,7 +190,10 @@ function renderRunSheet(
                 ...(overrides.deliverJob === undefined
                     ? {}
                     : {
-                          deliverJob: async (jobId: string, request?: { notes?: string }) => {
+                          deliverJob: async (
+                              jobId: string,
+                              request?: { collectedMinor?: number; note?: string },
+                          ) => {
                               overrides.deliverJob!(jobId, request);
                           },
                       }),
@@ -254,6 +265,56 @@ describe('the driver run sheet ladder', () => {
             { timeout: 5000 },
         );
         expect(screen.queryByTestId('driver-jobs-list')).toBeNull();
+    });
+
+    it('names the allergens on a run, in words, and nothing else about them', async () => {
+        await renderRunSheet({
+            listJobs: async () => [driverJob({ allergyAllergenCodes: ['sesame', 'egg'] })],
+        });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId(`${jobTestId(JOB_ONE)}-allergy`)).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        const banner = screen.getByTestId(`${jobTestId(JOB_ONE)}-allergy`);
+        expect(banner).toHaveTextContent(/Allergy on this order/);
+        expect(banner).toHaveTextContent(/Sesame/);
+        expect(banner).toHaveTextContent(/Eggs/);
+        // The wire carries no notes and no severity, so neither does the card.
+        expect(banner).not.toHaveTextContent(/life-threatening/);
+    });
+
+    it('shows a walk-in allergy note in the same banner when no allergen is saved', async () => {
+        await renderRunSheet({
+            listJobs: async () => [driverJob({ allergyNote: 'Says no nuts, severe' })],
+        });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId(`${jobTestId(JOB_ONE)}-allergy`)).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        const banner = screen.getByTestId(`${jobTestId(JOB_ONE)}-allergy`);
+        expect(banner).toHaveTextContent(/Allergy on this order/);
+        expect(banner).toHaveTextContent(/Says no nuts, severe/);
+    });
+
+    it('draws no allergy banner on a run with none', async () => {
+        await renderRunSheet({ listJobs: async () => [driverJob()] });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('driver-jobs-list')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        expect(screen.queryByTestId(`${jobTestId(JOB_ONE)}-allergy`)).toBeNull();
     });
 
     it('lists the caller’s live jobs with both status axes, asking the endpoint for nothing', async () => {
@@ -395,7 +456,7 @@ describe('what a run-sheet card says about the delivery', () => {
 });
 
 describe('delivering a job', () => {
-    it('confirms first, sends the notes, and the delivered job leaves the sheet', async () => {
+    it('confirms first, sends the amount and note, and the job leaves the sheet', async () => {
         const sheet = createRunSheet();
         const { repositories } = await renderRunSheet({
             listJobs: () => sheet.listJobs(),
@@ -432,7 +493,8 @@ describe('delivering a job', () => {
 
         await waitFor(() => {
             expect(repositories.driverJobs.deliverJob).toHaveBeenCalledWith(JOB_TWO, {
-                notes: 'Left with the concierge',
+                collectedMinor: 3000,
+                note: 'Left with the concierge',
             });
         });
 
@@ -452,7 +514,7 @@ describe('delivering a job', () => {
         expect(sheet.jobs().map((job) => job.id)).toEqual([JOB_ONE]);
     });
 
-    it('sends no notes at all when the driver typed none — the field is replace-or-clear', async () => {
+    it('sends no note when the driver typed none', async () => {
         const sheet = createRunSheet();
         const { repositories } = await renderRunSheet({
             listJobs: () => sheet.listJobs(),
@@ -476,7 +538,8 @@ describe('delivering a job', () => {
 
         await waitFor(() => {
             expect(repositories.driverJobs.deliverJob).toHaveBeenCalledWith(JOB_TWO, {
-                notes: undefined,
+                collectedMinor: 3000,
+                note: undefined,
             });
         });
     });

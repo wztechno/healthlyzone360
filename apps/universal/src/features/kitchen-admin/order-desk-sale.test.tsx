@@ -6,6 +6,7 @@ import type {
     MealAdmin,
     OrderDeskCustomer,
     OrderDeskCustomerAddress,
+    OrderDeskCustomerAllergies,
     OrderDeskCustomerCreated,
     OrderDeskQuote,
     OrderDeskQuoteLine,
@@ -174,6 +175,8 @@ function quoteFor(request: OrderDeskSaleRequest, rules: QuoteRules = {}): OrderD
         refusals: orderRefusals,
         quotable: orderRefusals.length === 0 && lines.every((line) => line.refusals.length === 0),
         offeredWindowCodes: rules.offeredWindowCodes ?? null,
+        allergenConflicts: [],
+        serviceWarnings: [],
     };
 }
 
@@ -209,6 +212,7 @@ function placedOrder(overrides: Partial<KitchenOrder> = {}): KitchenOrder {
         lockVersion: 2,
         customerAccountId: null,
         amendable: false,
+        allergy: null,
         lineCount: 1,
         lines: [],
         ...overrides,
@@ -274,6 +278,7 @@ interface SaleStubs {
     readonly quoteSale?: (request: OrderDeskSaleRequest) => Promise<OrderDeskQuote>;
     readonly placeSale?: (request: PlaceOrderDeskSaleRequest) => Promise<KitchenOrder>;
     readonly createCustomer?: () => Promise<OrderDeskCustomerCreated>;
+    readonly getCustomerAllergies?: () => Promise<OrderDeskCustomerAllergies>;
     readonly listMeals?: () => Promise<CursorPage<MealAdmin>>;
     readonly listProducts?: (filter?: ProductAdminFilter) => Promise<CursorPage<ProductAdmin>>;
     readonly listDeliveryAreas?: () => Promise<readonly ServiceArea[]>;
@@ -284,7 +289,22 @@ interface SaleStubs {
     readonly amendOrder?: (request: AmendOrderDeskOrderRequest) => Promise<KitchenOrder>;
 }
 
+/** Past the customer card, which holds the menu shut until it is answered. */
+async function chooseWalkIn() {
+    await untilVisible('kitchen-order-desk-sale-walk-in');
+    await act(async () => {
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-walk-in'));
+    });
+}
+
+/** A new sale past the customer card; an edit has no such card. */
 async function renderSale(stubs: SaleStubs = {}) {
+    const rendered = await renderSaleShut(stubs);
+    if (mockParams.order === undefined) await chooseWalkIn();
+    return rendered;
+}
+
+async function renderSaleShut(stubs: SaleStubs = {}) {
     return renderStubScreen(<OrderDeskSaleScreen />, {
         session: kitchenManagerSession(),
         repositories: {
@@ -301,6 +321,9 @@ async function renderSale(stubs: SaleStubs = {}) {
                 placeSale: stubs.placeSale ?? (async () => placedOrder()),
                 amendOrder: stubs.amendOrder ?? (async () => editableOrder()),
                 searchCustomers: async () => ({ rows: [customer()], limit: 20 }),
+                getCustomerAllergies:
+                    stubs.getCustomerAllergies ??
+                    (async () => ({ declared: false, declaresNoAllergens: false, allergens: [] })),
                 listDeliveryAreas: stubs.listDeliveryAreas ?? (async () => []),
                 listDeliveryWindows: async () => [
                     {
@@ -400,6 +423,7 @@ async function chooseKind(kind: 'counter' | 'pickup' | 'delivery') {
 }
 
 async function chooseLayla() {
+    await untilVisible('kitchen-order-desk-sale-customer-search-input');
     await act(async () => {
         fireEvent.changeText(
             screen.getByTestId('kitchen-order-desk-sale-customer-search-input'),
@@ -423,6 +447,56 @@ beforeEach(() => {
 
 afterEach(() => {
     jest.useRealTimers();
+});
+
+describe('sale — who it is for comes first', () => {
+    it('holds the menu shut until a customer or a walk-in is chosen', async () => {
+        await renderSaleShut();
+
+        await untilVisible('kitchen-order-desk-sale-party-pending');
+        expect(screen.queryByTestId(MEAL_TILE)).toBeNull();
+
+        await chooseWalkIn();
+
+        await untilVisible(MEAL_TILE);
+        await untilVisible('kitchen-order-desk-sale-walk-in-chosen');
+    });
+
+    it('says what the chosen customer declared and marks the dish that conflicts', async () => {
+        await renderSaleShut({
+            getCustomerAllergies: async () => ({
+                declared: true,
+                declaresNoAllergens: false,
+                allergens: [{ allergenCode: 'milk', severity: 'anaphylaxis' }],
+            }),
+            quoteSale: async (request) => ({
+                ...quoteFor(request),
+                allergenConflicts: request.lines.some(
+                    (line) => line.catalogueItemId === String(MEAL_ID),
+                )
+                    ? [{ mealId: MEAL_ID, reason: 'allergen_declared', allergenCodes: ['milk'] }]
+                    : [],
+            }),
+        });
+
+        await chooseLayla();
+
+        await untilVisible('kitchen-order-desk-sale-customer-allergies');
+        await untilVisible(`${MEAL_TILE}-conflict`);
+        // Warned, never stopped: the agent tells the customer at checkout.
+        expect(screen.getByTestId(MEAL_TILE)).toBeEnabled();
+    });
+
+    it('does not let "never asked" read as "no allergens"', async () => {
+        await renderSaleShut();
+
+        await chooseLayla();
+
+        await untilVisible('kitchen-order-desk-sale-customer-allergies-none');
+        expect(
+            screen.getByTestId('kitchen-order-desk-sale-customer-allergies-none'),
+        ).toHaveTextContent(/asked/i);
+    });
 });
 
 describe('sale — the menu', () => {
@@ -604,6 +678,77 @@ describe('sale — the ticket is priced by the quote alone', () => {
     });
 });
 
+describe('sale — allergies', () => {
+    const conflicted = (request: OrderDeskSaleRequest): OrderDeskQuote => ({
+        ...quoteFor(request),
+        allergenConflicts:
+            request.customerAccountId === undefined
+                ? []
+                : [{ mealId: MEAL_ID, reason: 'allergen_declared', allergenCodes: ['sesame'] }],
+    });
+
+    it('sends a note on any sale', async () => {
+        const placeSale = jest.fn(async () => placedOrder());
+        await renderSale({ placeSale });
+        await tapMeal();
+        await chooseKind('counter');
+
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-order-desk-sale-allergy-note'),
+                ' No nuts please ',
+            );
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId(SUBMIT)).toBeEnabled();
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(SUBMIT));
+        });
+
+        await waitFor(() => {
+            expect(placeSale).toHaveBeenCalledWith(
+                expect.objectContaining({ allergyNote: 'No nuts please' }),
+            );
+        });
+    });
+
+    it('will not place a conflict until the agent ticks that the customer was told', async () => {
+        const placeSale = jest.fn(async () => placedOrder());
+        await renderSale({ placeSale, quoteSale: async (request) => conflicted(request) });
+        await tapMeal();
+        await chooseKind('pickup');
+        await chooseLayla();
+
+        await untilVisible('kitchen-order-desk-sale-allergy-conflict');
+        expect(screen.getByTestId('kitchen-order-desk-sale-allergy-conflict')).toHaveTextContent(
+            /Sesame/,
+        );
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-order-desk-sale-shortfall')).toHaveTextContent(
+                /allergy conflict/,
+            );
+        });
+        expect(screen.getByTestId(SUBMIT)).toBeDisabled();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-allergy-ack-control'));
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId(SUBMIT)).toBeEnabled();
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(SUBMIT));
+        });
+
+        await waitFor(() => {
+            expect(placeSale).toHaveBeenCalledWith(
+                expect.objectContaining({ acknowledgeAllergenConflicts: true }),
+            );
+        });
+    });
+});
+
 describe('sale — a counter sale', () => {
     it('places it with its payment, then clears the ticket for the next customer', async () => {
         const placeSale = jest.fn(async () => placedOrder());
@@ -763,11 +908,14 @@ describe('sale — collections and deliveries', () => {
                             : [],
                 }),
         });
-        expect(screen.queryByTestId('kitchen-order-desk-sale-customer')).toBeNull();
+        await untilVisible('kitchen-order-desk-sale-walk-in-chosen');
 
         await tapMeal();
         await chooseKind('pickup');
-        await untilVisible('kitchen-order-desk-sale-customer');
+        // A collection cannot be nameless, so the walk-in goes and the search comes back without it.
+        await untilVisible('kitchen-order-desk-sale-customer-search-input');
+        expect(screen.queryByTestId('kitchen-order-desk-sale-walk-in-chosen')).toBeNull();
+        expect(screen.queryByTestId('kitchen-order-desk-sale-walk-in')).toBeNull();
         // A collection has nowhere to go.
         expect(screen.queryByTestId('kitchen-order-desk-sale-address')).toBeNull();
 
@@ -979,7 +1127,7 @@ describe('sale — collections and deliveries', () => {
         });
     });
 
-    it('drops the customer and closes both cards when the sale goes back to the counter', async () => {
+    it('keeps the customer and closes the address when the sale goes back to the counter', async () => {
         await renderSale();
         await tapMeal();
         await chooseKind('delivery');
@@ -988,7 +1136,7 @@ describe('sale — collections and deliveries', () => {
 
         await chooseKind('counter');
 
-        expect(screen.queryByTestId('kitchen-order-desk-sale-customer')).toBeNull();
+        await untilVisible('kitchen-order-desk-sale-customer-chosen');
         expect(screen.queryByTestId('kitchen-order-desk-sale-address')).toBeNull();
         // The same food is being sold either way, so the ticket stays.
         expect(screen.getByTestId(MEAL_LINE)).toBeTruthy();
@@ -1029,12 +1177,18 @@ describe('sale — collections and deliveries', () => {
                 orderDesk: {
                     quoteSale: async (request) => quoteFor(request),
                     searchCustomers: async () => ({ rows: [customer()], limit: 20 }),
+                    getCustomerAllergies: async () => ({
+                        declared: false,
+                        declaresNoAllergens: false,
+                        allergens: [],
+                    }),
                     listDeliveryWindows: async () => [],
                     updateCustomer,
                 },
             },
         });
 
+        await chooseWalkIn();
         await tapMeal();
         await chooseKind('pickup');
         await untilVisible('kitchen-order-desk-sale-customer');
@@ -1227,7 +1381,8 @@ describe('sale — Charge opens the checkout', () => {
         await chooseKind('counter');
         expect(screen.getByTestId('kitchen-order-desk-sale-method')).toBeTruthy();
         expect(screen.getByTestId(SUBMIT)).toBeTruthy();
-        expect(screen.queryByTestId('kitchen-order-desk-sale-customer')).toBeNull();
+        // Who it is for was answered before the menu, and stays said above the checkout.
+        expect(screen.getByTestId('kitchen-order-desk-sale-walk-in-chosen')).toBeTruthy();
     });
 
     it('goes back to the menu with the ticket and the chosen customer kept', async () => {
@@ -1308,7 +1463,8 @@ describe('sale — the menu turns pages, and the ticket says only what applies',
             fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-back'));
         });
 
-        await untilVisible(MEAL_TILE);
+        // The walk-in went with the collection, so the menu asks again who this is for.
+        await untilVisible('kitchen-order-desk-sale-party-pending');
         expect(
             screen.queryByTestId('kitchen-order-desk-sale-order-refusal-customer_required'),
         ).toBeNull();

@@ -162,7 +162,10 @@
             "rolePrimary": "جهة التواصل الأساسية",
             "roleBilling": "الفوترة",
             "roleOperations": "العمليات",
-            "roleSignatory": "المفوّض بالتوقيع"
+            "roleSignatory": "المفوّض بالتوقيع",
+            "sectionAllergies": "الحساسية",
+            "sectionOrders": "أحدث الطلبات",
+            "openOrder": "فتح"
         },
         "readyForApi": "جاهز للواجهة البرمجية",
         "metricUnavailable": "غير متصل بعد",
@@ -244,7 +247,8 @@
                 "customerRequested": "طلب العميل الإلغاء",
                 "kitchenUnableToFulfil": "المطبخ غير قادر على التنفيذ",
                 "deliveryUnavailable": "لا يتوفر توصيل",
-                "addressUnreachable": "تعذّر الوصول إلى العنوان"
+                "addressUnreachable": "تعذّر الوصول إلى العنوان",
+                "deliveryFailed": "تعذّر التوصيل"
             },
             "status": {
                 "placed": "مقدَّم",
@@ -281,7 +285,73 @@
             "deliveredAt": "سُلِّم",
             "driver": "السائق",
             "driverNone": "لا أحد بعد",
-            "preparingAt": "بدأ الطهي"
+            "preparingAt": "بدأ الطهي",
+            "dispositionLabel": "ماذا حدث للطعام؟",
+            "disposition": {
+                "returned": "أُعيد إلى المخزون",
+                "wasted": "تالف"
+            },
+            "cancelNeedsManager": "بدأ الطهي، لذا يجب أن يلغي المدير هذا الطلب.",
+            "deliveryFailedNote": "تعذّر التوصيل: {{reason}}",
+            "withCourier": "مع {{name}}",
+            "redeliver": "إعادة التوصيل",
+            "closeFailed": "إغلاق كفاشل",
+            "failDelivery": "تعذّر التوصيل",
+            "failedToast": "سُجّل الطلب {{number}} كفاشل.",
+            "redeliveredToast": "سيخرج الطلب {{number}} مجدداً.",
+            "closedFailedToast": "أُغلق الطلب {{number}} كفاشل.",
+            "deliveryAction": {
+                "failTitle": "هل تعذّر توصيل {{number}}؟",
+                "failBody": "يبقى الطلب مفتوحاً للمدير، ولا يُسجَّل أي نقد.",
+                "failConfirm": "تسجيل كفاشل",
+                "redeliverTitle": "إعادة توصيل {{number}}؟",
+                "redeliverBody": "يعود إلى السائقين. اختر يوماً أو نافذة جديدة إذا تغيّر الموعد.",
+                "redeliverConfirm": "إعادة التوصيل",
+                "closeTitle": "إغلاق {{number}} كفاشل؟",
+                "closeBody": "يؤدي هذا إلى إلغاء الطلب، ولا يمكن التراجع عنه.",
+                "closeConfirm": "إغلاق كفاشل",
+                "dateLabel": "اليوم الجديد",
+                "keepDate": "الإبقاء على اليوم نفسه",
+                "keepWindow": "الإبقاء على النافذة نفسها"
+            },
+            "refunds": {
+                "heading": "الاسترداد",
+                "received": "المبلغ المستلم",
+                "refunded": "المبلغ المسترد",
+                "corrected": "صُحّح كخطأ",
+                "pending": "بانتظار المالك",
+                "refundable": "الممكن استرداده",
+                "open": "استرداد أو تصحيح",
+                "approve": "موافقة",
+                "reject": "رفض",
+                "confirm": "تسجيل",
+                "dialogTitle": "استرداد أو تصحيح الطلب {{number}}",
+                "dialogBody": "يضيف هذا قيداً ويُبقي الإيصالات كما هي. إنه يسجّل المبلغ ولا يرسله.",
+                "kind": {
+                    "refund": "استرداد",
+                    "receipt_correction": "تصحيح إيصال"
+                },
+                "kindHint": {
+                    "refund": "أُعيد المال إلى الزبون. يبقى الطلب مدفوعاً.",
+                    "receipt_correction": "كان الإيصال خطأ ولم يصل المال. يعود المبلغ إلى المستحق."
+                },
+                "status": {
+                    "pending_approval": "بانتظار المالك",
+                    "completed": "تم",
+                    "rejected": "مرفوض"
+                },
+                "methodLabel": "طريقة الإعادة",
+                "amountLabel": "المبلغ ({{currency}})",
+                "amountHint": "حتى {{refundable}}.",
+                "amountInvalid": "أدخل مبلغاً لا يتجاوز الممكن استرداده.",
+                "reasonLabel": "السبب",
+                "windowClosed": "يُغلق الاسترداد بعد 7 أيام من آخر دفعة.",
+                "recordedToast": "تم التسجيل.",
+                "waitingToast": "أُرسل إلى المالك للموافقة.",
+                "approvedToast": "تمت الموافقة على الاسترداد.",
+                "rejectedToast": "رُفض الاسترداد.",
+                "saveError": "لم يُسجَّل هذا."
+            }
         },
         "quotations": {
             "title": "عروض الأسعار",
@@ -465,7 +535,8 @@
             "countInvalid": "أدخل الكمية التي عددتها — صفر أو أكثر.",
             "exceedsShelf": "المتوفر على الرف {{amount}} فقط. إذا كان هناك أكثر فعلًا، سجّل جردًا أولًا ثم أعد المحاولة.",
             "parNotAboveThreshold": "يجب أن يكون المستوى المستهدف أعلى من حد إعادة الطلب.",
-            "notStocked": "غير مخزَّن"
+            "notStocked": "غير مخزَّن",
+            "fieldNotesRequired": "السبب"
         },
         "supplyOrders": {
             "title": "طلبات التوريد",
@@ -908,7 +979,9 @@
             "statActiveCaption": "متاح في كل قائمة اختيار",
             "statArchivedCaption": "محفوظ للإيصالات السابقة",
             "viewKind": "مورّد",
-            "viewFoot": "قراءة القائمة تتطلب صلاحية عرض المخزون، وكل تعديل يتطلب صلاحية الإدارة."
+            "viewFoot": "قراءة القائمة تتطلب صلاحية عرض المخزون، وكل تعديل يتطلب صلاحية الإدارة.",
+            "fieldPaymentDueDays": "تستحق الفاتورة بعد (أيام)",
+            "paymentDueDaysPlaceholder": "30"
         },
         "procurement": {
             "title": "المشتريات",
@@ -978,6 +1051,26 @@
             "modeMarketBody": "اشتُري دون طلب. اختر المورّد — أو لا أحد — واكتب ما وصل.",
             "modeOrderTitle": "توريد مقابل طلب",
             "modeOrderBody": "اختر طلب التوريد. تُملأ الكميات المتبقية وتُطابَق بندًا بندًا.",
+            "columnOrder": "الطلب",
+            "openOrder": "فتح الطلب",
+            "awaitingTitle": "بانتظار التوصيل",
+            "awaitingReceive": "استلام",
+            "awaitingAll": "كل الطلبات المفتوحة ({{count}})",
+            "awaitingIssued": "صدر في {{date}}",
+            "awaitingLines_zero": "لا بنود متبقية",
+            "awaitingLines_one": "بند واحد متبقٍ",
+            "awaitingLines_two": "بندان متبقيان",
+            "awaitingLines_few": "{{count}} بنود متبقية",
+            "awaitingLines_many": "{{count}} بندًا متبقيًا",
+            "awaitingLines_other": "{{count}} بند متبقٍ",
+            "openOrdersTitle_zero": "لا طلبات بانتظار التوصيل هنا",
+            "openOrdersTitle_one": "طلب واحد بانتظار التوصيل هنا",
+            "openOrdersTitle_two": "طلبان بانتظار التوصيل هنا",
+            "openOrdersTitle_few": "{{count}} طلبات بانتظار التوصيل هنا",
+            "openOrdersTitle_many": "{{count}} طلبًا بانتظار التوصيل هنا",
+            "openOrdersTitle_other": "{{count}} طلب بانتظار التوصيل هنا",
+            "openOrdersBody": "إذا كانت هذه التوصيلة أحدها، فاستلمها مقابل الطلب. تُملأ الكميات المتبقية ويُحدَّث الطلب.",
+            "openOrdersAction": "استلام مقابل طلب",
             "fieldOrder": "طلب التوريد",
             "ordersLoading": "جارٍ قراءة الطلبات المفتوحة في هذا الفرع…",
             "supplierPlaceholder": "بدون مورّد — شراء من السوق",
@@ -1443,7 +1536,6 @@
             "sheetTitle": "البطاقة الفنية",
             "sheetSubtitle": "ما استندت إليه هذه الدفعة عند تأكيدها. لا يتغير عند نشر سعر جديد أو تعديل الوصفة.",
             "sheetBasisHeading": "ما استندت إليه",
-            "sheetVersionLabel": "إصدار الوصفة",
             "sheetPublicationLabel": "أسبوع التسعير",
             "sheetPublicationNone": "لم تكن هناك أسعار أسبوعية سارية.",
             "sheetNutritionHeading": "القيم الغذائية",
@@ -1529,7 +1621,8 @@
             "expiryFromRecipe": "تاريخ الإنتاج مضافًا إليه {{days}}، حسب مدة صلاحية الوصفة.",
             "scanLabel": "امسح رقم التشغيلة أو اكتبه",
             "scanNoMatch": "لا توجد دفعة تحمل هذا الرمز",
-            "recipeNoOutput": "لا تُنتج {{name}} أي صنف، لذا لا يوجد ما تضعه الدفعة على الرف. حدّد ما تنتجه في محرر الوصفة أولاً."
+            "recipeNoOutput": "لا تُنتج {{name}} أي صنف، لذا لا يوجد ما تضعه الدفعة على الرف. حدّد ما تنتجه في محرر الوصفة أولاً.",
+            "sheetPublicationSet": "كانت الأسعار الأسبوعية سارية."
         },
         "qc": {
             "title": "مراقبة الجودة",
@@ -1569,8 +1662,8 @@
             "filteredEmptyTitle": "لا فحوصات مطابقة",
             "filteredEmptyBody": "امسح البحث أو الحالة لرؤية كل الفحوصات.",
             "viewKind": "فحص جودة",
-            "holdNote": "هذا الموضوع موقوف. لا يجوز بيع أو استهلاك أي شيء أنتجه حتى يُفرج عنه أحد.",
-            "footNote": "الإيقاف يمنع استخدام المخزون، والإفراج يسمح بمروره.",
+            "holdNote": "هذا المخزون مجنَّب. لا يمكن بيعه أو استخدامه حتى يُفرج عنه أحدهم، ويبقى المخزون الحرّ من الصنف نفسه قابلاً للاستخدام. إذا فشل الطعام في الفحص، سجّله كهدر أولاً ثم أفرج عنه.",
+            "footNote": "يجنّب الحجز الكمية التي أدخلها هذا البند، ويعيدها الإفراج. افصل الطعام عن المخزون السليم بنفسك: الرف رقم واحد في النظام.",
             "fieldReference": "المرجع",
             "statUnit": "فحوصات",
             "statPendingCaption": "لم يُحسم بعد",
@@ -1623,7 +1716,7 @@
             "summaryFootHold": "يُفتح ويُوقف فورًا. يتوقف كل ما يخص هذا الموضوع حتى يُفرج عنه أحد.",
             "statesTitle": "ما يمكن للفحص فعله",
             "statePending": "مفتوح دون قرار. يتحرك المخزون كالمعتاد.",
-            "stateHold": "لا يمكن استخدام المخزون أو بيعه.",
+            "stateHold": "لا يمكن استخدام الكمية التي أدخلها هذا البند أو بيعها.",
             "stateReleased": "فُحص وسُمح بمروره.",
             "createSubmitHold": "فتح وإيقاف",
             "createdHeldToast": "فُتح الفحص وأُوقف — {{subject}}.",
@@ -1659,7 +1752,7 @@
             "flagged": "أقل من الواقع",
             "hintSpend": "ما وصل هذا الشهر",
             "hintCogs": "ما استهلكته الطلبات المؤكدة",
-            "hintRevenue": "المبيعات عبر كل الدفاتر",
+            "hintRevenue": "المبيعات عبر كل الدفاتر، بعد خصم المبالغ المستردة",
             "hintMargin": "بعد تكلفة البضاعة",
             "tileSpend": "الإنفاق · {{month}}",
             "tileCogs": "تكلفة البضاعة · {{month}}",
@@ -1696,12 +1789,15 @@
                 "kind": "شهر",
                 "flaggedNote": "لهذا الشهر استثناءات استهلاك غير محلولة، لذا فإن تكلفة البضاعة المباعة أقل من حقيقتها بقدر تلك البنود. والهامش يرث النقص نفسه.",
                 "currencyValue": "{{currency}} — عملة واحدة في كل مرة، دون خلط",
-                "openLedger": "فتح سجل المشتريات"
+                "openLedger": "فتح سجل المشتريات",
+                "withheldNote": "لا يُذكر هامش لهذا الشهر لأن تكلفته غير مكتملة: {{lines}} بندًا مبيعًا بلا تكلفة، مثل طبق بوصفة فارغة، و{{exceptions}} استثناءً في المخزون غير محلول، و{{batches}} دفعة تعذّر تقييمها. لا تشمل الإيرادات رسوم التوصيل."
             },
             "columnProductionConsumption": "مستهلك في الإنتاج",
             "columnProductionWaste": "هدر الإنتاج",
             "columnProductionYield": "ناتج الإنتاج",
-            "columnEstimatedMargin": "الهامش التقديري"
+            "columnEstimatedMargin": "الهامش التقديري",
+            "marginWithheld": "الهامش محجوب",
+            "columnRefunds": "المبالغ المستردة (مخصومة من الإيراد)"
         },
         "exceptions": {
             "title": "نواقص المخزون",
@@ -1733,7 +1829,8 @@
                 "price": "حدّد سعر الوحدة",
                 "unit": "حدّد الوحدة",
                 "product": "أصلِح المنتج",
-                "production": "اعرض خطة الإنتاج"
+                "production": "اعرض خطة الإنتاج",
+                "quality": "عرض مراقبة الجودة"
             },
             "searchPlaceholder": "ابحث بالطلب أو الصنف أو المكوّن أو السبب",
             "filteredEmptyTitle": "لا توجد فجوات مخزون مطابقة",
@@ -1758,7 +1855,8 @@
                 "no_ingredient_cost": "لا تكلفة لتقييم البضاعة المُباعة",
                 "insufficient_stock": "مخزون غير كافٍ",
                 "no_net_content": "حجم وحدة البيع غير محدد",
-                "reserved_for_production": "محجوز للإنتاج"
+                "reserved_for_production": "محجوز للإنتاج",
+                "quality_hold": "موقوف بسبب فحص الجودة"
             },
             "chip": "إعادة المحاولة تكتب في المخزون",
             "statUnit": "استثناءات",
@@ -1941,7 +2039,14 @@
             "windowTooLongTitle_two": "اختر يومين على الأكثر",
             "windowTooLongTitle_few": "اختر {{count}} أيام على الأكثر",
             "windowTooLongTitle_many": "اختر {{count}} يومًا على الأكثر",
-            "windowTooLongTitle_other": "اختر {{count}} يوم على الأكثر"
+            "windowTooLongTitle_other": "اختر {{count}} يوم على الأكثر",
+            "adjustmentsHeading": "ما خُصم من المقبوضات",
+            "adjustment": {
+                "refund": "استرداد",
+                "receipt_correction": "تصحيح إيصال",
+                "courier_fee": "رسوم شركة التوصيل",
+                "short": "نقص في التسليم"
+            }
         },
         "batch": {
             "recipeLabel": "الوصفة",
@@ -2024,6 +2129,196 @@
             "factPortionsPerBatch_many": "{{count}} حصة في الدفعة",
             "factPortionsPerBatch_other": "{{count}} حصة في الدفعة",
             "wasteAddedToInputs": "+{{percent}} % هدر الإنتاج"
+        },
+        "settlement": {
+            "driversHeading": "سائقون بحوزتهم نقد",
+            "driversEmpty": "لا يوجد سائق بحوزته نقد.",
+            "couriersHeading": "شركات توصيل عليها نقد",
+            "couriersEmpty": "لا نقد مستحق على أي شركة توصيل.",
+            "recentHeading": "آخر عمليات التسليم",
+            "recentEmpty": "لم يُسلَّم شيء بعد.",
+            "columnDriver": "السائق",
+            "columnCourier": "شركة التوصيل",
+            "columnRuns": "الرحلات",
+            "columnCollected": "المحصّل",
+            "columnDue": "المستحق",
+            "columnFee": "الرسوم",
+            "columnWhen": "الوقت",
+            "columnParty": "من",
+            "columnHandedIn": "المسلَّم",
+            "columnShort": "النقص",
+            "columnStatus": "الحالة",
+            "columnAction": "الإجراء",
+            "settle": "تسوية",
+            "settled": "تمت التسوية",
+            "signOff": "توقيع",
+            "signedOff": "موقَّع",
+            "awaitingSignOff": "بانتظار مدير",
+            "signedOffToast": "تم التوقيع.",
+            "dialogTitle": "تسوية {{name}}",
+            "dialogBody": {
+                "driver": "ألغِ تحديد أي رحلة لا يشملها هذا التسليم. إيصالاتها مسجّلة أصلاً.",
+                "courier": "ألغِ تحديد أي طلب لا تشمله هذه الدفعة. تسجّل التسوية إيصال كل طلب."
+            },
+            "feeNote": "تُخصم رسوم قدرها {{fee}}، فيصبح المستحق {{net}}.",
+            "expenseNote": "الطلبات المدفوعة مسبقًا لا تجلب نقدًا. رسومها البالغة {{expense}} مصروف على المطبخ.",
+            "prepaidFee": "مدفوع مسبقًا، الرسوم {{fee}}",
+            "columnExpense": "مصروف المطبخ",
+            "amountLabel": "المسلَّم ({{currency}})",
+            "amountHint": "المستحق {{amount}}.",
+            "amountInvalid": "أدخل مبلغاً لا يتجاوز المستحق.",
+            "shortTitle": "نقص {{amount}}",
+            "shortBody": "يُسجَّل هذا على التسليم ليوقّعه مدير. ولا يترتب عليه شيء آخر.",
+            "reasonLabel": "سبب النقص",
+            "confirm": "تسجيل التسليم",
+            "savedToast": "سُجّل التسليم.",
+            "saveError": "لم يُسجَّل التسليم.",
+            "loadErrorTitle": "تعذّر تحميل النقد المنتظر تسويته."
+        },
+        "activity": {
+            "view": {
+                "stock": "حركات المخزون",
+                "audit": "سجل التدقيق"
+            },
+            "columnWhen": "الوقت",
+            "columnItem": "الصنف",
+            "columnReason": "السبب",
+            "columnQuantity": "الكمية",
+            "columnValue": "القيمة",
+            "columnActor": "من",
+            "columnAction": "ما حدث",
+            "columnOrder": "الطلب",
+            "columnDetails": "التفاصيل",
+            "reason": {
+                "adjust": "تعديل",
+                "waste": "هدر",
+                "receipt": "استلام بضاعة",
+                "consume": "استُخدم لطلب",
+                "yield": "ناتج دفعة"
+            },
+            "unattributed": "غير منسوب",
+            "wastedOrder": "هُدر عند إلغاء الطلب {{number}}",
+            "wasteHeading": "الهدر في هذه الفترة",
+            "wasteNone": "لا هدر ذو قيمة في هذه الفترة.",
+            "unvalued_zero": "لا قيود هدر بلا تكلفة.",
+            "unvalued_one": "قيد هدر واحد بلا تكلفة مسجلة، فلا يُضاف هنا.",
+            "unvalued_two": "قيدا هدر بلا تكلفة مسجلة، فلا يُضافان هنا.",
+            "unvalued_few": "{{count}} قيود هدر بلا تكلفة مسجلة، فلا تُضاف هنا.",
+            "unvalued_many": "{{count}} قيد هدر بلا تكلفة مسجلة، فلا تُضاف هنا.",
+            "unvalued_other": "{{count}} قيد هدر بلا تكلفة مسجلة، فلا تُضاف هنا.",
+            "emptyTitle": "لم يُسجَّل شيء في هذه الفترة.",
+            "truncated": "تُعرض أحدث 500 حركة. ضيّق التواريخ لرؤية الباقي.",
+            "loadErrorTitle": "تعذّر تحميل النشاط."
+        },
+        "dailyClose": {
+            "openHeading": "ورديات للإقفال",
+            "openEmpty": "لم يتحرك أي نقد منذ آخر إقفال.",
+            "recentHeading": "عمليات الإقفال الأخيرة",
+            "recentEmpty": "لم تُقفل أي وردية بعد.",
+            "clockNote": "تُحتسب الأيام حسب توقيت المطبخ، {{timezone}}.",
+            "loadErrorTitle": "تعذّر تحميل إقفال اليوم.",
+            "columnShift": "الوردية",
+            "columnCounter": "نقد الكاونتر",
+            "columnHandedIn": "المسلَّم",
+            "columnRefunds": "المردود نقدًا",
+            "columnAction": "الإجراء",
+            "columnClosed": "وقت الإقفال",
+            "columnFloat": "الرصيد الافتتاحي",
+            "columnExpected": "المتوقع",
+            "columnCounted": "المعدود",
+            "columnVariance": "الفرق",
+            "columnStatus": "الحالة",
+            "close": "إقفال",
+            "balanced": "متوازن",
+            "over": "زيادة",
+            "signOff": "توقيع",
+            "signedOff": "تم التوقيع",
+            "signedOffToast": "تم توقيع الإقفال الناقص.",
+            "awaitingSignOff": "بانتظار مدير",
+            "dialogTitle": "إقفال {{date}}، {{currency}}",
+            "dialogBody": "عُدّ ما في الصندوق. تُقرأ الأرقام مجددًا عند التأكيد.",
+            "floatLabel": "الرصيد الافتتاحي ({{currency}})",
+            "countedLabel": "المعدود الآن ({{currency}})",
+            "expectedNote": "المتوقع في الصندوق: {{amount}}",
+            "amountInvalid": "أدخل مبلغًا.",
+            "shortTitle": "ناقص {{amount}}",
+            "shortBody": "يوقّع المدير على ذلك. لا يتخذ التطبيق أي قرار بشأن الرواتب.",
+            "reasonLabel": "لماذا النقص؟",
+            "overReasonLabel": "ملاحظة (اختيارية)",
+            "confirm": "أقفل الوردية",
+            "savedToast": "تم إقفال الوردية.",
+            "saveError": "لم تُقفل الوردية.",
+            "branchLabel": "الصندوق",
+            "allBranches": "كل الفروع",
+            "totalHeading": "مجموع المطبخ",
+            "totalNote": "صناديق كل الفروع معًا. المعدود هو آخر عدّ لكل صندوق في اليوم.",
+            "columnDay": "اليوم",
+            "tillCount": "الصناديق: {{tills}}"
+        },
+        "payables": {
+            "owedHeading": "المستحق",
+            "owedEmpty": "لا مستحقات عن التوريدات.",
+            "paidHeading": "المدفوع مؤخرًا",
+            "paidEmpty": "لم تُسجَّل أي توريدة كمدفوعة بعد.",
+            "loadErrorTitle": "تعذّر تحميل المستحقات.",
+            "totalsLabel": "المستحق",
+            "columnSupplier": "المورد",
+            "columnReceived": "تاريخ الاستلام",
+            "columnDue": "الاستحقاق",
+            "columnAmount": "المبلغ",
+            "columnPrice": "السعر",
+            "columnAction": "الإجراء",
+            "columnPaid": "تاريخ الدفع",
+            "columnReference": "المرجع",
+            "directPurchase": "شراء مباشر",
+            "noDueDate": "بلا تاريخ استحقاق",
+            "overdue": "متأخر",
+            "priceMissing": "السعر غير مدخل",
+            "priceWaiting": "السعر بانتظار الموافقة",
+            "priceApproved": "تمت الموافقة",
+            "priceRise": "ارتفع {{percent}}٪",
+            "review": "مراجعة",
+            "pay": "تسجيل كمدفوع",
+            "reviewTitle": "الأسعار في هذه التوريدة",
+            "reviewBody": "كل سعر مقارنة بآخر سعر مدفوع. البضاعة مستلمة في الحالتين.",
+            "reviewLine": "{{name}}: من {{last}} إلى {{price}} (ارتفاع {{percent}}٪)",
+            "approve": "الموافقة على الأسعار",
+            "approvedToast": "تمت الموافقة على الأسعار.",
+            "payTitle": "تسجيل {{supplier}} كمدفوع",
+            "payBody": "يسجّل هذا دفعة أجريتها. لا يرسل أي مال.",
+            "referenceLabel": "المرجع (اختياري)",
+            "dueLabel": "تاريخ الاستحقاق",
+            "confirmPay": "تسجيل كمدفوع",
+            "paidToast": "سُجّلت التوريدة كمدفوعة.",
+            "dueToast": "تم حفظ تاريخ الاستحقاق.",
+            "saveError": "لم يتم الحفظ."
+        },
+        "dishMargins": {
+            "heading": "الأطباق المعروضة للبيع",
+            "empty": "تُحتسب الهوامش ليلاً. ستظهر هنا بعد التشغيل التالي.",
+            "loadErrorTitle": "تعذّر تحميل هوامش الأطباق.",
+            "asOf": "حتى {{when}}.",
+            "targetNote": "الهامش المستهدف: {{percent}}٪.",
+            "noTarget": "لم يُحدَّد هدف. حدّده في مواعيد الخدمة ضمن تشغيل الفرع.",
+            "columnDish": "الطبق",
+            "columnChannel": "يُباع إلى",
+            "columnPrice": "السعر",
+            "columnCost": "التكلفة",
+            "columnMargin": "الهامش",
+            "columnStatus": "الحالة",
+            "channel": {
+                "b2c": "الزبائن",
+                "b2b": "الشركات"
+            },
+            "belowTarget": "دون الهدف",
+            "onTarget": "ضمن الهدف",
+            "marginValue": "{{percent}}٪",
+            "withheld": {
+                "no_recipe": "محجوب: لا وصفة منشورة",
+                "no_price": "محجوب: لا سعر معلن",
+                "cost_incomplete": "محجوب: التكلفة غير مكتملة",
+                "currency_mismatch": "محجوب: عملتان مختلفتان"
+            }
         }
     },
     "kds": {
@@ -2057,11 +2352,19 @@
         "noBranchBody": "اختر الفرع الذي تعرضه هذه الشاشة كي تظهر تذاكره.",
         "mayContain": "قد يحتوي على {{allergen}}",
         "handedOver": "تم التسليم",
+        "deliveryFailed": "فشل التوصيل",
         "waitingForDriver": "بانتظار السائق",
         "withDriver": "مع السائق",
         "accept": "قبول",
         "accepted": "تم القبول",
-        "upcoming": "القادمة"
+        "upcoming": "القادمة",
+        "soundOn": "تشغيل الصوت",
+        "staleTitle": "قد لا تكون هذه اللوحة محدّثة",
+        "staleBody": "فشل التحديث الأخير. آخر تحديث {{time}}. تعيد اللوحة المحاولة تلقائيًا.",
+        "truncatedTitle": "لا تتّسع هذه اللوحة لكل التذاكر",
+        "truncatedBody": "الطلبات المنتظرة أكثر مما تتّسع له اللوحة، والأحدث هي الغائبة. افتح سجل الطلبات لرؤيتها.",
+        "alarmTitle": "لم يُقبل بعد",
+        "alarmBody": "انتظر {{minutes}} دقيقة أثناء ساعات العمل. اقبله أو ابدأ به الآن."
     },
     "driver": {
         "title": "توصيلاتك",
@@ -2107,7 +2410,29 @@
         "pickUp": "تم الاستلام",
         "pickedUpAt": "استلمته في {{at}}",
         "deliveredToast": "تم التسليم. أُغلق الطلب {{reference}}.",
-        "waitingForKitchen": "بانتظار المطبخ"
+        "waitingForKitchen": "بانتظار المطبخ",
+        "allergyTitle": "حساسية في هذا الطلب",
+        "allergyNote": "ملاحظة: {{note}}",
+        "amountDue": "حصّل {{amount}}",
+        "collectedLabel": "النقد المحصّل ({{currency}})",
+        "collectedHint": "المبلغ المستحق {{amount}}. عدّله إذا دفع الزبون أقل.",
+        "collectedInvalid": "أدخل مبلغاً، مثل 12.50.",
+        "collectedTooMuch": "هذا أكثر مما يستحق على هذا الطلب.",
+        "noCashNote": "اذكر سبب عدم تحصيل النقد.",
+        "fail": "تعذّر التوصيل",
+        "failTitle": "هل تعذّر توصيل هذا الطلب؟",
+        "failBody": "أعد الطعام. سيقرر المدير ما سيحدث بعد ذلك، ولن يُسجَّل أي نقد.",
+        "failConfirm": "تعذّر التوصيل",
+        "failReasonLabel": "ماذا حدث؟",
+        "failNoteLabel": "ملاحظة (اختيارية)",
+        "failedToast": "أصبح الطلب {{reference}} لدى المدير الآن.",
+        "failReason": {
+            "no_answer": "لا يوجد رد",
+            "wrong_address": "العنوان خاطئ",
+            "refused": "رفض الزبون الطلب",
+            "unreachable": "تعذّر الوصول",
+            "other": "سبب آخر"
+        }
     },
     "desk": {
         "title": "مكتب الطلبات",
@@ -2257,7 +2582,7 @@
             "customerSearchTooShort": "تابع الكتابة — {{count}} أحرف أو أكثر للبحث.",
             "customerSearchErrorTitle": "تعذّر تنفيذ البحث",
             "customerNoneTitle": "لا أحد يطابق ذلك",
-            "customerNoneBody": "جرّب جزءًا من الاسم، أو رقم الهاتف مع رمز الدولة. إن كان متصلًا لأول مرة، سجّله أدناه.",
+            "customerNoneBody": "جرّب جزءًا من الاسم أو رقم الهاتف كاملًا: الزبون المسجَّل الذي لم يطلب من هنا يُعثر عليه بالرقم فقط. إن كان المتصل جديدًا، فسجّله أدناه.",
             "customerCapped": "تُعرض أول {{limit}} نتيجة. ضيّق البحث للوصول إلى الباقي.",
             "customerChoose": "اختيار",
             "customerRegular": "طلب من هنا سابقًا",
@@ -2361,10 +2686,28 @@
             "shortfall": {
                 "customer": "اختر العميل لتأكيد هذا الطلب.",
                 "address": "احفظ عنوان التوصيل لتأكيد هذا الطلب.",
-                "reference": "اكتب رقم التحويل لقبول دفعة Whish."
+                "reference": "اكتب رقم التحويل لقبول دفعة Whish.",
+                "allergy": "أبلغ الزبون بتعارض الحساسية، ثم ضع علامة في المربع."
             },
             "zoneNoSlots": "منطقة التوصيل لهذا العنوان لا تعرض أيًّا من فترات المطبخ. حدّد واحدة في خطوة نوافذ التوصيل للمنطقة.",
-            "heldStock": "قيد الحجز للفحص: {{names}}"
+            "heldStock": "قيد الحجز للفحص: {{names}}",
+            "allergyNoteLabel": "ملاحظة حساسية",
+            "allergyNoteHint": "أي شيء ذكره الزبون عن الحساسية. سيظهر للمطبخ.",
+            "allergyConflictTitle": "هذا الطعام يتعارض مع حساسية الزبون",
+            "allergyConflictMeal": "{{meal}} ({{allergens}})",
+            "allergyAcknowledge": "أبلغت الزبون بذلك",
+            "walkIn": "زبون حاضر، بلا اسم على الطلب",
+            "walkInChoose": "زبون حاضر",
+            "partyPending": "اختر الزبون، أو حدّد أنه زبون حاضر، لتظهر القائمة. تُعلَّم الحساسيات على الأطباق عندما يكون الزبون مسمّى.",
+            "customerRegistered": "زبون مسجَّل",
+            "customerAllergiesTitle": "حساسيات مسجّلة",
+            "customerAllergiesNone": "ذكر هذا الزبون أنه لا يعاني من أي حساسية.",
+            "customerAllergiesUnknown": "لم يُسأل هذا الزبون عن الحساسية بعد. اسأله قبل أخذ الطلب.",
+            "customerAllergiesError": "تعذّرت قراءة الحساسيات. اسأل الزبون قبل أخذ الطلب.",
+            "tileConflict": "يحتوي على {{allergens}}",
+            "tileConflictDiet": "يتعارض مع النظام الغذائي لهذا الزبون",
+            "offToday": "غير متوفر اليوم",
+            "backOnToday": "إعادته لليوم"
         },
         "refusal": {
             "customer_required": "هذا النوع من البيع يحتاج إلى عميل. ارجع واختر واحدًا أو أضفه.",
@@ -2379,12 +2722,26 @@
             "currency_mismatch": "جزء من هذه السلة مسعّر بعملة أخرى، فلا يمكن بيعها دفعة واحدة.",
             "item_unknown": "ذلك الصنف لم يعد في الكتالوج.",
             "item_not_published": "ذلك الصنف غير منشور، فلا يمكن بيعه.",
+            "item_not_assessed": "لم يُقيَّم هذا الصنف من حيث مسبّبات الحساسية، لذا لا يمكن بيعه. قيّمه في الكتالوج أولاً.",
+            "option_unknown": "أحد الخيارات المحددة في هذا السطر لم يعد متوفراً. افتح السطر واختر من جديد.",
+            "option_unlinked": "صلصة أو طبق جانبي في هذا السطر غير مربوط بوصفة، فلا يمكن بيعه. اربطه في خيارات الطبق أو اختر غيره.",
+            "quality_hold": "كل ما تبقّى من هذا الصنف موقوف بسبب فحص الجودة. أفرج عن الفحص أو اختر صنفاً آخر.",
             "variant_unknown": "تلك العبوة لم تعد موجودة.",
             "variant_not_active": "تلك العبوة غير متاحة.",
             "channel_unavailable": "ذلك الصنف غير معروض على الطاولة. انشره على قناة المكتب أولًا.",
             "channel_not_trading": "الطاولة لا تستقبل طلبات حاليًا.",
             "unpriced": "ذلك الصنف بلا سعر للطاولة. أضفه إلى قائمة أسعار يستخدمها المكتب.",
-            "window_not_offered": "منطقة توصيل العنوان لا تعرض هذه الفترة. اختر فترة أخرى."
+            "window_not_offered": "منطقة توصيل العنوان لا تعرض هذه الفترة. اختر فترة أخرى.",
+            "closed": "المطبخ مغلق في ذلك اليوم. اختر يومًا آخر.",
+            "kitchen_closed": "لا يوجد فرع مفتوح لهذا المطبخ، لذا لا يمكن إتمام هذا البيع.",
+            "window_ended": "انتهت هذه الفترة اليوم. اختر فترة لاحقة أو يومًا آخر.",
+            "lead_time_not_met": "هذه الفترة قريبة جدًا ولا تكفي المطبخ لتحضير هذا الطلب.",
+            "below_zone_minimum": "قيمة هذا الطلب أقل من الحد الأدنى لمنطقة التوصيل.",
+            "item_unavailable_on_date": "هذا الصنف متوقف أو نفد في ذلك اليوم. اختر يومًا آخر أو أزله.",
+            "allergen_conflict": "هذا الطعام يتعارض مع حساسية الزبون. ضع علامة بأنك أبلغته، ثم حاول مجددًا.",
+            "kitchen_not_open": "لم يفتح هذا المطبخ بعد. سيُرفض طلب الزبون عبر الموقع، لكن يمكن للمكتب أخذ هذا الطلب.",
+            "kitchen_paused": "المطبخ متوقف مؤقتًا. سيُرفض طلب الزبون عبر الموقع، لكن يمكن للمكتب أخذ هذا الطلب.",
+            "window_full": "بلغ هذا الموعد حدّه. سيُرفض طلب الزبون عبر الموقع، لكن يمكن للمكتب أخذ هذا الطلب."
         },
         "columnPhone": "الهاتف",
         "columnAgeing": "التأخير",
@@ -2394,6 +2751,8 @@
             "open": "مفتوحة الآن",
             "openCaption": "ضمن هذه الفترة",
             "late": "تجاوزت موعدها",
+            "lateInfo": "كل طلب مفتوح تجاوز موعده، في أي تاريخ، وليس في هذا العرض فقط.",
+            "lateFilter": "عرض كل الطلبات التي تجاوزت موعدها، في أي تاريخ",
             "lateCaption": "تجاوزت وقت استحقاقها",
             "needsDriverCaption": "مؤكدة ولم يُكلَّف أحد",
             "unsettledCaption": "مبالغ ما زالت مستحقة"
@@ -2468,6 +2827,31 @@
                 "paid_online": "تم دفع الطلب عبر الإنترنت.",
                 "legacy_consumption": "سُحب مخزون هذا الطلب قبل التتبّع حسب البند، لذا لا يمكن تعديله."
             }
+        },
+        "courier": {
+            "open": "تسليم إلى شركة توصيل",
+            "title": "تسليم إلى شركة توصيل",
+            "description": "يغادر الطلب {{number}} معهم الآن. لا يمكن إلغاؤه بعد ذلك، ويبقى النقد غير مسدد حتى تسوية الحساب مع الشركة.",
+            "confirm": "تسليم",
+            "nameLabel": "شركة التوصيل",
+            "referenceLabel": "المرجع (اختياري)",
+            "feeLabel": "الرسوم بـ {{currency}} (اختياري)",
+            "feeInvalid": "أدخل مبلغاً، مثل 3.00.",
+            "handedToast": "سُلّم إلى {{name}}."
+        },
+        "pause": {
+            "minutes_zero": "لا دقائق",
+            "button": "إيقاف المطبخ مؤقتًا",
+            "title": "إيقاف طلبات الزبائن الجديدة مؤقتًا",
+            "body": "لن يتمكن الزبائن من الطلب حتى انتهاء الوقت. يبقى بإمكان المكتب الطلب، وتستمر الطلبات القائمة.",
+            "minutes_one": "دقيقة واحدة",
+            "minutes_two": "دقيقتان",
+            "minutes_few": "{{count}} دقائق",
+            "minutes_many": "{{count}} دقيقة",
+            "minutes_other": "{{count}} دقيقة",
+            "pausedUntil": "المطبخ متوقف حتى {{time}}",
+            "pausedBody": "يُرفض طلب الزبائن حتى ذلك الوقت. يبقى بإمكان المكتب أخذ الطلبات.",
+            "resume": "الاستئناف الآن"
         }
     },
     "calendar": {
@@ -2510,6 +2894,14 @@
         "noteZero": "0 صفر حقيقي — راجع الخادم تلك الفترة ولم يجد شيئًا. أما — فتعني أن اليوم لم تصل إجابته، وهذه حقيقة مختلفة لا تُعرض أبدًا على أنها صفر."
     },
     "families": {
+        "temperatureLogs": {
+            "name": "سجل الحرارة",
+            "description": "قراءات البرادات والفريزرات مرتين يومياً، والحرارة الداخلية لكل دفعة."
+        },
+        "complaints": {
+            "name": "الشكاوى",
+            "description": "ما حدث من خطأ في طلب، وكلفته، وكيف انتهى."
+        },
         "customers": {
             "name": "العملاء",
             "description": "من يشتري من هذا المطبخ — أفراد وشركات وزوّار — مع بيانات تواصلهم وعناوينهم، للرجوع إليها."
@@ -2589,11 +2981,19 @@
         },
         "analytics": {
             "name": "التحليلات",
-            "description": "مؤشرات المطبخ واتجاهات الإنتاج ومزيج القنوات — أرقام تجريبية حتى يصل التقرير الحي."
+            "description": "الطلبات والوحدات المبيعة ونسبة الالتزام بالوقت ومزيج القنوات، من سجل الطلبات."
         },
         "costReport": {
             "name": "تقرير التكاليف",
             "description": "الإنفاق الشهري وتكلفة البضاعة المُباعة إلى جانب إيراد المبيعات — الهامش بلمحة واحدة."
+        },
+        "setup": {
+            "name": "الإعداد",
+            "description": "الخطوات قبل أن يستقبل هذا المطبخ طلبات الزبائن، والزر الذي يفتحه."
+        },
+        "stockDuplicates": {
+            "name": "مخزون مكرر",
+            "description": "صفوف مخزون تحمل الاسم نفسه وتحتاج إلى من يقرّر ما هي."
         },
         "consumptionExceptions": {
             "name": "نواقص المخزون",
@@ -2642,85 +3042,80 @@
         "wholesale": {
             "name": "إعداد البيع بالجملة",
             "description": "ما يحتاجه عميل الأعمال قبل أن يطلب من هذا المطبخ."
+        },
+        "orderSettlement": {
+            "name": "تسوية النقد",
+            "description": "النقد الذي يسلّمه السائقون وشركات التوصيل، وأي نقص يوقّعه مدير."
+        },
+        "activity": {
+            "name": "النشاط",
+            "description": "من حرّك المخزون، وكم كلّف الهدر، وكل ما سجّله سجل التدقيق."
+        },
+        "orderClose": {
+            "name": "إقفال اليوم",
+            "description": "الرصيد الافتتاحي وعدّ النقد والفرق لكل وردية."
+        },
+        "payables": {
+            "name": "المستحقات للموردين",
+            "description": "ما هو مستحق عن التوريدات، ومواعيد استحقاقه، والأسعار بانتظار الموافقة."
+        },
+        "dishMargins": {
+            "name": "هوامش الأطباق",
+            "description": "ما يربحه كل طبق بتكاليف اليوم مقارنة بهدفك."
         }
     },
     "analytics": {
-        "title": "تحليلات المطبخ",
-        "subtitle": "عروض مباشرة لطاقم المطبخ — صفِّ حسب التاريخ والشريحة فيتحدّث كل مخطط ومؤشر وصف معًا.",
-        "theme": {
-            "dark": "الوضع الداكن",
-            "light": "الوضع الفاتح"
-        },
         "filters": {
             "from": "من",
-            "to": "إلى",
-            "segment": "الشريحة"
-        },
-        "segments": {
-            "all": "الكل",
-            "meals": "الأطباق",
-            "recipes": "الوصفات",
-            "delivery": "التوصيل",
-            "stock": "المخزون"
+            "to": "إلى"
         },
         "kpi": {
-            "produced": "الوحدات المنتَجة",
+            "orders": "الطلبات",
+            "units": "الوحدات المبيعة",
             "onTime": "نسبة الالتزام بالوقت",
-            "review": "قائمة المراجعة",
-            "prep": "متوسط وقت التحضير"
+            "leadTime": "متوسط مدة التنفيذ"
         },
         "trend": {
             "up": "↑ {{value}}٪",
             "down": "↓ {{value}}٪",
-            "flat": "بدون تغيير"
+            "flat": "بدون تغيير",
+            "noComparison": "لا توجد فترة للمقارنة"
+        },
+        "notEnoughData": "لا تتوفر بيانات كافية",
+        "units": {
+            "hours": "س"
         },
         "charts": {
-            "productionTrend": "اتجاه الإنتاج",
-            "channelVolume": "الحجم حسب القناة",
-            "statusMix": "مزيج الحالة",
-            "statusCenter": "الحصة",
+            "unitsTrend": "الوحدات المبيعة",
+            "perDay": "وحدة في اليوم",
+            "perWeek": "وحدة في الأسبوع",
+            "trendBarTitle": "{{label}} · {{value}} وحدة",
+            "channelVolume": "الطلبات حسب القناة",
             "channels": {
                 "subscription": "الاشتراك",
                 "aLaCarte": "طلب فردي",
                 "b2b": "أعمال",
-                "pos": "نقطة البيع",
-                "staff": "وجبات الطاقم"
+                "pos": "نقطة البيع"
             },
-            "productionTrendUnit": "وحدة لكل فترة",
-            "trendBarTitle": "{{label}} · {{value}} وحدة"
-        },
-        "status": {
-            "all": "كل الحالات",
-            "onTrack": "على المسار",
-            "watch": "مراقبة",
-            "blocked": "موقوف"
+            "outcomeMix": "نتائج الطلبات",
+            "outcomes": {
+                "fulfilled": "منفَّذة",
+                "open": "مفتوحة",
+                "cancelled": "ملغاة"
+            }
         },
         "table": {
-            "title": "البنود",
-            "subtitle": "رتِّب أي عمود وصفِّ بالاسم أو الحالة — يتحدّث فورًا مع مرشّحات لوحة المؤشرات.",
-            "caption": "بنود تحليلات المطبخ",
-            "search": "بحث في الصفوف",
-            "searchPlaceholder": "الاسم أو الشريحة أو التحديث…",
-            "statusFilter": "مرشّح الحالة",
-            "name": "الاسم",
-            "segment": "الشريحة",
-            "status": "الحالة",
-            "volume": "الحجم",
-            "completion": "منجَز",
-            "avgMinutes": "متوسط د",
-            "updated": "حدِّث",
-            "empty": "لا توجد صفوف تطابق هذه المرشّحات.",
-            "sampleNote": "أرقام تجريبية إلى أن تتوفر التقارير الحية"
+            "title": "الأصناف الأكثر طلبًا",
+            "caption": "الأصناف الأكثر طلبًا حسب الوحدات المبيعة",
+            "name": "الصنف",
+            "type": "النوع",
+            "orders": "الطلبات",
+            "units": "الوحدات",
+            "share": "الحصة",
+            "lastOrdered": "آخر طلب"
         },
-        "units": {
-            "count": "وحدة",
-            "percent": "٪",
-            "minutes": "دقيقة"
-        },
-        "window": {
-            "kind": "بند",
-            "note": "هذه أرقام تجريبية إلى أن تتوفر التقارير الحية. لا شيء في هذه الشاشة مقروء من سجل الطلبات."
-        }
+        "emptyTitle": "لا توجد طلبات في هذا النطاق",
+        "emptyBody": "تظهر هنا الطلبات المقدَّمة خلال النطاق المحدَّد."
     },
     "review": {
         "title": "بحاجة إلى مراجعة",
@@ -3010,7 +3405,7 @@
         "metaSeparator": " · ",
         "cancel": "إلغاء",
         "save": "حفظ",
-        "forkAction": "تعديل لهذا المطبخ",
+        "forkAction": "حفظ نسخة لهذا المطبخ",
         "forkedToast": "أصبح {{name}} ملكًا لهذا المطبخ. يمكنك تعديله الآن.",
         "forkError": "تعذّر إنشاء النسخة",
         "stepsLabel": "خطوات النموذج",
@@ -3047,7 +3442,7 @@
         "itemsPerUnit": "القطع في العبوة",
         "itemsPerUnitHint": "عدد القطع في عبوة شراء واحدة، حيثما كان معروفًا.",
         "composition": "التركيبة (مصنوع من)",
-        "compositionHint": "صياغة ورقة المصدر نفسها — قائمة مكوّنات تقريبية، وليست تركيبة كمّية.",
+        "compositionHint": "قائمة مكوّنات تقريبية، وليست تركيبة كمّية.",
         "subcategory": "الفئة الفرعية",
         "subcategoryPlaceholder": "اختر فئة فرعية",
         "subcategoryNone": "مدرج في المستوى الأعلى",
@@ -3247,6 +3642,13 @@
         "mappingAdded": "أُضيف صف ربط مسبّب حساسية.",
         "mappingRemoved": "أُزيل صف ربط مسبّب حساسية."
     },
+    "allergenAssessment": {
+        "notAssessed": "غير مقيَّم",
+        "noRecipe": "لا وصفة منشورة",
+        "calloutTitle": "لم يُقيَّم من حيث مسبّبات الحساسية، لذا هو خارج البيع",
+        "calloutBody": "لم يسجّل أحد مكوّنات هذا الصنف. انشر وصفة أو اربط مكوّناته، أو أكّد أنه لا يحتوي على أي مما يلي: {{allergens}}",
+        "confirm": "مقيَّم: لا يحتوي على أي مما سبق"
+    },
     "stockBlockers": {
         "gateCheck": "يُنقص المخزون عند البيع",
         "rowLabel": "بيع هذا لا يُنقص المخزون: {{reasons}}",
@@ -3298,7 +3700,7 @@
         "versionCount_many": "{{count}} نسخةً",
         "versionCount_other": "{{count}} نسخة",
         "quarantined": "بانتظار المراجعة",
-        "noAllergens": "لا شيء مشتقّ",
+        "noAllergens": "لا شيء في مكوّناتها",
         "emptyTitle": "لا توجد وصفات في هذا المطبخ بعد",
         "emptyBody": "اكتب أوّل وصفة، أو انتظر أن يجلب الاستيراد البطاقات الفنية.",
         "filteredEmptyTitle": "لا شيء يطابق هذه المرشّحات",
@@ -3342,7 +3744,7 @@
         "versionSelect": "عرض",
         "versionSelected": "معروضة",
         "versionUnavailableTitle": "تعذّر تحميل محتوى هذه النسخة",
-        "versionUnavailableBody": "تُجيب واجهة الإدارة بالنسخة الحالية كاملة، وبكل نسخة أخرى كملخّص فقط. يظهر رقمها وحالتها وتاريخ نشرها، أمّا بنودها فغير متاحة للقراءة.",
+        "versionUnavailableBody": "لا يمكن قراءة سوى النسخة الحالية كاملة. أمّا النسخ الأقدم فيظهر رقمها وحالتها وتاريخ نشرها، دون مكوّناتها.",
         "backToCurrentVersion": "العودة إلى النسخة الحالية",
         "immutableTitle": "هذه النسخة منشورة ولا يمكن تغييرها",
         "immutableBody": "افتح منها مسودة جديدة. تبدأ المسودة نسخةً مطابقة — البنود والنواتج والطريقة — ويبقى العملاء يقرؤون النسخة المنشورة حتى تُنشر المسودة بدورها.",
@@ -3438,8 +3840,8 @@
         "statReviewCaption": "محجوزة على تغيير مسبّبات الحساسية",
         "statReviewAction": "أظهر الوصفات التي تنتظر المراجعة فقط",
         "viewKind": "وصفة",
-        "viewAllergensSource": "مشتقّة",
-        "viewAllergensCaption": "مشتقّة من بنود هذه النسخة. صحّحها بتعديل البنود، لا من هنا.",
+        "viewAllergensSource": "من المكوّنات",
+        "viewAllergensCaption": "مأخوذة من مكوّنات هذه النسخة. لتغييرها، عدّل المكوّنات.",
         "sourceKindLabel": "النوع",
         "tabsLabel": "خطوات الوصفة",
         "tabDescription": "الوصف",
@@ -3472,8 +3874,6 @@
         "costPerPieceWithWaste": "للقطعة + {{percent}}% هدر",
         "productionWastePercent": "هدر الإنتاج (%)",
         "packagingWastePercent": "هدر التعبئة (%)",
-        "b2bPriceHint": "للمطابخ والمشترين المؤسسيين، غير شامل ضريبة القيمة المضافة",
-        "b2cPriceHint": "للمستهلك، شامل ضريبة القيمة المضافة",
         "marginNoBasis": "يتطلّب سعر شركات وتركيبة مُكلَّفة",
         "compositionHint": "محسوب من قاعدة بيانات المكوّنات — غير قابل للتعديل هنا",
         "sectionAllergenClasses": "فئات مسبّبات الحساسية",
@@ -3562,7 +3962,7 @@
         "sheetYieldWithPortions": "{{quantity}} {{unit}} · {{pieces}} حصة",
         "sheetProductionAfterWaste": "الإنتاج / {{unit}} بعد الهدر",
         "sheetPackagingAfterWaste": "التغليف / {{unit}} بعد الهدر",
-        "sheetAllergensDerived": "مسببات الحساسية (مشتقّة)",
+        "sheetAllergensDerived": "مسببات الحساسية (من المكوّنات)",
         "sheetRestrictedValue": "نعم — ليست للتداول",
         "publishChecksTitle": "فحوص النشر",
         "versionChip": "{{status}} الإصدار {{number}}",
@@ -3589,13 +3989,13 @@
         "checkYieldOk": "{{quantity}} {{unit}} لكل دفعة",
         "checkYieldMissing": "حدّد ناتج الدفعة في خطوة الإنتاج",
         "checkAllergens": "مسببات الحساسية مؤكَّدة",
-        "checkAllergensOk_zero": "مشتقّة من {{count}} مادة خام",
-        "checkAllergensOk_one": "مشتقّة من مادة خام واحدة",
-        "checkAllergensOk_two": "مشتقّة من مادتين خامّتين",
-        "checkAllergensOk_few": "مشتقّة من {{count}} مواد خام",
-        "checkAllergensOk_many": "مشتقّة من {{count}} مادة خام",
-        "checkAllergensOk_other": "مشتقّة من {{count}} مادة خام",
-        "checkAllergensUnmapped": "لا يوجد ربط لمسببات الحساسية: {{names}}",
+        "checkAllergensOk_zero": "مأخوذة من {{count}} مادة خام",
+        "checkAllergensOk_one": "مأخوذة من مادة خام واحدة",
+        "checkAllergensOk_two": "مأخوذة من مادتين خامّتين",
+        "checkAllergensOk_few": "مأخوذة من {{count}} مواد خام",
+        "checkAllergensOk_many": "مأخوذة من {{count}} مادة خام",
+        "checkAllergensOk_other": "مأخوذة من {{count}} مادة خام",
+        "checkAllergensUnmapped": "لم تُسجَّل مسببات الحساسية لـ: {{names}}",
         "yieldQuantity": "الكمية الناتجة",
         "yieldPieces": "عدد القطع الناتجة",
         "discard": "تجاهل",
@@ -3630,7 +4030,9 @@
         "savedAllToast": "تم حفظ كل التغييرات.",
         "allSavedBadge": "تم حفظ الكل",
         "listingNotSavedToast": "لم يتم حفظ تبويب البيع. يوضح ما يجب إصلاحه.",
-        "swappedToCopyToast": "تستخدم هذه الوصفة الآن نسخة مطبخك من المكوّن. احفظ للإبقاء على ذلك."
+        "swappedToCopyToast": "تستخدم هذه الوصفة الآن نسخة مطبخك من المكوّن. احفظ للإبقاء على ذلك.",
+        "offTodayToast": "خارج القائمة لهذا اليوم.",
+        "backOnTodayToast": "عاد إلى القائمة اليوم."
     },
     "publish": {
         "action": "نشر",
@@ -3854,10 +4256,10 @@
         "recipeMissingBody": "لا توجد وصفة مرتبطة بعد، فلا سطور تُحسب تكلفتها ولا بطاقة فنية تُرسم. البدء يُنشئ وصفة باسم هذا الصنف ويربطها به، ثم تُفتح التبويبات عليها.",
         "formulationStart": "ابدأ الصيغة",
         "formulationStartedToast": "أصبح لـ {{name}} صيغة جاهزة للتعبئة.",
-        "recipeNoneHint": "يُشترى هذا المنتج جاهزًا لا يُطبخ، فلا شيء مشتقّ من وصفة.",
+        "recipeNoneHint": "يُشترى هذا المنتج جاهزًا لا يُطبخ، فلا وصفة له.",
         "openRecipe": "فتح الوصفة",
         "dietsLabel": "تصنيفات الحمية",
-        "dietsNone": "لا شيء مشتقّ",
+        "dietsNone": "لا شيء في وصفته",
         "dataQualityTitle": "ترك الاستيراد ملاحظات على هذا السطر",
         "quarantineTitle": "محجوز للمراجعة",
         "quarantineBody": "تتعارض معلومات الحساسية لهذا المنتج مع تحديد نُشر بناءً عليه. عالج التعارض على المكوّن؛ لا شيء في هذه الشاشة يرفعه.",
@@ -3921,11 +4323,11 @@
         "sectionDetails": "الطبق",
         "sectionRecipe": "الوصفة ومسبّبات الحساسية والقنوات",
         "sectionMargin": "هامش الربح",
-        "recipeHint": "الوصفة التي تأتي منها أرقام الطبق وبطاقة مسبّبات الحساسية. الطبق بلا وصفة يُشترى جاهزًا ولا يعلن شيئًا مشتقًا.",
+        "recipeHint": "الوصفة التي تأتي منها أرقام الطبق وبطاقة مسبّبات الحساسية. الطبق بلا وصفة يُشترى جاهزًا وليس له أيّ منهما.",
         "allergensLabel": "مسبّبات الحساسية المعلنة",
-        "allergensNone": "لا شيء مشتقّ",
+        "allergensNone": "لا شيء في وصفته",
         "allergensProvenance": "مجمّدة من نسخة الوصفة {{version}} عند نشر هذا الطبق. غيّر الوصفة لتغيير البطاقة — لا يمكن تحريرها هنا.",
-        "allergensNoProvenance": "لا نسخة وصفة مسجّلة، فلا شيء مشتقّ. اربط وصفة لتمنح هذا الطبق بطاقة.",
+        "allergensNoProvenance": "لا وصفة مرتبطة، فلا معلومات عن مسبّبات الحساسية. اربط وصفة لتمنح هذا الطبق بطاقة.",
         "channelsLabel": "قنوات البيع",
         "channelsReadOnly": "للقراءة فقط هنا: ينشر هذا الكتالوج ضابط قنوات للمنتجات ولا ينشر واحدًا للأطباق.",
         "confidential": "سرّي",
@@ -3935,12 +4337,12 @@
         "publishBody": "النشر هو ما يجعل الطبق مرئيًا خارج هذا المطبخ.",
         "publishConsequence": "سيظهر الطبق على قائمة الطعام العامة وفي البحث وعلى صفحته الخاصة، بالاسم والوصف وبطاقة مسبّبات الحساسية أدناه. وسحبه لاحقًا فعل منفصل ومقصود.",
         "publishAllergensTitle": "البطاقة التي سيحملها هذا الطبق",
-        "publishAllergensNone": "لا مسبّب حساسية معلن. هذا يعني أن شيئًا لم يُشتق أو أن لا وصفة مرتبطة — لا أن الطبق خالٍ من الأصناف الأربعة عشر.",
+        "publishAllergensNone": "لا مسبّب حساسية معلن. هذا يعني أنه لم يُعثر على شيء أو أن لا وصفة مرتبطة — لا أن الطبق خالٍ من الأصناف الأربعة عشر.",
         "publishBlockedTitle": "لا يمكن نشر هذا الطبق بعد",
         "blockName": "الاسم العربي مفقود — تعود الصفحة العامة إلى الإنجليزية.",
         "blockDescription": "أضف كلا الوصفين قبل النشر.",
         "blockMealTypes": "لم يُضبط أي نوع وجبة، فلن يجده من يتصفّح بحثًا عن فطور أو غداء.",
-        "blockUnsaved": "هناك تغييرات غير محفوظة. احفظها أولًا — النشر ينشر ما لدى الخادم لا ما على الشاشة.",
+        "blockUnsaved": "هناك تغييرات غير محفوظة. احفظها أولًا: النشر يعتمد آخر ما حُفظ لا ما على الشاشة.",
         "publishedTitle": "هذا الطبق على قائمة الطعام العامة",
         "publishedBody": "تقرأه كل واجهات العملاء الآن، بالاسم والبطاقة المحفوظين هنا.",
         "viewPublic": "شاهده على قائمة الطعام",
@@ -4043,7 +4445,7 @@
         "inconsistentCount_many": "{{count}} بندًا تخالف حالاتها",
         "inconsistentCount_other": "{{count}} بند يخالف حالته",
         "emptyTitle": "لا توجد قوائم أسعار لهذا المطبخ بعد",
-        "emptyBody": "تصل قوائم الأسعار مع استيراد الكتالوج. لا يمكن إنشاؤها من مساحة العمل هذه: واجهة الإدارة لا تنشر نقطة إنشاء لها.",
+        "emptyBody": "تصل قوائم الأسعار مع استيراد الكتالوج. لا يمكن إنشاؤها من هنا بعد.",
         "filteredEmptyTitle": "لا شيء يطابق هذه المرشّحات",
         "filteredEmptyBody": "جرّب بحثًا أقصر، أو اسمح بحالات أكثر.",
         "noEntries": "لم يُسعَّر شيء بعد",
@@ -4084,7 +4486,7 @@
         "publishExcludedTitle": "ما الذي لن يصل إلى العميل",
         "publishExcludedBody": "{{placeholders}} بندًا معلّقًا و{{market}} بندًا مسعَّرًا يوميًا لا تحمل مبلغًا. وهي مستبعَدة من كل سعر يراه العميل، قبل هذا النشر وبعده — النشر لا يحوّلها إلى أسعار.",
         "publishBlockedTitle": "لا يمكن نشر قائمة الأسعار هذه بعد",
-        "blockUnsaved": "هناك تغييرات غير محفوظة. احفظها أولًا — النشر ينشر ما لدى الخادم، لا ما على الشاشة.",
+        "blockUnsaved": "هناك تغييرات غير محفوظة. احفظها أولًا: النشر يعتمد آخر ما حُفظ لا ما على الشاشة.",
         "blockNoEntries": "لا تسعّر شيئًا.",
         "blockInconsistent_zero": "لا بنود مخالفة لحالتها.",
         "blockInconsistent_one": "بند واحد يخالف حالة سعره.",
@@ -4092,7 +4494,7 @@
         "blockInconsistent_few": "{{count}} بنود تخالف حالات أسعارها.",
         "blockInconsistent_many": "{{count}} بندًا تخالف حالات أسعارها.",
         "blockInconsistent_other": "{{count}} بند يخالف حالة سعره.",
-        "publishRefusedEntries": "رفض الخادم هذا النشر: بند واحد على الأقل يخالف حالة سعره. السعر المؤكَّد يحتاج مبلغًا، وما عداه لا يجوز أن يحمل مبلغًا.",
+        "publishRefusedEntries": "لا يمكن نشر هذه القائمة بعد: بند واحد على الأقل يخالف حالة سعره. السعر المؤكَّد يحتاج مبلغًا، وما عداه لا يجوز أن يحمل مبلغًا.",
         "publishedToast": "نُشِرت {{name}}.",
         "viewKind": "قائمة أسعار",
         "viewPending": "ليس سعرًا بعد",
@@ -4404,8 +4806,8 @@
         "editTitle": "الخطة",
         "stepsLabel": "خطوات الخطة",
         "backToList": "العودة إلى الخطط",
-        "notFoundTitle": "هذا ليس معرّف خطة",
-        "notFoundBody": "تُعنوَن الخطة بمعرّفها، أو بكلمة «new» لخطة لم تُنشأ بعد.",
+        "notFoundTitle": "هذه الخطة غير موجودة هنا",
+        "notFoundBody": "قد يكون الرابط خاطئًا أو قديمًا.",
         "loadErrorTitle": "تعذّر تحميل تلك الخطة",
         "sectionDetails": "الخطة",
         "matrixSaveError": "لم تُحفظ تلك التكوينات",
@@ -4459,7 +4861,7 @@
         "blockInconsistentDurations_many": "{{count}} مدةً تخالف نوعها: المرّة الواحدة لا تحمل عدد أيام، والمدة ذات الأيام المحدّدة تحتاج عددًا موجبًا.",
         "blockInconsistentDurations_other": "{{count}} مدة تخالف نوعها: المرّة الواحدة لا تحمل عدد أيام، والمدة ذات الأيام المحدّدة تحتاج عددًا موجبًا.",
         "blockNoConfirmedPrice": "لا قائمة أسعار تحمل سعرًا مؤكَّدًا لهذه الخطة أو لأي من تكويناتها. ونشرها يعلن سعرًا مؤقّتًا.",
-        "blockUnsaved": "هناك تغييرات غير محفوظة. احفظها أولًا — فالنشر ينشر ما لدى الخادم لا ما على الشاشة.",
+        "blockUnsaved": "هناك تغييرات غير محفوظة. احفظها أولًا: النشر يعتمد آخر ما حُفظ لا ما على الشاشة.",
         "publishRefusedPriceTitle": "رُفض هذا النشر: لا سعر مؤكَّد",
         "publishedTitle": "منشورة",
         "publishedBody": "هذه الخطة على صفحة الخطط العامة ويمكن الاشتراك فيها.",
@@ -4484,7 +4886,14 @@
         "savePlan": "حفظ الخطة",
         "addVariant": "أضف تكوينًا",
         "oneOffExplainer": "المرّة الواحدة توصيلة واحدة، فلا عدد أيام لها إطلاقًا — لا صفرًا ولا شيئًا.",
-        "searchPlaceholder": "ابحث في الخطط بالاسم"
+        "searchPlaceholder": "ابحث في الخطط بالاسم",
+        "matrixUnsold_zero": "كل التركيبات معروضة للبيع",
+        "matrixUnsold_one": "تركيبة واحدة غير معروضة للبيع",
+        "matrixUnsold_two": "تركيبتان غير معروضتين للبيع",
+        "matrixUnsold_few": "{{count}} تركيبات غير معروضة للبيع",
+        "matrixUnsold_many": "{{count}} تركيبة غير معروضة للبيع",
+        "matrixUnsold_other": "{{count}} تركيبة غير معروضة للبيع",
+        "matrixUnsoldBody": "لا يمكن للعميل شراء خانة فارغة. أضفها، أو اتركها فارغة إذا كنت لا تبيع هذا الحجم."
     },
     "time": {
         "formatHint": "نظام 24 ساعة، بصيغة HH:mm — مثل 08:00 أو 18:30.",
@@ -4611,7 +5020,7 @@
         "archiveWindowCount_many": "{{count}} نافذةَ توصيل تذهب معها.",
         "archiveWindowCount_other": "{{count}} نافذة توصيل تذهب معها.",
         "archivedToast": "أُرشفت {{name}}.",
-        "noBranches": "لا يخدمها أي فرع بعد",
+        "noBranches": "كل فروع هذا المطبخ",
         "titleChip": "بلا حالة نشر",
         "createSummary": "لا يُحفظ شيء حتى تحفظه. مغادرة هذه الشاشة تتجاهل ما كتبته.",
         "saveZone": "احفظ المنطقة",
@@ -5363,6 +5772,74 @@
         "itemFailure": "{{name}}: {{message}}",
         "itemsReadError": "تعذّرت قراءة الأصناف الموجودة على القناة."
     },
+    "setup": {
+        "subtitle": "أكمل هذه الخطوات، ثم افتح المطبخ للزبائن.",
+        "liveTitle": "هذا المطبخ مفتوح",
+        "liveBody": "يمكن للزبائن الطلب. استخدم الخطوات أدناه لإبقاء كل شيء منظماً.",
+        "notOpenTitle": "لم يفتح بعد",
+        "notOpenBody": "لا يمكن للزبائن الطلب حتى تبدأ التشغيل. ويمكن لمكتب الطلبات أخذ البيع.",
+        "open": "فتح",
+        "goLive": "بدء التشغيل",
+        "goLiveError": "تعذّر بدء تشغيل المطبخ",
+        "liveToast": "المطبخ مفتوح للطلبات.",
+        "step": {
+            "hours": {
+                "title": "ساعات العمل",
+                "body": "حدّد متى يعمل هذا الفرع ومتى تُغلق الطلبات."
+            },
+            "delivery": {
+                "title": "التوصيل",
+                "body": "منطقة نشطة مع نافذة توصيل واحدة على الأقل."
+            },
+            "menu": {
+                "title": "القائمة",
+                "body": "طبق أو منتج منشور واحد على الأقل."
+            },
+            "prices": {
+                "title": "الأسعار",
+                "body": "قائمة أسعار نشطة واحدة على الأقل."
+            },
+            "team": {
+                "title": "الفريق",
+                "body": "أضف الأشخاص الذين يعملون هنا. اختياري قبل بدء التشغيل."
+            }
+        }
+    },
+    "branchClosures": {
+        "title": "العطل والإغلاقات",
+        "description": "تواريخ يكون فيها هذا الفرع مغلقاً، مهما كانت ساعات الأسبوع أعلاه. لا يمكن للزبائن الطلب لهذه التواريخ.",
+        "add": "إضافة إغلاق",
+        "fromLabel": "أول يوم إغلاق",
+        "toLabel": "آخر يوم إغلاق",
+        "toHint": "اتركه فارغاً ليوم واحد.",
+        "noteLabel": "ملاحظة",
+        "empty": "لا إغلاقات قادمة.",
+        "remove": "إزالة",
+        "addedToast": "تمت إضافة الإغلاق.",
+        "saveError": "تعذّر حفظ هذا الإغلاق",
+        "newBranch": "فرع جديد",
+        "newBranchSave": "فتح الفرع",
+        "newBranchName": "اسم الفرع",
+        "newBranchCity": "المدينة",
+        "newBranchToast": "تم فتح الفرع. حدّد ساعاته الآن.",
+        "newBranchError": "تعذّر فتح هذا الفرع"
+    },
+    "stockDuplicates": {
+        "caption": "صفوف مخزون تحمل الاسم نفسه",
+        "columnName": "الاسم",
+        "columnReason": "سبب ظهوره هنا",
+        "columnShelves": "الصفوف",
+        "shelf": "{{code}}: {{quantity}} {{unit}}",
+        "emptyTitle": "لا شيء للمراجعة",
+        "emptyBody": "تم دمج كل صفوف المخزون ذات الاسم المكرر أو معالجتها.",
+        "reason": {
+            "different_units": "مسجّلة بوحدات مختلفة، فلا يمكن جمع الكميات",
+            "not_a_copy": "الاسم نفسه، لكن أياً منهما ليس نسخة من الآخر",
+            "both_have_history": "لكليهما سجل مخزون، فلا يمكن حذف أي منهما",
+            "both_sold_as_products": "كلاهما يُباع كمنتج",
+            "open_work": "ما زال طلب مفتوح أو استلام أو رقم مخزون يستخدم هذا الصف"
+        }
+    },
     "lens": {
         "label": "ملخص القائمة وعوامل التصفية",
         "allIngredients": "كل المكونات",
@@ -5480,6 +5957,207 @@
             "allergens": "مسببات الحساسية مسجلة",
             "nutrition": "القيم الغذائية مؤكدة",
             "price": "سعر الوحدة مسجل"
+        }
+    },
+    "alerts": {
+        "title": "التنبيهات",
+        "buttonLabel": "التنبيهات · غير المقروءة: {{n}}",
+        "freshMany": "تنبيهات جديدة: {{n}}",
+        "empty": "لا توجد تنبيهات بعد.",
+        "loadError": "تعذّر تحميل التنبيهات.",
+        "markAllRead": "تحديد الكل كمقروء",
+        "open": "فتح",
+        "openLabel": "فتح: {{title}}",
+        "unreadDetail": "جديد · {{when}}",
+        "type": {
+            "unaccepted_manager": "لم يُقبل الطلب {{number}} بعد",
+            "unaccepted_owner": "ما زال الطلب {{number}} غير مقبول",
+            "allergy_order": "الطلب الجديد {{number}} يتضمن حساسية",
+            "severe_allergy": "الطلب الجديد {{number}} يتضمن حساسية شديدة",
+            "late_cancel": "أُلغي الطلب {{number}} بعد بدء الطهي",
+            "delivery_failed": "فشل توصيل الطلب {{number}}",
+            "no_cash_collected": "لم يُحصَّل أي نقد عن الطلب {{number}}",
+            "refund_approval": "استرداد على الطلب {{number}} بانتظار موافقتك",
+            "stock_expiring": "موعد انتهاء صلاحية يقترب: {{number}}",
+            "temperature_out_of_range": "درجة حرارة خارج النطاق: {{number}}",
+            "refund_approved": "تمت الموافقة على استردادك في الطلب {{number}}",
+            "refund_rejected": "رُفض استردادك في الطلب {{number}}",
+            "short_hand_in": "جاء تسليم نقدي ناقصًا",
+            "short_close": "جاء إقفال الصندوق ليوم {{number}} ناقصًا",
+            "price_approval": "توريدة من {{number}} تحتاج إلى الموافقة على سعرها",
+            "dish_below_target": "هبط {{number}} دون هامش الربح المستهدف",
+            "delivery_moved_closed": "نُقل الطلب {{number}} من يوم إغلاق",
+            "delivery_closed_unmoved": "توصيل في {{number}} يقع في يوم إغلاق"
+        }
+    },
+    "dishOptions": {
+        "title": "خيارات الطبق",
+        "aside": "تغييرات مجانية يمكن للزبون طلبها. الحصص هي عبوات الطبق. حذف مكوّن لا يغيّر مسبّبات الحساسية. الصلصة أو الطبق الجانبي مربوط بوصفته ويضيف مسبّبات حساسيتها إلى السطر.",
+        "recipe": "الوصفة",
+        "recipePlaceholder": "اختر وصفة الصلصة أو الطبق الجانبي",
+        "recipeMissing": "لا وصفة مربوطة، فلا يُعرض هذا الاختيار على الزبائن.",
+        "recipeUnpublished": "لا نسخة منشورة لهذه الوصفة، فيتوقف بيع الطبق إلى أن تُنشر.",
+        "allergensAfterSave": "تظهر مسبّبات حساسيتها بعد حفظ الخيارات.",
+        "noAllergens": "لا تذكر الوصفة أي مسبّب حساسية.",
+        "kind": "النوع",
+        "kindRemove": "حذف مكوّن",
+        "kindChoice": "اختيار",
+        "groupEn": "المجموعة",
+        "groupAr": "المجموعة بالعربية",
+        "nameEn": "الاسم",
+        "nameAr": "الاسم بالعربية",
+        "removeRow": "أزل هذا الخيار",
+        "add": "أضف خياراً",
+        "save": "احفظ الخيارات",
+        "saved": "حُفظت خيارات الطبق.",
+        "lineAction": "خيارات وملاحظة لـ {{name}}",
+        "drawerTitle": "الخيارات والملاحظة",
+        "apply": "تطبيق",
+        "noteLabel": "ملاحظة للمطبخ",
+        "lineNote": "ملاحظة: {{note}}"
+    },
+    "complaints": {
+        "sectionTitle": "شكوى",
+        "record": "سجّل شكوى",
+        "recordTitle": "شكوى على الطلب {{number}}",
+        "recordConfirm": "احفظ الشكوى",
+        "recordedToast": "سُجّلت الشكوى.",
+        "openRecord": "افتح",
+        "viewKind": "شكوى",
+        "figureAll": "كل الشكاوى",
+        "figureOpenAction": "اعرض الشكاوى المفتوحة",
+        "figureClosedAction": "اعرض الشكاوى المغلقة",
+        "mix": "{{open}} مفتوحة، {{closed}} مغلقة",
+        "stateOpen": "مفتوحة",
+        "stateClosed": "مغلقة",
+        "columnOrder": "الطلب",
+        "columnCause": "السبب",
+        "columnCost": "الكلفة على المطبخ",
+        "columnState": "الحالة",
+        "costHint": "أفضل تقدير لديك. يمكن تغييره حتى إغلاق الشكوى.",
+        "fieldOpened": "تاريخ الفتح",
+        "fieldDescription": "ماذا حدث",
+        "fieldRemake": "أُعيد تحضيره بالطلب",
+        "fieldOutcome": "النتيجة",
+        "fieldRefund": "الاسترداد",
+        "searchPlaceholder": "ابحث بالطلب أو بما حدث",
+        "loadErrorTitle": "تعذّر تحميل الشكاوى",
+        "emptyTitle": "لا شكاوى",
+        "emptyBody": "تُسجَّل الشكوى من صفحة الطلب.",
+        "openOrder": "افتح الطلب",
+        "close": "أغلق الشكوى",
+        "closeTitle": "أغلق الشكوى",
+        "closeConfirm": "أغلقها",
+        "remake": "أعد التحضير مجاناً",
+        "remadeToast": "طُلبت إعادة التحضير: الطلب {{number}}.",
+        "cause": {
+            "wrong_item": "صنف خاطئ",
+            "missing_item": "صنف ناقص",
+            "quality": "جودة الطعام",
+            "late": "تأخير",
+            "foreign_object": "جسم غريب",
+            "other": "غير ذلك"
+        },
+        "outcome": {
+            "remade": "أُعيد تحضيره",
+            "refunded": "استُرد المبلغ",
+            "apologised": "تم الاعتذار",
+            "no_action": "بلا إجراء"
+        }
+    },
+    "temperature": {
+        "tabReadings": "البرادات والفريزرات",
+        "tabCooking": "الطهي",
+        "tabUnits": "الوحدات",
+        "month": "الشهر",
+        "record": "سجّل قراءة",
+        "recordBatch": "سجّل حرارة داخلية",
+        "addUnit": "أضف وحدة",
+        "editUnit": "عدّل الوحدة",
+        "print": "اطبع",
+        "printReadings": "حرارة البرادات والفريزرات، {{month}}",
+        "printCooking": "حرارة الطهي الداخلية، {{month}}",
+        "save": "احفظ",
+        "saved": "حُفظت القراءة.",
+        "savedOutOfRange": "حُفظت القراءة. إنها خارج النطاق، لذا نُبّه المدراء.",
+        "celsius": "{{value}}°م",
+        "columnDate": "التاريخ",
+        "columnSlot": "وقت اليوم",
+        "columnUnit": "الوحدة",
+        "columnReading": "القراءة",
+        "columnState": "الحالة",
+        "columnBy": "سجّلها",
+        "columnNote": "ملاحظة",
+        "columnWhen": "وقت التسجيل",
+        "columnBatch": "الدفعة",
+        "columnCore": "الحرارة الداخلية",
+        "fieldKind": "النوع",
+        "fieldRange": "يجب أن تبقى بين",
+        "fieldMin": "الأدنى (°م)",
+        "fieldMax": "الأعلى (°م)",
+        "fieldCelsius": "الحرارة (°م)",
+        "inRange": "ضمن النطاق",
+        "outOfRange": "خارج النطاق",
+        "active": "قيد الاستخدام",
+        "retired": "متوقفة",
+        "loadErrorTitle": "تعذّر تحميل سجل الحرارة",
+        "emptyTitle": "لا قراءات هذا الشهر",
+        "emptyBody": "تؤخذ القراءات مرتين يومياً لكل وحدة وتُكتب مرة واحدة.",
+        "cookingEmptyTitle": "لا حرارة داخلية مسجّلة هذا الشهر",
+        "cookingEmptyBody": "سجّل الحرارة الداخلية للدفعة أثناء طهيها.",
+        "unitsEmptyTitle": "لا وحدات بعد",
+        "unitsEmptyBody": "أضف كل براد وفريزر مع النطاق الذي يجب أن يبقى ضمنه.",
+        "kind": {
+            "fridge": "براد",
+            "freezer": "فريزر"
+        },
+        "slot": {
+            "am": "صباحاً",
+            "pm": "مساءً"
+        }
+    },
+    "serviceTimings": {
+        "title": "مواعيد الخدمة",
+        "description": "تسري هذه المواعيد على المطبخ كله لا على هذا الفرع وحده. لا تُحتسب أوقات التنبيه إلا خلال ساعات عمل الفرع.",
+        "save": "حفظ المواعيد",
+        "savedToast": "تم حفظ مواعيد الخدمة.",
+        "saveError": "لم تُحفظ مواعيد الخدمة.",
+        "loadErrorTitle": "تعذّر تحميل مواعيد الخدمة.",
+        "unit": "د",
+        "leadLabel": "مهلة الطلب المسبق",
+        "leadHint": "المدة التي يجب أن يسبق بها الطلب نافذة التوصيل.",
+        "alarmLabel": "تنبيه الشاشة بعد",
+        "alarmHint": "المدة التي ينتظرها الطلب قبل أن تُطلق شاشة المطبخ التنبيه.",
+        "managerLabel": "تنبيه المدراء بعد",
+        "managerHint": "يجب أن يكون أقل من تنبيه المالك.",
+        "ownerLabel": "تنبيه المالك بعد",
+        "ownerHint": "المدة التي ينتظرها الطلب قبل إبلاغ المالك.",
+        "refundLabel": "يوافق المالك على الاسترداد فوق",
+        "refundHint": "يُحتسب كل ما استُرد على الطلب الواحد. يسترد المديرون حتى هذا المبلغ بأنفسهم.",
+        "refundUnit": "دولار",
+        "capacityLabel": "أقصى عدد طلبات لكل موعد توصيل",
+        "capacityHint": "يُبلَّغ الزبائن بامتلاء الموعد عند تجاوز هذا العدد. اتركه فارغًا لعدم تحديد حد.",
+        "capacityUnit": "طلبات",
+        "priceLimitLabel": "الموافقة على أسعار التوريد فوق",
+        "priceLimitHint": "السعر الذي يتجاوز آخر سعر بهذه النسبة ينتظر الموافقة قبل دفع الفاتورة. اتركه فارغًا لإيقاف الموافقات.",
+        "marginTargetLabel": "هامش الربح المستهدف للطبق",
+        "marginTargetHint": "يُنبَّه المالك عندما يهبط طبق دون هذه النسبة. اتركه فارغًا لإيقاف التنبيهات.",
+        "percentUnit": "٪"
+    },
+    "allergy": {
+        "title": "حساسية في هذا الطلب",
+        "titleSevere": "حساسية شديدة في هذا الطلب",
+        "badge": "حساسية",
+        "badgeSevere": "حساسية شديدة",
+        "item": "{{allergen}} ({{severity}})",
+        "conflictsWith": "تتعارض مع {{lines}}",
+        "note": "ملاحظة: {{note}}",
+        "acknowledged": "تم إبلاغ الزبون بالتعارض.",
+        "severity": {
+            "avoidance": "يتجنبه",
+            "intolerance": "عدم تحمّل",
+            "allergy": "حساسية",
+            "anaphylaxis": "مهددة للحياة"
         }
     }
 }

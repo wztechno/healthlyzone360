@@ -10,6 +10,7 @@ import {
 } from '@healthy360/design-system';
 import { ProductionOrderId } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
+import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -61,6 +62,7 @@ export function ProductionBatchSheetScreen({ order }: ProductionBatchSheetScreen
 
 function ProductionBatchSheet({ order }: ProductionBatchSheetScreenProps) {
     const { t } = useTranslation();
+    const formatter = useFormatter();
     const router = useRouter();
 
     const parsed = order === undefined ? null : ProductionOrderId.safeParse(order);
@@ -149,14 +151,12 @@ function ProductionBatchSheet({ order }: ProductionBatchSheetScreenProps) {
                         <Heading level={2}>{t('kitchen:ops.production.sheetBasisHeading')}</Heading>
                         <View className="flex-row flex-wrap gap-x-8 gap-y-3">
                             <SheetFigure
-                                testID="kitchen-production-batch-sheet-version"
-                                label={t('kitchen:ops.production.sheetVersionLabel')}
-                                value={String(sheet.basis.recipeVersionId)}
-                            />
-                            <SheetFigure
                                 testID="kitchen-production-batch-sheet-confirmed"
                                 label={t('kitchen:ops.production.confirmedAtLabel')}
-                                value={sheet.basis.confirmedAt}
+                                value={formatter.formatDate(sheet.basis.confirmedAt, {
+                                    dateStyle: 'medium',
+                                    timeStyle: 'short',
+                                })}
                             />
                             <SheetFigure
                                 testID="kitchen-production-batch-sheet-publication"
@@ -164,8 +164,9 @@ function ProductionBatchSheet({ order }: ProductionBatchSheetScreenProps) {
                                 // Stated even without the costs code: *which* week priced a batch
                                 // is not itself a price.
                                 value={
-                                    sheet.basis.weeklyPricePublicationId ??
-                                    t('kitchen:ops.production.sheetPublicationNone')
+                                    sheet.basis.weeklyPricePublicationId === null
+                                        ? t('kitchen:ops.production.sheetPublicationNone')
+                                        : t('kitchen:ops.production.sheetPublicationSet')
                                 }
                             />
                         </View>

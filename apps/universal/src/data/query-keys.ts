@@ -87,6 +87,7 @@ export const QUERY_ROOTS = [
     'driverJobs',
     'accessAdmin',
     'kitchenCustomers',
+    'staffAlerts',
 ] as const;
 export type QueryRoot = (typeof QUERY_ROOTS)[number];
 
@@ -437,6 +438,9 @@ export const queryKeys = {
     kitchenOps: {
         all: () => ['kitchenOps'] as const,
         stockItems: () => ['kitchenOps', 'stock-items'] as const,
+        activity: (filter?: QueryScope) => ['kitchenOps', 'activity', scope(filter)] as const,
+        stockActivity: (filter?: QueryScope) =>
+            ['kitchenOps', 'stock-activity', scope(filter)] as const,
         /**
          * Keyed on the branch: the server narrows the levels through `X-Branch-Id`, and nothing
          * clears the cache when the picker switches branch, so without the branch in the key the
@@ -530,9 +534,15 @@ export const queryKeys = {
          */
         spendSummary: (filter: object = {}) => ['kitchenOps', 'spend-summary', filter] as const,
         costReport: (filter: object = {}) => ['kitchenOps', 'cost-report', filter] as const,
+        payables: () => ['kitchenOps', 'payables'] as const,
+        dishMargins: () => ['kitchenOps', 'dish-margins'] as const,
+        analytics: (from: string, to: string) => ['kitchenOps', 'analytics', from, to] as const,
         consumptionExceptions: (filter: object = {}) =>
             ['kitchenOps', 'consumption-exceptions', filter] as const,
         consumptionExceptionCount: () => ['kitchenOps', 'consumption-exception-count'] as const,
+        duplicateStock: () => ['kitchenOps', 'duplicate-stock'] as const,
+        branchClosures: () => ['kitchenOps', 'branch-closures'] as const,
+        kitchenSetup: () => ['kitchenOps', 'kitchen-setup'] as const,
         consumptionExceptionTotals: () => ['kitchenOps', 'consumption-exception-totals'] as const,
         /*
          * The desk queue is filtered (status, branch, page), so the filter is
@@ -560,6 +570,10 @@ export const queryKeys = {
         inventoryValue: () => ['kitchenOps', 'inventory-value'] as const,
         pendingProductionValuations: () => ['kitchenOps', 'pending-production-valuations'] as const,
         qualityChecks: () => ['kitchenOps', 'quality-checks'] as const,
+        temperatureLog: (month?: string) =>
+            month === undefined
+                ? (['kitchenOps', 'temperature-log'] as const)
+                : (['kitchenOps', 'temperature-log', month] as const),
     },
 
     /**
@@ -584,6 +598,9 @@ export const queryKeys = {
         all: () => ['kitchenOrders'] as const,
         list: (filter?: QueryScope) => ['kitchenOrders', 'list', scope(filter)] as const,
         order: (orderId: OrderId) => ['kitchenOrders', 'order', orderId] as const,
+        refunds: (orderId: OrderId) => ['kitchenOrders', 'refunds', orderId] as const,
+        complaints: () => ['kitchenOrders', 'complaints'] as const,
+        display: () => ['kitchenOrders', 'display'] as const,
     },
 
     /**
@@ -629,11 +646,14 @@ export const queryKeys = {
          * the request body's size, not about whether it changes anything.
          */
         quote: (request?: QueryScope) => ['orderDesk', 'quote', scope(request)] as const,
+        dishChoices: (itemId: string) => ['orderDesk', 'dishChoices', itemId] as const,
+        dishOptions: (itemId: string) => ['orderDesk', 'dishOptions', itemId] as const,
         /**
          * The customer search behind the sale wizard. Keyed on the query text alone: the endpoint
          * takes nothing else, and the org scope is the transport's.
          */
         customers: (query: string) => ['orderDesk', 'customers', query] as const,
+        customerAllergies: (id: string) => ['orderDesk', 'customer-allergies', id] as const,
         /**
          * The same orders counted by *date* rather than by due-ness.
          *
@@ -686,6 +706,8 @@ export const queryKeys = {
          * disk.
          */
         cashReport: (filter?: QueryScope) => ['orderDesk', 'cash-report', scope(filter)] as const,
+        settlements: () => ['orderDesk', 'settlements'] as const,
+        closes: () => ['orderDesk', 'closes'] as const,
     },
 
     /**
@@ -721,6 +743,19 @@ export const queryKeys = {
         all: () => ['kitchenCustomers'] as const,
         list: (filter: QueryScope) => ['kitchenCustomers', 'list', filter] as const,
         customer: (customerId: string) => ['kitchenCustomers', 'customer', customerId] as const,
+    },
+
+    /**
+     * ── staffAlerts: the top-bar bell and the service timings behind it ─────────────────────────
+     * ────────────────────────────────────────────────────────────────────────────────────────────
+     *
+     * Two entries under one root, invalidated apart, so reading an alert does not refetch the
+     * timings. **Never persisted**: the alerts are one person's, on a tablet the kitchen shares.
+     */
+    staffAlerts: {
+        all: () => ['staffAlerts'] as const,
+        list: () => ['staffAlerts', 'list'] as const,
+        serviceSettings: () => ['staffAlerts', 'service-settings'] as const,
     },
 
     /**

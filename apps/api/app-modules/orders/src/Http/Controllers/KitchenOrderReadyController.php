@@ -13,6 +13,7 @@ use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * POST /api/v1/catalogue/orders/{order}/ready — the kitchen finished it.
@@ -41,7 +42,9 @@ final class KitchenOrderReadyController
 
         $lines = $ready->lines()->orderBy('created_at')->orderBy('id')->get();
 
-        return ApiResponse::data(['order' => $this->presenter->kitchen($ready, $lines, $this->runs->forOrder((string) $ready->getKey()))])
+        $ticket = $this->presenter->kitchen($ready, $lines, $this->runs->forOrder((string) $ready->getKey()));
+
+        return ApiResponse::data(['order' => Gate::allows('order.view_organisation') ? $ticket : $this->presenter->forTheLine($ticket)])
             ->withHeaders(['ETag' => '"'.$ready->lock_version.'"']);
     }
 }

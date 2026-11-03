@@ -151,6 +151,7 @@ function OrderDeskCashReport() {
     const failure = toFailure(report.error);
     const rows = report.data?.rows ?? [];
     const totals = report.data?.totals ?? [];
+    const adjustments = report.data?.adjustments ?? [];
 
     const columns: readonly ControlledColumn<
         OrderDeskCashReportRow,
@@ -461,6 +462,47 @@ function OrderDeskCashReport() {
                             </View>
                         ))}
                     </View>
+
+                    {/* What came off those takings, one panel down and never netted into them. */}
+                    {adjustments.length === 0 ? null : (
+                        <View
+                            testID="kitchen-order-desk-cash-report-adjustments"
+                            style={{ maxWidth: TOTALS_MAX_WIDTH }}
+                            className="flex-col rounded-panel border border-stroke-subtle bg-surface-raised shadow-elevation-card"
+                        >
+                            <View className="px-snug pb-hair pt-snug">
+                                <Text variant="section" accessibilityRole="header">
+                                    {t('kitchen:ops.cashReport.adjustmentsHeading')}
+                                </Text>
+                            </View>
+                            {adjustments.map((adjustment) => (
+                                <View
+                                    key={`${adjustment.day}-${adjustment.kind}-${adjustment.displayName ?? ''}-${adjustment.currencyCode}`}
+                                    className="flex-row items-baseline justify-between gap-snug border-t border-stroke-subtle px-snug py-tight"
+                                >
+                                    <Text variant="label">
+                                        {[
+                                            t(
+                                                `kitchen:ops.cashReport.adjustment.${adjustment.kind}`,
+                                            ),
+                                            adjustment.displayName ?? EM_DASH,
+                                            formatter.formatDate(adjustment.day, {
+                                                day: 'numeric',
+                                                month: 'short',
+                                                timeZone: 'UTC',
+                                            }),
+                                        ].join(t('kitchen:common.listSeparator'))}
+                                    </Text>
+                                    <Text variant="strong" className="tabular-nums">
+                                        {formatMoney(formatter, {
+                                            amount: adjustment.amountMinorSum,
+                                            currency: adjustment.currencyCode,
+                                        })}
+                                    </Text>
+                                </View>
+                            ))}
+                        </View>
+                    )}
                 </View>
             )}
         </Cascade>

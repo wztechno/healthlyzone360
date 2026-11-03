@@ -13,9 +13,9 @@ import {
     Text,
     useBreakpoint,
 } from '@healthy360/design-system';
-import type { OrderId } from '@healthy360/domain-types';
+import type { BranchId, OrderId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -26,33 +26,44 @@ import {
     useConfirmOrderMutation,
     useMarkOrderReadyMutation,
     useStartOrderMutation,
-    useKitchenOrdersQuery,
+    useKitchenDisplayQuery,
 } from '../../data/kitchen-orders-hooks.ts';
 import { useOnlineStatus } from '../../online/online-status.tsx';
+import { dishOptionsLine } from '../../ui/dish-choices.tsx';
 import { useAccessState } from '../../session/session-provider.tsx';
 import {
     ORDER_MANAGE_PERMISSION,
+    ORDER_PREPARE_PERMISSION,
     ORDER_VIEW_PERMISSION,
 } from '../kitchen-admin/entity-registry.ts';
 import { displayName, humaniseCode } from '../kitchen-admin/format.ts';
-import { canFulfilKitchenOrder } from '../kitchen-admin/ops-format.ts';
+import {
+    allergenLabel,
+    allergyBanner,
+    canFulfilKitchenOrder,
+} from '../kitchen-admin/ops-format.ts';
+import { playAlertTone } from './alert-tone.ts';
 import {
     bucketTickets,
+    isAlarming,
     isAwaitingStart,
     isUpcoming,
     kdsColumnTestId,
     kdsTicketTestId,
     minutesSincePlaced,
+    placedTicketIds,
     ticketAgeTone,
+    unseenTickets,
 } from './kds-board.ts';
 import type { KdsColumnKey } from './kds-board.ts';
+import { useWakeLock } from './use-wake-lock.ts';
 
 /**
  * `/kds` — the kitchen display, a wall board over the order book (O6).
  *
  * ## It is a display, not a second order system
  *
- * Every ticket here is a `KitchenOrder` read through `useKitchenOrdersQuery`, and the two buttons on
+ * Every ticket here is a `KitchenOrder` read through `useKitchenDisplayQuery`, and the buttons on
  * a ticket are `startOrder` (which confirms a placed order first), `markOrderReady` and
  * `fulfilOrder` — the same lock-versioned writes, the same state machine that `/kitchen/orders`
  * works. Nothing on this screen has a status of its own; `isAwaitingStart` (`./kds-board.ts`) and
@@ -74,13 +85,12 @@ import type { KdsColumnKey } from './kds-board.ts';
  *
  * ## The branch narrowing is client-side, and that is not an oversight
  *
- * The list is fetched **without** `filters.branchId`. An order whose delivery resolved through an
- * organisation-wide zone carries `branch_id: NULL` — the live book's real orders do — so the server
+ * The display endpoint names no branch. An order whose delivery resolved through an
+ * organisation-wide zone carries `branch_id: NULL` — the live book's real orders do — so a server
  * filter would not scope the board, it would empty it while a kitchen had work waiting. The board
  * keeps unattributed tickets and its own branch's, and drops only what another branch has been given
- * (`ticketBelongsToBranch`). The trade is that the board reads one page of the book rather than a
- * server-narrowed slice of it; at the page size this endpoint answers, a kitchen's open work is on
- * it, and the alternative is open work nobody can see.
+ * (`ticketBelongsToBranch`). It reads every open order, not a page of the book, and says so when the
+ * server's cap cut any.
  *
  * ## Why the ticket sends the version it is displaying
  *
@@ -100,17 +110,35 @@ import type { KdsColumnKey } from './kds-board.ts';
  * plain interval is the honest mechanism rather than a placeholder for one. Fifteen seconds is
  * short enough that a new order reaches a cook before the customer wonders, and long enough that a
  * tablet left on all day is not making six requests a minute.
+ *
+ * A refresh that fails keeps the last board on screen under a banner saying when it last updated: a
+ * kitchen working from a slightly old board is better off than one looking at an error. Only with
+ * nothing to show is it an error.
+ *
+ * ## Tone and alarm
+ *
+ * The rule is the bell's: the first read is silent, and only a ticket this page load has not met
+ * sounds (`unseenTickets`), so a reload replays nothing. A browser holds audio until a press, hence
+ * "Turn on sound". A placed ticket past the kitchen's limit goes red with an icon and words, and the
+ * tone repeats until it is accepted. Both figures come from the server, in minutes while open.
  */
 
 /** Poll cadence for the board and its clock. See the header. */
 export const KDS_POLL_MS = 15_000;
+
+/** How often the tone repeats while a ticket is alarming. */
+export const KDS_ALARM_TONE_MS = 30_000;
 
 /** What a ticket's buttons do: accept it, start it, mark it cooked, or hand it over. */
 type KdsAction = 'accept' | 'start' | 'ready' | 'handOver';
 
 export function KdsTicketsScreen() {
     return (
-        <Gate area="kds" requirement={{ allOf: [ORDER_VIEW_PERMISSION] }} testID="kds-tickets">
+        <Gate
+            area="kds"
+            requirement={{ anyOf: [ORDER_VIEW_PERMISSION, ORDER_PREPARE_PERMISSION] }}
+            testID="kds-tickets"
+        >
             <KdsTickets />
         </Gate>
     );
@@ -143,6 +171,46 @@ function useTickingNow(intervalMs: number, running: boolean): Date {
     return now;
 }
 
+/**
+ * The tone for a new ticket and the repeating one for an alarm, once the reader has allowed sound.
+ *
+ * `canSound` is the same test `playAlertTone` makes: native has no `AudioContext`, and a button that
+ * turned on nothing would be a lie.
+ */
+function useTicketTones(
+    orders: readonly KitchenOrder[] | undefined,
+    branchId: BranchId | null,
+    alarming: boolean,
+) {
+    const [soundOn, setSoundOn] = useState(false);
+    const seen = useRef<ReadonlySet<string> | null>(null);
+
+    useEffect(() => {
+        if (orders === undefined) return;
+        const ids = placedTicketIds(orders, branchId);
+        const fresh = unseenTickets(ids, seen.current);
+        seen.current = new Set(ids);
+        if (soundOn && fresh.length > 0) playAlertTone();
+    }, [orders, branchId, soundOn]);
+
+    useEffect(() => {
+        if (!soundOn || !alarming) return;
+        const timer = setInterval(playAlertTone, KDS_ALARM_TONE_MS);
+        return () => {
+            clearInterval(timer);
+        };
+    }, [soundOn, alarming]);
+
+    return {
+        soundOffered: !soundOn && typeof AudioContext !== 'undefined',
+        turnOnSound: () => {
+            // Inside the press, which is what lets the browser start audio at all.
+            playAlertTone();
+            setSoundOn(true);
+        },
+    };
+}
+
 function KdsTickets() {
     const { t } = useTranslation();
     const { locale } = useLocale();
@@ -151,15 +219,15 @@ function KdsTickets() {
     const access = useAccessState();
     const { online } = useOnlineStatus();
     const canManage = useCan(ORDER_MANAGE_PERMISSION);
+    const canPrepare = useCan(ORDER_PREPARE_PERMISSION) || canManage;
 
     const branchId = access.branch?.id ?? null;
     const now = useTickingNow(KDS_POLL_MS, online);
 
-    // No `filters.branchId`: an order delivered through an organisation-wide zone carries no branch
-    // at all, and the server filter would drop exactly that work. See `./kds-board.ts`.
-    const orders = useKitchenOrdersQuery(undefined, branchId !== null, {
-        refetchInterval: online ? KDS_POLL_MS : false,
-    });
+    const display = useKitchenDisplayQuery(branchId !== null, online ? KDS_POLL_MS : false);
+    const orders = display.data?.orders;
+
+    useWakeLock(branchId !== null);
 
     const acceptOrder = useConfirmOrderMutation();
     const startOrder = useStartOrderMutation();
@@ -167,11 +235,26 @@ function KdsTickets() {
     const fulfilOrder = useFulfilOrderMutation();
 
     const board = useMemo(
-        () => bucketTickets(orders.data?.items ?? [], now, branchId),
-        [orders.data, now, branchId],
+        () => bucketTickets(orders ?? [], now, branchId),
+        [orders, now, branchId],
     );
 
-    const listFailure = toFailure(orders.error);
+    /** The open minutes a ticket has waited, while it is alarming; null otherwise. */
+    function alarmMinutes(order: KitchenOrder): number | null {
+        const open = display.data?.unacceptedOpenMinutes[String(order.id)];
+        return display.data === undefined ||
+            open === undefined ||
+            !isAlarming(open, display.data.alarmAfterMinutes)
+            ? null
+            : open;
+    }
+
+    const alarming = [...board.incoming, ...board.upcoming.flatMap((day) => day.tickets)].some(
+        (order) => alarmMinutes(order) !== null,
+    );
+    const { soundOffered, turnOnSound } = useTicketTones(orders, branchId, alarming);
+
+    const listFailure = toFailure(display.error);
     const actionFailure =
         toFailure(acceptOrder.error) ??
         toFailure(startOrder.error) ??
@@ -225,7 +308,9 @@ function KdsTickets() {
                 order={order}
                 now={now}
                 locale={locale}
+                alarmMinutes={alarmMinutes(order)}
                 canManage={canManage}
+                canPrepare={canPrepare}
                 pending={pendingId === order.id}
                 disabled={actionPending}
                 onBump={bump}
@@ -265,6 +350,8 @@ function KdsTickets() {
         );
     }
 
+    const updatedAt = formatter.formatDate(display.dataUpdatedAt, { timeStyle: 'short' });
+
     if (branchId === null) {
         // The area requirement demands a branch (`permissions/requirements.ts`), so the gate should
         // have redirected before this renders. It is here because "no branch" is a state the access
@@ -289,17 +376,44 @@ function KdsTickets() {
                     <Text tone="secondary" variant="caption">
                         {t('kitchen:kds.subtitle')}
                     </Text>
-                    {orders.dataUpdatedAt === 0 ? null : (
-                        <Text tone="secondary" variant="caption" testID="kds-tickets-updated">
-                            {t('kitchen:kds.lastUpdated', {
-                                time: formatter.formatDate(orders.dataUpdatedAt, {
-                                    timeStyle: 'short',
-                                }),
-                            })}
-                        </Text>
-                    )}
+                    <Inline space="sm" align="center" wrap>
+                        {soundOffered ? (
+                            <Button
+                                testID="kds-sound-on"
+                                size="sm"
+                                variant="secondary"
+                                label={t('kitchen:kds.soundOn')}
+                                onPress={turnOnSound}
+                            />
+                        ) : null}
+                        {display.dataUpdatedAt === 0 ? null : (
+                            <Text tone="secondary" variant="caption" testID="kds-tickets-updated">
+                                {t('kitchen:kds.lastUpdated', { time: updatedAt })}
+                            </Text>
+                        )}
+                    </Inline>
                 </Inline>
             </Stack>
+
+            {display.isRefetchError ? (
+                <Callout
+                    testID="kds-stale"
+                    tone="warning"
+                    role="alert"
+                    title={t('kitchen:kds.staleTitle')}
+                    body={t('kitchen:kds.staleBody', { time: updatedAt })}
+                />
+            ) : null}
+
+            {display.data?.truncated === true ? (
+                <Callout
+                    testID="kds-truncated"
+                    tone="warning"
+                    role="status"
+                    title={t('kitchen:kds.truncatedTitle')}
+                    body={t('kitchen:kds.truncatedBody')}
+                />
+            ) : null}
 
             {actionFailure === null ? null : isConflict ? (
                 <Callout
@@ -314,10 +428,10 @@ function KdsTickets() {
                             size="sm"
                             variant="secondary"
                             label={t('kitchen:kds.conflictRefresh')}
-                            loading={orders.isFetching}
+                            loading={display.isFetching}
                             onPress={() => {
                                 clearActionState();
-                                void orders.refetch();
+                                void display.refetch();
                             }}
                         />
                     }
@@ -328,21 +442,21 @@ function KdsTickets() {
                 </Text>
             )}
 
-            {orders.isPending ? (
+            {display.isPending ? (
                 <Stack space="sm" testID="kds-tickets-loading">
                     {Array.from({ length: 3 }, (_, index) => (
                         <Skeleton key={index} heightClassName="h-24" />
                     ))}
                 </Stack>
-            ) : listFailure !== null ? (
+            ) : listFailure !== null && orders === undefined ? (
                 <ErrorState
                     testID="kds-tickets-error"
                     title={t('kitchen:kds.loadErrorTitle')}
                     failure={listFailure}
                     onRetry={() => {
-                        void orders.refetch();
+                        void display.refetch();
                     }}
-                    retrying={orders.isFetching}
+                    retrying={display.isFetching}
                 />
             ) : empty ? (
                 <EmptyState
@@ -372,7 +486,7 @@ function KdsTickets() {
              * to cook now, but on screen so it can be accepted the day it arrives. It moves into
              * Incoming by itself on its day.
              */}
-            {orders.isPending || listFailure !== null || board.upcoming.length === 0 ? null : (
+            {board.upcoming.length === 0 ? null : (
                 <Stack space="sm" testID="kds-upcoming">
                     <Heading level={2}>{t('kitchen:kds.upcoming')}</Heading>
                     {board.upcoming.map((group) => (
@@ -415,7 +529,12 @@ interface TicketProps {
     readonly order: KitchenOrder;
     readonly now: Date;
     readonly locale: string;
+    /** Open minutes this placed ticket has waited, while it is alarming; null otherwise. */
+    readonly alarmMinutes: number | null;
+    /** Accept and Handed over: the desk's and the manager's. */
     readonly canManage: boolean;
+    /** Start and Ready: the line's. */
+    readonly canPrepare: boolean;
     /** A write is in flight for *this* ticket. */
     readonly pending: boolean;
     /** A write is in flight for some ticket — every bump button waits for it. */
@@ -430,7 +549,17 @@ interface TicketProps {
  * to each other. Everything below it is what the kitchen has to know before it starts cooking: what
  * to make, how much of it, what would put somebody in hospital, and when it has to leave.
  */
-function Ticket({ order, now, locale, canManage, pending, disabled, onBump }: TicketProps) {
+function Ticket({
+    order,
+    now,
+    locale,
+    alarmMinutes,
+    canManage,
+    canPrepare,
+    pending,
+    disabled,
+    onBump,
+}: TicketProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
 
@@ -452,12 +581,35 @@ function Ticket({ order, now, locale, canManage, pending, disabled, onBump }: Ti
                     </Heading>
                     <Badge
                         testID={`${testID}-elapsed`}
-                        tone={ticketAgeTone(minutes)}
+                        tone={alarmMinutes === null ? ticketAgeTone(minutes) : 'danger'}
                         label={t('kitchen:kds.placedAgo', {
                             elapsed: formatter.formatRelativeTime(order.placedAt, now),
                         })}
                     />
                 </Inline>
+
+                {alarmMinutes === null ? null : (
+                    <Callout
+                        testID={`${testID}-alarm`}
+                        tone="danger"
+                        icon="warning"
+                        size="regular"
+                        role="alert"
+                        title={t('kitchen:kds.alarmTitle')}
+                        body={t('kitchen:kds.alarmBody', {
+                            minutes: formatter.formatNumber(alarmMinutes),
+                        })}
+                    />
+                )}
+
+                {/* Above the food: it decides how everything under it is cooked. */}
+                {order.allergy === null ? null : (
+                    <Callout
+                        {...allergyBanner(order.allergy, order.lines, locale, t)}
+                        size="regular"
+                        testID={`${testID}-allergy`}
+                    />
+                )}
 
                 <Stack space="xs" testID={`${testID}-lines`}>
                     {order.lines.map((line) => (
@@ -469,6 +621,16 @@ function Ticket({ order, now, locale, canManage, pending, disabled, onBump }: Ti
                                     quantity: formatter.formatNumber(Number(line.quantity)),
                                 })}
                             </Text>
+                            {dishOptionsLine(line.options, locale, t) === null ? null : (
+                                <Text variant="body" testID={`${testID}-options`}>
+                                    {dishOptionsLine(line.options, locale, t)}
+                                </Text>
+                            )}
+                            {line.note == null ? null : (
+                                <Text variant="body" testID={`${testID}-note`}>
+                                    {t('kitchen:dishOptions.lineNote', { note: line.note })}
+                                </Text>
+                            )}
                             {line.allergens.length === 0 ? null : (
                                 <Inline space="xs" wrap testID={`${testID}-allergens`}>
                                     {line.allergens.map((allergen) => (
@@ -485,10 +647,11 @@ function Ticket({ order, now, locale, canManage, pending, disabled, onBump }: Ti
                                             // Colour alone is not the claim: the words say it.
                                             label={
                                                 allergen.containment === 'contains'
-                                                    ? humaniseCode(allergen.allergenCode)
+                                                    ? allergenLabel(allergen.allergenCode, t)
                                                     : t('kitchen:kds.mayContain', {
-                                                          allergen: humaniseCode(
+                                                          allergen: allergenLabel(
                                                               allergen.allergenCode,
+                                                              t,
                                                           ),
                                                       })
                                             }
@@ -516,7 +679,7 @@ function Ticket({ order, now, locale, canManage, pending, disabled, onBump }: Ti
                             })}
                 </Text>
 
-                {!canManage ? null : isAwaitingStart(order) ? (
+                {!canPrepare ? null : isAwaitingStart(order) ? (
                     /*
                      * Accept and Start are two moments (HA-26). Accept tells the customer the order
                      * was seen — a scheduled order is accepted the day it arrives; Start says it is
@@ -541,7 +704,7 @@ function Ticket({ order, now, locale, canManage, pending, disabled, onBump }: Ti
                                 }}
                             />
                         )}
-                        {order.status === 'placed' ? (
+                        {canManage && order.status === 'placed' ? (
                             <Button
                                 testID={`${testID}-accept`}
                                 block
@@ -572,12 +735,14 @@ function Ticket({ order, now, locale, canManage, pending, disabled, onBump }: Ti
                     // a Handed over that would tell the customer it had arrived.
                     <Text variant="caption" tone="secondary" testID={`${testID}-driver`}>
                         {t(
-                            (order.deliveryRun?.pickedUpAt ?? null) === null
-                                ? 'kitchen:kds.waitingForDriver'
-                                : 'kitchen:kds.withDriver',
+                            order.deliveryRun?.status === 'failed'
+                                ? 'kitchen:kds.deliveryFailed'
+                                : (order.deliveryRun?.pickedUpAt ?? null) === null
+                                  ? 'kitchen:kds.waitingForDriver'
+                                  : 'kitchen:kds.withDriver',
                         )}
                     </Text>
-                ) : canFulfilKitchenOrder(order.status) ? (
+                ) : canManage && canFulfilKitchenOrder(order.status) ? (
                     // Cooked and waiting for its customer: handing it over is the step that fulfils it.
                     <Button
                         testID={`${testID}-handed-over`}

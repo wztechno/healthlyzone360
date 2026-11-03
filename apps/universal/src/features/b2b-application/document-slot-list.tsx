@@ -1,6 +1,7 @@
 import type { B2BDocumentKind, KycDocument } from '@healthy360/api-client/contracts';
 import { Badge, Callout, FileUploadField, Stack, Text } from '@healthy360/design-system';
 import type { PickedFile } from '@healthy360/design-system';
+import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -98,6 +99,7 @@ export function DocumentSlotList({
     testID = 'b2b-documents',
 }: DocumentSlotListProps) {
     const { t } = useTranslation();
+    const formatter = useFormatter();
 
     return (
         <Stack testID={testID} space="lg">
@@ -210,7 +212,7 @@ export function DocumentSlotList({
                                     {slot.current === null
                                         ? t('b2bApplication:documents.optional')
                                         : t('b2bApplication:documents.uploaded', {
-                                              date: slot.current.uploadedAt,
+                                              date: formatter.formatDate(slot.current.uploadedAt),
                                           })}
                                 </Text>
                             )}

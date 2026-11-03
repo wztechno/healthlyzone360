@@ -138,10 +138,12 @@ final readonly class KitchenOwners
      */
     public function revoke(Organisation $kitchen, string $membershipId, User $actor): array
     {
-        $membership = OrganisationMembership::withoutTenancy()
+        // As the kitchen, for the reason `invite()` is: the operator's session sees
+        // no other organisation's memberships through row-level security.
+        $membership = $this->database->during(null, (string) $kitchen->getKey(), null, static fn (): ?OrganisationMembership => OrganisationMembership::withoutTenancy()
             ->where('organisation_id', $kitchen->getKey())
             ->whereKey(trim($membershipId))
-            ->first();
+            ->first());
 
         if (! $membership instanceof OrganisationMembership) {
             throw new ApiException(
@@ -162,7 +164,7 @@ final readonly class KitchenOwners
 
         $membership->status = MembershipStatus::Ended;
         $membership->lock_version = $membership->lock_version + 1;
-        $membership->save();
+        $this->database->during(null, (string) $kitchen->getKey(), null, static fn (): bool => $membership->save());
 
         $this->permissions->bumpVersion((string) $kitchen->getKey());
 

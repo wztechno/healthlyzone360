@@ -204,6 +204,7 @@ export function recipeFixHref(
  * | `no_stock_unit`, a cost-stage unit mismatch  | a raw material's units — or the recipe's Selling  |
  * | `no_ingredient_link`, `no_net_content`       | a recipe item's Selling tab; a resale product     |
  * | `reserved_for_production`                    | the production plan                               |
+ * | `quality_hold`                               | quality control, where the hold is decided        |
  * | `no_branch`, `no_catalogue_item`             | nowhere: the order or the item is broken          |
  *
  * **Anything a recipe makes is fixed in its recipe.** A gap about a sauce, dressing, meal or frozen
@@ -321,6 +322,12 @@ function gapFix(row: GapFixFields, returnHref: string): StockGapFixAction | null
                 kind: 'production',
                 labelKey: 'kitchen:ops.exceptions.fixAction.production',
                 href: '/kitchen/production',
+            };
+        case 'quality_hold':
+            return {
+                kind: 'production',
+                labelKey: 'kitchen:ops.exceptions.fixAction.quality',
+                href: '/kitchen/qc',
             };
         default:
             return null;

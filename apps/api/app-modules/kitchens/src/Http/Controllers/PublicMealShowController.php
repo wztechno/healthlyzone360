@@ -49,7 +49,7 @@ final class PublicMealShowController
             ->first();
 
         $projected = $found instanceof CatalogueItem
-            ? $this->projector->meal($found, $locale)
+            ? $this->projector->mealWithChoices($found, $locale)
             : null;
 
         if ($projected === null) {

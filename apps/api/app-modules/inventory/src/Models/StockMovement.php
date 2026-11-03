@@ -23,7 +23,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $reference_id
  * @property string|null $order_line_id the order line a consume served, so COGS attributes per line/kind (INV1.5)
  * @property string|null $sold_item_type meal | product, denormalised from the sold catalogue item (INV1.5)
- * @property string|null $notes
+ * @property string|null $notes why a person moved it; required on an adjustment and on waste
+ * @property string|null $actor_user_id who moved it; null on a row from before the column, or a job with nobody signed in
  * @property numeric-string|null $unit_cost_amount moving-average cost at consume time, per the ingredient default unit (INV1.2)
  * @property numeric-string|null $cost_amount COGS for this movement: unit_cost × quantity consumed (INV1.2)
  * @property string|null $cost_currency_code

@@ -590,7 +590,18 @@ it('seeds exactly the registered permission set', function (): void {
     // advance, carries an estimated cost and blends a finished valuation into the
     // basis every sale is costed against. Whoever may count a shelf is not
     // thereby whoever may commit next Thursday's oil to a batch.
-    expect(Permission::query()->count())->toBe(58)
+    //
+    // P0 Stage 1 takes it to 59 with `order.supervise_organisation`, which also ships as a
+    // migration, because a deploy never seeds.
+    //
+    // P1 Wave A takes it to 60 with `order.prepare_organisation`, the kitchen
+    // display's own code, because a cook needs the wall and not the order book.
+    //
+    // P0 Stage 3 takes it to 62 with `order.settle_cash_organisation` and
+    // `order.approve_refund_organisation`.
+    //
+    // P1 Wave C adds one with `inventory.approve_payables_organisation`.
+    expect(Permission::query()->count())->toBe(63)
         ->and(Permission::query()->pluck('code')->all())
         ->toEqualCanonicalizing(PermissionRegistry::codes());
 });

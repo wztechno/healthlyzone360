@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
 import { useMyOrdersQuery } from '../../data/commerce-hooks.ts';
-import { usePrototypeAction } from '../../prototype/index.ts';
 import { Eyebrow } from '../../ui/eyebrow.tsx';
 import { formatMoney } from '../marketplace/format.ts';
 import { QueryStates } from '../marketplace/query-states.tsx';
@@ -19,7 +18,7 @@ import { ACCOUNT_CARD, PanelTitle } from './account-card.tsx';
  *
  * One card: a head row (the title, and an eyebrow at the end), then a row per order in the design's
  * four columns — a 52px thumbnail, what was in it over "date · #reference", the status badge in the
- * tracking page's tones, and the total beside "Reorder". Over `GET /me/orders`, newest first, as a
+ * tracking page's tones, and the total. Over `GET /me/orders`, newest first, as a
  * cursor walk with a "show older" control rather than a pretence that the first page is everything.
  * The design's eyebrow reads "LAST 90 DAYS"; the history is not windowed, so it says what the list
  * actually is — newest first.
@@ -28,9 +27,8 @@ import { ACCOUNT_CARD, PanelTitle } from './account-card.tsx';
  *   no meal id (see `../orders/order-line-thumb.tsx`).
  * * **The items line opens the order** at `/customer/orders/{order}` — the row's real destination,
  *   on the element that names the order.
- * * **Reorder** has nothing behind it: no endpoint turns an order back into a basket, and an order
- *   line carries no meal id to add to one. So it is the prototype mechanism's control, drawn as the
- *   design draws it.
+ * * **No Reorder**, though the design draws one: no endpoint turns an order back into a basket, and
+ *   an order line carries no meal id to add to one.
  */
 
 const TEST_ID = 'account-orders';
@@ -40,7 +38,6 @@ function OrderRow({ order }: { readonly order: PlacedOrder }) {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
-    const prototype = usePrototypeAction();
     const { atLeast } = useBreakpoint();
     const testID = `${TEST_ID}-row-${order.id}`;
     const first = order.lines[0];
@@ -110,20 +107,6 @@ function OrderRow({ order }: { readonly order: PlacedOrder }) {
                 >
                     {formatMoney(formatter, order.total)}
                 </RNText>
-                <Pressable
-                    testID={`${testID}-reorder`}
-                    role="button"
-                    accessibilityRole="button"
-                    accessibilityHint={t('marketplace:prototype.hint')}
-                    onPress={() => {
-                        prototype({ contract: 'POST /api/v1/me/orders/{order}/reorder' });
-                    }}
-                    className="min-h-touch items-center justify-center rounded bg-surface-sunken px-3 hover:bg-stroke-subtle"
-                >
-                    <RNText className="text-sm font-semibold text-content-primary">
-                        {t('account:orders.reorder')}
-                    </RNText>
-                </Pressable>
             </View>
         </View>
     );

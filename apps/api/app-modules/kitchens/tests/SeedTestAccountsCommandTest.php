@@ -175,6 +175,8 @@ it('gives the consumer an active account that checks out on the web shop', funct
         'cart_id' => $cartId,
         'customer_address_id' => $addressId,
         'delivery_window_code' => 'midday',
+        // Lunch has hours, so a day is named: today would depend on when the suite runs.
+        'requested_delivery_date' => now()->addDays(2)->toDateString(),
     ], $headers)
         ->assertCreated()
         ->assertJsonPath('data.order.subtotal_minor', 2500);
@@ -198,6 +200,8 @@ it('gives the corporate buyer a wholesale checkout under its agreement', functio
         'cart_id' => $cartId,
         'customer_address_id' => $addressId,
         'delivery_window_code' => 'midday',
+        // Lunch has hours, so a day is named: today would depend on when the suite runs.
+        'requested_delivery_date' => now()->addDays(2)->toDateString(),
     ], $headers)
         ->assertCreated()
         // No negotiated price yet, so the wholesale tariff applies.

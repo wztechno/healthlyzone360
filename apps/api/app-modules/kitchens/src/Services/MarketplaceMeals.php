@@ -28,7 +28,7 @@ use Illuminate\Database\Eloquent\Builder;
  *
  * ## What makes a listing public
  *
- * Four conditions, and every one of them is somebody's decision rather than an
+ * Five conditions, and every one of them is somebody's decision rather than an
  * inference:
  *
  * 1. **`item_type` is anything but a plan** — meal, product, sauce, dressing or
@@ -53,6 +53,10 @@ use Illuminate\Database\Eloquent\Builder;
  *    price at all (`PriceResolver` makes the three indistinguishable on
  *    purpose), so an item a kitchen has not finished pricing simply does not
  *    appear — which is the same answer the kitchen's own readiness gate gives.
+ * * 5. **Somebody has assessed it for allergens.** The listing shows "None
+ *    declared" for an empty label, which reads as safe, so a dish nobody checked
+ *    cannot be listed. In SQL, through {@see CatalogueItem::scopeAllergensAssessed()},
+ *    which also answers correctly here with no tenant context.
  *
  * ## Where the price comes from
  *
@@ -96,6 +100,7 @@ final readonly class MarketplaceMeals
             ->with(['category' => fn ($query) => $query->withoutGlobalScope(OrganisationScope::class)])
             ->whereIn('item_type', self::LISTING_ITEM_TYPES)
             ->where('status', CatalogueItemStatus::Published->value)
+            ->allergensAssessed()
             ->whereIn('organisation_id', app(MarketplaceKitchens::class)->visible()->select('organisations.id'))
             ->whereExists(fn ($query) => $query->from('channel_catalogue_items')
                 ->join('sales_channels', 'sales_channels.id', '=', 'channel_catalogue_items.sales_channel_id')
@@ -262,6 +267,55 @@ final readonly class MarketplaceMeals
 
             return null;
         });
+    }
+
+    /**
+     * The portions a customer can pick between: every active pack with a price on
+     * these channels. Empty unless there are two, because one is no choice. The
+     * pack is the portion, so its price is its price-list row and a chosen one
+     * reaches the order as `catalogue_item_variant_id`, as any pack does.
+     *
+     * @param  list<SalesChannel>  $channels
+     * @return list<array{catalogue_item_variant_id: string, name_en: string, name_ar: string, unit_price_minor: int, currency_code: string}>
+     */
+    public function portionsOf(CatalogueItem $meal, array $channels): array
+    {
+        $packs = CatalogueItemVariant::withoutTenancy()
+            ->where('catalogue_item_id', $meal->getKey())
+            ->where('status', VariantStatus::Active->value)
+            ->orderByDesc('is_default')
+            ->orderBy('created_at')
+            ->get();
+
+        if ($packs->count() < 2) {
+            return [];
+        }
+
+        $portions = $this->tenantContext->during(null, $meal->organisation_id, null, function () use ($meal, $channels, $packs): array {
+            $priced = [];
+
+            foreach ($packs as $pack) {
+                foreach ($channels as $channel) {
+                    $price = $this->prices->currentFor((string) $channel->getKey(), (string) $meal->getKey(), (string) $pack->getKey());
+
+                    if ($price instanceof ResolvedPrice) {
+                        $priced[] = [
+                            'catalogue_item_variant_id' => (string) $pack->getKey(),
+                            'name_en' => $pack->name_en ?? $pack->code,
+                            'name_ar' => $pack->name_ar ?? $pack->name_en ?? $pack->code,
+                            'unit_price_minor' => $price->amountMinor,
+                            'currency_code' => $price->currencyCode,
+                        ];
+
+                        break;
+                    }
+                }
+            }
+
+            return $priced;
+        });
+
+        return count($portions) < 2 ? [] : $portions;
     }
 
     /**

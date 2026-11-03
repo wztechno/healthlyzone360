@@ -66,6 +66,7 @@ final class SupplierStoreController
             // Mirrors the CHECK the migration adds, so a bad value is a named
             // 422 rather than a constraint violation.
             'lead_time_days' => ['nullable', 'integer', 'between:0,365'],
+            'payment_due_days' => ['nullable', 'integer', 'between:0,365'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -84,6 +85,7 @@ final class SupplierStoreController
             'address' => $validated['address'] ?? null,
             'payment_terms' => $validated['payment_terms'] ?? null,
             'lead_time_days' => $validated['lead_time_days'] ?? null,
+            'payment_due_days' => $validated['payment_due_days'] ?? null,
             'notes' => $validated['notes'] ?? null,
         ]);
 

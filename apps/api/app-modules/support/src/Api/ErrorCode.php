@@ -237,6 +237,14 @@ enum ErrorCode: string
     case OrderPlacementRefused = 'order.placement_refused';
 
     /**
+     * The food is on the road, so this order cannot be cancelled by anybody: it
+     * ends as delivered or as failed. Its own code rather than
+     * `resource.conflict` because reloading changes nothing, and a screen has to
+     * tell that apart from a stale version.
+     */
+    case OrderOutForDelivery = 'order.out_for_delivery';
+
+    /**
      * The action is not available from the application's current state — a
      * submitted application cannot be edited, a declined one cannot be
      * approved (B1). `details.status` carries the state it is actually in.
@@ -503,6 +511,7 @@ enum ErrorCode: string
             self::RequestIdempotencyKeyReused,
             self::ContactAlreadyInUse,
             self::OrderPlacementRefused,
+            self::OrderOutForDelivery,
             self::B2bApplicationStateInvalid,
             self::B2bQuotationStateInvalid,
             self::SubscriptionRefused,
@@ -587,6 +596,7 @@ enum ErrorCode: string
             self::CartChannelRefused => 'This sales channel is only available to corporate buyer accounts.',
             self::ShopViewOnly => 'This account can browse the shop but cannot order from it.',
             self::OrderPlacementRefused => 'This order cannot be placed as it stands.',
+            self::OrderOutForDelivery => 'This order is out for delivery. Close it as delivered or failed.',
             self::B2bApplicationStateInvalid => 'This application cannot be changed from its current state.',
             self::B2bDocumentsIncomplete => 'The required documents are not all present and accepted.',
             self::B2bSignatoryRequired => 'Signing requires a verified passcode from the named signatory.',

@@ -39,18 +39,20 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type { IssueCardItem, IssueTrayContent, MenuItem } from '@healthy360/design-system';
-import { useFormatter } from '@healthy360/i18n';
+import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { dishOptionsLine } from '../../../ui/dish-choices.tsx';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { useWindowName } from '../order-desk/use-window-name.ts';
 import { toFailure } from '../../../data/hooks.ts';
 import {
     useConfirmOrderMutation,
     useFulfilOrderMutation,
+    useHandToCourierMutation,
     useKitchenOrderQuery,
     useRecordOrderPaymentMutation,
 } from '../../../data/kitchen-orders-hooks.ts';
@@ -71,6 +73,7 @@ import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
+import { KitchenPauseBanner, KitchenPauseButton } from '../order-desk/kitchen-pause.tsx';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
@@ -94,8 +97,8 @@ import {
     kitchenOrderStatusTone,
     orderDeskDeliveryState,
     orderDeskDeliveryStateKey,
-    orderDeskDueTone,
     orderDeskRowTestId,
+    allergyBanner,
 } from '../ops-format.ts';
 import { DeskAmount, DeskFact } from '../order-desk/desk-parts.tsx';
 import { DueBadge, PaymentCell } from '../order-desk/queue-cells.tsx';
@@ -170,10 +173,11 @@ import { useNudgeOnRefusal } from '../tray-nudge.ts';
  * choose them). Unnamed, the boundary is UTC. A branch picker is a later slice's, where somebody
  * chooses to narrow and can see that they have.
  *
- * ## Ageing is the kitchen display's scale, measured from a different instant
+ * ## Ageing is measured from when an order is due
  *
- * `orderDeskDueTone` is `ticketAgeTone` — amber at fifteen minutes, red at thirty — against minutes
- * *past due*, clamped at zero so an order that is early is simply neutral. Colour never carries it
+ * `orderDeskDueTone` goes amber at the kitchen display's fifteen minutes and red at the grace the
+ * queue carries (`meta.overdueGraceMinutes`), against minutes *past due*, clamped at zero so an
+ * order that is early is simply neutral. Colour never carries it
  * alone: the badge's label is the interval itself, spelled by the locale's own relative-time
  * formatter, so "in 3 hours" and "2 hours ago" read the same to somebody who cannot separate amber
  * from red. `ops-format.ts` holds the argument.
@@ -523,6 +527,111 @@ function AssignDriverDialog({
 }
 
 /**
+ * A courier company took the food: the {@link AssignDriverDialog} of a run nobody on the kitchen's
+ * own sheet will carry. It ends on the order page with Mark delivered or a failed delivery, and
+ * unpaid either way until batch settlement.
+ */
+function HandToCourierDialog({
+    order,
+    onClose,
+    onHanded,
+}: {
+    readonly order: KitchenOrder;
+    readonly onClose: () => void;
+    readonly onHanded: (courier: string) => void;
+}) {
+    const { t } = useTranslation();
+    const hand = useHandToCourierMutation();
+    const [name, setName] = useState('');
+    const [reference, setReference] = useState('');
+    const [fee, setFee] = useState('');
+
+    const feeMinor = fee.trim() === '' ? undefined : parseMinorAmount(fee, order.currencyCode);
+    const failure = toFailure(hand.error);
+
+    function confirm() {
+        if (name.trim() === '' || feeMinor === null) return;
+        hand.mutate(
+            {
+                id: order.id,
+                name: name.trim(),
+                ...(reference.trim() === '' ? {} : { reference: reference.trim() }),
+                ...(feeMinor === undefined ? {} : { feeMinor }),
+            },
+            {
+                onSuccess: () => {
+                    onHanded(name.trim());
+                },
+            },
+        );
+    }
+
+    return (
+        <Dialog
+            testID="kitchen-order-desk-courier"
+            open
+            onClose={onClose}
+            title={t('kitchen:desk.courier.title')}
+            description={t('kitchen:desk.courier.description', { number: order.orderNumber })}
+            actions={
+                <>
+                    <Button
+                        testID="kitchen-order-desk-courier-cancel"
+                        variant="secondary"
+                        label={t('kitchen:common.cancel')}
+                        onPress={onClose}
+                    />
+                    <Button
+                        testID="kitchen-order-desk-courier-confirm"
+                        label={t('kitchen:desk.courier.confirm')}
+                        loading={hand.isPending}
+                        disabled={name.trim() === '' || feeMinor === null || hand.isPending}
+                        onPress={confirm}
+                    />
+                </>
+            }
+        >
+            {failure === null ? null : (
+                <Text testID="kitchen-order-desk-courier-error" tone="danger" role="alert">
+                    {failure.message}
+                </Text>
+            )}
+
+            <TextInputField
+                testID="kitchen-order-desk-courier-name"
+                id="kitchen-order-desk-courier-name"
+                label={t('kitchen:desk.courier.nameLabel')}
+                value={name}
+                onChangeText={setName}
+                maxLength={120}
+            />
+            <TextInputField
+                testID="kitchen-order-desk-courier-reference"
+                id="kitchen-order-desk-courier-reference"
+                label={t('kitchen:desk.courier.referenceLabel')}
+                value={reference}
+                onChangeText={setReference}
+                maxLength={120}
+                autoCapitalize="none"
+                autoCorrect={false}
+            />
+            <TextInputField
+                testID="kitchen-order-desk-courier-fee"
+                id="kitchen-order-desk-courier-fee"
+                label={t('kitchen:desk.courier.feeLabel', { currency: order.currencyCode })}
+                placeholder={t('kitchen:fields.amountPlaceholder')}
+                {...(feeMinor === null ? { error: t('kitchen:desk.courier.feeInvalid') } : {})}
+                value={fee}
+                onChangeText={setFee}
+                inputMode="decimal"
+                autoCapitalize="none"
+                autoCorrect={false}
+            />
+        </Dialog>
+    );
+}
+
+/**
  * Write down money that has arrived.
  *
  * ## Why the desk needs this at all
@@ -852,6 +961,7 @@ function useTickingNow(intervalMs: number, running: boolean): Date {
 
 function OrderDeskQueueList() {
     const { t } = useTranslation();
+    const { locale } = useLocale();
     const windowName = useWindowName();
     const formatter = useFormatter();
     const router = useRouter();
@@ -879,6 +989,8 @@ function OrderDeskQueueList() {
      */
     const [fulfilmentType, setFulfilmentType] = useState<OrderDeskFulfilmentType | null>(null);
     const [query, setQuery] = useState('');
+    /** The Past due figure is pressed: every order past due, in place of the window. */
+    const [pastDueOnly, setPastDueOnly] = useState(false);
     /**
      * The row the record page was opened from, held rather than looked up by identifier.
      *
@@ -896,6 +1008,8 @@ function OrderDeskQueueList() {
      * stale version the endpoint exists to reject.
      */
     const [assigning, setAssigning] = useState(false);
+    /** Whether the courier dialog is open. It reads the order off the detail query. */
+    const [handingToCourier, setHandingToCourier] = useState(false);
     /**
      * Whether the receipt dialog is open.
      *
@@ -926,8 +1040,9 @@ function OrderDeskQueueList() {
             // for.
             ...(fulfilmentType === null ? {} : { fulfilmentType }),
             ...(trimmed === '' ? {} : { query: trimmed }),
+            ...(pastDueOnly ? { lens: 'past_due' as const } : {}),
         }),
-        [deskWindow, rangeFrom, rangeTo, statuses, fulfilmentType, trimmed],
+        [deskWindow, rangeFrom, rangeTo, statuses, fulfilmentType, trimmed, pastDueOnly],
     );
 
     const queue = useOrderDeskQueueQuery(filters, true, {
@@ -985,8 +1100,15 @@ function OrderDeskQueueList() {
         setDeskWindow('today');
     }
 
+    /** Choosing a window asks about that window, so it ends the Past due lens. */
+    function chooseWindow(next: OrderDeskWindow) {
+        setDeskWindow(next);
+        setPastDueOnly(false);
+    }
+
     function clearFilters() {
         setDeskWindow('today');
+        setPastDueOnly(false);
         setRangeFrom('');
         setRangeTo('');
         setStatuses([]);
@@ -1008,6 +1130,7 @@ function OrderDeskQueueList() {
     function closeDetail() {
         setSelected(null);
         setAssigning(false);
+        setHandingToCourier(false);
         setRecordingPayment(false);
         clearActionState();
     }
@@ -1046,6 +1169,15 @@ function OrderDeskQueueList() {
      * because the decision is made; the record page stays open on the order, which is what the person
      * was reading.
      */
+    function onHandedToCourier(courier: string) {
+        setHandingToCourier(false);
+        toast.show({
+            testID: 'kitchen-order-desk-courier-toast',
+            tone: 'success',
+            message: t('kitchen:desk.courier.handedToast', { name: courier }),
+        });
+    }
+
     function onAssigned(driverName: string) {
         setAssigning(false);
         toast.show({
@@ -1103,15 +1235,14 @@ function OrderDeskQueueList() {
     }
 
     /*
-     * The four figures, counted over the rows on screen.
+     * The four figures. Past due is the server's, across all dates, because counting the rows on
+     * screen showed Past due 0 on Today with eleven orders overdue from other days. Its red turns on
+     * the same grace as the badges (`meta.overdueGraceMinutes`), so they cannot disagree.
      *
-     * Over the *loaded* queue deliberately — it is bounded, not paged, so the rows are the whole
-     * answer unless the truncation callout says otherwise, and a figure the list below could not
-     * account for would be a figure nobody can check. Overdue reads the due clock the badges read, so
-     * the count and the red badges can never disagree.
+     * The other three describe the current view, over the *loaded* queue deliberately: it is
+     * bounded, not paged, so the rows are the whole answer unless the truncation callout says
+     * otherwise.
      */
-    const overdueCount = rows.filter((row) => orderDeskDueTone(row.dueAt, now) === 'danger').length;
-    const lateCount = rows.filter((row) => Date.parse(row.dueAt) < now.getTime()).length;
     const needsDriverCount = rows.filter(
         (row) => orderDeskDeliveryState(row) === 'unassigned',
     ).length;
@@ -1128,11 +1259,17 @@ function OrderDeskQueueList() {
         {
             key: 'late',
             label: t('kitchen:desk.figures.late'),
-            ...counted(lateCount),
+            ...counted(meta?.pastDueCount ?? 0),
             tone: 'danger',
             // Red only once a late order is past its grace too — the badges' own rule.
-            alarm: overdueCount > 0,
+            alarm: (meta?.overdueCount ?? 0) > 0,
             separated: true,
+            active: pastDueOnly,
+            info: t('kitchen:desk.figures.lateInfo'),
+            accessibilityLabel: t('kitchen:desk.figures.lateFilter'),
+            onPress: () => {
+                setPastDueOnly((current) => !current);
+            },
         },
         {
             key: 'needsDriver',
@@ -1189,9 +1326,23 @@ function OrderDeskQueueList() {
                 compareText(left.orderNumber, right.orderNumber, direction),
             mono: true,
             render: (row) => (
-                <Text variant="mono" testID={`${orderDeskRowTestId(String(row.id))}-number`}>
-                    {row.orderNumber}
-                </Text>
+                <View className="flex-col items-start gap-hair">
+                    <Text variant="mono" testID={`${orderDeskRowTestId(String(row.id))}-number`}>
+                        {row.orderNumber}
+                    </Text>
+                    {row.allergy === null ? null : (
+                        <Badge
+                            testID={`${orderDeskRowTestId(String(row.id))}-allergy`}
+                            tone={row.allergy.severe ? 'danger' : 'warning'}
+                            icon="warning"
+                            label={t(
+                                row.allergy.severe
+                                    ? 'kitchen:allergy.badgeSevere'
+                                    : 'kitchen:allergy.badge',
+                            )}
+                        />
+                    )}
+                </View>
             ),
         },
         {
@@ -1261,7 +1412,10 @@ function OrderDeskQueueList() {
             // How late an order is *is* its due time read against now, so it sorts the same way.
             sort: (left, right, direction) =>
                 compareNumber(Date.parse(left.dueAt), Date.parse(right.dueAt), direction),
-            render: (row) => <DueBadge row={row} now={now} />,
+            render: (row) =>
+                meta === null ? null : (
+                    <DueBadge row={row} now={now} overdueGraceMinutes={meta.overdueGraceMinutes} />
+                ),
         },
         {
             key: 'kind',
@@ -1335,6 +1489,7 @@ function OrderDeskQueueList() {
         statuses.length > 0 ||
         fulfilmentType !== null ||
         deskWindow !== 'today' ||
+        pastDueOnly ||
         controls.filtered;
 
     /**
@@ -1377,6 +1532,16 @@ function OrderDeskQueueList() {
                         void queue.refetch();
                     }}
                     refreshing={queue.isFetching}
+                />
+            ) : null}
+
+            {handingToCourier && order !== null ? (
+                <HandToCourierDialog
+                    order={order}
+                    onClose={() => {
+                        setHandingToCourier(false);
+                    }}
+                    onHanded={onHandedToCourier}
                 />
             ) : null}
 
@@ -1493,7 +1658,13 @@ function OrderDeskQueueList() {
                     }}
                     titleAside={
                         <Inline space="xs" align="center">
-                            <DueBadge row={selectedRow} now={now} />
+                            {meta === null ? null : (
+                                <DueBadge
+                                    row={selectedRow}
+                                    now={now}
+                                    overdueGraceMinutes={meta.overdueGraceMinutes}
+                                />
+                            )}
                             <Text variant="mono" tone="secondary">
                                 {t('kitchen:desk.dueAt', {
                                     time: formatter.formatDate(selectedRow.dueAt, {
@@ -1591,8 +1762,19 @@ function OrderDeskQueueList() {
                                                    */
                                                   <View
                                                       testID="kitchen-order-desk-detail-body"
-                                                      className="flex-col"
+                                                      className="flex-col gap-snug"
                                                   >
+                                                      {order.allergy === null ? null : (
+                                                          <Callout
+                                                              {...allergyBanner(
+                                                                  order.allergy,
+                                                                  order.lines,
+                                                                  locale,
+                                                                  t,
+                                                              )}
+                                                              testID="kitchen-order-desk-detail-allergy"
+                                                          />
+                                                      )}
                                                       <View
                                                           testID="kitchen-order-desk-detail-lines"
                                                           className="flex-col"
@@ -1617,6 +1799,18 @@ function OrderDeskQueueList() {
                                                                                   {
                                                                                       line.variantLabel
                                                                                   }
+                                                                              </Text>
+                                                                          )}
+                                                                          {dishOptionsLine(line.options, 'en', t) === null ? null : (
+                                                                              <Text variant="caption">
+                                                                                  {dishOptionsLine(line.options, 'en', t)}
+                                                                              </Text>
+                                                                          )}
+                                                                          {line.note == null ? null : (
+                                                                              <Text variant="caption">
+                                                                                  {t('kitchen:dishOptions.lineNote', {
+                                                                                      note: line.note,
+                                                                                  })}
                                                                               </Text>
                                                                           )}
                                                                           {isPlanDayLine(
@@ -1872,16 +2066,20 @@ function OrderDeskQueueList() {
                                                                     />
                                                                 </>
                                                             )}
-                                                            <View className="flex-row pt-tight">
+                                                            <View className="flex-row gap-snug pt-tight">
                                                                 {
                                                                     /*
                                                                      * `canManage` gates it on the same code the lifecycle
                                                                      * buttons take: choosing whose evening this is, is managing
-                                                                     * the order rather than reading it.
+                                                                     * the order rather than reading it. A courier's run has
+                                                                     * left, so there is nobody left to name.
                                                                      */
                                                                     selectedRow.deliveryJob ===
                                                                         null ||
                                                                     !canManage ||
+                                                                    (order?.deliveryRun
+                                                                        ?.courierName ?? null) !==
+                                                                        null ||
                                                                     !canAssignDeliveryJob(
                                                                         selectedRow.deliveryJob
                                                                             .status,
@@ -1900,6 +2098,33 @@ function OrderDeskQueueList() {
                                                                             )}
                                                                             onPress={() => {
                                                                                 openAssign();
+                                                                            }}
+                                                                        />
+                                                                    )
+                                                                }
+                                                                {
+                                                                    // Ready and not yet on the road, the driver's own rule.
+                                                                    selectedRow.deliveryJob ===
+                                                                        null ||
+                                                                    !canManage ||
+                                                                    (order?.readyAt ?? null) ===
+                                                                        null ||
+                                                                    (selectedRow.deliveryJob
+                                                                        .status !== 'pending' &&
+                                                                        selectedRow.deliveryJob
+                                                                            .status !==
+                                                                            'assigned') ? undefined : (
+                                                                        <Button
+                                                                            testID="kitchen-order-desk-detail-courier"
+                                                                            size="sm"
+                                                                            variant="ghost"
+                                                                            label={t(
+                                                                                'kitchen:desk.courier.open',
+                                                                            )}
+                                                                            onPress={() => {
+                                                                                setHandingToCourier(
+                                                                                    true,
+                                                                                );
                                                                             }}
                                                                         />
                                                                     )
@@ -2010,7 +2235,7 @@ function OrderDeskQueueList() {
                             label={t('kitchen:desk.windowLabel')}
                             value={deskWindow}
                             onChange={(next) => {
-                                setDeskWindow(next);
+                                chooseWindow(next);
                                 setRangeFrom('');
                                 setRangeTo('');
                             }}
@@ -2050,7 +2275,7 @@ function OrderDeskQueueList() {
                                     ) {
                                         setRangeTo(next);
                                     }
-                                    setDeskWindow('range');
+                                    chooseWindow('range');
                                 }}
                                 onClear={clearRange}
                             />
@@ -2072,7 +2297,7 @@ function OrderDeskQueueList() {
                                     ) {
                                         setRangeFrom(next);
                                     }
-                                    setDeskWindow('range');
+                                    chooseWindow('range');
                                 }}
                                 onClear={clearRange}
                             />
@@ -2137,16 +2362,21 @@ function OrderDeskQueueList() {
                 {...(filtered ? { onClear: clearFilters } : {})}
                 trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                 actions={
-                    <Button
-                        testID="kitchen-order-desk-new-sale"
-                        label={t('kitchen:desk.newSale')}
-                        iconStart={<Icon name="plus" size="sm" />}
-                        onPress={() => {
-                            router.push('/kitchen/order-desk/sale');
-                        }}
-                    />
+                    <Inline space="xs">
+                        <KitchenPauseButton />
+                        <Button
+                            testID="kitchen-order-desk-new-sale"
+                            label={t('kitchen:desk.newSale')}
+                            iconStart={<Icon name="plus" size="sm" />}
+                            onPress={() => {
+                                router.push('/kitchen/order-desk/sale');
+                            }}
+                        />
+                    </Inline>
                 }
             />
+
+            <KitchenPauseBanner />
 
             {queue.isPending ? (
                 <TableSkeleton

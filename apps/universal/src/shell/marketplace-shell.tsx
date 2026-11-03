@@ -32,6 +32,7 @@ import {
 import { useBasketAdd } from '../features/commerce/use-basket-add.tsx';
 import type { BasketAdd } from '../features/commerce/use-basket-add.tsx';
 import { requestMenuSearchFocus } from '../features/catalogue/menu-search-focus.ts';
+import { LEGAL_PAGES } from '../features/legal/legal-pages.tsx';
 import { QUERY_PARAM } from '../features/marketplace/filter-bar.tsx';
 import { ShopViewOnlyProvider, isShopViewOnly } from '../features/marketplace/shop-view-only.tsx';
 import { marketplaceNavigation } from '../navigation/consumer-items.ts';
@@ -157,6 +158,7 @@ function usePendingAddReplay(basket: BasketAdd, basketSettled: boolean): void {
             {
                 id: next.mealId,
                 ...(next.kitchenId === undefined ? {} : { kitchenId: next.kitchenId }),
+                ...(next.choices === undefined ? {} : { choices: next.choices }),
             },
             next.quantity,
         );
@@ -609,6 +611,12 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
         ...(signedIn
             ? []
             : [{ key: 'sign-in', labelKey: 'marketplace:nav.signIn', href: '/sign-in' }]),
+        // Empty until the owner supplies the text: nothing links to a page that does not exist.
+        ...LEGAL_PAGES.map((page) => ({
+            key: `legal-${page.slug}`,
+            labelKey: page.titleKey,
+            href: `/legal/${page.slug}`,
+        })),
     ].filter((link) => isPathAvailable(link.href));
 
     /** A footer link: small muted print, underlined, with a touch target around it. */
@@ -630,7 +638,7 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
      * The design's foot of the page: one quiet block of small print under a hairline, on the
      * page's measure (`AppShell` draws the rule). It carries what a footer must — the secondary
      * destinations, the image credits the CC licences ask for, the language and appearance
-     * switches a signed-out visitor has nowhere else to find, and the prototype disclosure — in the
+     * switches a signed-out visitor has nowhere else to find, and who we are — in the
      * design's 12px muted type rather than as a second band of chrome.
      */
     const footer = (
@@ -647,14 +655,8 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                 {footerLink('locale', otherLocaleLabel, toggleLocale)}
                 {footerLink('theme', themeLabel, toggleTheme)}
             </Inline>
-            {/*
-             * There are no published terms, privacy notice or licence to link to: this is a
-             * prototype over synthetic data and linking to a page that does not exist would be a
-             * dead control in the one place a person is most entitled to expect a real document.
-             * Saying so is the honest substitute.
-             */}
             <RNText testID="footer-legal" className="text-xs text-content-secondary">
-                {`${t('marketplace:footer.about')} ${t('marketplace:footer.legalPrototype')}`}
+                {t('marketplace:footer.about')}
             </RNText>
         </Stack>
     );

@@ -38,6 +38,7 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { Gate, useCan } from '../../access/gate.tsx';
+import { DishOptionsSection } from './dish-options-section.tsx';
 import { toFailure } from '../../data/hooks.ts';
 import {
     ingredientsFromPages,
@@ -79,6 +80,7 @@ import {
     unitDimension,
     unitKey,
 } from './format.ts';
+import { AllergenAssessmentCallout, AssessmentBadges } from './catalogue/allergen-assessment.tsx';
 import { stockBlockersSentence } from './catalogue/recipe-columns.tsx';
 import { serverFieldErrors } from './server-field-errors.ts';
 import { useNudgeOnRefusal } from './tray-nudge.ts';
@@ -956,6 +958,11 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                 tone="neutral"
                                 label={t('kitchen:meals.allergensFromRecipe')}
                             />
+                            <AssessmentBadges
+                                testID="kitchen-meal-allergens"
+                                allergensAssessed={data?.allergensAssessed}
+                                onSaleWithoutRecipe={data?.onSaleWithoutRecipe}
+                            />
                         </Inline>
 
                         {data === undefined || data.allergens.length === 0 ? (
@@ -978,6 +985,12 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                 ))}
                             </Inline>
                         )}
+                        {data?.allergensAssessed === false ? (
+                            <AllergenAssessmentCallout
+                                testID="kitchen-meal-allergen-assessment"
+                                itemId={data.id}
+                            />
+                        ) : null}
                     </View>
 
                     <View
@@ -1341,6 +1354,8 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                         ))}
                     </Inline>
                 </FormSection>
+
+                <DishOptionsSection itemId={String(meal)} canManage={canManage} />
 
                 {/* ── source transcription ──────────────────────────────────────────────────── */}
                 {data?.composition == null && data?.kitchenCategory == null ? null : (

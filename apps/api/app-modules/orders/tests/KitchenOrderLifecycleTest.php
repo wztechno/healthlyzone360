@@ -14,6 +14,7 @@ use Healthy360\Orders\Services\OrderPaymentReceipts;
 use Healthy360\Orders\Tests\Fixtures\OrderWorld;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+use Illuminate\Support\Str;
 
 /*
 |--------------------------------------------------------------------------
@@ -286,7 +287,24 @@ it('narrows the kitchen book by status and by order number, and rejects a status
         ->assertJsonPath('error.details.parameter', 'requested_delivery_date');
 });
 
-it('receipts the cash still outstanding when a cash order is fulfilled, and leaves a transfer alone', function (): void {
+it('narrows the kitchen book to one customer, and refuses anything but an account id', function (): void {
+    $theirs = OrderWorld::place($this->world);
+    $accountId = (string) $this->world->customer->account->getKey();
+
+    $this->getJson('/api/v1/catalogue/orders?customer_account_id='.$accountId, $this->kitchenHeaders)
+        ->assertOk()
+        ->assertJsonPath('meta.count', 1)
+        ->assertJsonPath('data.0.id', (string) $theirs->getKey());
+
+    $this->getJson('/api/v1/catalogue/orders?customer_account_id='.Str::uuid7(), $this->kitchenHeaders)
+        ->assertOk()
+        ->assertJsonPath('meta.count', 0);
+
+    $this->getJson('/api/v1/catalogue/orders?customer_account_id=nobody', $this->kitchenHeaders)
+        ->assertStatus(400);
+});
+
+it('receipts the cash still outstanding when a pickup is fulfilled, and leaves a delivery and a transfer alone', function (): void {
     $fulfil = function (Order $order): void {
         $confirmed = $this->postJson('/api/v1/catalogue/orders/'.$order->getKey().'/confirm', [], $this->kitchenHeaders + [
             'If-Match' => '"'.$order->lock_version.'"',
@@ -301,9 +319,13 @@ it('receipts the cash still outstanding when a cash order is fulfilled, and leav
         ])->assertOk();
     };
 
-    // Part-paid at the door before the order was marked delivered: only the
-    // remainder is receipted, so the cash report does not count the part twice.
-    $cash = OrderWorld::place($this->world);
+    // Part-paid before it was collected: only the remainder is receipted, so the
+    // cash report does not count the part twice.
+    $cash = Order::factory()->pickup()->create([
+        'organisation_id' => $this->world->organisation->getKey(),
+        'customer_account_id' => $this->world->customer->account->getKey(),
+        'sales_channel_id' => $this->world->channel->getKey(),
+    ]);
     app(OrderPaymentReceipts::class)->write($cash, PaymentMethod::CashOnDelivery, 100, (string) $this->world->tenant->user->getKey());
     $fulfil($cash);
 
@@ -319,6 +341,12 @@ it('receipts the cash still outstanding when a cash order is fulfilled, and leav
     $fulfil($wish->refresh());
 
     expect($wish->paymentReceipts()->count())->toBe(0);
+
+    // Nobody at the display took this cash: a delivery stays unpaid.
+    $delivery = OrderWorld::place($this->world);
+    $fulfil($delivery);
+
+    expect($delivery->paymentReceipts()->count())->toBe(0);
 });
 
 it('marks a confirmed order ready without handing it over, then hands it over', function (): void {

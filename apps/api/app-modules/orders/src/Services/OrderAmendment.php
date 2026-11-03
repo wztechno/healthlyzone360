@@ -16,12 +16,16 @@ use Healthy360\Orders\Enums\PaymentMethod;
  * that only changes a quantity must not quietly move the slot, the day or the
  * address the customer was promised. Who the customer is and how the food leaves
  * are not here at all; to change either, cancel and re-sell.
+ *
+ * `allergyNote` adds one more spelling, because a note can be withdrawn: null
+ * keeps what is stored and an empty string clears it.
  */
 final readonly class OrderAmendment
 {
     /**
      * @param  list<ComposedLine>  $lines
      * @param  CustomerAddress|null  $address  a new delivery address, already scoped to the order's customer
+     * @param  bool  $allergenConflictsAcknowledged  the desk told the customer about the new basket's allergen conflicts
      */
     public function __construct(
         public array $lines,
@@ -29,5 +33,7 @@ final readonly class OrderAmendment
         public ?CarbonImmutable $requestedDate = null,
         public ?string $windowCode = null,
         public ?PaymentMethod $paymentMethod = null,
+        public ?string $allergyNote = null,
+        public bool $allergenConflictsAcknowledged = false,
     ) {}
 }

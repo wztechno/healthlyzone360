@@ -108,6 +108,20 @@ it('reports and refuses an untranslated listing identically', function (): void 
         ->and($reasons[0]['context']['fields'])->toBe(['name_ar']);
 });
 
+it('treats the English copied into the Arabic name as untranslated', function (): void {
+    $item = CatalogueItem::factory()->create([
+        'catalogue_id' => $this->a->catalogue->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'name_en' => 'Lentil soup',
+        'name_ar' => ' Lentil soup ',
+    ]);
+
+    $reasons = assertReadinessMatchesPublish($item, $this->headers, 0);
+
+    expect($reasons[0]['code'])->toBe('translation_incomplete')
+        ->and($reasons[0]['context']['fields'])->toBe(['name_ar']);
+});
+
 it('reports and refuses a product with no pack identically', function (): void {
     $item = CatalogueItem::factory()->create([
         'catalogue_id' => $this->a->catalogue->getKey(),

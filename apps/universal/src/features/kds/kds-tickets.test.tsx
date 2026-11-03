@@ -1,12 +1,13 @@
 import { ApiError, conflictFailure } from '@healthy360/api-client';
 import type {
     KitchenOrder,
+    KitchenDisplay,
     KitchenOrderLine,
-    KitchenOrderPage,
     KitchenOrderTransitionRequest,
 } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { createInstance } from 'i18next';
 
 import {
     KITCHEN_MANAGER_PERMISSIONS,
@@ -15,8 +16,14 @@ import {
     testActiveContext,
 } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import arKitchen from '../../../../../packages/i18n/catalogues/ar/kitchen.json';
+import arMarketplace from '../../../../../packages/i18n/catalogues/ar/marketplace.json';
+import { queryKeys } from '../../data/query-keys.ts';
 import { addDays, todayIso } from '../commerce/dates.ts';
-import { KdsTicketsScreen } from './kds-tickets-screen.tsx';
+import { allergenLabel, allergyBanner } from '../kitchen-admin/ops-format.ts';
+import { playAlertTone } from './alert-tone.ts';
+import { isAlarming, placedTicketIds, unseenTickets } from './kds-board.ts';
+import { KDS_ALARM_TONE_MS, KdsTicketsScreen } from './kds-tickets-screen.tsx';
 
 jest.mock('expo-router', () => ({
     __esModule: true,
@@ -26,6 +33,8 @@ jest.mock('expo-router', () => ({
     Redirect: () => null,
     Link: ({ children }: { children: React.ReactNode }) => children,
 }));
+
+jest.mock('./alert-tone.ts', () => ({ __esModule: true, playAlertTone: jest.fn() }));
 
 /**
  * The wall board, against a book this file writes.
@@ -115,6 +124,7 @@ function kitchenOrder(overrides: Partial<KitchenOrder> = {}): KitchenOrder {
         lockVersion: 1,
         customerAccountId: null,
         amendable: false,
+        allergy: null,
         lineCount: lines.length,
         lines,
         ...overrides,
@@ -182,10 +192,23 @@ function seedOrders(): KitchenOrder[] {
     ];
 }
 
+function boardOf(
+    orders: readonly KitchenOrder[],
+    overrides: Partial<KitchenDisplay> = {},
+): KitchenDisplay {
+    return {
+        orders,
+        truncated: false,
+        alarmAfterMinutes: 5,
+        unacceptedOpenMinutes: {},
+        ...overrides,
+    };
+}
+
 interface OrderBook {
     readonly orders: () => readonly KitchenOrder[];
     readonly find: (id: OrderId) => KitchenOrder | undefined;
-    readonly listOrders: () => KitchenOrderPage;
+    readonly getDisplay: () => KitchenDisplay;
     readonly confirmOrder: (request: KitchenOrderTransitionRequest) => KitchenOrder;
     readonly startOrder: (request: KitchenOrderTransitionRequest) => KitchenOrder;
     readonly markOrderReady: (request: KitchenOrderTransitionRequest) => KitchenOrder;
@@ -222,7 +245,7 @@ function createOrderBook(seed: KitchenOrder[] = seedOrders()): OrderBook {
     return {
         orders: () => records,
         find,
-        listOrders: () => ({ items: records, nextCursor: null, hasMore: false }),
+        getDisplay: () => boardOf(records),
         confirmOrder: (request) =>
             transition('placed', request, {
                 status: 'confirmed',
@@ -252,24 +275,32 @@ function createOrderBook(seed: KitchenOrder[] = seedOrders()): OrderBook {
     };
 }
 
-/** The kitchen manager's grant minus the one code every bump button is gated on. */
+/** The kitchen manager's grant minus the two codes the bump buttons are gated on. */
 const VIEW_ONLY_PERMISSIONS = KITCHEN_MANAGER_PERMISSIONS.filter(
-    (permission) => permission !== 'order.manage_organisation',
+    (permission) =>
+        permission !== 'order.manage_organisation' && permission !== 'order.prepare_organisation',
 );
 
-async function renderBoard(book: OrderBook, options: { readonly canManage?: boolean } = {}) {
+async function renderBoard(
+    book: OrderBook,
+    options: { readonly canManage?: boolean; readonly permissions?: readonly string[] } = {},
+) {
     const session =
-        options.canManage === false
+        options.permissions !== undefined
             ? kitchenManagerSession({
-                  activeContext: testActiveContext({ permissions: VIEW_ONLY_PERMISSIONS }),
+                  activeContext: testActiveContext({ permissions: options.permissions }),
               })
-            : kitchenManagerSession();
+            : options.canManage === false
+              ? kitchenManagerSession({
+                    activeContext: testActiveContext({ permissions: VIEW_ONLY_PERMISSIONS }),
+                })
+              : kitchenManagerSession();
 
     return renderStubScreen(<KdsTicketsScreen />, {
         session,
         repositories: {
             kitchenOrders: {
-                listOrders: async () => book.listOrders(),
+                getDisplay: async () => book.getDisplay(),
                 confirmOrder: async (request) => book.confirmOrder(request),
                 startOrder: async (request) => book.startOrder(request),
                 markOrderReady: async (request) => book.markOrderReady(request),
@@ -279,11 +310,92 @@ async function renderBoard(book: OrderBook, options: { readonly canManage?: bool
     });
 }
 
+describe('the allergy banner in Arabic', () => {
+    /*
+     * The banner is the design system's `Callout`, whose layout is logical and is tested there, and
+     * the one new block around a row's badge is a column aligned to its start. Jest measures no
+     * layout on React Native, so what is pinned here is the half this feature wrote: the wording.
+     */
+    it('reads from the Arabic catalogues, the allergen included', async () => {
+        const i18n = createInstance();
+        await i18n.init({
+            lng: 'ar',
+            resources: { ar: { kitchen: arKitchen, marketplace: arMarketplace } },
+        });
+
+        const banner = allergyBanner(
+            {
+                severe: true,
+                items: [
+                    {
+                        allergenCode: 'sesame',
+                        severity: 'anaphylaxis',
+                        notes: null,
+                        conflictsWithLine: [],
+                    },
+                ],
+                note: null,
+                acknowledgedAt: null,
+            },
+            [],
+            'ar',
+            i18n.t,
+        );
+
+        expect(banner.tone).toBe('danger');
+        expect(banner.icon).toBe('warning');
+        expect(banner.title).toBe(arKitchen.allergy.titleSevere);
+        expect(banner.body).toContain(arMarketplace.allergens.sesame);
+        expect(banner.body).toContain(arKitchen.allergy.severity.anaphylaxis);
+
+        // The ticket's own badges read the same source, never the code.
+        expect(allergenLabel('tree_nut', i18n.t)).toBe(arMarketplace.allergens.tree_nut);
+    });
+});
+
 function ticketId(orderId: OrderId): string {
     return `kds-ticket-${String(orderId)}`;
 }
 
 describe('kds ticket board', () => {
+    it('puts a severe allergy on the ticket in the danger tone, with wording and notes', async () => {
+        const order = kitchenOrder({
+            allergy: {
+                severe: true,
+                items: [
+                    {
+                        allergenCode: 'sesame',
+                        severity: 'anaphylaxis',
+                        notes: 'Carries an EpiPen',
+                        conflictsWithLine: [],
+                    },
+                ],
+                note: null,
+                acknowledgedAt: null,
+            },
+        });
+        await renderStubScreen(<KdsTicketsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOrders: {
+                    getDisplay: async () => boardOf([order]),
+                },
+            },
+        });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId(`${ticketId(order.id)}-allergy`)).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        const banner = screen.getByTestId(`${ticketId(order.id)}-allergy`);
+        expect(banner).toHaveTextContent(/Severe allergy on this order/);
+        expect(banner).toHaveTextContent(/Sesame \(life-threatening\)/);
+        expect(banner).toHaveTextContent(/Carries an EpiPen/);
+    });
+
     it('shows this branch and unattributed work, and nothing else', async () => {
         const book = createOrderBook();
         const { repositories } = await renderBoard(book);
@@ -295,9 +407,9 @@ describe('kds ticket board', () => {
             { timeout: 5000 },
         );
 
-        // The board asks for the book, not for a branch-narrowed slice of it: the server filter
-        // would delete every unattributed order from a wall that has to show them.
-        expect(repositories.kitchenOrders.listOrders).toHaveBeenCalledWith(undefined);
+        // Not the paged order book, which lost the oldest tickets past twenty-five open orders.
+        expect(repositories.kitchenOrders.getDisplay).toHaveBeenCalled();
+        expect(repositories.kitchenOrders.listOrders).not.toHaveBeenCalled();
 
         // The whole point of the client-side rule: an order delivered through an organisation-wide
         // zone names no kitchen, and it is still food somebody has to cook.
@@ -517,6 +629,19 @@ describe('kds ticket board', () => {
                 readyAt: minutesAgo(10),
                 deliveryRun: { ...run, status: 'in_transit', pickedUpAt: minutesAgo(2) },
             }),
+            kitchenOrder({
+                id: orderIdAt(8),
+                orderNumber: 'VK-2026-0152',
+                status: 'confirmed',
+                confirmedAt: minutesAgo(30),
+                readyAt: minutesAgo(10),
+                deliveryRun: {
+                    ...run,
+                    status: 'failed',
+                    pickedUpAt: minutesAgo(5),
+                    failedAt: minutesAgo(1),
+                },
+            }),
         ]);
         await renderBoard(book);
 
@@ -531,8 +656,32 @@ describe('kds ticket board', () => {
         expect(screen.getByTestId(`${ticketId(orderIdAt(7))}-driver`)).toHaveTextContent(
             'Out with the driver',
         );
+        expect(screen.getByTestId(`${ticketId(orderIdAt(8))}-driver`)).toHaveTextContent(
+            'Delivery failed',
+        );
         expect(screen.queryByTestId(`${ticketId(orderIdAt(6))}-handed-over`)).toBeNull();
         expect(screen.queryByTestId(`${ticketId(orderIdAt(7))}-handed-over`)).toBeNull();
+    });
+
+    it('lets a cook on the wall code start a ticket and nothing else', async () => {
+        const book = createOrderBook();
+        await renderBoard(book, { permissions: ['order.prepare_organisation'] });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kds-column-incoming')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        const placed = book
+            .orders()
+            .find((order) => order.status === 'placed' && order.branchId === null);
+        if (placed === undefined) throw new Error('this test authored no placed order');
+
+        expect(screen.queryByTestId(`${ticketId(placed.id)}-accept`)).toBeNull();
+        expect(screen.queryAllByTestId(/-handed-over$/)).toHaveLength(0);
+        expect(screen.queryAllByTestId(/-start$/).length).toBeGreaterThan(0);
     });
 
     it('shows the tickets but no bump buttons to somebody who may not manage orders', async () => {
@@ -563,5 +712,259 @@ describe('kds ticket board', () => {
         expect(screen.getByTestId(ticketId(confirmed.id))).toBeTruthy();
         expect(screen.queryByTestId(`${ticketId(placed.id)}-start`)).toBeNull();
         expect(screen.queryByTestId(`${ticketId(confirmed.id)}-ready`)).toBeNull();
+    });
+});
+
+describe('the board keeps working when something goes wrong', () => {
+    /** A board whose answer a test can change, and a way to make the next poll happen. */
+    async function renderChanging(first: KitchenDisplay | Error) {
+        let current = first;
+        const harness = await renderStubScreen(<KdsTicketsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOrders: {
+                    getDisplay: async () => {
+                        if (current instanceof Error) throw current;
+                        return current;
+                    },
+                },
+            },
+        });
+
+        return {
+            answer: (next: KitchenDisplay | Error) => {
+                current = next;
+            },
+            poll: async () => {
+                await act(async () => {
+                    await harness.queryClient.refetchQueries({
+                        queryKey: queryKeys.kitchenOrders.display(),
+                    });
+                });
+            },
+        };
+    }
+
+    const refused = new ApiError(conflictFailure({ currentLockVersion: 1 }));
+
+    it('keeps the last board on screen after a failed refresh and says when it updated', async () => {
+        const order = kitchenOrder({ id: orderIdAt(1) });
+        const { answer, poll } = await renderChanging(boardOf([order]));
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId(ticketId(order.id))).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        expect(screen.queryByTestId('kds-stale')).toBeNull();
+
+        answer(refused);
+        await poll();
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kds-stale')).toHaveTextContent(/Last updated/);
+        });
+        expect(screen.getByTestId(ticketId(order.id))).toBeTruthy();
+        expect(screen.queryByTestId('kds-tickets-error')).toBeNull();
+
+        answer(boardOf([order]));
+        await poll();
+
+        await waitFor(() => {
+            expect(screen.queryByTestId('kds-stale')).toBeNull();
+        });
+    });
+
+    it('shows the error only with no board at all', async () => {
+        await renderChanging(refused);
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kds-tickets-error')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+    });
+
+    it('says so when the server cut the list', async () => {
+        await renderChanging(boardOf([kitchenOrder()], { truncated: true }));
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kds-truncated')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+    });
+});
+
+describe('the alarm', () => {
+    it('goes off at the limit, on open minutes rather than on age', () => {
+        expect(isAlarming(4, 5)).toBe(false);
+        expect(isAlarming(5, 5)).toBe(true);
+    });
+
+    it('turns a ticket red with words during open hours, and not when the kitchen was closed', async () => {
+        const waited = kitchenOrder({ id: orderIdAt(1), placedAt: minutesAgo(7) });
+        // Placed overnight: an hour old, and no open minute has passed.
+        const overnight = kitchenOrder({ id: orderIdAt(2), placedAt: minutesAgo(60) });
+        await renderStubScreen(<KdsTicketsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOrders: {
+                    getDisplay: async () =>
+                        boardOf([waited, overnight], {
+                            unacceptedOpenMinutes: {
+                                [String(waited.id)]: 7,
+                                [String(overnight.id)]: 0,
+                            },
+                        }),
+                },
+            },
+        });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId(`${ticketId(waited.id)}-alarm`)).toHaveTextContent(
+                    /Not accepted yet/,
+                );
+            },
+            { timeout: 5000 },
+        );
+        expect(screen.getByTestId(`${ticketId(waited.id)}-alarm`)).toHaveTextContent(/7 min/);
+        expect(screen.queryByTestId(`${ticketId(overnight.id)}-alarm`)).toBeNull();
+    });
+});
+
+describe('sound', () => {
+    function pretendABrowser() {
+        Object.defineProperty(globalThis, 'AudioContext', {
+            value: jest.fn(),
+            configurable: true,
+        });
+    }
+
+    beforeEach(() => {
+        jest.mocked(playAlertTone).mockClear();
+        pretendABrowser();
+    });
+
+    afterEach(() => {
+        Reflect.deleteProperty(globalThis, 'AudioContext');
+    });
+
+    async function renderSounding(first: KitchenDisplay) {
+        let current = first;
+        const harness = await renderStubScreen(<KdsTicketsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenOrders: { getDisplay: async () => current } },
+        });
+        await waitFor(
+            () => {
+                expect(screen.getByTestId('kds-sound-on')).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+
+        return {
+            poll: async (next: KitchenDisplay) => {
+                current = next;
+                await act(async () => {
+                    await harness.queryClient.refetchQueries({
+                        queryKey: queryKeys.kitchenOrders.display(),
+                    });
+                });
+            },
+        };
+    }
+
+    it('offers Turn on sound until it is pressed, and sounds the press', async () => {
+        await renderSounding(boardOf([kitchenOrder()]));
+        expect(playAlertTone).not.toHaveBeenCalled();
+
+        fireEvent.press(screen.getByTestId('kds-sound-on'));
+
+        await waitFor(() => {
+            expect(screen.queryByTestId('kds-sound-on')).toBeNull();
+        });
+        expect(playAlertTone).toHaveBeenCalledTimes(1);
+    });
+
+    it('offers nothing where a browser cannot sound', async () => {
+        Reflect.deleteProperty(globalThis, 'AudioContext');
+        await renderStubScreen(<KdsTicketsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOrders: { getDisplay: async () => boardOf([kitchenOrder()]) },
+            },
+        });
+
+        await waitFor(
+            () => {
+                expect(screen.getByTestId(ticketId(orderIdAt(1)))).toBeTruthy();
+            },
+            { timeout: 5000 },
+        );
+        expect(screen.queryByTestId('kds-sound-on')).toBeNull();
+    });
+
+    it('sounds a new ticket once, and nothing for a ticket already on the wall', async () => {
+        const present = kitchenOrder({ id: orderIdAt(1) });
+        const arriving = kitchenOrder({ id: orderIdAt(2) });
+        const { poll } = await renderSounding(boardOf([present]));
+
+        fireEvent.press(screen.getByTestId('kds-sound-on'));
+        await waitFor(() => {
+            expect(screen.queryByTestId('kds-sound-on')).toBeNull();
+        });
+        jest.mocked(playAlertTone).mockClear();
+
+        await poll(boardOf([present]));
+        expect(playAlertTone).not.toHaveBeenCalled();
+
+        await poll(boardOf([present, arriving]));
+        await waitFor(() => {
+            expect(playAlertTone).toHaveBeenCalledTimes(1);
+        });
+
+        await poll(boardOf([present, arriving]));
+        expect(playAlertTone).toHaveBeenCalledTimes(1);
+    });
+
+    // Review Focus 4: a reload starts with `seen` empty, and that must not read as all new.
+    it('replays nothing for the tickets already there on a reload', () => {
+        const ids = placedTicketIds([kitchenOrder({ id: orderIdAt(1) })], TEST_BRANCH_ID);
+
+        expect(ids).toHaveLength(1);
+        expect(unseenTickets(ids, null)).toEqual([]);
+        expect(unseenTickets(ids, new Set(ids))).toEqual([]);
+        expect(unseenTickets(ids, new Set())).toEqual(ids);
+    });
+
+    it('leaves another kitchen, and work already accepted, out of the tone', () => {
+        const orders = [
+            kitchenOrder({ id: orderIdAt(1), branchId: OTHER_BRANCH_ID }),
+            kitchenOrder({ id: orderIdAt(2), status: 'confirmed' }),
+            kitchenOrder({ id: orderIdAt(3), branchId: null }),
+        ];
+
+        expect(placedTicketIds(orders, TEST_BRANCH_ID)).toEqual([String(orderIdAt(3))]);
+    });
+
+    it('repeats the tone while a ticket is alarming, once sound is on', async () => {
+        const repeat = jest.spyOn(globalThis, 'setInterval');
+        const order = kitchenOrder({ id: orderIdAt(1) });
+        await renderSounding(
+            boardOf([order], { unacceptedOpenMinutes: { [String(order.id)]: 9 } }),
+        );
+        expect(repeat).not.toHaveBeenCalledWith(playAlertTone, KDS_ALARM_TONE_MS);
+
+        fireEvent.press(screen.getByTestId('kds-sound-on'));
+
+        await waitFor(() => {
+            expect(repeat).toHaveBeenCalledWith(playAlertTone, KDS_ALARM_TONE_MS);
+        });
+        repeat.mockRestore();
     });
 });

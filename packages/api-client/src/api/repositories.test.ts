@@ -1956,7 +1956,7 @@ describe('subscriptions (S1)', () => {
         expect(quote.availableWeekdays).toEqual([]);
     });
 
-    it('cancels and answers with the credit memo in the same breath', async () => {
+    it('cancels and answers with the subscription alone', async () => {
         const { repositories, calls } = harness(
             [
                 {
@@ -1964,17 +1964,6 @@ describe('subscriptions (S1)', () => {
                     body: {
                         data: {
                             subscription: { ...WIRE_SUBSCRIPTION, status: 'cancelled' },
-                            credit_memo: {
-                                id: 'memo-1',
-                                reason: 'subscription_cancelled',
-                                unused_days: 14,
-                                per_day_minor: 1800,
-                                amount_minor: 25200,
-                                currency_code: 'USD',
-                                status: 'recorded',
-                                settlement: 'manual',
-                                recorded_at: '2026-08-03T10:00:00+00:00',
-                            },
                         },
                         meta: {},
                     },
@@ -1997,17 +1986,7 @@ describe('subscriptions (S1)', () => {
         expect(calls[0]?.headers['If-Match']).toBeUndefined();
 
         expect(result.subscription.state).toBe('cancelled');
-        expect(result.creditMemo).toEqual({
-            id: 'memo-1',
-            subscriptionId: 'subscription-1',
-            reason: 'subscription_cancelled',
-            unusedDays: 14,
-            perDayPrice: { amount: 1800, currency: 'USD' },
-            amount: { amount: 25200, currency: 'USD' },
-            status: 'recorded',
-            settlement: 'manual',
-            recordedAt: '2026-08-03T10:00:00+00:00',
-        });
+        expect(Object.keys(result)).toEqual(['subscription']);
     });
 
     it('maps the named facts the projection now carries', async () => {

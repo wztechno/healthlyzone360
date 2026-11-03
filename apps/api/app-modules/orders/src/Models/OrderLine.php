@@ -41,6 +41,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $currency_code
  * @property list<array{allergen_code: string, containment: string}> $allergens
  * @property array<string, mixed>|null $pack_summary
+ * @property list<array{id: string, kind: string, group_en: string|null, group_ar: string|null, name_en: string, name_ar: string}>|null $selected_options
+ * @property string|null $note
+ * @property string $line_key
  * @property string|null $price_list_id
  * @property string|null $price_list_item_id
  * @property string|null $price_source
@@ -48,8 +51,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonImmutable|null $updated_at
  * @property-read Order|null $order
  */
-#[Classified(DataClassification::Public, 'name_en', 'name_ar', 'variant_label', 'quantity', 'allergens', 'pack_summary')]
-#[Classified(DataClassification::Internal, 'unit_price_minor', 'line_total_minor', 'price_list_id', 'price_list_item_id', 'price_source')]
+#[Classified(DataClassification::Public, 'name_en', 'name_ar', 'variant_label', 'quantity', 'allergens', 'pack_summary', 'selected_options')]
+#[Classified(DataClassification::Internal, 'unit_price_minor', 'line_total_minor', 'price_list_id', 'price_list_item_id', 'price_source', 'note')]
 class OrderLine extends BaseModel
 {
     /** @use HasFactory<OrderLineFactory> */
@@ -66,6 +69,7 @@ class OrderLine extends BaseModel
             'line_total_minor' => 'integer',
             'allergens' => 'array',
             'pack_summary' => 'array',
+            'selected_options' => 'array',
         ];
     }
 

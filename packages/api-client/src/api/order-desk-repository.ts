@@ -1,5 +1,6 @@
 import type { BranchId } from '@healthy360/domain-types';
 
+import type { DishChoices, DishOptionDraft, KitchenDishOption } from '../contracts/dish-options.ts';
 import type { ServiceArea } from '../contracts/kitchen-admin.ts';
 import type { KitchenOrder } from '../contracts/kitchen-orders.ts';
 import type {
@@ -11,10 +12,17 @@ import type {
     OrderDeskBasketLine,
     OrderDeskCalendar,
     OrderDeskCalendarFilters,
+    CashSettlementRecord,
+    DailyCloseRecord,
     OrderDeskCashReport,
     OrderDeskCashReportFilters,
+    OrderDeskCloses,
+    OrderDeskSettlements,
+    RecordCashSettlementRequest,
+    RecordDailyCloseRequest,
     OrderDeskCustomerAddress,
     OrderDeskCustomerCreated,
+    OrderDeskCustomerAllergies,
     OrderDeskCustomerSearch,
     OrderDeskDeliveryWindow,
     OrderDeskDrivers,
@@ -39,7 +47,11 @@ import type {
     KitchenOrder as WireKitchenOrder,
     OrderDeskBasketLine as WireOrderDeskBasketLine,
     OrderDeskCalendarEnvelope,
+    CashSettlementEnvelope,
+    DailyCloseEnvelope,
+    OrderDeskClosesEnvelope,
     OrderDeskCashReportEnvelope,
+    OrderDeskSettlementsEnvelope,
     OrderDeskCustomer as WireOrderDeskCustomer,
     OrderDeskCustomerEnvelope,
     OrderDeskCustomersEnvelope,
@@ -54,16 +66,25 @@ import type {
     OrderDeskWeeklyCheckEnvelope,
     PlaceOrderDeskRequest,
     QuoteOrderDeskRequest,
+    DishOption as WireDishOption,
+    DishPortion as WireDishPortion,
+    KitchenDishOption as WireKitchenDishOption,
 } from '../generated/types.ts';
 import { generateRequestId } from './config.ts';
 import { mapServiceAreaFromDeliveryArea } from './kitchen-admin-mappers.ts';
 import { mapKitchenOrder } from './kitchen-orders-repository.ts';
+import { mapDishOption, mapDishPortion, mapKitchenDishOption } from './marketplace-mappers.ts';
 import {
     mapAssignedDeliveryJob,
     mapCalendarDay,
     mapCalendarMeta,
     mapOrderDeskCashReportMeta,
+    mapCashReportAdjustment,
+    mapCashSettlement,
+    mapDailyClose,
+    mapOrderDeskCloses,
     mapOrderDeskCashReportRow,
+    mapOrderDeskSettlements,
     mapOrderDeskCashReportTotal,
     mapOrderDeskCustomer,
     mapOrderDeskCustomerAddress,
@@ -187,6 +208,7 @@ function queueQuery(filters?: OrderDeskQueueFilters): string {
     if (filters.query !== undefined && filters.query.trim() !== '') {
         search.set('query', filters.query.trim());
     }
+    if (filters.lens !== undefined) search.set('lens', filters.lens);
 
     const rendered = search.toString();
     return rendered === '' ? '' : `?${rendered}`;
@@ -250,6 +272,10 @@ function wireLine(line: OrderDeskBasketLine): WireOrderDeskBasketLine {
         // a plain article to a default this client does not own.
         catalogue_item_variant_id: line.catalogueItemVariantId,
         quantity: line.quantity,
+        ...(line.optionIds === undefined || line.optionIds.length === 0
+            ? {}
+            : { option_ids: [...line.optionIds] }),
+        ...(line.note == null || line.note.trim() === '' ? {} : { note: line.note }),
     };
 }
 
@@ -402,6 +428,80 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
             return areas.map(mapServiceAreaFromDeliveryArea);
         },
 
+        async getCloses(): Promise<OrderDeskCloses> {
+            return mapOrderDeskCloses(
+                await transport.request<OrderDeskClosesEnvelope['data']>({
+                    method: 'GET',
+                    path: '/catalogue/order-desk/closes',
+                }),
+            );
+        },
+
+        async recordClose(request: RecordDailyCloseRequest): Promise<DailyCloseRecord> {
+            const payload = await transport.request<DailyCloseEnvelope['data']>({
+                method: 'POST',
+                path: '/catalogue/order-desk/closes',
+                headers: { 'Idempotency-Key': generateRequestId() },
+                body: {
+                    branch_id: request.branchId,
+                    currency_code: request.currencyCode,
+                    opening_float_minor: request.openingFloatMinor,
+                    counted_minor: request.countedMinor,
+                    ...(request.varianceReason === undefined
+                        ? {}
+                        : { variance_reason: request.varianceReason }),
+                },
+            });
+
+            return mapDailyClose(payload.close);
+        },
+
+        async signOffClose(closeId: string): Promise<DailyCloseRecord> {
+            const payload = await transport.request<DailyCloseEnvelope['data']>({
+                method: 'POST',
+                path: `/catalogue/order-desk/closes/${encodeURIComponent(closeId)}/sign-off`,
+            });
+
+            return mapDailyClose(payload.close);
+        },
+
+        async getSettlements(): Promise<OrderDeskSettlements> {
+            return mapOrderDeskSettlements(
+                await transport.request<OrderDeskSettlementsEnvelope['data']>({
+                    method: 'GET',
+                    path: '/catalogue/order-desk/settlements',
+                }),
+            );
+        },
+
+        async recordSettlement(
+            request: RecordCashSettlementRequest,
+        ): Promise<CashSettlementRecord> {
+            const payload = await transport.request<CashSettlementEnvelope['data']>({
+                method: 'POST',
+                path: '/catalogue/order-desk/settlements',
+                headers: { 'Idempotency-Key': generateRequestId() },
+                body: {
+                    job_ids: request.jobIds,
+                    handed_in_minor: request.handedInMinor,
+                    ...(request.shortReason === undefined
+                        ? {}
+                        : { short_reason: request.shortReason }),
+                },
+            });
+
+            return mapCashSettlement(payload.settlement);
+        },
+
+        async signOffSettlement(settlementId: string): Promise<CashSettlementRecord> {
+            const payload = await transport.request<CashSettlementEnvelope['data']>({
+                method: 'POST',
+                path: `/catalogue/order-desk/settlements/${encodeURIComponent(settlementId)}/sign-off`,
+            });
+
+            return mapCashSettlement(payload.settlement);
+        },
+
         async getCashReport(filters: OrderDeskCashReportFilters): Promise<OrderDeskCashReport> {
             // `data` is an object carrying two arrays rather than the bare array the queue answers
             // — the wire's own shape, left alone here. The envelope is read whole because `meta`
@@ -418,10 +518,59 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                 // query so they cannot disagree, and the only way a client-side fold would differ
                 // is by grouping on method alone and adding two currencies together.
                 totals: payload.data.totals.map(mapOrderDeskCashReportTotal),
+                adjustments: payload.data.adjustments.map(mapCashReportAdjustment),
                 meta: mapOrderDeskCashReportMeta(
                     payload.meta as OrderDeskCashReportEnvelope['meta'],
                 ),
             };
+        },
+
+        async getDishChoices(itemId: string): Promise<DishChoices> {
+            const payload = await transport.request<{
+                readonly options: readonly WireDishOption[];
+                readonly portions: readonly WireDishPortion[];
+            }>({
+                method: 'GET',
+                path: `/catalogue/order-desk/items/${encodeURIComponent(itemId)}/choices`,
+            });
+            return {
+                options: payload.options.map(mapDishOption),
+                portions: payload.portions.map(mapDishPortion),
+            };
+        },
+
+        async listDishOptions(itemId: string): Promise<readonly KitchenDishOption[]> {
+            const payload = await transport.request<{
+                readonly options: readonly WireKitchenDishOption[];
+            }>({
+                method: 'GET',
+                path: `/catalogue/items/${encodeURIComponent(itemId)}/options`,
+            });
+            return payload.options.map(mapKitchenDishOption);
+        },
+
+        async replaceDishOptions(
+            itemId: string,
+            options: readonly DishOptionDraft[],
+        ): Promise<readonly KitchenDishOption[]> {
+            const payload = await transport.request<{
+                readonly options: readonly WireKitchenDishOption[];
+            }>({
+                method: 'PUT',
+                path: `/catalogue/items/${encodeURIComponent(itemId)}/options`,
+                body: {
+                    options: options.map((option) => ({
+                        id: option.id,
+                        kind: option.kind,
+                        group_en: option.kind === 'choice' ? option.groupEn : null,
+                        group_ar: option.kind === 'choice' ? option.groupAr : null,
+                        name_en: option.nameEn,
+                        name_ar: option.nameAr,
+                        recipe_id: option.kind === 'choice' ? option.recipeId : null,
+                    })),
+                },
+            });
+            return payload.options.map(mapKitchenDishOption);
         },
 
         async quoteSale(request: OrderDeskSaleRequest): Promise<OrderDeskQuote> {
@@ -449,6 +598,10 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                 ...(request.driverUserId === undefined
                     ? {}
                     : { driver_user_id: request.driverUserId }),
+                ...(request.allergyNote === undefined ? {} : { allergy_note: request.allergyNote }),
+                ...(request.acknowledgeAllergenConflicts === true
+                    ? { acknowledge_allergen_conflicts: true }
+                    : {}),
                 ...(request.payment === undefined
                     ? {}
                     : {
@@ -491,6 +644,10 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                 ...(request.paymentMethod === undefined
                     ? {}
                     : { payment_method: request.paymentMethod }),
+                ...(request.allergyNote === undefined ? {} : { allergy_note: request.allergyNote }),
+                ...(request.acknowledgeAllergenConflicts === true
+                    ? { acknowledge_allergen_conflicts: true }
+                    : {}),
             };
             const payload = await transport.request<{ readonly order: WireKitchenOrder }>({
                 method: 'PATCH',
@@ -513,6 +670,35 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
             return {
                 rows: envelope.data.map(mapOrderDeskCustomer),
                 limit: meta.limit,
+            };
+        },
+
+        async setItemOffToday(itemId: string, off: boolean): Promise<void> {
+            await transport.request({
+                method: off ? 'PUT' : 'DELETE',
+                path: `/catalogue/items/${encodeURIComponent(itemId)}/off-today`,
+            });
+        },
+
+        async getCustomerAllergies(customerId: string): Promise<OrderDeskCustomerAllergies> {
+            const payload = await transport.request<{
+                readonly declared: boolean;
+                readonly declares_no_allergens: boolean;
+                readonly allergens: readonly {
+                    readonly allergen_code: string;
+                    readonly severity: OrderDeskCustomerAllergies['allergens'][number]['severity'];
+                }[];
+            }>({
+                method: 'GET',
+                path: `/catalogue/order-desk/customers/${encodeURIComponent(customerId)}/allergies`,
+            });
+            return {
+                declared: payload.declared,
+                declaresNoAllergens: payload.declares_no_allergens,
+                allergens: payload.allergens.map((allergen) => ({
+                    allergenCode: allergen.allergen_code,
+                    severity: allergen.severity,
+                })),
             };
         },
 

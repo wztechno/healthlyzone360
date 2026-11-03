@@ -48,7 +48,7 @@ final class DriverJobClaimController
         }
 
         // The kitchen closed the order by hand (HA-29): nobody took it, it ended.
-        if (in_array($record->status, ['delivered', 'cancelled'], true)) {
+        if (in_array($record->status, ['delivered', 'cancelled', 'failed'], true)) {
             throw new ApiException(ErrorCode::ResourceConflict, 'This run is already closed.');
         }
 

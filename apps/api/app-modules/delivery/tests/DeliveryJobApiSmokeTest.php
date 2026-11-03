@@ -240,7 +240,7 @@ it('closes the order when the driver hands it over, with the cash against the dr
     ]);
     $job = smokeJob($this, $order, ['status' => 'assigned', 'tracking_status' => 'en_route', 'driver_user_id' => $driverId]);
 
-    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/deliver", [], $this->headers)
+    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/deliver", ['collected_minor' => $order->total_minor], $this->headers)
         ->assertOk()
         ->assertJsonPath('data.job.status', 'delivered');
 
@@ -263,7 +263,7 @@ it('leaves a cancelled order cancelled when its run is still marked delivered', 
     ]);
     $job = smokeJob($this, $order, ['status' => 'assigned', 'tracking_status' => 'en_route', 'driver_user_id' => $driverId]);
 
-    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/deliver", [], $this->headers)->assertOk();
+    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/deliver", ['collected_minor' => $order->total_minor], $this->headers)->assertOk();
 
     expect($order->refresh()->status)->toBe(OrderStatus::Cancelled)
         ->and(OrderPaymentReceipt::query()->where('order_id', $order->getKey())->count())->toBe(0)
@@ -357,7 +357,7 @@ it('tells the customer and the kitchen each step of the drive (HA-19)', function
         ->and($mine['delivered_at'])->toBeNull();
 
     $this->actingAs($this->world->tenant->user);
-    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/deliver", [], $this->headers)->assertOk();
+    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/deliver", ['collected_minor' => $order->total_minor], $this->headers)->assertOk();
 
     $this->actingAs($shopper);
     $mine = $this->getJson($orderPath, firstPartyHeaders())->assertOk()->json('data.order');

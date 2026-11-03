@@ -1,6 +1,10 @@
 import type {
+    DeliveryFailureReason,
     DriverJobStatus,
     DriverJobTrackingStatus,
+    KitchenOrderAllergy,
+    KitchenOrderLine,
+    KitchenOrderCancellationDisposition,
     KitchenOrderCancellationReason,
     KitchenOrderFulfilmentType,
     KitchenOrderPaymentMethod,
@@ -15,9 +19,11 @@ import type {
     QualityCheckStatus,
     QualityCheckSubjectType,
 } from '@healthy360/api-client/contracts';
-import type { BadgeTone } from '@healthy360/design-system';
+import type { BadgeTone, CalloutProps } from '@healthy360/design-system';
+import type { TFunction } from 'i18next';
 
-import { ticketAgeTone } from '../kds/kds-board.ts';
+import { KDS_WARNING_MINUTES } from '../kds/kds-board.ts';
+import { displayName, humaniseCode } from './format.ts';
 
 /**
  * Display helpers for the kitchen ops workspace (O1–O4).
@@ -180,10 +186,36 @@ const KITCHEN_ORDER_CANCELLATION_REASON_KEYS: Readonly<
     kitchen_unable_to_fulfil: 'kitchen:ops.orders.reason.kitchenUnableToFulfil',
     delivery_unavailable: 'kitchen:ops.orders.reason.deliveryUnavailable',
     address_unreachable: 'kitchen:ops.orders.reason.addressUnreachable',
+    delivery_failed: 'kitchen:ops.orders.reason.deliveryFailed',
 };
 
 export function kitchenOrderCancellationReasonKey(reason: KitchenOrderCancellationReason): string {
     return KITCHEN_ORDER_CANCELLATION_REASON_KEYS[reason];
+}
+
+const KITCHEN_ORDER_CANCELLATION_DISPOSITION_KEYS: Readonly<
+    Record<KitchenOrderCancellationDisposition, string>
+> = {
+    returned: 'kitchen:ops.orders.disposition.returned',
+    wasted: 'kitchen:ops.orders.disposition.wasted',
+};
+
+const DELIVERY_FAILURE_REASON_KEYS: Readonly<Record<DeliveryFailureReason, string>> = {
+    no_answer: 'kitchen:driver.failReason.no_answer',
+    wrong_address: 'kitchen:driver.failReason.wrong_address',
+    refused: 'kitchen:driver.failReason.refused',
+    unreachable: 'kitchen:driver.failReason.unreachable',
+    other: 'kitchen:driver.failReason.other',
+};
+
+export function deliveryFailureReasonKey(reason: DeliveryFailureReason): string {
+    return DELIVERY_FAILURE_REASON_KEYS[reason];
+}
+
+export function kitchenOrderCancellationDispositionKey(
+    disposition: KitchenOrderCancellationDisposition,
+): string {
+    return KITCHEN_ORDER_CANCELLATION_DISPOSITION_KEYS[disposition];
 }
 
 /**
@@ -196,6 +228,57 @@ export function kitchenOrderCancellationReasonKey(reason: KitchenOrderCancellati
  */
 export function canConfirmKitchenOrder(status: KitchenOrderStatus): boolean {
     return status === 'placed';
+}
+
+/** An allergen as the reader says it: the shared label, translated, never the code. */
+export function allergenLabel(code: string, t: TFunction): string {
+    return t(`marketplace:allergens.${code}`, { defaultValue: humaniseCode(code) });
+}
+
+/**
+ * Everything a {@link KitchenOrderAllergy} banner says, so the kitchen display, the order record and
+ * the desk record say it alike. Severe is the danger tone, and the icon and the title say it too:
+ * colour is never the only signal. It interrupts a screen reader only when it is severe.
+ */
+export function allergyBanner(
+    allergy: KitchenOrderAllergy,
+    lines: readonly KitchenOrderLine[],
+    locale: string,
+    t: TFunction,
+): Required<Pick<CalloutProps, 'tone' | 'icon' | 'role' | 'title' | 'body'>> {
+    const separator = t('kitchen:common.listSeparator');
+
+    const items = allergy.items.map((item) => {
+        const conflicting = lines
+            .filter((line) => item.conflictsWithLine.includes(line.id))
+            .map((line) => displayName({ en: line.nameEn, ar: line.nameAr }, locale).value);
+        return [
+            t('kitchen:allergy.item', {
+                allergen: allergenLabel(item.allergenCode, t),
+                severity: t(`kitchen:allergy.severity.${item.severity}`),
+            }),
+            item.notes,
+            conflicting.length === 0
+                ? null
+                : t('kitchen:allergy.conflictsWith', { lines: conflicting.join(separator) }),
+        ]
+            .filter((part) => part !== null)
+            .join(' — ');
+    });
+
+    return {
+        tone: allergy.severe ? 'danger' : 'warning',
+        icon: 'warning',
+        role: allergy.severe ? 'alert' : 'note',
+        title: t(allergy.severe ? 'kitchen:allergy.titleSevere' : 'kitchen:allergy.title'),
+        body: [
+            ...items,
+            allergy.note === null ? null : t('kitchen:allergy.note', { note: allergy.note }),
+            allergy.acknowledgedAt === null ? null : t('kitchen:allergy.acknowledged'),
+        ]
+            .filter((part) => part !== null)
+            .join('\n'),
+    };
 }
 
 export function canFulfilKitchenOrder(status: KitchenOrderStatus): boolean {
@@ -230,18 +313,18 @@ export function minutesPastDue(dueAt: string, now: Date): number {
 /**
  * The tone the desk queue's due badge carries.
  *
- * Deliberately `ticketAgeTone` — the kitchen display's own scale, amber at fifteen minutes and red
- * at thirty — rather than a second table with the same numbers in it. The two surfaces are looking
- * at the same orders from two seats, and an order that is red on the wall has to be red at the desk;
- * two tables would agree today and drift the first time one of them is tuned.
+ * Amber on the kitchen display's own warning, red at the server's grace, which comes with the queue
+ * so a red badge and `overdueCount` cannot disagree.
  *
- * What differs is what the minutes are measured *from*. The board ages a ticket from when it was
+ * What differs from the kitchen display is what the minutes are measured *from*. The board ages a ticket from when it was
  * placed, because a cook's question is "how long has this been waiting on me?". The desk ages it
  * from when it is **due**, because a desk's question is "how late are we to the customer?" — and an
  * order placed a fortnight ago for tomorrow lunchtime is not late at all.
  */
-export function orderDeskDueTone(dueAt: string, now: Date): BadgeTone {
-    return ticketAgeTone(minutesPastDue(dueAt, now));
+export function orderDeskDueTone(dueAt: string, now: Date, overdueGraceMinutes: number): BadgeTone {
+    const minutes = minutesPastDue(dueAt, now);
+    if (minutes >= overdueGraceMinutes) return 'danger';
+    return minutes >= KDS_WARNING_MINUTES ? 'warning' : 'neutral';
 }
 
 /**
@@ -310,7 +393,9 @@ export function orderDeskDeliveryState(row: OrderDeskQueueRow): OrderDeskDeliver
     if (row.deliveryJob === null) {
         return row.status === 'placed' ? 'awaiting_confirmation' : 'no_run';
     }
-    return row.deliveryJob.driverUserId === null ? 'unassigned' : 'assigned';
+    return row.deliveryJob.status === 'pending' && row.deliveryJob.driverUserId === null
+        ? 'unassigned'
+        : 'assigned';
 }
 
 const ORDER_DESK_DELIVERY_STATE_KEYS: Readonly<Record<OrderDeskDeliveryState, string>> = {

@@ -1,4 +1,4 @@
-import type { DriverRunSheet } from '@healthy360/api-client/contracts';
+import type { DriverRunSheet, FailDeliveryRequest } from '@healthy360/api-client/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
@@ -16,17 +16,16 @@ import { useRepositories, useRepositoryContext } from './repository-provider.tsx
  *
  * `kitchen-orders-hooks.ts` seeds each write's answer into the detail entry, because those rows are
  * lock-versioned and the next action needs a validator the server will accept. Nothing here is: a
- * delivery job has no `lock_version` on the wire, `deliverJob` is a stamp rather than a transition,
- * and the endpoint answers `{id, status}` with the status untyped. There is no second action to
+ * delivery job has no `lock_version` on the wire, and the endpoint answers `{id, status}` with the
+ * status untyped. There is no second action to
  * prepare and nothing worth seeding, so the mutation invalidates the root and lets the list re-read
  * — which is what the screen wants anyway, since a delivered job leaves the run sheet.
  *
- * ## No conflict handling, because there is no conflict
+ * ## A second tap is refused, and the run is already gone
  *
- * The same double tap that earns a `resource.conflict` on the order book is simply the same write
- * twice here, and the second one succeeds. That is the wire's stated behaviour and it is the right
- * one for a phone on a bad connection at somebody's front door. Nothing in this module retries on
- * the driver's behalf either — a failed stamp is shown, and the button is still there.
+ * What the driver says they collected becomes a receipt, so a double tap's second write answers
+ * `resource.conflict` and writes nothing. Nothing in this module retries on the driver's behalf
+ * either — a failed write is shown, and the sheet re-reads.
  */
 
 export { toFailure } from './hooks.ts';
@@ -102,11 +101,32 @@ export function usePickUpDriverJobMutation(): UseMutationResult<void, unknown, s
     });
 }
 
-/** What the deliver dialog collects: which job, and whatever the driver typed as proof. */
+/** "Could not deliver". Re-reads on failure too, for the reason Picked up does. */
+export function useFailDriverJobMutation(): UseMutationResult<
+    void,
+    unknown,
+    FailDeliveryRequest & { readonly jobId: string }
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ jobId, ...request }: FailDeliveryRequest & { readonly jobId: string }) =>
+            repositories.driverJobs.failJob(jobId, request),
+        onSettled: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.driverJobs.all() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders.all() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
+        },
+    });
+}
+
+/** What the deliver dialog collects: which job, what was taken, and whatever the driver typed. */
 export interface DeliverDriverJobCommand {
     readonly jobId: string;
-    /** `undefined` clears the field — the wire is replace-or-clear. See the contract. */
-    readonly notes?: string | undefined;
+    /** `undefined` on a WISH order, which asks nothing. */
+    readonly collectedMinor?: number | undefined;
+    readonly note?: string | undefined;
 }
 
 /**
@@ -123,8 +143,11 @@ export function useDeliverDriverJobMutation(): UseMutationResult<
 
     return useMutation({
         mutationFn: (command: DeliverDriverJobCommand) =>
-            repositories.driverJobs.deliverJob(command.jobId, { notes: command.notes }),
-        onSuccess: () => {
+            repositories.driverJobs.deliverJob(command.jobId, {
+                collectedMinor: command.collectedMinor,
+                note: command.note,
+            }),
+        onSettled: () => {
             void queryClient.invalidateQueries({ queryKey: queryKeys.driverJobs.all() });
             void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders.all() });
             void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });

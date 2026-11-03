@@ -78,7 +78,9 @@ use Illuminate\Http\JsonResponse;
  * question is when the person now holding it was given it; the audit trail keeps
  * every earlier answer.
  *
- * **Delivered and cancelled runs refuse**, `409` with the state they are in.
+ * **Delivered, failed and cancelled runs refuse**, `409` with the state they are
+ * in, and so does a run a courier is carrying: it has left, with nobody of the
+ * kitchen's own on it, and it ends with the kitchen's fulfil or fail.
  * Assignment sets `status = assigned`, and applying that to a finished job would
  * produce a row that is simultaneously assigned and stamped `delivered_at` —
  * un-delivering a delivery nobody can un-deliver. "The driver is unwell" has no
@@ -109,13 +111,13 @@ final class DeliveryJobAssignController
     use ReadsPrecondition;
 
     /**
-     * States from which there is nothing left to assign. Both are ends of the
-     * line — one because the food arrived, one because the run was called off —
-     * and neither is a place a fresh driver can be inserted into.
+     * States from which there is nothing left to assign. Each is an end of the
+     * line — the food arrived, the run was called off, or it came back and is
+     * waiting on a manager — and none is a place a fresh driver can be inserted.
      *
      * @var list<string>
      */
-    private const array TERMINAL_STATUSES = ['delivered', 'cancelled'];
+    private const array TERMINAL_STATUSES = ['delivered', 'cancelled', 'failed'];
 
     public function __construct(private readonly DeliveryJobAssignment $assignment) {}
 
@@ -167,7 +169,7 @@ final class DeliveryJobAssignController
      */
     private function refuseTerminal(DeliveryJob $job): void
     {
-        if (! in_array($job->status, self::TERMINAL_STATUSES, true)) {
+        if (! in_array($job->status, self::TERMINAL_STATUSES, true) && $job->courier_name === null) {
             return;
         }
 

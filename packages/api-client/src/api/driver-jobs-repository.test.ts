@@ -240,35 +240,39 @@ describe('createApiDriverJobsRepository — pickUpJob', () => {
 });
 
 describe('createApiDriverJobsRepository — deliverJob', () => {
-    it('posts the notes the driver typed, trimmed', async () => {
+    it('posts the amount and the note the driver typed, trimmed', async () => {
         const { repository, calls } = harness([
             { status: 200, body: { data: { job: { id: JOB_UUID, status: 'delivered' } } } },
         ]);
 
-        await repository.deliverJob(JOB_UUID, { notes: '  Left with the concierge  ' });
+        await repository.deliverJob(JOB_UUID, {
+            collectedMinor: 3000,
+            note: '  Left with the concierge  ',
+        });
 
         expect(calls[0]?.method).toBe('POST');
         expect(calls[0]?.path).toBe(`/driver/jobs/${JOB_UUID}/deliver`);
         expect(JSON.parse(calls[0]?.body ?? 'null')).toEqual({
-            proof_of_delivery_notes: 'Left with the concierge',
+            collected_minor: 3000,
+            note: 'Left with the concierge',
         });
     });
 
-    it('always sends the key, as null, when nothing was typed — the field is replace-or-clear', async () => {
+    it('leaves out what was not said: a WISH order sends no amount, a blank note no note', async () => {
         const { repository, calls } = harness([
             { status: 200, body: { data: { job: { id: JOB_UUID, status: 'delivered' } } } },
             { status: 200, body: { data: { job: { id: JOB_UUID, status: 'delivered' } } } },
         ]);
 
         await repository.deliverJob(JOB_UUID);
-        await repository.deliverJob(JOB_UUID, { notes: '   ' });
+        await repository.deliverJob(JOB_UUID, { note: '   ' });
 
-        expect(JSON.parse(calls[0]?.body ?? 'null')).toEqual({ proof_of_delivery_notes: null });
+        expect(JSON.parse(calls[0]?.body ?? 'null')).toEqual({});
         // Whitespace is nothing typed, not a note made of spaces.
-        expect(JSON.parse(calls[1]?.body ?? 'null')).toEqual({ proof_of_delivery_notes: null });
+        expect(JSON.parse(calls[1]?.body ?? 'null')).toEqual({});
     });
 
-    it('carries no If-Match: a delivery job has no lock version and delivering is a stamp', async () => {
+    it('carries no If-Match: a delivery job has no lock version', async () => {
         const { repository, calls } = harness([
             { status: 200, body: { data: { job: { id: JOB_UUID, status: 'delivered' } } } },
         ]);

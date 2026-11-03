@@ -21,6 +21,29 @@ export const CHECKOUT_ADDRESS_MISSING = 'checkout.address_missing';
 export const CHECKOUT_WINDOW_NOT_OFFERED = 'checkout.window_not_offered';
 /** `allergen_conflict` — a meal in the basket crosses the buyer's declared allergies. */
 export const ALLERGEN_CONFLICT_WARNING = 'checkout.allergen_conflict';
+/**
+ * What `OrderTimingRules` and the item calendar refuse, warned about by the preview in the same
+ * words, so the customer hears it before the button. The first three are the schedule's own.
+ */
+export const CHECKOUT_TIMING_WARNINGS = [
+    'checkout.closed',
+    'checkout.date_in_the_past',
+    'checkout.cut_off_passed',
+    'checkout.kitchen_closed',
+    'checkout.window_ended',
+    'checkout.lead_time_not_met',
+    'checkout.below_zone_minimum',
+    'checkout.item_unavailable_on_date',
+    'checkout.kitchen_paused',
+    'checkout.kitchen_not_open',
+    'checkout.window_full',
+] as const;
+/** `item_not_assessed` — nobody has assessed a dish in the basket for allergens, so it is off sale. */
+export const CHECKOUT_ITEM_NOT_ASSESSED = 'checkout.item_not_assessed';
+/** `quality_hold` — all that is left of something in the basket is on quality hold. */
+export const CHECKOUT_QUALITY_HOLD = 'checkout.quality_hold';
+/** `stock_short` — the basket needs more than the free stock; held stock never counts. Sold anyway. */
+export const CHECKOUT_STOCK_SHORT = 'checkout.stock_short';
 /** A picked meal crosses the person's allergies; generation would swap it for a safe one. */
 export const SUBSCRIPTION_ALLERGEN_CONFLICT = 'subscription.allergen_conflict';
 export const SUBSCRIPTION_NO_DELIVERY_DAYS = 'subscription.no_delivery_days';
@@ -31,6 +54,10 @@ const KNOWN: ReadonlySet<string> = new Set([
     CHECKOUT_EMPTY_CART,
     CHECKOUT_ADDRESS_MISSING,
     CHECKOUT_WINDOW_NOT_OFFERED,
+    ...CHECKOUT_TIMING_WARNINGS,
+    CHECKOUT_ITEM_NOT_ASSESSED,
+    CHECKOUT_QUALITY_HOLD,
+    CHECKOUT_STOCK_SHORT,
     ALLERGEN_CONFLICT_WARNING,
     SUBSCRIPTION_ALLERGEN_CONFLICT,
     SUBSCRIPTION_NO_DELIVERY_DAYS,

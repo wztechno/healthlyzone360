@@ -2362,6 +2362,29 @@ export function useRetireMealMutation(): UseMutationResult<
     });
 }
 
+/**
+ * "Assessed: contains none of these". For a product or a meal alike, so it invalidates rather than
+ * writes one kind's record into the cache, and the consumer roots hear it because the item goes back
+ * on sale.
+ */
+export function useMarkAllergensAssessedMutation(): UseMutationResult<
+    void,
+    unknown,
+    ProductId | MealId
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (itemId: ProductId | MealId) =>
+            repositories.kitchenAdmin.markAllergensAssessed(itemId),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.catalogue.all() });
+        },
+    });
+}
+
 export interface SetMealAvailabilityVariables {
     readonly mealId: MealId;
     readonly request: SetMealAvailabilityRequest;

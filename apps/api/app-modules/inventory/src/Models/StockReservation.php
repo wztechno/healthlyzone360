@@ -6,6 +6,7 @@ namespace Healthy360\Inventory\Models;
 
 use Carbon\CarbonImmutable;
 use Healthy360\Inventory\Enums\ReservationStatus;
+use Healthy360\Inventory\Services\StockQuarantine;
 use Healthy360\Support\Models\BaseModel;
 use Healthy360\Tenancy\Concerns\BelongsToOrganisation;
 use Healthy360\Tenancy\Contracts\OrganisationScoped;
@@ -39,8 +40,10 @@ class StockReservation extends BaseModel implements OrganisationScoped
 {
     use BelongsToOrganisation;
 
-    /** The only holder there is today. Named so a second one has to be added deliberately. */
     public const string HOLDER_PRODUCTION_ORDER = 'production_order';
+
+    /** Stock set aside by a quality hold; the holder id is the held subject ({@see StockQuarantine}). */
+    public const string HOLDER_QUALITY_HOLD = 'quality_hold';
 
     protected function casts(): array
     {

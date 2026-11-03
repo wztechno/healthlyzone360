@@ -978,6 +978,9 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     retireMeal(_mealId: MealId, _request: LockedRequest): Promise<MealAdmin> {
         return notImplemented(`POST ${BASE}/catalogue/items/{item}/retire`);
     },
+    markAllergensAssessed(_itemId: ProductId | MealId): Promise<void> {
+        return notImplemented(`POST ${BASE}/catalogue/items/{item}/allergens-assessed`);
+    },
     setMealAvailability(_mealId: MealId, _request: SetMealAvailabilityRequest): Promise<MealAdmin> {
         return notImplemented(`PUT ${BASE}/catalogue/items/{item}/availability`);
     },

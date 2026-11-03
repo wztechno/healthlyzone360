@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\User;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Kitchens\Models\KitchenServiceSettings;
 use Healthy360\Organisations\Enums\OrganisationStatus;
 use Healthy360\Organisations\Models\Organisation;
 use Tests\SeedDatabaseOnce;
@@ -66,6 +67,17 @@ it('reads one kitchen by slug', function (): void {
         ->assertOk()
         ->assertJsonPath('data.slug', 'verdant-kitchen')
         ->assertJsonPath('meta.locale', 'en');
+});
+
+it('tells the storefront when a timed pause ends, and nothing once it has', function (): void {
+    $kitchenId = Organisation::query()->where('slug', 'verdant-kitchen')->value('id');
+    $settings = KitchenServiceSettings::withoutTenancy()->firstOrCreate(['organisation_id' => $kitchenId]);
+
+    $settings->update(['paused_until' => now()->addHour()]);
+    expect($this->getJson('/api/v1/marketplace/kitchens/verdant-kitchen')->assertOk()->json('data.paused_until'))->not->toBeNull();
+
+    $settings->update(['paused_until' => now()->subMinute()]);
+    $this->getJson('/api/v1/marketplace/kitchens/verdant-kitchen')->assertOk()->assertJsonPath('data.paused_until', null);
 });
 
 it('lists published products beside meals and filters by item type', function (): void {
@@ -247,6 +259,28 @@ it('answers 404 for a kitchen the platform has suspended', function (): void {
 
     // And its meals go with it: a suspended tenant is absent, not greyed out.
     $this->getJson('/api/v1/marketplace/meals')->assertOk()->assertJsonPath('data', []);
+});
+
+it('hides a kitchen that has not gone live, and lists it once it has', function (): void {
+    $kitchenId = Organisation::query()->where('slug', 'verdant-kitchen')->value('id');
+    $settings = KitchenServiceSettings::withoutTenancy()->firstOrCreate(['organisation_id' => $kitchenId]);
+
+    $settings->update(['not_open_yet' => true]);
+
+    // Absent everywhere a customer looks, and a direct link is the not-found path.
+    expect(collect($this->getJson('/api/v1/marketplace/kitchens')->assertOk()->json('data'))->pluck('slug')->all())->not->toContain('verdant-kitchen')
+        ->and(collect($this->getJson('/api/v1/marketplace/kitchens?query=Verdant')->assertOk()->json('data')))->toBeEmpty();
+    $this->getJson('/api/v1/marketplace/kitchens/verdant-kitchen')->assertNotFound()
+        ->assertJsonPath('error.code', 'resource.not_found');
+    $this->getJson('/api/v1/marketplace/meals')->assertOk()->assertJsonPath('data', []);
+    $this->getJson('/api/v1/marketplace/meals/mezze-plate')->assertNotFound();
+
+    // The setup gate opens it.
+    $settings->update(['not_open_yet' => false]);
+
+    expect(collect($this->getJson('/api/v1/marketplace/kitchens')->assertOk()->json('data'))->pluck('slug')->all())->toContain('verdant-kitchen');
+    $this->getJson('/api/v1/marketplace/kitchens/verdant-kitchen')->assertOk();
+    $this->getJson('/api/v1/marketplace/meals/mezze-plate')->assertOk();
 });
 
 it('withdraws a retired meal from the marketplace', function (): void {

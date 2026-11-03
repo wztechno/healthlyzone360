@@ -139,6 +139,7 @@ interface DetailsDraft {
     readonly address: string;
     readonly paymentTerms: string;
     readonly leadTimeDays: string;
+    readonly paymentDueDays: string;
     readonly notes: string;
 }
 
@@ -172,6 +173,7 @@ const EMPTY_DETAILS: DetailsDraft = {
     address: '',
     paymentTerms: '',
     leadTimeDays: '',
+    paymentDueDays: '',
     notes: '',
 };
 
@@ -184,6 +186,7 @@ function detailsFrom(record: SupplierDetail): DetailsDraft {
         address: record.address ?? '',
         paymentTerms: record.paymentTerms ?? '',
         leadTimeDays: record.leadTimeDays === null ? '' : String(record.leadTimeDays),
+        paymentDueDays: String(record.paymentDueDays ?? ''),
         notes: record.notes ?? '',
     };
 }
@@ -339,8 +342,9 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
     };
 
     const leadTime = parseLeadTime(details.leadTimeDays);
+    const dueDays = parseLeadTime(details.paymentDueDays);
     const nameMissing = details.name.en.trim() === '';
-    const detailsBlocked = nameMissing || leadTime === undefined;
+    const detailsBlocked = nameMissing || leadTime === undefined || dueDays === undefined;
 
     /*
      * What the server may refuse on the record, in the order the Details step draws the fields —
@@ -375,6 +379,10 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
         lead_time_days: {
             label: t('kitchen:ops.suppliers.fieldLeadTime'),
             fieldId: 'kitchen-supplier-lead-time',
+        },
+        payment_due_days: {
+            label: t('kitchen:ops.suppliers.fieldPaymentDueDays'),
+            fieldId: 'kitchen-supplier-payment-due-days',
         },
         address: {
             label: t('kitchen:ops.suppliers.fieldAddress'),
@@ -422,7 +430,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
     };
 
     function saveDetails() {
-        if (!editable || detailsBlocked || leadTime === undefined) return;
+        if (!editable || detailsBlocked || leadTime === undefined || dueDays === undefined) return;
 
         const fields = {
             nameEn: details.name.en.trim(),
@@ -432,6 +440,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
             address: blankToNull(details.address),
             paymentTerms: blankToNull(details.paymentTerms),
             leadTimeDays: leadTime,
+            paymentDueDays: dueDays,
             notes: blankToNull(details.notes),
         };
 
@@ -1186,6 +1195,24 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                                     ? { error: t('kitchen:ops.suppliers.leadTimeInvalid') }
                                     : {})}
                                 {...server.flag('lead_time_days')}
+                            />
+
+                            <TextInputField
+                                testID="kitchen-supplier-payment-due-days"
+                                id="kitchen-supplier-payment-due-days"
+                                label={t('kitchen:ops.suppliers.fieldPaymentDueDays')}
+                                placeholder={t('kitchen:ops.suppliers.paymentDueDaysPlaceholder')}
+                                size="sm"
+                                value={details.paymentDueDays}
+                                keyboardType="number-pad"
+                                disabled={!editable}
+                                onChangeText={(paymentDueDays) => {
+                                    editDetails({ ...details, paymentDueDays });
+                                }}
+                                {...(dueDays === undefined
+                                    ? { error: t('kitchen:ops.suppliers.leadTimeInvalid') }
+                                    : {})}
+                                {...server.flag('payment_due_days')}
                             />
 
                             <TextInputField

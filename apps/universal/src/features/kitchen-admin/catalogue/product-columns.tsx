@@ -13,6 +13,7 @@ import {
     statusTone,
     unitShortKey,
 } from '../format.ts';
+import { AssessmentBadges } from './allergen-assessment.tsx';
 import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
@@ -172,6 +173,11 @@ export function productColumns({
                                 label={t('kitchen:list.missingArabic')}
                             />
                         ) : null}
+                        <AssessmentBadges
+                            testID={productRowTestId(String(row.id))}
+                            allergensAssessed={row.allergensAssessed}
+                            onSaleWithoutRecipe={row.onSaleWithoutRecipe}
+                        />
                     </Inline>
                 );
             },

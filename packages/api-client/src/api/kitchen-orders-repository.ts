@@ -6,10 +6,20 @@ import {
     PriceListId,
     isCurrencyCode,
 } from '@healthy360/domain-types';
-import type { CurrencyCode } from '@healthy360/domain-types';
+import type { CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
 
 import type {
+    OrderComplaint,
+    RecordComplaintRequest,
+    UpdateComplaintRequest,
+} from '../contracts/complaints.ts';
+import type {
     CancelKitchenOrderRequest,
+    CloseFailedDeliveryRequest,
+    DecideOrderRefundRequest,
+    FailKitchenOrderDeliveryRequest,
+    HandToCourierRequest,
+    KitchenDisplay,
     KitchenOrder,
     KitchenOrderDelivery,
     KitchenOrderFilters,
@@ -19,19 +29,27 @@ import type {
     KitchenOrderPaymentSummary,
     KitchenOrdersRepository,
     KitchenOrderTransitionRequest,
+    OrderRefundLedger,
+    RecordOrderRefundRequest,
     RecordedKitchenOrderPayment,
     RecordKitchenOrderPaymentRequest,
+    RedeliverKitchenOrderRequest,
 } from '../contracts/kitchen-orders.ts';
 import type {
+    KitchenDisplayEnvelope,
     KitchenOrder as WireKitchenOrder,
     KitchenOrderDelivery as WireKitchenOrderDelivery,
     KitchenOrderLine as WireKitchenOrderLine,
+    OrderComplaint as WireOrderComplaint,
     OrderPaymentReceipt as WireOrderPaymentReceipt,
+    OrderRefundLedgerEnvelope,
     OrderPaymentSummary as WireOrderPaymentSummary,
     PaginationMeta,
     StorePaymentReceiptRequest,
 } from '../generated/types.ts';
 import { generateRequestId } from './config.ts';
+import { failureBody } from './driver-jobs-repository.ts';
+import { mapDishOption } from './marketplace-mappers.ts';
 import type { Transport } from './transport.ts';
 
 /**
@@ -97,8 +115,28 @@ function mapLine(wire: WireKitchenOrderLine): KitchenOrderLine {
             containment: allergen.containment,
         })),
         packSummary: wire.pack_summary,
+        options: (wire.options ?? []).map(mapDishOption),
+        note: wire.note ?? null,
         priceListId: wire.price_list_id === null ? null : PriceListId.unsafe(wire.price_list_id),
         priceListItemId: wire.price_list_item_id,
+    };
+}
+
+function mapComplaint(wire: WireOrderComplaint): OrderComplaint {
+    return {
+        id: wire.id,
+        orderId: OrderId.unsafe(wire.order_id),
+        orderNumber: wire.order_number,
+        cause: wire.cause,
+        description: wire.description,
+        costMinor: wire.cost_minor,
+        currencyCode: currencyOf(wire.currency_code),
+        outcome: wire.outcome ?? null,
+        remakeOrderId: wire.remake_order_id === null ? null : OrderId.unsafe(wire.remake_order_id),
+        remakeOrderNumber: wire.remake_order_number,
+        orderRefundId: wire.order_refund_id,
+        createdAt: wire.created_at as OrderComplaint['createdAt'],
+        closedAt: wire.closed_at as OrderComplaint['closedAt'],
     };
 }
 
@@ -118,6 +156,7 @@ function mapDelivery(wire: WireKitchenOrderDelivery): KitchenOrderDelivery {
         windowNameEn: wire.window_name_en ?? null,
         windowNameAr: wire.window_name_ar ?? null,
         zoneNameAr: wire.zone_name_ar ?? null,
+        pickedUpAt: wire.picked_up_at ?? null,
     };
 }
 
@@ -144,6 +183,7 @@ export function mapKitchenOrder(wire: WireKitchenOrder): KitchenOrder {
         fulfilledAt: wire.fulfilled_at,
         cancelledAt: wire.cancelled_at,
         cancellationReason: wire.cancellation_reason,
+        cancellationDisposition: wire.cancellation_disposition ?? null,
         deliveryRun:
             wire.delivery_run === null || wire.delivery_run === undefined
                 ? null
@@ -154,10 +194,28 @@ export function mapKitchenOrder(wire: WireKitchenOrder): KitchenOrder {
                       assignedAt: wire.delivery_run.assigned_at,
                       pickedUpAt: wire.delivery_run.picked_up_at,
                       deliveredAt: wire.delivery_run.delivered_at,
+                      failedAt: wire.delivery_run.failed_at ?? null,
+                      failureReason: wire.delivery_run.failure_reason ?? null,
+                      failureNote: wire.delivery_run.failure_note ?? null,
+                      courierName: wire.delivery_run.courier_name ?? null,
                   },
         lockVersion: wire.lock_version,
         customerAccountId: wire.customer_account_id,
         amendable: wire.amendable,
+        allergy:
+            wire.allergy === null || wire.allergy === undefined
+                ? null
+                : {
+                      severe: wire.allergy.severe,
+                      items: wire.allergy.items.map((item) => ({
+                          allergenCode: item.allergen_code,
+                          severity: item.severity,
+                          notes: item.notes,
+                          conflictsWithLine: item.conflicts_with_line,
+                      })),
+                      note: wire.allergy.note,
+                      acknowledgedAt: wire.allergy.acknowledged_at,
+                  },
         lineCount: wire.line_count,
         lines: wire.lines.map(mapLine),
         planDay:
@@ -173,6 +231,29 @@ export function mapKitchenOrder(wire: WireKitchenOrder): KitchenOrder {
                           source: meal.source,
                       })),
                   },
+    };
+}
+
+function mapRefundLedger(wire: OrderRefundLedgerEnvelope['data']): OrderRefundLedger {
+    return {
+        receivedMinor: wire.received_minor,
+        refundedMinor: wire.refunded_minor,
+        correctedMinor: wire.corrected_minor,
+        pendingMinor: wire.pending_minor,
+        refundableMinor: wire.refundable_minor,
+        windowClosesAt: wire.window_closes_at as IsoDateTime | null,
+        entries: wire.entries.map((entry) => ({
+            id: entry.id,
+            kind: entry.kind,
+            status: entry.status,
+            method: entry.method,
+            amountMinor: entry.amount_minor,
+            reason: entry.reason,
+            requestedByName: entry.requested_by_name,
+            requestedAt: entry.requested_at as IsoDateTime,
+            decidedByName: entry.decided_by_name,
+            decidedAt: entry.decided_at as IsoDateTime | null,
+        })),
     };
 }
 
@@ -225,6 +306,9 @@ function ordersQuery(filters?: KitchenOrderFilters): string {
     if (filters.query !== undefined && filters.query.trim() !== '') {
         search.set('query', filters.query.trim());
     }
+    if (filters.customerAccountId !== undefined) {
+        search.set('customer_account_id', filters.customerAccountId);
+    }
     if (filters.cursor !== undefined) search.set('cursor', filters.cursor);
     if (filters.limit !== undefined) search.set('limit', String(filters.limit));
 
@@ -253,6 +337,22 @@ export function createApiKitchenOrdersRepository(transport: Transport): KitchenO
         return mapKitchenOrder(payload.order);
     }
 
+    /** The `/delivery/*` actions. `courier` and `fail` write the run alone and carry no `If-Match`. */
+    async function deliveryAction(
+        orderId: OrderId,
+        action: 'courier' | 'fail' | 'redeliver' | 'close-failed',
+        body: Record<string, unknown>,
+        lockVersion?: number,
+    ): Promise<KitchenOrder> {
+        const payload = await transport.request<{ readonly order: WireKitchenOrder }>({
+            method: 'POST',
+            path: `/catalogue/orders/${encodeURIComponent(String(orderId))}/delivery/${action}`,
+            ...(lockVersion === undefined ? {} : { headers: ifMatch(lockVersion) }),
+            body,
+        });
+        return mapKitchenOrder(payload.order);
+    }
+
     return {
         async listOrders(filters?: KitchenOrderFilters): Promise<KitchenOrderPage> {
             const envelope = await transport.requestEnvelope<readonly WireKitchenOrder[]>({
@@ -265,6 +365,19 @@ export function createApiKitchenOrdersRepository(transport: Transport): KitchenO
                 items: envelope.data.map(mapKitchenOrder),
                 nextCursor: meta?.next_cursor ?? null,
                 hasMore: meta?.has_more ?? false,
+            };
+        },
+
+        async getDisplay(): Promise<KitchenDisplay> {
+            const display = await transport.request<KitchenDisplayEnvelope['data']>({
+                method: 'GET',
+                path: '/catalogue/kitchen-display',
+            });
+            return {
+                orders: display.orders.map(mapKitchenOrder),
+                truncated: display.truncated,
+                alarmAfterMinutes: display.alarm_after_minutes,
+                unacceptedOpenMinutes: display.unaccepted_open_minutes,
             };
         },
 
@@ -295,7 +408,121 @@ export function createApiKitchenOrdersRepository(transport: Transport): KitchenO
         async cancelOrder(request: CancelKitchenOrderRequest): Promise<KitchenOrder> {
             return transition(request.id, request.lockVersion, 'cancel', {
                 reason: request.reason,
+                ...(request.disposition === undefined ? {} : { disposition: request.disposition }),
             });
+        },
+
+        async handToCourier(request: HandToCourierRequest): Promise<KitchenOrder> {
+            return deliveryAction(request.id, 'courier', {
+                name: request.name,
+                ...(request.reference === undefined ? {} : { reference: request.reference }),
+                ...(request.feeMinor === undefined ? {} : { fee_minor: request.feeMinor }),
+            });
+        },
+
+        async failDelivery(request: FailKitchenOrderDeliveryRequest): Promise<KitchenOrder> {
+            return deliveryAction(request.id, 'fail', failureBody(request));
+        },
+
+        async redeliverOrder(request: RedeliverKitchenOrderRequest): Promise<KitchenOrder> {
+            return deliveryAction(
+                request.id,
+                'redeliver',
+                {
+                    ...(request.date === undefined ? {} : { date: request.date }),
+                    ...(request.window === undefined ? {} : { window: request.window }),
+                },
+                request.lockVersion,
+            );
+        },
+
+        async closeFailedDelivery(request: CloseFailedDeliveryRequest): Promise<KitchenOrder> {
+            return deliveryAction(
+                request.id,
+                'close-failed',
+                { disposition: request.disposition },
+                request.lockVersion,
+            );
+        },
+
+        async listComplaints(): Promise<readonly OrderComplaint[]> {
+            const payload = await transport.request<{
+                readonly complaints: readonly WireOrderComplaint[];
+            }>({ method: 'GET', path: '/catalogue/complaints' });
+            return payload.complaints.map(mapComplaint);
+        },
+
+        async recordComplaint(request: RecordComplaintRequest): Promise<OrderComplaint> {
+            const payload = await transport.request<{ readonly complaint: WireOrderComplaint }>({
+                method: 'POST',
+                path: `/catalogue/orders/${encodeURIComponent(String(request.orderId))}/complaints`,
+                body: {
+                    cause: request.cause,
+                    description: request.description,
+                    cost_minor: request.costMinor,
+                },
+            });
+            return mapComplaint(payload.complaint);
+        },
+
+        async updateComplaint(request: UpdateComplaintRequest): Promise<OrderComplaint> {
+            const payload = await transport.request<{ readonly complaint: WireOrderComplaint }>({
+                method: 'PATCH',
+                path: `/catalogue/complaints/${encodeURIComponent(request.complaintId)}`,
+                body: {
+                    ...(request.costMinor === undefined ? {} : { cost_minor: request.costMinor }),
+                    ...(request.outcome === undefined ? {} : { outcome: request.outcome }),
+                    ...(request.orderRefundId === undefined
+                        ? {}
+                        : { order_refund_id: request.orderRefundId }),
+                },
+            });
+            return mapComplaint(payload.complaint);
+        },
+
+        async remakeComplaint(complaintId: string): Promise<OrderComplaint> {
+            const payload = await transport.request<{ readonly complaint: WireOrderComplaint }>({
+                method: 'POST',
+                path: `/catalogue/complaints/${encodeURIComponent(complaintId)}/remake`,
+            });
+            return mapComplaint(payload.complaint);
+        },
+
+        async getRefunds(orderId: OrderId): Promise<OrderRefundLedger> {
+            return mapRefundLedger(
+                await transport.request<OrderRefundLedgerEnvelope['data']>({
+                    method: 'GET',
+                    path: `/catalogue/orders/${encodeURIComponent(String(orderId))}/refunds`,
+                }),
+            );
+        },
+
+        async recordRefund(request: RecordOrderRefundRequest): Promise<OrderRefundLedger> {
+            return mapRefundLedger(
+                await transport.request<OrderRefundLedgerEnvelope['data']>({
+                    method: 'POST',
+                    path: `/catalogue/orders/${encodeURIComponent(String(request.orderId))}/refunds`,
+                    headers: { 'Idempotency-Key': generateRequestId() },
+                    body: {
+                        kind: request.kind,
+                        method: request.method,
+                        amount_minor: request.amountMinor,
+                        reason: request.reason,
+                    },
+                }),
+            );
+        },
+
+        async decideRefund(request: DecideOrderRefundRequest): Promise<OrderRefundLedger> {
+            const order = encodeURIComponent(String(request.orderId));
+            const refund = encodeURIComponent(request.refundId);
+
+            return mapRefundLedger(
+                await transport.request<OrderRefundLedgerEnvelope['data']>({
+                    method: 'POST',
+                    path: `/catalogue/orders/${order}/refunds/${refund}/${request.approved ? 'approve' : 'reject'}`,
+                }),
+            );
         },
 
         async recordPayment(

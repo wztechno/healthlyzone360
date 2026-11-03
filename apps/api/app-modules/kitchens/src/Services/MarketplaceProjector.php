@@ -6,6 +6,7 @@ namespace Healthy360\Kitchens\Services;
 
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Catalogues\Services\DishOptions;
 use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Kitchens\Models\BranchOpeningHour;
@@ -57,6 +58,7 @@ final class MarketplaceProjector
         private readonly MarketplaceKitchenPresenter $kitchenPresenter,
         private readonly MarketplaceMealPresenter $mealPresenter,
         private readonly MarketplacePlanPresenter $planPresenter,
+        private readonly DishOptions $dishOptions,
     ) {}
 
     /**
@@ -99,6 +101,35 @@ final class MarketplaceProjector
      * @return array<string, mixed>|null
      */
     public function meal(CatalogueItem $meal, string $locale, array $excludeAllergens = [], ?string $availableOn = null): ?array
+    {
+        return $this->projectMeal($meal, $locale, $excludeAllergens, $availableOn);
+    }
+
+    /**
+     * The detail page's meal: {@see meal()} and what the customer can choose. Not
+     * on the listing, which would pay for a dozen price reads nobody looks at.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function mealWithChoices(CatalogueItem $meal, string $locale): ?array
+    {
+        $projected = $this->projectMeal($meal, $locale, [], null);
+
+        if ($projected === null) {
+            return null;
+        }
+
+        return $projected + [
+            'options' => $this->dishOptions->forItem((string) $meal->getKey()),
+            'portions' => $this->meals->portionsOf($meal, $this->contextFor($meal->organisation_id)['listing_channels']),
+        ];
+    }
+
+    /**
+     * @param  list<string>  $excludeAllergens
+     * @return array<string, mixed>|null
+     */
+    private function projectMeal(CatalogueItem $meal, string $locale, array $excludeAllergens, ?string $availableOn): ?array
     {
         $context = $this->contextFor($meal->organisation_id);
 

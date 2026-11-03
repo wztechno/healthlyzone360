@@ -46,7 +46,7 @@ final class GoodsReceiptIndexController
         $to = $validated['to'] ?? null;
 
         $receipts = GoodsReceipt::query()
-            ->with(['lines', 'supplier'])
+            ->with(['lines', 'supplier', 'purchaseOrder'])
             ->when(is_string($lot) && $lot !== '', fn (Builder $query) => $query->whereHas(
                 'lines',
                 fn (Builder $lines) => $lines->where('supplier_lot', $lot),

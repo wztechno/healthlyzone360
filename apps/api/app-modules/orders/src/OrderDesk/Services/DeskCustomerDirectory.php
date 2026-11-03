@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Orders\OrderDesk\Services;
 
+use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Customers\Enums\CustomerAccountOrigin;
 use Healthy360\Customers\Enums\CustomerAccountType;
 use Healthy360\Customers\Models\CustomerAccount;
@@ -11,13 +12,14 @@ use Healthy360\Identity\Enums\ContactChannel;
 use Healthy360\Identity\Exceptions\InvalidContactValue;
 use Healthy360\Identity\Services\ContactValueNormaliser;
 use Healthy360\Organisations\Enums\MembershipStatus;
+use Healthy360\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Which customers a kitchen may look up, and the two ways somebody becomes one
- * of them.
+ * Which customers a kitchen may look up, and the ways somebody becomes one of
+ * them.
  *
  * ## The scoping rule, stated once and implemented once
  *
@@ -25,12 +27,28 @@ use Illuminate\Support\Facades\DB;
  *
  *  * **(a)** it holds at least one order with this organisation, or
  *  * **(b)** its `origin` is `staff` **and** its `created_by` is a user holding
- *    an **active** membership of this organisation.
+ *    an **active** membership of this organisation, or
+ *  * **(c)** it holds a subscription with this organisation, or
+ *  * **(d)** a desk agent found it here by its exact telephone number, which
+ *    leaves a `kitchen_customer_links` row (see "A registered customer's first
+ *    call"). The desk only: the customer book does not take this arm, so a
+ *    number read out on the telephone opens neither the addresses nor the emails.
  *
  * Nothing else. Not "is a consumer account", not "has an address in a served
- * area" — an account nobody at this kitchen has either cooked for or written
- * down is not this kitchen's business, and the search is the door every desk
- * identifier comes through.
+ * area" — an account this kitchen has no tie to is not this kitchen's business,
+ * and the search is the door every desk identifier comes through.
+ *
+ * ## A registered customer's first call
+ *
+ * A registered consumer with no order here is shut out twice: by this rule, and
+ * by the row policy, because a consumer row carries no organisation. Searching
+ * every consumer by name would be a directory of the marketplace, so nothing
+ * does. An exact E.164 number is different: the caller read it out. `search()`
+ * asks the `registered_consumers_with_phone` definer function, writes a link for
+ * each holder and audits it, and the row policy's seventh arm then admits the
+ * account like any other (2026_11_03_010001). It is a write behind a `GET`, on
+ * purpose: one idempotent row is the whole effect, and a second endpoint would
+ * only move the same disclosure a tap later.
  *
  * **This rule is the whole control, and the database is not helping.** A
  * `customer_accounts` row carries no `organisation_id` unless it is a corporate
@@ -110,7 +128,11 @@ final class DeskCustomerDirectory
      */
     public const int BROWSE_LIMIT = 200;
 
-    public function __construct(private readonly ContactValueNormaliser $normaliser) {}
+    public function __construct(
+        private readonly ContactValueNormaliser $normaliser,
+        private readonly AuditRecorder $audit,
+        private readonly TenantContext $context,
+    ) {}
 
     /**
      * The customers of this kitchen matching this query.
@@ -127,6 +149,8 @@ final class DeskCustomerDirectory
     {
         $accounts = [];
 
+        $this->linkPhoneHolders($organisationId, $query);
+
         $rows = CustomerAccount::query()
             ->select('customer_accounts.*')
             ->selectRaw(
@@ -134,7 +158,7 @@ final class DeskCustomerDirectory
                 [$organisationId],
             )
             ->where(fn (Builder $match): Builder => $this->applyMatch($match, $query))
-            ->where(fn (Builder $scope): Builder => $this->applyScope($scope, $organisationId))
+            ->where(fn (Builder $scope): Builder => $this->applyDeskScope($scope, $organisationId))
             // Alphabetical by the name a person reads down a telephone, with the
             // identifier as a tie-break so two customers of the same name do not
             // swap places between two identical searches.
@@ -165,13 +189,30 @@ final class DeskCustomerDirectory
     {
         return CustomerAccount::query()
             ->whereKey($account->getKey())
+            ->where(fn (Builder $scope): Builder => $this->applyDeskScope($scope, $organisationId))
+            ->exists();
+    }
+
+    /**
+     * Whether this kitchen has a tie of its own to this account: it has cooked for
+     * them, feeds them on a plan, or wrote them down.
+     *
+     * Stricter than `isInScope()` by the telephone link. Anyone who knows a number
+     * gets a link by searching it, which is enough to read the caller and take
+     * their order, and no ground to change the name and number another kitchen
+     * reaches them on.
+     */
+    public function hasKitchenTie(string $organisationId, CustomerAccount $account): bool
+    {
+        return CustomerAccount::query()
+            ->whereKey($account->getKey())
             ->where(fn (Builder $scope): Builder => $this->applyScope($scope, $organisationId))
             ->exists();
     }
 
     /**
      * Whether this kitchen's customer **book** may show this account — the
-     * browse rule, which is the desk rule plus arm (c), asked about one row.
+     * browse rule, asked about one row.
      *
      * Not a substitute for `isInScope()`. The desk's write endpoints ask that
      * one, and must keep asking it: a corporate programme admits the buyer's
@@ -329,7 +370,7 @@ final class DeskCustomerDirectory
                 [$organisationId],
             )
             ->where(fn (Builder $phone): Builder => $this->applyPhone($phone, $normalisedPhone))
-            ->where(fn (Builder $scope): Builder => $this->applyScope($scope, $organisationId))
+            ->where(fn (Builder $scope): Builder => $this->applyDeskScope($scope, $organisationId))
             ->orderBy('customer_accounts.created_at')
             ->orderBy('customer_accounts.id')
             ->limit(self::MAX_ROWS)
@@ -357,6 +398,39 @@ final class DeskCustomerDirectory
             return $this->normaliser->normalise(ContactChannel::Phone, $value);
         } catch (InvalidContactValue) {
             return null;
+        }
+    }
+
+    /**
+     * A registered consumer's first call: every holder of exactly this number
+     * becomes linked to this kitchen. A query that is not a number links nobody.
+     */
+    private function linkPhoneHolders(string $organisationId, string $query): void
+    {
+        $normalised = $this->normalisedPhone($query);
+
+        if ($normalised === null) {
+            return;
+        }
+
+        $holders = DB::select('SELECT registered_consumers_with_phone(?) AS id', [$normalised]);
+
+        foreach ($holders as $holder) {
+            $linked = DB::table('kitchen_customer_links')->insertOrIgnore([
+                'organisation_id' => $organisationId,
+                'customer_account_id' => $holder->id,
+                'created_by' => $this->context->userId(),
+                'created_at' => now(),
+            ]);
+
+            if ($linked > 0) {
+                $this->audit->record(
+                    'customer.desk_link_created',
+                    $this->context->userId(),
+                    'customer_account',
+                    (string) $holder->id,
+                );
+            }
         }
     }
 
@@ -409,7 +483,25 @@ final class DeskCustomerDirectory
     }
 
     /**
-     * The scoping rule itself: (a) or (b), and nothing else.
+     * The desk's rule: the book's arms (a) to (c), or (d) a telephone link.
+     *
+     * @param  Builder<CustomerAccount>  $query
+     * @return Builder<CustomerAccount>
+     */
+    private function applyDeskScope(Builder $query, string $organisationId): Builder
+    {
+        return $query
+            ->where(fn (Builder $tied): Builder => $this->applyScope($tied, $organisationId))
+            ->orWhereExists(function (QueryBuilder $link) use ($organisationId): void {
+                $link->select(DB::raw('1'))
+                    ->from('kitchen_customer_links')
+                    ->whereColumn('kitchen_customer_links.customer_account_id', 'customer_accounts.id')
+                    ->where('kitchen_customer_links.organisation_id', $organisationId);
+            });
+    }
+
+    /**
+     * The scoping rule itself: (a), (b) or (c), and nothing else.
      *
      * @param  Builder<CustomerAccount>  $query
      * @return Builder<CustomerAccount>
@@ -423,6 +515,15 @@ final class DeskCustomerDirectory
                     ->from('orders')
                     ->whereColumn('orders.customer_account_id', 'customer_accounts.id')
                     ->where('orders.organisation_id', $organisationId);
+            })
+            // (c) This kitchen feeds them on a plan. The commonest subscriber
+            // has never placed an order, and the row policy's fifth arm has
+            // admitted them since 2026_10_21_000301.
+            ->orWhereExists(function (QueryBuilder $subscription) use ($organisationId): void {
+                $subscription->select(DB::raw('1'))
+                    ->from('subscriptions')
+                    ->whereColumn('subscriptions.customer_account_id', 'customer_accounts.id')
+                    ->where('subscriptions.organisation_id', $organisationId);
             })
             // (b) Somebody who works here wrote them down.
             ->orWhere(function (Builder $provisioned) use ($organisationId): void {
@@ -445,8 +546,9 @@ final class DeskCustomerDirectory
     }
 
     /**
-     * The browse rule: (a) or (b), **or (c)** — the account's buying
-     * organisation holds a corporate programme with this kitchen.
+     * The browse rule: the desk's arms bar the telephone link, **or** the
+     * account's buying organisation holds a corporate programme with this
+     * kitchen.
      *
      * Read-only by construction. Only `browse()` and `isBrowsable()` use it; the
      * desk search and the desk's writes stay on `applyScope()`, so a programme

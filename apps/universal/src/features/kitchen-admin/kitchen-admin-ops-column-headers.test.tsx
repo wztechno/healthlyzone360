@@ -88,6 +88,7 @@ function receipt(id: string, overrides: Partial<GoodsReceipt> = {}): GoodsReceip
         invoiceDate: null,
         varianceNote: null,
         purchaseOrderId: null,
+        purchaseOrderNumber: null,
         receivedAt: '2026-07-27T09:00:00Z',
         receivedOn: '2026-07-27',
         costStatus: 'complete',
@@ -145,6 +146,7 @@ describe('procurement receipts headers', () => {
                     ],
                     listSuppliers: async () => [],
                     listStockItems: async () => [],
+                    listReceivableOrders: async () => [],
                     getProcurementReference: async () => REFERENCE,
                 },
             },
@@ -152,7 +154,14 @@ describe('procurement receipts headers', () => {
 
         await untilVisible('kitchen-procurement-receipts-table');
 
-        for (const column of ['receivedAt', 'supplier', 'lines', 'refs', 'total', 'costStatus']) {
+        for (const column of [
+            'receivedAt',
+            'supplier',
+            'refs',
+            'order',
+            'total',
+            'costStatus',
+        ]) {
             expect(screen.getByTestId(`kitchen-procurement-column-${column}-trigger`)).toBeTruthy();
         }
 

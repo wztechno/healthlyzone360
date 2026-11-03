@@ -52,6 +52,7 @@ import { displayName } from '../format.ts';
 import { receiptCostStatusKey } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { ReceiptOpenOrder, ReceiptOrderRef } from '../receipt-order-ref.tsx';
 import {
     useListMemory,
     useRememberedFilter,
@@ -297,7 +298,13 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
             trimmed === ''
                 ? pageRows
                 : pageRows.filter((row) =>
-                      [row.itemNameEn, row.itemCode, row.supplier?.nameEn, row.documentRef]
+                      [
+                          row.itemNameEn,
+                          row.itemCode,
+                          row.supplier?.nameEn,
+                          row.documentRef,
+                          row.purchaseOrderNumber,
+                      ]
                           .filter((value): value is string => value !== null && value !== undefined)
                           .some((value) => value.toLocaleLowerCase().includes(trimmed)),
                   ),
@@ -438,6 +445,26 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                 <Text variant="mono" testID={`kitchen-ledger-${row.id}-lot`}>
                     {row.supplierLot ?? '—'}
                 </Text>
+            ),
+        },
+        {
+            key: 'order',
+            label: t('kitchen:ops.procurement.columnOrder'),
+            width: 120,
+            priority: 45,
+            value: (row) => row.purchaseOrderNumber ?? '—',
+            sort: (left, right, direction) =>
+                compareText(
+                    left.purchaseOrderNumber ?? '',
+                    right.purchaseOrderNumber ?? '',
+                    direction,
+                ),
+            render: (row) => (
+                <ReceiptOrderRef
+                    orderId={row.purchaseOrderId}
+                    orderNumber={row.purchaseOrderNumber}
+                    testID={`kitchen-ledger-${row.id}-order`}
+                />
             ),
         },
         {
@@ -625,6 +652,16 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                                   : 'kitchen:ops.ledger.viewUnpricedNote',
                           ),
                       })}
+                {...(viewing.purchaseOrderId === null
+                    ? {}
+                    : {
+                          statusContent: (
+                              <ReceiptOpenOrder
+                                  orderId={viewing.purchaseOrderId}
+                                  testID="kitchen-ledger-view-open-order"
+                              />
+                          ),
+                      })}
                 fields={[
                     {
                         key: 'supplier',
@@ -641,6 +678,12 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                         key: 'documentRef',
                         label: t('kitchen:ops.procurement.fieldDocumentRef'),
                         value: viewing.documentRef ?? '—',
+                        mono: true,
+                    },
+                    {
+                        key: 'order',
+                        label: t('kitchen:ops.procurement.columnOrder'),
+                        value: viewing.purchaseOrderNumber ?? '—',
                         mono: true,
                     },
                     {

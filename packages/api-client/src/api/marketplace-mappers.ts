@@ -25,7 +25,13 @@ import type {
     OpeningHours,
     PackSize,
 } from '../contracts/marketplace.ts';
+import type { DishOption, DishPortion, KitchenDishOption } from '../contracts/dish-options.ts';
 import type { CursorPage } from '../contracts/pagination.ts';
+import type {
+    DishOption as WireDishOption,
+    DishPortion as WireDishPortion,
+    KitchenDishOption as WireKitchenDishOption,
+} from '../generated/types.ts';
 import type {
     MarketplaceBranch as WireBranch,
     MarketplaceDeliveryZone as WireZone,
@@ -273,6 +279,7 @@ export function mapKitchen(wire: WireKitchen): Kitchen {
         ratingCount: wire.rating_count,
         imagePlaceholderId: wire.image_placeholder_id,
         isVerified: wire.is_verified,
+        ...(wire.paused_until === undefined ? {} : { pausedUntil: wire.paused_until }),
     };
 }
 
@@ -359,6 +366,48 @@ export function mapMarketplaceMeal(wire: WireMeal): MarketplaceMeal | null {
         channels: mapSalesChannels(wire.channels),
         rating: wire.rating,
         ratingCount: wire.rating_count,
+        options: (wire.options ?? []).map(mapDishOption),
+        portions: (wire.portions ?? []).map(mapDishPortion),
+    };
+}
+
+/** A dish option off the wire, on a meal, a line or the desk's read. */
+export function mapDishOption(wire: WireDishOption): DishOption {
+    return {
+        id: wire.id,
+        kind: wire.kind,
+        groupEn: wire.group_en,
+        groupAr: wire.group_ar,
+        nameEn: wire.name_en,
+        nameAr: wire.name_ar,
+        ...(wire.allergens === undefined
+            ? {}
+            : {
+                  allergenCodes:
+                      wire.allergens === null
+                          ? null
+                          : wire.allergens.map((entry) => entry.allergen_code),
+              }),
+    };
+}
+
+/** A dish option as the kitchen's editor reads it: the recipe link and that recipe's allergens. */
+export function mapKitchenDishOption(wire: WireKitchenDishOption): KitchenDishOption {
+    return {
+        ...mapDishOption(wire),
+        recipeId: wire.recipe_id,
+        allergenCodes:
+            wire.allergens === null ? null : wire.allergens.map((entry) => entry.allergen_code),
+    };
+}
+
+export function mapDishPortion(wire: WireDishPortion): DishPortion {
+    return {
+        catalogueItemVariantId: wire.catalogue_item_variant_id,
+        nameEn: wire.name_en,
+        nameAr: wire.name_ar,
+        unitPriceMinor: wire.unit_price_minor,
+        currencyCode: wire.currency_code as DishPortion['currencyCode'],
     };
 }
 

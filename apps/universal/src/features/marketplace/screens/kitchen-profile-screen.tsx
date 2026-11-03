@@ -1,4 +1,4 @@
-import { Breadcrumbs, useBreakpoint } from '@healthy360/design-system';
+import { Breadcrumbs, Callout, useBreakpoint } from '@healthy360/design-system';
 import type { Kitchen, MarketplaceMeal, SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { KitchenId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -88,8 +88,10 @@ export function KitchenProfileScreen({ kitchenId }: KitchenProfileScreenProps) {
     // The open tab and shelf, for a meal's "{Kitchen}" crumb to come back to (browse-05).
     useRememberQuery();
 
-    const parsed = kitchenId === undefined ? null : KitchenId.safeParse(kitchenId);
-    const query = useKitchenQuery(parsed);
+    // An id or a slug: the server takes either, and refusing the slug here left the page loading.
+    const requested =
+        kitchenId === undefined || kitchenId === '' ? null : KitchenId.unsafe(kitchenId);
+    const query = useKitchenQuery(requested);
     const kitchen = query.data;
 
     return (
@@ -301,6 +303,22 @@ function Storefront({ kitchen }: { readonly kitchen: Kitchen }) {
     return (
         <View className="flex-col">
             <StorefrontCanopy kitchen={kitchen} />
+
+            {kitchen.pausedUntil === null || kitchen.pausedUntil === undefined ? null : (
+                <View className="mt-5">
+                    <Callout
+                        testID="kitchen-paused"
+                        tone="warning"
+                        role="status"
+                        title={t('marketplace:storefront.pausedTitle')}
+                        body={t('marketplace:storefront.pausedBody', {
+                            time: formatter.formatDate(kitchen.pausedUntil, {
+                                timeStyle: 'short',
+                            }),
+                        })}
+                    />
+                </View>
+            )}
 
             {wide ? null : <View className="mt-5">{orderPanel}</View>}
 

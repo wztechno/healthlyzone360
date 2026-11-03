@@ -12,6 +12,7 @@ use Healthy360\Orders\Contracts\OrderSchedulingLookup;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Exceptions\PlacementRefused;
 use Healthy360\Orders\Models\Order;
+use Healthy360\Orders\Services\ClosedDayDeliveries;
 use Healthy360\Orders\Services\ComposedLine;
 use Healthy360\Orders\Services\ComposedPlacement;
 use Healthy360\Orders\Services\OrderPlacementService;
@@ -90,6 +91,7 @@ final readonly class GenerationService
         private IdentifierService $identifiers,
         private TenantContext $context,
         private OrderSchedulingLookup $scheduling,
+        private ClosedDayDeliveries $closedDays,
     ) {}
 
     /**
@@ -340,6 +342,11 @@ final readonly class GenerationService
             );
         }
 
+        // A closure date on the day moves the delivery to the next open day
+        // (owner, 3 Nov 2026); the day's food and balance stay this day's. With
+        // nothing open in time the date stays, and the managers hear either way.
+        $deliverOn = $this->closedDays->dayFor($subscription->organisation_id, $subscription->branch_id, null, $date);
+
         try {
             $result = $this->placement->placeComposed(
                 new ComposedPlacement(
@@ -351,7 +358,7 @@ final readonly class GenerationService
                     currencyCode: $subscription->currency_code,
                     lines: $lines,
                     deliveryWindowCode: $subscription->delivery_window_code,
-                    requestedDate: $date,
+                    requestedDate: $deliverOn ?? $date,
                     // Owner decision: a map edit never starts refusing a
                     // standing subscriber's slot.
                     enforceWindowOffer: false,
@@ -363,10 +370,24 @@ final readonly class GenerationService
                 'placement' => $refusal instanceof PlacementRefused ? ($refusal->details['reasons'] ?? []) : [],
             ]);
 
+            if ($deliverOn === null) {
+                // No order was placed: the subject is the subscription's day.
+                $this->closedDays->alertUnmoved($subscription->organisation_id, (string) $delivery->getKey(), $date, 'subscription_delivery');
+            }
+
             return ['generated' => 0, 'skipped' => 1, 'completed' => 0];
         }
 
         $order = $result->order;
+
+        // A replayed placement already told them.
+        if (! $result->replayed) {
+            if ($deliverOn === null) {
+                $this->closedDays->alertUnmoved($subscription->organisation_id, (string) $order->getKey(), $date);
+            } elseif (! $deliverOn->equalTo($date)) {
+                $this->closedDays->alertMoved($order);
+            }
+        }
 
         DB::transaction(function () use ($subscription, $delivery, $order): void {
             $delivery->status = SubscriptionDeliveryStatus::Generated;

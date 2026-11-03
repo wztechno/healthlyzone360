@@ -80,7 +80,10 @@
         "lastAdministrator": "Nobody else can manage access. If you remove this person, only the owner will be able to change permissions.",
         "selfLockout": "You cannot remove your own access. Ask another administrator to do it.",
         "saved_one": "Saved. {{name}} now holds one role.",
-        "saved_other": "Saved. {{name}} now holds {{count}} roles."
+        "saved_other": "Saved. {{name}} now holds {{count}} roles.",
+        "notFoundTitle": "That team member isn't here",
+        "notFoundBody": "The link may be out of date, or they may have left the kitchen.",
+        "backToList": "Back to the team"
     },
     "roles": {
         "title": "Roles",
@@ -142,7 +145,10 @@
         "shadowsTemplate": "There is a standard role with this reference. Yours will be used instead of it, everywhere in this kitchen.",
         "selfLockout": "This would take away your own ability to manage roles, and nobody could give it back to you from here.",
         "deleteBlocked_one": "One person still holds this role. Give them another one first.",
-        "deleteBlocked_other": "{{count}} people still hold this role. Give them another one first."
+        "deleteBlocked_other": "{{count}} people still hold this role. Give them another one first.",
+        "notFoundTitle": "That role isn't here",
+        "notFoundBody": "The link may be out of date, or the role may have been deleted.",
+        "backToList": "All roles"
     },
     "pages": {
         "levels": {
@@ -317,6 +323,12 @@
         "order.manage_organisation": {
             "name": "Confirm, fulfil and cancel orders"
         },
+        "order.prepare_organisation": {
+            "name": "Work the kitchen display"
+        },
+        "order.supervise_organisation": {
+            "name": "Cancel started orders and receive order alerts"
+        },
         "order.view_customer_contact_organisation": {
             "name": "See customers’ contact details, addresses and company records"
         },
@@ -373,6 +385,15 @@
         },
         "user.manage_organisation": {
             "name": "Create logins"
+        },
+        "order.approve_refund_organisation": {
+            "name": "Approve refunds above the kitchen limit"
+        },
+        "order.settle_cash_organisation": {
+            "name": "Record cash handed in by drivers and couriers"
+        },
+        "inventory.approve_payables_organisation": {
+            "name": "Approve delivery prices and mark invoices paid"
         }
     }
 }

@@ -13,9 +13,11 @@ namespace Healthy360\Customers\Guest\Results;
  *  * a wrong code against an address we hold,
  *  * any code at all against an address we do not,
  *  * a challenge that expired,
- *  * a contact point that is locked out after repeated failures.
+ *  * a contact point that is locked out after repeated failures,
+ *  * a guest with an order still open, which the purge would strip of its
+ *    allergies and address while a kitchen is working from them.
  *
- * The last one is the least obvious and the most important. A distinct
+ * The lockout is the least obvious and the most important. A distinct
  * "locked out" would be a perfect oracle — an attacker submits six digits five
  * times and reads *the refusal that only a real contact point can produce*. So
  * the lockout is enforced (it is `OtpService`'s, unchanged) and simply not

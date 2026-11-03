@@ -6,6 +6,7 @@ namespace App\Actions\Fortify;
 
 use App\Concerns\PasswordValidationRules;
 use App\Models\User;
+use Healthy360\Identity\Services\DeviceRegistrar;
 use Illuminate\Support\Facades\Validator;
 use Laravel\Fortify\Contracts\ResetsUserPasswords;
 
@@ -27,5 +28,9 @@ class ResetUserPassword implements ResetsUserPasswords
         $user->forceFill([
             'password' => $input['password'],
         ])->save();
+
+        // A reset is how an owner takes a stolen account back, so no bearer
+        // token issued under the old password survives it.
+        app(DeviceRegistrar::class)->revokeAll($user);
     }
 }

@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Symfony\Component\Mailer\Bridge\Brevo\Transport\BrevoTransportFactory;
 use Symfony\Component\Mailer\Transport\Dsn;
@@ -102,6 +103,21 @@ class AppServiceProvider extends ServiceProvider
          */
         RateLimiter::for('invitation-lookup', fn (Request $request): Limit => Limit::perMinute(20)
             ->by((string) $request->ip()));
+
+        /*
+         * The anonymous guest flow. A session is free to open, and each
+         * passcode request supersedes the last and sends a fresh message, so
+         * without these a loop could flood one inbox or phone at the `api`
+         * group's sixty a minute. The destination bucket is what protects the
+         * recipient: rotating IP addresses does not reset it.
+         */
+        RateLimiter::for('guest-session', fn (Request $request): Limit => Limit::perMinute(20)
+            ->by((string) $request->ip()));
+
+        RateLimiter::for('guest-passcode', fn (Request $request): array => [
+            Limit::perMinute(10)->by('ip:'.$request->ip()),
+            Limit::perHour(5)->by('to:'.Str::lower(trim((string) $request->input('value')))),
+        ]);
     }
 
     /**

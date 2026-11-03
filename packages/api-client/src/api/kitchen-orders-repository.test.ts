@@ -105,6 +105,34 @@ function wireOrder(overrides: Record<string, unknown> = {}) {
     };
 }
 
+describe('createApiKitchenOrdersRepository — getDisplay', () => {
+    it('reads the board, with the waiting time the server worked out', async () => {
+        const { repository, calls } = harness([
+            {
+                status: 200,
+                body: {
+                    data: {
+                        orders: [wireOrder({ id: ORDER_UUID })],
+                        truncated: true,
+                        alarm_after_minutes: 5,
+                        unaccepted_open_minutes: { [ORDER_UUID]: 7 },
+                    },
+                    meta: {},
+                },
+            },
+        ]);
+
+        const display = await repository.getDisplay();
+
+        expect(calls[0]?.method).toBe('GET');
+        expect(calls[0]?.path).toBe('/catalogue/kitchen-display');
+        expect(display.orders).toHaveLength(1);
+        expect(display.truncated).toBe(true);
+        expect(display.alarmAfterMinutes).toBe(5);
+        expect(display.unacceptedOpenMinutes).toEqual({ [ORDER_UUID]: 7 });
+    });
+});
+
 describe('createApiKitchenOrdersRepository — listOrders', () => {
     it('unwraps a bare array from data and the cursor from meta', async () => {
         const { repository, calls } = harness([

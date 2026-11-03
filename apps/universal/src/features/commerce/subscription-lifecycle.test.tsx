@@ -1,7 +1,6 @@
 import { ApiError } from '@healthy360/api-client/contracts';
 import type {
     CommerceRepository,
-    CreditMemo,
     DeliveryAddress,
     Subscription,
     SubscriptionBalance,
@@ -27,7 +26,7 @@ import { SubscriptionDetailScreen } from './screens/subscription-detail-screen.t
 import { SubscriptionsScreen } from './screens/subscriptions-screen.tsx';
 
 /**
- * S1 — the balance, the credit memo and the 24-hour cut-off, on the screens that carry them.
+ * S1 — the balance, cancelling and the 24-hour cut-off, on the screens that carry them.
  *
  * This suite used to run against the fixture world's own arithmetic: it read the seeded
  * subscription, called the repository directly and asserted that the mock's numbers agreed with each
@@ -38,9 +37,8 @@ import { SubscriptionsScreen } from './screens/subscriptions-screen.tsx';
  * **screens** that show somebody their money. The test authors what the server says; the assertions
  * are about what the interface then does with it — that the balance card prints the server's
  * `days` rather than recomputing them, that the ledger is the evidence behind the count, that the
- * cancellation dialog's own arithmetic (`remaining × perDayPrice`) agrees with the memo the server
- * writes, that a delivery inside the cut-off survives a weekday change, and that the plan's
- * available weekdays cost exactly one request.
+ * cancellation dialog promises no money, that a delivery inside the cut-off survives a weekday
+ * change, and that the plan's available weekdays cost exactly one request.
  *
  * Everything the screens are asked for is declared here; anything they reach for that this file did
  * not author rejects with `StubNotConfiguredError` naming the surface.
@@ -540,24 +538,12 @@ describe('a skip consumes nothing', () => {
     });
 });
 
-describe('cancelling mints a credit memo', () => {
-    const memo: CreditMemo = {
-        id: 'credit-memo-0001',
-        subscriptionId: SUBSCRIPTION_ID,
-        reason: 'subscription_cancelled',
-        unusedDays: 9,
-        perDayPrice: PER_DAY,
-        amount: { amount: 29_250, currency: 'AED' },
-        status: 'recorded',
-        settlement: 'manual',
-        recordedAt: '2026-07-02T09:00:00.000Z',
-    };
-
+describe('cancelling', () => {
     function cancelling(world: World): Partial<CommerceRepository> {
         return {
             cancelSubscription: async (): Promise<SubscriptionCancellation> => {
                 applyCancellation(world);
-                return { subscription: world.subscription, creditMemo: memo };
+                return { subscription: world.subscription };
             },
         };
     }
@@ -574,53 +560,22 @@ describe('cancelling mints a credit memo', () => {
         });
     }
 
-    it('records unused days x the effective per-day price actually paid', async () => {
+    it('promises no money, before or after', async () => {
         const world = liveWorld();
         await renderDetail(world, cancelling(world));
         await openCancelDialog();
 
-        // The dialog does the arithmetic itself, from the balance it already holds, *before* the
-        // button: nine unused days at 32.50 is 292.50.
-        expect(screen.getByTestId('subscription-cancel-estimate')).toHaveTextContent(
-            'We will record a credit of AED 292.50 — 9 unused days at AED 32.50.',
-        );
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('subscription-cancel-confirm'));
-        });
-
-        // And the memo the server actually wrote is the one on screen at the end — same days, same
-        // amount. When those two ever disagree, this is where it shows.
-        await waitFor(() => {
-            expect(screen.getByTestId('subscription-cancel-result')).toHaveTextContent(
-                /A credit of AED 292\.50 has been recorded for 9 unused days\./,
-            );
-        });
-    });
-
-    it('says the settlement is manual and the memo is only recorded', async () => {
-        const world = liveWorld();
-        await renderDetail(world, cancelling(world));
-        await openCancelDialog();
-
-        // Nothing in this system moves money, and the dialog refuses to imply otherwise — before
-        // the decision and again on the receipt, because that is the part most easily misremembered.
-        const manualSettlement =
-            'A credit is recorded against your account and settled by hand. ' +
-            'No money moves automatically.';
-        expect(screen.getByTestId('subscription-cancel-manual')).toHaveTextContent(
-            manualSettlement,
-        );
+        expect(screen.queryByTestId('subscription-cancel-estimate')).toBeNull();
+        expect(screen.queryByText(/credit/i)).toBeNull();
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('subscription-cancel-confirm'));
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('subscription-cancel-memo-manual')).toHaveTextContent(
-                manualSettlement,
-            );
+            expect(screen.getByTestId('subscription-cancel-result')).toBeTruthy();
         });
+        expect(screen.queryByText(/credit/i)).toBeNull();
     });
 
     it('cancels every remaining delivery and refuses a second cancellation', async () => {

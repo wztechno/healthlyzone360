@@ -9,7 +9,18 @@ import type {
 } from '@healthy360/domain-types';
 
 import type { MealChoiceSource } from './commerce.ts';
-import type { DriverJobStatus, DriverJobTrackingStatus } from './driver-jobs.ts';
+import type {
+    OrderComplaint,
+    RecordComplaintRequest,
+    UpdateComplaintRequest,
+} from './complaints.ts';
+import type { DishOption } from './dish-options.ts';
+import type {
+    DeliveryFailureReason,
+    DriverJobStatus,
+    DriverJobTrackingStatus,
+    FailDeliveryRequest,
+} from './driver-jobs.ts';
 import type { MealSlot } from './marketplace.ts';
 
 /**
@@ -80,8 +91,24 @@ export const KITCHEN_ORDER_CANCELLATION_REASONS = [
     'kitchen_unable_to_fulfil',
     'delivery_unavailable',
     'address_unreachable',
+    'delivery_failed',
 ] as const;
 export type KitchenOrderCancellationReason = (typeof KITCHEN_ORDER_CANCELLATION_REASONS)[number];
+
+/** The reasons a person picks. `delivery_failed` is set only by closing a failed delivery. */
+export const KITCHEN_ORDER_PICKABLE_CANCELLATION_REASONS = [
+    'customer_requested',
+    'kitchen_unable_to_fulfil',
+    'delivery_unavailable',
+    'address_unreachable',
+] as const satisfies readonly KitchenOrderCancellationReason[];
+export type KitchenOrderPickableCancellationReason =
+    (typeof KITCHEN_ORDER_PICKABLE_CANCELLATION_REASONS)[number];
+
+/** What became of the food once cooking had started: `wasted` keeps the stock deducted. */
+export const KITCHEN_ORDER_CANCELLATION_DISPOSITIONS = ['returned', 'wasted'] as const;
+export type KitchenOrderCancellationDisposition =
+    (typeof KITCHEN_ORDER_CANCELLATION_DISPOSITIONS)[number];
 
 /**
  * Three methods, and each one has a table behind it — see the wire's own note on `payment_method`.
@@ -124,6 +151,9 @@ export interface KitchenOrderLine {
     readonly allergens: readonly KitchenOrderLineAllergen[];
     /** The pack as it was sold — size, unit, pieces, net weight. Never a cost, never a supplier. */
     readonly packSummary: Readonly<Record<string, unknown>> | null;
+    /** What the customer changed about the dish, as it stood at placement. */
+    readonly options?: readonly DishOption[] | undefined;
+    readonly note?: string | null | undefined;
     /** Seller-only: which tariff priced this line. See the file header. */
     readonly priceListId: PriceListId | null;
     readonly priceListItemId: string | null;
@@ -154,6 +184,11 @@ export interface KitchenOrderDelivery {
     /** The zone's name in each language (HA-21); absent on payloads that predate it. */
     readonly zoneNameEn?: string | null;
     readonly zoneNameAr?: string | null;
+    /**
+     * When a driver or a courier took the food. Set means nobody can cancel the order any more: it
+     * ends as delivered or failed. Absent on payloads that predate it.
+     */
+    readonly pickedUpAt?: IsoDateTime | null;
 }
 
 /** A delivery order's run, as the kitchen sees it (HA-19). */
@@ -165,6 +200,12 @@ export interface KitchenOrderDeliveryRun {
     readonly assignedAt: IsoDateTime | null;
     readonly pickedUpAt: IsoDateTime | null;
     readonly deliveredAt: IsoDateTime | null;
+    /** Set while the run has `failed`, cleared by a re-deliver. Absent on older payloads. */
+    readonly failedAt?: IsoDateTime | null;
+    readonly failureReason?: DeliveryFailureReason | null;
+    readonly failureNote?: string | null;
+    /** The courier carrying it. There is then no driver. Absent on older payloads. */
+    readonly courierName?: string | null;
 }
 
 /**
@@ -205,6 +246,27 @@ export interface KitchenOrderPlanDay {
     readonly meals: readonly KitchenOrderPlanMeal[];
 }
 
+/** One declared allergy on an order, as it stood at placement or the last edit. */
+export interface KitchenOrderAllergyItem {
+    readonly allergenCode: string;
+    readonly severity: 'avoidance' | 'intolerance' | 'allergy' | 'anaphylaxis';
+    /** The customer's own words. */
+    readonly notes: string | null;
+    /** The ids of this order's lines that conflict with it. A list: one allergy can hit two dishes. */
+    readonly conflictsWithLine: readonly string[];
+}
+
+/** What the kitchen must know about who is eating. Health data, on no customer shape. */
+export interface KitchenOrderAllergy {
+    /** Any item is `anaphylaxis`. */
+    readonly severe: boolean;
+    /** Every allergy declared, conflicting with anything or not. Empty for a walk-in's note alone. */
+    readonly items: readonly KitchenOrderAllergyItem[];
+    /** Free text taken at the desk. */
+    readonly note: string | null;
+    readonly acknowledgedAt: string | null;
+}
+
 export interface KitchenOrder {
     readonly id: OrderId;
     /** The human-quotable reference — what a customer reads over the phone. Unique platform-wide. */
@@ -239,6 +301,8 @@ export interface KitchenOrder {
     readonly fulfilledAt: IsoDateTime | null;
     readonly cancelledAt: IsoDateTime | null;
     readonly cancellationReason: KitchenOrderCancellationReason | null;
+    /** Null on anything but a cancellation after cooking started; absent on older payloads. */
+    readonly cancellationDisposition?: KitchenOrderCancellationDisposition | null;
     /**
      * The order's delivery run — who is driving it and when they were given it, collected it and
      * handed it over. `null` on a pickup or counter order and on a delivery order not yet confirmed
@@ -254,6 +318,8 @@ export interface KitchenOrder {
      * the edit itself cannot disagree; a client never works the rules out.
      */
     readonly amendable: boolean;
+    /** `null` when nothing was declared and nothing noted. */
+    readonly allergy: KitchenOrderAllergy | null;
     /** The server's own count, so a collapsed list row can say "4 items" without holding the lines. */
     readonly lineCount: number;
     readonly lines: readonly KitchenOrderLine[];
@@ -279,6 +345,22 @@ export interface KitchenOrderPage {
     readonly hasMore: boolean;
 }
 
+/**
+ * The wall board: every open order and today's finished ones, oldest first. Past the server's cap
+ * {@link KitchenDisplay.truncated} says so, and a screen has to.
+ */
+export interface KitchenDisplay {
+    readonly orders: readonly KitchenOrder[];
+    readonly truncated: boolean;
+    /** Minutes while open a placed order may wait before its ticket alarms. The kitchen's setting. */
+    readonly alarmAfterMinutes: number;
+    /**
+     * Each placed order's waiting time, keyed by order id, in minutes **while a branch was open**.
+     * Server-computed so no client works out opening hours.
+     */
+    readonly unacceptedOpenMinutes: Readonly<Record<string, number>>;
+}
+
 export interface KitchenOrderFilters {
     readonly status?: KitchenOrderStatus | undefined;
     /**
@@ -290,6 +372,8 @@ export interface KitchenOrderFilters {
     readonly branchId?: BranchId | undefined;
     /** A partial order number. Nothing else is searchable: a name or an address would not be. */
     readonly query?: string | undefined;
+    /** One customer's orders, for their record in the kitchen's book. */
+    readonly customerAccountId?: string | undefined;
     readonly cursor?: string | undefined;
     readonly limit?: number | undefined;
 }
@@ -308,7 +392,33 @@ export interface KitchenOrderTransitionRequest {
 
 export interface CancelKitchenOrderRequest extends KitchenOrderTransitionRequest {
     /** Required, and an enum. See the file header for why there is no free-text note beside it. */
-    readonly reason: KitchenOrderCancellationReason;
+    readonly reason: KitchenOrderPickableCancellationReason;
+    /** Required by the server once cooking has started, and ignored before that. */
+    readonly disposition?: KitchenOrderCancellationDisposition | undefined;
+}
+
+/** A manager's decision to send a failed delivery out again, with a new day or window if moving. */
+export interface RedeliverKitchenOrderRequest extends KitchenOrderTransitionRequest {
+    /** `YYYY-MM-DD`. Runs the desk's timing rules, as does {@link window}. */
+    readonly date?: string | undefined;
+    readonly window?: string | undefined;
+}
+
+export interface CloseFailedDeliveryRequest extends KitchenOrderTransitionRequest {
+    readonly disposition: KitchenOrderCancellationDisposition;
+}
+
+export interface HandToCourierRequest {
+    readonly id: OrderId;
+    readonly name: string;
+    /** The courier's own tracking reference. */
+    readonly reference?: string | undefined;
+    /** What the courier charges, in the order's minor units. */
+    readonly feeMinor?: number | undefined;
+}
+
+export interface FailKitchenOrderDeliveryRequest extends FailDeliveryRequest {
+    readonly id: OrderId;
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -398,9 +508,57 @@ export interface RecordKitchenOrderPaymentRequest extends KitchenOrderTransition
     readonly notes?: string | undefined;
 }
 
+export type OrderRefundKind = 'refund' | 'receipt_correction';
+export type OrderRefundStatus = 'pending_approval' | 'completed' | 'rejected';
+
+/** One entry on an order's refund ledger. Added, never edited, and a receipt is never touched. */
+export interface OrderRefund {
+    readonly id: string;
+    readonly kind: OrderRefundKind;
+    readonly status: OrderRefundStatus;
+    readonly method: KitchenOrderPaymentMethod;
+    readonly amountMinor: number;
+    readonly reason: string;
+    readonly requestedByName: string | null;
+    readonly requestedAt: IsoDateTime;
+    readonly decidedByName: string | null;
+    readonly decidedAt: IsoDateTime | null;
+}
+
+export interface OrderRefundLedger {
+    /** The receipts as written. */
+    readonly receivedMinor: number;
+    readonly refundedMinor: number;
+    readonly correctedMinor: number;
+    /** Waiting for the owner, and already counted against the cap. */
+    readonly pendingMinor: number;
+    readonly refundableMinor: number;
+    /** Seven days after the latest receipt; `null` with no receipts. */
+    readonly windowClosesAt: IsoDateTime | null;
+    /** Newest first. */
+    readonly entries: readonly OrderRefund[];
+}
+
+export interface RecordOrderRefundRequest {
+    readonly orderId: OrderId;
+    readonly kind: OrderRefundKind;
+    readonly method: KitchenOrderPaymentMethod;
+    readonly amountMinor: number;
+    readonly reason: string;
+}
+
+export interface DecideOrderRefundRequest {
+    readonly orderId: OrderId;
+    readonly refundId: string;
+    readonly approved: boolean;
+}
+
 export interface KitchenOrdersRepository {
     /** Newest first, keyset-paged. Every filter is optional; none of them is a client-side sieve. */
     listOrders(filters?: KitchenOrderFilters): Promise<KitchenOrderPage>;
+
+    /** The wall board. Unpaged, and it is not the order book: see {@link KitchenDisplay}. */
+    getDisplay(): Promise<KitchenDisplay>;
 
     /** The full order including its lines and the `lockVersion` the three writes below need. */
     getOrder(orderId: OrderId): Promise<KitchenOrder>;
@@ -420,8 +578,26 @@ export interface KitchenOrdersRepository {
     /** `confirmed → fulfilled`, terminal — "Handed over". */
     fulfilOrder(request: KitchenOrderTransitionRequest): Promise<KitchenOrder>;
 
-    /** From `placed` or `confirmed` only, terminal. */
+    /**
+     * From `placed` or `confirmed` only, terminal. Once cooking has started it takes a manager and a
+     * disposition, and food on the road answers `order.out_for_delivery`.
+     */
     cancelOrder(request: CancelKitchenOrderRequest): Promise<KitchenOrder>;
+
+    /**
+     * A courier took the food: nobody can cancel it from here, and it leaves no receipt. It ends with
+     * {@link fulfilOrder} or {@link failDelivery}. `resource.conflict` unless it is ready and waiting.
+     */
+    handToCourier(request: HandToCourierRequest): Promise<KitchenOrder>;
+
+    /** A courier's run came back. The order stays `confirmed`. */
+    failDelivery(request: FailKitchenOrderDeliveryRequest): Promise<KitchenOrder>;
+
+    /** Send a failed run out again. `order.placement_refused` for a day the desk could not sell. */
+    redeliverOrder(request: RedeliverKitchenOrderRequest): Promise<KitchenOrder>;
+
+    /** Cancels with `delivery_failed`. `resource.conflict` unless the run has failed. */
+    closeFailedDelivery(request: CloseFailedDeliveryRequest): Promise<KitchenOrder>;
 
     /**
      * Write down money that arrived against an order.
@@ -467,4 +643,17 @@ export interface KitchenOrdersRepository {
      * and a deliberate second attempt records a second payment rather than replaying the first.
      */
     recordPayment(request: RecordKitchenOrderPaymentRequest): Promise<RecordedKitchenOrderPayment>;
+
+    getRefunds(orderId: OrderId): Promise<OrderRefundLedger>;
+    listComplaints(): Promise<readonly OrderComplaint[]>;
+    recordComplaint(request: RecordComplaintRequest): Promise<OrderComplaint>;
+    updateComplaint(request: UpdateComplaintRequest): Promise<OrderComplaint>;
+    /** Places the zero-priced order that puts it right, and closes the complaint. */
+    remakeComplaint(complaintId: string): Promise<OrderComplaint>;
+
+    /** `409 payment.refund_exceeds_capture` past the receipts; `409 resource.conflict` past seven days. */
+    recordRefund(request: RecordOrderRefundRequest): Promise<OrderRefundLedger>;
+
+    /** The owner's answer to an entry that waited. */
+    decideRefund(request: DecideOrderRefundRequest): Promise<OrderRefundLedger>;
 }

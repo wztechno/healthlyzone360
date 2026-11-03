@@ -714,6 +714,8 @@ export function mapProductAdminFromItem(
         dataQualityFlags: wire.data_quality_flags,
         imagePlaceholderId: catalogueImageId(wire),
         stockBlockers: mapStockBlockers(wire.stock_blockers),
+        allergensAssessed: wire.allergens_assessed,
+        onSaleWithoutRecipe: wire.on_sale_without_recipe,
     };
 }
 
@@ -777,6 +779,8 @@ export function mapMealAdminFromItem(
         availability: options?.availability ?? availabilityFromWire ?? [],
         imagePlaceholderId: catalogueImageId(wire),
         stockBlockers: mapStockBlockers(wire.stock_blockers),
+        allergensAssessed: wire.allergens_assessed,
+        onSaleWithoutRecipe: wire.on_sale_without_recipe,
         marginPercent: null,
     };
 }
@@ -921,6 +925,8 @@ function mapRecipeSeller(wire: AdminRecipeSoldAs): RecipeSoldAs {
                       netUnit: mapMeasureUnit(wire.default_pack.net_unit_code),
                   },
         stockBlockers: mapStockBlockers(wire.stock_blockers),
+        allergensAssessed: wire.allergens_assessed,
+        onSaleWithoutRecipe: wire.on_sale_without_recipe,
     };
 }
 
@@ -1490,6 +1496,10 @@ export function mapDeliveryZoneAdmin(
                 : KitchenId.unsafe(wire.branch_id),
         branchIds: wire.branch_id === null ? [] : [KitchenBranchId.unsafe(wire.branch_id)],
         areas: options?.areas ?? [],
+        ...(wire.area_count === undefined ? {} : { areaCount: wire.area_count }),
+        ...(wire.inactive_area_count === undefined
+            ? {}
+            : { inactiveAreaCount: wire.inactive_area_count }),
         deliveryFeeMinor: wire.delivery_fee_minor,
         minimumOrderMinor: wire.minimum_order_minor,
         currency: isCurrencyCode(wire.currency_code) ? wire.currency_code : 'USD',

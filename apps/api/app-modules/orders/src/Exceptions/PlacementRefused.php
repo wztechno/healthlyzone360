@@ -63,10 +63,21 @@ use Healthy360\Support\Api\Exceptions\ApiException;
  *    the order is not denominated in. Never converted.
  *  * `mixed_delivery_dates` — the basket asks for more than one day, which
  *    this phase's single-date order cannot express.
- *  * `cut_off_passed`, `branch_closed`, `date_in_the_past` — the branch will
- *    not take an order for that day; `cut_off_at` says by when it would have.
+ *  * `cut_off_passed`, `closed`, `date_in_the_past` — the branch will not take
+ *    an order for that day; `cut_off_at` says by when it would have.
+ *  * `kitchen_closed` — the kitchen has no active branch to make anything.
+ *  * `window_ended` — the slot asked for today is already over.
+ *  * `lead_time_not_met` — too late to make that slot today; `earliest_at` and
+ *    `lead_minutes` say why. Customers only.
+ *  * `below_zone_minimum` — the subtotal is under the delivery zone's minimum;
+ *    `minimum_minor` and `currency_code` carry it. Customers only.
+ *  * `kitchen_not_open` — a new kitchen that has not gone live. Customers only.
+ *  * `kitchen_paused` — the kitchen stopped taking orders for a while;
+ *    `paused_until` says when it starts again. Customers only.
+ *  * `window_full` — that window has taken as many orders as the kitchen said it
+ *    can on that day. Customers only.
  *  * the whole line vocabulary from `LineRefused` — `item_not_published`,
- *    `unpriced`, `channel_unavailable` and the rest — folded in per line with
+ *    `item_not_assessed`, `quality_hold`, `unpriced`, `channel_unavailable`, `item_unavailable_on_date` and the rest — folded in per line with
  *    the offending `catalogue_item_id` attached, because at checkout they are
  *    reasons the *order* was refused.
  *

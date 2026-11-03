@@ -198,7 +198,6 @@ export function KitchensScreen() {
     );
 
     const { query: searchTerm, selected, setQuery } = filters;
-    const sort = parseKitchenSort(sorting.selected['sort']?.[0], profileDiets);
 
     /*
      * The field holds a draft and the URL holds the term. Each keystroke is not a request: the
@@ -255,6 +254,18 @@ export function KitchensScreen() {
     const onlyOpenToday = (selected['open'] ?? []).includes(OPEN_TODAY);
     const onlyFast = (selected['fast'] ?? []).includes(FAST);
 
+    // A sort or a chip with no data behind it stays off the page until there is some.
+    const hasRatings = useMemo(
+        () => directory.some((kitchen) => kitchen.rating !== null),
+        [directory],
+    );
+    const anyFast = useMemo(() => deliversFast(directory).length > 0, [directory]);
+    const rawSort = sorting.selected['sort']?.[0];
+    const sort = useMemo(
+        () => parseKitchenSort(rawSort, profileDiets, hasRatings),
+        [rawSort, profileDiets, hasRatings],
+    );
+
     const kitchens = useMemo(() => {
         const byDiet = narrowByDiets(listed, selectedDiets);
         const bySpeed = onlyFast ? deliversFast(byDiet) : byDiet;
@@ -264,7 +275,7 @@ export function KitchensScreen() {
 
     const loaded = query.data !== undefined && directoryQuery.data !== undefined;
     const total = Math.max(directory.length, kitchens.length);
-    const defaultSort = defaultKitchenSort(profileDiets);
+    const defaultSort = defaultKitchenSort(profileDiets, hasRatings);
 
     const toggleChannel = (channel: SalesChannel) => {
         filters.toggle('channel', channel, !selectedChannels.includes(channel));
@@ -346,10 +357,12 @@ export function KitchensScreen() {
                             label={t('marketplace:kitchens.finder.sortFieldLabel')}
                             labelHidden
                             value={sort}
-                            options={availableKitchenSorts(profileDiets).map((option) => ({
-                                value: option,
-                                label: t(`marketplace:kitchens.finder.sort.${option}`),
-                            }))}
+                            options={availableKitchenSorts(profileDiets, hasRatings).map(
+                                (option) => ({
+                                    value: option,
+                                    label: t(`marketplace:kitchens.finder.sort.${option}`),
+                                }),
+                            )}
                             onChange={(next) => {
                                 sorting.select('sort', next === defaultSort ? null : next);
                             }}
@@ -377,14 +390,16 @@ export function KitchensScreen() {
                             />
                         );
                     })}
-                    <PillChip
-                        testID="kitchens-filter-fast"
-                        label={t('marketplace:kitchens.finder.under30')}
-                        selected={onlyFast}
-                        onPress={() => {
-                            filters.select('fast', onlyFast ? null : FAST);
-                        }}
-                    />
+                    {anyFast || onlyFast ? (
+                        <PillChip
+                            testID="kitchens-filter-fast"
+                            label={t('marketplace:kitchens.finder.under30')}
+                            selected={onlyFast}
+                            onPress={() => {
+                                filters.select('fast', onlyFast ? null : FAST);
+                            }}
+                        />
+                    ) : null}
                     <PillChip
                         testID="kitchens-filter-open-today"
                         label={t('marketplace:kitchens.finder.toggle.openToday')}

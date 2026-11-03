@@ -39,12 +39,13 @@ interface MealSafety
      * Whether this meal may be sent to this customer, and what stops it.
      *
      * @param  string  $catalogueItemId  the meal being considered
+     * @param  list<string>  $optionIds  the dish options chosen on the line: a sauce or side choice adds its recipe's allergens to the meal's
      * @return array{safe: bool, allergen_classes: list<string>, reason: string|null}
      *                                                                                `reason` is `allergen_declared` when a declaration matches, `excluded`
      *                                                                                when a food exclusion does, `unassessed` when the meal has no allergen
      *                                                                                basis at all, and null when the meal is safe
      */
-    public function check(CustomerAccount $account, string $catalogueItemId): array;
+    public function check(CustomerAccount $account, string $catalogueItemId, array $optionIds = []): array;
 
     /**
      * Whether this customer holds a constraint the platform cannot evaluate.

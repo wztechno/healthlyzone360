@@ -239,7 +239,8 @@ export function BilingualField({
         const text = placeholder?.[language];
         return text === undefined ? {} : { placeholder: text };
     };
-    const arabicMissing = value.ar.trim() === '';
+    // The English copied across is not a translation, and publication treats it the same way.
+    const arabicMissing = value.ar.trim() === '' || value.ar.trim() === value.en.trim();
     const row = layout === 'row';
 
     if (layout === 'fill') {

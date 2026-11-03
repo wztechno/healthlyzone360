@@ -13,9 +13,10 @@ import { addQuantity, isQuotableBasket } from './basket.ts';
  * how it is paid — and the rules that keep those five consistent with each other.
  *
  * It used to be a step machine, because the sale used to be a six-step wizard. The sale is one page
- * now (`screens/order-desk-sale-screen.tsx`): the food is picked first, and Charge opens a checkout
- * where the kind of sale is chosen, the customer and the address open when the kind needs them, and
- * the ticket beside it says what is still missing. What survived is everything that was never about steps — the clearing rules and
+ * now (`screens/order-desk-sale-screen.tsx`): the customer comes first — somebody named, or an
+ * explicit walk-in — so the menu can mark what they are allergic to; then the food, and Charge opens
+ * a checkout where the kind of sale is chosen, the address opens when the kind needs one, and the
+ * ticket beside it says what is still missing. What survived is everything that was never about steps — the clearing rules and
  * the completeness rule — and that is all this module holds.
  *
  * ## The three sales are three different shapes, and the wire enforces it
@@ -23,8 +24,8 @@ import { addQuantity, isQuotableBasket } from './basket.ts';
  * `fulfilment_type` decides which fields the placement requires, forbids or merely allows, and
  * getting it wrong is not a soft failure:
  *
- * - **counter** — no customer, no address, `payment` block **required** (a `422` without it). A
- *   counter body carrying `customer_address_id` is refused `address_not_applicable`.
+ * - **counter** — customer optional, no address, `payment` block **required** (a `422` without it).
+ *   A counter body carrying `customer_address_id` is refused `address_not_applicable`.
  * - **pickup** — customer **required**, address **forbidden** (`address_not_applicable` again: a
  *   collection has no destination).
  * - **delivery** — customer and address both required, `payment` block **forbidden** (money arrives
@@ -34,12 +35,13 @@ import { addQuantity, isQuotableBasket } from './basket.ts';
  * shape forbids**. A page that kept an address around after switching to counter would send it, and
  * the sale would be refused with a reason about a field the agent can no longer see.
  *
- * ## Counter sales are anonymous, and that is a v1 simplification
+ * ## A walk-in is a choice, not a default
  *
- * The wire *permits* `customer_account_id` on a counter sale — "a regular is worth naming and a
- * stranger is not" — and this page does not offer it: a counter sale's whole appeal is that it is a
- * few taps with somebody waiting. The provenance is not lost: `placed_on_behalf_by` records the agent
- * on every desk placement.
+ * The owner's ruling of 2 November: nobody reaches the menu until the agent has said who this is
+ * for, because the menu can only mark a conflict for somebody it knows. A stranger at the counter is
+ * still a few taps, one of which is now Walk-in ({@link withWalkIn}). `walkIn` means a nameless sale
+ * was chosen on purpose; a named customer stays named on a counter sale, which the wire has always
+ * permitted — "a regular is worth naming and a stranger is not".
  *
  * ## The payment method means two things
  *
@@ -82,8 +84,10 @@ export interface CounterPaymentDraft {
 
 export interface SaleState {
     readonly fulfilmentType: OrderDeskFulfilmentType;
-    /** Required for pickup and delivery; always `null` on a counter sale — see the module note. */
+    /** Required for pickup and delivery, optional on a counter sale — see the module note. */
     readonly customerAccountId: string | null;
+    /** The agent said this sale names nobody. Only ever true while no customer is chosen. */
+    readonly walkIn: boolean;
     /** Delivery only. Anything else carrying one is refused `address_not_applicable`. */
     readonly customerAddressId: string | null;
     readonly lines: readonly BasketLine[];
@@ -97,6 +101,13 @@ export interface SaleState {
     readonly deliveryWindowCode: string | null;
     /** Delivery only: who takes the run. `null` leaves it for a driver to claim. */
     readonly driverUserId: string | null;
+    /** Any allergy the customer mentioned. Every kind of sale may carry one. */
+    readonly allergyNote: string;
+    /**
+     * The agent told the customer about the quote's allergen conflicts. The screen clears it when
+     * the food or the customer changes: it was said about that basket.
+     */
+    readonly allergyAcknowledged: boolean;
 }
 
 /**
@@ -151,6 +162,7 @@ export function initialSaleState(): SaleState {
     return {
         fulfilmentType: 'counter',
         customerAccountId: null,
+        walkIn: false,
         customerAddressId: null,
         lines: [],
         paymentMethod: method,
@@ -158,6 +170,8 @@ export function initialSaleState(): SaleState {
         requestedDeliveryDate: null,
         deliveryWindowCode: null,
         driverUserId: null,
+        allergyNote: '',
+        allergyAcknowledged: false,
     };
 }
 
@@ -173,6 +187,7 @@ export function saleStateFromOrder(order: KitchenOrder): SaleState {
     return {
         fulfilmentType: order.fulfilmentType,
         customerAccountId: order.customerAccountId,
+        walkIn: false,
         customerAddressId: null,
         lines: order.lines.map((line) => ({
             catalogueItemId: line.catalogueItemId,
@@ -180,12 +195,16 @@ export function saleStateFromOrder(order: KitchenOrder): SaleState {
             quantity: addQuantity('0', line.quantity),
             name: { en: line.nameEn, ar: line.nameAr },
             variantLabel: line.variantLabel,
+            options: line.options,
+            note: line.note,
         })),
         paymentMethod: order.paymentMethod,
         payment: null,
         requestedDeliveryDate: order.delivery.requestedDate,
         deliveryWindowCode: order.delivery.windowCode,
         driverUserId: null,
+        allergyNote: order.allergy?.note ?? '',
+        allergyAcknowledged: false,
     };
 }
 
@@ -195,11 +214,12 @@ export function saleStateFromOrder(order: KitchenOrder): SaleState {
  * Every clause here is a refusal the wire would otherwise return, on a page where the field that
  * caused it is no longer visible:
  *
- * - to **counter**: the customer and the address both go; a payment draft appears, because the
- *   placement is a `422` without one.
+ * - to **counter**: the address goes; a payment draft appears, because the placement is a `422`
+ *   without one. The customer stays: they were chosen before the food, and their allergies with them.
  * - to **pickup**: the address goes (`address_not_applicable`); the customer stays, because a pickup
  *   requires exactly the customer a delivery does and re-searching for them would be a punishment
  *   for changing one's mind.
+ * - to **pickup** or **delivery**: a walk-in ends, because both must name somebody.
  * - away from **counter**: the payment draft goes, because the wire *forbids* the block on the other
  *   two (`422`).
  * - to **counter**: the day and the slot go too — a counter sale is handed over now.
@@ -219,7 +239,7 @@ export function withFulfilmentType(
     return {
         ...state,
         fulfilmentType,
-        customerAccountId: toCounter ? null : state.customerAccountId,
+        walkIn: toCounter && state.walkIn,
         customerAddressId: needsAddress(fulfilmentType) ? state.customerAddressId : null,
         paymentMethod: method,
         payment: toCounter ? { method, reference: '', notes: '' } : null,
@@ -349,7 +369,17 @@ export function offeredDeskWindows<
  */
 export function withCustomer(state: SaleState, customerAccountId: string): SaleState {
     if (state.customerAccountId === customerAccountId) return state;
-    return { ...state, customerAccountId, customerAddressId: null };
+    return { ...state, customerAccountId, walkIn: false, customerAddressId: null };
+}
+
+/** A sale that names nobody, chosen on purpose: the customer and their address go. */
+export function withWalkIn(state: SaleState): SaleState {
+    return { ...state, walkIn: true, customerAccountId: null, customerAddressId: null };
+}
+
+/** Whether the agent has said who this sale is for. Until then the menu stays shut. */
+export function partyChosen(state: SaleState): boolean {
+    return state.customerAccountId !== null || state.walkIn;
 }
 
 /**
@@ -379,7 +409,7 @@ export function isCounterPaymentComplete(payment: CounterPaymentDraft | null): b
 }
 
 /** The first thing this sale still needs, in the order the page asks for it. */
-export type SaleShortfall = 'customer' | 'address' | 'items' | 'reference';
+export type SaleShortfall = 'customer' | 'address' | 'items' | 'reference' | 'allergy';
 
 /**
  * What stands between this sale and the place button — `null` when nothing does.
@@ -389,7 +419,8 @@ export type SaleShortfall = 'customer' | 'address' | 'items' | 'reference';
  * depend on a request, and its rules would stop being testable without one.
  *
  * Top to bottom, the way the page reads: the customer and the address sit above the menu, the items
- * are the menu, and the reference is the last thing on the ticket.
+ * are the menu, and the reference is the last thing on the ticket. `allergy` is never answered here:
+ * it comes from the quote, so the screen adds it once this has nothing to say.
  */
 export function saleShortfall(state: SaleState, addressOnFile = false): SaleShortfall | null {
     if (needsCustomer(state.fulfilmentType) && state.customerAccountId === null) return 'customer';
