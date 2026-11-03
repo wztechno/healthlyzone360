@@ -47,8 +47,22 @@ return new class extends Migration
 
         Schema::table('daily_closes', function (Blueprint $table): void {
             $table->dropConstrainedForeignId('branch_id');
-            $table->unique(['organisation_id', 'currency_code', 'opened_at']);
         });
+
+        // Two branches whose first shifts opened at the same local midnight hold the
+        // same kitchen-wide key, so the old unique comes back only when nothing would
+        // break it. Without it the close's advisory lock still stops a double press.
+        $clashes = DB::table('daily_closes')
+            ->select('organisation_id', 'currency_code', 'opened_at')
+            ->groupBy('organisation_id', 'currency_code', 'opened_at')
+            ->havingRaw('count(*) > 1')
+            ->exists();
+
+        if (! $clashes) {
+            Schema::table('daily_closes', function (Blueprint $table): void {
+                $table->unique(['organisation_id', 'currency_code', 'opened_at']);
+            });
+        }
 
         Schema::table('cash_settlements', function (Blueprint $table): void {
             $table->dropConstrainedForeignId('branch_id');

@@ -73,15 +73,16 @@ final readonly class StaffAlerts
     /**
      * @param  array{order_number: string, total_minor?: int, currency_code?: string, severe?: bool}  $data  order number, money and a severity flag only; any other key is dropped
      * @param  string|null  $requesterUserId  who to tell, for a type whose audience is `requester`
+     * @param  string|null  $subjectType  what `$subjectId` names, when not the type's usual subject
      */
-    public function send(StaffAlertType $type, string $organisationId, string $subjectId, array $data, ?string $requesterUserId = null): void
+    public function send(StaffAlertType $type, string $organisationId, string $subjectId, array $data, ?string $requesterUserId = null, ?string $subjectType = null): void
     {
         $data = array_intersect_key($data, array_flip(self::ALLOWED_DATA));
 
         try {
             /** @var list<array{user_id: string, email: string, locale: string}> $alerted */
             $alerted = $this->tenantContext->during(null, $organisationId, null, fn (): array => DB::transaction(
-                fn (): array => $this->writeRows($type, $organisationId, $subjectId, $data, $requesterUserId),
+                fn (): array => $this->writeRows($type, $organisationId, $subjectId, $subjectType ?? $type->subjectType(), $data, $requesterUserId),
             ));
 
             DB::afterCommit(function () use ($type, $alerted, $subjectId, $data): void {
@@ -96,7 +97,7 @@ final readonly class StaffAlerts
      * @param  array{order_number: string, total_minor?: int, currency_code?: string, severe?: bool}  $data
      * @return list<array{user_id: string, email: string, locale: string}> the recipients not already alerted
      */
-    private function writeRows(StaffAlertType $type, string $organisationId, string $subjectId, array $data, ?string $requesterUserId): array
+    private function writeRows(StaffAlertType $type, string $organisationId, string $subjectId, string $subjectType, array $data, ?string $requesterUserId): array
     {
         $recipients = match ($type->audience()) {
             'owners' => $this->recipients->owners($organisationId),
@@ -122,7 +123,7 @@ final readonly class StaffAlerts
                 'organisation_id' => $organisationId,
                 'user_id' => $recipient['user_id'],
                 'type' => $type->value,
-                'subject_type' => $type->subjectType(),
+                'subject_type' => $subjectType,
                 'subject_id' => $subjectId,
                 'data' => $encoded,
                 'created_at' => now(),
@@ -177,12 +178,15 @@ final readonly class StaffAlerts
             ], $locale);
         }
 
+        $page = $type->page($subjectId);
+
         return new NoticeMessage(
             'staff_alert_'.$type->value,
             (string) __("notices.staff_alert.{$type->value}.heading", ['number' => $data['order_number']], $locale),
             $lines,
-            (string) __($type->subjectType() === 'order' ? 'notices.staff_alert.action' : 'notices.staff_alert.action_page', [], $locale),
-            rtrim((string) config('app.frontend_url'), '/').$type->page($subjectId),
+            // Named by where the link goes: an alert about an order may still open a page.
+            (string) __(str_starts_with($page, '/kitchen/orders?') ? 'notices.staff_alert.action' : 'notices.staff_alert.action_page', [], $locale),
+            rtrim((string) config('app.frontend_url'), '/').$page,
             $locale,
         );
     }

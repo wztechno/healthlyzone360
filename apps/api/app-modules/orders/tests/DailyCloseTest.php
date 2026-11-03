@@ -290,6 +290,62 @@ it('counts an order with no branch in the kitchen\'s first branch\'s till', func
         ->assertJsonPath('data.close.branch_id', (string) $this->world->branch->getKey());
 });
 
+it('keeps the first branch first once it closes, so the next till does not count its cash again', function (): void {
+    $main = (string) $this->world->branch->getKey();
+    $second = secondBranch($this);
+
+    // No branch on the order: the first branch's till takes it.
+    counterCash($this, 3000);
+    closeTill($this, 0, 3000)->assertCreated()->assertJsonPath('data.close.branch_id', $main);
+
+    DB::table('organisation_branches')->where('id', $main)->update(['status' => 'closed']);
+    $this->travel(1)->minutes();
+
+    $this->getJson(CLOSES_URL, $this->world->headers)
+        ->assertOk()
+        ->assertJsonPath('data.branches.0.id', $main)
+        ->assertJsonCount(0, 'data.open');
+
+    closeTill($this, 0, 0, 'Nothing here', $second)->assertConflict();
+
+    expect(StaffNotification::withoutTenancy()->where('type', StaffAlertType::ShortClose->value)->exists())->toBeFalse();
+});
+
+it('shows a fortnight of days in the kitchen total, however many currencies each day closed in', function (): void {
+    $other = (string) DB::table('currencies')->where('code', '<>', 'USD')->orderBy('code')->value('code');
+
+    foreach (range(0, 15) as $daysAgo) {
+        foreach (['USD', $other] as $currency) {
+            $opened = CarbonImmutable::now()->subDays($daysAgo)->startOfDay();
+
+            DB::table('daily_closes')->insert([
+                'id' => (string) Str::uuid7(),
+                'organisation_id' => $this->orgId,
+                'branch_id' => $this->world->branch->getKey(),
+                'currency_code' => $currency,
+                'business_date' => $opened->toDateString(),
+                'opened_at' => $opened,
+                'closed_at' => $opened->addHours(10),
+                'opening_float_minor' => 0,
+                'counter_cash_minor' => 100,
+                'handed_in_minor' => 0,
+                'cash_refunds_minor' => 0,
+                'expected_minor' => 100,
+                'counted_minor' => 100,
+                'variance_minor' => 0,
+                'recorded_by' => $this->world->tenant->user->getKey(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+    }
+
+    $totals = $this->getJson(CLOSES_URL, $this->world->headers)->assertOk()->json('data.totals');
+
+    expect($totals)->toHaveCount(28)
+        ->and(collect($totals)->pluck('business_date')->unique())->toHaveCount(14);
+});
+
 it('refuses another kitchen\'s branch as the till', function (): void {
     counterCash($this, 3000);
     $stranger = CheckoutWorld::branch(Organisation::factory()->create([

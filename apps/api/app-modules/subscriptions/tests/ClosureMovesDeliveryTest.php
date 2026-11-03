@@ -142,6 +142,27 @@ it('keeps the date and still alerts when nothing opens in two weeks', function (
 
     ($this->generateFirstDay)();
 
-    expect(StaffNotification::withoutTenancy()->where('type', StaffAlertType::DeliveryClosedUnmoved->value)->count())->toBe(1)
+    $alert = StaffNotification::withoutTenancy()->where('type', StaffAlertType::DeliveryClosedUnmoved->value)->sole();
+
+    // The branch refuses its own closed day, so no order was placed: the subject is the day.
+    expect(Order::query()->count())->toBe(0)
+        ->and($alert->subject_type)->toBe('subscription_delivery')
         ->and(movedAlerts())->toBe(0);
+});
+
+it('alerts again when a later closure moves the same order a second time', function (): void {
+    ($this->close)($this->first, $this->first->addDay());
+    ($this->generateFirstDay)();
+
+    $order = Order::query()->sole();
+    StaffNotification::withoutTenancy()->where('type', StaffAlertType::DeliveryMovedClosed->value)->update(['read_at' => CarbonImmutable::now()]);
+
+    ($this->close)($this->first->addDays(2), $this->first->addDays(2));
+
+    $alert = StaffNotification::withoutTenancy()->where('type', StaffAlertType::DeliveryMovedClosed->value)->sole();
+
+    expect($order->refresh()->requested_delivery_date->toDateString())->toBe($this->first->addDays(3)->toDateString())
+        ->and($alert->subject_id)->toBe((string) $order->getKey())
+        ->and($alert->subject_type)->toBe('order')
+        ->and($alert->read_at)->toBeNull();
 });

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Healthy360\Orders\OrderDesk\Services;
 
-use Healthy360\Organisations\Enums\BranchStatus;
 use Healthy360\Organisations\Models\OrganisationBranch;
 
 /**
@@ -12,9 +11,13 @@ use Healthy360\Organisations\Models\OrganisationBranch;
  *
  * Cash belongs to the branch of its order: the branch the order names, else the
  * branch its delivery zone belongs to, else the kitchen's first branch, the
- * oldest active one, as `ServingBranches` orders them. The same first branch takes
- * the hand-ins and closes written before tills were per branch, whose branch is
- * null. A kitchen with no branch at all has one till, with a null branch.
+ * oldest one. The same first branch takes the hand-ins and closes written before
+ * tills were per branch, whose branch is null. A kitchen with no branch at all
+ * has one till, with a null branch.
+ *
+ * "First" ignores whether a branch is open. It is resolved when the till is read,
+ * not stored, so it must never move: if closing the oldest branch made another
+ * one first, that one would count again the receipts the old one already closed.
  *
  * A hand-in carries its branch, written when it settles, because one hand-in
  * covers one branch's runs.
@@ -48,7 +51,7 @@ final readonly class TillBranches
     }
 
     /**
-     * The kitchen's first branch: the oldest active one, else the oldest of any.
+     * The kitchen's first branch: the oldest, open or closed.
      */
     public function first(string $organisationId): ?string
     {
@@ -65,7 +68,6 @@ final readonly class TillBranches
     {
         return OrganisationBranch::withoutTenancy()
             ->where('organisation_id', $organisationId)
-            ->orderByRaw('case when status = ? then 0 else 1 end', [BranchStatus::Active->value])
             ->orderBy('created_at')
             ->orderBy('id')
             ->get(['id', 'name'])

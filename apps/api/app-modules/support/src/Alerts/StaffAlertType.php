@@ -53,18 +53,21 @@ enum StaffAlertType: string
      * re-delivered order can fail again, and managers must hear that as they did
      * the first time. A second refund on one order needs its own approval, and its
      * own answer. A dish can fall below target, recover and fall again: the job
-     * that sends that alert sends it only on the fall.
+     * that sends that alert sends it only on the fall. An order moved off a closure
+     * can land on a closure added later and move again; the callers send that alert
+     * only on a real move, never on a replayed placement.
      */
     public function repeats(): bool
     {
         return match ($this) {
-            self::DeliveryFailed, self::RefundApproval, self::RefundApproved, self::RefundRejected, self::DishBelowTarget => true,
+            self::DeliveryFailed, self::RefundApproval, self::RefundApproved, self::RefundRejected, self::DishBelowTarget, self::DeliveryMovedClosed => true,
             default => false,
         };
     }
 
     /**
-     * What the alert is about: an order, unless it says otherwise.
+     * What the alert is about: an order, unless it says otherwise. A caller may
+     * name another subject for one alert ({@see StaffAlerts::send()}).
      */
     public function subjectType(): string
     {
@@ -75,7 +78,6 @@ enum StaffAlertType: string
             self::ShortClose => 'daily_close',
             self::PriceApproval => 'goods_receipt',
             self::DishBelowTarget => 'dish_margin',
-            self::DeliveryClosedUnmoved => 'delivery',
             default => 'order',
         };
     }

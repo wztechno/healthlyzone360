@@ -125,10 +125,13 @@ final readonly class QuotationOrderPlacer
                 $week === 0 ? 'quotation:'.$quotation->getKey() : 'quotation:'.$quotation->getKey().':'.($week + 1),
             );
 
-            if ($moved === null) {
-                $this->closedDays->alertUnmoved($kitchenOrganisationId, (string) $result->order->getKey(), $agreed);
-            } elseif (! $moved->equalTo($agreed)) {
-                $this->closedDays->alertMoved($result->order);
+            // A replayed acceptance already told them.
+            if (! $result->replayed) {
+                if ($moved === null) {
+                    $this->closedDays->alertUnmoved($kitchenOrganisationId, (string) $result->order->getKey(), $agreed);
+                } elseif (! $moved->equalTo($agreed)) {
+                    $this->closedDays->alertMoved($result->order);
+                }
             }
 
             $placed[] = ['order_id' => (string) $result->order->getKey(), 'delivery_date' => $date];

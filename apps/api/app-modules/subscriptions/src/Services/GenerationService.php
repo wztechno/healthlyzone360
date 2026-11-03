@@ -371,7 +371,8 @@ final readonly class GenerationService
             ]);
 
             if ($deliverOn === null) {
-                $this->closedDays->alertUnmoved($subscription->organisation_id, (string) $delivery->getKey(), $date);
+                // No order was placed: the subject is the subscription's day.
+                $this->closedDays->alertUnmoved($subscription->organisation_id, (string) $delivery->getKey(), $date, 'subscription_delivery');
             }
 
             return ['generated' => 0, 'skipped' => 1, 'completed' => 0];
@@ -379,10 +380,13 @@ final readonly class GenerationService
 
         $order = $result->order;
 
-        if ($deliverOn === null) {
-            $this->closedDays->alertUnmoved($subscription->organisation_id, (string) $order->getKey(), $date);
-        } elseif (! $deliverOn->equalTo($date)) {
-            $this->closedDays->alertMoved($order);
+        // A replayed placement already told them.
+        if (! $result->replayed) {
+            if ($deliverOn === null) {
+                $this->closedDays->alertUnmoved($subscription->organisation_id, (string) $order->getKey(), $date);
+            } elseif (! $deliverOn->equalTo($date)) {
+                $this->closedDays->alertMoved($order);
+            }
         }
 
         DB::transaction(function () use ($subscription, $delivery, $order): void {

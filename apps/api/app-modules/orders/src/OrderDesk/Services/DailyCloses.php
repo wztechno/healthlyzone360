@@ -130,8 +130,17 @@ final readonly class DailyCloses
      */
     public function totals(string $organisationId): array
     {
+        // Limited by day, not by row: a day in two currencies is two rows.
+        $days = DB::table('daily_closes')
+            ->where('organisation_id', $organisationId)
+            ->distinct()
+            ->orderByDesc('business_date')
+            ->limit(self::TOTAL_DAYS)
+            ->select('business_date');
+
         $shifts = DB::table('daily_closes')
             ->where('organisation_id', $organisationId)
+            ->whereIn('business_date', $days)
             ->select(['business_date', 'currency_code', 'branch_id', 'counter_cash_minor', 'handed_in_minor', 'cash_refunds_minor', 'counted_minor', 'variance_minor'])
             ->selectRaw('row_number() over (partition by business_date, currency_code, branch_id order by closed_at desc) = 1 as is_last');
 
@@ -143,7 +152,6 @@ final readonly class DailyCloses
             ->groupBy('business_date', 'currency_code')
             ->orderByDesc('business_date')
             ->orderBy('currency_code')
-            ->limit(self::TOTAL_DAYS)
             ->get()
             ->map(static fn (stdClass $row): array => [
                 'business_date' => CarbonImmutable::parse((string) $row->business_date)->toDateString(),

@@ -64,13 +64,14 @@ final readonly class ClosedDayDeliveries
 
     /**
      * Tell the managers a delivery stays on a closed day: no open day was found.
-     * The subject is the order, or what stands for it when none was placed.
+     * The subject is the order, or, when none was placed, what stands for it,
+     * named by `$subjectType`. The link opens the closures page either way.
      */
-    public function alertUnmoved(string $organisationId, string $subjectId, CarbonImmutable $date): void
+    public function alertUnmoved(string $organisationId, string $subjectId, CarbonImmutable $date, string $subjectType = 'order'): void
     {
         $this->alerts->send(StaffAlertType::DeliveryClosedUnmoved, $organisationId, $subjectId, [
             'order_number' => $date->toDateString(),
-        ]);
+        ], subjectType: $subjectType);
     }
 
     /**
