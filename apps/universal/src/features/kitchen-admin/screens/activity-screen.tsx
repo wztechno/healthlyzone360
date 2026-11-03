@@ -1,5 +1,6 @@
 import type { ActivityEntry, StockActivityMovement } from '@healthy360/api-client/contracts';
 import {
+    Button,
     Callout,
     Cascade,
     DatePickerButton,
@@ -12,6 +13,7 @@ import {
     Text,
 } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
+import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -45,6 +47,34 @@ const WHEN: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'shor
 const MAX_WINDOW_DAYS = 31;
 
 type ActivityView = 'stock' | 'audit';
+
+/**
+ * An order number that opens the order, as the customer page opens one
+ * (`customer-detail-screen.tsx`).
+ */
+function OrderLink({
+    orderId,
+    orderNumber,
+    testID,
+}: {
+    readonly orderId: string;
+    readonly orderNumber: string;
+    readonly testID: string;
+}) {
+    const router = useRouter();
+
+    return (
+        <Button
+            testID={testID}
+            size="sm"
+            variant="quiet"
+            label={orderNumber}
+            onPress={() => {
+                router.push(`/kitchen/orders?view=${encodeURIComponent(orderId)}` as never);
+            }}
+        />
+    );
+}
 
 export function ActivityScreen() {
     return (
@@ -197,6 +227,15 @@ function StockMovements({ window }: { readonly window: { from: string; to: strin
             render: (row) => (
                 <Stack space="xs">
                     <Text tone="secondary">{t(`kitchen:ops.activity.reason.${row.reason}`)}</Text>
+                    {row.wasteReason === null ? null : (
+                        <Text
+                            variant="caption"
+                            tone="secondary"
+                            testID={`kitchen-activity-waste-reason-${row.id}`}
+                        >
+                            {t(`kitchen:ops.stock.wasteReason.${row.wasteReason}`)}
+                        </Text>
+                    )}
                     {row.notes === null ? null : (
                         <Text variant="caption" tone="secondary">
                             {row.notes}
@@ -209,6 +248,22 @@ function StockMovements({ window }: { readonly window: { from: string; to: strin
                     )}
                 </Stack>
             ),
+        },
+        {
+            key: 'order',
+            label: t('kitchen:ops.activity.columnOrder'),
+            width: 120,
+            priority: 89,
+            render: (row) =>
+                row.orderId === null || row.orderNumber === null ? (
+                    <Text tone="secondary">{t('kitchen:list.noValue')}</Text>
+                ) : (
+                    <OrderLink
+                        orderId={row.orderId}
+                        orderNumber={row.orderNumber}
+                        testID={`kitchen-activity-stock-order-${row.id}`}
+                    />
+                ),
         },
         {
             key: 'quantity',
@@ -370,11 +425,18 @@ function AuditTrail({ window }: { readonly window: { from: string; to: string } 
             label: t('kitchen:ops.activity.columnOrder'),
             width: 120,
             priority: 92,
-            render: (row) => (
-                <Text variant="mono" tone="secondary">
-                    {row.orderNumber ?? t('kitchen:list.noValue')}
-                </Text>
-            ),
+            render: (row) =>
+                row.orderId === null || row.orderNumber === null ? (
+                    <Text variant="mono" tone="secondary">
+                        {row.orderNumber ?? t('kitchen:list.noValue')}
+                    </Text>
+                ) : (
+                    <OrderLink
+                        orderId={row.orderId}
+                        orderNumber={row.orderNumber}
+                        testID={`kitchen-activity-audit-order-${row.id}`}
+                    />
+                ),
         },
         {
             key: 'actor',

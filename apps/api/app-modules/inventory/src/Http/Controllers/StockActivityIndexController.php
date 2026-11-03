@@ -27,6 +27,9 @@ use Illuminate\Validation\ValidationException;
  * that could not be valued adds nothing to a total and is counted in
  * `unvalued_waste_count`, so a total can never read as complete when it is not.
  *
+ * A waste row names its reason; one from before the reason column reads as `other`.
+ * `order_id` is set wherever `order_number` is, so a reader can open the order.
+ *
  * `cost_minor` is `cost_amount` to the nearest minor unit: the ledger holds six
  * places and a reader wants money.
  *
@@ -61,7 +64,7 @@ final class StockActivityIndexController
         $organisationId = (string) $this->context->organisationId();
 
         $rows = $this->movements($organisationId, $from, $to)
-            ->select(['m.id', 'm.created_at', 'm.reason', 'm.quantity_delta', 'm.notes', 'm.cost_currency_code', 'm.reference_type', 'items.name_en', 'items.unit_code', 'orders.order_number', 'orders.cancellation_disposition'])
+            ->select(['m.id', 'm.created_at', 'm.reason', 'm.quantity_delta', 'm.notes', 'm.cost_currency_code', 'm.reference_type', 'm.waste_reason', 'items.name_en', 'items.unit_code', 'orders.id as order_id', 'orders.order_number', 'orders.cancellation_disposition'])
             ->selectRaw('round(m.cost_amount * 100) as cost_minor')
             ->selectRaw("nullif(trim(coalesce(profiles.given_name, '') || ' ' || coalesce(profiles.family_name, '')), '') as actor_name")
             ->selectRaw('m.actor_user_id is not null as attributed')
@@ -83,6 +86,8 @@ final class StockActivityIndexController
                 'cost_minor' => $row->cost_minor === null ? null : (int) $row->cost_minor,
                 'currency_code' => $row->cost_currency_code,
                 'notes' => $row->notes,
+                'waste_reason' => $row->reason === 'waste' ? ($row->waste_reason ?? 'other') : null,
+                'order_id' => $row->order_id === null ? null : (string) $row->order_id,
                 'order_number' => $row->order_number,
                 'wasted_order' => $row->reason === 'consume' && $row->cancellation_disposition === 'wasted',
                 'attributed' => (bool) $row->attributed,

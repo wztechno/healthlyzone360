@@ -504,7 +504,16 @@
             "exceedsShelf": "Only {{amount}} is on the shelf. If there is really more, post a Count first, then try again.",
             "parNotAboveThreshold": "The restock level must be above the reorder threshold.",
             "notStocked": "Not stocked",
-            "fieldNotesRequired": "Why"
+            "fieldNotesRequired": "Why",
+            "fieldWasteReason": "Reason for waste",
+            "wasteReason": {
+                "expired": "Expired",
+                "spoiled": "Spoiled",
+                "damaged": "Damaged",
+                "overproduced": "Overproduced",
+                "customer_return": "Customer return",
+                "other": "Other"
+            }
         },
         "supplyOrders": {
             "cancelFailed": "The order could not be cancelled.",

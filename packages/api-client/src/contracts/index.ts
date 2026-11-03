@@ -455,6 +455,7 @@ export {
     SPEND_SUMMARY_GROUPINGS,
     SPEND_SUMMARY_INCLUDES,
     STOCK_MOVEMENT_REASONS,
+    STOCK_WASTE_REASONS,
     formatGtin,
 } from './kitchen-ops.ts';
 export type {
@@ -572,6 +573,7 @@ export type {
     StockLevel,
     StockMovement,
     StockMovementReason,
+    StockWasteReason,
     ActivityEntry,
     ActivityPage,
     ActivityWindow,

@@ -3,7 +3,9 @@ import type {
     ItemLatestPurchase,
     StockItem,
     StockLevel,
+    StockWasteReason,
 } from '@healthy360/api-client/contracts';
+import { STOCK_WASTE_REASONS } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
@@ -1237,6 +1239,7 @@ function StockMovementEditor({
     const [thresholdValue, setThresholdValue] = useState(initialThreshold);
     const [parLevelValue, setParLevelValue] = useState(initialPar);
     const [direction, setDirection] = useState<MovementDirection>('increase');
+    const [wasteReason, setWasteReason] = useState<StockWasteReason | null>(null);
     const [quantity, setQuantity] = useState('');
     const [notes, setNotes] = useState('');
     const [saving, setSaving] = useState(false);
@@ -1294,8 +1297,12 @@ function StockMovementEditor({
         (direction === 'decrease' || direction === 'waste') &&
         movementMagnitude > onHand;
 
-    // Every adjustment and every waste says why. A count's reason is that it is a count.
-    const reasonMissing = hasMovement && !isCount && notes.trim() === '';
+    // Every adjustment says why. Waste picks a reason, and only `other` needs the why written
+    // out. A count's reason is that it is a count.
+    const isWaste = direction === 'waste';
+    const notesRequired = isWaste ? wasteReason === 'other' : !isCount;
+    const reasonMissing =
+        hasMovement && ((isWaste && wasteReason === null) || (notesRequired && notes.trim() === ''));
 
     const canSave =
         branchId !== null &&
@@ -1356,12 +1363,18 @@ function StockMovementEditor({
                     countedQuantity: movementMagnitude,
                     notes: note === '' ? null : note,
                 });
-            } else if (movementMagnitude !== null && hasMovement && direction === 'waste') {
+            } else if (
+                movementMagnitude !== null &&
+                hasMovement &&
+                isWaste &&
+                wasteReason !== null
+            ) {
                 await waste.mutateAsync({
                     branchId,
                     stockItemId: row.item.id,
                     quantity: movementMagnitude,
-                    notes: note,
+                    reason: wasteReason,
+                    notes: note === '' ? null : note,
                 });
             } else if (movementMagnitude !== null && hasMovement) {
                 await adjustment.mutateAsync({
@@ -1603,15 +1616,32 @@ function StockMovementEditor({
                                     keyboardType="decimal-pad"
                                     size="sm"
                                 />
+                                {!isWaste ? null : (
+                                    <Select<StockWasteReason>
+                                        testID="kitchen-stock-movement-waste-reason"
+                                        span={2}
+                                        label={t('kitchen:ops.stock.fieldWasteReason')}
+                                        required
+                                        options={STOCK_WASTE_REASONS.map((candidate) => ({
+                                            value: candidate,
+                                            label: t(`kitchen:ops.stock.wasteReason.${candidate}`),
+                                        }))}
+                                        value={wasteReason}
+                                        onChange={(next) => {
+                                            setWasteReason(next);
+                                            guard.markDirty();
+                                        }}
+                                    />
+                                )}
                                 <TextInputField
                                     testID="kitchen-stock-movement-notes"
                                     span={2}
                                     label={t(
-                                        isCount
-                                            ? 'kitchen:ops.stock.fieldNotes'
-                                            : 'kitchen:ops.stock.fieldNotesRequired',
+                                        notesRequired
+                                            ? 'kitchen:ops.stock.fieldNotesRequired'
+                                            : 'kitchen:ops.stock.fieldNotes',
                                     )}
-                                    required={!isCount}
+                                    required={notesRequired}
                                     placeholder={t('kitchen:ops.stock.fieldNotesPlaceholder')}
                                     value={notes}
                                     onChangeText={edit(setNotes)}

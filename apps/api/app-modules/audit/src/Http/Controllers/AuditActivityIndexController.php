@@ -76,6 +76,7 @@ final class AuditActivityIndexController
             'action' => $log->action,
             'actor_name' => $log->actor_user_id === null ? null : ($names[$log->actor_user_id] ?? null),
             'subject_type' => $log->subject_type,
+            'order_id' => isset($orderNumbers[$log->subject_id]) ? $log->subject_id : null,
             'order_number' => $orderNumbers[$log->subject_id] ?? null,
             'metadata' => (object) ($log->metadata ?? []),
         ])->values()->all(), ['truncated' => $truncated]);

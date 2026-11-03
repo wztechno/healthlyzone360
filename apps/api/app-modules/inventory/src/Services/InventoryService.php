@@ -43,6 +43,9 @@ final readonly class InventoryService
      */
     private const int SCALE = 6;
 
+    /** Why food was thrown away. A note is required only for `other`. */
+    public const array WASTE_REASONS = ['expired', 'spoiled', 'damaged', 'overproduced', 'customer_return', 'other'];
+
     public function __construct(
         private ReservationService $reservations,
         private AuditRecorder $audit,
@@ -59,6 +62,7 @@ final readonly class InventoryService
      * @param  string|null  $soldItemType  `meal` or `product`, denormalised from the sold catalogue item so the report splits COGS by line of business without a join (INV1.5)
      * @param  string|null  $holderType  the claim this movement consumes against, so a batch is checked against everyone else's reservations rather than its own (PROD1)
      * @param  string|null  $holderId  the holder id, paired with `$holderType`; both or neither
+     * @param  string|null  $wasteReason  one of {@see self::WASTE_REASONS}, on a `waste` movement only
      *
      * @throws InsufficientStock when a consume would drive available stock below zero, or any other movement would drive on-hand below zero
      */
@@ -78,10 +82,11 @@ final readonly class InventoryService
         ?string $soldItemType = null,
         ?string $holderType = null,
         ?string $holderId = null,
+        ?string $wasteReason = null,
     ): StockMovement {
         $delta = $this->numeric($quantityDelta);
 
-        return DB::transaction(function () use ($organisationId, $branchId, $stockItemId, $reason, $delta, $referenceType, $referenceId, $notes, $unitCostAmount, $costAmount, $costCurrencyCode, $orderLineId, $soldItemType, $holderType, $holderId): StockMovement {
+        return DB::transaction(function () use ($organisationId, $branchId, $stockItemId, $reason, $delta, $referenceType, $referenceId, $notes, $unitCostAmount, $costAmount, $costCurrencyCode, $orderLineId, $soldItemType, $holderType, $holderId, $wasteReason): StockMovement {
             $level = $this->lockLevel($organisationId, $branchId, $stockItemId);
 
             $currentQuantity = $this->numeric((string) $level->quantity);
@@ -157,6 +162,7 @@ final readonly class InventoryService
                 'order_line_id' => $orderLineId,
                 'sold_item_type' => $soldItemType,
                 'notes' => $notes,
+                'waste_reason' => $wasteReason,
                 'unit_cost_amount' => $unitCostAmount,
                 'cost_amount' => $costAmount,
                 'cost_currency_code' => $costCurrencyCode,
@@ -173,20 +179,19 @@ final readonly class InventoryService
      * unvalued, never free, when no cost is held.
      *
      * @param  numeric-string  $quantity  positive; the ledger records it negative
+     * @param  string  $reason  one of {@see self::WASTE_REASONS}; the controller requires a note for `other`
      *
      * @throws InsufficientStock when it would take more than is on hand
      */
-    public function recordWaste(string $organisationId, string $branchId, string $stockItemId, string $quantity, string $notes): StockMovement
+    public function recordWaste(string $organisationId, string $branchId, string $stockItemId, string $quantity, ?string $notes, string $reason): StockMovement
     {
-        $item = StockItem::withoutTenancy()->where('organisation_id', $organisationId)->whereKey($stockItemId)->first();
-        $unit = $item?->unit_id === null ? null : MeasurementUnit::query()->find($item->unit_id);
+        if (! in_array($reason, self::WASTE_REASONS, true)) {
+            throw new RuntimeException("Unknown waste reason [{$reason}].");
+        }
 
-        $valued = $item?->ingredient_id !== null && $unit instanceof MeasurementUnit
-            ? $this->valuation->value($organisationId, $item->ingredient_id, $unit, $quantity)
-            : null;
-        $figures = is_array($valued) ? $valued : null;
+        $figures = $this->valueShelf($organisationId, $stockItemId, $quantity);
 
-        return DB::transaction(function () use ($organisationId, $branchId, $stockItemId, $quantity, $notes, $figures): StockMovement {
+        return DB::transaction(function () use ($organisationId, $branchId, $stockItemId, $quantity, $notes, $reason, $figures): StockMovement {
             $movement = $this->recordMovement(
                 $organisationId,
                 $branchId,
@@ -197,6 +202,7 @@ final readonly class InventoryService
                 unitCostAmount: $figures['unit_cost_amount'] ?? null,
                 costAmount: $figures['cost_amount'] ?? null,
                 costCurrencyCode: $figures['currency_code'] ?? null,
+                wasteReason: $reason,
             );
 
             if ($figures !== null) {
@@ -217,6 +223,12 @@ final readonly class InventoryService
      * that matches the ledger still posts, as a zero movement: "counted, and it
      * agreed" is a stock-take worth keeping.
      *
+     * The difference is valued at the ingredient's moving average, as waste is:
+     * a loss lowers the basis, a gain raises it at the same average (found stock
+     * came in at no new price). With no cost held the movement is unvalued, never
+     * free. A count to zero is how a shelf is emptied before a duplicate merge,
+     * so it must carry its value.
+     *
      * @param  string  $countedQuantity  what is on the shelf, never negative
      */
     public function recordCount(
@@ -235,8 +247,28 @@ final readonly class InventoryService
         return DB::transaction(function () use ($organisationId, $branchId, $stockItemId, $counted, $notes): StockMovement {
             $level = $this->lockLevel($organisationId, $branchId, $stockItemId);
             $delta = bcsub($counted, $this->numeric((string) $level->quantity), self::SCALE);
+            $direction = bccomp($delta, '0', self::SCALE);
+            $figures = $direction === 0 ? null : $this->valueShelf($organisationId, $stockItemId, $direction < 0 ? bcmul($delta, '-1', self::SCALE) : $delta);
 
-            return $this->recordMovement($organisationId, $branchId, $stockItemId, 'adjust', $delta, notes: $notes ?? 'Stock count');
+            $movement = $this->recordMovement(
+                $organisationId,
+                $branchId,
+                $stockItemId,
+                'adjust',
+                $delta,
+                notes: $notes ?? 'Stock count',
+                unitCostAmount: $figures['unit_cost_amount'] ?? null,
+                costAmount: $figures['cost_amount'] ?? null,
+                costCurrencyCode: $figures['currency_code'] ?? null,
+            );
+
+            if ($figures !== null && $direction < 0) {
+                $this->valuation->lowerBasis($figures['cost_id'], $figures['quantity_in_cost_unit']);
+            } elseif ($figures !== null) {
+                $this->valuation->raiseBasis($figures['cost_id'], $figures['quantity_in_cost_unit']);
+            }
+
+            return $movement;
         });
     }
 
@@ -324,6 +356,26 @@ final readonly class InventoryService
         }
 
         return bccomp($quantity, $reorderThreshold, self::SCALE) <= 0;
+    }
+
+    /**
+     * A quantity of the shelf's item valued at its ingredient's moving average,
+     * or null when it cannot be: no ingredient, no unit, no cost held, or units
+     * that will not convert.
+     *
+     * @param  numeric-string  $quantity  positive, in the shelf's unit
+     * @return array{unit_cost_amount: numeric-string, cost_amount: numeric-string, currency_code: string, cost_id: string, quantity_in_cost_unit: numeric-string}|null
+     */
+    private function valueShelf(string $organisationId, string $stockItemId, string $quantity): ?array
+    {
+        $item = StockItem::withoutTenancy()->where('organisation_id', $organisationId)->whereKey($stockItemId)->first();
+        $unit = $item?->unit_id === null ? null : MeasurementUnit::query()->find($item->unit_id);
+
+        $valued = $item?->ingredient_id !== null && $unit instanceof MeasurementUnit
+            ? $this->valuation->value($organisationId, $item->ingredient_id, $unit, $quantity)
+            : null;
+
+        return is_array($valued) ? $valued : null;
     }
 
     /**

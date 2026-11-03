@@ -131,6 +131,17 @@ export interface SetStockThresholdRequest {
 export const STOCK_MOVEMENT_REASONS = ['adjust', 'waste', 'receipt', 'consume', 'yield'] as const;
 export type StockMovementReason = (typeof STOCK_MOVEMENT_REASONS)[number];
 
+/** Why food was thrown away. Only `other` needs a note. */
+export const STOCK_WASTE_REASONS = [
+    'expired',
+    'spoiled',
+    'damaged',
+    'overproduced',
+    'customer_return',
+    'other',
+] as const;
+export type StockWasteReason = (typeof STOCK_WASTE_REASONS)[number];
+
 export interface StockMovement {
     readonly id: string;
     /** Signed — negative for waste and consumption, positive for receipts, yields and increases. */
@@ -150,6 +161,9 @@ export interface StockActivityMovement {
     readonly costMinor: number | null;
     readonly currencyCode: CurrencyCode | null;
     readonly notes: string | null;
+    /** Waste rows only; one from before reasons were recorded reads as `other`. */
+    readonly wasteReason: StockWasteReason | null;
+    readonly orderId: string | null;
     readonly orderNumber: string | null;
     /** A deduction for an order cancelled as wasted. */
     readonly wastedOrder: boolean;
@@ -177,6 +191,8 @@ export interface ActivityEntry {
     readonly action: string;
     readonly actorName: string | null;
     readonly subjectType: string;
+    /** Set when the subject is an order. */
+    readonly orderId: string | null;
     readonly orderNumber: string | null;
     readonly metadata: Readonly<Record<string, unknown>>;
 }
@@ -206,8 +222,9 @@ export interface StockWasteRequest {
     readonly stockItemId: StockItemId;
     /** Always positive; the server signs it negative on the ledger. */
     readonly quantity: number;
-    /** Why. The server refuses waste without one. */
-    readonly notes: string;
+    readonly reason: StockWasteReason;
+    /** Required when the reason is `other`. */
+    readonly notes: string | null;
 }
 
 /** A stock count: what the shelf holds. The server posts the difference from the ledger. */

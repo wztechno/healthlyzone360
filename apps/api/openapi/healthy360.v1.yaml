@@ -36239,7 +36239,7 @@ components:
 
     StockWasteRequest:
       type: object
-      required: [branch_id, stock_item_id, quantity]
+      required: [branch_id, stock_item_id, quantity, reason]
       properties:
         branch_id:
           $ref: '#/components/schemas/Uuid'
@@ -36249,10 +36249,17 @@ components:
           type: number
           exclusiveMinimum: 0
           description: Always positive. The endpoint states the loss; the server signs it negative on the ledger.
+        reason:
+          $ref: '#/components/schemas/StockWasteReason'
         notes:
           type: ['string', 'null']
           maxLength: 255
+          description: Required when `reason` is `other`.
       additionalProperties: false
+
+    StockWasteReason:
+      type: string
+      enum: [expired, spoiled, damaged, overproduced, customer_return, other]
 
     Supplier:
       type: object
@@ -43185,7 +43192,7 @@ components:
 
     KitchenActivityEntry:
       type: object
-      required: [id, at, action, actor_name, subject_type, order_number, metadata]
+      required: [id, at, action, actor_name, subject_type, order_id, order_number, metadata]
       properties:
         id:
           type: string
@@ -43198,6 +43205,9 @@ components:
           type: [string, 'null']
         subject_type:
           type: string
+        order_id:
+          type: [string, 'null']
+          description: Set when the subject is an order this organisation can read.
         order_number:
           type: [string, 'null']
         metadata:
@@ -43223,7 +43233,7 @@ components:
 
     StockActivityMovement:
       type: object
-      required: [id, at, item_name, unit, reason, quantity_delta, cost_minor, currency_code, notes, order_number, wasted_order, attributed, actor_name]
+      required: [id, at, item_name, unit, reason, quantity_delta, cost_minor, currency_code, notes, waste_reason, order_id, order_number, wasted_order, attributed, actor_name]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -43244,6 +43254,13 @@ components:
         currency_code:
           type: [string, 'null']
         notes:
+          type: [string, 'null']
+        waste_reason:
+          description: Set on a waste row only. A row from before reasons were recorded reads as `other`.
+          oneOf:
+            - $ref: '#/components/schemas/StockWasteReason'
+            - type: 'null'
+        order_id:
           type: [string, 'null']
         order_number:
           type: [string, 'null']

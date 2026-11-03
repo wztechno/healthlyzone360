@@ -3837,10 +3837,20 @@ export const zStockCountRequest = z.object({
     notes: z.string().max(255).nullish()
 });
 
+export const zStockWasteReason = z.enum([
+    'expired',
+    'spoiled',
+    'damaged',
+    'overproduced',
+    'customer_return',
+    'other'
+]);
+
 export const zStockWasteRequest = z.object({
     branch_id: zUuid,
     stock_item_id: zUuid,
     quantity: z.number().gt(0),
+    reason: zStockWasteReason,
     notes: z.string().max(255).nullish()
 });
 
@@ -6908,6 +6918,7 @@ export const zKitchenActivityEntry = z.object({
     action: z.string(),
     actor_name: z.string().nullable(),
     subject_type: z.string(),
+    order_id: z.string().nullable(),
     order_number: z.string().nullable(),
     metadata: z.record(z.string(), z.unknown())
 });
@@ -6935,6 +6946,8 @@ export const zStockActivityMovement = z.object({
     cost_minor: z.int().nullable(),
     currency_code: z.string().nullable(),
     notes: z.string().nullable(),
+    waste_reason: zStockWasteReason.nullable(),
+    order_id: z.string().nullable(),
     order_number: z.string().nullable(),
     wasted_order: z.boolean(),
     attributed: z.boolean(),

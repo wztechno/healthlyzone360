@@ -5915,6 +5915,7 @@ export interface NamespaceKeys {
     | 'ops.stock.fieldNotesRequired'
     | 'ops.stock.fieldParLevel'
     | 'ops.stock.fieldThreshold'
+    | 'ops.stock.fieldWasteReason'
     | 'ops.stock.filteredEmptyBody'
     | 'ops.stock.history'
     | 'ops.stock.inStockBadge'
@@ -5969,6 +5970,12 @@ export interface NamespaceKeys {
     | 'ops.stock.viewNoteEmpty'
     | 'ops.stock.viewNoteLow'
     | 'ops.stock.waste'
+    | 'ops.stock.wasteReason.customer_return'
+    | 'ops.stock.wasteReason.damaged'
+    | 'ops.stock.wasteReason.expired'
+    | 'ops.stock.wasteReason.other'
+    | 'ops.stock.wasteReason.overproduced'
+    | 'ops.stock.wasteReason.spoiled'
     | 'ops.stock.wastedToast'
     | 'ops.suppliers.addContact'
     | 'ops.suppliers.addressPlaceholder'
@@ -15713,6 +15720,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.fieldNotesRequired',
   'kitchen:ops.stock.fieldParLevel',
   'kitchen:ops.stock.fieldThreshold',
+  'kitchen:ops.stock.fieldWasteReason',
   'kitchen:ops.stock.filteredEmptyBody',
   'kitchen:ops.stock.history',
   'kitchen:ops.stock.inStockBadge',
@@ -15767,6 +15775,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.stock.viewNoteEmpty',
   'kitchen:ops.stock.viewNoteLow',
   'kitchen:ops.stock.waste',
+  'kitchen:ops.stock.wasteReason.customer_return',
+  'kitchen:ops.stock.wasteReason.damaged',
+  'kitchen:ops.stock.wasteReason.expired',
+  'kitchen:ops.stock.wasteReason.other',
+  'kitchen:ops.stock.wasteReason.overproduced',
+  'kitchen:ops.stock.wasteReason.spoiled',
   'kitchen:ops.stock.wastedToast',
   'kitchen:ops.suppliers.addContact',
   'kitchen:ops.suppliers.addressPlaceholder',

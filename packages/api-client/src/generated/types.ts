@@ -5832,8 +5832,14 @@ export type StockWasteRequest = {
      * Always positive. The endpoint states the loss; the server signs it negative on the ledger.
      */
     quantity: number;
+    reason: StockWasteReason;
+    /**
+     * Required when `reason` is `other`.
+     */
     notes?: string | null;
 };
+
+export type StockWasteReason = 'expired' | 'spoiled' | 'damaged' | 'overproduced' | 'customer_return' | 'other';
 
 /**
  * One supplier in the organisation's book. The same shape everywhere a
@@ -10700,6 +10706,10 @@ export type KitchenActivityEntry = {
     action: string;
     actor_name: string | null;
     subject_type: string;
+    /**
+     * Set when the subject is an order this organisation can read.
+     */
+    order_id: string | null;
     order_number: string | null;
     metadata: {
         [key: string]: unknown;
@@ -10723,6 +10733,11 @@ export type StockActivityMovement = {
     cost_minor: number | null;
     currency_code: string | null;
     notes: string | null;
+    /**
+     * Set on a waste row only. A row from before reasons were recorded reads as `other`.
+     */
+    waste_reason: StockWasteReason | null;
+    order_id: string | null;
     order_number: string | null;
     /**
      * A deduction for an order cancelled as wasted.

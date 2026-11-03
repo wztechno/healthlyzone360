@@ -39,6 +39,8 @@ const ACTIVITY: StockActivity = {
             costMinor: null,
             currencyCode: null,
             notes: null,
+            wasteReason: null,
+            orderId: null,
             orderNumber: null,
             wastedOrder: false,
             attributed: false,
@@ -59,5 +61,37 @@ describe('the Activity page', () => {
 
         expect(await screen.findByText('Unattributed')).toBeTruthy();
         expect(screen.getByTestId('kitchen-activity-unvalued')).toBeTruthy();
+    });
+
+    it('names why food was wasted, and opens the order a movement served', async () => {
+        const base = ACTIVITY.movements[0];
+        if (base === undefined) throw new Error('fixture has a movement');
+        await renderStubScreen(<ActivityScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: {
+                kitchenOps: {
+                    getStockActivity: async () => ({
+                        ...ACTIVITY,
+                        movements: [
+                            { ...base, id: 'waste-1', reason: 'waste', wasteReason: 'expired' },
+                            {
+                                ...base,
+                                id: 'consume-1',
+                                reason: 'consume',
+                                orderId: 'order-1',
+                                orderNumber: 'HZ-1001',
+                            },
+                        ],
+                    }),
+                },
+            },
+        });
+
+        expect(await screen.findByTestId('kitchen-activity-waste-reason-waste-1')).toHaveTextContent(
+            'Expired',
+        );
+        expect(screen.getByTestId('kitchen-activity-stock-order-consume-1')).toHaveTextContent(
+            'HZ-1001',
+        );
     });
 });

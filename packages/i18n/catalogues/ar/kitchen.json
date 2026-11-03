@@ -536,7 +536,16 @@
             "exceedsShelf": "المتوفر على الرف {{amount}} فقط. إذا كان هناك أكثر فعلًا، سجّل جردًا أولًا ثم أعد المحاولة.",
             "parNotAboveThreshold": "يجب أن يكون المستوى المستهدف أعلى من حد إعادة الطلب.",
             "notStocked": "غير مخزَّن",
-            "fieldNotesRequired": "السبب"
+            "fieldNotesRequired": "السبب",
+            "fieldWasteReason": "سبب الهدر",
+            "wasteReason": {
+                "expired": "منتهي الصلاحية",
+                "spoiled": "فاسد",
+                "damaged": "تالف",
+                "overproduced": "إنتاج زائد",
+                "customer_return": "مرتجع من زبون",
+                "other": "سبب آخر"
+            }
         },
         "supplyOrders": {
             "cancelFailed": "تعذّر إلغاء الطلب.",

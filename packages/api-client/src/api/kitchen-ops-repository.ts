@@ -1344,6 +1344,8 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                     costMinor: row.cost_minor,
                     currencyCode: row.currency_code as CurrencyCode | null,
                     notes: row.notes,
+                    wasteReason: row.waste_reason,
+                    orderId: row.order_id,
                     orderNumber: row.order_number,
                     wastedOrder: row.wasted_order,
                     attributed: row.attributed,
@@ -1371,6 +1373,7 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                     action: row.action,
                     actorName: row.actor_name,
                     subjectType: row.subject_type,
+                    orderId: row.order_id,
                     orderNumber: row.order_number,
                     metadata: row.metadata,
                 })),
@@ -1388,7 +1391,8 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                     branch_id: String(request.branchId),
                     stock_item_id: String(request.stockItemId),
                     quantity: request.quantity,
-                    ...(request.notes === undefined ? {} : { notes: request.notes }),
+                    reason: request.reason,
+                    notes: request.notes,
                 },
             });
             return mapStockMovement(envelope.data.movement);
