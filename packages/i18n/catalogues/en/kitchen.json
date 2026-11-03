@@ -3964,6 +3964,9 @@
         "netContentUnitsForbidden": "Stating the net content needs the inventory permission, because the unit it is measured in comes from the stock reference. Ask someone with inventory access to fill it in, or the sale will be refused.",
         "portionHint": "Servings of the recipe in one meal.",
         "portionPlaceholder": "For example 1 or 0.5",
+        "dietTagClash": "“{{tag}}” is hidden from customers: the allergen label lists {{allergens}}",
+        "dietTagClashDetail": "A free-from tag cannot contradict the label, so the meal cannot be saved with it or published.",
+        "dietTagClashRemove": "Remove the tag",
         "retiredTitle": "This meal is withdrawn",
         "retiredBody": "It is on no consumer surface. It is still here because past orders and prices point at it."
     },
