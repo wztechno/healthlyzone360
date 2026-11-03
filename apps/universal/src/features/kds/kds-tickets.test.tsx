@@ -371,6 +371,9 @@ describe('the allergy banner in Arabic', () => {
     });
 });
 
+/** A tab's count is `aria-hidden` (the design system's `Tabs`), so queries for it opt in. */
+const HIDDEN = { includeHiddenElements: true } as const;
+
 function ticketId(orderId: OrderId): string {
     return `kds-ticket-${String(orderId)}`;
 }
@@ -602,7 +605,7 @@ describe('kds ticket board', () => {
 
             // Ready: cooked, still confirmed — a collection order nobody has picked up is not
             // fulfilled.
-            fireEvent.press(screen.getByTestId(`${ticketId(confirmed.id)}-ready`));
+            await fireEvent.press(screen.getByTestId(`${ticketId(confirmed.id)}-ready`));
             await act(async () => {
                 await jest.advanceTimersByTimeAsync(KDS_UNDO_MS);
             });
@@ -621,7 +624,7 @@ describe('kds ticket board', () => {
             expect(screen.getByTestId('kds-column-preparing-count')).toHaveTextContent('0');
 
             // Handed over is the step that fulfils it.
-            fireEvent.press(screen.getByTestId(`${ticketId(confirmed.id)}-handed-over`));
+            await fireEvent.press(screen.getByTestId(`${ticketId(confirmed.id)}-handed-over`));
             await act(async () => {
                 await jest.advanceTimersByTimeAsync(KDS_UNDO_MS);
             });
@@ -791,7 +794,7 @@ describe('due order, the undo and lane tabs', () => {
                 { timeout: 5000 },
             );
 
-            fireEvent.press(screen.getByTestId(`${ticket}-ready`));
+            await fireEvent.press(screen.getByTestId(`${ticket}-ready`));
 
             // Waiting, and saying so on the ticket and in the toast.
             expect(screen.getByTestId(`${ticket}-held`)).toBeTruthy();
@@ -836,8 +839,8 @@ describe('due order, the undo and lane tabs', () => {
                 { timeout: 5000 },
             );
 
-            fireEvent.press(screen.getByTestId(`${ticket}-ready`));
-            fireEvent.press(screen.getByTestId(`${ticket}-undo`));
+            await fireEvent.press(screen.getByTestId(`${ticket}-ready`));
+            await fireEvent.press(screen.getByTestId(`${ticket}-undo`));
 
             await act(async () => {
                 await jest.advanceTimersByTimeAsync(KDS_UNDO_MS + 5_000);
@@ -870,20 +873,26 @@ describe('due order, the undo and lane tabs', () => {
                 { timeout: 5000 },
             );
 
-            fireEvent.press(screen.getByTestId(`${ticket}-accept`));
+            await fireEvent.press(screen.getByTestId(`${ticket}-accept`));
             expect(screen.queryByTestId(`${ticket}-undo-toast`)).toBeNull();
             // `waitFor` steps the clock in small increments: well inside ten seconds.
             await waitFor(() => {
                 expect(repositories.kitchenOrders.confirmOrder).toHaveBeenCalledTimes(1);
             });
 
+            // Accept has landed (its pending render needs the fake clock too), so Start is free.
             await waitFor(() => {
-                expect(screen.getByTestId(`${ticket}-start`)).toBeEnabled();
+                expect(screen.getByTestId(`${ticket}-accepted`)).toBeTruthy();
             });
-            fireEvent.press(screen.getByTestId(`${ticket}-start`));
+            expect(screen.getByTestId(`${ticket}-start`)).toBeEnabled();
+            await fireEvent.press(screen.getByTestId(`${ticket}-start`));
             expect(screen.queryByTestId(`${ticket}-undo-toast`)).toBeNull();
             await waitFor(() => {
                 expect(repositories.kitchenOrders.startOrder).toHaveBeenCalledTimes(1);
+            });
+            // Let Start land under the fake clock that delays it, or it stays pending for good.
+            await waitFor(() => {
+                expect(screen.getByTestId(`${ticket}-ready`)).toBeTruthy();
             });
         } finally {
             jest.useRealTimers();
@@ -915,20 +924,20 @@ describe('due order, the undo and lane tabs', () => {
             expect(screen.getByTestId('kds-column-incoming')).toBeTruthy();
             expect(screen.queryByTestId('kds-column-preparing')).toBeNull();
             // Each tab carries its lane's count, so a phone sees the whole board at a glance.
-            expect(screen.getByTestId('kds-lane-preparing-count')).toHaveTextContent('1');
+            expect(screen.getByTestId('kds-lane-preparing-count', HIDDEN)).toHaveTextContent('1');
 
-            fireEvent.press(screen.getByTestId('kds-lane-preparing'));
+            await fireEvent.press(screen.getByTestId('kds-lane-preparing'));
 
             expect(screen.getByTestId('kds-column-preparing')).toBeTruthy();
             expect(screen.queryByTestId('kds-column-incoming')).toBeNull();
             expect(screen.getByTestId(ticketId(orderIdAt(3)))).toBeTruthy();
             // The alarm is on an Incoming ticket, out of sight: the Incoming tab still says so.
-            expect(screen.getByTestId('kds-lane-incoming-count').props.className).toContain(
+            expect(screen.getByTestId('kds-lane-incoming-count', HIDDEN).props.className).toContain(
                 'text-warning-strong',
             );
-            expect(screen.getByTestId('kds-lane-preparing-count').props.className).not.toContain(
-                'text-warning-strong',
-            );
+            expect(
+                screen.getByTestId('kds-lane-preparing-count', HIDDEN).props.className,
+            ).not.toContain('text-warning-strong');
         } finally {
             await act(async () => {
                 Dimensions.set(wide);

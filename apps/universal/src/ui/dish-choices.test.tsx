@@ -59,8 +59,10 @@ describe('the dish choice picker', () => {
     it('warns when the chosen sauce has not been assessed', async () => {
         await renderChosen(sauce('pesto', 'Pesto', null));
 
-        expect(screen.getByTestId('choices-group-Sauce-allergens-unassessed')).toBeTruthy();
-        expect(screen.getByText(/not checked yet/)).toBeTruthy();
+        // The option's own label says it too, so the warning is read by its testID.
+        expect(screen.getByTestId('choices-group-Sauce-allergens-unassessed')).toHaveTextContent(
+            /not checked yet/,
+        );
         expect(screen.queryByTestId('choices-group-Sauce-allergens-none')).toBeNull();
     });
 

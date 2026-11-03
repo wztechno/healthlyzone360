@@ -32,7 +32,8 @@ export function createTestQueryClient(): QueryClient {
     return new QueryClient({
         defaultOptions: {
             queries: { retry: false, gcTime: 0, staleTime: 0 },
-            mutations: { retry: false },
+            // A finished mutation otherwise keeps a real five-minute GC timer, and Jest waits for it.
+            mutations: { retry: false, gcTime: 0 },
         },
     });
 }

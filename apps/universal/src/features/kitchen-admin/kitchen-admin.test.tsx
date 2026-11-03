@@ -880,7 +880,9 @@ describe('the ingredient list', () => {
             },
         });
         await untilVisible('kitchen-ingredients-table');
-        const row = (target: IngredientAdmin) => `kitchen-ingredient-${String(target.id)}-name`;
+        // The list's own row: at this (phone) width there are no per-column cells to find.
+        const row = (target: IngredientAdmin) =>
+            `kitchen-ingredients-table-row-${String(target.id)}`;
 
         await waitFor(() => {
             expect(
@@ -3159,10 +3161,15 @@ describe('the ingredient assistant', () => {
         await act(async () => {
             pending[0]!(duplicate('Oldest run.'));
         });
+        // Every run settles, so no request is left pending once the test ends.
+        await act(async () => {
+            pending[1]!(duplicate('Middle run.'));
+        });
 
         await untilVisible('kitchen-ingredient-assist-arabic');
         expect(screen.getByText(/Newest run\./)).toBeTruthy();
         expect(screen.queryByText(/Oldest run\./)).toBeNull();
+        expect(screen.queryByText(/Middle run\./)).toBeNull();
     });
 
     it('does not replace a nutrition match the cook already chose', async () => {

@@ -869,7 +869,14 @@ describe('kitchen orders', () => {
     it('keeps an order opened by address open across a poll, with its cancel form as it was', async () => {
         jest.useFakeTimers({ advanceTimers: true });
         try {
-            const book = createOrderBook();
+            // A real order id: the screen reads `?view=` only when it parses as one.
+            const book = createOrderBook(
+                seedOrders().map((order) =>
+                    order.status === 'placed'
+                        ? { ...order, id: '01935f6d-0000-7000-8000-0000000000a1' as OrderId }
+                        : order,
+                ),
+            );
             const placed = book.orders().find((order) => order.status === 'placed');
             if (placed === undefined) throw new Error('this test authored no placed order');
             // Not on the loaded page — an older order a link names, like a remake's original.
@@ -896,11 +903,11 @@ describe('kitchen orders', () => {
             await waitFor(() => {
                 expect(screen.getByTestId('kitchen-orders-cancel')).toBeTruthy();
             });
-            fireEvent.press(screen.getByTestId('kitchen-orders-cancel'));
+            await fireEvent.press(screen.getByTestId('kitchen-orders-cancel'));
             await waitFor(() => {
                 expect(screen.getByTestId('kitchen-orders-cancel-reasons')).toBeTruthy();
             });
-            fireEvent.press(
+            await fireEvent.press(
                 screen.getByTestId('kitchen-orders-cancel-reason-delivery_unavailable'),
             );
             await waitFor(() => {

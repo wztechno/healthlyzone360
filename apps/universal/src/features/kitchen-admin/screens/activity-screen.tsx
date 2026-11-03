@@ -246,24 +246,19 @@ function StockMovements({ window }: { readonly window: { from: string; to: strin
                             {t('kitchen:ops.activity.wastedOrder', { number: row.orderNumber })}
                         </Text>
                     )}
+                    {/*
+                     * The order a movement served, here rather than in a column of its own: a
+                     * seventh column falls outside the six the list shows, and most rows have none.
+                     */}
+                    {row.orderId === null || row.orderNumber === null ? null : (
+                        <OrderLink
+                            orderId={row.orderId}
+                            orderNumber={row.orderNumber}
+                            testID={`kitchen-activity-stock-order-${row.id}`}
+                        />
+                    )}
                 </Stack>
             ),
-        },
-        {
-            key: 'order',
-            label: t('kitchen:ops.activity.columnOrder'),
-            width: 120,
-            priority: 89,
-            render: (row) =>
-                row.orderId === null || row.orderNumber === null ? (
-                    <Text tone="secondary">{t('kitchen:list.noValue')}</Text>
-                ) : (
-                    <OrderLink
-                        orderId={row.orderId}
-                        orderNumber={row.orderNumber}
-                        testID={`kitchen-activity-stock-order-${row.id}`}
-                    />
-                ),
         },
         {
             key: 'quantity',
