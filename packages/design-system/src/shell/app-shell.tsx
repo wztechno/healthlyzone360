@@ -1100,12 +1100,11 @@ function AppShellLayout({
                         <View
                             testID={testID === undefined ? undefined : `${testID}-footer`}
                             role="contentinfo"
-                            // On the page's measure under a hairline, as HealthZone ends every
-                            // customer page: a quiet line of small print, not a second band of
-                            // chrome. It used to bleed out to both window edges as a canopy band,
-                            // which made the foot of a short page (the basket, the account) heavier
-                            // than the page itself.
-                            className="mx-auto mt-6 w-full max-w-[1184px] self-stretch border-t border-stroke"
+                            // The accepted shop design ends every page in a rounded panel on the
+                            // header's 1312px measure, inset from the window like the header, rather
+                            // than a line of small print or a band bleeding to both edges. The panel
+                            // itself is the caller's `footer`.
+                            className="mx-auto mt-10 w-full max-w-[1312px] self-stretch"
                         >
                             {footer}
                         </View>

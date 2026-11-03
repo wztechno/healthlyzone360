@@ -33,7 +33,13 @@
         "imageCredits": "Image credits"
     },
     "footer": {
-        "about": "Healthy360 brings healthy kitchens near you together in one place."
+        "about": "Healthy360 brings healthy kitchens near you together in one place.",
+        "shop": "Shop",
+        "help": "Help",
+        "business": "Business",
+        "more": "More",
+        "apply": "Apply",
+        "copyright": "© {{year}} Healthy360"
     },
     "prototype": {
         "badge": "Coming soon",

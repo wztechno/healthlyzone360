@@ -33,7 +33,13 @@
         "imageCredits": "اعتمادات الصور"
     },
     "footer": {
-        "about": "يجمع Healthy360 المطابخ الصحية القريبة منك في مكان واحد."
+        "about": "يجمع Healthy360 المطابخ الصحية القريبة منك في مكان واحد.",
+        "shop": "تسوّق",
+        "help": "مساعدة",
+        "business": "الأعمال",
+        "more": "المزيد",
+        "apply": "قدّم طلبًا",
+        "copyright": "© {{year}} Healthy360"
     },
     "prototype": {
         "badge": "قريبًا",

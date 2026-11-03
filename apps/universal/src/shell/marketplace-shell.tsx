@@ -5,7 +5,6 @@ import {
     IconButton,
     Inline,
     OfflineIndicator,
-    Stack,
     Text,
     useBreakpoint,
     useMotion,
@@ -578,74 +577,254 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
         </Inline>
     );
 
-    // Filtered by the same availability table the navigation uses: the footer is the one place a
-    // dead link survives a redesign, because nobody looks at it.
-    const footerLinks: readonly {
+    /*
+     * The footer, as the accepted shop design draws it: a rounded canopy panel at the foot of every
+     * shop page — the brand and who we are, then the destinations in four short columns, then the
+     * language and appearance switches and the year.
+     *
+     * Every link is filtered by the same availability table the navigation uses: the footer is the
+     * one place a dead link survives a redesign, because nobody looks at it. A column left with no
+     * link is not drawn.
+     */
+    type FooterLink = { readonly key: string; readonly labelKey: string; readonly href: string };
+    const footerColumns: readonly {
         readonly key: string;
-        readonly labelKey: string;
-        readonly href: string;
+        readonly titleKey: string;
+        readonly links: readonly FooterLink[];
     }[] = [
-        { key: 'discover', labelKey: 'marketplace:nav.discover', href: '/discover' },
-        { key: 'kitchens', labelKey: 'marketplace:nav.kitchens', href: '/kitchens' },
-        { key: 'dietitians', labelKey: 'marketplace:nav.dietitians', href: '/dietitians' },
-        { key: 'how-it-works', labelKey: 'marketplace:nav.howItWorks', href: '/how-it-works' },
-        { key: 'for-business', labelKey: 'marketplace:nav.forBusiness', href: '/for-business' },
-        // Not decoration: CC BY and CC BY-SA ask for attribution reasonable to the medium, and for
-        // the images that cannot carry a credit beside them — a grid card, a tile, a 20px
-        // catalogue thumbnail — this link is where that obligation is actually discharged.
-        { key: 'image-credits', labelKey: 'marketplace:nav.imageCredits', href: '/image-credits' },
-        // No "My home" when signed in: the home is Discover, which leads this list already.
-        ...(signedIn
-            ? []
-            : [{ key: 'sign-in', labelKey: 'marketplace:nav.signIn', href: '/sign-in' }]),
-        // Empty until the owner supplies the text: nothing links to a page that does not exist.
-        ...LEGAL_PAGES.map((page) => ({
-            key: `legal-${page.slug}`,
-            labelKey: page.titleKey,
-            href: `/legal/${page.slug}`,
-        })),
-    ].filter((link) => isPathAvailable(link.href));
+        {
+            key: 'shop',
+            titleKey: 'marketplace:footer.shop',
+            links: [
+                { key: 'discover', labelKey: 'marketplace:nav.discover', href: '/discover' },
+                { key: 'meals', labelKey: 'marketplace:nav.meals', href: '/meals' },
+                { key: 'kitchens', labelKey: 'marketplace:nav.kitchens', href: '/kitchens' },
+                { key: 'plans', labelKey: 'marketplace:nav.weeklyPlans', href: '/plans' },
+                { key: 'dietitians', labelKey: 'marketplace:nav.dietitians', href: '/dietitians' },
+            ],
+        },
+        {
+            key: 'help',
+            titleKey: 'marketplace:footer.help',
+            links: [
+                {
+                    key: 'how-it-works',
+                    labelKey: 'marketplace:nav.howItWorks',
+                    href: '/how-it-works',
+                },
+                {
+                    key: 'how-plans-work',
+                    labelKey: 'catalogue:howPlans.breadcrumbCurrent',
+                    href: '/plans/how-it-works',
+                },
+            ],
+        },
+        {
+            key: 'business',
+            titleKey: 'marketplace:footer.business',
+            links: [
+                {
+                    key: 'for-business',
+                    labelKey: 'marketplace:nav.forBusiness',
+                    href: '/for-business',
+                },
+                { key: 'apply', labelKey: 'marketplace:footer.apply', href: '/apply' },
+            ],
+        },
+        {
+            key: 'more',
+            titleKey: 'marketplace:footer.more',
+            links: [
+                // No "My home" when signed in: the home is Discover, which leads the first column.
+                ...(signedIn
+                    ? []
+                    : [{ key: 'sign-in', labelKey: 'marketplace:nav.signIn', href: '/sign-in' }]),
+                // Not decoration: CC BY and CC BY-SA ask for attribution reasonable to the medium,
+                // and for the images that cannot carry a credit beside them — a grid card, a tile, a
+                // 20px catalogue thumbnail — this link is where that obligation is discharged.
+                {
+                    key: 'image-credits',
+                    labelKey: 'marketplace:nav.imageCredits',
+                    href: '/image-credits',
+                },
+                // Empty until the owner supplies the text: nothing links to a page that does not exist.
+                ...LEGAL_PAGES.map((page) => ({
+                    key: `legal-${page.slug}`,
+                    labelKey: page.titleKey,
+                    href: `/legal/${page.slug}`,
+                })),
+            ],
+        },
+    ]
+        .map((column) => ({
+            ...column,
+            links: column.links.filter((link) => isPathAvailable(link.href)),
+        }))
+        .filter((column) => column.links.length > 0);
 
-    /** A footer link: small muted print, underlined, with a touch target around it. */
-    const footerLink = (key: string, label: string, onPress: () => void) => (
+    const footerLink = (link: FooterLink) => (
         <Pressable
-            key={key}
-            testID={`footer-${key}`}
+            key={link.key}
+            testID={`footer-${link.key}`}
             role="link"
             accessibilityRole="link"
             focusable
-            onPress={onPress}
-            className="min-h-touch justify-center"
+            onPress={() => {
+                // Sign in from the foot of a page carries the page, like the header's (AUTH-14);
+                // the rest are destinations, like the header's.
+                if (link.href === '/sign-in') goToAuth('/sign-in');
+                else navigateTo(link.href);
+            }}
+            className="min-h-touch justify-center transition duration-normal ease-standard hover:opacity-75"
         >
-            <RNText className="text-xs text-content-secondary underline">{label}</RNText>
+            <RNText className="text-sm font-medium text-content-on-canopy">
+                {t(link.labelKey)}
+            </RNText>
         </Pressable>
     );
 
-    /*
-     * The design's foot of the page: one quiet block of small print under a hairline, on the
-     * page's measure (`AppShell` draws the rule). It carries what a footer must — the secondary
-     * destinations, the image credits the CC licences ask for, the language and appearance
-     * switches a signed-out visitor has nowhere else to find, and who we are — in the
-     * design's 12px muted type rather than as a second band of chrome.
-     */
-    const footer = (
-        <Stack space="xs" testID="marketplace-footer" className="pb-6 pt-3">
-            <Inline space="md" wrap>
-                {footerLinks.map((link) =>
-                    footerLink(link.key, t(link.labelKey), () => {
-                        // Sign in from the foot of a page carries the page, like the header's
-                        // (AUTH-14); the rest are destinations, like the header's.
-                        if (link.href === '/sign-in') goToAuth('/sign-in');
-                        else navigateTo(link.href);
-                    }),
-                )}
-                {footerLink('locale', otherLocaleLabel, toggleLocale)}
-                {footerLink('theme', themeLabel, toggleTheme)}
-            </Inline>
-            <RNText testID="footer-legal" className="text-xs text-content-secondary">
-                {t('marketplace:footer.about')}
+    /** One half of a footer switch: a pill in the canopy track, white when it is the one in force. */
+    const footerChoice = (
+        testID: string,
+        label: string,
+        selected: boolean,
+        onPress: () => void,
+        icon?: 'sun' | 'moon',
+    ) => (
+        <Pressable
+            testID={testID}
+            role="radio"
+            accessibilityRole="radio"
+            accessibilityState={{ checked: selected }}
+            aria-checked={selected}
+            focusable
+            onPress={() => {
+                if (!selected) onPress();
+            }}
+            className={
+                selected
+                    ? 'min-h-touch flex-row items-center gap-1.5 rounded-full bg-content-on-canopy px-4'
+                    : 'min-h-touch flex-row items-center gap-1.5 rounded-full px-4'
+            }
+        >
+            {icon === undefined ? null : (
+                <Icon
+                    name={icon}
+                    size="sm"
+                    className={selected ? 'text-surface-canopy' : 'text-content-on-canopy-muted'}
+                />
+            )}
+            <RNText
+                className={
+                    selected
+                        ? 'text-sm font-semibold text-surface-canopy'
+                        : 'text-sm font-semibold text-content-on-canopy-muted'
+                }
+            >
+                {label}
             </RNText>
-        </Stack>
+        </Pressable>
+    );
+
+    const arabic = locale.startsWith('ar');
+    const footer = (
+        <View
+            testID="marketplace-footer"
+            className="relative overflow-hidden rounded-3xl bg-surface-canopy px-5 pb-5 pt-7 md:px-12 md:pb-6 md:pt-10"
+        >
+            {/* The design's soft shapes behind the panel. */}
+            <View
+                aria-hidden
+                pointerEvents="none"
+                className="absolute -end-36 -top-48 h-[520px] w-[520px] rounded-full bg-content-on-canopy/5"
+            />
+            <View
+                aria-hidden
+                pointerEvents="none"
+                className="absolute -bottom-36 start-[30%] h-[300px] w-[300px] rounded-full bg-content-on-canopy/5"
+            />
+
+            <View className="flex-row flex-wrap gap-x-7 gap-y-6">
+                <View className="w-full lg:w-auto lg:flex-[1.3]">
+                    <Pressable
+                        testID="footer-brand"
+                        role="link"
+                        accessibilityRole="link"
+                        accessibilityLabel={t('marketplace:brand.homeLabel')}
+                        focusable
+                        onPress={() => {
+                            navigateTo('/discover');
+                        }}
+                        className="flex-row items-center gap-2.5 self-start"
+                    >
+                        <View className="h-11 w-11 items-center justify-center rounded-full bg-surface-brand-subtle">
+                            <Icon name="leaf" className="text-content-on-brand-subtle" />
+                        </View>
+                        <RNText className="font-display text-xl font-bold tracking-display text-content-on-canopy">
+                            {t('marketplace:brand.name')}
+                        </RNText>
+                    </Pressable>
+                    <RNText
+                        testID="footer-legal"
+                        className="mt-3 max-w-[300px] text-sm leading-6 text-content-on-canopy-muted/80"
+                    >
+                        {t('marketplace:footer.about')}
+                    </RNText>
+                </View>
+                {footerColumns.map((column) => (
+                    <View
+                        key={column.key}
+                        testID={`footer-column-${column.key}`}
+                        role="navigation"
+                        aria-label={t(column.titleKey)}
+                        className="min-w-[140px] flex-1"
+                    >
+                        <RNText className="mb-3 mt-1 text-xs font-bold uppercase tracking-wider text-content-on-canopy-muted">
+                            {t(column.titleKey)}
+                        </RNText>
+                        {column.links.map(footerLink)}
+                    </View>
+                ))}
+            </View>
+
+            <View className="mt-8 flex-row flex-wrap items-center gap-3 border-t border-content-on-canopy/15 pt-5">
+                <View
+                    role="radiogroup"
+                    aria-label={t('common:locale.label')}
+                    className="flex-row rounded-full bg-content-on-canopy/10 p-1"
+                >
+                    {footerChoice('footer-locale-en', t('common:locale.english'), !arabic, () => {
+                        void setLocale('en');
+                    })}
+                    {footerChoice('footer-locale-ar', t('common:locale.arabic'), arabic, () => {
+                        void setLocale('ar');
+                    })}
+                </View>
+                <View
+                    role="radiogroup"
+                    aria-label={t('common:theme.label')}
+                    className="flex-row rounded-full bg-content-on-canopy/10 p-1"
+                >
+                    {footerChoice(
+                        'footer-theme-light',
+                        t('common:theme.light'),
+                        !isDark,
+                        toggleTheme,
+                        'sun',
+                    )}
+                    {footerChoice(
+                        'footer-theme-dark',
+                        t('common:theme.dark'),
+                        isDark,
+                        toggleTheme,
+                        'moon',
+                    )}
+                </View>
+                <RNText className="min-w-[140px] flex-1 text-end text-sm text-content-on-canopy-muted/80">
+                    {t('marketplace:footer.copyright', { year: new Date().getFullYear() })}
+                </RNText>
+            </View>
+        </View>
     );
 
     return (
