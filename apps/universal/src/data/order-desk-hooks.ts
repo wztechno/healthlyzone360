@@ -31,6 +31,7 @@ import type {
     OrderDeskRequirementsFilters,
     OrderDeskSaleRequest,
     OrderDeskShortfallCount,
+    OrderDeskToday,
     PlaceOrderDeskSaleRequest,
     ServiceArea,
     UpdateOrderDeskCustomerRequest,
@@ -241,6 +242,27 @@ export const DRIVERS_STALE_MS = 5 * 60_000;
  * fifteen seconds and may never assign anything. The answer is bounded and unpaged, so the whole
  * list arrives at once and the search over it is the screen's, client-side.
  */
+/**
+ * The kitchen home's Today card. Polls every minute: it is a glance at a day still happening, not a
+ * reconciliation somebody is counting against.
+ */
+export function useOrderDeskTodayQuery(
+    branchId: BranchId | null,
+    enabled = true,
+): UseQueryResult<OrderDeskToday> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.orderDesk.today(branchId),
+        enabled: enabled && repositories !== null,
+        refetchInterval: 60_000,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.orderDesk.getToday(branchId ?? undefined);
+        },
+    });
+}
+
 /**
  * One day's takings, by agent and by method — the till-shift mitigation.
  *

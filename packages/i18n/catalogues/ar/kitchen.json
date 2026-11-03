@@ -83,7 +83,19 @@
         "buyingTitle": "المخزون والشراء",
         "itemsToOrder": "أصناف للطلب",
         "openingDays": "أيام العمل",
-        "goTo": "انتقل إلى"
+        "goTo": "انتقل إلى",
+        "today": {
+            "title": "اليوم",
+            "sales": "المبيعات",
+            "orders": "الطلبات: {{value}}",
+            "cash": "النقد المطلوب تحصيله",
+            "counted": "المعدود اليوم: {{amount}}",
+            "late": "طلبات متأخرة",
+            "pastDue": "تجاوزت موعدها: {{value}}",
+            "openPastDue": "طلبات متأخرة، افتح الطلبات التي تجاوزت موعدها في مكتب الطلبات",
+            "cancelled": "ملغاة",
+            "cancelledSplit": "مُرجعة {{returned}} · مهدرة {{wasted}} · أخرى {{other}}"
+        }
     },
     "nav": {
         "railTitle": "المطبخ",

@@ -10936,6 +10936,62 @@ export type OrderDeskCashReportTotal = {
     amount_minor_sum: number;
 };
 
+export type OrderDeskTodayAmount = {
+    currency_code: string;
+    amount_minor: number;
+};
+
+export type OrderDeskTodayEnvelope = {
+    data: {
+        /**
+         * Today, on `timezone`.
+         */
+        day: string;
+        /**
+         * The clock the day is read on.
+         */
+        timezone: string;
+        /**
+         * Orders placed today and not cancelled, summed per currency.
+         */
+        sales: Array<OrderDeskTodayAmount>;
+        /**
+         * How many orders `sales` sums.
+         */
+        orders: number;
+        /**
+         * What the open tills should hold now, per currency: the float plus
+         * counter cash and hand-ins, less cash refunds, as the daily close
+         * pre-fills it.
+         *
+         */
+        cash_expected: Array<OrderDeskTodayAmount>;
+        /**
+         * Each till's last count today, summed per currency.
+         */
+        cash_counted: Array<OrderDeskTodayAmount>;
+        /**
+         * Open orders past their due time by more than the grace, as the desk queue counts them.
+         */
+        overdue: number;
+        /**
+         * Open orders past their due time, the desk's `past_due` lens.
+         */
+        past_due: number;
+        /**
+         * Orders cancelled today, by what became of the food. No disposition is `other`.
+         */
+        cancelled: {
+            returned: number;
+            wasted: number;
+            other: number;
+        };
+    };
+    meta: Meta & {
+        branch_id: Uuid | null;
+    };
+};
+
 export type OrderDeskCashReportEnvelope = {
     data: {
         /**
@@ -38265,6 +38321,66 @@ export type GetOrderDeskCashReportResponses = {
 };
 
 export type GetOrderDeskCashReportResponse = GetOrderDeskCashReportResponses[keyof GetOrderDeskCashReportResponses];
+
+export type GetOrderDeskTodayData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Narrow to one of this kitchen's branches. Another kitchen's branch is refused.
+         */
+        branch_id?: Uuid;
+    };
+    url: '/catalogue/order-desk/today';
+};
+
+export type GetOrderDeskTodayErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderDeskTodayError = GetOrderDeskTodayErrors[keyof GetOrderDeskTodayErrors];
+
+export type GetOrderDeskTodayResponses = {
+    /**
+     * Today's figures.
+     */
+    200: OrderDeskTodayEnvelope;
+};
+
+export type GetOrderDeskTodayResponse = GetOrderDeskTodayResponses[keyof GetOrderDeskTodayResponses];
 
 export type StartGuestSessionData = {
     body?: StartGuestSessionRequest;

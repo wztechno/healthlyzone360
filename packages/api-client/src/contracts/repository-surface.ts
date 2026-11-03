@@ -403,6 +403,7 @@ export const REPOSITORY_SURFACE = {
         'createCustomer',
         'getCashReport',
         'getCloses',
+        'getToday',
         'getSettlements',
         'listCalendar',
         'listDeliveryAreas',

@@ -721,6 +721,8 @@ export type {
     OrderDeskRequirementsMeta,
     OrderDeskSaleRequest,
     OrderDeskShortfallCount,
+    OrderDeskToday,
+    OrderDeskTodayAmount,
     WeeklyStockCheck,
     WeeklyStockShortfall,
     OrderDeskWindow,

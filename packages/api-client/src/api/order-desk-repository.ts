@@ -1,4 +1,4 @@
-import type { BranchId } from '@healthy360/domain-types';
+import type { BranchId, CurrencyCode } from '@healthy360/domain-types';
 
 import type { DishChoices, DishOptionDraft, KitchenDishOption } from '../contracts/dish-options.ts';
 import type { ServiceArea } from '../contracts/kitchen-admin.ts';
@@ -34,6 +34,7 @@ import type {
     OrderDeskRequirementsFilters,
     OrderDeskSaleRequest,
     OrderDeskShortfallCount,
+    OrderDeskToday,
     WeeklyStockCheck,
     PlaceOrderDeskSaleRequest,
     UpdateOrderDeskCustomerRequest,
@@ -63,6 +64,7 @@ import type {
     OrderDeskRow as WireOrderDeskRow,
     OrderDeskSaleBase,
     OrderDeskShortfallCountEnvelope,
+    OrderDeskTodayEnvelope,
     OrderDeskWeeklyCheckEnvelope,
     PlaceOrderDeskRequest,
     QuoteOrderDeskRequest,
@@ -374,6 +376,32 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
             });
 
             return mapOrderDeskShortfallCount(envelope.data);
+        },
+
+        async getToday(branchId?: BranchId | undefined): Promise<OrderDeskToday> {
+            const query =
+                branchId === undefined ? '' : `?branch_id=${encodeURIComponent(String(branchId))}`;
+            const wire = await transport.request<OrderDeskTodayEnvelope['data']>({
+                method: 'GET',
+                path: `/catalogue/order-desk/today${query}`,
+            });
+            const amounts = (list: OrderDeskTodayEnvelope['data']['sales']) =>
+                list.map((row) => ({
+                    currencyCode: row.currency_code as CurrencyCode,
+                    amountMinor: row.amount_minor,
+                }));
+
+            return {
+                day: wire.day,
+                timezone: wire.timezone,
+                sales: amounts(wire.sales),
+                orders: wire.orders,
+                cashExpected: amounts(wire.cash_expected),
+                cashCounted: amounts(wire.cash_counted),
+                overdue: wire.overdue,
+                pastDue: wire.past_due,
+                cancelled: wire.cancelled,
+            };
         },
 
         async getWeeklyStockCheck(

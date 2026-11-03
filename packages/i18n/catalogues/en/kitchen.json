@@ -63,7 +63,19 @@
         "buyingTitle": "Stock and buying",
         "itemsToOrder": "Items to order",
         "openingDays": "Opening days",
-        "goTo": "Go to"
+        "goTo": "Go to",
+        "today": {
+            "title": "Today",
+            "sales": "Sales",
+            "orders": "Orders: {{value}}",
+            "cash": "Cash to collect",
+            "counted": "Counted today: {{amount}}",
+            "late": "Late orders",
+            "pastDue": "Past due: {{value}}",
+            "openPastDue": "Late orders, open the past-due orders on the desk",
+            "cancelled": "Cancelled",
+            "cancelledSplit": "Returned {{returned}} · wasted {{wasted}} · other {{other}}"
+        }
     },
     "nav": {
         "railTitle": "Kitchen",

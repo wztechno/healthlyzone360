@@ -17878,6 +17878,50 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/order-desk/today:
+    get:
+      operationId: getOrderDeskToday
+      tags:
+        - Order desk
+      summary: The kitchen home's Today card
+      description: |
+        Four things a manager glances at: sales and orders, cash to collect,
+        late and past-due orders, and cancellations.
+
+        The day is the local day the cash report reads: the branch's timezone
+        with `branch_id`, else the organisation's. `branch_id` names a till, as
+        it does on the cash report; `overdue` and `past_due` narrow as the desk
+        queue does, by the order's own branch. Money is per currency, and no
+        figure adds two.
+
+        Requires `order.manage_organisation`, the cash report's code.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: branch_id
+          in: query
+          required: false
+          description: Narrow to one of this kitchen's branches. Another kitchen's branch is refused.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Today's figures.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskTodayEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /guest/sessions:
     post:
       operationId: startGuestSession
@@ -47807,6 +47851,103 @@ components:
           minimum: 1
         amount_minor_sum:
           type: integer
+    OrderDeskTodayAmount:
+      type: object
+      required:
+        - currency_code
+        - amount_minor
+      additionalProperties: false
+      properties:
+        currency_code:
+          type: string
+        amount_minor:
+          type: integer
+    OrderDeskTodayEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: object
+          required:
+            - day
+            - timezone
+            - sales
+            - orders
+            - cash_expected
+            - cash_counted
+            - overdue
+            - past_due
+            - cancelled
+          additionalProperties: false
+          properties:
+            day:
+              type: string
+              format: date
+              description: Today, on `timezone`.
+            timezone:
+              type: string
+              description: The clock the day is read on.
+            sales:
+              type: array
+              description: Orders placed today and not cancelled, summed per currency.
+              items:
+                $ref: '#/components/schemas/OrderDeskTodayAmount'
+            orders:
+              type: integer
+              minimum: 0
+              description: How many orders `sales` sums.
+            cash_expected:
+              type: array
+              description: |
+                What the open tills should hold now, per currency: the float plus
+                counter cash and hand-ins, less cash refunds, as the daily close
+                pre-fills it.
+              items:
+                $ref: '#/components/schemas/OrderDeskTodayAmount'
+            cash_counted:
+              type: array
+              description: Each till's last count today, summed per currency.
+              items:
+                $ref: '#/components/schemas/OrderDeskTodayAmount'
+            overdue:
+              type: integer
+              minimum: 0
+              description: Open orders past their due time by more than the grace, as the desk queue counts them.
+            past_due:
+              type: integer
+              minimum: 0
+              description: Open orders past their due time, the desk's `past_due` lens.
+            cancelled:
+              type: object
+              required:
+                - returned
+                - wasted
+                - other
+              additionalProperties: false
+              description: Orders cancelled today, by what became of the food. No disposition is `other`.
+              properties:
+                returned:
+                  type: integer
+                  minimum: 0
+                wasted:
+                  type: integer
+                  minimum: 0
+                other:
+                  type: integer
+                  minimum: 0
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required:
+                - branch_id
+              properties:
+                branch_id:
+                  oneOf:
+                    - $ref: '#/components/schemas/Uuid'
+                    - type: 'null'
     OrderDeskCashReportEnvelope:
       type: object
       required:

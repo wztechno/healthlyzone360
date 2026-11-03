@@ -566,6 +566,38 @@ export interface OrderDeskShortfallCount {
     readonly branchId: string | null;
 }
 
+/** A sum of money in one currency. */
+export interface OrderDeskTodayAmount {
+    readonly currencyCode: CurrencyCode;
+    readonly amountMinor: number;
+}
+
+/**
+ * The kitchen home's Today card, on the cash report's local day. Every amount is per currency, and
+ * nothing adds two.
+ */
+export interface OrderDeskToday {
+    /** `YYYY-MM-DD`, today on {@link OrderDeskToday.timezone}. */
+    readonly day: string;
+    readonly timezone: string;
+    /** Orders placed today and not cancelled. */
+    readonly sales: readonly OrderDeskTodayAmount[];
+    readonly orders: number;
+    /** What the open tills should hold now: the float, counter cash and hand-ins, less refunds. */
+    readonly cashExpected: readonly OrderDeskTodayAmount[];
+    /** Each till's last count today. */
+    readonly cashCounted: readonly OrderDeskTodayAmount[];
+    /** Open orders past due by more than the grace. */
+    readonly overdue: number;
+    /** Open orders past due — the desk's `past_due` lens. */
+    readonly pastDue: number;
+    readonly cancelled: {
+        readonly returned: number;
+        readonly wasted: number;
+        readonly other: number;
+    };
+}
+
 /** One item the weekly check found short, as it stood when the check ran. Decimal strings. */
 export interface WeeklyStockShortfall {
     readonly stockItemId: string;
@@ -1313,6 +1345,9 @@ export interface OrderDeskRepository {
      * against the application clock rather than the branch's.
      */
     countRequirementShortfalls(branchId?: BranchId | undefined): Promise<OrderDeskShortfallCount>;
+
+    /** The kitchen home's Today card. `branchId` narrows to one till. Behind `order.manage_organisation`. */
+    getToday(branchId?: BranchId | undefined): Promise<OrderDeskToday>;
 
     /**
      * The latest weekly stock check for one branch, or `null` when none is named or it has never

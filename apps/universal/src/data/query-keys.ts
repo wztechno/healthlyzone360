@@ -679,6 +679,8 @@ export const queryKeys = {
          */
         shortfallCount: (branchId: string | null) =>
             ['orderDesk', 'shortfall-count', branchId] as const,
+        /** The kitchen home's Today card; `null` keys the whole kitchen. */
+        today: (branchId: string | null) => ['orderDesk', 'today', branchId] as const,
         /** The latest weekly stock check for a branch; `null` keys "no shelf chosen". */
         weeklyCheck: (branchId: string | null) => ['orderDesk', 'weekly-check', branchId] as const,
         /**

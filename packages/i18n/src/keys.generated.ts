@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9831 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9841 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4230,6 +4230,16 @@ export interface NamespaceKeys {
     | 'hub.quarantineCount'
     | 'hub.referenceOnly'
     | 'hub.title'
+    | 'hub.today.cancelled'
+    | 'hub.today.cancelledSplit'
+    | 'hub.today.cash'
+    | 'hub.today.counted'
+    | 'hub.today.late'
+    | 'hub.today.openPastDue'
+    | 'hub.today.orders'
+    | 'hub.today.pastDue'
+    | 'hub.today.sales'
+    | 'hub.today.title'
     | 'ingredientDetail.allergensDietsTitle'
     | 'ingredientDetail.fieldCapacity'
     | 'ingredientDetail.fieldPackCost'
@@ -14084,6 +14094,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.quarantineCount',
   'kitchen:hub.referenceOnly',
   'kitchen:hub.title',
+  'kitchen:hub.today.cancelled',
+  'kitchen:hub.today.cancelledSplit',
+  'kitchen:hub.today.cash',
+  'kitchen:hub.today.counted',
+  'kitchen:hub.today.late',
+  'kitchen:hub.today.openPastDue',
+  'kitchen:hub.today.orders',
+  'kitchen:hub.today.pastDue',
+  'kitchen:hub.today.sales',
+  'kitchen:hub.today.title',
   'kitchen:ingredientDetail.allergensDietsTitle',
   'kitchen:ingredientDetail.fieldCapacity',
   'kitchen:ingredientDetail.fieldPackCost',

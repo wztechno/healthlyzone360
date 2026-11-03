@@ -40,7 +40,7 @@ import {
 } from '@healthy360/design-system';
 import type { IssueCardItem, IssueTrayContent, MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -989,8 +989,12 @@ function OrderDeskQueueList() {
      */
     const [fulfilmentType, setFulfilmentType] = useState<OrderDeskFulfilmentType | null>(null);
     const [query, setQuery] = useState('');
-    /** The Past due figure is pressed: every order past due, in place of the window. */
-    const [pastDueOnly, setPastDueOnly] = useState(false);
+    /**
+     * The Past due figure is pressed: every order past due, in place of the window. `?lens=past_due`
+     * opens the desk on it, which is how the kitchen home's Today card links here.
+     */
+    const params = useLocalSearchParams<{ lens?: string }>();
+    const [pastDueOnly, setPastDueOnly] = useState(() => params.lens === 'past_due');
     /**
      * The row the record page was opened from, held rather than looked up by identifier.
      *

@@ -277,6 +277,7 @@ use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskPlacementController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQueueController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQuoteController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskSettlementController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskTodayController;
 use Healthy360\Organisations\Http\Controllers\CurrentOrganisationController;
 use Healthy360\Payments\Http\Controllers\PaymentIntentCaptureController;
 use Healthy360\Payments\Http\Controllers\PaymentIntentStoreController;
@@ -2519,6 +2520,11 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 */
                 Route::get('/order-desk/cash-report', OrderDeskCashReportController::class)
                     ->name('catalogue.order-desk.cash-report');
+
+                // The kitchen home's Today card: the day's sales, cash, late
+                // orders and cancellations, on the cash report's local day.
+                Route::get('/order-desk/today', OrderDeskTodayController::class)
+                    ->name('catalogue.order-desk.today');
             });
 
             // Cash coming back from the road. The cashier counts it; a short

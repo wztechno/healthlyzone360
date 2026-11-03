@@ -7054,6 +7054,32 @@ export const zOrderDeskCashReportTotal = z.object({
     amount_minor_sum: z.int()
 });
 
+export const zOrderDeskTodayAmount = z.object({
+    currency_code: z.string(),
+    amount_minor: z.int()
+});
+
+export const zOrderDeskTodayEnvelope = z.object({
+    data: z.object({
+        day: z.iso.date(),
+        timezone: z.string(),
+        sales: z.array(zOrderDeskTodayAmount),
+        orders: z.int().gte(0),
+        cash_expected: z.array(zOrderDeskTodayAmount),
+        cash_counted: z.array(zOrderDeskTodayAmount),
+        overdue: z.int().gte(0),
+        past_due: z.int().gte(0),
+        cancelled: z.object({
+            returned: z.int().gte(0),
+            wasted: z.int().gte(0),
+            other: z.int().gte(0)
+        })
+    }),
+    meta: zMeta.and(z.object({
+        branch_id: zUuid.nullable()
+    }))
+});
+
 export const zOrderDeskCashReportEnvelope = z.object({
     data: z.object({
         adjustments: z.array(zOrderDeskCashReportAdjustment),
@@ -16370,6 +16396,20 @@ export const zGetOrderDeskCashReportQuery = z.object({
  * The window's takings by day, agent, method and currency, with the per-method totals.
  */
 export const zGetOrderDeskCashReportResponse = zOrderDeskCashReportEnvelope;
+
+export const zGetOrderDeskTodayHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderDeskTodayQuery = z.object({
+    branch_id: zUuid.optional()
+});
+
+/**
+ * Today's figures.
+ */
+export const zGetOrderDeskTodayResponse = zOrderDeskTodayEnvelope;
 
 export const zStartGuestSessionBody = zStartGuestSessionRequest;
 
