@@ -1650,7 +1650,7 @@ describe('DiscoverScreen', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('discover-search-area')).toHaveTextContent('Hamra');
+            expect(screen.getByTestId('discover-search-area')).toHaveTextContent(/Hamra/);
         });
         await fireEvent.press(screen.getByTestId('discover-search-deliver-to'));
         expect(screen.getByTestId('discover-search-address-address-1')).toBeChecked();
@@ -1690,7 +1690,7 @@ describe('DiscoverScreen', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('discover-search-area')).toHaveTextContent('Achrafieh');
+            expect(screen.getByTestId('discover-search-area')).toHaveTextContent(/Achrafieh/);
         });
         await fireEvent.press(screen.getByTestId('discover-search-deliver-to'));
         await fireEvent.press(screen.getByTestId('discover-search-address-address-2-edit'));

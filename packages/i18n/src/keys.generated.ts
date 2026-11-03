@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9855 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9880 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1493,6 +1493,11 @@ export interface NamespaceKeys {
     | 'card.noNutrition'
     | 'card.rating'
     | 'card.soldOut'
+    | 'card.strip.carbohydrate'
+    | 'card.strip.energy'
+    | 'card.strip.fat'
+    | 'card.strip.protein'
+    | 'card.stripLabel'
     | 'card.unavailable'
     | 'card.unit.g'
     | 'card.unit.kcal'
@@ -1569,10 +1574,14 @@ export interface NamespaceKeys {
     | 'filters.atLeast'
     | 'filters.atMost'
     | 'filters.barLabel'
+    | 'filters.between'
     | 'filters.carbohydrate'
     | 'filters.category'
     | 'filters.clear'
+    | 'filters.clearAll'
     | 'filters.clearGroup'
+    | 'filters.dishCount'
+    | 'filters.dishCountSoFar'
     | 'filters.energy'
     | 'filters.fat'
     | 'filters.menu.allergies'
@@ -1586,14 +1595,20 @@ export interface NamespaceKeys {
     | 'filters.price'
     | 'filters.protein'
     | 'filters.rangeChip'
+    | 'filters.rangeHigh'
+    | 'filters.rangeLow'
     | 'filters.rangesHint'
     | 'filters.removeFilter'
     | 'filters.searchChip'
+    | 'filters.searchGroup'
+    | 'filters.shelfCount'
     | 'filters.short.carbohydrate'
     | 'filters.short.fat'
     | 'filters.short.preparationMinutes'
     | 'filters.short.price'
     | 'filters.short.protein'
+    | 'filters.showDishes'
+    | 'filters.sortCurrent'
     | 'filters.unitGrams'
     | 'filters.unitKcal'
     | 'filters.unitMinutes'
@@ -1781,6 +1796,7 @@ export interface NamespaceKeys {
     | 'meals.loadingMore'
     | 'meals.moreFilters'
     | 'meals.moreFiltersDone'
+    | 'meals.searchPlaceholder'
     | 'meals.sort.price'
     | 'meals.sort.protein'
     | 'meals.sort.rating'
@@ -7876,6 +7892,7 @@ export interface NamespaceKeys {
     | 'discover.allMeals'
     | 'discover.allMealsCount'
     | 'discover.allShelves'
+    | 'discover.areaDay'
     | 'discover.becauseYouOrdered'
     | 'discover.cardEnergy'
     | 'discover.cardProtein'
@@ -7883,10 +7900,13 @@ export interface NamespaceKeys {
     | 'discover.cardRatingLabel'
     | 'discover.categoriesTitle'
     | 'discover.chooseArea'
+    | 'discover.day'
     | 'discover.defaultAddress'
     | 'discover.deliverHere'
     | 'discover.deliverTo'
     | 'discover.deliverToLabel'
+    | 'discover.deliverToNamed'
+    | 'discover.deliveringTo'
     | 'discover.editAddress'
     | 'discover.heroBody'
     | 'discover.heroBrowseMeals'
@@ -7932,7 +7952,12 @@ export interface NamespaceKeys {
     | 'discover.savedAddresses'
     | 'discover.searchFor'
     | 'discover.shopBy'
+    | 'discover.slotSummary'
+    | 'discover.slotTime'
     | 'discover.tileCount'
+    | 'discover.tomorrow'
+    | 'discover.when'
+    | 'discover.window'
     | 'filters.availability'
     | 'filters.category'
     | 'filters.clear'
@@ -11373,6 +11398,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:card.noNutrition',
   'catalogue:card.rating',
   'catalogue:card.soldOut',
+  'catalogue:card.strip.carbohydrate',
+  'catalogue:card.strip.energy',
+  'catalogue:card.strip.fat',
+  'catalogue:card.strip.protein',
+  'catalogue:card.stripLabel',
   'catalogue:card.unavailable',
   'catalogue:card.unit.g',
   'catalogue:card.unit.kcal',
@@ -11449,10 +11479,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:filters.atLeast',
   'catalogue:filters.atMost',
   'catalogue:filters.barLabel',
+  'catalogue:filters.between',
   'catalogue:filters.carbohydrate',
   'catalogue:filters.category',
   'catalogue:filters.clear',
+  'catalogue:filters.clearAll',
   'catalogue:filters.clearGroup',
+  'catalogue:filters.dishCount',
+  'catalogue:filters.dishCountSoFar',
   'catalogue:filters.energy',
   'catalogue:filters.fat',
   'catalogue:filters.menu.allergies',
@@ -11466,14 +11500,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:filters.price',
   'catalogue:filters.protein',
   'catalogue:filters.rangeChip',
+  'catalogue:filters.rangeHigh',
+  'catalogue:filters.rangeLow',
   'catalogue:filters.rangesHint',
   'catalogue:filters.removeFilter',
   'catalogue:filters.searchChip',
+  'catalogue:filters.searchGroup',
+  'catalogue:filters.shelfCount',
   'catalogue:filters.short.carbohydrate',
   'catalogue:filters.short.fat',
   'catalogue:filters.short.preparationMinutes',
   'catalogue:filters.short.price',
   'catalogue:filters.short.protein',
+  'catalogue:filters.showDishes',
+  'catalogue:filters.sortCurrent',
   'catalogue:filters.unitGrams',
   'catalogue:filters.unitKcal',
   'catalogue:filters.unitMinutes',
@@ -11661,6 +11701,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meals.loadingMore',
   'catalogue:meals.moreFilters',
   'catalogue:meals.moreFiltersDone',
+  'catalogue:meals.searchPlaceholder',
   'catalogue:meals.sort.price',
   'catalogue:meals.sort.protein',
   'catalogue:meals.sort.rating',
@@ -17748,6 +17789,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:discover.allMeals',
   'marketplace:discover.allMealsCount',
   'marketplace:discover.allShelves',
+  'marketplace:discover.areaDay',
   'marketplace:discover.becauseYouOrdered',
   'marketplace:discover.cardEnergy',
   'marketplace:discover.cardProtein',
@@ -17755,10 +17797,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:discover.cardRatingLabel',
   'marketplace:discover.categoriesTitle',
   'marketplace:discover.chooseArea',
+  'marketplace:discover.day',
   'marketplace:discover.defaultAddress',
   'marketplace:discover.deliverHere',
   'marketplace:discover.deliverTo',
   'marketplace:discover.deliverToLabel',
+  'marketplace:discover.deliverToNamed',
+  'marketplace:discover.deliveringTo',
   'marketplace:discover.editAddress',
   'marketplace:discover.heroBody',
   'marketplace:discover.heroBrowseMeals',
@@ -17804,7 +17849,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:discover.savedAddresses',
   'marketplace:discover.searchFor',
   'marketplace:discover.shopBy',
+  'marketplace:discover.slotSummary',
+  'marketplace:discover.slotTime',
   'marketplace:discover.tileCount',
+  'marketplace:discover.tomorrow',
+  'marketplace:discover.when',
+  'marketplace:discover.window',
   'marketplace:filters.availability',
   'marketplace:filters.category',
   'marketplace:filters.clear',

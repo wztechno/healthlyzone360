@@ -138,7 +138,16 @@
         "pickKitchens": "اعثر على مطبخك",
         "popularNow": "الأكثر طلبًا الآن",
         "previous": "السابق",
-        "next": "التالي"
+        "next": "التالي",
+        "deliverToNamed": "التوصيل إلى {{label}}",
+        "areaDay": "{{area}} · {{day}}",
+        "tomorrow": "غدًا",
+        "when": "متى",
+        "deliveringTo": "التوصيل إلى {{area}}",
+        "day": "اليوم",
+        "window": "موعد التوصيل",
+        "slotTime": "{{start}} – {{end}}",
+        "slotSummary": "{{day}}، {{slot}} {{time}}"
     },
     "kitchens": {
         "title": "المطابخ",

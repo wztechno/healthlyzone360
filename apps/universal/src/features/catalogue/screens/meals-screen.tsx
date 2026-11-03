@@ -1,48 +1,50 @@
-import { Button, SearchInput, Stack } from '@healthy360/design-system';
+import { Button, Icon, cx } from '@healthy360/design-system';
+import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
+import { neutral } from '@healthy360/design-tokens';
 import type {
     AllergenCode,
     CurrencyCode,
     DietClassification,
     KitchenId,
 } from '@healthy360/domain-types';
-import { ROUTE_PATHS } from '@healthy360/permissions';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
-import { Platform, View } from 'react-native';
+import { Platform, Pressable, Text as RNText, TextInput, View } from 'react-native';
 
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { mealsFromPages, totalFromPages, useMealsQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
-import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { useRememberQuery } from '../../../navigation/use-return-to.ts';
-import { ListingHeader } from '../../../ui/listing-header.tsx';
 import {
     QUERY_PARAM,
     useMarketplaceFilters,
     useSearchDraft,
 } from '../../marketplace/filter-bar.tsx';
+import { DeliverToMenu } from '../../marketplace/discover/deliver-to-menu.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
-import { ToolbarRow } from '../../marketplace/toolbar-row.tsx';
-import { CategoryTabs, MealFilterBar, rangeChips } from '../meal-filter-bar.tsx';
+import { CategoryTabs, FILTER_LOOKS, MealFilterBar, rangeChips } from '../meal-filter-bar.tsx';
+import type { FilterLook } from '../meal-filter-bar.tsx';
 import { MEAL_RANGE_KEYS, toMealFilter, useMealRanges } from '../meal-filters.tsx';
 import { isMenuSort, refineMeals } from '../meal-readings.ts';
 import { MenuGrid } from '../menu-grid.tsx';
 import { MenuMealCard } from '../menu-meal-card.tsx';
+import { TINT_FILL, TINT_INK } from '../shelf-tints.ts';
 import { useMenuSearchFocus } from '../menu-search-focus.ts';
 import { shownCategory, shownItemTypes } from '../shown-shelves.ts';
 import { useMealShelves } from '../use-meal-shelves.ts';
 
 /**
- * `/meals` — "Today's menu", HealthZone's `§isCatalog`.
+ * `/meals` — the Menu, as the accepted shop board draws it.
  *
  * ## The page, top to bottom
  *
- * A trail, the title and the count — `ListingHeader`. Then the shelves as a row of tabs with their
- * counts, and under them one bar of filter buttons — Diet, Calories, Allergies, Kitchen, More — with
- * the sort at its end, pinned on the web while the grid scrolls (`meal-filter-bar.tsx`). Whatever is
- * applied is listed under the bar as removable chips with "Clear all". The grid has the full width:
+ * The title and the count, with Deliver to at the end of the row (`deliver-to-menu.tsx`). Then the
+ * shelves as colour tiles with a photograph and their counts, and under them one white bar holding
+ * the search, the filter buttons — Diet, Calories, Allergies, Kitchen, More — and the sort, pinned
+ * on the web while the grid scrolls (`meal-filter-bar.tsx`). Whatever is applied is listed under the
+ * bar as removable chips in their menu's colour, with "Clear all". The grid has the full width:
  * there is no filter rail and no disclosure, at any width.
  *
  * ## Every control writes to the URL
@@ -86,6 +88,34 @@ const PAGE_SIZE = 20;
 /** The page's search field; its input is `${SEARCH_TEST_ID}-input`. */
 const SEARCH_TEST_ID = 'meals-search';
 
+/** Each chip group's menu, which gives its chip the menu's colour, glyph and name. */
+const CHIP_LOOKS: Readonly<Record<(typeof CHIP_GROUP_KEYS)[number], FilterLook>> = {
+    kitchen: 'kitchen',
+    category: 'more',
+    diet: 'diet',
+    exclude: 'allergies',
+};
+const CHIP_GROUPS: Readonly<Record<(typeof CHIP_GROUP_KEYS)[number], string>> = {
+    kitchen: 'catalogue:filters.menu.kitchen',
+    category: 'catalogue:filters.category',
+    diet: 'catalogue:filters.menu.diet',
+    exclude: 'catalogue:filters.menu.allergies',
+};
+
+/**
+ * The whole shown menu, best rated first — Discover's listing, so it is usually cached — read only
+ * for a photograph to put on each shelf's tile.
+ */
+const SHELF_PHOTO_FILTER = (() => {
+    const shelf = shownCategory();
+    return {
+        itemTypes: shownItemTypes(['meal']),
+        ...(shelf === undefined ? {} : { categorySlug: shelf }),
+        sort: 'rating' as const,
+        limit: 100,
+    };
+})();
+
 /**
  * The currency the price filter is typed in.
  *
@@ -104,6 +134,7 @@ export function MealsScreen() {
     const shelves = useMealShelves();
     const formatter = useFormatter();
     const search = useSearchDraft(filters);
+    const [searchFocused, setSearchFocused] = useState(false);
     useRememberQuery();
 
     // The header's search button asks for the cursor here. The field is a DOM input on the web;
@@ -159,6 +190,14 @@ export function MealsScreen() {
     );
 
     const meals = useMealsQuery(filter);
+    const shelfPhotos = useMealsQuery(SHELF_PHOTO_FILTER);
+    const photoOf = useCallback(
+        (code: string): MarketplaceMeal | undefined =>
+            mealsFromPages(shelfPhotos.data?.pages).find(
+                (meal) => meal.publishedCategory?.code === code,
+            ),
+        [shelfPhotos.data],
+    );
     const fetched = useMemo(() => mealsFromPages(meals.data?.pages), [meals.data]);
     const items = useMemo(
         () => refineMeals(fetched, rangeValues, sort),
@@ -190,7 +229,7 @@ export function MealsScreen() {
         return t('catalogue:meals.countSoFar', { count: items.length });
     })();
 
-    /** Everything applied, as removable chips — the chip groups first, then the ranges. */
+    /** Everything applied, as removable chips — the term first, then the chip groups, then ranges. */
     const activeChips = useMemo(() => {
         const labelOf = (groupKey: (typeof CHIP_GROUP_KEYS)[number], value: string): string => {
             switch (groupKey) {
@@ -208,11 +247,13 @@ export function MealsScreen() {
         };
         const groups = CHIP_GROUP_KEYS.flatMap((groupKey) =>
             (selected[groupKey] ?? [])
-                // The shelf is a tab, and its lit tab already says so.
+                // The shelf is a tile, and its ringed tile already says so.
                 .filter(() => groupKey !== 'category')
                 .map((value) => ({
                     key: `${groupKey}-${value}`,
-                    label: labelOf(groupKey, value),
+                    look: CHIP_LOOKS[groupKey],
+                    group: t(CHIP_GROUPS[groupKey]),
+                    value: labelOf(groupKey, value),
                     removeLabel: t('catalogue:filters.removeFilter', {
                         filter: labelOf(groupKey, value),
                     }),
@@ -230,7 +271,9 @@ export function MealsScreen() {
                 : [
                       {
                           key: QUERY_PARAM,
-                          label: searchLabel,
+                          look: 'search' as const,
+                          group: t('catalogue:filters.searchGroup'),
+                          value: searchTerm,
                           removeLabel: t('catalogue:filters.removeFilter', { filter: searchLabel }),
                           onRemove: () => {
                               filters.setQuery('');
@@ -245,78 +288,161 @@ export function MealsScreen() {
     }, [searchTerm, selected, kitchenItems, shelves.shelves, filters, ranges, formatter, t]);
 
     return (
-        <Stack space="lg" testID="meals-screen">
-            <ListingHeader
-                testID="meals"
-                breadcrumbs={[
-                    {
-                        key: 'home',
-                        label: t('catalogue:nav.home'),
-                        testID: 'meals-crumb-home',
-                        // The marketplace home, not `/`: `/` is the launch resolver, which drew a
-                        // blank frame and sent an unconfirmed account to verification (browse-10).
-                        onPress: () => {
-                            router.navigate(ROUTE_PATHS.customerHome as never);
-                        },
-                    },
-                    { key: 'meals', label: t('catalogue:meals.title') },
-                ]}
-                title={t('catalogue:meals.title')}
-                metaTestID="meals-count"
-                meta={countLine}
+        <View testID="meals-screen" className="relative flex-col gap-6 pb-11">
+            {/* The design's soft shapes behind the page. */}
+            <View
+                aria-hidden
+                pointerEvents="none"
+                className="absolute -start-44 -top-32 h-[440px] w-[440px] rounded-full bg-surface-brand-subtle opacity-60"
+            />
+            <View
+                aria-hidden
+                pointerEvents="none"
+                className="absolute -end-52 top-[520px] h-[420px] w-[420px] rounded-full bg-tint-yellow opacity-50"
             />
 
-            <CategoryTabs filters={filters} shelves={shelves} />
+            {/* The title and its count, with where the food goes at the end of the row. `z-20`
+                lifts its address dropdown over the pinned filter bar (`z-10`) that follows it. */}
+            <View className="z-20 flex-row flex-wrap items-end gap-4 pt-1">
+                <View className="me-auto min-w-0 flex-col">
+                    <RNText
+                        role="heading"
+                        aria-level={1}
+                        className="font-display text-3xl font-bold tracking-display text-content-primary text-start"
+                    >
+                        {t('marketplace:nav.meals')}
+                    </RNText>
+                    <RNText
+                        testID="meals-count"
+                        className="mt-0.5 text-sm text-content-secondary text-start"
+                    >
+                        {countLine}
+                    </RNText>
+                </View>
+                <DeliverToMenu testID="meals" framed kitchenId={fetched[0]?.kitchenId ?? null} />
+            </View>
+
+            <CategoryTabs filters={filters} shelves={shelves} photoOf={photoOf} />
 
             {/*
              * Pinned on the web against the shell's scroll port — `top-0` sits just under the bar —
              * so the filters stay in reach while the grid scrolls. `z-10` lifts the open menus over
-             * the cards; the wrapper is `z-auto` inside so the popovers are not trapped beneath it.
+             * the cards; the wrapper is `z-auto` inside so the menus are not trapped beneath it.
              */}
-            <View className="z-10 flex-col gap-3 border-b border-stroke bg-surface-base pb-3 pt-1 web:sticky web:top-0">
+            <View className="z-10 flex-col gap-4 bg-surface-base pb-2 pt-1 web:sticky web:top-0">
                 <MealFilterBar
                     filters={filters}
                     ranges={ranges}
                     kitchens={kitchenItems}
                     currency={PRICE_CURRENCY}
                     sort={sort}
+                    summary={t(
+                        meals.hasNextPage
+                            ? 'catalogue:filters.dishCountSoFar'
+                            : 'catalogue:filters.dishCount',
+                        { count: items.length },
+                    )}
                     hasRatings={fetched.some((meal) => meal.rating !== null)}
                     onSort={(next) => {
                         filters.select('sort', next === 'relevance' ? null : next);
                     }}
                     search={
-                        <SearchInput
-                            testID={SEARCH_TEST_ID}
-                            label={t('marketplace:nav.searchLabel')}
-                            placeholder={t('marketplace:nav.searchPlaceholder')}
-                            value={search.draft}
-                            onChangeText={search.setDraft}
-                            onSubmitEditing={search.submit}
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                            size="md"
-                        />
+                        <View
+                            className={cx(
+                                'h-[52px] flex-row items-center gap-2 rounded-2xl border-2 bg-surface-base px-4',
+                                searchFocused
+                                    ? 'border-surface-brand-subtle'
+                                    : 'border-transparent',
+                            )}
+                        >
+                            <Icon name="search" size="sm" className="text-content-secondary" />
+                            <TextInput
+                                testID={`${SEARCH_TEST_ID}-input`}
+                                accessibilityLabel={t('marketplace:nav.searchLabel')}
+                                placeholder={t('catalogue:meals.searchPlaceholder')}
+                                value={search.draft}
+                                onChangeText={search.setDraft}
+                                onSubmitEditing={search.submit}
+                                onFocus={() => {
+                                    setSearchFocused(true);
+                                }}
+                                onBlur={() => {
+                                    setSearchFocused(false);
+                                }}
+                                returnKeyType="search"
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                placeholderTextColor={neutral[600]}
+                                className="h-full min-w-0 flex-1 text-sm text-content-primary text-start web:outline-none"
+                            />
+                        </View>
                     }
                 />
                 {activeChips.length === 0 ? null : (
-                    <ToolbarRow
+                    <View
                         testID="meals-toolbar"
-                        filtersLabel=""
-                        filtersActive={activeCount}
-                        filtersExpanded={false}
-                        filtersPanelId=""
-                        onToggleFilters={() => undefined}
-                        showFiltersToggle={false}
-                        activeFilters={activeChips}
-                        onClearAll={clearEverything}
-                        clearAllLabel={t('catalogue:filters.clear')}
-                    />
+                        role="status"
+                        className="min-h-touch flex-row flex-wrap items-center gap-2.5"
+                    >
+                        {activeChips.map((chip) => {
+                            const { tint, icon } = FILTER_LOOKS[chip.look];
+                            return (
+                                <Pressable
+                                    key={chip.key}
+                                    testID={`meals-toolbar-chip-${chip.key}`}
+                                    role="button"
+                                    accessibilityRole="button"
+                                    accessibilityLabel={chip.removeLabel}
+                                    onPress={chip.onRemove}
+                                    className={cx(
+                                        'h-10 flex-row items-center gap-2 rounded-2xl px-1.5 transition duration-normal ease-standard hover:-translate-y-px',
+                                        TINT_FILL[tint],
+                                    )}
+                                >
+                                    <View className="h-7 w-7 items-center justify-center rounded-lg bg-surface-raised">
+                                        <Icon name={icon} size="sm" className={TINT_INK[tint]} />
+                                    </View>
+                                    <View className="flex-col items-start">
+                                        <RNText
+                                            className={cx(
+                                                'text-xs font-semibold uppercase tracking-wide opacity-75',
+                                                TINT_INK[tint],
+                                            )}
+                                        >
+                                            {chip.group}
+                                        </RNText>
+                                        <RNText
+                                            numberOfLines={1}
+                                            className={cx('text-sm font-semibold', TINT_INK[tint])}
+                                        >
+                                            {chip.value}
+                                        </RNText>
+                                    </View>
+                                    <View className="h-[26px] w-[26px] items-center justify-center rounded-full">
+                                        <Icon name="close" size="sm" className={TINT_INK[tint]} />
+                                    </View>
+                                </Pressable>
+                            );
+                        })}
+                        <Pressable
+                            testID="meals-toolbar-clear"
+                            role="button"
+                            accessibilityRole="button"
+                            onPress={clearEverything}
+                            className="h-10 flex-row items-center gap-1.5 rounded-2xl border border-dashed border-stroke-strong px-3 hover:border-solid hover:border-surface-brand"
+                        >
+                            <Icon name="refresh" size="sm" className="text-content-primary" />
+                            <RNText className="text-sm font-semibold text-content-primary">
+                                {t('catalogue:filters.clearAll')}
+                            </RNText>
+                        </Pressable>
+                    </View>
                 )}
             </View>
 
             {/* `min-w-0` is load-bearing: without it React Native Web gives the column its
                 max-content width and the page scrolls sideways at 1024. */}
-            <Stack space="md" className="min-w-0">
+            <View className="min-w-0 flex-col gap-8">
                 <QueryStates
                     query={meals}
                     isEmpty={items.length === 0 && !meals.hasNextPage}
@@ -333,8 +459,8 @@ export function MealsScreen() {
                     }
                     testID="meals"
                 >
-                    <Stack space="md">
-                        <MenuGrid testID="meals-grid">
+                    <View className="flex-col gap-8">
+                        <MenuGrid testID="meals-grid" gap={20}>
                             {items.map((meal) => (
                                 <MenuMealCard
                                     key={meal.id}
@@ -351,28 +477,30 @@ export function MealsScreen() {
 
                         {meals.hasNextPage ? (
                             <View className="items-center">
-                                <Button
+                                <Pressable
                                     testID="meals-load-more"
-                                    variant="secondary"
-                                    label={
-                                        meals.isFetchingNextPage
-                                            ? t('catalogue:meals.loadingMore')
-                                            : t('catalogue:meals.loadMore')
-                                    }
+                                    role="button"
+                                    accessibilityRole="button"
                                     disabled={meals.isFetchingNextPage}
+                                    accessibilityState={{ disabled: meals.isFetchingNextPage }}
                                     onPress={() => {
                                         void meals.fetchNextPage();
                                     }}
-                                />
+                                    className="h-12 items-center justify-center rounded-full border border-stroke bg-surface-raised px-7 transition duration-normal ease-standard hover:border-surface-brand"
+                                >
+                                    <RNText className="text-base font-semibold text-content-primary">
+                                        {meals.isFetchingNextPage
+                                            ? t('catalogue:meals.loadingMore')
+                                            : t('catalogue:meals.loadMore')}
+                                    </RNText>
+                                </Pressable>
                             </View>
                         ) : null}
-                    </Stack>
+                    </View>
                 </QueryStates>
-            </Stack>
-
-            <MedicalDisclaimer />
+            </View>
 
             {basket.dialog}
-        </Stack>
+        </View>
     );
 }

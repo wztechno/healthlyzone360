@@ -1,4 +1,5 @@
 import { Icon, useMotion } from '@healthy360/design-system';
+import type { KitchenId } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -29,7 +30,14 @@ const HINT_STEP_MS = 2400;
  *
  * The search opens the menu on the term (`?q=`), the same parameter the menu's own field writes.
  */
-export function DiscoverSearchBar({ testID }: { readonly testID: string }) {
+export function DiscoverSearchBar({
+    testID,
+    kitchenId = null,
+}: {
+    readonly testID: string;
+    /** The kitchen of the food on the page, for Deliver to's delivery windows. */
+    readonly kitchenId?: KitchenId | null | undefined;
+}) {
     const { t } = useTranslation();
     const router = useRouter();
 
@@ -45,7 +53,7 @@ export function DiscoverSearchBar({ testID }: { readonly testID: string }) {
 
     // `z-auto` here and on the bar lets the address dropdown sit above the rest of the page.
     return (
-        <View testID={testID} className="z-auto items-center pb-7 pt-8">
+        <View testID={testID} className="z-auto items-center pb-7 pt-2">
             <View
                 className={
                     focused
@@ -53,7 +61,7 @@ export function DiscoverSearchBar({ testID }: { readonly testID: string }) {
                         : 'z-auto h-[60px] w-full max-w-[760px] flex-row items-center gap-1.5 rounded-full border border-stroke bg-surface-raised p-1.5 shadow-elevation-2'
                 }
             >
-                <DeliverToMenu testID={testID} />
+                <DeliverToMenu testID={testID} kitchenId={kitchenId} />
 
                 <View aria-hidden className="h-7 w-px bg-stroke" />
 

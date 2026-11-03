@@ -4,8 +4,17 @@ import { useFormatter } from '@healthy360/i18n';
 import { findAmount } from '@healthy360/nutrition';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, Text as RNText, ScrollView, View } from 'react-native';
+import {
+    Animated,
+    Easing,
+    Platform,
+    Pressable,
+    Text as RNText,
+    ScrollView,
+    View,
+} from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
@@ -14,25 +23,40 @@ import { formatMoney, nutrientValue } from '../format.ts';
 import { useSession } from '../../../session/session-provider.tsx';
 import { useShopViewOnly } from '../shop-view-only.tsx';
 
-/** A card is 232 wide with a 16 gap. */
-const CARD_STEP = 248;
+/** The design's card is 232 wide with a 16 gap; the row widens it to fit whole cards. */
+const CARD_MIN = 232;
+const CARD_GAP = 16;
+/** The track's own inline padding (`px-2`), which the scroller's width includes. */
+const TRACK_PADDING = 16;
 const AUTOPLAY_MS = 4000;
 /** How long the Add button wears its tick after an add. */
 const DONE_MS = 1400;
+/** The design's `up` entrance: a 12px rise and fade, each card a beat after the last. */
+const ENTER_MS = 700;
+const ENTER_STAGGER_MS = 60;
+const ENTER_RISE = 12;
+/** Past the cards a laptop shows, the rest enter together. */
+const ENTER_STAGGERED = 6;
+const ENTER_EASING = Easing.bezier(0.2, 0.7, 0.2, 1);
 
 /**
  * "Popular right now" — the accepted design's carousel: cards that move on by one every 4s, stop
  * while the pointer or focus is on them and for good once somebody steps it with the arrows, and
  * go back to the start after the last. Under reduced motion it never moves by itself.
+ *
+ * A new `entranceKey` — another shelf chosen above — starts the row again from the first card,
+ * and the cards rise in as the design's sections do.
  */
 export function PopularCarousel({
     testID,
     meals,
     onAdd,
+    entranceKey,
 }: {
     readonly testID: string;
     readonly meals: readonly MarketplaceMeal[];
     readonly onAdd: (meal: MarketplaceMeal) => void;
+    readonly entranceKey?: string | undefined;
 }) {
     const { t } = useTranslation();
     const { enabled } = useMotion();
@@ -40,6 +64,24 @@ export function PopularCarousel({
     const [place, setPlace] = useState({ x: 0, width: 0, content: 0 });
     const [paused, setPaused] = useState(false);
     const [touched, setTouched] = useState(false);
+    // A new shelf starts the row again from its first card.
+    const [shownKey, setShownKey] = useState(entranceKey);
+    if (shownKey !== entranceKey) {
+        setShownKey(entranceKey);
+        setPlace((current) => ({ ...current, x: 0 }));
+    }
+
+    /*
+     * As many whole cards as the row holds, sharing its width evenly — so every card is the same
+     * size, none is cut at the edge, and an arrow steps a whole page. Until the row is measured (and
+     * in a test renderer) it is the design's 232.
+     */
+    const inner = place.width - TRACK_PADDING;
+    const perView =
+        place.width > 0 ? Math.max(1, Math.floor((inner + CARD_GAP) / (CARD_MIN + CARD_GAP))) : 0;
+    const cardWidth =
+        perView > 0 ? Math.floor((inner - (perView - 1) * CARD_GAP) / perView) : CARD_MIN;
+    const cardStep = cardWidth + CARD_GAP;
 
     const atStart = place.x <= 2;
     const atEnd = place.content > 0 && place.x + place.width >= place.content - 2;
@@ -51,12 +93,12 @@ export function PopularCarousel({
     useEffect(() => {
         if (!enabled || paused || touched || meals.length === 0) return;
         const timer = setInterval(() => {
-            scrollTo(atEnd ? 0 : place.x + CARD_STEP);
+            scrollTo(atEnd ? 0 : place.x + cardStep);
         }, AUTOPLAY_MS);
         return () => {
             clearInterval(timer);
         };
-    }, [atEnd, enabled, meals.length, paused, place.x, scrollTo, touched]);
+    }, [atEnd, cardStep, enabled, meals.length, paused, place.x, scrollTo, touched]);
 
     const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
         const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
@@ -69,7 +111,7 @@ export function PopularCarousel({
 
     const step = (direction: 1 | -1) => {
         setTouched(true);
-        scrollTo(place.x + direction * CARD_STEP * 4);
+        scrollTo(place.x + direction * cardStep * Math.max(1, perView));
     };
 
     return (
@@ -116,11 +158,12 @@ export function PopularCarousel({
                 }}
             >
                 <ScrollView
+                    key={entranceKey}
                     ref={port}
                     testID={`${testID}-track`}
                     horizontal
                     showsHorizontalScrollIndicator={false}
-                    snapToInterval={CARD_STEP}
+                    snapToInterval={cardStep}
                     decelerationRate="fast"
                     onScroll={onScroll}
                     onLayout={(event) => {
@@ -131,28 +174,82 @@ export function PopularCarousel({
                         setPlace((current) => ({ ...current, content }));
                     }}
                     scrollEventThrottle={64}
-                    contentContainerClassName="gap-4 px-2 pb-6 pt-2"
+                    contentContainerClassName="items-stretch gap-4 px-2 pb-6 pt-2"
                     className="-mx-2"
                 >
-                    {meals.map((meal) => (
-                        <PopularCard
-                            key={meal.id}
-                            testID={`${testID}-${meal.slug}`}
-                            meal={meal}
-                            onAdd={() => {
-                                onAdd(meal);
-                            }}
-                            onFocus={() => {
-                                setPaused(true);
-                            }}
-                            onBlur={() => {
-                                setPaused(false);
-                            }}
-                        />
+                    {meals.map((meal, index) => (
+                        <CardEntrance key={meal.id} index={index} width={cardWidth}>
+                            <PopularCard
+                                testID={`${testID}-${meal.slug}`}
+                                meal={meal}
+                                onAdd={() => {
+                                    onAdd(meal);
+                                }}
+                                onFocus={() => {
+                                    setPaused(true);
+                                }}
+                                onBlur={() => {
+                                    setPaused(false);
+                                }}
+                            />
+                        </CardEntrance>
                     ))}
                 </ScrollView>
             </View>
         </View>
+    );
+}
+
+/** A card's rise into the row, a beat after the one before it. */
+function CardEntrance({
+    index,
+    width,
+    children,
+}: {
+    readonly index: number;
+    readonly width: number;
+    readonly children: ReactNode;
+}) {
+    const { enabled } = useMotion();
+    const [shown] = useState(() => new Animated.Value(enabled ? 0 : 1));
+
+    useEffect(() => {
+        if (!enabled) {
+            shown.setValue(1);
+            return undefined;
+        }
+        const animation = Animated.timing(shown, {
+            toValue: 1,
+            duration: ENTER_MS,
+            delay: Math.min(index, ENTER_STAGGERED) * ENTER_STAGGER_MS,
+            easing: ENTER_EASING,
+            useNativeDriver: Platform.OS !== 'web',
+        });
+        animation.start();
+        return () => {
+            animation.stop();
+        };
+    }, [enabled, index, shown]);
+
+    return (
+        <Animated.View
+            // The row stretches every wrapper to its tallest card; the card fills it.
+            style={{
+                width,
+                flexDirection: 'column',
+                opacity: shown,
+                transform: [
+                    {
+                        translateY: shown.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [ENTER_RISE, 0],
+                        }),
+                    },
+                ],
+            }}
+        >
+            {children}
+        </Animated.View>
     );
 }
 
@@ -219,7 +316,7 @@ function PopularCard({
                 setHovered(false);
             }}
             className={[
-                'w-[232px] flex-col overflow-hidden rounded-2xl border border-stroke-subtle bg-surface-raised transition duration-normal ease-standard',
+                'flex-1 flex-col overflow-hidden rounded-2xl border border-stroke-subtle bg-surface-raised transition duration-normal ease-standard',
                 hovered ? '-translate-y-1 shadow-elevation-card-hover' : '',
             ].join(' ')}
         >

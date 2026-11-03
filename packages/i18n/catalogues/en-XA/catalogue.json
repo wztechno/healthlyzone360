@@ -36,7 +36,8 @@
     "countSoFar_one": "[[{{count}} ɱéáł šĥóŵñ šó ƒáŕ — ɱóŕé ţó łóáð. āēīōūāēīōūāēīōūāēī]]",
     "countSoFar_other": "[[{{count}} ɱéáłš šĥóŵñ šó ƒáŕ — ɱóŕé ţó łóáð. āēīōūāēīōūāēīōūāēī]]",
     "moreFilters": "[[Ṁóŕé ƒíłţéŕš āēīōū]]",
-    "moreFiltersDone": "[[Šĥóŵ ɱéáłš āēīō]]"
+    "moreFiltersDone": "[[Šĥóŵ ɱéáłš āēīō]]",
+    "searchPlaceholder": "[[Šéáŕçĥ ţĥé ɱéñú āēīōūā]]"
   },
   "filters": {
     "rangesHint": "[[Šłíðé ƀáçķ ţó ţĥé šţáŕţ ţó łíƒţ á łíɱíţ. āēīōūāēīōūāēīōūā]]",
@@ -75,7 +76,20 @@
       "preparationMinutes": "[[Þŕéþ ţíɱé āēīō]]"
     },
     "rangeChip": "[[{{label}}: {{readout}} āēīōūāēīō]]",
-    "searchChip": "[[Šéáŕçĥ: {{term}} āēīōūāē]]"
+    "searchChip": "[[Šéáŕçĥ: {{term}} āēīōūāē]]",
+    "shelfCount_one": "[[{{n}} íţéɱ āēīō]]",
+    "shelfCount_other": "[[{{n}} íţéɱš āēīōū]]",
+    "showDishes": "[[Šĥóŵ ðíšĥéš āēīōū]]",
+    "searchGroup": "[[Šéáŕçĥ āēī]]",
+    "sortCurrent": "[[{{label}}: {{value}} āēīōūāēī]]",
+    "clearAll": "[[Çłéáŕ áłł āēīō]]",
+    "between": "[[{{min}} – {{max}} {{unit}} āēīōūāēīōūā]]",
+    "rangeLow": "[[{{label}} ɱíñíɱúɱ āēīōūāē]]",
+    "rangeHigh": "[[{{label}} ɱáẋíɱúɱ āēīōūāē]]",
+    "dishCount_one": "[[{{count}} ðíšĥ āēīōūā]]",
+    "dishCount_other": "[[{{count}} ðíšĥéš āēīōūāē]]",
+    "dishCountSoFar_one": "[[{{count}}+ ðíšĥ āēīōūā]]",
+    "dishCountSoFar_other": "[[{{count}}+ ðíšĥéš āēīōūāē]]"
   },
   "meal": {
     "loading": "[[Łóáðíñĝ ţĥé ɱéáł āēīōūāē]]",
@@ -630,6 +644,13 @@
       "kcal": "[[ķçáł āē]]",
       "g": "[[ĝ ā]]",
       "mg": "[[ɱĝ ā]]"
+    },
+    "stripLabel": "[[Ñúţŕíţíóñ þéŕ šéŕṽíñĝ āēīōūāēīō]]",
+    "strip": {
+      "energy": "[[ķçáł āē]]",
+      "protein": "[[Þŕóţéíñ āēī]]",
+      "carbohydrate": "[[Çáŕƀš āē]]",
+      "fat": "[[Ƒáţ āē]]"
     }
   },
   "dishOptions": {

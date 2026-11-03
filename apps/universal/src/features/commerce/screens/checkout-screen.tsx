@@ -69,6 +69,7 @@ import {
 } from '../checkout-frame.tsx';
 import type { SummaryItem } from '../checkout-frame.tsx';
 import { earliestStartDate } from '../dates.ts';
+import { CURRENT_DELIVERY_CHOICE, deliveryChoices } from '../delivery-choice.ts';
 import { MealReceipt } from '../order-receipt.tsx';
 import { ReceiptPrinter } from '../receipt-printer.tsx';
 import type { ReceiptPrinterStage } from '../receipt-printer.tsx';
@@ -185,9 +186,14 @@ export function CheckoutScreen() {
         (addressList.length === 1 ? (addressList[0]?.id ?? null) : null);
     const selectedAddress = addressList.find((entry) => entry.id === addressId) ?? null;
 
+    // What the shop's Deliver to picked for this visit, when the URL has no choice of its own.
+    const shopChoice = deliveryChoices.useDraft(CURRENT_DELIVERY_CHOICE);
+    const wantedDate = draft.date ?? shopChoice?.date;
+    const wantedSlot = draft.slot ?? shopChoice?.slot;
+
     const earliestDate = earliestStartDate();
     const deliveryDate =
-        isIsoDate(draft.date) && draft.date >= earliestDate ? draft.date : earliestDate;
+        isIsoDate(wantedDate) && wantedDate >= earliestDate ? wantedDate : earliestDate;
 
     // A plain object: the query hashes its key, so a new one each render asks for nothing new.
     const previewRequest =
@@ -232,8 +238,8 @@ export function CheckoutScreen() {
      */
     const slotOptions = offeredSlots(deliverySlots, quotation?.offeredWindowCodes ?? null);
     const slotCode =
-        draft.slot !== undefined && slotOptions.some((slot) => slot.code === draft.slot)
-            ? draft.slot
+        wantedSlot !== undefined && slotOptions.some((slot) => slot.code === wantedSlot)
+            ? wantedSlot
             : defaultSlotCode(slotOptions);
     const placeFailure = toFailure(placeOrder.error);
 

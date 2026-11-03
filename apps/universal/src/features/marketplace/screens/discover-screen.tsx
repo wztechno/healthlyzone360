@@ -134,7 +134,10 @@ export function DiscoverScreen() {
             </RNText>
 
             <Cascade space="none">
-                <DiscoverSearchBar testID="discover-search" />
+                <DiscoverSearchBar
+                    testID="discover-search"
+                    kitchenId={ranked[0]?.kitchenId ?? null}
+                />
                 <ShopByTabs
                     testID="discover-shelves"
                     tabs={tabs}
@@ -145,6 +148,7 @@ export function DiscoverScreen() {
                 <PopularCarousel
                     testID="discover-popular"
                     meals={popular}
+                    entranceKey={shelf ?? 'all'}
                     onAdd={(meal) => {
                         basket.add(meal);
                     }}

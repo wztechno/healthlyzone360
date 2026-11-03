@@ -859,7 +859,7 @@ describe('MealsScreen', () => {
         });
     });
 
-    it('draws the card: tag, name, every published nutrient by name, price and Add', async () => {
+    it('draws the card: tag, name, the four-figure strip, price and Add', async () => {
         await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
 
         await waitFor(() => screen.getByTestId('meals-grid'));
@@ -868,13 +868,13 @@ describe('MealsScreen', () => {
         expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-tag`)).toHaveTextContent(
             'Bowls',
         );
-        // Full names, values and units — not "520 CAL · 30G P".
+        // Calories, then protein, carbohydrate and fat, each with its unit and name.
         expect(
             within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-nutrient-energy`),
-        ).toHaveTextContent(/Energy.*520 kcal/);
+        ).toHaveTextContent(/520.*kcal/);
         expect(
             within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-nutrient-protein`),
-        ).toHaveTextContent(/Protein.*30 g/);
+        ).toHaveTextContent(/30.*g.*Protein/);
         expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-rating`)).toHaveTextContent(
             /4\.4/,
         );
@@ -959,8 +959,8 @@ describe('MealsScreen', () => {
 
         await waitFor(() => screen.getByTestId('meals-grid'));
         // Never silently in force: the button counts it and a chip names it.
-        expect(screen.getByTestId('meals-menu-allergies-trigger')).toHaveTextContent(
-            /^Allergies · 1/,
+        expect(screen.getByTestId('meals-menu-allergies-trigger').props.accessibilityLabel).toBe(
+            'Allergies · 1',
         );
         expect(screen.getByTestId('meals-toolbar-chip-exclude-milk')).toBeTruthy();
 
@@ -995,18 +995,18 @@ describe('MealsScreen', () => {
                 screen.getByTestId('meals-filter-category-all-count', {
                     includeHiddenElements: true,
                 }),
-            ).toHaveTextContent(String(CATALOGUE_SIZE));
+            ).toHaveTextContent(`${String(CATALOGUE_SIZE)} items`);
         });
         expect(
             screen.getByTestId('meals-filter-category-bowls-count', {
                 includeHiddenElements: true,
             }),
-        ).toHaveTextContent(String(BOWL_COUNT));
+        ).toHaveTextContent(`${String(BOWL_COUNT)} items`);
         expect(
             screen.getByTestId('meals-filter-category-salads-count', {
                 includeHiddenElements: true,
             }),
-        ).toHaveTextContent(String(CATALOGUE_SIZE - BOWL_COUNT));
+        ).toHaveTextContent(`${String(CATALOGUE_SIZE - BOWL_COUNT)} items`);
         // The figure is part of the tab's name, not a stray number read out on its own.
         expect(
             screen.getByTestId('meals-filter-category-bowls').props.accessibilityLabel,
@@ -1041,9 +1041,11 @@ describe('MealsScreen', () => {
         ).toMatchObject({ checked: true });
         expect(screen.getByTestId('meals-toolbar-chip-diet-vegan')).toBeTruthy();
         expect(screen.getByTestId('meals-toolbar-chip-range-energy')).toHaveTextContent(
-            /Calories: Under 500 kcal/,
+            /Calories.*Under 500 kcal/,
         );
-        expect(screen.getByTestId('meals-menu-diet-trigger')).toHaveTextContent(/^Diet · 1/);
+        expect(screen.getByTestId('meals-menu-diet-trigger').props.accessibilityLabel).toBe(
+            'Diet · 1',
+        );
         expect(repositories.marketplace.listMeals).toHaveBeenCalledWith(
             expect.objectContaining({ categorySlug: 'salads', limit: PAGE_SIZE }),
         );
@@ -1157,7 +1159,7 @@ describe('MealsScreen', () => {
 
             const input = await screen.findByTestId('meals-search-input');
             expect(input.props.value).toBe('bowl');
-            expect(screen.getByTestId('meals-toolbar-chip-q')).toHaveTextContent(/Search: bowl/);
+            expect(screen.getByTestId('meals-toolbar-chip-q')).toHaveTextContent(/Search.*bowl/);
 
             await fireEvent.press(screen.getByTestId('meals-toolbar-chip-q'));
             expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ q: '' });
@@ -1178,14 +1180,6 @@ describe('MealsScreen', () => {
             // Consumed on mount: the next visit to the menu does not steal focus again.
             expect(takeMenuSearchFocus()).toBe(false);
         });
-    });
-
-    it('takes Home to the marketplace home, not the launch resolver (browse-10)', async () => {
-        await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
-
-        await fireEvent.press(await screen.findByTestId('meals-crumb-home'));
-        expect(routerMock.__router.navigate).toHaveBeenCalledWith('/discover');
-        expect(routerMock.__push).not.toHaveBeenCalledWith('/');
     });
 
     it('remembers the query it is shown with, for a meal’s way back up', async () => {

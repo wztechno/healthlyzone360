@@ -36,7 +36,8 @@
         "countSoFar_one": "{{count}} meal shown so far — more to load.",
         "countSoFar_other": "{{count}} meals shown so far — more to load.",
         "moreFilters": "More filters",
-        "moreFiltersDone": "Show meals"
+        "moreFiltersDone": "Show meals",
+        "searchPlaceholder": "Search the menu"
     },
     "filters": {
         "rangesHint": "Slide back to the start to lift a limit.",
@@ -75,7 +76,20 @@
             "preparationMinutes": "Prep time"
         },
         "rangeChip": "{{label}}: {{readout}}",
-        "searchChip": "Search: {{term}}"
+        "searchChip": "Search: {{term}}",
+        "shelfCount_one": "{{n}} item",
+        "shelfCount_other": "{{n}} items",
+        "showDishes": "Show dishes",
+        "searchGroup": "Search",
+        "sortCurrent": "{{label}}: {{value}}",
+        "clearAll": "Clear all",
+        "between": "{{min}} – {{max}} {{unit}}",
+        "rangeLow": "{{label}} minimum",
+        "rangeHigh": "{{label}} maximum",
+        "dishCount_one": "{{count}} dish",
+        "dishCount_other": "{{count}} dishes",
+        "dishCountSoFar_one": "{{count}}+ dish",
+        "dishCountSoFar_other": "{{count}}+ dishes"
     },
     "meal": {
         "loading": "Loading the meal",
@@ -630,6 +644,13 @@
             "kcal": "kcal",
             "g": "g",
             "mg": "mg"
+        },
+        "stripLabel": "Nutrition per serving",
+        "strip": {
+            "energy": "kcal",
+            "protein": "Protein",
+            "carbohydrate": "Carbs",
+            "fat": "Fat"
         }
     },
     "dishOptions": {

@@ -1,4 +1,4 @@
-import { SliderField, Stack, Text } from '@healthy360/design-system';
+import { Stack, Text } from '@healthy360/design-system';
 import type { RangeValue, SliderDirection } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { MealFilter } from '@healthy360/api-client/contracts';
@@ -13,6 +13,10 @@ import type {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+
+// Extensionless, as the design system's `SliderField` is: Metro picks the web or the phone half.
+import { RangeSlider } from './range-slider';
+import type { ShelfTint } from './shelf-tints.ts';
 
 /**
  * The numeric half of the meal search.
@@ -185,6 +189,8 @@ export interface MealRangeFiltersProps {
     readonly keys?: readonly MealRangeKey[] | undefined;
     /** The "slide back to lift a limit" line. Worth saying once per group, not once per slider. */
     readonly showHint?: boolean | undefined;
+    /** The menu's colour, which the ranges' fill and handles wear. */
+    readonly tint?: ShelfTint | undefined;
     /** The group's own handle. */
     readonly testID?: string | undefined;
     /**
@@ -238,6 +244,7 @@ export function MealRangeFilters({
     currency,
     keys = MEAL_RANGE_KEYS,
     showHint = true,
+    tint = 'neutral',
     testID = 'meal-ranges',
     rowTestID = testID,
 }: MealRangeFiltersProps) {
@@ -298,11 +305,8 @@ export function MealRangeFilters({
             {rows
                 .filter((row) => keys.includes(row.key))
                 .map((row) => {
-                    const direction = MEAL_RANGE_DIRECTIONS[row.key];
-                    const bound =
-                        direction === 'atLeast'
-                            ? state.values[row.key].min
-                            : state.values[row.key].max;
+                    const { min, max } = state.values[row.key];
+                    const figure = (value: number) => formatter.formatNumber(value);
                     /*
                      * Composed here rather than inside the control, for the reason every other
                      * figure on this screen is: only a screen knows the locale's numbering system,
@@ -310,42 +314,41 @@ export function MealRangeFilters({
                      * kcal" is one interpolated string, not a word, a figure and a word.
                      */
                     const readout =
-                        bound === null
+                        min === null && max === null
                             ? t('catalogue:filters.anyValue')
-                            : t(
-                                  direction === 'atLeast'
-                                      ? 'catalogue:filters.atLeast'
-                                      : 'catalogue:filters.atMost',
-                                  { value: formatter.formatNumber(bound), unit: row.unit },
-                              );
+                            : min === null
+                              ? t('catalogue:filters.atMost', {
+                                    value: figure(max ?? 0),
+                                    unit: row.unit,
+                                })
+                              : max === null
+                                ? t('catalogue:filters.atLeast', {
+                                      value: figure(min),
+                                      unit: row.unit,
+                                  })
+                                : t('catalogue:filters.between', {
+                                      min: figure(min),
+                                      max: figure(max),
+                                      unit: row.unit,
+                                  });
 
                     return (
-                        <SliderField
+                        <RangeSlider
                             key={row.key}
                             testID={`${rowTestID}-${row.key}`}
-                            id={`${rowTestID}-${row.key}`}
                             label={row.label}
-                            direction={direction}
-                            value={bound}
-                            min={0}
-                            max={MEAL_RANGE_MAXIMUMS[row.key]}
+                            floor={0}
+                            ceiling={MEAL_RANGE_MAXIMUMS[row.key]}
                             step={row.step}
-                            unit={row.unit}
+                            value={{ min, max }}
                             readout={readout}
+                            tint={tint}
+                            lowLabel={t('catalogue:filters.rangeLow', { label: row.label })}
+                            highLabel={t('catalogue:filters.rangeHigh', { label: row.label })}
+                            direction={MEAL_RANGE_DIRECTIONS[row.key]}
+                            unit={row.unit}
                             onChange={(next) => {
-                                /*
-                                 * The slider owns one end, so the other is cleared rather than left
-                                 * standing: a stale `energyMin` off a shared link would go on
-                                 * narrowing the grid with nothing on screen able to show it or undo
-                                 * it. Both parameters are still written, so `?proteinMin=45` and
-                                 * `?energyMax=500` keep meaning exactly what they always did.
-                                 */
-                                state.set(
-                                    row.key,
-                                    direction === 'atLeast'
-                                        ? { min: next, max: null }
-                                        : { min: null, max: next },
-                                );
+                                state.set(row.key, next);
                             }}
                         />
                     );
