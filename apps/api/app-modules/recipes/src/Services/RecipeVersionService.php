@@ -1062,7 +1062,8 @@ final readonly class RecipeVersionService
         $previousLabel = $version->previous_label;
         $reviewReason = $version->review_reason;
 
-        DB::transaction(function () use ($version, $expectedLockVersion): void {
+        /** @var array<string, string> $released */
+        $released = DB::transaction(function () use ($version, $expectedLockVersion): array {
             $locked = RecipeVersion::withoutTenancy()->whereKey($version->getKey())->lockForUpdate()->sole();
 
             if ($locked->status !== RecipeVersionStatus::ReviewRequired) {
@@ -1073,7 +1074,9 @@ final readonly class RecipeVersionService
                 );
             }
 
-            if ($locked->derivation_state === DerivationState::Stale) {
+            // `Current` only: a stale label is still being recomputed, and a
+            // failed recompute left one nobody derived.
+            if ($locked->derivation_state !== DerivationState::Current) {
                 throw new ApiException(
                     ErrorCode::ResourceConflict,
                     'The allergen label is being recomputed after an ingredient change. Reload and compare it again.',
@@ -1099,6 +1102,13 @@ final readonly class RecipeVersionService
                 'previous_label' => null,
                 'updated_by' => $this->context->userId(),
             ], $expectedLockVersion);
+
+            // Read under the row lock, so the audit names the label released
+            // rather than whatever a recompute wrote after the commit.
+            return array_map(
+                static fn (AllergenContainment $containment): string => $containment->value,
+                $this->labels->snapshot($version),
+            );
         });
 
         $recipe = Recipe::withoutTenancy()->whereKey($version->recipe_id)->first();
@@ -1122,15 +1132,15 @@ final readonly class RecipeVersionService
                 'version_number' => $version->version_number,
                 'outcome' => $version->status->value,
 
-                // `{class: containment}` both sides. Never a key containing
-                // `code`: the audit redactor matches it as a substring (OQ-036).
-                // The previous label is null on a quarantine older than the
-                // column, which recorded only its reason.
-                'previous_allergen_classes' => $previousLabel,
-                'released_allergen_classes' => array_map(
-                    static fn (AllergenContainment $containment): string => $containment->value,
-                    $this->labels->snapshot($version),
-                ),
+                // Each label as two class lists, by containment: audit metadata
+                // is scalars and lists. Never a key containing `code`: the
+                // redactor matches it as a substring (OQ-036). The previous
+                // label is null on a quarantine older than the column, which
+                // recorded only its reason.
+                'previous_contains_classes' => $previousLabel === null ? null : self::classesWith($previousLabel, AllergenContainment::Contains),
+                'previous_may_contain_classes' => $previousLabel === null ? null : self::classesWith($previousLabel, AllergenContainment::MayContain),
+                'released_contains_classes' => self::classesWith($released, AllergenContainment::Contains),
+                'released_may_contain_classes' => self::classesWith($released, AllergenContainment::MayContain),
                 'review_reason' => $reviewReason,
                 'released_item_ids' => $releasedItems,
                 'lock_version' => $version->lock_version,
@@ -1144,6 +1154,17 @@ final readonly class RecipeVersionService
         }
 
         return $version;
+    }
+
+    /**
+     * The classes a `{class: containment}` label holds at one containment.
+     *
+     * @param  array<string, string>  $label
+     * @return list<string>
+     */
+    private static function classesWith(array $label, AllergenContainment $containment): array
+    {
+        return array_keys(array_filter($label, static fn (string $value): bool => $value === $containment->value));
     }
 
     /**

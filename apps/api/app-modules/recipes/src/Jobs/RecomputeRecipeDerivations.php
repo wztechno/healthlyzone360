@@ -212,18 +212,28 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
         $facts = $nutrition->forVersion($version, $lines);
         $now = now();
 
-        DB::transaction(function () use ($version, $labels, $rolled, $hash, $facts, $now): void {
+        /** @var array{added: list<string>, removed: list<string>, strengthened: list<string>, weakened: list<string>} $diff */
+        $diff = DB::transaction(function () use ($version, $labels, $rolled, $hash, $facts, $now, $before): array {
             $labels->freeze($version, $rolled, $now);
 
-            // `lock_version` deliberately does not move. Every gate this
-            // recompute arms is structural — a `review_required` version is
-            // refused publication whatever validator the caller holds — so
-            // bumping the validator would buy no safety and would turn every
-            // open editor's next save into a spurious 409 for a change they did
-            // not make and cannot see.
+            $diff = $labels->diff($before, $labels->snapshot($version));
+
+            // `lock_version` does not move, with one exception. The gates this
+            // recompute arms on a draft or a published version are structural,
+            // and bumping the validator would turn every open editor's next save
+            // into a spurious 409 for a change they cannot see. But a version in
+            // review is released on its validator alone: the manager's tick is
+            // tied to the label they compared by the `If-Match` they send. A
+            // label that moves under them must invalidate it, whichever path ran
+            // this recompute (a mapping edit, `propagate()`, an import command).
+            // Decided in SQL, so a release that commits first is not bumped.
+            $bump = $labels->isMaterial($diff)
+                ? ['lock_version' => DB::raw("CASE WHEN status = '".RecipeVersionStatus::ReviewRequired->value."' THEN lock_version + 1 ELSE lock_version END")]
+                : [];
+
             RecipeVersion::withoutTenancy()
                 ->whereKey($version->getKey())
-                ->update([
+                ->update($bump + [
                     'derivation_state' => DerivationState::Current->value,
                     'derived_at' => $now,
                     'derived_input_hash' => $hash,
@@ -238,6 +248,8 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
                     'nutrition_facts' => $facts->snapshotJson(),
                     'updated_at' => $now,
                 ]);
+
+            return $diff;
         });
 
         $version->refresh();
@@ -261,8 +273,6 @@ final class RecomputeRecipeDerivations implements ShouldBeUnique, ShouldQueue
         $outputNutrition->write($version, $facts, scheduleDependants: false);
 
         $this->writeCostSnapshot($version, $costing, $lines);
-
-        $diff = $labels->diff($before, $labels->snapshot($version));
 
         if ($labels->isMaterial($diff)) {
             $this->quarantine($version, $labels, $usage, $audit, $diff, $before);

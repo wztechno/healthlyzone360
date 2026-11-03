@@ -85,6 +85,45 @@ function releaseSubject(string $versionId): RecipeVersion
     return RecipeVersion::withoutTenancy()->whereKey($versionId)->sole();
 }
 
+/**
+ * Change the tahini's peanut statement, which moves every label built on it.
+ *
+ * @param  array<string, string>  $headers
+ */
+function releaseTestRemapPeanut(string $ingredientId, array $headers, string $containment): void
+{
+    test()->putJson('/api/v1/catalogue/ingredients/'.$ingredientId.'/allergens', [
+        'mappings' => [
+            ['allergen_code' => 'sesame', 'containment' => 'contains'],
+            ['allergen_code' => RecipeWorld::allergen('peanut')->code, 'containment' => $containment],
+        ],
+    ], $headers)->assertOk();
+}
+
+/**
+ * Version 2 published beside the quarantined version 1, then quarantined in
+ * its turn by a second mapping edit: two versions in review, none published.
+ * Returns version 2's id.
+ *
+ * @param  array<string, string>  $headers
+ */
+function releaseTestQuarantineSecondVersion(string $recipeId, string $ingredientId, array $headers): string
+{
+    test()->postJson("/api/v1/catalogue/recipes/{$recipeId}/versions", ['copy_from_version' => 1], $headers)
+        ->assertCreated();
+
+    $secondId = (string) test()->postJson("/api/v1/catalogue/recipes/{$recipeId}/versions/2/publish", [],
+        $headers + ['If-Match' => '"0"'])
+        ->assertOk()
+        ->json('data.version.id');
+
+    releaseTestRemapPeanut($ingredientId, $headers, 'contains');
+
+    expect(releaseSubject($secondId)->status)->toBe(RecipeVersionStatus::ReviewRequired);
+
+    return $secondId;
+}
+
 it('keeps the old label on the quarantined version and serves it beside the new one', function (): void {
     $version = releaseSubject($this->versionId);
 
@@ -142,6 +181,9 @@ it('refuses a release nobody ticked', function (mixed $confirmed): void {
 })->with([
     'false' => [false],
     'absent' => ['absent'],
+    'one' => [1],
+    'string one' => ['1'],
+    'yes' => ['yes'],
 ]);
 
 it('marks a quarantined version stale when a mapping moves under it', function (): void {
@@ -184,6 +226,102 @@ it('refuses to release a stale label', function (): void {
 
     expect(releaseSubject($this->versionId)->status)->toBe(RecipeVersionStatus::ReviewRequired)
         ->and($this->item->refresh()->status)->toBe(CatalogueItemStatus::ReviewRequired);
+});
+
+it('refuses to release a label whose recompute failed', function (): void {
+    RecipeVersion::withoutTenancy()->whereKey($this->versionId)->update(['derivation_state' => DerivationState::Failed->value]);
+
+    $version = releaseSubject($this->versionId);
+
+    $this->postJson($this->releasePath, ['confirmed' => true], $this->headers + ['If-Match' => '"'.$version->lock_version.'"'])
+        ->assertConflict()
+        ->assertJsonPath('error.details.reason', 'derivation_stale');
+});
+
+it('refuses a release sent against a label that has moved since it was compared', function (): void {
+    // The manager opens the comparison at this validator...
+    $compared = releaseSubject($this->versionId)->lock_version;
+
+    // ...and the label moves underneath them: the recompute lands (the queue is
+    // synchronous), the state is current again, and peanut is now `contains`.
+    releaseTestRemapPeanut((string) $this->tahini->getKey(), $this->headers, 'contains');
+
+    $version = releaseSubject($this->versionId);
+
+    expect($version->derivation_state)->toBe(DerivationState::Current)
+        ->and($version->lock_version)->toBe($compared + 1);
+
+    $this->postJson($this->releasePath, ['confirmed' => true], $this->headers + ['If-Match' => '"'.$compared.'"'])
+        ->assertConflict();
+
+    expect(releaseSubject($this->versionId)->status)->toBe(RecipeVersionStatus::ReviewRequired)
+        ->and($this->item->refresh()->status)->toBe(CatalogueItemStatus::ReviewRequired);
+});
+
+it('bumps the validator whichever path ran the recompute, and only when the label moved', function (): void {
+    $compared = releaseSubject($this->versionId)->lock_version;
+
+    // The same mappings saved again: recomputed, unchanged, validator kept.
+    releaseTestRemapPeanut((string) $this->tahini->getKey(), $this->headers, 'may_contain');
+
+    expect(releaseSubject($this->versionId)->lock_version)->toBe($compared);
+
+    // A moved label, recomputed the way `propagate()` and the import commands
+    // run it: the job's own `handle()`, with no queue in front of it.
+    Queue::fake();
+
+    releaseTestRemapPeanut((string) $this->tahini->getKey(), $this->headers, 'contains');
+
+    app()->call([new RecomputeRecipeDerivations($this->versionId, (string) $this->kitchen->organisation->getKey(), 1), 'handle']);
+
+    expect(releaseSubject($this->versionId)->lock_version)->toBe($compared + 1);
+});
+
+it('queues a recompute when a quarantined version is edited', function (): void {
+    Queue::fake();
+
+    $version = releaseSubject($this->versionId);
+
+    $this->putJson("/api/v1/catalogue/recipes/{$this->recipeId}/versions/{$this->versionId}/lines", [
+        'lines' => [['ingredient_id' => (string) $this->tahini->getKey(), 'quantity' => 300, 'unit_id' => RecipeWorld::unit()]],
+    ], $this->headers + ['If-Match' => '"'.$version->lock_version.'"'])->assertOk();
+
+    expect(releaseSubject($this->versionId)->derivation_state)->toBe(DerivationState::Stale);
+
+    Queue::assertPushed(
+        RecomputeRecipeDerivations::class,
+        fn (RecomputeRecipeDerivations $job): bool => $job->recipeVersionId === $this->versionId,
+    );
+});
+
+it('retires the released version when a newer one is still in review', function (): void {
+    releaseTestQuarantineSecondVersion($this->recipeId, (string) $this->tahini->getKey(), $this->headers);
+
+    $version = releaseSubject($this->versionId);
+
+    $this->postJson($this->releasePath, ['confirmed' => true], $this->headers + ['If-Match' => '"'.$version->lock_version.'"'])
+        ->assertOk()
+        ->assertJsonPath('data.version.status', 'retired');
+});
+
+it('holds the listings until no version of the recipe is left in review', function (): void {
+    $secondId = releaseTestQuarantineSecondVersion($this->recipeId, (string) $this->tahini->getKey(), $this->headers);
+
+    $first = releaseSubject($this->versionId);
+
+    $this->postJson($this->releasePath, ['confirmed' => true], $this->headers + ['If-Match' => '"'.$first->lock_version.'"'])
+        ->assertOk();
+
+    expect($this->item->refresh()->status)->toBe(CatalogueItemStatus::ReviewRequired);
+
+    $second = releaseSubject($secondId);
+
+    $this->postJson("/api/v1/catalogue/recipes/{$this->recipeId}/versions/{$secondId}/release", ['confirmed' => true],
+        $this->headers + ['If-Match' => '"'.$second->lock_version.'"'])
+        ->assertOk()
+        ->assertJsonPath('data.version.status', 'published');
+
+    expect($this->item->refresh()->status)->toBe(CatalogueItemStatus::Published);
 });
 
 it('refuses to release a version that is not in review', function (): void {
@@ -231,8 +369,10 @@ it('audits the release with both labels and every listing it released', function
     expect($event->subject_type)->toBe('recipe_version')
         ->and($event->subject_id)->toBe($this->versionId)
         ->and($event->metadata['outcome'] ?? null)->toBe('published')
-        ->and($event->metadata['previous_allergen_classes'] ?? null)->toBe(['sesame' => 'contains'])
-        ->and($event->metadata['released_allergen_classes'] ?? null)->toBe(['peanut' => 'may_contain', 'sesame' => 'contains'])
+        ->and($event->metadata['previous_contains_classes'] ?? null)->toBe(['sesame'])
+        ->and($event->metadata['previous_may_contain_classes'] ?? null)->toBe([])
+        ->and($event->metadata['released_contains_classes'] ?? null)->toBe(['sesame'])
+        ->and($event->metadata['released_may_contain_classes'] ?? null)->toBe(['peanut'])
         ->and($event->metadata['released_item_ids'] ?? null)->toBe([(string) $this->item->getKey()]);
 
     // OQ-036: the redactor blanks any key containing `code`.

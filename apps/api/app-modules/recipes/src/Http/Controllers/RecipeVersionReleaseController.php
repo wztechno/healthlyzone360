@@ -12,6 +12,7 @@ use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 /**
  * POST /api/v1/catalogue/recipes/{recipe}/versions/{version}/release — accept
@@ -35,10 +36,14 @@ final class RecipeVersionReleaseController
 
     /**
      * @throws ApiException
+     * @throws ValidationException
      */
     public function __invoke(Request $request, string $recipe, string $version): JsonResponse
     {
-        $request->validate(['confirmed' => ['required', 'boolean', 'accepted']]);
+        // Exactly `true`, as the contract says: not `1`, not `"yes"`.
+        if ($request->json('confirmed') !== true) {
+            throw ValidationException::withMessages(['confirmed' => 'Tick that you compared the old and new allergen labels.']);
+        }
 
         $record = $this->locator->version($this->locator->recipe($recipe), $version);
 
