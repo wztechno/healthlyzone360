@@ -3,12 +3,20 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
+use Healthy360\B2b\Models\CorporateProgramme;
+use Healthy360\B2b\Models\Quotation;
+use Healthy360\B2b\Models\QuotationLine;
+use Healthy360\B2b\Services\QuotationOrderPlacer;
+use Healthy360\B2b\Tests\Fixtures\B2bCheckoutWorld;
 use Healthy360\Cart\Models\Cart;
 use Healthy360\Cart\Services\CartService;
+use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
 use Healthy360\Customers\Enums\CustomerAddressType;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAddress;
+use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Identity\Models\ContactPoint;
 use Healthy360\Orders\Exceptions\PlacementRefused;
 use Healthy360\Orders\Models\Order;
@@ -19,6 +27,9 @@ use Healthy360\Orders\Services\OrderPlacementService;
 use Healthy360\Orders\Tests\Fixtures\DeskWorld;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+use Healthy360\Subscriptions\Services\GenerationService;
+use Healthy360\Subscriptions\Services\SubscriptionService;
+use Healthy360\Subscriptions\Tests\Fixtures\SubscriptionWorld;
 use Illuminate\Database\Eloquent\Builder;
 
 /*
@@ -46,7 +57,8 @@ function phoneRuleSilence(CustomerAccount $account): void
 {
     ContactPoint::query()
         ->where('channel', 'phone')
-        ->where(fn (Builder $owner) => $owner->where('customer_account_id', $account->getKey())->orWhere('user_id', $account->user_id))
+        ->where(fn (Builder $owner) => $owner->where('customer_account_id', $account->getKey())
+            ->when($account->user_id !== null, fn (Builder $user) => $user->orWhere('user_id', $account->user_id)))
         ->update(['retired_at' => now()]);
 }
 
@@ -118,10 +130,12 @@ describe('online', function (): void {
         $email = ContactPoint::query()->where('user_id', $this->account->user_id)->where('channel', 'email')->firstOrFail();
         $this->world->customer->address->forceFill(['contact_point_id' => $email->getKey()])->save();
 
-        $this->postJson('/api/v1/orders', [
+        $refused = $this->postJson('/api/v1/orders', [
             'cart_id' => (string) phoneRuleCart($this->world)->getKey(),
             'customer_address_id' => (string) $this->world->customer->address->getKey(),
         ], firstPartyHeaders())->assertStatus(409);
+
+        expect(array_column($refused->json('error.details.reasons'), 'reason'))->toContain('phone_required');
     });
 
     it('falls back to the account\'s own phone, on either ownership arm', function (): void {
@@ -245,4 +259,60 @@ it('leaves subscription generation and quotation placement placing without a pho
         // The desk's own flag is what turns the rule on.
         ->and(phoneRuleRefusals(fn () => $placement->placeComposed(phoneRuleComposed($this, ['requireDeliveryPhone' => true]), 'desk-flag-no-phone')))
         ->toContain('phone_required');
+});
+
+it('places a subscription day through the real generation run without a phone', function (): void {
+    $world = SubscriptionWorld::build('phone-generation@kitchen.test');
+
+    app(SubscriptionService::class)->create(SubscriptionWorld::request($world));
+    phoneRuleSilence($world->customer->account);
+
+    CarbonImmutable::setTestNow(CarbonImmutable::now()->addDay());
+
+    expect(app(GenerationService::class)->tick()['generated'])->toBe(1)
+        ->and(Order::query()->where('customer_account_id', $world->customer->account->getKey())->count())->toBe(1);
+});
+
+it('places an accepted quotation through the real quotation placer without a phone', function (): void {
+    $world = B2bCheckoutWorld::dualAgreement('phone-wholesale@kitchen.test');
+    $buyer = $world['buyers']['acme'];
+    $sellerId = (string) $world['seller']->organisation->getKey();
+
+    CheckoutWorld::window(DeliveryZone::withoutTenancy()->where('organisation_id', $sellerId)->sole(), 'midday');
+
+    $programme = CorporateProgramme::withoutTenancy()->create([
+        'organisation_id' => $buyer['organisation']->getKey(),
+        'code' => 'acme-phoneless',
+        'kitchen_organisation_id' => $sellerId,
+        'b2b_agreement_id' => $buyer['agreement']->getKey(),
+        'name_en' => 'Staff meals',
+        'name_ar' => 'وجبات الموظفين',
+        'status' => 'active',
+        'lock_version' => 0,
+        'created_by' => $buyer['user']->getKey(),
+    ]);
+
+    $quotation = Quotation::factory()->accepted()->create([
+        'corporate_programme_id' => $programme->getKey(),
+        'currency_code' => $world['seller']->organisation->default_currency_code,
+    ]);
+    QuotationLine::factory()->priced(1500)->create([
+        'quotation_id' => $quotation->getKey(),
+        'catalogue_item_id' => $world['meal']->getKey(),
+        'quantity' => '5.0000',
+    ]);
+
+    phoneRuleSilence($buyer['account']);
+
+    $placed = app(QuotationOrderPlacer::class)->place(
+        $quotation,
+        $sellerId,
+        $buyer['account'],
+        $buyer['address'],
+        CarbonImmutable::today()->addDays(3),
+        'midday',
+    );
+
+    expect($placed)->toHaveCount(1)
+        ->and(Order::query()->whereKey($placed[0]['order_id'])->exists())->toBeTrue();
 });

@@ -39,6 +39,8 @@ import {
     useDriverJobsQuery,
 } from '../../data/driver-jobs-hooks.ts';
 import { useOnlineStatus } from '../../online/online-status.tsx';
+// The customer surfaces' inline link: role link, a 44px target, accent ink (a phone surface too).
+import { TextLink } from '../catalogue/plan-controls.tsx';
 
 /**
  * `/driver` — one driver's run sheet, and the stamp that closes a job.
@@ -695,15 +697,12 @@ function JobCard({ job, locale, disabled, action, onAction, onFail }: JobCardPro
                     <Stack space="none" testID={`${testID}-address`}>
                         {/* The first line drawn is the link to the map, never a second target beside it. */}
                         {delivery.lineOne === null ? null : (
-                            <Text
-                                variant="bodyStrong"
+                            <TextLink
                                 testID={`${testID}-address-line-one`}
-                                accessibilityRole="link"
+                                label={delivery.lineOne}
                                 accessibilityHint={t('kitchen:driver.openMap')}
                                 onPress={openMap}
-                            >
-                                {delivery.lineOne}
-                            </Text>
+                            />
                         )}
                         {unitParts.length === 0 ? null : (
                             <Text
@@ -714,18 +713,18 @@ function JobCard({ job, locale, disabled, action, onAction, onFail }: JobCardPro
                                 {unitParts.join(t('kitchen:common.listSeparator'))}
                             </Text>
                         )}
-                        {areaName === null ? null : (
+                        {areaName === null ? null : delivery.lineOne === null ? (
+                            <TextLink
+                                testID={`${testID}-address-area`}
+                                label={areaName}
+                                accessibilityHint={t('kitchen:driver.openMap')}
+                                onPress={openMap}
+                            />
+                        ) : (
                             <Text
                                 variant="caption"
                                 tone="secondary"
                                 testID={`${testID}-address-area`}
-                                {...(delivery.lineOne === null
-                                    ? {
-                                          accessibilityRole: 'link' as const,
-                                          accessibilityHint: t('kitchen:driver.openMap'),
-                                          onPress: openMap,
-                                      }
-                                    : {})}
                             >
                                 {areaName}
                             </Text>

@@ -166,13 +166,17 @@ final class DriverJobIndexController
     ];
 
     /**
-     * The order's own contact, else the account's best live phone — in
-     * `OrderDeskQueue::phoneRows()`'s ordering, so the desk and the driver name
-     * one number. Both ownership arms, because a phone hangs off the account
-     * or off the user behind it.
+     * The order's own contact while it is a live phone, else the account's best
+     * live phone — in `OrderDeskQueue::phoneRows()`'s ordering. Both ownership
+     * arms, because a phone hangs off the account or off the user behind it.
+     *
+     * A retired or non-phone snapshot falls through to the fallback: the driver
+     * has to ring someone, and a number the customer removed is the one most
+     * likely dead. The desk keeps showing the retired snapshot on purpose
+     * (`OrderDeskQueue::contactsForOrders()`).
      */
     private const string PHONE_SQL = <<<'SQL'
-        coalesce(cp.value_normalised, (
+        coalesce(case when cp.channel = 'phone' and cp.retired_at is null then cp.value_normalised end, (
             select fallback.value_normalised
             from contact_points as fallback
             where fallback.channel = 'phone'
