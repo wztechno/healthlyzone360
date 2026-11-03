@@ -42,6 +42,8 @@ export const CHECKOUT_TIMING_WARNINGS = [
 export const CHECKOUT_ITEM_NOT_ASSESSED = 'checkout.item_not_assessed';
 /** `quality_hold` — all that is left of something in the basket is on quality hold. */
 export const CHECKOUT_QUALITY_HOLD = 'checkout.quality_hold';
+/** `stock_short` — the basket needs more than the free stock; held stock never counts. Sold anyway. */
+export const CHECKOUT_STOCK_SHORT = 'checkout.stock_short';
 /** A picked meal crosses the person's allergies; generation would swap it for a safe one. */
 export const SUBSCRIPTION_ALLERGEN_CONFLICT = 'subscription.allergen_conflict';
 export const SUBSCRIPTION_NO_DELIVERY_DAYS = 'subscription.no_delivery_days';
@@ -55,6 +57,7 @@ const KNOWN: ReadonlySet<string> = new Set([
     ...CHECKOUT_TIMING_WARNINGS,
     CHECKOUT_ITEM_NOT_ASSESSED,
     CHECKOUT_QUALITY_HOLD,
+    CHECKOUT_STOCK_SHORT,
     ALLERGEN_CONFLICT_WARNING,
     SUBSCRIPTION_ALLERGEN_CONFLICT,
     SUBSCRIPTION_NO_DELIVERY_DAYS,

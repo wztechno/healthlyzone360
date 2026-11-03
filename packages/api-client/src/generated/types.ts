@@ -5421,6 +5421,9 @@ export type CheckoutPreview = {
 };
 
 export type AllergenConflict = {
+     * `stock_short` alone is not a refusal: a line needs more than the
+     * free stock, and stock on quality hold never counts as free. The
+     * order still places.
     catalogue_item_id: Uuid;
     /**
      * `allergen_declared` — a declared allergen is on the meal's label.
@@ -9815,7 +9818,7 @@ export type KitchenCustomerDetail = KitchenCustomer & {
     company: KitchenCustomerCompany | null;
 };
 
-export type StaffNotificationType = 'unaccepted_manager' | 'unaccepted_owner' | 'allergy_order' | 'late_cancel' | 'delivery_failed' | 'no_cash_collected' | 'refund_approval' | 'stock_expiring' | 'temperature_out_of_range' | 'refund_approved' | 'refund_rejected' | 'short_hand_in' | 'short_close' | 'price_approval' | 'dish_below_target';
+export type StaffNotificationType = 'unaccepted_manager' | 'unaccepted_owner' | 'allergy_order' | 'late_cancel' | 'delivery_failed' | 'no_cash_collected' | 'refund_approval' | 'stock_expiring' | 'temperature_out_of_range' | 'refund_approved' | 'refund_rejected' | 'short_hand_in' | 'short_close' | 'price_approval' | 'dish_below_target' | 'delivery_moved_closed' | 'delivery_closed_unmoved';
 
 export type StaffNotification = {
     id: Uuid;

@@ -25,6 +25,8 @@ export const STAFF_ALERT_TYPES = [
     'short_close',
     'price_approval',
     'dish_below_target',
+    'delivery_moved_closed',
+    'delivery_closed_unmoved',
 ] as const;
 export type StaffAlertType = (typeof STAFF_ALERT_TYPES)[number];
 

@@ -32,6 +32,25 @@ final readonly class HeldStockForSale implements HeldStockLookup, QuarantinedSto
 
     public function refuses(string $organisationId, CatalogueItem $item, string $quantity): bool
     {
+        // ponytail: how much of a finished shelf one sold unit takes is the consume
+        // path's arithmetic, so the refusal asks only whether anything free is left.
+        // A sale of more than is free meets the hold at the deduction.
+        return $this->anyShelf($organisationId, $item, $quantity, $this->quarantine->coversOnlyHeld(...), '0.0001');
+    }
+
+    public function shortOfFree(string $organisationId, CatalogueItem $item, string $quantity): bool
+    {
+        // A finished shelf's draw is unknown here (see refuses()), so any hold on
+        // it warns: a warning is the safe side to be wrong on.
+        return $this->anyShelf($organisationId, $item, $quantity, $this->quarantine->shortOfFree(...), (string) PHP_INT_MAX);
+    }
+
+    /**
+     * @param  callable(string, string, numeric-string): bool  $test  asked of each shelf the sale draws, with what it draws
+     * @param  numeric-string  $finishedDraw  what a finished-stock sale is taken to draw
+     */
+    private function anyShelf(string $organisationId, CatalogueItem $item, string $quantity, callable $test, string $finishedDraw): bool
+    {
         if (! $this->quarantine->anyHeld($organisationId)) {
             return false;
         }
@@ -39,14 +58,11 @@ final readonly class HeldStockForSale implements HeldStockLookup, QuarantinedSto
         if ($item->sellsFromFinishedStock()) {
             $shelf = $item->ingredient_id === null ? null : $this->explosion->resolveStockItem($organisationId, (string) $item->ingredient_id, null);
 
-            // ponytail: how much of the shelf one sold unit takes is the consume
-            // path's arithmetic, so this asks only whether anything free is left.
-            // A sale of more than is free meets the hold at the deduction.
-            return $shelf instanceof StockItem && $this->quarantine->coversOnlyHeld($organisationId, (string) $shelf->getKey(), '0.0001');
+            return $shelf instanceof StockItem && $test($organisationId, (string) $shelf->getKey(), $finishedDraw);
         }
 
         foreach ($this->explosion->explode($organisationId, $item, $quantity, null)->rows as $row) {
-            if ($this->quarantine->coversOnlyHeld($organisationId, $row['stock_item_id'], $row['quantity'])) {
+            if ($test($organisationId, $row['stock_item_id'], $row['quantity'])) {
                 return true;
             }
         }

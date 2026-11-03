@@ -18,4 +18,11 @@ use Healthy360\Orders\Contracts\HeldStockLookup;
 interface QuarantinedStock
 {
     public function refuses(string $organisationId, CatalogueItem $item, string $quantity): bool;
+
+    /**
+     * Whether this sale needs more than the free stock of a shelf that has some
+     * held: held stock never counts as free (owner, 3 Nov 2026). A warning, never
+     * a refusal; `refuses()` decides those.
+     */
+    public function shortOfFree(string $organisationId, CatalogueItem $item, string $quantity): bool;
 }

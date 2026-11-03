@@ -5223,7 +5223,9 @@
             "short_hand_in": "A cash hand-in came up short",
             "short_close": "The cash close for {{number}} came up short",
             "price_approval": "A delivery from {{number}} needs its price approved",
-            "dish_below_target": "{{number}} has fallen below your margin target"
+            "dish_below_target": "{{number}} has fallen below your margin target",
+            "delivery_moved_closed": "Order {{number}} was moved off a closed day",
+            "delivery_closed_unmoved": "A delivery on {{number}} falls on a closed day"
         }
     },
     "dishOptions": {

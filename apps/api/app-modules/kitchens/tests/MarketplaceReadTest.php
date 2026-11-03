@@ -261,6 +261,28 @@ it('answers 404 for a kitchen the platform has suspended', function (): void {
     $this->getJson('/api/v1/marketplace/meals')->assertOk()->assertJsonPath('data', []);
 });
 
+it('hides a kitchen that has not gone live, and lists it once it has', function (): void {
+    $kitchenId = Organisation::query()->where('slug', 'verdant-kitchen')->value('id');
+    $settings = KitchenServiceSettings::withoutTenancy()->firstOrCreate(['organisation_id' => $kitchenId]);
+
+    $settings->update(['not_open_yet' => true]);
+
+    // Absent everywhere a customer looks, and a direct link is the not-found path.
+    expect(collect($this->getJson('/api/v1/marketplace/kitchens')->assertOk()->json('data'))->pluck('slug')->all())->not->toContain('verdant-kitchen')
+        ->and(collect($this->getJson('/api/v1/marketplace/kitchens?query=Verdant')->assertOk()->json('data')))->toBeEmpty();
+    $this->getJson('/api/v1/marketplace/kitchens/verdant-kitchen')->assertNotFound()
+        ->assertJsonPath('error.code', 'resource.not_found');
+    $this->getJson('/api/v1/marketplace/meals')->assertOk()->assertJsonPath('data', []);
+    $this->getJson('/api/v1/marketplace/meals/mezze-plate')->assertNotFound();
+
+    // The setup gate opens it.
+    $settings->update(['not_open_yet' => false]);
+
+    expect(collect($this->getJson('/api/v1/marketplace/kitchens')->assertOk()->json('data'))->pluck('slug')->all())->toContain('verdant-kitchen');
+    $this->getJson('/api/v1/marketplace/kitchens/verdant-kitchen')->assertOk();
+    $this->getJson('/api/v1/marketplace/meals/mezze-plate')->assertOk();
+});
+
 it('withdraws a retired meal from the marketplace', function (): void {
     CatalogueItem::withoutTenancy()
         ->where('slug', 'mezze-plate')

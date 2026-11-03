@@ -53,7 +53,8 @@
         "checkout_quality_hold": "Something in your basket is not available right now. Remove it to continue.",
         "checkout_kitchen_not_open": "This kitchen is not open for orders yet.",
         "checkout_kitchen_paused": "This kitchen has paused new orders for a short while. Please try again soon.",
-        "checkout_window_full": "That delivery slot is full. Choose another slot or another day."
+        "checkout_window_full": "That delivery slot is full. Choose another slot or another day.",
+        "checkout_stock_short": "Some of what is in your basket is running low. The kitchen may contact you if it cannot make all of it."
     },
     "address": {
         "label": "Name for this address",

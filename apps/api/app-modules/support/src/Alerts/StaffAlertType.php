@@ -26,6 +26,8 @@ enum StaffAlertType: string
     case ShortClose = 'short_close';
     case PriceApproval = 'price_approval';
     case DishBelowTarget = 'dish_below_target';
+    case DeliveryMovedClosed = 'delivery_moved_closed';
+    case DeliveryClosedUnmoved = 'delivery_closed_unmoved';
 
     /**
      * `requester` is the one person who asked, named by the caller.
@@ -37,7 +39,7 @@ enum StaffAlertType: string
         return match ($this) {
             self::RefundApproved, self::RefundRejected => 'requester',
             self::UnacceptedOwner, self::LateCancel, self::RefundApproval, self::PriceApproval, self::DishBelowTarget => 'owners',
-            self::UnacceptedManager, self::AllergyOrder, self::DeliveryFailed, self::NoCashCollected, self::StockExpiring, self::TemperatureOutOfRange, self::ShortHandIn, self::ShortClose => 'managers',
+            self::UnacceptedManager, self::AllergyOrder, self::DeliveryFailed, self::NoCashCollected, self::StockExpiring, self::TemperatureOutOfRange, self::ShortHandIn, self::ShortClose, self::DeliveryMovedClosed, self::DeliveryClosedUnmoved => 'managers',
         };
     }
 
@@ -73,6 +75,7 @@ enum StaffAlertType: string
             self::ShortClose => 'daily_close',
             self::PriceApproval => 'goods_receipt',
             self::DishBelowTarget => 'dish_margin',
+            self::DeliveryClosedUnmoved => 'delivery',
             default => 'order',
         };
     }
@@ -89,6 +92,7 @@ enum StaffAlertType: string
             self::ShortClose => '/kitchen/order-desk/close',
             self::PriceApproval => '/kitchen/payables',
             self::DishBelowTarget => '/kitchen/dish-margins',
+            self::DeliveryClosedUnmoved => '/kitchen/branch-operating',
             default => '/kitchen/orders?view='.$subjectId,
         };
     }

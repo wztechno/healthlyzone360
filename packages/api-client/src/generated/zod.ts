@@ -6371,7 +6371,9 @@ export const zStaffNotificationType = z.enum([
     'short_hand_in',
     'short_close',
     'price_approval',
-    'dish_below_target'
+    'dish_below_target',
+    'delivery_moved_closed',
+    'delivery_closed_unmoved'
 ]);
 
 export const zStaffNotification = z.object({

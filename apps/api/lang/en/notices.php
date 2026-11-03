@@ -161,6 +161,14 @@ return [
             'heading' => ':number has fallen below your margin target',
             'line' => 'Its cost has moved. Check the price or the recipe.',
         ],
+        'delivery_moved_closed' => [
+            'heading' => 'Order :number was moved off a closed day',
+            'line' => 'Its delivery fell on a day the kitchen is closed, so it moved to the next open day. Change the date or tell the customer.',
+        ],
+        'delivery_closed_unmoved' => [
+            'heading' => 'A delivery on :number falls on a closed day',
+            'line' => 'No open day was found in the next two weeks, so its date was left as it was. Change the closure or the delivery, and tell the customer.',
+        ],
         'temperature_out_of_range' => [
             'heading' => 'Temperature out of range: :number',
             'line' => 'Check the unit and move the food if you need to. The reading is on the temperature log.',

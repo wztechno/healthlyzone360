@@ -5910,7 +5910,9 @@
             "short_hand_in": "جاء تسليم نقدي ناقصًا",
             "short_close": "جاء إقفال الصندوق ليوم {{number}} ناقصًا",
             "price_approval": "توريدة من {{number}} تحتاج إلى الموافقة على سعرها",
-            "dish_below_target": "هبط {{number}} دون هامش الربح المستهدف"
+            "dish_below_target": "هبط {{number}} دون هامش الربح المستهدف",
+            "delivery_moved_closed": "نُقل الطلب {{number}} من يوم إغلاق",
+            "delivery_closed_unmoved": "توصيل في {{number}} يقع في يوم إغلاق"
         }
     },
     "dishOptions": {

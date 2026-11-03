@@ -6,6 +6,7 @@ namespace Healthy360\Orders\Providers;
 
 use Healthy360\B2b\Contracts\SellerOpenOrders;
 use Healthy360\Customers\Closure\Contracts\OrderAnonymisation;
+use Healthy360\Kitchens\Models\BranchClosure;
 use Healthy360\Orders\Contracts\BuyerAllergenCheck;
 use Healthy360\Orders\Contracts\DeliveredOrderHandover;
 use Healthy360\Orders\Contracts\DeliveryJobProjection;
@@ -17,6 +18,7 @@ use Healthy360\Orders\Contracts\OrderStockConsumption;
 use Healthy360\Orders\Contracts\SubscriptionOutlook;
 use Healthy360\Orders\Services\BranchScheduleLookup;
 use Healthy360\Orders\Services\BuyerOpenOrderQuery;
+use Healthy360\Orders\Services\ClosedDayDeliveries;
 use Healthy360\Orders\Services\DeliveredOrderFulfilment;
 use Healthy360\Orders\Services\NullBuyerAllergenCheck;
 use Healthy360\Orders\Services\NullDeliveryJobProjection;
@@ -105,5 +107,13 @@ class OrdersServiceProvider extends ServiceProvider
         $this->app->bind(BuyerAllergenCheck::class, NullBuyerAllergenCheck::class);
     }
 
-    public function boot(): void {}
+    /**
+     * A closure added over standing orders already placed moves them off it. A
+     * model event rather than a port because Kitchens may not know what an order
+     * is, and Orders already reads `BranchClosure` for the schedule.
+     */
+    public function boot(): void
+    {
+        BranchClosure::created(fn (BranchClosure $closure): int => $this->app->make(ClosedDayDeliveries::class)->closureAdded($closure));
+    }
 }

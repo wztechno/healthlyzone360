@@ -116,6 +116,39 @@ final readonly class OrderTimingRules
     }
 
     /**
+     * The first day from `$date` on which some serving branch is not `closed` by its
+     * week or a closure: `$date` itself when it is open, null when nothing opens in
+     * `$days` more. A cut-off or a past date is not a closure. A kitchen with no
+     * active branch answers `$date`: there is no week to move along.
+     */
+    public function nextOpenDay(
+        string $organisationId,
+        ?string $branchId,
+        ?DeliveryZone $zone,
+        CarbonImmutable $date,
+        CarbonImmutable $now,
+        int $days,
+    ): ?CarbonImmutable {
+        $branchIds = $this->branches->for($organisationId, $branchId, $zone);
+
+        if ($branchIds === []) {
+            return $date;
+        }
+
+        foreach (range(0, $days) as $offset) {
+            $day = $date->addDays($offset);
+
+            foreach ($branchIds as $candidate) {
+                if (($this->scheduleRefusal($candidate, $day, $now)['reason'] ?? null) !== 'closed') {
+                    return $day;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * `below_zone_minimum` on the subtotal, delivery excluded. Customers only:
      * staff may agree a small order. A zone in another currency is not compared,
      * because comparing would mean converting.

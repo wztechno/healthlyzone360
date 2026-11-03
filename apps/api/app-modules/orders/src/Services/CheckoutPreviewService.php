@@ -90,8 +90,8 @@ final readonly class CheckoutPreviewService
                 /** @var CarbonImmutable|null $day */
                 $day = $requestedDate ?? collect($lines)->pluck('delivery_date')->filter()->first();
 
-                [$subtotal, $lineWarnings] = $this->pricedSubtotal($cart, $lines, $day);
-                $warnings = [...$warnings, ...$lineWarnings];
+                [$subtotal, $lineWarnings, $stockWarnings] = $this->pricedSubtotal($cart, $lines, $day);
+                $warnings = [...$warnings, ...$lineWarnings, ...$stockWarnings];
 
                 [$fee, $zoneWarnings, $zone] = $this->deliveryFee($cart, $address);
                 $warnings = [...$warnings, ...$zoneWarnings];
@@ -161,24 +161,25 @@ final readonly class CheckoutPreviewService
      * here is what's wrong with the rest".
      *
      * @param  list<CartItem>  $lines
-     * @return array{0: int, 1: list<string>}
+     * @return array{0: int, 1: list<string>, 2: list<string>}
      */
     private function pricedSubtotal(Cart $cart, array $lines, ?CarbonImmutable $day): array
     {
         if ($lines === []) {
-            return [0, []];
+            return [0, [], []];
         }
 
         $channel = SalesChannel::withoutTenancy()->whereKey($cart->sales_channel_id)->first();
 
         if (! $channel instanceof SalesChannel) {
-            return [0, ['channel_unknown']];
+            return [0, ['channel_unknown'], []];
         }
 
         $buyer = CustomerAccount::query()->whereKey($cart->customer_account_id)->first();
 
         $subtotal = 0;
         $warnings = [];
+        $stockWarnings = [];
 
         foreach ($lines as $line) {
             $result = $this->probe->probe(
@@ -202,6 +203,12 @@ final readonly class CheckoutPreviewService
                 continue;
             }
 
+            // Sold with a warning, never refused: kept apart so the zone
+            // minimum still runs over a basket that priced whole.
+            foreach ($result->warnings as $warning) {
+                $stockWarnings[] = (string) $warning['reason'];
+            }
+
             // Minor units, rounded exactly once, at the line total — the same
             // arithmetic `OrderPlacementService::repriced()` performs, so a
             // preview and the placement it precedes never disagree on a line
@@ -209,7 +216,7 @@ final readonly class CheckoutPreviewService
             $subtotal += (int) round($result->price->amountMinor * (float) $line->quantity);
         }
 
-        return [$subtotal, $warnings];
+        return [$subtotal, $warnings, $stockWarnings];
     }
 
     /**

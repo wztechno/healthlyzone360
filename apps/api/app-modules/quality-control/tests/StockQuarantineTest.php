@@ -142,6 +142,23 @@ it('refuses only what the hold takes away, never a shelf already short', functio
         ->and($quarantine->coversOnlyHeld($this->orgId, $this->itemId, '10'))->toBeFalse();
 });
 
+it('never counts held stock as free, so a short shelf warns where it does not refuse', function (): void {
+    $this->postJson("/api/v1/catalogue/quality-control/checks/{$this->check}/hold", [], $this->headers)->assertOk();
+    $quarantine = app(StockQuarantine::class);
+
+    // Eight on hand, five held, three free. Ten was never there: not refused, but
+    // short of what is free, so the customer and the desk are warned (owner, 3 Nov 2026).
+    expect($quarantine->shortOfFree($this->orgId, $this->itemId, '3'))->toBeFalse()
+        ->and($quarantine->shortOfFree($this->orgId, $this->itemId, '4'))->toBeTrue()
+        ->and($quarantine->shortOfFree($this->orgId, $this->itemId, '10'))->toBeTrue()
+        ->and($quarantine->coversOnlyHeld($this->orgId, $this->itemId, '10'))->toBeFalse();
+
+    $this->postJson("/api/v1/catalogue/quality-control/checks/{$this->check}/release", [], $this->headers)->assertOk();
+
+    // Nothing held: an ordinary shortage, which this does not speak to.
+    expect($quarantine->shortOfFree($this->orgId, $this->itemId, '10'))->toBeFalse();
+});
+
 it('leaves an empty shelf to the counters, hold or no hold', function (): void {
     $this->postJson("/api/v1/catalogue/quality-control/checks/{$this->check}/hold", [], $this->headers)->assertOk();
 

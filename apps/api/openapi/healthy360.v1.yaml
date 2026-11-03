@@ -35683,6 +35683,9 @@ components:
           description: The declared allergens on the label; filled only for `allergen_declared`.
       additionalProperties: false
 
+            `stock_short` alone is not a refusal: a line needs more than the
+            free stock, and stock on quality hold never counts as free. The
+            order still places.
     AllergenConflictsEnvelope:
       type: object
       required: [data, meta]
@@ -41883,6 +41886,8 @@ components:
                   minimum: 0
                 unread_count:
                   type: integer
+        - delivery_moved_closed
+        - delivery_closed_unmoved
                   minimum: 0
                   description: Every unread alert of the caller's, not only those returned.
 

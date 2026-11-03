@@ -38070,6 +38070,9 @@ components:
           properties:
             conflicts:
               type: array
+            `stock_short` alone is not a refusal: a line needs more than the
+            free stock, and stock on quality hold never counts as free. The
+            order still places.
               items:
                 $ref: '#/components/schemas/AllergenConflict'
         meta:
@@ -45586,6 +45589,8 @@ components:
         - order_lead_minutes
         - alarm_after_minutes
         - manager_alert_after_minutes
+        - delivery_moved_closed
+        - delivery_closed_unmoved
         - owner_alert_after_minutes
         - refund_approval_above_minor
       properties:

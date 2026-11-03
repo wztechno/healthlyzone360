@@ -208,8 +208,13 @@ final readonly class LineProbe
             $refusals[] = ['reason' => 'item_not_assessed', 'catalogue_item_id' => (string) $item->getKey()];
         }
 
+        $warnings = [];
+
         if ($enforceAssessment && $this->quarantined->refuses((string) $channel->organisation_id, $item, $quantity)) {
             $refusals[] = ['reason' => 'quality_hold', 'catalogue_item_id' => (string) $item->getKey()];
+        } elseif ($enforceAssessment && $this->quarantined->shortOfFree((string) $channel->organisation_id, $item, $quantity)) {
+            // Held stock is not free, so the shelf is short: warned, never refused.
+            $warnings[] = ['reason' => 'stock_short', 'catalogue_item_id' => (string) $item->getKey()];
         }
 
         $variant = null;
@@ -272,7 +277,7 @@ final readonly class LineProbe
             ];
         }
 
-        return new LineProbeResult($item, $variant, $refusals === [] ? $price : null, $refusals);
+        return new LineProbeResult($item, $variant, $refusals === [] ? $price : null, $refusals, $warnings);
     }
 
     /**

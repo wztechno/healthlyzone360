@@ -173,6 +173,38 @@ final readonly class StockQuarantine
      */
     public function coversOnlyHeld(string $organisationId, string $stockItemId, string $required): bool
     {
+        [$held, $onHand, $free] = $this->shelf($organisationId, $stockItemId);
+
+        if (bccomp($held, '0', self::SCALE) <= 0 || bccomp($onHand, '0', self::SCALE) <= 0) {
+            return false;
+        }
+
+        return bccomp($free, '0', self::SCALE) <= 0
+            || (bccomp($onHand, $required, self::SCALE) >= 0 && bccomp($free, $required, self::SCALE) < 0);
+    }
+
+    /**
+     * Whether a sale of `$required` is more than the free stock on a shelf that
+     * has something held: held stock never counts as free (owner, 3 Nov 2026).
+     * The warning's question, not the refusal's: {@see coversOnlyHeld()} still
+     * decides which of these refuse, and every other one is warned, never refused.
+     *
+     * @param  numeric-string  $required
+     */
+    public function shortOfFree(string $organisationId, string $stockItemId, string $required): bool
+    {
+        [$held, , $free] = $this->shelf($organisationId, $stockItemId);
+
+        return bccomp($held, '0', self::SCALE) > 0 && bccomp($free, $required, self::SCALE) < 0;
+    }
+
+    /**
+     * Held, on hand and free (on hand less held), summed across branches.
+     *
+     * @return array{0: string, 1: string, 2: string}
+     */
+    private function shelf(string $organisationId, string $stockItemId): array
+    {
         $held = number_format((float) StockReservation::withoutTenancy()
             ->where('organisation_id', $organisationId)
             ->where('stock_item_id', $stockItemId)
@@ -180,23 +212,12 @@ final readonly class StockQuarantine
             ->where('status', ReservationStatus::Open->value)
             ->sum('quantity'), self::SCALE, '.', '');
 
-        if (bccomp($held, '0', self::SCALE) <= 0) {
-            return false;
-        }
-
         $onHand = number_format((float) StockLevel::withoutTenancy()
             ->where('organisation_id', $organisationId)
             ->where('stock_item_id', $stockItemId)
             ->sum('quantity'), self::SCALE, '.', '');
 
-        if (bccomp($onHand, '0', self::SCALE) <= 0) {
-            return false;
-        }
-
-        $free = bcsub($onHand, $held, self::SCALE);
-
-        return bccomp($free, '0', self::SCALE) <= 0
-            || (bccomp($onHand, $required, self::SCALE) >= 0 && bccomp($free, $required, self::SCALE) < 0);
+        return [$held, $onHand, bcsub($onHand, $held, self::SCALE)];
     }
 
     /**

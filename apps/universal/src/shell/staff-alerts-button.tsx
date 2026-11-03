@@ -43,6 +43,8 @@ const ROW_ICONS: Readonly<Record<StaffAlertType, IconName>> = {
     short_close: 'banknote',
     price_approval: 'banknote',
     dish_below_target: 'alert',
+    delivery_moved_closed: 'calendar',
+    delivery_closed_unmoved: 'calendar',
 };
 
 /** Where an alert about something other than an order opens. */
@@ -53,6 +55,7 @@ const PAGES: Partial<Readonly<Record<StaffAlertType, string>>> = {
     short_close: '/kitchen/order-desk/close',
     price_approval: '/kitchen/payables',
     dish_below_target: '/kitchen/dish-margins',
+    delivery_closed_unmoved: '/kitchen/branch-operating',
 };
 
 const WHEN: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };

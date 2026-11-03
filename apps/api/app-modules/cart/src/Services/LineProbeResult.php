@@ -25,12 +25,14 @@ final readonly class LineProbeResult
 {
     /**
      * @param  list<array<string, mixed>>  $refusals  `{reason, …context}`, empty when the line is orderable
+     * @param  list<array<string, mixed>>  $warnings  `{reason, …context}` the line is sold with, never refused for: `stock_short`
      */
     public function __construct(
         public ?CatalogueItem $item,
         public ?CatalogueItemVariant $variant,
         public ?ResolvedPrice $price,
         public array $refusals = [],
+        public array $warnings = [],
     ) {}
 
     public function isOrderable(): bool

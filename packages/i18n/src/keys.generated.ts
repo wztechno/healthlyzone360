@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9755 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9758 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2380,6 +2380,7 @@ export interface NamespaceKeys {
     | 'warnings.checkout_kitchen_paused'
     | 'warnings.checkout_lead_time_not_met'
     | 'warnings.checkout_quality_hold'
+    | 'warnings.checkout_stock_short'
     | 'warnings.checkout_window_ended'
     | 'warnings.checkout_window_full'
     | 'warnings.checkout_window_not_offered'
@@ -3025,7 +3026,9 @@ export interface NamespaceKeys {
     | 'alerts.openLabel'
     | 'alerts.title'
     | 'alerts.type.allergy_order'
+    | 'alerts.type.delivery_closed_unmoved'
     | 'alerts.type.delivery_failed'
+    | 'alerts.type.delivery_moved_closed'
     | 'alerts.type.dish_below_target'
     | 'alerts.type.late_cancel'
     | 'alerts.type.no_cash_collected'
@@ -12168,6 +12171,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:warnings.subscription_unknown_slot',
   'commerce:warnings.title',
   'commerce:warnings.unknown',
+  'commerce:warnings.checkout_stock_short',
   'commerce:weekdays.body',
   'commerce:weekdays.chooseOne',
   'commerce:weekdays.confirm',
@@ -12807,7 +12811,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:alerts.type.refund_approved',
   'kitchen:alerts.type.refund_rejected',
   'kitchen:alerts.type.severe_allergy',
+  'kitchen:alerts.type.delivery_closed_unmoved',
   'kitchen:alerts.type.short_close',
+  'kitchen:alerts.type.delivery_moved_closed',
   'kitchen:alerts.type.short_hand_in',
   'kitchen:alerts.type.stock_expiring',
   'kitchen:alerts.type.temperature_out_of_range',
