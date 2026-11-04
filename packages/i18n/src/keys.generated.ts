@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10040 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10078 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -349,6 +349,9 @@ export interface NamespaceKeys {
     | 'addresses.save'
     | 'addresses.savedToast'
     | 'addresses.subtitle'
+    | 'band.activePlan'
+    | 'band.nextDelivery'
+    | 'band.orders'
     | 'checklist.blocked'
     | 'checklist.cannotActivate'
     | 'checklist.outstanding'
@@ -496,6 +499,24 @@ export interface NamespaceKeys {
     | 'dietary.allergenLabel'
     | 'dietary.allergensEmpty'
     | 'dietary.allergensTitle'
+    | 'dietary.answerShort.no'
+    | 'dietary.answerShort.yes'
+    | 'dietary.anyAllergies'
+    | 'dietary.covers.celery'
+    | 'dietary.covers.crustaceans'
+    | 'dietary.covers.egg'
+    | 'dietary.covers.fish'
+    | 'dietary.covers.gluten'
+    | 'dietary.covers.lupin'
+    | 'dietary.covers.milk'
+    | 'dietary.covers.mollusc'
+    | 'dietary.covers.mustard'
+    | 'dietary.covers.peanut'
+    | 'dietary.covers.sesame'
+    | 'dietary.covers.soy'
+    | 'dietary.covers.sulphites'
+    | 'dietary.covers.tree_nut'
+    | 'dietary.declaredCount'
     | 'dietary.dietsEmpty'
     | 'dietary.dietsSubtitle'
     | 'dietary.dietsTitle'
@@ -505,6 +526,8 @@ export interface NamespaceKeys {
     | 'dietary.hasAllergies.no'
     | 'dietary.hasAllergies.yes'
     | 'dietary.hasAllergiesLabel'
+    | 'dietary.howStrict'
+    | 'dietary.noAllergies'
     | 'dietary.noneBody'
     | 'dietary.noteLabel'
     | 'dietary.notePlaceholder'
@@ -519,6 +542,7 @@ export interface NamespaceKeys {
     | 'dietary.severityLabel'
     | 'dietary.storeOfRecord'
     | 'dietary.subtitle'
+    | 'dietary.tickedCount'
     | 'dietary.title'
     | 'dietary.unanswered'
     | 'favorites.empty'
@@ -526,6 +550,7 @@ export interface NamespaceKeys {
     | 'marketing.saveFailed'
     | 'marketing.title'
     | 'nav.addresses'
+    | 'nav.allergies'
     | 'nav.favorites'
     | 'nav.label'
     | 'nav.notifications'
@@ -537,6 +562,9 @@ export interface NamespaceKeys {
     | 'orders.browse'
     | 'orders.empty'
     | 'orders.emptyBody'
+    | 'orders.filter.active'
+    | 'orders.filter.all'
+    | 'orders.filter.delivered'
     | 'orders.lineLabel'
     | 'orders.meta'
     | 'orders.more'
@@ -544,10 +572,17 @@ export interface NamespaceKeys {
     | 'orders.notFoundBody'
     | 'orders.notFoundTitle'
     | 'orders.openHint'
+    | 'orders.progress'
     | 'orders.reorder'
+    | 'orders.showLabel'
     | 'orders.title'
+    | 'orders.track'
+    | 'orders.view'
     | 'payments.body'
     | 'payments.cash'
+    | 'payments.cashSub'
+    | 'payments.counter'
+    | 'payments.counterSub'
     | 'phone.addNumber'
     | 'phone.backToAccount'
     | 'phone.countries.AE'
@@ -591,12 +626,14 @@ export interface NamespaceKeys {
     | 'profile.cancel'
     | 'profile.changePassword'
     | 'profile.devices'
+    | 'profile.dietChosen'
     | 'profile.dietsEyebrow'
     | 'profile.dietsLocked'
     | 'profile.dietsUnavailable'
     | 'profile.editAllergies'
     | 'profile.emailLabel'
     | 'profile.listSeparator'
+    | 'profile.manage'
     | 'profile.mobileLabel'
     | 'profile.nameLabel'
     | 'profile.noPhone'
@@ -609,6 +646,7 @@ export interface NamespaceKeys {
     | 'profile.slotLabel'
     | 'profile.slotUnset'
     | 'profile.title'
+    | 'profile.yourDiet'
     | 'title';
   readonly "auth":
     | 'aside.headline'
@@ -10418,6 +10456,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:addresses.save',
   'account:addresses.savedToast',
   'account:addresses.subtitle',
+  'account:band.activePlan',
+  'account:band.nextDelivery',
+  'account:band.orders',
   'account:checklist.blocked',
   'account:checklist.cannotActivate',
   'account:checklist.outstanding',
@@ -10565,6 +10606,24 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:dietary.allergenLabel',
   'account:dietary.allergensEmpty',
   'account:dietary.allergensTitle',
+  'account:dietary.answerShort.no',
+  'account:dietary.answerShort.yes',
+  'account:dietary.anyAllergies',
+  'account:dietary.covers.celery',
+  'account:dietary.covers.crustaceans',
+  'account:dietary.covers.egg',
+  'account:dietary.covers.fish',
+  'account:dietary.covers.gluten',
+  'account:dietary.covers.lupin',
+  'account:dietary.covers.milk',
+  'account:dietary.covers.mollusc',
+  'account:dietary.covers.mustard',
+  'account:dietary.covers.peanut',
+  'account:dietary.covers.sesame',
+  'account:dietary.covers.soy',
+  'account:dietary.covers.sulphites',
+  'account:dietary.covers.tree_nut',
+  'account:dietary.declaredCount',
   'account:dietary.dietsEmpty',
   'account:dietary.dietsSubtitle',
   'account:dietary.dietsTitle',
@@ -10574,6 +10633,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:dietary.hasAllergies.no',
   'account:dietary.hasAllergies.yes',
   'account:dietary.hasAllergiesLabel',
+  'account:dietary.howStrict',
+  'account:dietary.noAllergies',
   'account:dietary.noneBody',
   'account:dietary.noteLabel',
   'account:dietary.notePlaceholder',
@@ -10588,6 +10649,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:dietary.severityLabel',
   'account:dietary.storeOfRecord',
   'account:dietary.subtitle',
+  'account:dietary.tickedCount',
   'account:dietary.title',
   'account:dietary.unanswered',
   'account:favorites.empty',
@@ -10595,6 +10657,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:marketing.saveFailed',
   'account:marketing.title',
   'account:nav.addresses',
+  'account:nav.allergies',
   'account:nav.favorites',
   'account:nav.label',
   'account:nav.notifications',
@@ -10606,6 +10669,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:orders.browse',
   'account:orders.empty',
   'account:orders.emptyBody',
+  'account:orders.filter.active',
+  'account:orders.filter.all',
+  'account:orders.filter.delivered',
   'account:orders.lineLabel',
   'account:orders.meta',
   'account:orders.more',
@@ -10613,10 +10679,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:orders.notFoundBody',
   'account:orders.notFoundTitle',
   'account:orders.openHint',
+  'account:orders.progress',
   'account:orders.reorder',
+  'account:orders.showLabel',
   'account:orders.title',
+  'account:orders.track',
+  'account:orders.view',
   'account:payments.body',
   'account:payments.cash',
+  'account:payments.cashSub',
+  'account:payments.counter',
+  'account:payments.counterSub',
   'account:phone.addNumber',
   'account:phone.backToAccount',
   'account:phone.countries.AE',
@@ -10660,12 +10733,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:profile.cancel',
   'account:profile.changePassword',
   'account:profile.devices',
+  'account:profile.dietChosen',
   'account:profile.dietsEyebrow',
   'account:profile.dietsLocked',
   'account:profile.dietsUnavailable',
   'account:profile.editAllergies',
   'account:profile.emailLabel',
   'account:profile.listSeparator',
+  'account:profile.manage',
   'account:profile.mobileLabel',
   'account:profile.nameLabel',
   'account:profile.noPhone',
@@ -10678,6 +10753,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:profile.slotLabel',
   'account:profile.slotUnset',
   'account:profile.title',
+  'account:profile.yourDiet',
   'account:title',
   'auth:aside.headline',
   'auth:aside.points.marketplace',

@@ -8,7 +8,8 @@
         "addresses": "Addresses",
         "notifications": "Notifications",
         "favorites": "Favorites",
-        "payments": "Payment methods"
+        "payments": "Payment methods",
+        "allergies": "Allergies"
     },
     "orders": {
         "title": "Order history",
@@ -23,7 +24,16 @@
         "notFoundTitle": "We could not find that order",
         "notFoundBody": "It may belong to another account, or the link may be incomplete. Your own orders are all in your order history.",
         "lineLabel": "{{qty}}× {{name}}",
-        "reorder": "Reorder"
+        "reorder": "Reorder",
+        "view": "View",
+        "track": "Track order",
+        "progress": "Order progress",
+        "showLabel": "Show",
+        "filter": {
+            "all": "All",
+            "active": "Active",
+            "delivered": "Delivered"
+        }
     },
     "checklist": {
         "cannotActivate": "A few required steps are still outstanding.",
@@ -87,7 +97,11 @@
         "allergiesDeclared": "Allergies: {{list}}.",
         "securityTitle": "Sign-in and security",
         "changePassword": "Change password",
-        "devices": "Devices"
+        "devices": "Devices",
+        "yourDiet": "Your diet",
+        "dietChosen_one": "{{count}} chosen",
+        "dietChosen_other": "{{count}} chosen",
+        "manage": "Manage"
     },
     "privacy": {
         "title": "Privacy",
@@ -223,7 +237,34 @@
         "exclusionsSubtitle": "Things you simply do not want, for reasons that are not an allergy.",
         "save": "Save",
         "saved": "Saved.",
-        "savedToast": "Allergies and diet saved."
+        "savedToast": "Allergies and diet saved.",
+        "anyAllergies": "Any food allergies?",
+        "declaredCount_one": "{{count}} declared",
+        "declaredCount_other": "{{count}} declared",
+        "answerShort": {
+            "yes": "Yes",
+            "no": "No"
+        },
+        "noAllergies": "No allergies",
+        "tickedCount_one": "{{count}} ticked",
+        "tickedCount_other": "{{count}} ticked",
+        "howStrict": "How strictly to avoid each",
+        "covers": {
+            "milk": "Butter, cheese, labneh, yoghurt",
+            "egg": "Eggs and mayonnaise",
+            "gluten": "Wheat, rye, barley, oats",
+            "tree_nut": "Almond, cashew, pistachio, walnut",
+            "peanut": "Peanut and peanut butter",
+            "sesame": "Sesame seed and tahini",
+            "fish": "Fish, stock, fish sauce",
+            "crustaceans": "Crab, shrimp, lobster",
+            "mollusc": "Squid, mussels, oysters",
+            "soy": "Soya sauce, tofu, edamame",
+            "mustard": "Seed, powder, prepared",
+            "celery": "Stalk, leaf, seed, celeriac",
+            "sulphites": "Vinegar, dried fruit, pickles",
+            "lupin": "Lupin flour and beans"
+        }
     },
     "consents": {
         "title": "Permissions",
@@ -377,6 +418,14 @@
     },
     "payments": {
         "cash": "Cash on delivery",
-        "body": "One-off orders are paid to the courier when they arrive. No card is stored on your account."
+        "body": "One-off orders are paid to the courier when they arrive. No card is stored on your account.",
+        "cashSub": "Delivery orders and plans",
+        "counter": "Cash at the counter",
+        "counterSub": "Pickup orders"
+    },
+    "band": {
+        "activePlan": "Active plan",
+        "nextDelivery": "Next delivery",
+        "orders": "Orders"
     }
 }

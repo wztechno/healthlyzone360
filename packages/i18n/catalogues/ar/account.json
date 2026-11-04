@@ -8,7 +8,8 @@
         "addresses": "العناوين",
         "notifications": "الإشعارات",
         "favorites": "المفضّلة",
-        "payments": "طرق الدفع"
+        "payments": "طرق الدفع",
+        "allergies": "الحساسية"
     },
     "orders": {
         "title": "سجل الطلبات",
@@ -23,7 +24,16 @@
         "notFoundTitle": "لم نعثر على هذا الطلب",
         "notFoundBody": "قد يكون تابعًا لحساب آخر، أو قد يكون الرابط ناقصًا. جميع طلباتك موجودة في سجل طلباتك.",
         "lineLabel": "{{qty}}× {{name}}",
-        "reorder": "إعادة الطلب"
+        "reorder": "إعادة الطلب",
+        "view": "عرض",
+        "track": "تتبّع الطلب",
+        "progress": "تقدّم الطلب",
+        "showLabel": "عرض",
+        "filter": {
+            "all": "الكل",
+            "active": "النشطة",
+            "delivered": "المُسلّمة"
+        }
     },
     "checklist": {
         "cannotActivate": "ما زالت هناك خطوات مطلوبة لم تكتمل.",
@@ -91,7 +101,15 @@
         "allergiesDeclared": "الحساسية: {{list}}.",
         "securityTitle": "تسجيل الدخول والأمان",
         "changePassword": "تغيير كلمة المرور",
-        "devices": "الأجهزة"
+        "devices": "الأجهزة",
+        "yourDiet": "نظامك الغذائي",
+        "dietChosen_zero": "لا شيء مختار",
+        "dietChosen_one": "واحد مختار",
+        "dietChosen_two": "اثنان مختاران",
+        "dietChosen_few": "{{count}} مختارة",
+        "dietChosen_many": "{{count}} مختارًا",
+        "dietChosen_other": "{{count}} مختار",
+        "manage": "إدارة"
     },
     "privacy": {
         "title": "الخصوصية",
@@ -227,7 +245,42 @@
         "exclusionsSubtitle": "أشياء لا ترغب بها ببساطة، لأسباب غير الحساسية.",
         "save": "حفظ",
         "saved": "تم الحفظ.",
-        "savedToast": "تم حفظ الحساسية والنظام الغذائي."
+        "savedToast": "تم حفظ الحساسية والنظام الغذائي.",
+        "anyAllergies": "هل لديك حساسية من أي طعام؟",
+        "declaredCount_zero": "لا شيء مُعلن",
+        "declaredCount_one": "واحدة مُعلنة",
+        "declaredCount_two": "اثنتان مُعلنتان",
+        "declaredCount_few": "{{count}} مُعلنة",
+        "declaredCount_many": "{{count}} مُعلنة",
+        "declaredCount_other": "{{count}} مُعلنة",
+        "answerShort": {
+            "yes": "نعم",
+            "no": "لا"
+        },
+        "noAllergies": "لا حساسية",
+        "tickedCount_zero": "لا شيء محدد",
+        "tickedCount_one": "واحدة محددة",
+        "tickedCount_two": "اثنتان محددتان",
+        "tickedCount_few": "{{count}} محددة",
+        "tickedCount_many": "{{count}} محددة",
+        "tickedCount_other": "{{count}} محددة",
+        "howStrict": "إلى أي حد نتجنّب كلًّا منها",
+        "covers": {
+            "milk": "الزبدة والجبن واللبنة واللبن",
+            "egg": "البيض والمايونيز",
+            "gluten": "القمح والجاودار والشعير والشوفان",
+            "tree_nut": "اللوز والكاجو والفستق والجوز",
+            "peanut": "الفول السوداني وزبدته",
+            "sesame": "السمسم والطحينة",
+            "fish": "السمك والمرق وصلصة السمك",
+            "crustaceans": "السلطعون والقريدس والكركند",
+            "mollusc": "الحبار وبلح البحر والمحار",
+            "soy": "صلصة الصويا والتوفو والإدامامي",
+            "mustard": "البذور والمسحوق والمحضّر",
+            "celery": "الساق والورق والبذور والكرفس الجذري",
+            "sulphites": "الخل والفواكه المجففة والمخللات",
+            "lupin": "دقيق الترمس وحبوبه"
+        }
     },
     "consents": {
         "title": "الأذونات",
@@ -417,6 +470,14 @@
     },
     "payments": {
         "cash": "الدفع عند التوصيل",
-        "body": "تُدفع الطلبات الفردية للمندوب عند وصولها. لا تُحفظ أي بطاقة في حسابك."
+        "body": "تُدفع الطلبات الفردية للمندوب عند وصولها. لا تُحفظ أي بطاقة في حسابك.",
+        "cashSub": "طلبات التوصيل والخطط",
+        "counter": "الدفع نقدًا عند الاستلام",
+        "counterSub": "طلبات الاستلام"
+    },
+    "band": {
+        "activePlan": "الخطة النشطة",
+        "nextDelivery": "التوصيل التالي",
+        "orders": "الطلبات"
     }
 }

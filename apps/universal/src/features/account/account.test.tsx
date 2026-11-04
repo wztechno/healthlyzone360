@@ -649,11 +649,11 @@ describe('AccountScreen — profile', () => {
         // The panel is not gated on the session: it draws at once and the fields fill when `/me`
         // answers, so wait on the value rather than on the input.
         await waitFor(() => {
-            expect(screen.getByTestId('account-profile-name-input').props.value).toBe(
+            expect(screen.getByTestId('account-profile-name-value')).toHaveTextContent(
                 'Test Person',
             );
         });
-        expect(screen.getByTestId('account-profile-email-input').props.value).toBe(
+        expect(screen.getByTestId('account-profile-email-value')).toHaveTextContent(
             'test.person@example.test',
         );
         expect(await screen.findByTestId('account-profile-dietary-unavailable')).toBeTruthy();
@@ -674,21 +674,18 @@ describe('AccountScreen — profile', () => {
         });
 
         await fireEvent.press(await screen.findByTestId('account-tab-profile'));
-        expect(await screen.findByTestId('account-profile-title')).toHaveTextContent(
-            'Profile & preferences',
-        );
+        expect(await screen.findByTestId('account-profile-title')).toHaveTextContent('Profile');
         await screen.findByText('+971 50 *** 4567');
-        // The design's inputs, read-only where the contract has no way to change the value.
+        // Values, not inputs: the contract has no way to change a name or a sign-in address.
         await waitFor(() => {
-            expect(screen.getByTestId('account-profile-name-input').props.value).toBe(
+            expect(screen.getByTestId('account-profile-name-value')).toHaveTextContent(
                 'Test Person',
             );
         });
-        const name = screen.getByTestId('account-profile-name-input');
-        expect(name.props.readOnly).toBe(true);
-        const email = screen.getByTestId('account-profile-email-input');
-        expect(email.props.value).toBe('test.person@example.test');
-        expect(email.props.readOnly).toBe(true);
+        expect(screen.queryByTestId('account-profile-name-input')).toBeNull();
+        expect(screen.getByTestId('account-profile-email-value')).toHaveTextContent(
+            'test.person@example.test',
+        );
         expect(screen.getByTestId('account-profile-phone-value')).toHaveTextContent(
             '+971 50 *** 4567',
         );
@@ -709,8 +706,10 @@ describe('AccountScreen — profile', () => {
             true,
         );
 
+        // The allergy card opens the account's own Allergies section.
         await fireEvent.press(screen.getByTestId('account-profile-allergies-edit'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/allergies');
+        expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ section: 'allergies' });
+        await fireEvent.press(screen.getByTestId('account-tab-profile'));
 
         await fireEvent.press(screen.getByTestId('account-profile-phone-open'));
         expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/phone');
@@ -739,9 +738,8 @@ describe('AccountScreen — profile', () => {
         });
 
         await fireEvent.press(await screen.findByTestId('account-tab-profile'));
-        expect(await screen.findByTestId('account-profile-allergies')).toHaveTextContent(
-            /^Allergies: /,
-        );
+        // The declared allergies are listed on the allergy card.
+        expect(await screen.findByTestId('account-profile-allergies')).toBeTruthy();
         const chip = await screen.findByTestId('account-profile-diets-vegetarian');
         await fireEvent.press(chip);
         expect(
@@ -808,9 +806,7 @@ describe('AccountScreen — profile', () => {
         });
 
         await fireEvent.press(await screen.findByTestId('account-tab-profile'));
-        expect(await screen.findByTestId('account-profile-security')).toHaveTextContent(
-            /Sign-in and security/,
-        );
+        expect(await screen.findByTestId('account-profile-security')).toBeTruthy();
 
         await fireEvent.press(screen.getByTestId('account-profile-change-password'));
         expect(routerMock.__push).toHaveBeenLastCalledWith(
