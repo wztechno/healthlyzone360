@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10123 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10140 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -317,6 +317,23 @@ export interface NamespaceKeys {
     | 'addresses.areaLabel'
     | 'addresses.areaPlaceholder'
     | 'addresses.backToList'
+    | 'addresses.board.contact'
+    | 'addresses.board.coverage'
+    | 'addresses.board.home'
+    | 'addresses.board.line1Label'
+    | 'addresses.board.line1Placeholder'
+    | 'addresses.board.nameIt'
+    | 'addresses.board.nameItPlaceholder'
+    | 'addresses.board.notesPlaceholder'
+    | 'addresses.board.other'
+    | 'addresses.board.pickArea'
+    | 'addresses.board.preview'
+    | 'addresses.board.saveAs'
+    | 'addresses.board.searchAreas'
+    | 'addresses.board.searchAreasLabel'
+    | 'addresses.board.useDefault'
+    | 'addresses.board.work'
+    | 'addresses.board.yourArea'
     | 'addresses.buildingLabel'
     | 'addresses.buildingPlaceholder'
     | 'addresses.coverageBody'
@@ -10469,6 +10486,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:addresses.areaLabel',
   'account:addresses.areaPlaceholder',
   'account:addresses.backToList',
+  'account:addresses.board.contact',
+  'account:addresses.board.coverage',
+  'account:addresses.board.home',
+  'account:addresses.board.line1Label',
+  'account:addresses.board.line1Placeholder',
+  'account:addresses.board.nameIt',
+  'account:addresses.board.nameItPlaceholder',
+  'account:addresses.board.notesPlaceholder',
+  'account:addresses.board.other',
+  'account:addresses.board.pickArea',
+  'account:addresses.board.preview',
+  'account:addresses.board.saveAs',
+  'account:addresses.board.searchAreas',
+  'account:addresses.board.searchAreasLabel',
+  'account:addresses.board.useDefault',
+  'account:addresses.board.work',
+  'account:addresses.board.yourArea',
   'account:addresses.buildingLabel',
   'account:addresses.buildingPlaceholder',
   'account:addresses.coverageBody',

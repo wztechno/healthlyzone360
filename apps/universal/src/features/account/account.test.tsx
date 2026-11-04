@@ -1240,7 +1240,8 @@ describe('AddressEditorScreen', () => {
             },
         });
 
-        await fireEvent.changeText(await screen.findByTestId('address-editor-label'), 'Home');
+        // Home is the tile a new address starts on, and its word is the label it saves.
+        await fireEvent.press(await screen.findByTestId('address-editor-label-home'));
         await fireEvent.press(screen.getByTestId('address-editor-area-trigger'));
         await fireEvent.press(await screen.findByTestId(`address-editor-area-option-${area.id}`));
 
@@ -1295,7 +1296,8 @@ describe('AddressEditorScreen — as a detour', () => {
     }
 
     async function fillNewAddress(): Promise<void> {
-        await fireEvent.changeText(await screen.findByTestId('address-editor-label'), 'Office');
+        await fireEvent.press(await screen.findByTestId('address-editor-label-other'));
+        await fireEvent.changeText(screen.getByTestId('address-editor-label'), 'Office');
         await fireEvent.press(screen.getByTestId('address-editor-area-trigger'));
         await fireEvent.press(await screen.findByTestId(`address-editor-area-option-${AREA.id}`));
         await fireEvent.changeText(screen.getByTestId('address-editor-line1'), '1 Tower Road');
@@ -1314,7 +1316,10 @@ describe('AddressEditorScreen — as a detour', () => {
         });
 
         // The way back names where it goes.
-        expect(await screen.findByTestId('address-editor-trail-up')).toHaveTextContent('Checkout');
+        expect(await screen.findByTestId('address-editor-trail-up')).toHaveProp(
+            'accessibilityLabel',
+            expect.stringMatching(/Checkout/),
+        );
 
         await fillNewAddress();
         await fireEvent.press(screen.getByTestId('address-editor-save'));
@@ -1386,7 +1391,10 @@ describe('AddressEditorScreen — as a detour', () => {
             repositories: { account: { listServiceAreas: async () => [AREA] } },
         });
         // The trail names the parent itself when nothing sent the person here.
-        expect(await screen.findByTestId('address-editor-trail-up')).toHaveTextContent('Addresses');
+        expect(await screen.findByTestId('address-editor-trail-up')).toHaveProp(
+            'accessibilityLabel',
+            expect.stringMatching(/Addresses/),
+        );
 
         // Cold: nothing to go back to, so the list replaces the form.
         await fireEvent.press(await screen.findByTestId('address-editor-cancel'));
@@ -1406,7 +1414,8 @@ describe('AddressEditorScreen — as a detour', () => {
             session: testMeResponse(),
             repositories: { account: { listServiceAreas: async () => [AREA] } },
         });
-        await fireEvent.changeText(await screen.findByTestId('address-editor-label'), 'Office');
+        await fireEvent.press(await screen.findByTestId('address-editor-label-other'));
+        await fireEvent.changeText(screen.getByTestId('address-editor-label'), 'Office');
 
         // Cancel and the trail both ask first.
         await fireEvent.press(screen.getByTestId('address-editor-cancel'));

@@ -68,7 +68,7 @@ const PROFILE_HOME = '/customer/account?section=profile';
 const TEST_ID = 'account-profile';
 
 /** The phone a person is working with: the confirmed one, else the most recent unconfirmed. */
-function currentPhone(contacts: readonly ContactPoint[]): ContactPoint | null {
+export function currentPhone(contacts: readonly ContactPoint[]): ContactPoint | null {
     const phones = contacts.filter((contact) => contact.kind === 'phone');
     return phones.find((contact) => contact.verified) ?? phones[phones.length - 1] ?? null;
 }

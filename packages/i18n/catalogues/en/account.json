@@ -202,7 +202,27 @@
         "missingTitle": "That address is no longer here",
         "missingBody": "It may have been removed, or the link may be out of date.",
         "backToList": "Back to your addresses",
-        "savedToast": "Address saved."
+        "savedToast": "Address saved.",
+        "board": {
+            "saveAs": "Save it as",
+            "home": "Home",
+            "work": "Work",
+            "other": "Other",
+            "nameIt": "Name it",
+            "nameItPlaceholder": "Gym, Parents, Studio",
+            "line1Label": "Street and number",
+            "line1Placeholder": "Street name and number",
+            "searchAreas_one": "Search {{count}} area",
+            "searchAreas_other": "Search {{count}} areas",
+            "searchAreasLabel": "Search areas",
+            "notesPlaceholder": "Landmark, gate code, which entrance",
+            "contact": "Contact number",
+            "useDefault": "Use as my default",
+            "preview": "Address preview",
+            "yourArea": "Your area",
+            "pickArea": "Pick an area to check delivery",
+            "coverage": "We deliver to {{area}}. You will see which kitchens do when you order."
+        }
     },
     "dietary": {
         "title": "Allergies and diet",

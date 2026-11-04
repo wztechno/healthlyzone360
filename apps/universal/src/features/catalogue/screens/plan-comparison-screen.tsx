@@ -16,6 +16,7 @@ import { EntityImage } from '../../../media/entity-image.tsx';
 import { useGoToAuth, useNavigateUp } from '../../../navigation/use-return-to.ts';
 import { useSession } from '../../../session/session-provider.tsx';
 import { BackPill } from '../../../ui/back-pill.tsx';
+import { ShopSwitchTrack } from '../../../ui/shop-switch.tsx';
 import { estimatedTotal } from '../../commerce/configurator.ts';
 import { configuratorHref } from '../../commerce/configurator-draft.ts';
 import { formatMoney } from '../../marketplace/format.ts';
@@ -398,16 +399,7 @@ export function PlanComparisonScreen() {
                         }}
                         className="ms-auto h-11 flex-row items-center gap-2.5 rounded-full border border-stroke bg-surface-raised pe-3.5 ps-2"
                     >
-                        <View
-                            className={cx(
-                                'h-[22px] w-[38px] justify-center rounded-full px-[3px] transition duration-normal ease-standard',
-                                onlyDifferences
-                                    ? 'items-end bg-surface-brand'
-                                    : 'items-start bg-stroke',
-                            )}
-                        >
-                            <View className="h-4 w-4 rounded-full bg-surface-raised shadow-elevation-1" />
-                        </View>
+                        <ShopSwitchTrack checked={onlyDifferences} />
                         <RNText className="text-sm font-semibold text-content-primary">
                             {t('catalogue:compare.onlyDifferences')}
                         </RNText>

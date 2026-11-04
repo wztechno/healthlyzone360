@@ -210,7 +210,31 @@
         "missingTitle": "هذا العنوان لم يعد موجودًا",
         "missingBody": "ربما أُزيل، أو أن الرابط قديم.",
         "backToList": "العودة إلى عناوينك",
-        "savedToast": "تم حفظ العنوان."
+        "savedToast": "تم حفظ العنوان.",
+        "board": {
+            "saveAs": "احفظه باسم",
+            "home": "المنزل",
+            "work": "العمل",
+            "other": "آخر",
+            "nameIt": "سمِّه",
+            "nameItPlaceholder": "النادي، الأهل، المكتب",
+            "line1Label": "الشارع والرقم",
+            "line1Placeholder": "اسم الشارع والرقم",
+            "searchAreas_zero": "ابحث في المناطق",
+            "searchAreas_one": "ابحث في منطقة واحدة",
+            "searchAreas_two": "ابحث في منطقتين",
+            "searchAreas_few": "ابحث في {{count}} مناطق",
+            "searchAreas_many": "ابحث في {{count}} منطقة",
+            "searchAreas_other": "ابحث في {{count}} منطقة",
+            "searchAreasLabel": "ابحث في المناطق",
+            "notesPlaceholder": "معلم قريب، رمز البوابة، أي مدخل",
+            "contact": "رقم التواصل",
+            "useDefault": "اجعله عنواني الافتراضي",
+            "preview": "معاينة العنوان",
+            "yourArea": "منطقتك",
+            "pickArea": "اختر منطقة للتحقق من التوصيل",
+            "coverage": "نوصل إلى {{area}}. سترى المطابخ التي توصل إليها عند الطلب."
+        }
     },
     "dietary": {
         "title": "الحساسيات والنظام الغذائي",

@@ -1,14 +1,5 @@
 import type { AccountChecklistItem, ConsentState } from '@healthy360/api-client/contracts';
-import {
-    Button,
-    Callout,
-    Dialog,
-    Icon,
-    Switch,
-    Tabs,
-    cx,
-    useBreakpoint,
-} from '@healthy360/design-system';
+import { Button, Callout, Dialog, Icon, Tabs, cx, useBreakpoint } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -30,6 +21,7 @@ import { useLogoutMutation } from '../../../data/hooks.ts';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useSession } from '../../../session/session-provider.tsx';
+import { ShopSwitch } from '../../../ui/shop-switch.tsx';
 import { SubpageTrail } from '../../../ui/subpage-trail.tsx';
 import { SubscriptionsScreen } from '../../commerce/screens/subscriptions-screen.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
@@ -125,7 +117,8 @@ const SECTIONS = [
     'payments',
     'notifications',
 ] as const;
-type Section = (typeof SECTIONS)[number];
+export type AccountSection = (typeof SECTIONS)[number];
+type Section = AccountSection;
 
 /** Section names that existed before the design's six, and where they now live. */
 const LEGACY_SECTIONS: Readonly<Record<string, Section>> = {
@@ -729,10 +722,9 @@ function NotificationsPanel() {
                                 {consent.definition.text}
                             </RNText>
                         </View>
-                        <Switch
+                        <ShopSwitch
                             testID={`account-marketing-${consent.definition.key}`}
                             label={consent.definition.title}
-                            labelHidden
                             checked={consent.granted}
                             disabled={setConsent.isPending}
                             onChange={(granted) => {
@@ -861,9 +853,16 @@ function AccountBand({
 export interface AccountScreenProps {
     /** The route's `?returnTo=` — set when another flow opened a section as a detour. */
     readonly returnTo?: string | undefined;
+    /**
+     * A page of the account drawn inside it — the address editor — so the band and the side menu
+     * stay where they are, as the board keeps them. `section` is the menu item it belongs under;
+     * choosing another item leaves for that section of the account page.
+     */
+    readonly section?: AccountSection | undefined;
+    readonly children?: ReactNode;
 }
 
-export function AccountScreen({ returnTo }: AccountScreenProps) {
+export function AccountScreen({ returnTo, section: within, children }: AccountScreenProps) {
     const { t } = useTranslation();
     // The name and email are the session's as soon as it answers; the customer record may lag.
     const { me } = useSession();
@@ -881,7 +880,7 @@ export function AccountScreen({ returnTo }: AccountScreenProps) {
 
     // The URL's section, followed during render (not in an effect) so a link to another section
     // pressed while this page is open never paints a frame of the old one.
-    const requested: Section = sectionFrom(params.section) ?? 'orders';
+    const requested: Section = within ?? sectionFrom(params.section) ?? 'orders';
     const [section, setSection] = useState<Section>(requested);
     const [followed, setFollowed] = useState<Section>(requested);
     if (followed !== requested) {
@@ -889,6 +888,12 @@ export function AccountScreen({ returnTo }: AccountScreenProps) {
         setSection(requested);
     }
     const openSection = (next: Section) => {
+        if (children !== undefined) {
+            // A page drawn inside the account: the menu leaves it for that section, popping back
+            // to the account page when it is underneath rather than stacking another.
+            router.dismissTo(accountSectionHref(next) as never);
+            return;
+        }
         setSection(next);
         router.setParams({ section: next });
     };
@@ -935,7 +940,8 @@ export function AccountScreen({ returnTo }: AccountScreenProps) {
 
     const panel = (
         <View testID="account-panel" className="z-auto min-w-0 flex-1 flex-col gap-4">
-            {checklist === null ? null : (
+            {children}
+            {children !== undefined || checklist === null ? null : (
                 <SetupNotice
                     items={checklist.items}
                     canActivate={checklist.canActivate}
@@ -943,21 +949,25 @@ export function AccountScreen({ returnTo }: AccountScreenProps) {
                 />
             )}
 
-            {section === 'orders' ? <AccountOrdersPanel /> : null}
-            {section === 'subscriptions' ? <SubscriptionsScreen embedded /> : null}
-            {section === 'favorites' ? <FavoritesPanel /> : null}
-            {/* Not gated on the overview: the card's details come from the session. */}
-            {section === 'profile' ? (
-                <AccountProfilePanel
-                    onOpenAllergies={() => {
-                        openSection('allergies');
-                    }}
-                />
-            ) : null}
-            {section === 'allergies' ? <AllergiesPanel testID="account-allergies" /> : null}
-            {section === 'addresses' ? <AddressesPanel here={here} /> : null}
-            {section === 'payments' ? <PaymentsPanel /> : null}
-            {section === 'notifications' ? <NotificationsPanel /> : null}
+            {children !== undefined ? null : (
+                <>
+                    {section === 'orders' ? <AccountOrdersPanel /> : null}
+                    {section === 'subscriptions' ? <SubscriptionsScreen embedded /> : null}
+                    {section === 'favorites' ? <FavoritesPanel /> : null}
+                    {/* Not gated on the overview: the card's details come from the session. */}
+                    {section === 'profile' ? (
+                        <AccountProfilePanel
+                            onOpenAllergies={() => {
+                                openSection('allergies');
+                            }}
+                        />
+                    ) : null}
+                    {section === 'allergies' ? <AllergiesPanel testID="account-allergies" /> : null}
+                    {section === 'addresses' ? <AddressesPanel here={here} /> : null}
+                    {section === 'payments' ? <PaymentsPanel /> : null}
+                    {section === 'notifications' ? <NotificationsPanel /> : null}
+                </>
+            )}
         </View>
     );
 
