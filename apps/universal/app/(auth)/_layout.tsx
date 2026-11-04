@@ -10,6 +10,8 @@ import { AuthFrame } from '../../src/ui/auth-frame.tsx';
  * built; the staff branch and organisation pickers are not shop pages and keep it for good.
  */
 const BOARD_PAGES: ReadonlySet<string> = new Set([
+    'sign-in',
+    'register',
     'change-password',
     'forgot-password',
     'reset-password',

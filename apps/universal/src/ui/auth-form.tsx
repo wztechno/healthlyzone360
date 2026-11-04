@@ -1,6 +1,7 @@
 import { Icon, cx, useMotion } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import {
     ActivityIndicator,
     Animated,
@@ -26,15 +27,19 @@ import type { TextInputProps } from 'react-native';
 export function AuthBadge({
     icon,
     tone = 'brand',
+    round = false,
 }: {
     readonly icon: IconName;
     readonly tone?: 'brand' | 'warning';
+    /** The boards' centred disc — two-factor's shield — rather than the rounded square. */
+    readonly round?: boolean;
 }) {
     return (
         <View
             aria-hidden
             className={cx(
-                'mb-1 h-16 w-16 items-center justify-center self-start rounded-[20px]',
+                'mb-1 h-16 w-16 items-center justify-center',
+                round ? 'self-center rounded-full' : 'self-start rounded-[20px]',
                 tone === 'warning' ? 'bg-warning-subtle' : 'bg-surface-brand-subtle',
             )}
         >
@@ -117,6 +122,14 @@ export interface AuthFieldProps {
     readonly onToggleReveal?: (() => void) | undefined;
     readonly showLabel?: string | undefined;
     readonly hideLabel?: string | undefined;
+    /** Enter in the field — signs in, sends the code — as the button does. */
+    readonly onSubmitEditing?: (() => void) | undefined;
+    readonly returnKeyType?: TextInputProps['returnKeyType'];
+    readonly textContentType?: TextInputProps['textContentType'];
+    /** Text fixed at the field's end, inside it — a kitchen's sign-in domain. */
+    readonly suffix?: string | undefined;
+    readonly suffixTestID?: string | undefined;
+    readonly autoCapitalize?: TextInputProps['autoCapitalize'];
 }
 
 export function AuthField({
@@ -135,6 +148,12 @@ export function AuthField({
     onToggleReveal,
     showLabel,
     hideLabel,
+    onSubmitEditing,
+    returnKeyType,
+    textContentType,
+    suffix,
+    suffixTestID,
+    autoCapitalize = 'none',
 }: AuthFieldProps) {
     const [focused, setFocused] = useState(false);
     const [ownReveal, setOwnReveal] = useState(false);
@@ -144,7 +163,10 @@ export function AuthField({
 
     return (
         <View testID={testID} className="min-w-0 flex-col gap-1.5">
-            <RNText className="text-sm font-semibold text-content-primary text-start">
+            <RNText
+                testID={`${testID}-label`}
+                className="text-sm font-semibold text-content-primary text-start"
+            >
                 {label}
             </RNText>
             <View
@@ -160,7 +182,7 @@ export function AuthField({
                 <Icon
                     name={icon}
                     size="md"
-                    className={focused ? 'text-content-brand' : 'text-content-secondary'}
+                    className={focused ? 'text-content-on-brand-subtle' : 'text-content-secondary'}
                 />
                 <TextInput
                     testID={`${testID}-input`}
@@ -177,11 +199,30 @@ export function AuthField({
                     placeholder={placeholder}
                     secureTextEntry={secret && !shown}
                     autoComplete={autoComplete}
-                    autoCapitalize="none"
+                    autoCapitalize={autoCapitalize}
                     keyboardType={keyboardType}
+                    returnKeyType={returnKeyType}
+                    textContentType={textContentType}
+                    {...(onSubmitEditing === undefined
+                        ? {}
+                        : {
+                              onSubmitEditing: () => {
+                                  onSubmitEditing();
+                              },
+                          })}
                     aria-invalid={error !== undefined}
                     className="h-full min-w-0 flex-1 text-base font-medium text-content-primary web:outline-none"
                 />
+                {suffix === undefined ? null : (
+                    <View className="h-[38px] shrink-0 justify-center rounded-[10px] bg-surface-sunken px-3">
+                        <RNText
+                            testID={suffixTestID}
+                            className="text-sm font-semibold text-content-secondary"
+                        >
+                            {suffix}
+                        </RNText>
+                    </View>
+                )}
                 {hasEye ? (
                     <Pressable
                         testID={`${testID}-reveal`}
@@ -383,7 +424,7 @@ export function AuthLink({
             <RNText
                 className={cx(
                     'text-sm font-semibold',
-                    disabled ? 'text-content-secondary' : 'text-content-brand',
+                    disabled ? 'text-content-secondary' : 'text-content-on-brand-subtle',
                 )}
             >
                 {label}
@@ -464,5 +505,184 @@ export function AuthTick() {
                 <Icon name="check" size="lg" className="text-content-on-brand" />
             </View>
         </Animated.View>
+    );
+}
+
+/**
+ * The boards' two-tab switch at the top of sign-in and registration. They are two pages, so each
+ * draws its own tabs; the white pill slides in from the other tab as the page opens, which is the
+ * board's slide between the two.
+ */
+export function AuthTabs({
+    value,
+    signInLabel,
+    createLabel,
+    label,
+    onSignIn,
+    onCreate,
+}: {
+    readonly value: 'in' | 'up';
+    readonly signInLabel: string;
+    readonly createLabel: string;
+    readonly label: string;
+    readonly onSignIn: () => void;
+    readonly onCreate: () => void;
+}) {
+    const { enabled, axisSign } = useMotion();
+    const [width, setWidth] = useState(0);
+    const [slide] = useState(() => new Animated.Value(value === 'up' ? 0 : 1));
+    useEffect(() => {
+        const to = value === 'up' ? 1 : 0;
+        if (!enabled) {
+            slide.setValue(to);
+            return undefined;
+        }
+        const animation = Animated.timing(slide, {
+            toValue: to,
+            duration: 350,
+            easing: Easing.bezier(0.34, 1.3, 0.64, 1),
+            useNativeDriver: Platform.OS !== 'web',
+        });
+        animation.start();
+        return () => {
+            animation.stop();
+        };
+    }, [enabled, slide, value]);
+
+    const tab = (key: 'in' | 'up', text: string, onPress: () => void) => {
+        const on = key === value;
+        return (
+            <Pressable
+                testID={`auth-tab-${key}`}
+                role="tab"
+                aria-selected={on}
+                accessibilityState={{ selected: on }}
+                onPress={on ? undefined : onPress}
+                className="h-11 flex-1 items-center justify-center rounded-full"
+            >
+                <RNText
+                    className={cx(
+                        'text-sm font-semibold',
+                        on ? 'text-content-primary' : 'text-content-secondary',
+                    )}
+                >
+                    {text}
+                </RNText>
+            </Pressable>
+        );
+    };
+
+    return (
+        <View
+            role="tablist"
+            aria-label={label}
+            onLayout={(event) => {
+                setWidth(event.nativeEvent.layout.width);
+            }}
+            className="relative flex-row rounded-full border border-stroke-subtle bg-surface-sunken p-1"
+        >
+            {width === 0 ? null : (
+                <Animated.View
+                    aria-hidden
+                    className="absolute bottom-1 start-1 top-1 rounded-full bg-surface-raised shadow-elevation-2"
+                    style={{
+                        width: (width - 10) / 2,
+                        transform: [
+                            {
+                                translateX: slide.interpolate({
+                                    inputRange: [0, 1],
+                                    outputRange: [0, ((width - 10) / 2) * axisSign],
+                                }),
+                            },
+                        ],
+                    }}
+                />
+            )}
+            {tab('in', signInLabel, onSignIn)}
+            {tab('up', createLabel, onCreate)}
+        </View>
+    );
+}
+
+/** The boards' square checkbox with its label — "Keep me signed in", "I accept the terms". */
+export function AuthCheck({
+    testID,
+    checked,
+    onChange,
+    label,
+    children,
+    error,
+}: {
+    readonly testID: string;
+    readonly checked: boolean;
+    readonly onChange: (checked: boolean) => void;
+    /** What a screen reader hears. */
+    readonly label: string;
+    /** What is drawn beside the box; the label when absent. */
+    readonly children?: ReactNode;
+    /** Why the box must be ticked, once a submit has found it empty. */
+    readonly error?: string | undefined;
+}) {
+    return (
+        <View className="flex-col">
+            <Pressable
+                testID={`${testID}-control`}
+                role="checkbox"
+                accessibilityRole="checkbox"
+                accessibilityLabel={label}
+                aria-checked={checked}
+                accessibilityState={{ checked }}
+                onPress={() => {
+                    onChange(!checked);
+                }}
+                className="min-h-touch flex-row items-center gap-2.5 self-start"
+            >
+                <View
+                    className={cx(
+                        'h-[22px] w-[22px] items-center justify-center rounded-[7px] border-[1.5px] transition-colors duration-150',
+                        checked
+                            ? 'border-surface-brand bg-surface-brand'
+                            : 'border-stroke bg-surface-raised',
+                    )}
+                >
+                    {checked ? (
+                        <Icon name="check" size="sm" className="text-content-on-brand" />
+                    ) : null}
+                </View>
+                {children ?? (
+                    <RNText className="text-sm font-medium text-content-primary text-start">
+                        {label}
+                    </RNText>
+                )}
+            </Pressable>
+            {error === undefined ? null : (
+                <RNText
+                    testID={`${testID}-error`}
+                    role="alert"
+                    className="text-sm font-medium text-danger-on-subtle text-start"
+                >
+                    {error}
+                </RNText>
+            )}
+        </View>
+    );
+}
+
+/** Where finishing returns — "Basket" — as the boards' small soft chip beside the title. */
+export function AuthReturnChip({
+    label,
+    testID,
+}: {
+    readonly label: string;
+    readonly testID?: string;
+}) {
+    return (
+        <View
+            testID={testID}
+            className="h-[30px] flex-row items-center gap-1.5 rounded-full bg-surface-brand-subtle pe-3 ps-2"
+        >
+            <Icon name="chevronBackward" size="sm" className="text-content-on-brand-subtle" />
+            <RNText className="text-xs font-semibold text-content-on-brand-subtle">{label}</RNText>
+        </View>
     );
 }
