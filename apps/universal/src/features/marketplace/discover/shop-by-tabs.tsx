@@ -123,7 +123,7 @@ function ShopByTile({
         >
             <View
                 className={[
-                    'h-[100px] w-[100px] items-center justify-center rounded-2xl border-2 transition duration-normal ease-standard',
+                    'h-[100px] w-[100px] items-center justify-center overflow-hidden rounded-2xl border-2 transition duration-normal ease-standard',
                     on ? 'border-surface-brand' : 'border-transparent',
                     hovered ? '-translate-y-0.5 bg-surface-brand-subtle' : 'bg-surface-sunken',
                 ].join(' ')}
@@ -138,7 +138,8 @@ function ShopByTile({
                         label={tab.label}
                         decorative
                         flush
-                        className="h-16 w-16 overflow-hidden rounded-2xl"
+                        aspect="square"
+                        className="h-full w-full"
                     />
                 )}
             </View>
