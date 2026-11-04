@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9939 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9928 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1851,11 +1851,15 @@ export interface NamespaceKeys {
     | 'plan.priceTitle'
     | 'plan.variantLabel'
     | 'plan.variantsTitle'
+    | 'plans.aDay'
     | 'plans.allKitchens'
     | 'plans.balancePrice'
     | 'plans.balancePriceFrom'
+    | 'plans.bandPerDay'
+    | 'plans.bestMatch'
     | 'plans.choosePlan'
     | 'plans.choosePlanShort'
+    | 'plans.compareChosen'
     | 'plans.compareClear'
     | 'plans.compareCount'
     | 'plans.compareLabel'
@@ -1868,6 +1872,9 @@ export interface NamespaceKeys {
     | 'plans.ctaSecondary'
     | 'plans.ctaTitle'
     | 'plans.currentPlan'
+    | 'plans.dayHolds'
+    | 'plans.daysLabel'
+    | 'plans.discountTail'
     | 'plans.durationDays'
     | 'plans.durationDaysShort'
     | 'plans.durationNoDiscount'
@@ -1885,46 +1892,28 @@ export interface NamespaceKeys {
     | 'plans.featureDiscount'
     | 'plans.featureMeals'
     | 'plans.featureMealsRange'
+    | 'plans.finderCalories'
+    | 'plans.finderDays'
+    | 'plans.finderDaysValue'
+    | 'plans.finderLabel'
+    | 'plans.finderMeals'
+    | 'plans.fromKitchen'
     | 'plans.howItWorksLink'
     | 'plans.kitchenFilterLabel'
+    | 'plans.level.active'
+    | 'plans.level.balanced'
+    | 'plans.level.light'
     | 'plans.managePlan'
     | 'plans.managePlanNamed'
+    | 'plans.mealsADay'
     | 'plans.methodologyTitle'
     | 'plans.perDaySuffix'
     | 'plans.ratingLabel'
-    | 'plans.subscriber.balance'
-    | 'plans.subscriber.balanceValue'
-    | 'plans.subscriber.cutoff'
-    | 'plans.subscriber.cutoffValue'
-    | 'plans.subscriber.day.delivery'
-    | 'plans.subscriber.day.off'
-    | 'plans.subscriber.day.skipped'
-    | 'plans.subscriber.deliveryDays'
-    | 'plans.subscriber.deliveryDaysValue'
-    | 'plans.subscriber.dietaryRules'
-    | 'plans.subscriber.eyebrowActive'
-    | 'plans.subscriber.eyebrowPaused'
-    | 'plans.subscriber.nextCharge'
-    | 'plans.subscriber.nextChargeValue'
-    | 'plans.subscriber.nextDelivery'
-    | 'plans.subscriber.noNextDelivery'
-    | 'plans.subscriber.note'
-    | 'plans.subscriber.pause'
-    | 'plans.subscriber.pausedToast'
-    | 'plans.subscriber.plan'
-    | 'plans.subscriber.planTitle'
-    | 'plans.subscriber.resume'
-    | 'plans.subscriber.resumedToast'
-    | 'plans.subscriber.skipNext'
-    | 'plans.subscriber.skippedToast'
-    | 'plans.subscriber.tile.delivery'
-    | 'plans.subscriber.tile.off'
-    | 'plans.subscriber.tile.skipped'
-    | 'plans.subscriber.unknown'
-    | 'plans.subscriber.weekCount'
-    | 'plans.subscriber.weekTitle'
+    | 'plans.snacksADay'
+    | 'plans.startPlan'
     | 'plans.taglineWithKitchen'
     | 'plans.viewPlanShort'
+    | 'plans.wholePlan'
     | 'title'
     | 'tools.activity.extra_active'
     | 'tools.activity.lightly_active'
@@ -11815,11 +11804,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plan.priceTitle',
   'catalogue:plan.variantLabel',
   'catalogue:plan.variantsTitle',
+  'catalogue:plans.aDay',
   'catalogue:plans.allKitchens',
   'catalogue:plans.balancePrice',
   'catalogue:plans.balancePriceFrom',
+  'catalogue:plans.bandPerDay',
+  'catalogue:plans.bestMatch',
   'catalogue:plans.choosePlan',
   'catalogue:plans.choosePlanShort',
+  'catalogue:plans.compareChosen',
   'catalogue:plans.compareClear',
   'catalogue:plans.compareCount',
   'catalogue:plans.compareLabel',
@@ -11832,6 +11825,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.ctaSecondary',
   'catalogue:plans.ctaTitle',
   'catalogue:plans.currentPlan',
+  'catalogue:plans.dayHolds',
+  'catalogue:plans.daysLabel',
+  'catalogue:plans.discountTail',
   'catalogue:plans.durationDays',
   'catalogue:plans.durationDaysShort',
   'catalogue:plans.durationNoDiscount',
@@ -11849,46 +11845,28 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:plans.featureDiscount',
   'catalogue:plans.featureMeals',
   'catalogue:plans.featureMealsRange',
+  'catalogue:plans.finderCalories',
+  'catalogue:plans.finderDays',
+  'catalogue:plans.finderDaysValue',
+  'catalogue:plans.finderLabel',
+  'catalogue:plans.finderMeals',
+  'catalogue:plans.fromKitchen',
   'catalogue:plans.howItWorksLink',
   'catalogue:plans.kitchenFilterLabel',
+  'catalogue:plans.level.active',
+  'catalogue:plans.level.balanced',
+  'catalogue:plans.level.light',
   'catalogue:plans.managePlan',
   'catalogue:plans.managePlanNamed',
+  'catalogue:plans.mealsADay',
   'catalogue:plans.methodologyTitle',
   'catalogue:plans.perDaySuffix',
   'catalogue:plans.ratingLabel',
-  'catalogue:plans.subscriber.balance',
-  'catalogue:plans.subscriber.balanceValue',
-  'catalogue:plans.subscriber.cutoff',
-  'catalogue:plans.subscriber.cutoffValue',
-  'catalogue:plans.subscriber.day.delivery',
-  'catalogue:plans.subscriber.day.off',
-  'catalogue:plans.subscriber.day.skipped',
-  'catalogue:plans.subscriber.deliveryDays',
-  'catalogue:plans.subscriber.deliveryDaysValue',
-  'catalogue:plans.subscriber.dietaryRules',
-  'catalogue:plans.subscriber.eyebrowActive',
-  'catalogue:plans.subscriber.eyebrowPaused',
-  'catalogue:plans.subscriber.nextCharge',
-  'catalogue:plans.subscriber.nextChargeValue',
-  'catalogue:plans.subscriber.nextDelivery',
-  'catalogue:plans.subscriber.noNextDelivery',
-  'catalogue:plans.subscriber.note',
-  'catalogue:plans.subscriber.pause',
-  'catalogue:plans.subscriber.pausedToast',
-  'catalogue:plans.subscriber.plan',
-  'catalogue:plans.subscriber.planTitle',
-  'catalogue:plans.subscriber.resume',
-  'catalogue:plans.subscriber.resumedToast',
-  'catalogue:plans.subscriber.skipNext',
-  'catalogue:plans.subscriber.skippedToast',
-  'catalogue:plans.subscriber.tile.delivery',
-  'catalogue:plans.subscriber.tile.off',
-  'catalogue:plans.subscriber.tile.skipped',
-  'catalogue:plans.subscriber.unknown',
-  'catalogue:plans.subscriber.weekCount',
-  'catalogue:plans.subscriber.weekTitle',
+  'catalogue:plans.snacksADay',
+  'catalogue:plans.startPlan',
   'catalogue:plans.taglineWithKitchen',
   'catalogue:plans.viewPlanShort',
+  'catalogue:plans.wholePlan',
   'catalogue:title',
   'catalogue:tools.activity.extra_active',
   'catalogue:tools.activity.lightly_active',

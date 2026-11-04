@@ -42,7 +42,7 @@ import { recordResumeIntent } from '../../marketplace/resume-intent.ts';
 import { useShopViewOnly } from '../../marketplace/shop-view-only.tsx';
 import { listDayPrice } from '../plan-balance.ts';
 import { durationWithBalance } from '../plan-duration-label.ts';
-import { isLiveSubscription } from '../plan-subscriber-panel.tsx';
+import { isLiveSubscription } from '../plan-subscription.ts';
 
 /**
  * `/plans/{plan}` — one subscription plan.

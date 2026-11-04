@@ -1945,7 +1945,7 @@ describe('PlansScreen', () => {
             expect(screen.getByTestId('plans-grid')).toBeTruthy();
         });
         expect(screen.getAllByTestId(/^plan-card-.*-bands$/)).toHaveLength(PLANS.length);
-        expect(screen.getAllByTestId(/^plan-card-.*-price$/)).toHaveLength(PLANS.length);
+        expect(screen.getAllByTestId(/^plan-card-.*-price-amount$/)).toHaveLength(PLANS.length);
     });
 
     it('narrows to a kitchen from the URL, the way the kitchen finder links in', async () => {

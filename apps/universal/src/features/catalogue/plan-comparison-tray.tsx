@@ -1,4 +1,4 @@
-import { Button, Icon } from '@healthy360/design-system';
+import { Icon } from '@healthy360/design-system';
 import type { SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, Text as RNText, View } from 'react-native';
@@ -49,13 +49,16 @@ export function PlanComparisonTray({
             testID="plans-compare-tray"
             role="region"
             aria-label={t('catalogue:plans.compareTrayLabel')}
-            className="flex-row items-center gap-3 rounded-panel border border-stroke bg-surface-raised px-4 py-3 shadow-elevation-2"
+            className="mx-auto h-[68px] w-full max-w-[600px] flex-row items-center gap-3 rounded-[22px] bg-content-primary pe-2.5 ps-[18px] shadow-elevation-4"
         >
+            <RNText className="font-display text-base font-bold text-surface-base">
+                {t('catalogue:plans.compareChosen', { count: selectedCount })}
+            </RNText>
             <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 className="min-w-0 flex-1"
-                contentContainerClassName="flex-row items-center gap-2"
+                contentContainerClassName="flex-row items-center gap-1.5"
             >
                 {plans.map((plan) => (
                     <Pressable
@@ -67,37 +70,47 @@ export function PlanComparisonTray({
                         onPress={() => {
                             onRemove(String(plan.id));
                         }}
-                        className="min-h-touch flex-row items-center gap-2 rounded-full border border-surface-brand bg-surface-brand-subtle px-4"
+                        className="h-8 flex-row items-center gap-1 rounded-full bg-surface-base/15 px-2.5"
                     >
                         <RNText
                             numberOfLines={1}
-                            className="max-w-[180px] text-sm font-medium text-content-on-brand-subtle"
+                            className="max-w-[140px] text-xs font-semibold text-surface-base"
                         >
                             {plan.name}
                         </RNText>
-                        <Icon name="close" size="sm" className="text-content-on-brand-subtle" />
+                        <Icon name="close" size="sm" className="text-surface-base" />
                     </Pressable>
                 ))}
             </ScrollView>
-
-            <View className="flex-row items-center gap-2">
-                <Button
-                    testID="plans-compare-clear"
-                    variant="quiet"
-                    size="sm"
-                    label={t('catalogue:plans.compareClear')}
-                    onPress={onClear}
-                />
-                <View role="status" aria-live="polite">
-                    <Button
-                        testID="plans-compare-open"
-                        variant="primary"
-                        label={t('catalogue:plans.compareCount', { selected: selectedCount })}
-                        disabled={selectedCount < 2}
-                        onPress={onCompare}
-                    />
-                </View>
+            <View role="status" aria-live="polite">
+                <Pressable
+                    testID="plans-compare-open"
+                    role="button"
+                    accessibilityRole="button"
+                    disabled={selectedCount < 2}
+                    accessibilityState={{ disabled: selectedCount < 2 }}
+                    onPress={onCompare}
+                    className={
+                        selectedCount < 2
+                            ? 'h-12 justify-center rounded-[14px] bg-surface-brand px-[18px] opacity-50'
+                            : 'h-12 justify-center rounded-[14px] bg-surface-brand px-[18px] hover:bg-surface-canopy'
+                    }
+                >
+                    <RNText className="text-sm font-bold text-content-on-brand">
+                        {t('catalogue:plans.compareCount', { selected: selectedCount })}
+                    </RNText>
+                </Pressable>
             </View>
+            <Pressable
+                testID="plans-compare-clear"
+                role="button"
+                accessibilityRole="button"
+                accessibilityLabel={t('catalogue:plans.compareClear')}
+                onPress={onClear}
+                className="h-10 w-10 items-center justify-center rounded-xl bg-surface-base/15"
+            >
+                <Icon name="close" size="sm" className="text-surface-base" />
+            </Pressable>
         </View>
     );
 }
