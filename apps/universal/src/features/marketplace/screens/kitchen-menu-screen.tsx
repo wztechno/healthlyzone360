@@ -312,7 +312,11 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
                     testID="kitchen-menu"
                 >
                     <View className="flex-col gap-7">
-                        <MenuGrid testID="kitchen-menu-grid" gap={20}>
+                        <MenuGrid
+                            testID="kitchen-menu-grid"
+                            gap={20}
+                            entranceKey={JSON.stringify(filter ?? null)}
+                        >
                             {meals.map((meal) => (
                                 <MenuMealCard
                                     key={meal.id}

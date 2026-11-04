@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode, Ref } from 'react';
+import { useIsRtl } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import {
     Animated,
@@ -988,73 +989,14 @@ function AppShellLayout({
                                         // filled pill inside it — the accepted design's segmented look.
                                         className="shrink flex-row flex-wrap items-center gap-0.5 rounded-3xl bg-surface-base p-1 lg:rounded-full"
                                     >
-                                        {navigation.map((item) => (
-                                            <Pressable
-                                                key={item.key}
-                                                testID={item.testID}
-                                                role="link"
-                                                accessibilityRole="link"
-                                                accessibilityLabel={item.label}
-                                                accessibilityState={{
-                                                    selected: item.active === true,
-                                                }}
-                                                aria-current={
-                                                    item.active === true ? 'page' : undefined
-                                                }
-                                                focusable
-                                                onPress={item.onPress}
-                                                // The design's tabs are one width, 118px, from `lg`, so the
-                                                // pill is the same size on every destination; narrower bars
-                                                // size each to its word.
-                                                className={cx(
-                                                    'relative min-h-touch flex-row items-center justify-center rounded-full px-3 lg:w-[118px] lg:px-0',
-                                                    item.active === true
-                                                        ? null
-                                                        : 'transition duration-normal ease-standard hover:bg-surface-brand-subtle',
-                                                )}
-                                            >
-                                                {/*
-                                                 * No glyph here, unlike the drawer and the sidebar.
-                                                 *
-                                                 * A top bar is read as a line of words, and a row of
-                                                 * icons in front of them is decoration that costs about
-                                                 * 140px of the space the row has least of — which is what
-                                                 * pushed this nav onto a second line and the trailing
-                                                 * controls into each other. The glyphs also carried no
-                                                 * meaning: a diamond for Kitchens and a half-circle for
-                                                 * Meals name nothing a reader could guess.
-                                                 *
-                                                 * The drawer keeps them (`item.icon` is still rendered
-                                                 * there): a stacked vertical list is scanned down an edge,
-                                                 * where a leading glyph genuinely helps.
-                                                 */}
-                                                {/*
-                                                 * The active destination is a filled brand pill with the
-                                                 * on-brand ink, drawn as a layer under the word so the word
-                                                 * keeps one position whichever item is active.
-                                                 */}
-                                                {item.active === true ? (
-                                                    <MarketplaceActivePill
-                                                        testID={
-                                                            testID === undefined
-                                                                ? undefined
-                                                                : `${testID}-nav-active-bar`
-                                                        }
-                                                    />
-                                                ) : null}
-                                                <RNText
-                                                    numberOfLines={1}
-                                                    className={cx(
-                                                        'text-sm font-semibold text-start',
-                                                        item.active === true
-                                                            ? 'text-content-on-brand'
-                                                            : 'text-content-secondary',
-                                                    )}
-                                                >
-                                                    {item.label}
-                                                </RNText>
-                                            </Pressable>
-                                        ))}
+                                        <MarketplaceNavItems
+                                            navigation={navigation}
+                                            pillTestID={
+                                                testID === undefined
+                                                    ? undefined
+                                                    : `${testID}-nav-active-bar`
+                                            }
+                                        />
                                     </View>
                                 ) : null}
                             </View>
@@ -1531,6 +1473,9 @@ const POP_EASING = Easing.bezier(0.34, 1.4, 0.64, 1);
 const POP_MS = 600;
 const POP_DELAY_MS = 200;
 const DROP_MS = 600;
+/** The pill's slide between destinations: the board's 350ms on its settle-in curve. */
+const SLIDE_MS = 380;
+const SLIDE_EASING = Easing.bezier(0.22, 1, 0.36, 1);
 
 /**
  * The marketplace bar's entrance: it drops 14px into place and grows from 98% as it fades in, once,
@@ -1578,56 +1523,211 @@ function MarketplaceBarEntrance({ children }: { readonly children: ReactNode }) 
     );
 }
 
+interface PillPlace {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+}
+
 /**
- * The active destination's filled pill. It is mounted by whichever item is active, so moving to
- * another destination mounts it again there and it pops in: from 60% and transparent, overshooting
- * a little before it settles, 200ms after the page changes.
+ * Where the pill last stood, kept across mounts. The shop's pages sit in more than one route
+ * group, each with its own shell, so going from Discover to the account mounts a new bar — and
+ * without this the pill could only pop in there instead of sliding over from the tab left behind.
  */
-function MarketplaceActivePill({ testID }: { readonly testID?: string | undefined }) {
+let lastPillPlace: PillPlace | null = null;
+
+/**
+ * The shop's destinations, and one filled pill behind the active one that **slides** to the next
+ * destination when the page changes — the accepted design's segmented bar. Each item reports where
+ * it sits; the pill moves from where it was to there on the design's easing, and pops in only when
+ * there is nowhere to slide from (the first page of a visit). Reduced motion moves it at once.
+ */
+function MarketplaceNavItems({
+    navigation,
+    pillTestID,
+}: {
+    readonly navigation: readonly NavigationItem[];
+    readonly pillTestID?: string | undefined;
+}) {
     const { enabled } = useMotion();
-    const progress = useRef(new Animated.Value(enabled ? 0 : 1)).current;
+    const isRtl = useIsRtl();
+    const [measured, setPlaces] = useState<Readonly<Record<string, PillPlace>>>({});
+    const active = navigation.find((item) => item.active === true);
+    /*
+     * Layout reports `x` from the physical left. The pill is anchored at the logical start, so in
+     * Arabic its offset is measured from the right instead: the track's width (its widest item's
+     * far edge plus the track's 4px padding) less the item's far edge.
+     */
+    const trackWidth =
+        Math.max(0, ...Object.values(measured).map((place) => place.x + place.width)) + 4;
+    const fromStart = (place: PillPlace): PillPlace =>
+        isRtl ? { ...place, x: trackWidth - place.x - place.width } : place;
+    const measuredActive = active === undefined ? undefined : measured[active.key];
+    const target = measuredActive === undefined ? undefined : fromStart(measuredActive);
+    // In Arabic a positive offset from the start runs leftwards.
+    const sign = isRtl ? -1 : 1;
+
+    const [from] = useState(() => lastPillPlace);
+    const x = useRef(new Animated.Value(from?.x ?? 0)).current;
+    const y = useRef(new Animated.Value(from?.y ?? 0)).current;
+    const width = useRef(new Animated.Value(from?.width ?? 0)).current;
+    const height = useRef(new Animated.Value(from?.height ?? 0)).current;
+    const pop = useRef(new Animated.Value(from === null && enabled ? 0 : 1)).current;
+    const placed = useRef(from !== null);
+
+    // Plain numbers for the effect, so a re-render with the same place does not slide it again.
+    const tx = target?.x;
+    const ty = target?.y;
+    const tw = target?.width;
+    const th = target?.height;
 
     useEffect(() => {
-        if (!enabled) {
-            progress.setValue(1);
-            return;
+        if (tx === undefined || ty === undefined || tw === undefined || th === undefined) {
+            return undefined;
         }
-        progress.setValue(0);
+        const target = { x: tx, y: ty, width: tw, height: th };
+        const previous = lastPillPlace;
+        lastPillPlace = target;
+        if (!enabled) {
+            x.setValue(target.x);
+            y.setValue(target.y);
+            width.setValue(target.width);
+            height.setValue(target.height);
+            pop.setValue(1);
+            placed.current = true;
+            return undefined;
+        }
+        if (!placed.current || previous === null) {
+            // Nowhere to slide from: stand in place and pop in, as the design opens the bar.
+            x.setValue(target.x);
+            y.setValue(target.y);
+            width.setValue(target.width);
+            height.setValue(target.height);
+            placed.current = true;
+            pop.setValue(0);
+            return startAfterPaint(
+                Animated.timing(pop, {
+                    toValue: 1,
+                    duration: POP_MS,
+                    delay: POP_DELAY_MS,
+                    easing: POP_EASING,
+                    useNativeDriver: false,
+                }),
+            );
+        }
+        const slide = (value: Animated.Value, to: number) =>
+            Animated.timing(value, {
+                toValue: to,
+                duration: SLIDE_MS,
+                easing: SLIDE_EASING,
+                useNativeDriver: false,
+            });
+        pop.setValue(1);
         return startAfterPaint(
-            Animated.timing(progress, {
-                toValue: 1,
-                duration: POP_MS,
-                delay: POP_DELAY_MS,
-                easing: POP_EASING,
-                useNativeDriver: true,
-            }),
+            Animated.parallel([
+                slide(x, target.x),
+                slide(y, target.y),
+                slide(width, target.width),
+                slide(height, target.height),
+            ]),
         );
-    }, [enabled, progress]);
-
-    const style = enabled
-        ? {
-              opacity: progress.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, 1],
-                  extrapolate: 'clamp' as const,
-              }),
-              transform: [
-                  { scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) },
-              ],
-          }
-        : { opacity: 1 };
+    }, [enabled, height, pop, th, tw, tx, ty, width, x, y]);
 
     return (
-        <AnimatedView
-            // Named off the *shell*, not off the item. The responsive suite enumerates controls with
-            // `[data-testid^="marketplace-nav-"]` and checks each one is touch-sized; an item-derived
-            // name put this decoration in that set. Exactly one item is ever active.
-            testID={testID}
-            aria-hidden
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            className="absolute inset-0 rounded-full bg-surface-brand shadow-elevation-2"
-            style={style}
-        />
+        <>
+            {active === undefined ? null : (
+                <AnimatedView
+                    // Named off the *shell*, not off the item: the responsive suite enumerates
+                    // `[data-testid^="marketplace-nav-"]` controls and checks each is touch-sized.
+                    testID={pillTestID}
+                    aria-hidden
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    pointerEvents="none"
+                    className="absolute start-0 top-0 rounded-full bg-surface-brand shadow-elevation-2"
+                    style={{
+                        width,
+                        height,
+                        opacity: target === undefined ? 0 : pop,
+                        transform: [
+                            { translateX: Animated.multiply(x, sign) },
+                            { translateY: y },
+                            {
+                                scale: pop.interpolate({
+                                    inputRange: [0, 1],
+                                    outputRange: [0.6, 1],
+                                }),
+                            },
+                        ],
+                    }}
+                />
+            )}
+            {navigation.map((item) => (
+                <Pressable
+                    // Keyed by direction too: a tab's size does not change when the bar flips, so
+                    // the web would not report its new place — remounting it makes it measure again.
+                    key={`${item.key}-${isRtl ? 'rtl' : 'ltr'}`}
+                    testID={item.testID}
+                    role="link"
+                    accessibilityRole="link"
+                    accessibilityLabel={item.label}
+                    accessibilityState={{
+                        selected: item.active === true,
+                    }}
+                    aria-current={item.active === true ? 'page' : undefined}
+                    focusable
+                    onPress={item.onPress}
+                    onLayout={(event: LayoutChangeEvent) => {
+                        const {
+                            x: left,
+                            y: top,
+                            width: wide,
+                            height: tall,
+                        } = event.nativeEvent.layout;
+                        setPlaces((current) => {
+                            const known = current[item.key];
+                            if (
+                                known !== undefined &&
+                                known.x === left &&
+                                known.y === top &&
+                                known.width === wide &&
+                                known.height === tall
+                            ) {
+                                return current;
+                            }
+                            return {
+                                ...current,
+                                [item.key]: { x: left, y: top, width: wide, height: tall },
+                            };
+                        });
+                    }}
+                    // The design's tabs are one width, 118px, from `lg`, so the pill is the same
+                    // size on every destination; narrower bars size each to its word.
+                    className={cx(
+                        'relative min-h-touch flex-row items-center justify-center rounded-full px-3 lg:w-[118px] lg:px-0',
+                        item.active === true
+                            ? null
+                            : 'transition duration-normal ease-standard hover:bg-surface-brand-subtle',
+                    )}
+                >
+                    {/*
+                     * No glyph here, unlike the drawer and the sidebar: a top bar is read as a line
+                     * of words, and a row of icons costs the space the row has least of.
+                     */}
+                    <RNText
+                        numberOfLines={1}
+                        className={cx(
+                            'text-sm font-semibold text-start transition-colors duration-normal',
+                            item.active === true
+                                ? 'text-content-on-brand'
+                                : 'text-content-secondary',
+                        )}
+                    >
+                        {item.label}
+                    </RNText>
+                </Pressable>
+            ))}
+        </>
     );
 }

@@ -1,20 +1,11 @@
 import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
-import { useMotion } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-    Animated,
-    Easing,
-    Platform,
-    Pressable,
-    Text as RNText,
-    ScrollView,
-    View,
-} from 'react-native';
+import { Pressable, Text as RNText, ScrollView, View } from 'react-native';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
+import { RiseIn } from '../../../ui/rise-in.tsx';
 
 /** The tint a card wears — the design's colour-coded cards, from the token family of that name. */
 export type PickTint = 'green' | 'blue' | 'orange' | 'yellow' | 'pink' | 'violet' | 'teal';
@@ -79,9 +70,9 @@ export function PickedForToday({
             >
                 <View className="flex-row gap-3 px-0.5 pb-2 pt-1">
                     {cards.map((card, index) => (
-                        <Rise key={`${entranceKey ?? ''}:${card.key}`} index={index}>
+                        <RiseIn key={`${entranceKey ?? ''}:${card.key}`} index={index}>
                             <PickCard testID={`${testID}-${card.key}`} card={card} />
-                        </Rise>
+                        </RiseIn>
                     ))}
                 </View>
             </ScrollView>
@@ -142,40 +133,5 @@ function PickCard({ testID, card }: { readonly testID: string; readonly card: Pi
                 </View>
             )}
         </Pressable>
-    );
-}
-
-/** The design's `up` entrance, as the carousel below uses it: a 12px rise and fade, a beat apart. */
-function Rise({ index, children }: { readonly index: number; readonly children: ReactNode }) {
-    const { enabled } = useMotion();
-    const [shown] = useState(() => new Animated.Value(enabled ? 0 : 1));
-    useEffect(() => {
-        if (!enabled) {
-            shown.setValue(1);
-            return undefined;
-        }
-        const animation = Animated.timing(shown, {
-            toValue: 1,
-            duration: 600,
-            delay: Math.min(index, 6) * 60,
-            easing: Easing.bezier(0.2, 0.7, 0.2, 1),
-            useNativeDriver: Platform.OS !== 'web',
-        });
-        animation.start();
-        return () => {
-            animation.stop();
-        };
-    }, [enabled, index, shown]);
-    return (
-        <Animated.View
-            style={{
-                opacity: shown,
-                transform: [
-                    { translateY: shown.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) },
-                ],
-            }}
-        >
-            {children}
-        </Animated.View>
     );
 }

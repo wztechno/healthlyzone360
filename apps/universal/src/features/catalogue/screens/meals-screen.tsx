@@ -460,7 +460,7 @@ export function MealsScreen() {
                     testID="meals"
                 >
                     <View className="flex-col gap-8">
-                        <MenuGrid testID="meals-grid" gap={20}>
+                        <MenuGrid testID="meals-grid" gap={20} entranceKey={JSON.stringify(filter)}>
                             {items.map((meal) => (
                                 <MenuMealCard
                                     key={meal.id}

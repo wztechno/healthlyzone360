@@ -1,6 +1,8 @@
-import { Children, useState } from 'react';
+import { Children, isValidElement, useState } from 'react';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
+
+import { RiseIn } from '../../ui/rise-in.tsx';
 
 /**
  * HealthZone's `repeat(auto-fill, minmax(238px, 1fr))`, measured.
@@ -26,9 +28,20 @@ export interface MenuGridProps {
     /** The gutter, in pixels. */
     readonly gap?: number | undefined;
     readonly testID?: string | undefined;
+    /**
+     * What the grid is showing — a shelf, a filter. Each card rises in, a beat after the one before
+     * it, and a new key rises them all in again.
+     */
+    readonly entranceKey?: string | undefined;
 }
 
-export function MenuGrid({ children, minCell = 238, gap = GAP, testID }: MenuGridProps) {
+export function MenuGrid({
+    children,
+    minCell = 238,
+    gap = GAP,
+    testID,
+    entranceKey = '',
+}: MenuGridProps) {
     const [width, setWidth] = useState<number | null>(null);
 
     const columns =
@@ -48,13 +61,15 @@ export function MenuGrid({ children, minCell = 238, gap = GAP, testID }: MenuGri
                 setWidth(event.nativeEvent.layout.width);
             }}
         >
-            {Children.map(children, (child) => (
-                <View
+            {Children.toArray(children).map((child, index) => (
+                <RiseIn
+                    key={`${entranceKey}:${isValidElement(child) ? String(child.key) : String(index)}`}
+                    index={index}
                     className={cell === null ? 'min-w-[238px] flex-1 basis-[238px]' : 'flex-col'}
                     style={cell === null ? undefined : { width: cell }}
                 >
                     {child}
-                </View>
+                </RiseIn>
             ))}
         </View>
     );
