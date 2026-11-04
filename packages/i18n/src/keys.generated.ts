@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9928 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9980 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2155,7 +2155,12 @@ export interface NamespaceKeys {
     | 'common.close'
     | 'common.listSeparator'
     | 'common.noPayment'
+    | 'configurator.aDay'
     | 'configurator.back'
+    | 'configurator.booked.backToPlans'
+    | 'configurator.booked.body'
+    | 'configurator.booked.seePlan'
+    | 'configurator.booked.title'
     | 'configurator.browsePlans'
     | 'configurator.checks.areaServed'
     | 'configurator.checks.areaUnknown'
@@ -2165,6 +2170,7 @@ export interface NamespaceKeys {
     | 'configurator.combination.snacks'
     | 'configurator.combination.withSnacks'
     | 'configurator.confirm.acknowledgeLabel'
+    | 'configurator.confirm.agree'
     | 'configurator.confirm.total'
     | 'configurator.create'
     | 'configurator.createFailedTitle'
@@ -2173,12 +2179,16 @@ export interface NamespaceKeys {
     | 'configurator.delivery.addressTitle'
     | 'configurator.delivery.allergensTitle'
     | 'configurator.delivery.cutoffNote'
+    | 'configurator.delivery.deliverTo'
     | 'configurator.delivery.slotTitle'
     | 'configurator.delivery.startLabel'
+    | 'configurator.delivery.startOn'
+    | 'configurator.delivery.title'
     | 'configurator.delivery.useNextAllowed'
     | 'configurator.delivery.weekdaysLimited'
     | 'configurator.delivery.weekdaysTitle'
     | 'configurator.disclaimerContext'
+    | 'configurator.duration.howLong'
     | 'configurator.duration.label'
     | 'configurator.duration.withDiscount'
     | 'configurator.edit'
@@ -2195,29 +2205,63 @@ export interface NamespaceKeys {
     | 'configurator.issues.terms'
     | 'configurator.issues.variant'
     | 'configurator.issuesTitle'
+    | 'configurator.meals.cellEmpty'
+    | 'configurator.meals.cellFull'
+    | 'configurator.meals.clash'
+    | 'configurator.meals.clear'
+    | 'configurator.meals.clearWeek'
     | 'configurator.meals.daysChosen'
+    | 'configurator.meals.dishFor'
+    | 'configurator.meals.fillRest'
+    | 'configurator.meals.filterAll'
+    | 'configurator.meals.kcal'
+    | 'configurator.meals.loading'
     | 'configurator.meals.missing'
+    | 'configurator.meals.noDays'
     | 'configurator.meals.placeholder'
     | 'configurator.meals.progress'
     | 'configurator.meals.repeatWeek'
+    | 'configurator.meals.sameAllWeek'
     | 'configurator.meals.slot.breakfast'
     | 'configurator.meals.slot.dinner'
     | 'configurator.meals.slot.lunch'
     | 'configurator.meals.slot.snack'
+    | 'configurator.meals.title'
+    | 'configurator.meals.typeLabel'
+    | 'configurator.meals.used'
     | 'configurator.meals.week'
+    | 'configurator.meals.weekCount'
+    | 'configurator.meals.weeksLabel'
     | 'configurator.next'
+    | 'configurator.nextTo.delivery'
+    | 'configurator.nextTo.meals'
+    | 'configurator.nextTo.review'
     | 'configurator.notFoundBody'
     | 'configurator.notFoundTitle'
+    | 'configurator.pay.cash'
+    | 'configurator.pay.cashSub'
+    | 'configurator.pay.whish'
+    | 'configurator.pay.whishSub'
+    | 'configurator.placeOrder'
     | 'configurator.plan.band'
     | 'configurator.plan.bandName'
+    | 'configurator.plan.changePlan'
+    | 'configurator.plan.title'
     | 'configurator.plan.variantLabel'
     | 'configurator.previewEmptyBody'
     | 'configurator.previewEmptyTitle'
     | 'configurator.progressLabel'
+    | 'configurator.review.change'
+    | 'configurator.review.deliveryLine'
+    | 'configurator.review.deliverySub'
     | 'configurator.review.deliveryTitle'
+    | 'configurator.review.mealsLine'
+    | 'configurator.review.mealsSub'
     | 'configurator.review.mealsTitle'
+    | 'configurator.review.payWith'
     | 'configurator.review.planTitle'
     | 'configurator.review.priceTitle'
+    | 'configurator.review.title'
     | 'configurator.setupBody'
     | 'configurator.setupTitle'
     | 'configurator.startOver'
@@ -2232,15 +2276,23 @@ export interface NamespaceKeys {
     | 'configurator.summary.allergens'
     | 'configurator.summary.balance'
     | 'configurator.summary.days'
+    | 'configurator.summary.daysLabel'
+    | 'configurator.summary.deliveryLabel'
     | 'configurator.summary.discount'
     | 'configurator.summary.duration'
     | 'configurator.summary.everyDay'
+    | 'configurator.summary.eyebrow'
     | 'configurator.summary.gross'
     | 'configurator.summary.meals'
+    | 'configurator.summary.mealsOf'
+    | 'configurator.summary.mealsPicked'
+    | 'configurator.summary.mealsPickedValue'
     | 'configurator.summary.perDayList'
     | 'configurator.summary.perDelivery'
     | 'configurator.summary.plan'
+    | 'configurator.summary.priceADay'
     | 'configurator.summary.starts'
+    | 'configurator.summary.startsLabel'
     | 'configurator.summary.total'
     | 'configurator.summary.window'
     | 'configurator.summary.windowValue'
@@ -12107,7 +12159,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:common.close',
   'commerce:common.listSeparator',
   'commerce:common.noPayment',
+  'commerce:configurator.aDay',
   'commerce:configurator.back',
+  'commerce:configurator.booked.backToPlans',
+  'commerce:configurator.booked.body',
+  'commerce:configurator.booked.seePlan',
+  'commerce:configurator.booked.title',
   'commerce:configurator.browsePlans',
   'commerce:configurator.checks.areaServed',
   'commerce:configurator.checks.areaUnknown',
@@ -12117,6 +12174,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.combination.snacks',
   'commerce:configurator.combination.withSnacks',
   'commerce:configurator.confirm.acknowledgeLabel',
+  'commerce:configurator.confirm.agree',
   'commerce:configurator.confirm.total',
   'commerce:configurator.create',
   'commerce:configurator.createFailedTitle',
@@ -12125,12 +12183,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.delivery.addressTitle',
   'commerce:configurator.delivery.allergensTitle',
   'commerce:configurator.delivery.cutoffNote',
+  'commerce:configurator.delivery.deliverTo',
   'commerce:configurator.delivery.slotTitle',
   'commerce:configurator.delivery.startLabel',
+  'commerce:configurator.delivery.startOn',
+  'commerce:configurator.delivery.title',
   'commerce:configurator.delivery.useNextAllowed',
   'commerce:configurator.delivery.weekdaysLimited',
   'commerce:configurator.delivery.weekdaysTitle',
   'commerce:configurator.disclaimerContext',
+  'commerce:configurator.duration.howLong',
   'commerce:configurator.duration.label',
   'commerce:configurator.duration.withDiscount',
   'commerce:configurator.edit',
@@ -12147,29 +12209,63 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.issues.terms',
   'commerce:configurator.issues.variant',
   'commerce:configurator.issuesTitle',
+  'commerce:configurator.meals.cellEmpty',
+  'commerce:configurator.meals.cellFull',
+  'commerce:configurator.meals.clash',
+  'commerce:configurator.meals.clear',
+  'commerce:configurator.meals.clearWeek',
   'commerce:configurator.meals.daysChosen',
+  'commerce:configurator.meals.dishFor',
+  'commerce:configurator.meals.fillRest',
+  'commerce:configurator.meals.filterAll',
+  'commerce:configurator.meals.kcal',
+  'commerce:configurator.meals.loading',
   'commerce:configurator.meals.missing',
+  'commerce:configurator.meals.noDays',
   'commerce:configurator.meals.placeholder',
   'commerce:configurator.meals.progress',
   'commerce:configurator.meals.repeatWeek',
+  'commerce:configurator.meals.sameAllWeek',
   'commerce:configurator.meals.slot.breakfast',
   'commerce:configurator.meals.slot.dinner',
   'commerce:configurator.meals.slot.lunch',
   'commerce:configurator.meals.slot.snack',
+  'commerce:configurator.meals.title',
+  'commerce:configurator.meals.typeLabel',
+  'commerce:configurator.meals.used',
   'commerce:configurator.meals.week',
+  'commerce:configurator.meals.weekCount',
+  'commerce:configurator.meals.weeksLabel',
   'commerce:configurator.next',
+  'commerce:configurator.nextTo.delivery',
+  'commerce:configurator.nextTo.meals',
+  'commerce:configurator.nextTo.review',
   'commerce:configurator.notFoundBody',
   'commerce:configurator.notFoundTitle',
+  'commerce:configurator.pay.cash',
+  'commerce:configurator.pay.cashSub',
+  'commerce:configurator.pay.whish',
+  'commerce:configurator.pay.whishSub',
+  'commerce:configurator.placeOrder',
   'commerce:configurator.plan.band',
   'commerce:configurator.plan.bandName',
+  'commerce:configurator.plan.changePlan',
+  'commerce:configurator.plan.title',
   'commerce:configurator.plan.variantLabel',
   'commerce:configurator.previewEmptyBody',
   'commerce:configurator.previewEmptyTitle',
   'commerce:configurator.progressLabel',
+  'commerce:configurator.review.change',
+  'commerce:configurator.review.deliveryLine',
+  'commerce:configurator.review.deliverySub',
   'commerce:configurator.review.deliveryTitle',
+  'commerce:configurator.review.mealsLine',
+  'commerce:configurator.review.mealsSub',
   'commerce:configurator.review.mealsTitle',
+  'commerce:configurator.review.payWith',
   'commerce:configurator.review.planTitle',
   'commerce:configurator.review.priceTitle',
+  'commerce:configurator.review.title',
   'commerce:configurator.setupBody',
   'commerce:configurator.setupTitle',
   'commerce:configurator.startOver',
@@ -12184,15 +12280,23 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.summary.allergens',
   'commerce:configurator.summary.balance',
   'commerce:configurator.summary.days',
+  'commerce:configurator.summary.daysLabel',
+  'commerce:configurator.summary.deliveryLabel',
   'commerce:configurator.summary.discount',
   'commerce:configurator.summary.duration',
   'commerce:configurator.summary.everyDay',
+  'commerce:configurator.summary.eyebrow',
   'commerce:configurator.summary.gross',
   'commerce:configurator.summary.meals',
+  'commerce:configurator.summary.mealsOf',
+  'commerce:configurator.summary.mealsPicked',
+  'commerce:configurator.summary.mealsPickedValue',
   'commerce:configurator.summary.perDayList',
   'commerce:configurator.summary.perDelivery',
   'commerce:configurator.summary.plan',
+  'commerce:configurator.summary.priceADay',
   'commerce:configurator.summary.starts',
+  'commerce:configurator.summary.startsLabel',
   'commerce:configurator.summary.total',
   'commerce:configurator.summary.window',
   'commerce:configurator.summary.windowValue',

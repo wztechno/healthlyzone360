@@ -3259,20 +3259,27 @@ function createRequest(harness: {
     };
 }
 
-/** Opens one sitting's select and chooses `meal` from it. */
-async function pickMeal(selectTestID: string, meal: MarketplaceMeal): Promise<void> {
-    await fireEvent.press(screen.getByTestId(`${selectTestID}-trigger`));
-    await fireEvent.press(await screen.findByTestId(`${selectTestID}-option-${String(meal.id)}`));
+/** Makes one cell of the week grid current and fills it with `meal` from the dish list. */
+async function pickMeal(cellTestID: string, meal: MarketplaceMeal): Promise<void> {
+    await act(async () => {
+        fireEvent.press(screen.getByTestId(cellTestID));
+    });
+    const dish = await screen.findByTestId(`configurator-dish-${meal.slug}`);
+    await act(async () => {
+        fireEvent.press(dish);
+    });
     await waitFor(() => {
-        expect(screen.getByTestId(`${selectTestID}-value`)).toHaveTextContent(meal.name);
+        expect(screen.getByTestId(`${cellTestID}-value`)).toHaveTextContent(meal.name);
     });
 }
 
-/** The delivery dates the meals step draws a row for, in order. */
+/** The delivery dates the week grid on screen draws a lunch cell for, in order. */
 function mealRowDates(): string[] {
     return screen
-        .getAllByTestId(/^configurator-meal-\d{4}-\d{2}-\d{2}$/)
-        .map((row) => (row.props.testID as string).slice('configurator-meal-'.length));
+        .getAllByTestId(/^configurator-meal-\d{4}-\d{2}-\d{2}-lunch-1$/)
+        .map((cell) =>
+            (cell.props.testID as string).slice('configurator-meal-'.length, -'-lunch-1'.length),
+        );
 }
 
 /**
@@ -3317,8 +3324,6 @@ describe('SubscriptionConfiguratorScreen', () => {
     // The set-up's choices are a session draft; no case may inherit one from the case before it.
     beforeEach(() => {
         clearAllSessionDrafts();
-        // Subscribe is answered by the receipt printer, which Jest has no frames to feed: under
-        // reduced motion the receipt is out at once and "View plan" is offered straight away.
         jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
     });
 
@@ -3327,8 +3332,8 @@ describe('SubscriptionConfiguratorScreen', () => {
     });
 
     /**
-     * The receipt has printed and the subscription has not opened yet: it opens when the customer
-     * presses "View plan", not mid-print.
+     * The plan is booked and the subscription has not opened yet: it opens when the customer presses
+     * "See my plan" on the booked panel.
      */
     async function viewPlan(): Promise<void> {
         const button = await screen.findByTestId('configurator-view-plan', {}, { timeout: 5000 });
@@ -3388,24 +3393,21 @@ describe('SubscriptionConfiguratorScreen', () => {
             expect(screen.getByTestId(`configurator-variant-${String(light.id)}`)).toBeTruthy();
         });
         const chosen = screen.getByTestId(`configurator-variant-${String(light.id)}`);
-        // The chosen card is the supplied variant's, not the plan's own default one, and it
-        // carries its own kcal range.
+        // The chosen band is the supplied variant's, not the plan's own default one, priced a day.
         expect(chosen.props.accessibilityState?.checked).toBe(true);
-        expect(chosen).toHaveTextContent(/1,400 to 1,600/);
+        expect(chosen).toHaveTextContent(/a day/);
     });
 
-    it('states a choice with one option as its answer, not as a lone chip', async () => {
+    it('offers a single length as the one option, chosen, and still asks for the band', async () => {
         const single = { ...PLAN, durations: PLAN.durations.slice(0, 1) };
         await renderConfigurator({ planId: String(PLAN.id) }, { plan: async () => single });
 
-        await waitFor(() => {
-            expect(screen.getByTestId('configurator-duration-only')).toBeTruthy();
-        });
-        expect(
-            screen.queryByTestId(`configurator-duration-${single.durations[0]!.duration}`),
-        ).toBeNull();
+        const only = await screen.findByTestId(
+            `configurator-duration-${single.durations[0]!.duration}`,
+        );
+        expect(only.props.accessibilityState?.checked).toBe(true);
         // The plan's six bands are still a choice.
-        expect(screen.queryByTestId('configurator-variant-only')).toBeNull();
+        expect(screen.getByTestId('configurator-variant')).toBeTruthy();
     });
 
     it('attaches the discount to the length option itself (doc 17, SUB-05)', async () => {
@@ -3415,12 +3417,10 @@ describe('SubscriptionConfiguratorScreen', () => {
             expect(screen.getByTestId('configurator-duration-28d')).toBeTruthy();
         });
         const fourWeeks = screen.getByTestId('configurator-duration-28d');
-        // Named by what it buys — four weeks, twenty-eight deliveries — at the estimate for the
-        // advertised band, with the discount it earns.
+        // Named by the days it buys, with its weeks and the discount it earns under them.
+        expect(fourWeeks).toHaveTextContent(/28 days/);
         expect(fourWeeks).toHaveTextContent(/4 weeks/);
-        expect(fourWeeks).toHaveTextContent(/28 delivery days/);
-        expect(fourWeeks).toHaveTextContent(/1,709\.96/);
-        expect(fourWeeks).toHaveTextContent(/10% off/);
+        expect(fourWeeks).toHaveTextContent(/10%/);
     });
 
     it('names a run that is not whole weeks in days, never rounded to a week', async () => {
@@ -3584,17 +3584,13 @@ describe('SubscriptionConfiguratorScreen', () => {
         );
 
         await screen.findByTestId('configurator-start-date-cutoff');
-        const [year, , day] = floor.split('-').map(Number);
-        // The date field moves onto the server's floor once that read answers: its day and year
-        // read back as chosen.
+        // The start tiles begin on the server's floor once that read answers, and it is chosen.
         await waitFor(() => {
-            expect(screen.getByTestId('configurator-start-date-field-day-value')).toHaveTextContent(
-                new RegExp(`^${String(day)}$`),
-            );
+            expect(
+                screen.getByTestId(`configurator-start-${floor}`).props.accessibilityState,
+            ).toMatchObject({ checked: true });
         });
-        expect(screen.getByTestId('configurator-start-date-field-year-value')).toHaveTextContent(
-            new RegExp(`^${String(year)}$`),
-        );
+        expect(screen.queryByTestId(`configurator-start-${addDays(floor, -1)!}`)).toBeNull();
         // Asked with every delivery day the plan offers — the default choice — in order.
         expect(harness.repositories.commerce.getSubscriptionQuote).toHaveBeenCalledWith({
             planId: PLAN.id,
@@ -3604,7 +3600,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         });
     });
 
-    it('moves an untouched start onto the chosen days, and repairs one the person chose', async () => {
+    it('moves an untouched start onto the chosen days, and greys the day it left', async () => {
         const tomorrow = earliestStartDate();
         const dayAfter = addDays(tomorrow, 1)!;
         const startWeekday = isoWeekday(tomorrow)!;
@@ -3616,8 +3612,7 @@ describe('SubscriptionConfiguratorScreen', () => {
                 quote: testQuote({ changeCutoffHours: 0 }),
             },
         );
-        await screen.findByTestId('configurator-start-date-field');
-        expect(screen.queryByTestId('configurator-start-date-repair')).toBeNull();
+        await screen.findByTestId('configurator-start-date');
         // Every delivery day is pre-selected once the plan's availability has arrived; pressing
         // before that would *select* the day into an empty set rather than drop it.
         await waitFor(() => {
@@ -3628,19 +3623,21 @@ describe('SubscriptionConfiguratorScreen', () => {
         });
 
         // Drop the weekday the start falls on. The start was never chosen, so it follows the days
-        // to the next one of them rather than asking to be repaired.
+        // to the next one of them.
         await act(async () => {
             fireEvent.press(screen.getByTestId(`configurator-weekday-${String(startWeekday)}`));
         });
         await waitFor(() => {
-            expect(screen.getByTestId('configurator-start-date-field-day-value')).toHaveTextContent(
-                new RegExp(`^${String(Number(dayAfter.slice(8, 10)))}$`),
-            );
+            expect(
+                screen.getByTestId(`configurator-start-${dayAfter}`).props.accessibilityState,
+            ).toMatchObject({ checked: true });
         });
-        expect(screen.queryByTestId('configurator-start-date-repair')).toBeNull();
+        expect(
+            screen.getByTestId(`configurator-start-${tomorrow}`).props.accessibilityState,
+        ).toMatchObject({ disabled: true });
     });
 
-    it('repairs a chosen start that falls outside the chosen days onto the first that fits', async () => {
+    it('greys a chosen start that falls outside the chosen days, and takes a new one', async () => {
         const tomorrow = earliestStartDate();
         const dayAfter = addDays(tomorrow, 1)!;
         const startWeekday = isoWeekday(tomorrow)!;
@@ -3658,18 +3655,16 @@ describe('SubscriptionConfiguratorScreen', () => {
             },
         );
 
-        // The repair names the first chosen day on or after the floor: the day after tomorrow.
-        const repair = await screen.findByTestId('configurator-start-date-repair');
-        expect(repair).toHaveTextContent(new RegExp(dayAfter.slice(0, 4)));
+        const stale = await screen.findByTestId(`configurator-start-${tomorrow}`);
+        expect(stale.props.accessibilityState).toMatchObject({ disabled: true });
         await act(async () => {
-            fireEvent.press(repair);
+            fireEvent.press(screen.getByTestId(`configurator-start-${dayAfter}`));
         });
         await waitFor(() => {
-            expect(screen.queryByTestId('configurator-start-date-repair')).toBeNull();
+            expect(
+                screen.getByTestId(`configurator-start-${dayAfter}`).props.accessibilityState,
+            ).toMatchObject({ checked: true });
         });
-        expect(screen.getByTestId('configurator-start-date-field-day-value')).toHaveTextContent(
-            new RegExp(`^${String(Number(dayAfter.slice(8, 10)))}$`),
-        );
         expect(configuratorDrafts.read(configuratorDraftKey(String(PLAN.id)))?.startDate).toBe(
             dayAfter,
         );
@@ -3685,7 +3680,7 @@ describe('SubscriptionConfiguratorScreen', () => {
             },
         );
 
-        await screen.findByTestId('configurator-start-date-field');
+        await screen.findByTestId('configurator-start-date');
         expect(screen.queryByTestId('configurator-start-date-cutoff')).toBeNull();
     });
 
@@ -3770,19 +3765,19 @@ describe('SubscriptionConfiguratorScreen', () => {
         );
 
         await walkToReviewStep();
-        // The meals the run carries, as a card of their own with a way back to choose again.
-        expect(screen.getByTestId('configurator-summary-meals')).toHaveTextContent(/7 days chosen/);
-        expect(screen.getByTestId('medical-disclaimer')).toBeTruthy();
-        expect(screen.getByTestId('configurator-summary-address')).toHaveTextContent(
-            /12 Sunset Street/,
+        // The meals the run carries, as a row of their own with a way back to choose again.
+        expect(screen.getByTestId('configurator-review-meals-title')).toHaveTextContent(
+            /35 of 35 meals picked/,
         );
-        // The length reads as what it buys, and the price card as one arithmetic: a delivery day
+        expect(screen.getByTestId('medical-disclaimer')).toBeTruthy();
+        expect(screen.getByTestId('configurator-review-delivery-title')).toHaveTextContent(
+            new RegExp(HOME_ADDRESS.areaName),
+        );
+        // The length reads as the days it buys, and the price as one arithmetic: a delivery day
         // of the band the set-up opened on (the plan's middle one, 465.00 a week → 66.43) lists
         // first, the run buys seven of them, and the total is the server's own figure, with
         // the day it works out to after the discount under it.
-        expect(screen.getByTestId('configurator-summary-duration')).toHaveTextContent(
-            /1 week · 7 delivery days/,
-        );
+        expect(screen.getByTestId('configurator-review-plan-sub')).toHaveTextContent(/7 days/);
         expect(screen.getByTestId('configurator-price-per-day-list-amount')).toHaveTextContent(
             /66\.43/,
         );
@@ -3801,19 +3796,26 @@ describe('SubscriptionConfiguratorScreen', () => {
             ),
         ).toHaveTextContent('Your allergy list is empty.');
 
+        // How to pay is shown, not sent: the purchase takes no payment yet.
+        expect(screen.getByTestId('configurator-pay-cash').props.accessibilityState).toMatchObject({
+            checked: true,
+        });
         await act(async () => {
-            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge-control'));
+            fireEvent.press(screen.getByTestId('configurator-pay-whish'));
+        });
+        expect(screen.getByTestId('configurator-pay-whish').props.accessibilityState).toMatchObject(
+            { checked: true },
+        );
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge'));
         });
         await act(async () => {
             fireEvent.press(screen.getByTestId('configurator-create'));
         });
-        // The receipt it printed is the priced preview, under the plan's name.
-        await screen.findByTestId('configurator-view-plan', {}, { timeout: 5000 });
-        expect(screen.getByTestId('configurator-printer-status')).toHaveTextContent(
-            'Plan confirmed',
-        );
-        expect(screen.getByTestId('configurator-receipt-total-amount')).toHaveTextContent(
-            /475\.02/,
+        // The step gives way to the board's booked panel.
+        expect(await screen.findByTestId('configurator-booked')).toHaveTextContent(
+            /Your plan is booked/,
         );
         await viewPlan();
 
@@ -3879,15 +3881,21 @@ describe('SubscriptionConfiguratorScreen', () => {
 
         await walkToReviewStep();
 
+        // Place order waits for the tick, as the board draws it.
+        const create = screen.getByTestId('configurator-create');
+        expect(create.props.accessibilityState).toMatchObject({ disabled: true });
         await act(async () => {
-            fireEvent.press(screen.getByTestId('configurator-create'));
-        });
-
-        await waitFor(() => {
-            expect(screen.getByTestId('configurator-issue-terms')).toBeTruthy();
+            fireEvent.press(create);
         });
         expect(harness.repositories.commerce.createSubscription).not.toHaveBeenCalled();
         expect(routerMock.__replace).not.toHaveBeenCalled();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge'));
+        });
+        expect(screen.getByTestId('configurator-create').props.accessibilityState).toMatchObject({
+            disabled: false,
+        });
     }, 30_000);
 
     /**
@@ -3925,22 +3933,24 @@ describe('SubscriptionConfiguratorScreen', () => {
         expect(await screen.findByTestId('configurator-step-meals')).toBeTruthy();
         // The days arrive with the plan's delivery weekdays, which are every day by default.
         await waitFor(() => {
-            expect(screen.getByTestId('configurator-meals-progress')).toHaveTextContent(
-                '12 of 14 meals chosen',
-            );
+            expect(screen.getByTestId('configurator-meals-progress')).toHaveTextContent('12/14');
         });
-        // One row per delivery day of the run, one select per sitting of the band.
+        // One column per delivery day of the week, one row per sitting of the band.
         expect(mealRowDates()).toEqual(run);
         const firstDay = `configurator-meal-${start}`;
-        expect(screen.getByTestId(`${firstDay}-lunch-1`)).toHaveTextContent(/Lunch/);
-        expect(screen.getByTestId(`${firstDay}-dinner-1`)).toHaveTextContent(/Dinner/);
+        expect(screen.getByTestId(`${firstDay}-lunch-1`).props.accessibilityLabel).toMatch(
+            /^Lunch, .*no meal yet/,
+        );
+        expect(screen.getByTestId(`${firstDay}-dinner-1`).props.accessibilityLabel).toMatch(
+            /^Dinner, /,
+        );
         expect(screen.queryByTestId(`${firstDay}-breakfast-1`)).toBeNull();
-        expect(screen.getByTestId(`${firstDay}-lunch-1-value`)).toHaveTextContent('Choose a meal');
+        expect(screen.queryByTestId(`${firstDay}-lunch-1-value`)).toBeNull();
         expect(screen.getByTestId(`configurator-meal-${run[1]!}-lunch-1-value`)).toHaveTextContent(
             sesame.name,
         );
-        // A single week: there is nothing to repeat it onto.
-        expect(screen.queryByTestId('configurator-meals-repeat')).toBeNull();
+        // A single week: no week tabs.
+        expect(screen.queryByTestId('configurator-meals-week-1')).toBeNull();
 
         // Next is refused beside the button, and the sittings still empty say so where they are.
         await pressNext(1);
@@ -3953,16 +3963,10 @@ describe('SubscriptionConfiguratorScreen', () => {
         });
         expect(screen.getByTestId('configurator-step-meals')).toBeTruthy();
         expect(routerMock.__push).not.toHaveBeenCalled();
-        expect(screen.getByTestId(`${firstDay}-lunch-1-error`)).toHaveTextContent('Choose a meal');
-        expect(screen.getByTestId(`${firstDay}-dinner-1-error`)).toBeTruthy();
-        expect(screen.queryByTestId(`configurator-meal-${run[1]!}-lunch-1-error`)).toBeNull();
 
         await pickMeal(`${firstDay}-lunch-1`, harvest);
         await pickMeal(`${firstDay}-dinner-1`, halloumi);
-        expect(screen.getByTestId('configurator-meals-progress')).toHaveTextContent(
-            '14 of 14 meals chosen',
-        );
-        expect(screen.queryByTestId(`${firstDay}-lunch-1-error`)).toBeNull();
+        expect(screen.getByTestId('configurator-meals-progress')).toHaveTextContent('14/14');
         // Written to the draft as it is chosen, so a detour or a refresh keeps it.
         expect(
             configuratorDrafts.read(configuratorDraftKey(String(PLAN.id)))?.mealPicks?.[
@@ -3978,10 +3982,12 @@ describe('SubscriptionConfiguratorScreen', () => {
             { timeout: 15_000 },
         );
         expect(queryOf(routerMock.__push.mock.calls.at(-1)?.[0] as string)['step']).toBe('review');
-        expect(screen.getByTestId('configurator-summary-meals')).toHaveTextContent(/7 days chosen/);
+        expect(screen.getByTestId('configurator-review-meals-title')).toHaveTextContent(
+            /14 of 14 meals picked/,
+        );
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge-control'));
+            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge'));
         });
         await act(async () => {
             fireEvent.press(screen.getByTestId('configurator-create'));
@@ -4013,7 +4019,7 @@ describe('SubscriptionConfiguratorScreen', () => {
      * day of the same weekday and leaves a day the person already chose alone. One delivery day a
      * week here, so the seven deliveries are seven weeks of one day each.
      */
-    it('fills every later week from week 1, keeping a later day already chosen', async () => {
+    it('fills a week from the person’s own picks, keeping a dish already chosen', async () => {
         const [harvest, sesame, halloumi] = MENU_MEALS as readonly [
             MarketplaceMeal,
             MarketplaceMeal,
@@ -4025,7 +4031,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         configuratorDrafts.write(configuratorDraftKey(String(PLAN.id)), {
             startDate: start,
             deliveryWeekdays: [isoWeekday(start)!],
-            // Chosen before for week 3's lunch: Repeat must leave it alone.
+            // Chosen before for week 3's lunch: Fill must leave it alone.
             mealPicks: { [`${thirdWeek}|lunch:1`]: sesame.id },
         });
         await renderConfigurator(
@@ -4034,55 +4040,45 @@ describe('SubscriptionConfiguratorScreen', () => {
         );
 
         expect(await screen.findByTestId('configurator-step-meals')).toBeTruthy();
-        expect(mealRowDates()).toEqual(run);
-        for (const [index, date] of run.entries()) {
-            const week = screen.getByTestId(`configurator-meals-week-${String(index + 1)}`);
-            expect(week).toHaveTextContent(new RegExp(`^Week ${String(index + 1)}\\D`));
-            expect(within(week).getByTestId(`configurator-meal-${date}`)).toBeTruthy();
+        // Seven weeks of one delivery day each, a tab per week.
+        for (const index of run.keys()) {
+            expect(
+                screen.getByTestId(`configurator-meals-week-${String(index + 1)}`),
+            ).toHaveTextContent(new RegExp(`^Week ${String(index + 1)}`));
         }
-        expect(screen.getByTestId('configurator-meals-progress')).toHaveTextContent(
-            '1 of 14 meals chosen',
-        );
-        // Nothing to copy until week 1 is whole.
-        expect(screen.getByTestId('configurator-meals-repeat')).toBeDisabled();
+        expect(mealRowDates()).toEqual([start]);
 
         await pickMeal(`configurator-meal-${start}-lunch-1`, harvest);
-        expect(screen.getByTestId('configurator-meals-repeat')).toBeDisabled();
         await pickMeal(`configurator-meal-${start}-dinner-1`, halloumi);
-        await waitFor(() => {
-            expect(screen.getByTestId('configurator-meals-repeat')).not.toBeDisabled();
-        });
+        // Week 1 is whole: nothing left in it to fill.
+        expect(
+            screen.getByTestId('configurator-meals-fill').props.accessibilityState,
+        ).toMatchObject({ disabled: true });
 
+        // Week 3: its lunch was chosen; Fill takes the dinner from the same day in week 1.
         await act(async () => {
-            fireEvent.press(screen.getByTestId('configurator-meals-repeat'));
+            fireEvent.press(screen.getByTestId('configurator-meals-week-3'));
         });
-
+        expect(mealRowDates()).toEqual([thirdWeek]);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('configurator-meals-fill'));
+        });
         await waitFor(() => {
-            expect(screen.getByTestId('configurator-meals-progress')).toHaveTextContent(
-                '14 of 14 meals chosen',
-            );
-        });
-        for (const date of run.slice(1)) {
-            expect(screen.getByTestId(`configurator-meal-${date}-lunch-1-value`)).toHaveTextContent(
-                date === thirdWeek ? sesame.name : harvest.name,
-            );
             expect(
-                screen.getByTestId(`configurator-meal-${date}-dinner-1-value`),
+                screen.getByTestId(`configurator-meal-${thirdWeek}-dinner-1-value`),
             ).toHaveTextContent(halloumi.name);
-        }
+        });
+        expect(
+            screen.getByTestId(`configurator-meal-${thirdWeek}-lunch-1-value`),
+        ).toHaveTextContent(sesame.name);
         const draft = configuratorDrafts.read(configuratorDraftKey(String(PLAN.id)));
-        expect(draft?.mealPicks?.[`${run.at(-1)!}|dinner:1`]).toBe(halloumi.id);
+        expect(draft?.mealPicks?.[`${thirdWeek}|dinner:1`]).toBe(halloumi.id);
         expect(draft?.mealPicks?.[`${thirdWeek}|lunch:1`]).toBe(sesame.id);
-
-        // Every day is filled, so the step lets go.
+        // The weeks not yet filled still hold the step.
         await pressNext(1);
-        await waitFor(
-            () => {
-                expect(screen.getByTestId('configurator-step-review')).toBeTruthy();
-            },
-            { timeout: 15_000 },
-        );
-        expect(screen.queryByTestId('configurator-issue-mealsMissing')).toBeNull();
+        await waitFor(() => {
+            expect(screen.getByTestId('configurator-issue-mealsMissing')).toBeTruthy();
+        });
     }, 30_000);
 });
 
@@ -4258,15 +4254,12 @@ describe('SubscriptionConfiguratorScreen — its place survives leaving it', () 
         await screen.findByTestId('configurator-step-delivery');
 
         await waitFor(() => {
-            expect(screen.getByTestId('configurator-address-picker-trigger')).toHaveTextContent(
-                /1 Tower Road/,
-            );
+            expect(
+                screen.getByTestId(`configurator-address-${OFFICE.id}`).props.accessibilityState,
+            ).toMatchObject({ checked: true });
         });
         // And another choice is written back into the URL, not kept in the screen.
-        await fireEvent.press(screen.getByTestId('configurator-address-picker-trigger'));
-        await fireEvent.press(
-            await screen.findByTestId(`configurator-address-picker-option-${HOME_ADDRESS.id}`),
-        );
+        await fireEvent.press(screen.getByTestId(`configurator-address-${HOME_ADDRESS.id}`));
         expect(routerMock.__router.setParams).toHaveBeenCalledWith({ address: HOME_ADDRESS.id });
     });
 
@@ -4313,7 +4306,7 @@ describe('SubscriptionConfiguratorScreen — its place survives leaving it', () 
         });
         await walkToReviewStep();
         await act(async () => {
-            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge-control'));
+            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge'));
         });
         const create = screen.getByTestId('configurator-create');
         expect(create.props.accessibilityState).toMatchObject({ disabled: true });

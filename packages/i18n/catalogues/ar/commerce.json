@@ -221,7 +221,9 @@
         "plan": {
             "variantLabel": "فئة السعرات",
             "band": "من {{min}} إلى {{max}} سعرة حرارية يوميًا",
-            "bandName": "{{min}}–{{max}} سعرة"
+            "bandName": "{{min}}–{{max}} سعرة",
+            "title": "خطتك",
+            "changePlan": "غيّر الخطة"
         },
         "combination": {
             "label": "الوجبات في اليوم",
@@ -241,7 +243,8 @@
         },
         "duration": {
             "label": "المدة",
-            "withDiscount": "{{duration}} · خصم {{percent}}٪"
+            "withDiscount": "{{duration}} · خصم {{percent}}٪",
+            "howLong": "المدة"
         },
         "delivery": {
             "startLabel": "تاريخ البدء",
@@ -258,7 +261,10 @@
             "slotTitle": "فترة التوصيل",
             "addressTitle": "عنوان التوصيل",
             "addressPlaceholder": "اختر عنوانًا",
-            "addAddress": "إضافة عنوان توصيل"
+            "addAddress": "إضافة عنوان توصيل",
+            "title": "التوصيل",
+            "startOn": "ابدأ في",
+            "deliverTo": "التوصيل إلى"
         },
         "checks": {
             "areaServed": "يوصل إلى {{area}}",
@@ -282,7 +288,24 @@
                 "lunch": "الغداء",
                 "dinner": "العشاء",
                 "snack": "وجبة خفيفة"
-            }
+            },
+            "title": "اختر وجباتك",
+            "weekCount": "اخترت {{done}} من {{total}} هذا الأسبوع",
+            "weeksLabel": "الأسابيع",
+            "noDays": "اختر تاريخ البدء وأيام التوصيل أولًا.",
+            "cellEmpty": "{{slot}}، {{day}}: لم تُختر وجبة بعد",
+            "cellFull": "{{slot}}، {{day}}: {{meal}}",
+            "sameAllWeek": "نفسها طوال الأسبوع",
+            "clear": "امسح",
+            "fillRest": "املأ الباقي",
+            "clearWeek": "امسح الأسبوع {{number}}",
+            "typeLabel": "نوع الوجبة",
+            "filterAll": "الكل",
+            "loading": "جارٍ تحميل القائمة…",
+            "dishFor": "{{meal}} لـ{{slot}}، {{day}}",
+            "kcal": "{{kcal}} سعرة",
+            "clash": "تحتوي على مسببات حساسيتك",
+            "used": "{{count}}×"
         },
         "summary": {
             "plan": "الخطة",
@@ -305,11 +328,20 @@
             "total": "الإجمالي",
             "perDelivery": "لكل يوم توصيل، بعد الخصم",
             "starts": "يبدأ {{date}}",
-            "everyDay": "كل يوم"
+            "everyDay": "كل يوم",
+            "eyebrow": "خطتك",
+            "priceADay": "السعر في اليوم",
+            "daysLabel": "الأيام",
+            "startsLabel": "تبدأ",
+            "deliveryLabel": "التوصيل",
+            "mealsPicked": "الوجبات المختارة",
+            "mealsPickedValue": "{{done}} / {{total}}",
+            "mealsOf": "{{done}} من {{total}}"
         },
         "confirm": {
             "total": "{{total}} لمدة {{duration}}",
-            "acknowledgeLabel": "راجعت التفاصيل وأريد الاشتراك"
+            "acknowledgeLabel": "راجعت التفاصيل وأريد الاشتراك",
+            "agree": "أوافق على شروط الخطة"
         },
         "successTitle": "تم إعداد اشتراكك",
         "successBody": "{{plan}} أصبحت الآن على حسابك.",
@@ -319,7 +351,19 @@
             "planTitle": "خطتك",
             "deliveryTitle": "التوصيل",
             "mealsTitle": "وجباتك",
-            "priceTitle": "السعر"
+            "priceTitle": "السعر",
+            "title": "المراجعة والدفع",
+            "deliveryLine": "{{address}} · يبدأ {{date}}",
+            "deliverySub": "{{window}}، {{days}}",
+            "mealsLine": "اخترت {{done}} من {{total}} وجبة",
+            "mealsSub_zero": "يمكنك تغيير أي وجبة حتى موعد توصيلها",
+            "mealsSub_one": "يمكنك تغيير أي وجبة حتى ساعة واحدة قبل توصيلها",
+            "mealsSub_two": "يمكنك تغيير أي وجبة حتى ساعتين قبل توصيلها",
+            "mealsSub_few": "يمكنك تغيير أي وجبة حتى {{count}} ساعات قبل توصيلها",
+            "mealsSub_many": "يمكنك تغيير أي وجبة حتى {{count}} ساعة قبل توصيلها",
+            "mealsSub_other": "يمكنك تغيير أي وجبة حتى {{count}} ساعة قبل توصيلها",
+            "change": "غيّر",
+            "payWith": "الدفع عبر"
         },
         "startOver": "البدء من جديد",
         "setupTitle": "أكمل إعداد حسابك لتتمكن من الاشتراك",
@@ -329,7 +373,26 @@
         "setupBody_few": "تبقّت {{count}} خطوات قبل أن تتمكن من الاشتراك.",
         "setupBody_many": "تبقّت {{count}} خطوة قبل أن تتمكن من الاشتراك.",
         "setupBody_other": "تبقّت {{count}} خطوة قبل أن تتمكن من الاشتراك.",
-        "subscribeBlockedHint": "أكمل الخطوات أعلاه للاشتراك."
+        "subscribeBlockedHint": "أكمل الخطوات أعلاه للاشتراك.",
+        "aDay": "{{value}} في اليوم",
+        "placeOrder": "أكّد الطلب",
+        "nextTo": {
+            "delivery": "تابع إلى التوصيل",
+            "meals": "تابع إلى الوجبات",
+            "review": "تابع إلى الدفع"
+        },
+        "pay": {
+            "cash": "الدفع عند التوصيل",
+            "cashSub": "نقدًا للسائق",
+            "whish": "Whish",
+            "whishSub": "ادفع من محفظة Whish"
+        },
+        "booked": {
+            "title": "تم حجز خطتك",
+            "body": "{{plan}} · تبدأ {{date}}",
+            "seePlan": "اعرض خطتي",
+            "backToPlans": "العودة إلى الخطط"
+        }
     },
     "subscriptions": {
         "title": "الاشتراكات",

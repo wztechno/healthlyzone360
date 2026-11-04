@@ -213,7 +213,9 @@
         "plan": {
             "variantLabel": "Calorie band",
             "band": "{{min}} to {{max}} kcal a day",
-            "bandName": "{{min}}–{{max}} kcal"
+            "bandName": "{{min}}–{{max}} kcal",
+            "title": "Your plan",
+            "changePlan": "Change plan"
         },
         "combination": {
             "label": "Meals a day",
@@ -225,7 +227,8 @@
         },
         "duration": {
             "label": "Length",
-            "withDiscount": "{{duration}} · −{{percent}}%"
+            "withDiscount": "{{duration}} · −{{percent}}%",
+            "howLong": "How long"
         },
         "delivery": {
             "startLabel": "Start date",
@@ -238,7 +241,10 @@
             "slotTitle": "Delivery window",
             "addressTitle": "Delivery address",
             "addressPlaceholder": "Choose an address",
-            "addAddress": "Add a delivery address"
+            "addAddress": "Add a delivery address",
+            "title": "Delivery",
+            "startOn": "Start on",
+            "deliverTo": "Deliver to"
         },
         "checks": {
             "areaServed": "Delivers to {{area}}",
@@ -258,7 +264,24 @@
                 "lunch": "Lunch",
                 "dinner": "Dinner",
                 "snack": "Snack"
-            }
+            },
+            "title": "Pick your meals",
+            "weekCount": "{{done}} of {{total}} picked this week",
+            "weeksLabel": "Weeks",
+            "noDays": "Choose a start date and delivery days first.",
+            "cellEmpty": "{{slot}}, {{day}}: no meal yet",
+            "cellFull": "{{slot}}, {{day}}: {{meal}}",
+            "sameAllWeek": "Same all week",
+            "clear": "Clear",
+            "fillRest": "Fill the rest",
+            "clearWeek": "Clear week {{number}}",
+            "typeLabel": "Meal type",
+            "filterAll": "All",
+            "loading": "Loading the menu…",
+            "dishFor": "{{meal}} for {{slot}}, {{day}}",
+            "kcal": "{{kcal}} kcal",
+            "clash": "Contains your allergens",
+            "used": "{{count}}×"
         },
         "summary": {
             "plan": "Plan",
@@ -277,11 +300,20 @@
             "total": "Total",
             "perDelivery": "Per delivery day, after the discount",
             "starts": "Starts {{date}}",
-            "everyDay": "Every day"
+            "everyDay": "Every day",
+            "eyebrow": "Your plan",
+            "priceADay": "Price a day",
+            "daysLabel": "Days",
+            "startsLabel": "Starts",
+            "deliveryLabel": "Delivery",
+            "mealsPicked": "Meals picked",
+            "mealsPickedValue": "{{done}} / {{total}}",
+            "mealsOf": "{{done}} of {{total}}"
         },
         "confirm": {
             "total": "{{total}} for {{duration}}",
-            "acknowledgeLabel": "I have checked the details and want to subscribe"
+            "acknowledgeLabel": "I have checked the details and want to subscribe",
+            "agree": "I agree to the plan terms"
         },
         "successTitle": "Your subscription is set up",
         "successBody": "{{plan}} is now on your account.",
@@ -291,13 +323,40 @@
             "planTitle": "Your plan",
             "deliveryTitle": "Delivery",
             "mealsTitle": "Your meals",
-            "priceTitle": "Price"
+            "priceTitle": "Price",
+            "title": "Review and pay",
+            "deliveryLine": "{{address}} · starts {{date}}",
+            "deliverySub": "{{window}}, {{days}}",
+            "mealsLine": "{{done}} of {{total}} meals picked",
+            "mealsSub_one": "You can change any meal up to {{count}} hour before its delivery",
+            "mealsSub_other": "You can change any meal up to {{count}} hours before its delivery",
+            "change": "Change",
+            "payWith": "Pay with"
         },
         "startOver": "Start over",
         "setupTitle": "Finish setting up your account to subscribe",
         "setupBody_one": "{{count}} step is left before you can subscribe.",
         "setupBody_other": "{{count}} steps are left before you can subscribe.",
-        "subscribeBlockedHint": "Finish the steps above to subscribe."
+        "subscribeBlockedHint": "Finish the steps above to subscribe.",
+        "aDay": "{{value}} a day",
+        "placeOrder": "Place order",
+        "nextTo": {
+            "delivery": "Continue to delivery",
+            "meals": "Continue to meals",
+            "review": "Continue to checkout"
+        },
+        "pay": {
+            "cash": "Pay on delivery",
+            "cashSub": "Cash to the driver",
+            "whish": "Whish",
+            "whishSub": "Pay from your Whish wallet"
+        },
+        "booked": {
+            "title": "Your plan is booked",
+            "body": "{{plan}} · starts {{date}}",
+            "seePlan": "See my plan",
+            "backToPlans": "Back to plans"
+        }
     },
     "subscriptions": {
         "title": "Subscriptions",
