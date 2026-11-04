@@ -14,7 +14,7 @@ import { balanceDaysFor, effectiveDayPrice, nextMonday, simulateBalance } from '
 import type { BalanceCell, BalanceCellKind } from './plan-balance.ts';
 import { cheapestVariant } from './plan-catalogue.ts';
 import { InfoNote } from './plan-controls.tsx';
-import { weekdayName, weekRangeLabel } from './plan-subscriber-panel.tsx';
+import { weekdayName, weekRangeLabel } from './plan-subscription.ts';
 
 /**
  * HealthZone's balance calculator, over the real catalogue: the PLAN / BALANCE SIZE / DELIVERY

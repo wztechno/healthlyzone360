@@ -17,6 +17,8 @@
         "dietitians": "Dietitians",
         "howItWorks": "How it works",
         "forBusiness": "For business",
+        "business": "Business",
+        "weeklyPlans": "Weekly plans",
         "workspaces": "Workspaces",
         "signIn": "Sign in",
         "register": "Create account",
@@ -31,7 +33,13 @@
         "imageCredits": "Image credits"
     },
     "footer": {
-        "about": "Healthy360 brings healthy kitchens near you together in one place."
+        "about": "Healthy360 brings healthy kitchens near you together in one place.",
+        "shop": "Shop",
+        "help": "Help",
+        "business": "Business",
+        "more": "More",
+        "apply": "Apply",
+        "copyright": "© {{year}} Healthy360"
     },
     "prototype": {
         "badge": "Coming soon",
@@ -85,7 +93,46 @@
         "offerFallbackAction": "Start a week",
         "becauseYouOrdered": "Because you ordered {{meal}}",
         "popularTitleUnrated": "On the menu today",
-        "railTitleUnrated": "More to try"
+        "railTitleUnrated": "More to try",
+        "pageTitle": "Discover",
+        "deliverTo": "Deliver to",
+        "deliverToLabel": "Deliver to {{area}}. Change",
+        "chooseArea": "Choose area",
+        "searchFor": "Search for",
+        "hint1": "tawouk",
+        "hint2": "a burger",
+        "hint3": "fresh dips",
+        "hint4": "high protein",
+        "hint5": "a kitchen",
+        "shopBy": "Shop by",
+        "allShelves": "All",
+        "pickedTitle": "Picked for today",
+        "pickPlans": "Plan your week",
+        "pickMeals": "Grill night, sorted",
+        "pickFrozen": "Stock your freezer",
+        "pickSauces": "Sauces for every bowl",
+        "pickDressings": "Dressed and ready",
+        "pickBeverages": "Something to sip",
+        "savedAddresses": "Saved addresses",
+        "addAddress": "Add a new address",
+        "deliverHere": "Deliver here",
+        "defaultAddress": "Default",
+        "addressLine": "{{area}} · {{line}}",
+        "editAddress": "Edit {{label}}",
+        "pickKitchens": "Find your kitchen",
+        "popularNow": "Popular right now",
+        "previous": "Previous",
+        "next": "Next",
+        "deliverToNamed": "Deliver to {{label}}",
+        "areaDay": "{{area}} · {{day}}",
+        "tomorrow": "Tomorrow",
+        "when": "When",
+        "deliveringTo": "Delivering to {{area}}",
+        "day": "Day",
+        "window": "Delivery window",
+        "slotTime": "{{start}} – {{end}}",
+        "slotSummary": "{{day}}, {{slot}} {{time}}",
+        "slotShort": "{{day}}, {{slot}}"
     },
     "kitchens": {
         "title": "Kitchens",
@@ -161,8 +208,25 @@
             "fee": "{{amount}} fee",
             "feeFrom": "From {{amount}} fee",
             "minimum": "Min {{amount}}",
-            "minimumFrom": "Min from {{amount}}"
-        }
+            "minimumFrom": "Min from {{amount}}",
+            "addressName": "{{label}} · {{area}}",
+            "deliveringPrefix": "Delivering to"
+        },
+        "noCount": "—",
+        "whereSeparator": ", ",
+        "cardItems": "Items",
+        "cardAreas": "Areas",
+        "cardPlans": "Plans",
+        "openKitchen": "Open {{kitchen}}",
+        "quickLook": "Quick look",
+        "quickLookLabel": "Quick look at {{kitchen}}",
+        "windowsToday": "Today's delivery windows",
+        "popularHere": "Popular here",
+        "knownFor": "Known for",
+        "keepBrowsing": "Keep browsing",
+        "openKitchenShort": "Open kitchen",
+        "close": "Close",
+        "ratingShort": "★ {{rating}} ({{count}})"
     },
     "kitchen": {
         "loading": "Loading",
@@ -213,7 +277,10 @@
         },
         "openMeal": "Open {{meal}}",
         "add": "Add",
-        "ratingLabel": "Average rating for {{meal}}"
+        "ratingLabel": "Average rating for {{meal}}",
+        "clearSearch": "Clear search",
+        "showing_one": "Showing {{formattedCount}} dish",
+        "showing_other": "Showing {{formattedCount}} dishes"
     },
     "dietitians": {
         "title": "Dietitians",
@@ -268,7 +335,13 @@
         "nextTitle": "Have a look around",
         "nextBody": "Nothing on the marketplace needs an account.",
         "meetDietitians": "Meet the dietitians",
-        "browsePlans": "Browse plans"
+        "browsePlans": "Browse plans",
+        "path": {
+            "tell": "Tell us",
+            "target": "See a target",
+            "plan": "Fill the week",
+            "eat": "Cook or order"
+        }
     },
     "forBusiness": {
         "title": "Healthy360 for business",
@@ -308,7 +381,139 @@
         "pricingBody": "Rates depend on volume, specification, delivery pattern and lead time, and are agreed per account. No consumer page carries a business price, and none is shown here.",
         "prototypeNotice": "This page presents the business programmes. Quotations, contract catalogues and volume pricing live behind a business account and are not part of the public marketplace.",
         "enquiryTitle": "Quotations need a business account",
-        "enquiryBody": "A quotation is priced against your organisation — volume, specification, sites and delivery pattern — so it is raised from inside a business account rather than from a public page. Sign in if you have one, or create an account and we will take it from there."
+        "enquiryBody": "A quotation is priced against your organisation — volume, specification, sites and delivery pattern — so it is raised from inside a business account rather than from a public page. Sign in if you have one, or create an account and we will take it from there.",
+        "board": {
+            "heroTitle": "Healthy meals for your",
+            "heroAccent": "whole team",
+            "apply": "Apply for a business account",
+            "perk": {
+                "invoice": "Pay on invoice",
+                "perLocation": "Invoice per location",
+                "recurring": "Recurring deliveries"
+            },
+            "mock": {
+                "agreement": "Supply agreement",
+                "active": "Active",
+                "paymentTerms": "Payment terms",
+                "net30": "Net 30",
+                "notice": "Notice period",
+                "days30": "30 days",
+                "leadTime": "Lead time",
+                "days2": "2 days",
+                "minimum": "Minimum order",
+                "meals40": "40 meals",
+                "quotation": "Quotation",
+                "quoted": "Quoted",
+                "times": "× {{count}}",
+                "delivered": "Delivered · Head office · 12:30",
+                "dishChicken": "Grilled chicken",
+                "dishCordon": "Cordon bleu",
+                "dishMayo": "Garlic mayo"
+            },
+            "howTitle": "How it works",
+            "stepsLabel": "Steps",
+            "step": {
+                "apply": {
+                    "label": "Apply",
+                    "sub": "Company, locations, volume",
+                    "title": "Tell us about your company",
+                    "p1": "Company and commercial registration",
+                    "p2": "Every location you want delivered to",
+                    "p3": "Expected volume and how often",
+                    "p4": "The payment terms you would like"
+                },
+                "review": {
+                    "label": "We review",
+                    "sub": "You see where it stands",
+                    "title": "We check the details",
+                    "p1": "You see where your application is",
+                    "p2": "If something is missing, we ask for just that",
+                    "p3": "Approved accounts get an agreement to sign"
+                },
+                "sign": {
+                    "label": "Sign",
+                    "sub": "Your terms, signed with a code",
+                    "title": "Sign your agreement",
+                    "p1": "Payment terms, credit limit and minimum order",
+                    "p2": "Lead time and notice period",
+                    "p3": "Signed with a code sent to your phone"
+                },
+                "order": {
+                    "label": "Order",
+                    "sub": "Quotes from the menu, delivered",
+                    "title": "Order for your team",
+                    "p1": "Pick dishes from the menu, the kitchen prices them",
+                    "p2": "Accept the quote and it becomes an order",
+                    "p3": "Make it weekly, invoiced per location"
+                }
+            },
+            "application": "Your application",
+            "sectionsDone": "{{done}} of {{total}}",
+            "section": {
+                "company": "Company",
+                "registration": "Commercial registration",
+                "locations": "Locations",
+                "contacts": "Contacts",
+                "volume": "Volume and frequency",
+                "terms": "Payment terms"
+            },
+            "review": {
+                "submitted": "Submitted",
+                "inReview": "In review",
+                "approved": "Approved",
+                "ask": "Sometimes: \"Information requested\" for one section"
+            },
+            "readyToSign": "Ready to sign",
+            "codeSent": "Code sent to your phone",
+            "quoteRequest": "Quote request",
+            "mealsCount_one": "{{count}} meal",
+            "mealsCount_other": "{{count}} meals",
+            "fewer": "Fewer {{dish}}",
+            "more": "More {{dish}}",
+            "everyWeek": "Every week",
+            "requestQuote": "Request a quote",
+            "quoteState": {
+                "submitted": "Submitted",
+                "quoted": "Quoted",
+                "accepted": "Accepted"
+            },
+            "getsTitle": "What your team gets",
+            "gets": {
+                "volume": {
+                    "title": "Better rates in volume",
+                    "body": "Your agreed rates drop as orders grow"
+                },
+                "invoice": {
+                    "title": "An invoice per location",
+                    "body": "Each office, its own paperwork",
+                    "o1": "Head office",
+                    "o2": "Branch office",
+                    "o3": "Clinic"
+                },
+                "recurring": {
+                    "title": "Recurring deliveries",
+                    "body": "Set the week once, change any day"
+                },
+                "dashboard": {
+                    "title": "One business dashboard",
+                    "body": "Programmes, quotes and orders"
+                }
+            },
+            "weekdays": "M T W T F S",
+            "faqTitle": "Questions",
+            "faq": {
+                "q1": "How long does the review take?",
+                "a1": "You can see where your application stands at every step, and we write to you if anything is missing.",
+                "q2": "Can we pay on invoice?",
+                "a2": "Yes. Your payment terms are part of your agreement, for example Net 30.",
+                "q3": "Is there a minimum order?",
+                "a3": "Your agreement sets one, together with the lead time the kitchen needs.",
+                "q4": "Can each office get its own invoice?",
+                "a4": "Yes. Add every location when you apply and choose invoice per location."
+            },
+            "endTitle": "Ready to feed your team?",
+            "signInApproved": "Already approved? Sign in"
+        }
     },
     "consumer": {
         "nav": {
@@ -487,7 +692,10 @@
             "branches": "Branches",
             "branchCount_one": "{{formattedCount}} branch",
             "branchCount_other": "{{formattedCount}} branches",
-            "none": "—"
+            "none": "—",
+            "areasValue_one": "Delivers to {{formattedCount}} area",
+            "areasValue_other": "Delivers to {{formattedCount}} areas",
+            "countsValue": "{{items}} items · {{plans}} plans"
         },
         "tabs": {
             "label": "About this kitchen",
@@ -530,7 +738,17 @@
             "hoursLeft": "{{hours}} h {{minutes}} min left",
             "passed": "Closed · {{time}}",
             "start": "Start an order",
-            "seePlans": "See plans from this kitchen"
+            "seePlans": "See plans from this kitchen",
+            "title": "Your order",
+            "itemCount_one": "{{formattedCount}} item",
+            "itemCount_other": "{{formattedCount}} items",
+            "emptyHint": "Tap + on a dish to start",
+            "checkout": "Checkout",
+            "quantityLabel": "Quantity of {{item}}",
+            "fewerLabel": "One fewer {{item}}",
+            "moreLabel": "One more {{item}}",
+            "removeLabel": "Remove {{item}}",
+            "remove": "Remove"
         },
         "today": {
             "eyebrow": "Today's schedule",
@@ -566,7 +784,17 @@
                 "windowsLabel": "Today's delivery windows",
                 "window": "{{startsAt}}–{{endsAt}}",
                 "pick": "Pick from the menu"
-            }
+            },
+            "state": {
+                "done": "Done",
+                "next": "Next",
+                "later": "Later",
+                "now": "Now"
+            },
+            "dayTitle": "Today, {{day}}",
+            "openRange": "Open {{opensAt}} – {{closesAt}}",
+            "week": "This week",
+            "closed": "Closed"
         },
         "plans": {
             "title": "Plans from {{kitchen}}",
@@ -575,7 +803,9 @@
             "perWeek": "per week",
             "choose": "Choose",
             "chooseLabel": "Choose the {{plan}} plan",
-            "empty": "This kitchen has not published a weekly plan yet. Everything on its menu can still be ordered."
+            "empty": "This kitchen has not published a weekly plan yet. Everything on its menu can still be ordered.",
+            "youPick": "You pick every day's meals.",
+            "start": "Start this plan"
         },
         "safety": {
             "allergensTitle": "Allergens declared",
@@ -604,13 +834,20 @@
         },
         "nextOpen": "Closed today · Opens {{day}}",
         "pausedTitle": "This kitchen has paused new orders",
-        "pausedBody": "You can browse the menu now and order again from {{time}}."
+        "pausedBody": "You can browse the menu now and order again from {{time}}.",
+        "allKitchens": "All kitchens",
+        "seePlans": "See weekly plans"
     },
     "imageCredits": {
         "title": "Image credits",
         "intro": "Photography used across Healthy360 is openly licensed and bundled with the app. Where a licence requires attribution, the credit is shown here and beside the image itself. Every photograph has been cropped to a fixed frame and re-encoded.",
         "synthetic": "These are stock photographs chosen to match each record — not photographs of real Healthy360 products, premises or staff. Public-domain and CC0 images require no attribution and are recorded in the project’s provenance file rather than listed here.",
-        "none": "No image currently in use requires attribution."
+        "none": "No image currently in use requires attribution.",
+        "openTitle": "Openly licensed, bundled with the app",
+        "stockTitle": "Stock photographs, not our products",
+        "listTitle": "Credits",
+        "count_one": "{{count}} image",
+        "count_other": "{{count}} images"
     },
     "packSize": {
         "per": "/ {{size}}",

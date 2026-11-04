@@ -1,17 +1,8 @@
-import {
-    Badge,
-    Button,
-    Callout,
-    Card,
-    Heading,
-    Inline,
-    Stack,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { ErrorState, Icon, Skeleton, useToast } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Text as RNText, View } from 'react-native';
 
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 
@@ -20,11 +11,15 @@ import {
     useContactPointsQuery,
     useIssueChallengeMutation,
 } from '../../../data/account-hooks.ts';
-import { QueryStates } from '../../marketplace/query-states.tsx';
+import { AuthBadge, AuthSubmit, AuthText, AuthTick, AuthTitle } from '../../../ui/auth-form.tsx';
+import { ExtraChip, ExtraNote } from '../account-extra.tsx';
 import { PhoneChallenge } from '../phone-challenge.tsx';
 
 /**
- * `/verify-phone` — confirming a mobile number, on its own page.
+ * `/verify-phone` — confirming a mobile number, on its own page, drawn as the Explorations board in
+ * the sign-in frame: the phone badge and "Your mobile number", the number with its "Not confirmed"
+ * chip and Send me a code; once a code is out, the six boxes, Confirm, and the other channels behind
+ * "Send the code another way"; then the tick.
  *
  * ## Why this exists next to `/customer/account/phone`
  *
@@ -35,9 +30,8 @@ import { PhoneChallenge } from '../phone-challenge.tsx';
  * live challenge — with its cooldown intact — rather than issuing a second code (journey-forced
  * shape 1, `contracts/verification.ts`).
  *
- * It sits in the `(auth)` group and inherits that group's chrome for the same reason
- * `/verify-email` does: somebody confirming a contact is mid-way into the product, not browsing it,
- * and a sidebar full of meal plans is noise at that moment.
+ * It sits in the `(auth)` group and is one of its board pages, in the frame `/verify-email` uses:
+ * somebody confirming a contact is mid-way into the product, not browsing it.
  *
  * ## Arriving with nothing does not silently send a code
  *
@@ -99,109 +93,139 @@ export function VerifyPhoneScreen({ challengeId, returnTo }: VerifyPhoneScreenPr
 
     if (verified) {
         return (
-            <Stack space="lg" testID={`${TEST_ID}-verified`}>
-                <Heading level={1}>{t('account:phone.title')}</Heading>
-                <Callout
-                    testID={`${TEST_ID}-verified-callout`}
-                    role="status"
-                    tone="success"
-                    title={t('account:phone.verifiedTitle')}
-                    body={t('account:phone.verifiedBody')}
-                    actions={
-                        <Button
-                            testID={`${TEST_ID}-continue`}
-                            label={t(`common:returnTo.${back.destination}`)}
-                            onPress={() => {
-                                back.finish();
-                            }}
-                        />
-                    }
-                />
-            </Stack>
+            <View testID={`${TEST_ID}-verified`} className="flex-col items-center gap-3.5">
+                <AuthTick />
+                <View testID={`${TEST_ID}-verified-callout`} role="status" className="w-full">
+                    <AuthTitle centred>{t('account:phone.verifiedTitle')}</AuthTitle>
+                    <View className="mt-2">
+                        <AuthText centred>{t('account:phone.verifiedBody')}</AuthText>
+                    </View>
+                </View>
+                <View className="mt-2 w-full">
+                    <AuthSubmit
+                        testID={`${TEST_ID}-continue`}
+                        label={t(`common:returnTo.${back.destination}`)}
+                        onPress={() => {
+                            back.finish();
+                        }}
+                    />
+                </View>
+            </View>
         );
     }
 
+    const opening = (
+        <>
+            <AuthBadge icon="smartphone" />
+            <AuthTitle testID={`${TEST_ID}-title`}>{t('account:phone.title')}</AuthTitle>
+        </>
+    );
+
+    if (live !== null) {
+        return (
+            <View testID={TEST_ID} className="flex-col gap-3.5">
+                {opening}
+                <PhoneChallenge
+                    testID={`${TEST_ID}-challenge`}
+                    look="auth"
+                    challengeId={live}
+                    onVerified={onVerified}
+                />
+            </View>
+        );
+    }
+
+    const readFailure = toFailure(contacts.error);
+
     return (
-        <Stack space="lg" testID={TEST_ID}>
-            <Stack space="xs">
-                <Heading level={1} testID={`${TEST_ID}-title`}>
-                    {t('account:phone.title')}
-                </Heading>
-                <Text tone="secondary">{t('account:phone.subtitle')}</Text>
-            </Stack>
+        <View testID={TEST_ID} className="flex-col gap-3.5">
+            {opening}
+            <AuthText>{t('account:phone.subtitle')}</AuthText>
 
-            {live !== null ? (
-                <Card padding="md">
-                    <PhoneChallenge
-                        testID={`${TEST_ID}-challenge`}
-                        challengeId={live}
-                        onVerified={onVerified}
+            {contacts.isPending ? (
+                <View testID={`${TEST_ID}-contacts-loading`} className="flex-col gap-3">
+                    <Skeleton heightClassName="h-20" />
+                    <Skeleton heightClassName="h-[54px]" />
+                </View>
+            ) : readFailure !== null ? (
+                <ErrorState
+                    testID={`${TEST_ID}-contacts-error`}
+                    failure={readFailure}
+                    onRetry={() => {
+                        void contacts.refetch();
+                    }}
+                    retrying={contacts.isFetching}
+                />
+            ) : phone === undefined ? (
+                <View testID={`${TEST_ID}-contacts-empty`} className="flex-col gap-3.5">
+                    <ExtraNote
+                        icon="smartphone"
+                        title={t('account:phone.noNumberTitle')}
+                        body={t('account:phone.noNumberBody')}
                     />
-                </Card>
+                    <AuthSubmit
+                        testID={`${TEST_ID}-add`}
+                        label={t('account:phone.addNumber')}
+                        onPress={() => {
+                            router.push(back.carry('/customer/account/phone') as never);
+                        }}
+                    />
+                </View>
             ) : (
-                <QueryStates
-                    query={contacts}
-                    isEmpty={phone === undefined}
-                    emptyTitle={t('account:phone.noNumberTitle')}
-                    emptyBody={t('account:phone.noNumberBody')}
-                    emptyActions={
-                        <Button
-                            testID={`${TEST_ID}-add`}
-                            label={t('account:phone.addNumber')}
-                            onPress={() => {
-                                router.push(back.carry('/customer/account/phone') as never);
-                            }}
+                <View testID={`${TEST_ID}-pending`} className="flex-col gap-3.5">
+                    <View className="flex-row items-center gap-3.5 rounded-[18px] bg-surface-sunken p-4">
+                        <View className="h-11 w-11 items-center justify-center rounded-[14px] bg-surface-brand-subtle">
+                            <Icon
+                                name="smartphone"
+                                size="md"
+                                className="text-content-on-brand-subtle"
+                            />
+                        </View>
+                        <View className="min-w-0 flex-1">
+                            <RNText className="font-display text-xl font-bold tracking-wide text-content-primary text-start">
+                                {phone.maskedValue}
+                            </RNText>
+                            <RNText className="mt-0.5 text-sm font-medium text-content-secondary text-start">
+                                {t('account:phone.pendingBody')}
+                            </RNText>
+                        </View>
+                        <ExtraChip
+                            testID={`${TEST_ID}-pending-state`}
+                            tone="amber"
+                            label={t('account:contacts.unverified')}
                         />
-                    }
-                    skeletonCount={1}
-                    testID={`${TEST_ID}-contacts`}
-                >
-                    <Card testID={`${TEST_ID}-pending`} padding="md">
-                        <Stack space="sm">
-                            <Inline space="sm" align="center" justify="between">
-                                <Text variant="bodyStrong">{phone?.maskedValue ?? ''}</Text>
-                                <Badge
-                                    testID={`${TEST_ID}-pending-state`}
-                                    tone="warning"
-                                    label={t('account:contacts.unverified')}
-                                />
-                            </Inline>
-                            <Text tone="secondary">{t('account:phone.pendingBody')}</Text>
+                    </View>
 
-                            {issueFailure === null ? null : (
-                                <Callout
-                                    testID={`${TEST_ID}-issue-error`}
-                                    role="alert"
-                                    tone="danger"
-                                    title={issueFailure.message}
-                                />
-                            )}
+                    {issueFailure === null ? null : (
+                        <ExtraNote
+                            testID={`${TEST_ID}-issue-error`}
+                            role="alert"
+                            tone="bad"
+                            icon="warning"
+                            title={issueFailure.message}
+                        />
+                    )}
 
-                            <Inline space="sm">
-                                <Button
-                                    testID={`${TEST_ID}-send`}
-                                    label={t('account:phone.sendCode')}
-                                    loading={issue.isPending}
-                                    onPress={() => {
-                                        if (phone === undefined) return;
-                                        issue.mutate(
-                                            {
-                                                purpose: 'contact_verification',
-                                                contactPointId: phone.id,
-                                            },
-                                            {
-                                                onSuccess: (challenge) => {
-                                                    startChallenge(challenge.id);
-                                                },
-                                            },
-                                        );
-                                    }}
-                                />
-                            </Inline>
-                        </Stack>
-                    </Card>
-                </QueryStates>
+                    <AuthSubmit
+                        testID={`${TEST_ID}-send`}
+                        label={t('account:phone.sendCode')}
+                        busy={issue.isPending}
+                        onPress={() => {
+                            issue.mutate(
+                                {
+                                    purpose: 'contact_verification',
+                                    contactPointId: phone.id,
+                                },
+                                {
+                                    onSuccess: (challenge) => {
+                                        startChallenge(challenge.id);
+                                    },
+                                },
+                            );
+                        }}
+                    />
+                </View>
             )}
-        </Stack>
+        </View>
     );
 }

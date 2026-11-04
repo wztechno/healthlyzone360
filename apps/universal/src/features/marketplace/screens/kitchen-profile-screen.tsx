@@ -1,12 +1,12 @@
-import { Breadcrumbs, Callout, useBreakpoint } from '@healthy360/design-system';
+import { Callout, useBreakpoint } from '@healthy360/design-system';
 import type { Kitchen, MarketplaceMeal, SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { KitchenId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, View } from 'react-native';
+import { View } from 'react-native';
 
 import { mealsFromPages, useMealsQuery, usePlansQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
@@ -28,8 +28,8 @@ import { kitchenTimeZone, useKitchenClock } from '../storefront/storefront-today
 /**
  * One kitchen's storefront — HealthZone Customer `§isStorefront`.
  *
- * The breadcrumb, the canopy band (`StorefrontCanopy`), a sticky tab row, then the open tab beside
- * the 320px order panel from `lg` up.
+ * The cover (`StorefrontCanopy`) with its way back to the kitchens, a sticky tab row, then the open
+ * tab beside the 330px order panel from `lg` up — the accepted shop board's storefront.
  *
  * ## The design's five tabs, each from what is real
  *
@@ -60,13 +60,6 @@ import { kitchenTimeZone, useKitchenClock } from '../storefront/storefront-today
  * wrong. So the storefront asks for the largest page the API serves and keeps fetching until there
  * is no next one, and neither tab renders until it has the lot.
  *
- * ## "Start an order" opens the Menu tab
- *
- * It used to push `/kitchens/{id}/menu`, a second listing of the very dishes the Menu tab already
- * shows, whose kitchen crumb then pushed the storefront again so Back alternated between the two
- * (browse-12). Dishes are added from the Menu tab, so that is where the order starts: the tab
- * opens (`?tab=menu`, no new history entry) and the page brings it into view.
- *
  * `/kitchens/{id}/menu` still exists as the searchable view — the search box and the item-type and
  * meal-type filters the Menu tab does not carry — and the Menu tab links to it by name, "Search
  * this menu", so the control says what it opens.
@@ -96,23 +89,6 @@ export function KitchenProfileScreen({ kitchenId }: KitchenProfileScreenProps) {
 
     return (
         <View className="flex-col gap-3" testID="kitchen-profile-screen">
-            <Breadcrumbs
-                testID="kitchen-breadcrumbs"
-                items={[
-                    {
-                        key: 'kitchens',
-                        label: t('marketplace:nav.kitchens'),
-                        testID: 'kitchen-crumb-kitchens',
-                        // Up to the directory as it was left — its search and chips — rather than
-                        // a fresh copy pushed on top of the storefront.
-                        onPress: () => {
-                            navigateUp('/kitchens');
-                        },
-                    },
-                    { key: 'kitchen', label: kitchen?.name ?? t('marketplace:kitchen.loading') },
-                ]}
-            />
-
             <QueryStates
                 query={query}
                 isEmpty={query.data === undefined && !query.isPending}
@@ -121,7 +97,16 @@ export function KitchenProfileScreen({ kitchenId }: KitchenProfileScreenProps) {
                 skeletonCount={2}
                 testID="kitchen"
             >
-                {kitchen === undefined ? null : <Storefront kitchen={kitchen} />}
+                {kitchen === undefined ? null : (
+                    <Storefront
+                        kitchen={kitchen}
+                        onBack={() => {
+                            // Up to the directory as it was left — its search and chips — rather
+                            // than a fresh copy pushed on top of the storefront.
+                            navigateUp('/kitchens');
+                        }}
+                    />
+                )}
             </QueryStates>
         </View>
     );
@@ -137,7 +122,13 @@ function isStorefrontTab(value: string | undefined): value is StorefrontTab {
 /** The largest page the marketplace serves (`CursorPage::MAX_LIMIT`). */
 const MENU_PAGE_SIZE = 100;
 
-function Storefront({ kitchen }: { readonly kitchen: Kitchen }) {
+function Storefront({
+    kitchen,
+    onBack,
+}: {
+    readonly kitchen: Kitchen;
+    readonly onBack: () => void;
+}) {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
@@ -178,23 +169,6 @@ function Storefront({ kitchen }: { readonly kitchen: Kitchen }) {
     const openShelf = (next: string | null) => {
         setShelf(next);
         router.setParams({ shelf: next ?? undefined } as never);
-    };
-
-    /*
-     * Where "Start an order" brings the person: the tab row, so the open Menu is right under it. On
-     * a phone the order panel sits above the tabs and the menu starts below the fold; on a wide
-     * window the tabs may have scrolled away. Web only — the anchor is a DOM node there, and the
-     * shell's port is what scrolls to it. A zero-height marker above the sticky row rather than the
-     * row itself: a stuck element is already "in view", so asking it to scroll does nothing.
-     */
-    const tabsAnchor = useRef<View>(null);
-    const startOrder = () => {
-        openTab('menu');
-        if (Platform.OS !== 'web') return;
-        const node = tabsAnchor.current as unknown as {
-            readonly scrollIntoView?: (options: object) => void;
-        } | null;
-        node?.scrollIntoView?.({ block: 'start' });
     };
 
     // The kitchen's own clock and day: what "today", the cut-off and the countdown are read in.
@@ -243,15 +217,7 @@ function Storefront({ kitchen }: { readonly kitchen: Kitchen }) {
     };
 
     const orderPanel = (
-        <StorefrontOrderPanel
-            kitchen={kitchen}
-            cutOff={cutOff}
-            clock={clock}
-            onStartOrder={startOrder}
-            onSeePlans={() => {
-                openTab('plans');
-            }}
-        />
+        <StorefrontOrderPanel kitchen={kitchen} meals={meals} cutOff={cutOff} clock={clock} />
     );
 
     const panels: Record<StorefrontTab, ReactNode> = {
@@ -281,9 +247,6 @@ function Storefront({ kitchen }: { readonly kitchen: Kitchen }) {
                 weekday={weekday}
                 dateLabel={dateLabel}
                 cutOff={cutOff}
-                onPickFromMenu={() => {
-                    openTab('menu');
-                }}
             />
         ),
         plans: <KitchenPlans kitchen={kitchen} />,
@@ -302,7 +265,13 @@ function Storefront({ kitchen }: { readonly kitchen: Kitchen }) {
 
     return (
         <View className="flex-col">
-            <StorefrontCanopy kitchen={kitchen} />
+            <StorefrontCanopy
+                kitchen={kitchen}
+                onBack={onBack}
+                onSeePlans={() => {
+                    openTab('plans');
+                }}
+            />
 
             {kitchen.pausedUntil === null || kitchen.pausedUntil === undefined ? null : (
                 <View className="mt-5">
@@ -322,14 +291,12 @@ function Storefront({ kitchen }: { readonly kitchen: Kitchen }) {
 
             {wide ? null : <View className="mt-5">{orderPanel}</View>}
 
-            <View ref={tabsAnchor} testID="kitchen-tabs-anchor" aria-hidden className="h-0" />
-
             {/*
              * Sticky on the web, under the shell's top bar: `top-0` resolves against the shell's
              * scroll port, not the document. The page surface behind it so the dishes scrolling
              * underneath do not show through the row.
              */}
-            <View className="z-sticky mt-5 bg-surface-base web:sticky web:top-0">
+            <View className="z-sticky mt-5 bg-surface-base pb-1 web:sticky web:top-0">
                 <StorefrontTabs<StorefrontTab>
                     testID="kitchen-tabs"
                     label={t('marketplace:storefront.tabs.label')}
@@ -338,12 +305,16 @@ function Storefront({ kitchen }: { readonly kitchen: Kitchen }) {
                     items={STOREFRONT_TABS.map((value) => ({
                         value,
                         label: t(`marketplace:storefront.tabs.${value}`),
+                        // The dishes on the menu, once the whole menu is in.
+                        ...(value === 'menu' && !menuState.isPending
+                            ? { count: formatter.formatNumber(meals.length) }
+                            : {}),
                         testID: `kitchen-tab-${value}`,
                     }))}
                 />
             </View>
 
-            <View className="mt-6 flex-col gap-6 lg:flex-row lg:items-start">
+            <View className="mt-[22px] flex-col gap-6 lg:flex-row lg:items-start">
                 <View
                     testID={`kitchen-panel-${tab}`}
                     role="tabpanel"
@@ -360,7 +331,7 @@ function Storefront({ kitchen }: { readonly kitchen: Kitchen }) {
                      * its figure at opposite ends of a very wide line. Sticky below the tab row —
                      * `top-16` clears the row's height, so the two never overlap.
                      */
-                    <View className="w-[320px] shrink-0 self-start web:sticky web:top-16">
+                    <View className="w-[330px] shrink-0 self-start web:sticky web:top-20">
                         {orderPanel}
                     </View>
                 ) : null}

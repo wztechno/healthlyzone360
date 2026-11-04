@@ -1,19 +1,13 @@
 import type { ApiFailure } from '@healthy360/api-client';
 import type { B2BAgreement } from '@healthy360/api-client/contracts';
-import {
-    Button,
-    Callout,
-    Card,
-    Checkbox,
-    Stack,
-    Text,
-    TextInputField,
-} from '@healthy360/design-system';
+import { Checkbox, Icon, TextInputField } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
+
+import { ExtraButton, ExtraCard, ExtraNote } from '../account/account-extra.tsx';
 
 import { OtpChallengePanel } from '../verification/otp-challenge-panel.tsx';
 import type { OtpChallengeView } from '../verification/otp-challenge-panel.tsx';
@@ -97,191 +91,260 @@ export function AgreementPanel({
     const seller = agreement.seller;
 
     return (
-        <Stack testID={testID} space="lg">
-            <Stack space="xs">
-                <Text variant="bodyStrong" testID={`${testID}-title`}>
-                    {agreement.title}
-                </Text>
-                <Text tone="secondary" variant="caption">
-                    {t('b2bApplication:agreement.version', { version: agreement.version })}
-                </Text>
-                {/* Who the company buys from, and at which list — the thing the terms are about. */}
-                {seller === null ? null : (
-                    <Text testID={`${testID}-seller`}>
-                        {t('b2bApplication:agreement.seller', {
-                            seller: seller.organisationName,
-                            priceList:
-                                locale === 'ar' && (seller.priceListNameAr ?? '') !== ''
-                                    ? (seller.priceListNameAr ?? '')
-                                    : seller.priceListNameEn,
-                        })}
-                    </Text>
-                )}
-            </Stack>
-
-            {agreement.termsSummary === null ? null : (
-                <Card
-                    testID={`${testID}-summary`}
-                    title={t('b2bApplication:agreement.summaryTitle')}
-                >
-                    <Text>{agreement.termsSummary}</Text>
-                </Card>
-            )}
-
-            {/*
-             * No invoicing exists (PAY1 is discovery-gated). A payment term shown without this
-             * would imply a facility that will chase a balance, and none will.
-             */}
-            <Callout
-                testID={`${testID}-no-invoicing`}
-                tone="info"
-                role="note"
-                title={t('b2bApplication:agreement.termsTitle')}
-                body={t('b2bApplication:agreement.noInvoicingYet')}
-            />
-
-            <Card testID={`${testID}-document`} title={t('b2bApplication:agreement.documentTitle')}>
-                <Text variant="mono" testID={`${testID}-document-text`}>
-                    {agreement.documentText}
-                </Text>
-            </Card>
-
-            {signed !== null ? (
-                <Stack space="sm" testID={`${testID}-signed`}>
-                    <Callout
-                        tone="success"
-                        role="status"
-                        title={t('b2bApplication:agreement.signedOn', {
-                            date: formatter.formatDate(signed.signedAt),
-                            name: signed.typedName,
-                            role: signed.signatoryTitle,
-                        })}
-                        body={signed.consentStatement}
-                    />
-                    {/*
-                     * `otpVerified` is carried on the evidence rather than assumed from the
-                     * signature existing. When it is false the surface says so — the B1 backend
-                     * records exactly that until the integrator closes the OTP seam, and a screen
-                     * that drew "identity verified" from a signature would be reporting a check
-                     * nobody performed.
-                     */}
-                    {signed.otpVerified ? null : (
-                        <Callout
-                            testID={`${testID}-not-stepped-up`}
-                            tone="warning"
-                            role="note"
-                            title={t('b2bApplication:agreement.otpNotVerified')}
-                        />
+        <View testID={testID} className="mt-[18px] flex-col gap-6 lg:flex-row lg:items-start">
+            {/* The terms: who it is with, the summary, and the agreement in full. */}
+            <View className="min-w-0 flex-col lg:flex-1">
+                <View className="rounded-3xl border border-stroke-subtle bg-surface-raised px-6 py-[22px]">
+                    <RNText
+                        testID={`${testID}-title`}
+                        className="font-display text-xl font-bold text-content-primary text-start"
+                    >
+                        {agreement.title}
+                    </RNText>
+                    <RNText className="mt-1 text-sm text-content-secondary text-start">
+                        {t('b2bApplication:agreement.version', { version: agreement.version })}
+                    </RNText>
+                    {/* Who the company buys from, and at which list — the thing the terms are about. */}
+                    {seller === null ? null : (
+                        <RNText
+                            testID={`${testID}-seller`}
+                            className="mt-2 text-base font-medium text-content-primary text-start"
+                        >
+                            {t('b2bApplication:agreement.seller', {
+                                seller: seller.organisationName,
+                                priceList:
+                                    locale === 'ar' && (seller.priceListNameAr ?? '') !== ''
+                                        ? (seller.priceListNameAr ?? '')
+                                        : seller.priceListNameEn,
+                            })}
+                        </RNText>
                     )}
-                </Stack>
-            ) : (
-                <Stack space="lg">
-                    <Stack space="sm" testID={`${testID}-verify`}>
-                        <Text variant="bodyStrong">
-                            {t('b2bApplication:agreement.verifyTitle')}
-                        </Text>
-                        <Text tone="secondary">{t('b2bApplication:agreement.verifyBody')}</Text>
+                    {agreement.termsSummary === null ? null : (
+                        <View
+                            testID={`${testID}-summary`}
+                            className="mt-4 rounded-2xl bg-surface-base px-4 py-3.5"
+                        >
+                            <RNText className="text-xs font-bold uppercase tracking-widest text-content-secondary text-start">
+                                {t('b2bApplication:agreement.summaryTitle')}
+                            </RNText>
+                            <RNText className="mt-1.5 text-base font-medium leading-6 text-content-primary text-start">
+                                {agreement.termsSummary}
+                            </RNText>
+                        </View>
+                    )}
+                    {/*
+                     * No invoicing exists (PAY1 is discovery-gated). A payment term shown without
+                     * this would imply a facility that will chase a balance, and none will.
+                     */}
+                    <View className="mt-4">
+                        <ExtraNote
+                            testID={`${testID}-no-invoicing`}
+                            role="status"
+                            icon="infoCircle"
+                            title={t('b2bApplication:agreement.termsTitle')}
+                            body={t('b2bApplication:agreement.noInvoicingYet')}
+                        />
+                    </View>
+                </View>
 
-                        {challenge === null ? (
-                            <Button
-                                testID={`${testID}-request-code`}
-                                variant="secondary"
-                                label={t('b2bApplication:agreement.verifyTitle')}
-                                loading={issuing}
-                                onPress={onRequestCode}
+                <ExtraCard
+                    testID={`${testID}-document`}
+                    title={t('b2bApplication:agreement.documentTitle')}
+                >
+                    <View className="mt-3 max-h-[420px] overflow-hidden rounded-[18px] bg-surface-base px-5 py-[18px]">
+                        <RNText
+                            testID={`${testID}-document-text`}
+                            className="text-sm font-medium leading-6 text-content-secondary text-start"
+                        >
+                            {agreement.documentText}
+                        </RNText>
+                    </View>
+                </ExtraCard>
+            </View>
+
+            {/* The two steps, in order: confirm it is you, then accept. */}
+            <View className="w-full rounded-3xl border border-stroke-subtle bg-surface-raised px-6 py-[22px] lg:w-[400px]">
+                {signed !== null ? (
+                    <View testID={`${testID}-signed`} className="flex-col gap-3">
+                        <ExtraNote
+                            tone="ok"
+                            icon="check"
+                            title={t('b2bApplication:agreement.signedOn', {
+                                date: formatter.formatDate(signed.signedAt),
+                                name: signed.typedName,
+                                role: signed.signatoryTitle,
+                            })}
+                            body={signed.consentStatement}
+                        />
+                        {/*
+                         * `otpVerified` is carried on the evidence rather than assumed from the
+                         * signature existing; when it is false the surface says so.
+                         */}
+                        {signed.otpVerified ? null : (
+                            <ExtraNote
+                                testID={`${testID}-not-stepped-up`}
+                                tone="amber"
+                                icon="warning"
+                                title={t('b2bApplication:agreement.otpNotVerified')}
                             />
-                        ) : stepped ? (
-                            <Callout
-                                testID={`${testID}-verified`}
-                                tone="success"
-                                role="status"
-                                title={t('b2bApplication:agreement.verified')}
+                        )}
+                    </View>
+                ) : (
+                    <View className="flex-col">
+                        <View testID={`${testID}-verify`} className="flex-col gap-3">
+                            <StepLabel n={1} done={stepped}>
+                                {t('b2bApplication:agreement.verifyTitle')}
+                            </StepLabel>
+                            <RNText className="text-sm leading-[21px] text-content-secondary text-start">
+                                {t('b2bApplication:agreement.verifyBody')}
+                            </RNText>
+
+                            {challenge === null ? (
+                                <View className="flex-row">
+                                    <ExtraButton
+                                        testID={`${testID}-request-code`}
+                                        tone="secondary"
+                                        label={t('b2bApplication:agreement.verifyTitle')}
+                                        icon="send"
+                                        busy={issuing}
+                                        onPress={onRequestCode}
+                                    />
+                                </View>
+                            ) : stepped ? (
+                                <ExtraNote
+                                    testID={`${testID}-verified`}
+                                    tone="ok"
+                                    icon="check"
+                                    title={t('b2bApplication:agreement.verified')}
+                                />
+                            ) : (
+                                <OtpChallengePanel
+                                    testID={`${testID}-otp`}
+                                    look="auth"
+                                    challenge={challenge}
+                                    failure={failure}
+                                    verifying={verifying}
+                                    resending={resending}
+                                    onVerify={onVerifyCode}
+                                    onResend={(channel) => {
+                                        onResendCode(channel);
+                                    }}
+                                />
+                            )}
+                        </View>
+
+                        <View
+                            testID={`${testID}-sign`}
+                            className="mt-[22px] flex-col gap-3 border-t border-stroke-subtle pt-[22px]"
+                        >
+                            <StepLabel n={2} done={false}>
+                                {t('b2bApplication:agreement.signTitle')}
+                            </StepLabel>
+
+                            {/*
+                             * The honesty block. Above the controls, not below them, and in the
+                             * same weight as everything else on the page.
+                             */}
+                            <ExtraNote
+                                testID={`${testID}-honesty`}
+                                tone="amber"
+                                icon="infoCircle"
+                                title={t('b2bApplication:agreement.honestyTitle')}
+                                body={t('b2bApplication:agreement.honestyBody')}
                             />
-                        ) : (
-                            <OtpChallengePanel
-                                testID={`${testID}-otp`}
-                                challenge={challenge}
-                                failure={failure}
-                                verifying={verifying}
-                                resending={resending}
-                                onVerify={onVerifyCode}
-                                onResend={(channel) => {
-                                    onResendCode(channel);
+
+                            <RNText
+                                testID={`${testID}-consent-statement`}
+                                className="text-sm leading-[21px] text-content-secondary text-start"
+                            >
+                                {agreement.consentStatement}
+                            </RNText>
+
+                            <TextInputField
+                                testID={`${testID}-typed-name`}
+                                id={`${testID}-typed-name`}
+                                label={t('b2bApplication:agreement.typedName')}
+                                placeholder={t('b2bApplication:agreement.typedNamePlaceholder')}
+                                hint={t('b2bApplication:agreement.typedNameHint')}
+                                required
+                                value={typedName}
+                                onChangeText={setTypedName}
+                            />
+                            <TextInputField
+                                testID={`${testID}-signatory-title`}
+                                id={`${testID}-signatory-title`}
+                                label={t('b2bApplication:agreement.signatoryTitle')}
+                                placeholder={t(
+                                    'b2bApplication:agreement.signatoryTitlePlaceholder',
+                                )}
+                                required
+                                value={signatoryTitle}
+                                onChangeText={setSignatoryTitle}
+                            />
+                            <Checkbox
+                                testID={`${testID}-authority`}
+                                id={`${testID}-authority`}
+                                label={t('b2bApplication:agreement.authority')}
+                                checked={authorityConfirmed}
+                                onChange={setAuthorityConfirmed}
+                            />
+
+                            {stepped ? null : (
+                                <View
+                                    testID={`${testID}-verify-first`}
+                                    role="status"
+                                    aria-live="polite"
+                                >
+                                    <RNText className="text-sm font-medium text-warning-on-subtle text-start">
+                                        {t('b2bApplication:agreement.verifyFirst')}
+                                    </RNText>
+                                </View>
+                            )}
+
+                            <ExtraButton
+                                testID={`${testID}-submit`}
+                                label={t('b2bApplication:agreement.sign')}
+                                icon="arrowForward"
+                                busy={signing}
+                                disabled={!stepped || !complete}
+                                onPress={() => {
+                                    onSign({ typedName, signatoryTitle, authorityConfirmed });
                                 }}
                             />
-                        )}
-                    </Stack>
+                        </View>
+                    </View>
+                )}
+            </View>
+        </View>
+    );
+}
 
-                    <Stack space="sm" testID={`${testID}-sign`}>
-                        <Text variant="bodyStrong">{t('b2bApplication:agreement.signTitle')}</Text>
-
-                        {/*
-                         * The honesty block. Above the controls, not below them, and in the same
-                         * weight as everything else on the page.
-                         */}
-                        <Callout
-                            testID={`${testID}-honesty`}
-                            tone="info"
-                            role="note"
-                            title={t('b2bApplication:agreement.honestyTitle')}
-                            body={t('b2bApplication:agreement.honestyBody')}
-                        />
-
-                        <Text testID={`${testID}-consent-statement`} tone="secondary">
-                            {agreement.consentStatement}
-                        </Text>
-
-                        <TextInputField
-                            testID={`${testID}-typed-name`}
-                            id={`${testID}-typed-name`}
-                            label={t('b2bApplication:agreement.typedName')}
-                            placeholder={t('b2bApplication:agreement.typedNamePlaceholder')}
-                            hint={t('b2bApplication:agreement.typedNameHint')}
-                            required
-                            value={typedName}
-                            onChangeText={setTypedName}
-                        />
-                        <TextInputField
-                            testID={`${testID}-signatory-title`}
-                            id={`${testID}-signatory-title`}
-                            label={t('b2bApplication:agreement.signatoryTitle')}
-                            placeholder={t('b2bApplication:agreement.signatoryTitlePlaceholder')}
-                            required
-                            value={signatoryTitle}
-                            onChangeText={setSignatoryTitle}
-                        />
-                        <Checkbox
-                            testID={`${testID}-authority`}
-                            id={`${testID}-authority`}
-                            label={t('b2bApplication:agreement.authority')}
-                            checked={authorityConfirmed}
-                            onChange={setAuthorityConfirmed}
-                        />
-
-                        {stepped ? null : (
-                            <View
-                                testID={`${testID}-verify-first`}
-                                role="status"
-                                aria-live="polite"
-                            >
-                                <Text tone="warning" variant="caption">
-                                    {t('b2bApplication:agreement.verifyFirst')}
-                                </Text>
-                            </View>
-                        )}
-
-                        <Button
-                            testID={`${testID}-submit`}
-                            label={t('b2bApplication:agreement.sign')}
-                            loading={signing}
-                            disabled={!stepped || !complete}
-                            onPress={() => {
-                                onSign({ typedName, signatoryTitle, authorityConfirmed });
-                            }}
-                        />
-                    </Stack>
-                </Stack>
-            )}
-        </Stack>
+/** The board's numbered step label: a brand disc with the number (a tick once done). */
+function StepLabel({
+    n,
+    done,
+    children,
+}: {
+    readonly n: number;
+    readonly done: boolean;
+    readonly children: string;
+}) {
+    return (
+        <View className="flex-row items-center gap-2.5">
+            <View className="h-[26px] w-[26px] items-center justify-center rounded-full bg-surface-brand">
+                {done ? (
+                    <Icon name="check" size="sm" className="text-content-on-brand" />
+                ) : (
+                    <RNText className="text-xs font-bold text-content-on-brand">{String(n)}</RNText>
+                )}
+            </View>
+            <RNText
+                accessibilityRole="header"
+                aria-level={2}
+                className="text-xs font-bold uppercase tracking-widest text-content-secondary text-start"
+            >
+                {children}
+            </RNText>
+        </View>
     );
 }

@@ -1,7 +1,6 @@
 import { Slot } from 'expo-router';
-import { useTranslation } from 'react-i18next';
 
-import { AreaShell } from '../../src/shell/area-shell.tsx';
+import { ConsumerShell } from '../../src/shell/consumer-shell.tsx';
 
 /**
  * The `(business)` route group — B2B onboarding (plan Phase B1, appendix E §B.2).
@@ -19,19 +18,17 @@ import { AreaShell } from '../../src/shell/area-shell.tsx';
  * is the address a person reaches from an email, quotes to support and bookmarks — and it stays
  * stable whether or not the group is later renamed.
  *
- * ## Why the consumer chrome rather than the workspace chrome
+ * ## Why the shop's chrome
  *
  * There is no workspace to navigate. An applicant has one thing to do and five screens to do it in,
- * and a sidebar full of corporate destinations they cannot open yet would be a list of doors that
- * are all locked. `variant="public"` is `customer`'s own chrome — a plain top bar — and the
- * workspace navigation arrives with the organisation, at `/corporate`.
+ * so the pages sit in the shop they came from — its floating header and footer, as the application
+ * boards draw them (`ConsumerShell`, which applies the same `customer` gate). The workspace
+ * navigation arrives with the organisation, at `/corporate`.
  */
 export default function BusinessLayout() {
-    const { t } = useTranslation();
-
     return (
-        <AreaShell area="customer" title={t('b2bApplication:shellTitle')} testID="business-shell">
+        <ConsumerShell>
             <Slot />
-        </AreaShell>
+        </ConsumerShell>
     );
 }

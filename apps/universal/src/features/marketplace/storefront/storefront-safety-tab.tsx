@@ -1,36 +1,28 @@
 import type { Kitchen, MarketplaceMeal } from '@healthy360/api-client/contracts';
+import type { DimensionValue } from 'react-native';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text as RNText, View } from 'react-native';
 
 import { MEDICAL_DISCLAIMER_TEST_ID } from '../../../safety/medical-disclaimer.tsx';
-import { Eyebrow } from '../../../ui/eyebrow.tsx';
 import { allergenKey } from '../format.ts';
 
 import { allergenTally, withNutrition } from './storefront-menu.ts';
 
 /**
- * The storefront's "Safety & allergens" tab — HealthZone `§isStorefront` `storeIsSafety`: three
- * figure cards, the diets card, then the info note.
+ * The storefront's Safety tab, as the accepted shop board draws it: each allergen the menu
+ * declares as a card — how many dishes declare it, and a bar for its share of the menu — then the
+ * standing disclaimer on the board's warm card.
  *
- * ## The figures are the menu's, not the design's
+ * ## The figures are the menu's
  *
- * The design's three cards — "2 separate boards", "14 allergens declared", "verified Aug 14" — are
- * kitchen practices and an inspection date. Nothing records how a kitchen preps, and `isVerified`
- * carries no date. What *is* recorded is every listing's allergen declaration and whether it
- * publishes nutrition, so the cards state those, counted over the whole menu (the screen loads it
- * in full first), and the third states whether the kitchen is verified.
+ * Counted over the whole menu (the screen loads it in full first). Above the allergen cards, three
+ * small figures keep what the page has always answered: how many allergens are declared, how much
+ * of the menu publishes nutrition, and whether the kitchen is verified. Under them, every diet the
+ * kitchen cooks for, uncapped — the directory card shows three, and this is where the rest are.
  *
- * The allergen card's body names each declared allergen with the number of dishes declaring it —
- * the tally a separate card used to carry, folded into the design's three so someone avoiding
- * sesame still learns at a glance how much of the menu is closed to them.
- *
- * ## The note is the standing disclaimer
- *
- * The design closes on an info note that the figures are estimates and not medical advice. That is
- * `MedicalDisclaimer`'s fixed copy, drawn here in the design's plain info box rather than as a
- * titled callout — the copy and the `medical-disclaimer` test id are the same.
+ * The note is `MedicalDisclaimer`'s fixed copy and test id, drawn in the board's warm box.
  */
 export interface StorefrontSafetyTabProps {
     readonly kitchen: Kitchen;
@@ -49,17 +41,15 @@ export function StorefrontSafetyTab({ kitchen, meals }: StorefrontSafetyTabProps
         <View
             key={key}
             testID={`kitchen-safety-${key}`}
-            className="min-w-[220px] flex-1 grow basis-[30%] flex-col gap-2 rounded-xl border border-stroke bg-surface-raised p-5"
+            className="min-w-[200px] flex-1 basis-[30%] flex-col gap-1 rounded-2xl border border-stroke-subtle bg-surface-raised p-4"
         >
-            <RNText className="font-display text-3xl font-bold leading-tight tracking-display tabular-nums text-content-on-brand-subtle text-start">
+            <RNText className="font-display text-2xl font-bold tabular-nums text-content-primary text-start">
                 {value}
             </RNText>
-            <RNText className="font-display text-base font-bold leading-tight text-content-primary text-start">
-                {title}
-            </RNText>
+            <RNText className="text-sm font-bold text-content-primary text-start">{title}</RNText>
             <RNText
                 testID={`kitchen-safety-${key}-body`}
-                className="text-sm leading-normal text-content-secondary text-start"
+                className="text-xs leading-normal text-content-secondary text-start"
             >
                 {body}
             </RNText>
@@ -68,7 +58,7 @@ export function StorefrontSafetyTab({ kitchen, meals }: StorefrontSafetyTabProps
 
     return (
         <View className="flex-col gap-4" testID="kitchen-safety-tab">
-            <View className="flex-row flex-wrap gap-4">
+            <View className="flex-row flex-wrap gap-3">
                 {figure(
                     'allergens',
                     formatter.formatNumber(tally.length),
@@ -107,16 +97,52 @@ export function StorefrontSafetyTab({ kitchen, meals }: StorefrontSafetyTabProps
                 )}
             </View>
 
+            {tally.length === 0 ? null : (
+                <View testID="kitchen-safety-grid" className="flex-row flex-wrap gap-3">
+                    {tally.map((entry) => (
+                        <View
+                            key={entry.code}
+                            testID={`kitchen-safety-allergen-${entry.code}`}
+                            className="min-w-[240px] flex-1 basis-[45%] flex-row items-center gap-3 rounded-[18px] border border-stroke-subtle bg-surface-raised p-3.5"
+                        >
+                            <RNText className="min-w-[44px] font-display text-2xl font-bold tabular-nums text-content-primary">
+                                {formatter.formatNumber(entry.count)}
+                            </RNText>
+                            <View className="min-w-0 flex-1 flex-col">
+                                <RNText className="text-sm font-bold text-content-primary text-start">
+                                    {t(allergenKey(entry.code))}
+                                </RNText>
+                                <View className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-base">
+                                    <View
+                                        className="h-full rounded-full bg-warning-border"
+                                        style={{
+                                            width: `${String(
+                                                meals.length === 0
+                                                    ? 0
+                                                    : Math.round(
+                                                          (entry.count / meals.length) * 100,
+                                                      ),
+                                            )}%` as DimensionValue,
+                                        }}
+                                    />
+                                </View>
+                            </View>
+                        </View>
+                    ))}
+                </View>
+            )}
+
             {/*
-             * Every diet the kitchen cooks for, in full and uncapped. The directory card shows three
-             * and collapses the rest into a `+N`; the card is one press target, so the pill cannot
-             * resolve itself — this is where that press lands, so this is where they all have to be.
+             * Every diet the kitchen cooks for, in full and uncapped. The directory card shows three;
+             * this is where the rest are.
              */}
             <View
                 testID="kitchen-diets"
-                className="flex-col gap-3 rounded-xl border border-stroke bg-surface-raised p-5"
+                className="flex-col gap-3 rounded-3xl border border-stroke-subtle bg-surface-raised p-5"
             >
-                <Eyebrow>{t('marketplace:storefront.safety.dietsEyebrow')}</Eyebrow>
+                <RNText className="text-xs font-bold uppercase tracking-widest text-content-secondary text-start">
+                    {t('marketplace:storefront.safety.dietsEyebrow')}
+                </RNText>
                 {kitchen.dietClassifications.length === 0 ? (
                     <RNText className="text-sm text-content-secondary text-start">
                         {t('marketplace:storefront.safety.noDiets')}
@@ -127,9 +153,9 @@ export function StorefrontSafetyTab({ kitchen, meals }: StorefrontSafetyTabProps
                             <View
                                 key={diet}
                                 testID={`kitchen-diets-tags-${diet}`}
-                                className="rounded-full bg-surface-sunken px-3 py-1.5"
+                                className="rounded-full bg-tint-green px-3 py-1.5"
                             >
-                                <RNText className="text-sm font-medium text-content-primary text-start">
+                                <RNText className="text-sm font-semibold text-tint-green-on text-start">
                                     {t(`marketplace:diets.${diet}`)}
                                 </RNText>
                             </View>
@@ -141,9 +167,9 @@ export function StorefrontSafetyTab({ kitchen, meals }: StorefrontSafetyTabProps
             <View
                 testID={MEDICAL_DISCLAIMER_TEST_ID}
                 role="note"
-                className="rounded-lg border border-info-border bg-info-subtle px-4 py-3"
+                className="rounded-3xl bg-warning-subtle px-5 py-4"
             >
-                <RNText className="text-sm leading-normal text-info-on-subtle text-start">
+                <RNText className="text-sm leading-normal text-warning-on-subtle text-start">
                     <RNText className="font-semibold">
                         {t('marketplace:medicalDisclaimer.title')}
                     </RNText>

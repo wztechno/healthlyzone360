@@ -1,13 +1,4 @@
 import {
-    Button,
-    Card,
-    EmptyState,
-    Heading,
-    PasswordInput,
-    Stack,
-    Text,
-} from '@healthy360/design-system';
-import {
     PASSWORD_MIN_LENGTH,
     makeResetPasswordSchema,
     toFormResolver,
@@ -17,8 +8,21 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { toFailure, useResetPasswordMutation } from '../data/hooks.ts';
+import {
+    AuthBadge,
+    AuthError,
+    AuthField,
+    AuthHint,
+    AuthLink,
+    AuthMeter,
+    AuthSubmit,
+    AuthText,
+    AuthTick,
+    AuthTitle,
+} from '../ui/auth-form.tsx';
 import {
     applyServerFailure,
     useFailureMessage,
@@ -29,7 +33,9 @@ import {
 const KNOWN_FIELDS = ['token', 'email', 'password', 'password_confirmation'] as const;
 
 /**
- * Reset password.
+ * Reset password, drawn as the accepted Reset-password board in the sign-in frame: "Choose a new
+ * password", the new password with its strength meter and its confirmation (one eye for both), and
+ * "Save new password"; then "Password updated". A link that cannot work is the board's expired pane.
  *
  * The token and the address come from the emailed link (`?token=…&email=…`). Arriving without them
  * is not an error to complain about after a failed submit — the form cannot possibly succeed, so it
@@ -44,6 +50,7 @@ export function ResetPasswordScreen() {
     const translate = useValidationTranslate();
     const describeFailure = useFailureMessage();
     const [done, setDone] = useState(false);
+    const [revealed, setRevealed] = useState(false);
 
     const token = typeof params.token === 'string' ? params.token : '';
     const email = typeof params.email === 'string' ? params.email : '';
@@ -85,89 +92,99 @@ export function ResetPasswordScreen() {
         [describeFailure, form, reset, setFormError],
     );
 
+    const eye = {
+        revealed,
+        onToggleReveal: () => {
+            setRevealed((value) => !value);
+        },
+        showLabel: t('auth:changePassword.showPassword'),
+        hideLabel: t('auth:changePassword.hidePassword'),
+    };
+    const backToSignIn = (
+        <AuthLink
+            testID="reset-password-back"
+            label={t('auth:forgotPassword.backToSignIn')}
+            onPress={() => {
+                router.replace('/sign-in');
+            }}
+        />
+    );
+
     if (token === '' || email === '') {
+        // The board's "This reset link has expired" pane: a link without its token can never
+        // succeed, so the form is not offered at all.
         return (
-            <Stack testID="reset-password-screen" space="lg">
-                <EmptyState
-                    testID="reset-password-missing-link"
-                    title={t('auth:resetPassword.missingLink')}
-                    body={t('auth:resetPassword.missingLinkBody')}
-                    actions={
-                        <Button
-                            testID="reset-password-request-new"
-                            label={t('auth:resetPassword.requestNew')}
-                            onPress={() => {
-                                router.replace('/forgot-password');
-                            }}
-                        />
-                    }
+            <View testID="reset-password-screen" className="flex-col gap-3.5">
+                <View testID="reset-password-missing-link" className="flex-col gap-3.5">
+                    <AuthBadge icon="clock" tone="warning" />
+                    <AuthTitle>{t('auth:resetPassword.missingLink')}</AuthTitle>
+                    <AuthText>{t('auth:resetPassword.missingLinkBody')}</AuthText>
+                </View>
+                <AuthSubmit
+                    testID="reset-password-request-new"
+                    label={t('auth:resetPassword.requestNew')}
+                    onPress={() => {
+                        router.replace('/forgot-password');
+                    }}
                 />
-            </Stack>
+                {backToSignIn}
+            </View>
         );
     }
 
     if (done) {
         return (
-            <Stack testID="reset-password-screen" space="lg">
-                <Heading level={1} testID="reset-password-success-title">
+            <View testID="reset-password-screen" className="flex-col items-center gap-3.5">
+                <AuthTick />
+                <AuthTitle testID="reset-password-success-title" centred>
                     {t('auth:resetPassword.successTitle')}
-                </Heading>
-                <Card tone="brand" padding="md">
-                    <Text role="status" aria-live="polite">
-                        {t('auth:resetPassword.successBody')}
-                    </Text>
-                </Card>
-                <Button
-                    testID="reset-password-sign-in"
-                    block
-                    label={t('auth:login.submit')}
-                    onPress={() => {
-                        router.replace('/sign-in');
-                    }}
-                />
-            </Stack>
+                </AuthTitle>
+                <View role="status" aria-live="polite">
+                    <AuthText centred>{t('auth:resetPassword.successBody')}</AuthText>
+                </View>
+                <View className="mt-2 w-full">
+                    <AuthSubmit
+                        testID="reset-password-sign-in"
+                        label={t('auth:login.submit')}
+                        onPress={() => {
+                            router.replace('/sign-in');
+                        }}
+                    />
+                </View>
+            </View>
         );
     }
 
     return (
-        <Stack testID="reset-password-screen" space="lg">
-            <Stack space="xs">
-                <Heading level={1} testID="reset-password-title">
-                    {t('auth:resetPassword.title')}
-                </Heading>
-                <Text tone="secondary">{t('auth:resetPassword.subtitle')}</Text>
-            </Stack>
+        <View testID="reset-password-screen" className="flex-col gap-3.5">
+            <AuthBadge icon="keyRound" />
+            <AuthTitle testID="reset-password-title">{t('auth:resetPassword.title')}</AuthTitle>
+            <AuthText>{t('auth:resetPassword.subtitle')}</AuthText>
 
             {formError === null ? null : (
-                <Card tone="danger" padding="sm">
-                    <Text
-                        testID="reset-password-error"
-                        tone="danger"
-                        role="alert"
-                        aria-live="assertive"
-                    >
-                        {formError}
-                    </Text>
-                </Card>
+                <AuthError testID="reset-password-error" message={formError} />
             )}
 
             <Controller
                 control={form.control}
                 name="password"
                 render={({ field, fieldState }) => (
-                    <PasswordInput
-                        testID="reset-password-password"
-                        id="reset-password-password"
-                        label={t('auth:resetPassword.passwordLabel')}
-                        placeholder={t('auth:resetPassword.passwordPlaceholder')}
-                        hint={t('auth:register.passwordHint', { count: PASSWORD_MIN_LENGTH })}
-                        autoComplete="new-password"
-                        required
-                        value={field.value}
-                        onChangeText={field.onChange}
-                        onBlur={field.onBlur}
-                        error={fieldState.error?.message}
-                    />
+                    <>
+                        <AuthField
+                            testID="reset-password-password"
+                            label={t('auth:resetPassword.passwordLabel')}
+                            icon="lock"
+                            placeholder={t('auth:resetPassword.passwordPlaceholder')}
+                            autoComplete="new-password"
+                            secret
+                            {...eye}
+                            value={field.value}
+                            onChangeText={field.onChange}
+                            onBlur={field.onBlur}
+                            error={fieldState.error?.message}
+                        />
+                        <AuthMeter value={field.value} minimum={PASSWORD_MIN_LENGTH} />
+                    </>
                 )}
             />
 
@@ -175,13 +192,14 @@ export function ResetPasswordScreen() {
                 control={form.control}
                 name="password_confirmation"
                 render={({ field, fieldState }) => (
-                    <PasswordInput
+                    <AuthField
                         testID="reset-password-confirmation"
-                        id="reset-password-confirmation"
                         label={t('auth:resetPassword.passwordConfirmationLabel')}
+                        icon="lock"
                         placeholder={t('auth:resetPassword.passwordConfirmationPlaceholder')}
                         autoComplete="new-password"
-                        required
+                        secret
+                        {...eye}
                         value={field.value}
                         onChangeText={field.onChange}
                         onBlur={field.onBlur}
@@ -190,15 +208,16 @@ export function ResetPasswordScreen() {
                 )}
             />
 
-            <Button
+            <AuthHint>{t('auth:register.passwordHint', { count: PASSWORD_MIN_LENGTH })}</AuthHint>
+
+            <AuthSubmit
                 testID="reset-password-submit"
-                block
                 label={t('auth:resetPassword.submit')}
-                loading={reset.isPending}
+                busy={reset.isPending}
                 onPress={() => {
                     void form.handleSubmit(onSubmit)();
                 }}
             />
-        </Stack>
+        </View>
     );
 }

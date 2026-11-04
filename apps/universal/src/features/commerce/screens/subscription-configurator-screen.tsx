@@ -1,15 +1,7 @@
-import {
-    Button,
-    EmptyState,
-    Icon,
-    Stack,
-    StepProgress,
-    useBreakpoint,
-} from '@healthy360/design-system';
+import { Button, EmptyState, Icon, Stack, useBreakpoint } from '@healthy360/design-system';
 import type {
     CustomerAddress,
     MarketplaceMeal,
-    SubscriptionPreview,
     SubscriptionRefusal,
 } from '@healthy360/api-client/contracts';
 import { SubscriptionPlanId } from '@healthy360/domain-types';
@@ -17,8 +9,9 @@ import type { PlanVariantId } from '@healthy360/domain-types';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
-import { Text as RNText, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { mealsFromPages, useMealsQuery, usePlanQuery } from '../../../data/catalogue-hooks.ts';
 import {
@@ -39,7 +32,8 @@ import {
     stepForRequirement,
 } from '../../account/account-setup-steps.tsx';
 import type { AccountSetupStep } from '../../account/account-setup-steps.tsx';
-import { ListingHeader } from '../../../ui/listing-header.tsx';
+import { listDayPrice } from '../../catalogue/plan-balance.ts';
+import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { EMPTY_ADDRESS, toDeliveryAddress } from '../address.ts';
 import {
@@ -56,19 +50,27 @@ import {
     DeliveryStep,
     PlanStep,
     ReviewStep,
-    TermsAcknowledgement,
+    bandLabel,
+    mealsLine,
+    slotName,
 } from '../configurator-steps.tsx';
+import type { PayMethod } from '../configurator-steps.tsx';
 import {
     CONFIGURATOR_STEPS,
     combinationKey,
+    configuredDeliveryDates,
+    durationOption,
+    estimatedTotal,
     firstIncompleteStep,
     initialConfiguratorState,
     isStepReachable,
     mealCombinations,
+    missingPicks,
     nextConfiguratorStep,
     pickedMealIds,
     previousConfiguratorStep,
     savedAddressValues,
+    sittingsOf,
     stepPosition,
     toConfiguration,
     validateConfiguratorStep,
@@ -77,13 +79,11 @@ import {
 } from '../configurator.ts';
 import type { ConfiguratorState, ConfiguratorStep, StepContext } from '../configurator.ts';
 import { earliestStartDate, nextAllowedDate } from '../dates.ts';
-import { servedAreas } from '../delivery.ts';
+import { defaultSlotCode, deliverySlotsForKitchen, servedAreas } from '../delivery.ts';
 import type { DeliveryAreaStatus } from '../delivery.ts';
-import { PlanReceipt } from '../order-receipt.tsx';
 import { MealsStep } from '../plan-meal-picker.tsx';
+import { SetupBand, SetupStepper } from '../plan-setup-frame.tsx';
 import { PlanSetupSummary } from '../plan-setup-summary.tsx';
-import { ReceiptPrinter } from '../receipt-printer.tsx';
-import type { ReceiptPrinterStage } from '../receipt-printer.tsx';
 
 /**
  * `/customer/subscriptions/new?plan={id}` — setting up a subscription, in four steps.
@@ -94,9 +94,11 @@ import type { ReceiptPrinterStage } from '../receipt-printer.tsx';
  * Subscribe waits until every day is filled. ④ **Review** — the choices with an Edit back to each,
  * the server's price and the terms. `configurator.ts` holds the rules.
  *
- * Beside the step, from `lg`, a summary card states what has been chosen and the price, and carries
- * the action that moves the flow on; below `lg` it is a bar pinned to the foot of the page. The
- * price is there from the first step — an estimate until the review step has the server's preview.
+ * Drawn as the accepted "Plan setup" board: the canopy band with the plan's chips, the stepper card
+ * over its foot, the step's pane, and beside it from `lg` the "Your plan" summary with Back and the
+ * button that moves on (a bar pinned to the foot of the page below `lg`). The price is there from
+ * the first step — an estimate until the review step has the server's preview. Booking ends on the
+ * board's "Your plan is booked".
  *
  * ## The confirm step is real
  *
@@ -130,9 +132,9 @@ import type { ReceiptPrinterStage } from '../receipt-printer.tsx';
  *
  * ## Creating replaces the set-up
  *
- * A created subscription is `/customer/subscriptions/{id}?created=1`, reached by `replace`, so
- * refresh shows the subscription and Back never offers a spent set-up ready to create a second one
- * (plans-04).
+ * A created subscription is `/customer/subscriptions/{id}?created=1`, reached from the booked panel
+ * by `replace`, so refresh shows the subscription and Back never offers a spent set-up ready to
+ * create a second one (plans-04).
  */
 
 export interface SubscriptionConfiguratorScreenProps {
@@ -146,6 +148,7 @@ export function SubscriptionConfiguratorScreen({
     variantId: variantProp,
 }: SubscriptionConfiguratorScreenProps) {
     const { t } = useTranslation();
+    const formatter = useFormatter();
     const router = useRouter();
     const queryClient = useQueryClient();
     const { atLeast } = useBreakpoint();
@@ -182,6 +185,11 @@ export function SubscriptionConfiguratorScreen({
 
     const [showIssues, setShowIssues] = useState(false);
     const [termsAcknowledged, setTermsAcknowledged] = useState(false);
+    // How the person means to pay. Shown only: the plan purchase takes no payment yet.
+    const [pay, setPay] = useState<PayMethod>('cash');
+
+    // The kitchen's own delivery windows — Breakfast, Lunch, Snack, Dinner — as the shop offers them.
+    const slots = useMemo(() => deliverySlotsForKitchen(kitchen.data), [kitchen.data]);
 
     const addresses = useAddressesQuery();
     // Memoised rather than `?? []` inline: the fallback allocates a fresh array on every render,
@@ -310,13 +318,18 @@ export function SubscriptionConfiguratorScreen({
                 : {
                       ...defaults,
                       ...edits,
+                      slotCode: slots.some(
+                          (slot) => slot.code === (edits.slotCode ?? defaults.slotCode),
+                      )
+                          ? (edits.slotCode ?? defaults.slotCode)
+                          : (defaultSlotCode(slots) ?? defaults.slotCode),
                       termsAcknowledged,
                       address:
                           savedAddress === undefined
                               ? EMPTY_ADDRESS
                               : savedAddressValues(savedAddress),
                   },
-        [defaults, edits, savedAddress, termsAcknowledged],
+        [defaults, edits, savedAddress, slots, termsAcknowledged],
     );
 
     /* ── derived ─────────────────────────────────────────────────────────────────────────────── */
@@ -347,9 +360,10 @@ export function SubscriptionConfiguratorScreen({
             areaStatus,
             hasSavedAddress: savedAddress !== undefined,
             earliestStartDate: earliest,
+            slotCodes: slots.map((slot) => slot.code),
             translate: (key: string) => validationTranslate(key),
         };
-    }, [allowedWeekdays, areaStatus, earliest, item, savedAddress, validationTranslate]);
+    }, [allowedWeekdays, areaStatus, earliest, item, savedAddress, slots, validationTranslate]);
 
     /*
      * The step is `?step=`, honoured only while every step before it is satisfied. A link, a stale
@@ -395,16 +409,11 @@ export function SubscriptionConfiguratorScreen({
     const createFailure = toFailure(create.error);
 
     /*
-     * The receipt printer beside Subscribe. "Processing" covers the create call; then the receipt
-     * prints the priced preview of exactly what was created,
-     * and "View plan" is the step on, so the new subscription opens when the customer is ready
-     * rather than mid-print.
+     * Once created, the step gives way to the board's "Your plan is booked": the plan and its start,
+     * "See my plan" (the new subscription, by `replace`, so Back is not a second chance to create it —
+     * plans-04) and "Back to plans".
      */
-    const [receipt, setReceipt] = useState<{
-        readonly stage: ReceiptPrinterStage;
-        readonly preview: SubscriptionPreview | null;
-        readonly href: string | null;
-    } | null>(null);
+    const [booked, setBooked] = useState<{ readonly href: string } | null>(null);
 
     /*
      * Account set-up the server still needs, read before step one rather than discovered at
@@ -497,7 +506,6 @@ export function SubscriptionConfiguratorScreen({
             setShowIssues(true);
             return;
         }
-        setReceipt({ stage: 'processing', preview: null, href: null });
         create.mutate(
             {
                 configuration: request,
@@ -507,24 +515,13 @@ export function SubscriptionConfiguratorScreen({
             {
                 onSuccess: (subscription) => {
                     configuratorDrafts.clear(draftKey);
-                    // Replaces the set-up: the new subscription has a URL of its own, a refresh
-                    // shows it, and Back is not a second chance to create it (plans-04).
-                    const href = withQuery(`/customer/subscriptions/${String(subscription.id)}`, {
-                        created: '1',
+                    setBooked({
+                        href: withQuery(`/customer/subscriptions/${String(subscription.id)}`, {
+                            created: '1',
+                        }),
                     });
-                    // The price of the configuration that was sent, read when it exists: a pick
-                    // made just before Subscribe can still have its preview in flight at the press.
-                    const printed = queryClient.getQueryData<SubscriptionPreview>(
-                        queryKeys.commerce.subscriptionPreview(request),
-                    );
-                    if (printed === undefined) {
-                        router.replace(href as never);
-                        return;
-                    }
-                    setReceipt({ stage: 'printing', preview: printed, href });
                 },
                 onError: () => {
-                    setReceipt(null);
                     // A set-up refusal means the checklist read earlier is out of date.
                     void queryClient.invalidateQueries({
                         queryKey: queryKeys.account.checklist(),
@@ -561,93 +558,61 @@ export function SubscriptionConfiguratorScreen({
 
     const current = stepPosition(step) - 1;
     const wide = atLeast('lg');
-    // Once it prints, the receipt is the summary and Subscribe has done its job.
-    const printing = receipt !== null && receipt.stage !== 'processing';
+    const dash = '—';
 
-    const printer =
-        item === undefined || step !== 'review' ? null : (
-            <View className="flex-col gap-4">
-                <ReceiptPrinter.Root
-                    testID="configurator-printer"
-                    stage={receipt?.stage ?? 'idle'}
-                    onPrinted={() => {
-                        setReceipt((previous) =>
-                            previous === null ? null : { ...previous, stage: 'complete' },
-                        );
-                    }}
-                >
-                    <ReceiptPrinter.Machine>
-                        <ReceiptPrinter.Screen>
-                            <ReceiptPrinter.Status>
-                                {receipt?.stage === 'complete'
-                                    ? t('commerce:receipt.planComplete')
-                                    : undefined}
-                            </ReceiptPrinter.Status>
-                        </ReceiptPrinter.Screen>
-                    </ReceiptPrinter.Machine>
-                    {receipt === null || receipt.preview === null ? null : (
-                        <ReceiptPrinter.Output>
-                            <ReceiptPrinter.Paper>
-                                <PlanReceipt
-                                    testID="configurator-receipt"
-                                    planName={item.name}
-                                    preview={receipt.preview}
-                                />
-                            </ReceiptPrinter.Paper>
-                        </ReceiptPrinter.Output>
-                    )}
-                </ReceiptPrinter.Root>
-                {receipt?.stage !== 'complete' || receipt.href === null ? null : (
-                    <Button
-                        testID="configurator-view-plan"
-                        block
-                        size="lg"
-                        label={t('commerce:receipt.viewPlan')}
-                        onPress={() => {
-                            router.replace(receipt.href as never);
-                        }}
-                    />
-                )}
-            </View>
-        );
+    // What the band, the stepper and the summary say about the set-up so far.
+    const option =
+        item === undefined || state === null ? undefined : durationOption(item, state.duration);
+    const dates = item === undefined || state === null ? [] : configuredDeliveryDates(state, item);
+    const slotsPerDay = item === undefined || state === null ? 0 : sittingsOf(item, state).length;
+    const totalSlots = dates.length * slotsPerDay;
+    const picked =
+        item === undefined || state === null ? 0 : totalSlots - missingPicks(state, item);
+    const chosenSlot =
+        state === null ? undefined : slots.find((slot) => slot.code === state.slotCode);
+    const windowLabel =
+        state === null || chosenSlot === undefined
+            ? null
+            : slotName(chosenSlot, chosenSlot.code, t);
+    const startLabel =
+        state === null || state.startDate === null
+            ? null
+            : formatter.formatDate(`${state.startDate}T12:00:00Z`, {
+                  weekday: 'short',
+                  day: 'numeric',
+                  month: 'short',
+              });
+    const total =
+        preview.data?.total ?? (variant === null ? null : estimatedTotal(variant, option));
+    const addressLabel =
+        savedAddress === undefined
+            ? null
+            : savedAddress.label.trim() === ''
+              ? savedAddress.areaName
+              : savedAddress.label;
+
+    const stepSub: Record<ConfiguratorStep, string> = {
+        plan: item?.name ?? dash,
+        delivery:
+            addressLabel === null && windowLabel === null
+                ? dash
+                : [addressLabel, windowLabel].filter((part) => part !== null).join(' · '),
+        meals: t('commerce:configurator.summary.mealsOf', {
+            done: formatter.formatNumber(picked),
+            total: formatter.formatNumber(totalSlots),
+        }),
+        review: total === null ? dash : formatMoney(formatter, total),
+    };
+
+    const nextLabel: Record<ConfiguratorStep, string> = {
+        plan: t('commerce:configurator.nextTo.delivery'),
+        delivery: t('commerce:configurator.nextTo.meals'),
+        meals: t('commerce:configurator.nextTo.review'),
+        review: t('commerce:configurator.placeOrder'),
+    };
 
     return (
-        <View testID="configurator-screen" className="flex-col">
-            <ListingHeader
-                testID="configurator-header"
-                // Up to the listing as the person left it, and to the plan on the band chosen here —
-                // not to a bare path that resets both (browse-05). The draft keeps the set-up.
-                breadcrumbs={[
-                    {
-                        key: 'plans',
-                        label: t('catalogue:nav.plans'),
-                        onPress: () => {
-                            navigateUp('/plans');
-                        },
-                    },
-                    ...(item === undefined
-                        ? []
-                        : [
-                              {
-                                  key: 'plan',
-                                  label: item.name,
-                                  onPress: () => {
-                                      navigateUp(
-                                          withQuery(`/plans/${String(item.id)}`, {
-                                              variant: state?.variantId ?? variantId,
-                                          }),
-                                      );
-                                  },
-                              },
-                          ]),
-                ]}
-                title={
-                    item === undefined
-                        ? t('commerce:configurator.title')
-                        : t('commerce:configurator.titleFor', { plan: item.name })
-                }
-            />
-
+        <View testID="configurator-screen" className="flex-col pb-10">
             <QueryStates
                 query={plan}
                 isEmpty={item === undefined}
@@ -658,184 +623,212 @@ export function SubscriptionConfiguratorScreen({
                 testID="configurator"
             >
                 {item === undefined || state === null ? null : (
-                    <View className="mt-6 flex-col gap-8 lg:flex-row lg:items-start">
-                        <View className="min-w-0 flex-col lg:flex-1">
-                            {setupSteps.length === 0 ? null : (
-                                <View className="mb-6">
-                                    <AccountSetupPanel
-                                        testID="configurator-setup-required"
-                                        title={t('commerce:configurator.setupTitle')}
-                                        body={t('commerce:configurator.setupBody', {
-                                            count: setupSteps.length,
-                                        })}
-                                        steps={setupSteps}
-                                        stepsTestID="configurator-setup-step"
-                                        returnTo={here}
+                    <View className="flex-col">
+                        <SetupBand
+                            testID="configurator-header"
+                            back={{
+                                label: t('marketplace:nav.weeklyPlans'),
+                                // Up to the listing as the person left it (browse-05). The draft
+                                // keeps the set-up.
+                                onPress: () => {
+                                    navigateUp('/plans');
+                                },
+                            }}
+                            title={t('commerce:configurator.titleFor', { plan: item.name })}
+                            chips={[
+                                ...(variant === null
+                                    ? []
+                                    : [
+                                          t('commerce:configurator.aDay', {
+                                              value: formatMoney(formatter, listDayPrice(variant)),
+                                          }),
+                                          t('commerce:configurator.aDay', {
+                                              value: bandLabel(variant, formatter.formatNumber, t),
+                                          }),
+                                          mealsLine(variant, formatter.formatNumber, t),
+                                      ]),
+                                ...(option === undefined
+                                    ? []
+                                    : [
+                                          t('catalogue:plans.finderDaysValue', {
+                                              count: option.days,
+                                          }),
+                                      ]),
+                            ]}
+                        />
+
+                        <SetupStepper
+                            testID="configurator-stepper"
+                            label={t('commerce:configurator.progressLabel')}
+                            steps={CONFIGURATOR_STEPS.map((key, index) => ({
+                                key,
+                                label: t(`commerce:configurator.steps.${key}`),
+                                sub: stepSub[key],
+                                state:
+                                    booked !== null || index < current
+                                        ? 'done'
+                                        : index === current
+                                          ? 'current'
+                                          : 'todo',
+                                locked:
+                                    booked !== null ||
+                                    context === null ||
+                                    !isStepReachable(key, state, context),
+                                testID: `configurator-progress-${key}`,
+                            }))}
+                            onSelect={(key) => {
+                                const target = CONFIGURATOR_STEPS.find((each) => each === key);
+                                if (target !== undefined && target !== step) goTo(target);
+                            }}
+                        />
+
+                        <View className="mt-[22px] flex-col gap-6 lg:flex-row lg:items-start">
+                            <View className="min-w-0 flex-col lg:flex-1">
+                                {setupSteps.length === 0 || booked !== null ? null : (
+                                    <View className="mb-6">
+                                        <AccountSetupPanel
+                                            testID="configurator-setup-required"
+                                            title={t('commerce:configurator.setupTitle')}
+                                            body={t('commerce:configurator.setupBody', {
+                                                count: setupSteps.length,
+                                            })}
+                                            steps={setupSteps}
+                                            stepsTestID="configurator-setup-step"
+                                            returnTo={here}
+                                        />
+                                    </View>
+                                )}
+
+                                {booked !== null ? (
+                                    <BookedPanel
+                                        planName={item.name}
+                                        startLabel={startLabel}
+                                        onSeePlan={() => {
+                                            router.replace(booked.href as never);
+                                        }}
+                                        onBackToPlans={() => {
+                                            router.replace('/plans' as never);
+                                        }}
                                     />
-                                </View>
-                            )}
-                            <View className="mb-2">
-                                <StepProgress
-                                    testID="configurator-stepper"
-                                    label={t('commerce:configurator.progressLabel')}
-                                    steps={CONFIGURATOR_STEPS.map((key) => ({
-                                        key,
-                                        label: t(`commerce:configurator.steps.${key}`),
-                                        disabled:
-                                            state === null ||
-                                            context === null ||
-                                            !isStepReachable(key, state, context),
-                                        testID: `configurator-progress-${key}`,
-                                    }))}
-                                    current={current}
-                                    completed={
-                                        new Set(
-                                            CONFIGURATOR_STEPS.map((_, index) => index).filter(
-                                                (i) => i < current,
-                                            ),
-                                        )
-                                    }
-                                    onSelect={(index) => {
-                                        const target = CONFIGURATOR_STEPS[index];
-                                        if (target !== undefined && target !== step) goTo(target);
-                                    }}
-                                />
-                            </View>
-                            {step === 'plan' ? (
-                                <PlanStep
-                                    plan={item}
-                                    variant={variant}
-                                    state={state}
-                                    patch={patch}
-                                    onCombination={(key) => {
-                                        const combination = mealCombinations(item).find(
-                                            (option) => combinationKey(option) === key,
-                                        );
-                                        if (combination === undefined) return;
-                                        const next = variantForCombination(
-                                            item,
-                                            combination,
-                                            variant,
-                                        );
-                                        if (next !== null) patch({ variantId: next.id });
-                                    }}
-                                />
-                            ) : null}
+                                ) : null}
 
-                            {step === 'delivery' ? (
-                                <DeliveryStep
-                                    state={state}
-                                    patch={patch}
-                                    allowedWeekdays={allowedWeekdays}
-                                    earliestStartDate={earliest}
-                                    cutoffHours={cutoffHours}
-                                    areaStatus={areaStatus}
-                                    servedAreas={areas}
-                                    chosenMeals={chosenMeals}
-                                    chosenMealsLoaded={menuLoaded}
-                                    returnTo={here}
-                                    showIssues={showIssues}
-                                    savedAddresses={addressList}
-                                    addressId={addressId}
-                                    onAddressIdChange={(next) => {
-                                        router.setParams({ address: next ?? undefined } as never);
-                                    }}
-                                    onAddAddress={onAddAddress}
-                                />
-                            ) : null}
-
-                            {step === 'meals' ? (
-                                <MealsStep
-                                    plan={item}
-                                    state={state}
-                                    patch={patch}
-                                    menu={menu}
-                                    menuLoading={!menuLoaded}
-                                    showIssues={showIssues}
-                                />
-                            ) : null}
-
-                            {step === 'review' ? (
-                                <QueryStates
-                                    query={preview}
-                                    isEmpty={preview.data === undefined}
-                                    emptyTitle={t('commerce:configurator.previewEmptyTitle')}
-                                    emptyBody={t('commerce:configurator.previewEmptyBody')}
-                                    skeletonCount={2}
-                                    testID="configurator-preview"
-                                >
-                                    <ReviewStep
+                                {booked === null && step === 'plan' ? (
+                                    <PlanStep
                                         plan={item}
+                                        variant={variant}
                                         state={state}
-                                        preview={preview.data}
-                                        savedAddress={savedAddress}
+                                        patch={patch}
+                                        onChangePlan={() => {
+                                            navigateUp('/plans');
+                                        }}
+                                        onCombination={(key) => {
+                                            const combination = mealCombinations(item).find(
+                                                (each) => combinationKey(each) === key,
+                                            );
+                                            if (combination === undefined) return;
+                                            const next = variantForCombination(
+                                                item,
+                                                combination,
+                                                variant,
+                                            );
+                                            if (next !== null) patch({ variantId: next.id });
+                                        }}
+                                    />
+                                ) : null}
+
+                                {booked === null && step === 'delivery' ? (
+                                    <DeliveryStep
+                                        state={state}
+                                        patch={patch}
+                                        allowedWeekdays={allowedWeekdays}
+                                        earliestStartDate={earliest}
+                                        firstStartTile={
+                                            startFloor.data?.earliestStartDate ??
+                                            earliestStartDate(new Date(), cutoffHours)
+                                        }
+                                        cutoffHours={cutoffHours}
+                                        slots={slots}
+                                        areaStatus={areaStatus}
+                                        servedAreas={areas}
                                         chosenMeals={chosenMeals}
                                         chosenMealsLoaded={menuLoaded}
                                         returnTo={here}
-                                        onEdit={goTo}
+                                        showIssues={showIssues}
+                                        savedAddresses={addressList}
+                                        addressId={addressId}
+                                        onAddressIdChange={(next) => {
+                                            router.setParams({
+                                                address: next ?? undefined,
+                                            } as never);
+                                        }}
+                                        onAddAddress={onAddAddress}
                                     />
-                                </QueryStates>
-                            ) : null}
+                                ) : null}
 
-                            {/* Below `lg` the rail is a bar pinned to the foot of the page, so the
-                                printer stands at the end of the review instead. */}
-                            {wide || printer === null ? null : (
-                                <View className="mt-6">{printer}</View>
-                            )}
+                                {booked === null && step === 'meals' ? (
+                                    <MealsStep
+                                        plan={item}
+                                        state={state}
+                                        patch={patch}
+                                        menu={menu}
+                                        menuLoading={!menuLoaded}
+                                        showIssues={showIssues}
+                                    />
+                                ) : null}
 
-                            {previousConfiguratorStep(step) === null && !hasDraft ? null : (
-                                <View className="mt-5 flex-row flex-wrap items-center gap-2 self-start">
-                                    {previousConfiguratorStep(step) === null ? null : (
-                                        <Button
-                                            testID="configurator-back"
-                                            variant="quiet"
-                                            label={t('commerce:configurator.back')}
-                                            onPress={onBack}
+                                {booked === null && step === 'review' ? (
+                                    <QueryStates
+                                        query={preview}
+                                        isEmpty={preview.data === undefined}
+                                        emptyTitle={t('commerce:configurator.previewEmptyTitle')}
+                                        emptyBody={t('commerce:configurator.previewEmptyBody')}
+                                        skeletonCount={2}
+                                        testID="configurator-preview"
+                                    >
+                                        <ReviewStep
+                                            plan={item}
+                                            state={state}
+                                            patch={patch}
+                                            preview={preview.data}
+                                            savedAddress={savedAddress}
+                                            slots={slots}
+                                            cutoffHours={cutoffHours}
+                                            chosenMeals={chosenMeals}
+                                            chosenMealsLoaded={menuLoaded}
+                                            returnTo={here}
+                                            pay={pay}
+                                            onPay={setPay}
+                                            showIssues={showIssues}
+                                            onEdit={goTo}
                                         />
-                                    )}
-                                    {/* Quiet, and only once there is something to discard: the
-                                        remembered choices are the point, and forgetting them is
-                                        the exception. */}
-                                    {hasDraft ? (
-                                        <Button
-                                            testID="configurator-start-over"
-                                            variant="quiet"
-                                            label={t('commerce:configurator.startOver')}
-                                            onPress={startOver}
-                                        />
-                                    ) : null}
-                                </View>
-                            )}
-                        </View>
+                                    </QueryStates>
+                                ) : null}
+                            </View>
 
-                        {/*
-                         * Sticky on the web against the shell's scroll port: beside the step from
-                         * `lg`, pinned to the foot of the page below it. The wrapper sticks, not the
-                         * card — a sticky box sticks within its parent.
-                         */}
-                        <View
-                            className={
-                                wide
-                                    ? // A printed receipt is taller than a screen: it scrolls.
-                                      printing
-                                        ? 'w-[320px] flex-col gap-4'
-                                        : 'w-[320px] flex-col gap-4 web:sticky web:top-6'
-                                    : 'z-10 web:sticky web:bottom-4'
-                            }
-                        >
-                            {wide ? printer : null}
-                            {printing ? null : (
+                            {/*
+                             * Sticky on the web against the shell's scroll port: beside the step from
+                             * `lg`, pinned to the foot of the page below it. The wrapper sticks, not
+                             * the card — a sticky box sticks within its parent.
+                             */}
+                            <View
+                                className={
+                                    wide
+                                        ? 'w-[360px] flex-col web:sticky web:top-0'
+                                        : 'z-10 web:sticky web:bottom-4'
+                                }
+                            >
                                 <PlanSetupSummary
                                     plan={item}
                                     variant={variant}
                                     state={state}
-                                    showDelivery={step !== 'plan'}
                                     preview={preview.data}
-                                    actionLabel={
-                                        step === 'review'
-                                            ? t('commerce:configurator.create')
-                                            : t('commerce:configurator.next')
-                                    }
+                                    startLabel={startLabel}
+                                    windowLabel={windowLabel}
+                                    picked={picked}
+                                    slots={totalSlots}
+                                    showActions={booked === null}
+                                    actionLabel={nextLabel[step]}
+                                    actionTail={step === 'review' ? 'total' : 'arrow'}
                                     actionTestID={
                                         step === 'review'
                                             ? 'configurator-create'
@@ -848,7 +841,7 @@ export function SubscriptionConfiguratorScreen({
                                     actionLoading={step === 'review' ? create.isPending : !settled}
                                     actionDisabled={
                                         step === 'review' &&
-                                        (setupSteps.length > 0 || receipt !== null)
+                                        (setupSteps.length > 0 || !state.termsAcknowledged)
                                     }
                                     {...(step === 'review' && setupSteps.length > 0
                                         ? {
@@ -858,6 +851,7 @@ export function SubscriptionConfiguratorScreen({
                                           }
                                         : {})}
                                     onAction={step === 'review' ? onCreate : onNext}
+                                    {...(previousConfiguratorStep(step) === null ? {} : { onBack })}
                                     notice={
                                         <SetupNotice
                                             issues={showIssues ? issues : []}
@@ -870,22 +864,94 @@ export function SubscriptionConfiguratorScreen({
                                             returnTo={here}
                                         />
                                     }
-                                    {...(step === 'review'
+                                    // Quiet, and only once there is something to discard: the
+                                    // remembered choices are the point, and forgetting them is the
+                                    // exception.
+                                    {...(hasDraft && booked === null
                                         ? {
-                                              confirm: (
-                                                  <TermsAcknowledgement
-                                                      state={state}
-                                                      patch={patch}
-                                                  />
+                                              footer: (
+                                                  <Pressable
+                                                      testID="configurator-start-over"
+                                                      role="button"
+                                                      accessibilityRole="button"
+                                                      onPress={startOver}
+                                                      className="min-h-touch justify-center px-2"
+                                                  >
+                                                      <RNText className="text-sm font-semibold text-content-secondary hover:text-content-primary">
+                                                          {t('commerce:configurator.startOver')}
+                                                      </RNText>
+                                                  </Pressable>
                                               ),
                                           }
                                         : {})}
                                 />
-                            )}
+                            </View>
                         </View>
                     </View>
                 )}
             </QueryStates>
+        </View>
+    );
+}
+
+/** The board's "Your plan is booked": a big tick, the plan and its start, and the two ways on. */
+function BookedPanel({
+    planName,
+    startLabel,
+    onSeePlan,
+    onBackToPlans,
+}: {
+    readonly planName: string;
+    readonly startLabel: string | null;
+    readonly onSeePlan: () => void;
+    readonly onBackToPlans: () => void;
+}) {
+    const { t } = useTranslation();
+    return (
+        <View
+            testID="configurator-booked"
+            role="status"
+            className="items-center gap-2.5 rounded-[26px] border border-stroke-subtle bg-surface-raised px-6 py-10"
+        >
+            <View className="h-24 w-24 items-center justify-center rounded-full bg-surface-brand-subtle">
+                <Icon name="check" size="lg" className="text-content-on-brand-subtle" />
+            </View>
+            <RNText
+                role="heading"
+                aria-level={2}
+                className="font-display text-3xl font-bold tracking-display text-content-primary text-center"
+            >
+                {t('commerce:configurator.booked.title')}
+            </RNText>
+            <RNText className="text-base text-content-secondary text-center">
+                {startLabel === null
+                    ? planName
+                    : t('commerce:configurator.booked.body', { plan: planName, date: startLabel })}
+            </RNText>
+            <View className="mt-2.5 flex-row flex-wrap justify-center gap-2.5">
+                <Pressable
+                    testID="configurator-view-plan"
+                    role="button"
+                    accessibilityRole="button"
+                    onPress={onSeePlan}
+                    className="h-[52px] justify-center rounded-2xl border border-stroke px-[18px] hover:bg-surface-sunken"
+                >
+                    <RNText className="text-sm font-semibold text-content-primary">
+                        {t('commerce:configurator.booked.seePlan')}
+                    </RNText>
+                </Pressable>
+                <Pressable
+                    testID="configurator-back-to-plans"
+                    role="button"
+                    accessibilityRole="button"
+                    onPress={onBackToPlans}
+                    className="h-[52px] justify-center rounded-2xl bg-surface-brand px-5 hover:bg-surface-canopy"
+                >
+                    <RNText className="text-base font-bold text-content-on-brand">
+                        {t('commerce:configurator.booked.backToPlans')}
+                    </RNText>
+                </Pressable>
+            </View>
         </View>
     );
 }

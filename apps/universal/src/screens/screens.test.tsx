@@ -916,7 +916,7 @@ describe('DevicesScreen', () => {
  * with the token fields hidden.
  */
 describe('ChangePasswordScreen', () => {
-    it('states the reason when the change is being forced', async () => {
+    it('reads as an obligation when the change is being forced', async () => {
         await renderStubScreen(<ChangePasswordScreen />, {
             session: testMeResponse({ user: { mustChangePassword: true } }),
         });
@@ -924,8 +924,8 @@ describe('ChangePasswordScreen', () => {
         // The route's `<Gate>` holds a restoring session, so in the application the screen never
         // renders before `/me` has answered. Rendered bare, it settles a tick later.
         await waitFor(() => {
-            expect(screen.getByTestId('change-password-subtitle')).toHaveTextContent(
-                /somebody else knows/,
+            expect(screen.getByTestId('change-password-title')).toHaveTextContent(
+                'Choose your own password',
             );
         });
     });
@@ -934,11 +934,11 @@ describe('ChangePasswordScreen', () => {
         await renderStubScreen(<ChangePasswordScreen />);
 
         await waitFor(() => {
-            expect(screen.getByTestId('change-password-subtitle')).toBeTruthy();
+            expect(screen.getByTestId('change-password-title')).toHaveTextContent(
+                'Change your password',
+            );
         });
-        expect(screen.getByTestId('change-password-subtitle')).not.toHaveTextContent(
-            /somebody else knows/,
-        );
+        expect(screen.getByTestId('change-password-cancel')).toBeTruthy();
     });
 
     it('sends the old password with the new one and keeps the session', async () => {
@@ -1353,8 +1353,8 @@ describe('ChangePasswordScreen — the two ways out', () => {
         });
         // Rendered bare, the screen reads the flag a tick after `/me` answers.
         await waitFor(() => {
-            expect(screen.getByTestId('change-password-subtitle')).toHaveTextContent(
-                /somebody else knows/,
+            expect(screen.getByTestId('change-password-title')).toHaveTextContent(
+                'Choose your own password',
             );
         });
         expect(screen.queryByTestId('change-password-cancel')).toBeNull();

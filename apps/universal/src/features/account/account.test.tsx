@@ -352,7 +352,8 @@ describe('AccountScreen', () => {
 
         await fireEvent.press(await screen.findByTestId('account-tab-subscriptions'));
         expect(await screen.findByTestId('subscriptions-screen')).toBeTruthy();
-        expect(screen.queryByTestId('subscriptions-title')).toBeNull();
+        // Its title is the section's own, as every other section's — never a page heading.
+        expect(screen.getByTestId('subscriptions-title')).toHaveProp('aria-level', 2);
     });
 
     it('draws the design’s six sections, plus subscriptions, in order', async () => {
@@ -649,11 +650,11 @@ describe('AccountScreen — profile', () => {
         // The panel is not gated on the session: it draws at once and the fields fill when `/me`
         // answers, so wait on the value rather than on the input.
         await waitFor(() => {
-            expect(screen.getByTestId('account-profile-name-input').props.value).toBe(
+            expect(screen.getByTestId('account-profile-name-value')).toHaveTextContent(
                 'Test Person',
             );
         });
-        expect(screen.getByTestId('account-profile-email-input').props.value).toBe(
+        expect(screen.getByTestId('account-profile-email-value')).toHaveTextContent(
             'test.person@example.test',
         );
         expect(await screen.findByTestId('account-profile-dietary-unavailable')).toBeTruthy();
@@ -674,21 +675,18 @@ describe('AccountScreen — profile', () => {
         });
 
         await fireEvent.press(await screen.findByTestId('account-tab-profile'));
-        expect(await screen.findByTestId('account-profile-title')).toHaveTextContent(
-            'Profile & preferences',
-        );
+        expect(await screen.findByTestId('account-profile-title')).toHaveTextContent('Profile');
         await screen.findByText('+971 50 *** 4567');
-        // The design's inputs, read-only where the contract has no way to change the value.
+        // Values, not inputs: the contract has no way to change a name or a sign-in address.
         await waitFor(() => {
-            expect(screen.getByTestId('account-profile-name-input').props.value).toBe(
+            expect(screen.getByTestId('account-profile-name-value')).toHaveTextContent(
                 'Test Person',
             );
         });
-        const name = screen.getByTestId('account-profile-name-input');
-        expect(name.props.readOnly).toBe(true);
-        const email = screen.getByTestId('account-profile-email-input');
-        expect(email.props.value).toBe('test.person@example.test');
-        expect(email.props.readOnly).toBe(true);
+        expect(screen.queryByTestId('account-profile-name-input')).toBeNull();
+        expect(screen.getByTestId('account-profile-email-value')).toHaveTextContent(
+            'test.person@example.test',
+        );
         expect(screen.getByTestId('account-profile-phone-value')).toHaveTextContent(
             '+971 50 *** 4567',
         );
@@ -709,8 +707,10 @@ describe('AccountScreen — profile', () => {
             true,
         );
 
+        // The allergy card opens the account's own Allergies section.
         await fireEvent.press(screen.getByTestId('account-profile-allergies-edit'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/allergies');
+        expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ section: 'allergies' });
+        await fireEvent.press(screen.getByTestId('account-tab-profile'));
 
         await fireEvent.press(screen.getByTestId('account-profile-phone-open'));
         expect(routerMock.__push).toHaveBeenCalledWith('/customer/account/phone');
@@ -739,9 +739,8 @@ describe('AccountScreen — profile', () => {
         });
 
         await fireEvent.press(await screen.findByTestId('account-tab-profile'));
-        expect(await screen.findByTestId('account-profile-allergies')).toHaveTextContent(
-            /^Allergies: /,
-        );
+        // The declared allergies are listed on the allergy card.
+        expect(await screen.findByTestId('account-profile-allergies')).toBeTruthy();
         const chip = await screen.findByTestId('account-profile-diets-vegetarian');
         await fireEvent.press(chip);
         expect(
@@ -808,9 +807,7 @@ describe('AccountScreen — profile', () => {
         });
 
         await fireEvent.press(await screen.findByTestId('account-tab-profile'));
-        expect(await screen.findByTestId('account-profile-security')).toHaveTextContent(
-            /Sign-in and security/,
-        );
+        expect(await screen.findByTestId('account-profile-security')).toBeTruthy();
 
         await fireEvent.press(screen.getByTestId('account-profile-change-password'));
         expect(routerMock.__push).toHaveBeenLastCalledWith(
@@ -1243,7 +1240,8 @@ describe('AddressEditorScreen', () => {
             },
         });
 
-        await fireEvent.changeText(await screen.findByTestId('address-editor-label'), 'Home');
+        // Home is the tile a new address starts on, and its word is the label it saves.
+        await fireEvent.press(await screen.findByTestId('address-editor-label-home'));
         await fireEvent.press(screen.getByTestId('address-editor-area-trigger'));
         await fireEvent.press(await screen.findByTestId(`address-editor-area-option-${area.id}`));
 
@@ -1298,7 +1296,8 @@ describe('AddressEditorScreen — as a detour', () => {
     }
 
     async function fillNewAddress(): Promise<void> {
-        await fireEvent.changeText(await screen.findByTestId('address-editor-label'), 'Office');
+        await fireEvent.press(await screen.findByTestId('address-editor-label-other'));
+        await fireEvent.changeText(screen.getByTestId('address-editor-label'), 'Office');
         await fireEvent.press(screen.getByTestId('address-editor-area-trigger'));
         await fireEvent.press(await screen.findByTestId(`address-editor-area-option-${AREA.id}`));
         await fireEvent.changeText(screen.getByTestId('address-editor-line1'), '1 Tower Road');
@@ -1317,7 +1316,10 @@ describe('AddressEditorScreen — as a detour', () => {
         });
 
         // The way back names where it goes.
-        expect(await screen.findByTestId('address-editor-trail-up')).toHaveTextContent('Checkout');
+        expect(await screen.findByTestId('address-editor-trail-up')).toHaveProp(
+            'accessibilityLabel',
+            expect.stringMatching(/Checkout/),
+        );
 
         await fillNewAddress();
         await fireEvent.press(screen.getByTestId('address-editor-save'));
@@ -1389,7 +1391,10 @@ describe('AddressEditorScreen — as a detour', () => {
             repositories: { account: { listServiceAreas: async () => [AREA] } },
         });
         // The trail names the parent itself when nothing sent the person here.
-        expect(await screen.findByTestId('address-editor-trail-up')).toHaveTextContent('Addresses');
+        expect(await screen.findByTestId('address-editor-trail-up')).toHaveProp(
+            'accessibilityLabel',
+            expect.stringMatching(/Addresses/),
+        );
 
         // Cold: nothing to go back to, so the list replaces the form.
         await fireEvent.press(await screen.findByTestId('address-editor-cancel'));
@@ -1409,7 +1414,8 @@ describe('AddressEditorScreen — as a detour', () => {
             session: testMeResponse(),
             repositories: { account: { listServiceAreas: async () => [AREA] } },
         });
-        await fireEvent.changeText(await screen.findByTestId('address-editor-label'), 'Office');
+        await fireEvent.press(await screen.findByTestId('address-editor-label-other'));
+        await fireEvent.changeText(screen.getByTestId('address-editor-label'), 'Office');
 
         // Cancel and the trail both ask first.
         await fireEvent.press(screen.getByTestId('address-editor-cancel'));

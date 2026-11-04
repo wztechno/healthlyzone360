@@ -1,15 +1,17 @@
-import { Button, Callout, Dialog, Heading, Stack, Text } from '@healthy360/design-system';
+import { Button, Dialog, Text } from '@healthy360/design-system';
 import { Redirect, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import {
     toFailure,
     useB2BApplicationQuery,
     useWithdrawB2BApplicationMutation,
 } from '../../../data/b2b-application-hooks.ts';
+import { ExtraButton, ExtraLink, ExtraNote, ExtraPage } from '../../account/account-extra.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
-import { StatusPanel } from '../status-panel.tsx';
+import { StageRail, StatusPanel } from '../status-panel.tsx';
 
 /**
  * `/apply/status` — where it stands, in every state.
@@ -47,18 +49,28 @@ export function ApplyStatusScreen() {
     const withdrawFailure = toFailure(withdraw.error);
 
     return (
-        <Stack space="lg" testID={TEST_ID}>
-            <Heading level={1} testID={`${TEST_ID}-title`}>
-                {t('b2bApplication:status.title')}
-            </Heading>
-
+        <ExtraPage
+            wide
+            testID={TEST_ID}
+            backTestID={`${TEST_ID}-back`}
+            backLabel={t('marketplace:nav.business')}
+            onBack={() => {
+                router.push('/for-business' as never);
+            }}
+            icon="clock"
+            title={t('b2bApplication:status.title')}
+            titleTestID={`${TEST_ID}-title`}
+        >
             {withdrawFailure === null ? null : (
-                <Callout
-                    testID={`${TEST_ID}-withdraw-error`}
-                    role="alert"
-                    tone="danger"
-                    title={withdrawFailure.message}
-                />
+                <View className="mt-[18px]">
+                    <ExtraNote
+                        testID={`${TEST_ID}-withdraw-error`}
+                        role="alert"
+                        tone="bad"
+                        icon="warning"
+                        title={withdrawFailure.message}
+                    />
+                </View>
             )}
 
             <QueryStates
@@ -71,44 +83,51 @@ export function ApplyStatusScreen() {
                     // No application to have a status. The entry screen is the honest destination.
                     <Redirect href={'/apply' as never} />
                 ) : (
-                    <Stack space="lg">
-                        <StatusPanel
-                            application={current}
-                            testID={`${TEST_ID}-panel`}
-                            onOpenStep={(slug) => {
-                                router.push(`/apply/${slug}` as never);
-                            }}
-                            onOpenAgreement={() => {
-                                router.push('/apply/agreement' as never);
-                            }}
-                            onOpenProvisioning={() => {
-                                router.push('/apply/provisioning' as never);
-                            }}
-                        />
-
-                        {current.state === 'provisioned' ? (
-                            <Button
-                                testID={`${TEST_ID}-workspace`}
-                                label={t('b2bApplication:provisioning.goToWorkspace')}
-                                onPress={() => {
-                                    router.push('/corporate' as never);
+                    <View className="mt-[18px] flex-col gap-6 lg:flex-row lg:items-start">
+                        <View className="min-w-0 flex-1">
+                            <StatusPanel
+                                application={current}
+                                testID={`${TEST_ID}-panel`}
+                                onOpenStep={(slug) => {
+                                    router.push(`/apply/${slug}` as never);
+                                }}
+                                onOpenAgreement={() => {
+                                    router.push('/apply/agreement' as never);
+                                }}
+                                onOpenProvisioning={() => {
+                                    router.push('/apply/provisioning' as never);
                                 }}
                             />
-                        ) : null}
 
-                        {current.state === 'draft' ||
-                        current.state === 'submitted' ||
-                        current.state === 'in_review' ||
-                        current.state === 'info_requested' ? (
-                            <Button
-                                testID={`${TEST_ID}-withdraw`}
-                                variant="ghost"
-                                label={t('b2bApplication:review.withdraw')}
-                                onPress={() => {
-                                    setConfirming(true);
-                                }}
-                            />
-                        ) : null}
+                            {current.state === 'provisioned' ? (
+                                <View className="mt-3 flex-row">
+                                    <ExtraButton
+                                        testID={`${TEST_ID}-workspace`}
+                                        label={t('b2bApplication:provisioning.goToWorkspace')}
+                                        icon="arrowForward"
+                                        onPress={() => {
+                                            router.push('/corporate' as never);
+                                        }}
+                                    />
+                                </View>
+                            ) : null}
+
+                            {current.state === 'draft' ||
+                            current.state === 'submitted' ||
+                            current.state === 'in_review' ||
+                            current.state === 'info_requested' ? (
+                                <ExtraLink
+                                    testID={`${TEST_ID}-withdraw`}
+                                    label={t('b2bApplication:review.withdraw')}
+                                    onPress={() => {
+                                        setConfirming(true);
+                                    }}
+                                />
+                            ) : null}
+                        </View>
+                        <View className="w-full lg:w-[340px]">
+                            <StageRail state={current.state} testID={`${TEST_ID}-stages`} />
+                        </View>
 
                         <Dialog
                             testID={`${TEST_ID}-withdraw-dialog`}
@@ -141,9 +160,9 @@ export function ApplyStatusScreen() {
                         >
                             <Text>{t('b2bApplication:review.withdrawConfirm')}</Text>
                         </Dialog>
-                    </Stack>
+                    </View>
                 )}
             </QueryStates>
-        </Stack>
+        </ExtraPage>
     );
 }

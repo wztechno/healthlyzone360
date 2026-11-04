@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { COLOUR_STOPS, NUTRITION_LEVELS, RAMPS, SEMANTIC_ROLES, THEMES, themes } from './colour.ts';
+import {
+    COLOUR_STOPS,
+    NUTRITION_LEVELS,
+    RAMPS,
+    SEMANTIC_ROLES,
+    THEMES,
+    STAGE_INK_NAMES,
+    TINT_NAMES,
+    stageInks,
+    themes,
+} from './colour.ts';
 import type { SemanticRole, ThemeName } from './colour.ts';
 import {
     WCAG_AA_LARGE_TEXT,
@@ -97,8 +107,18 @@ describe('surface and text pairs meet WCAG AA for normal text', () => {
         // Light theme: white on the #16A34A panel — see "brand green, as chosen" below.
         if (theme === 'dark') {
             pairs.push([theme, 'onSidebar/surfaceSidebar', c.onSidebar, c.surfaceSidebar]);
-            pairs.push([theme, 'onSidebarMuted/surfaceSidebar', c.onSidebarMuted, c.surfaceSidebar]);
-            pairs.push([theme, 'onSidebarActive/sidebarActive', c.onSidebarActive, c.sidebarActive]);
+            pairs.push([
+                theme,
+                'onSidebarMuted/surfaceSidebar',
+                c.onSidebarMuted,
+                c.surfaceSidebar,
+            ]);
+            pairs.push([
+                theme,
+                'onSidebarActive/sidebarActive',
+                c.onSidebarActive,
+                c.sidebarActive,
+            ]);
         }
         pairs.push([theme, 'textInverse/surfaceInverse', c.textInverse, c.surfaceInverse]);
         // Light theme: white on the mood board's #16A34A — see "brand green, as chosen" below.
@@ -119,7 +139,21 @@ describe('surface and text pairs meet WCAG AA for normal text', () => {
         // way to the far stop — so the band's foregrounds owe AA against that stop too, not only
         // against the flat colour at the near end.
         pairs.push([theme, 'onCanopy/surfaceCanopyDeep', c.onCanopy, c.surfaceCanopyDeep]);
-        pairs.push([theme, 'onCanopyMuted/surfaceCanopyDeep', c.onCanopyMuted, c.surfaceCanopyDeep]);
+        pairs.push([
+            theme,
+            'onCanopyMuted/surfaceCanopyDeep',
+            c.onCanopyMuted,
+            c.surfaceCanopyDeep,
+        ]);
+        // The shop's colour-coded cards carry their headline in the tint's own ink.
+        for (const name of TINT_NAMES) {
+            const tint = themes[theme].tint[name];
+            pairs.push([theme, `tint-${name}-on/tint-${name}`, tint.on, tint.surface]);
+        }
+        // The meal page's rings sit on the stage, which is the flat canopy, never the gradient.
+        for (const name of STAGE_INK_NAMES) {
+            pairs.push([theme, `stage-${name}/surfaceCanopy`, stageInks[name], c.surfaceCanopy]);
+        }
     }
 
     it.each(pairs)('%s %s', (_theme, _label, foreground, background) => {

@@ -1,9 +1,11 @@
 import type { ApiFailure } from '@healthy360/api-client';
-import { Badge, Button, Callout, Inline, OtpInput, Stack, Text } from '@healthy360/design-system';
+import { Badge, Button, Callout, Inline, Stack, Text } from '@healthy360/design-system';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 
+import { AuthLink, AuthSubmit, AuthText } from '../../ui/auth-form.tsx';
+import { CodeBoxes } from '../../ui/code-boxes.tsx';
 import { describeOtpFailure } from './otp-errors.ts';
 import type { OtpChannel, OtpErrorView } from './otp-errors.ts';
 import { secondsUntil, useCountdown } from './use-countdown.ts';
@@ -118,6 +120,12 @@ export interface OtpChallengePanelProps {
     readonly onVerify: (code: string) => void;
     readonly onResend: (channel: OtpChannel) => void;
     readonly testID?: string | undefined;
+    /**
+     * `auth` draws the panel as the sign-in frame's boards do — the screen owns the title, the
+     * code boxes sit full width, Confirm is the big pill and the other channels wait behind "Send
+     * the code another way". `panel` is the card look every other screen uses.
+     */
+    readonly look?: 'panel' | 'auth' | undefined;
 }
 
 /**
@@ -152,8 +160,10 @@ export function OtpChallengePanel({
     onVerify,
     onResend,
     testID = 'otp-panel',
+    look = 'panel',
 }: OtpChallengePanelProps) {
     const { t } = useTranslation();
+    const [otherWays, setOtherWays] = useState(false);
 
     const error: OtpErrorView | null = useMemo(
         () => (failure === null ? null : describeOtpFailure(failure)),
@@ -232,6 +242,115 @@ export function OtpChallengePanel({
         .filter((part) => part.length > 0)
         .join(' ');
 
+    const notices = (
+        <>
+            {locked ? (
+                <Callout
+                    testID={`${testID}-locked`}
+                    tone="danger"
+                    role="alert"
+                    title={t('auth:otp.lockedTitle')}
+                    body={t('auth:otp.lockedBody', { count: error?.lockoutMinutes ?? 1 })}
+                />
+            ) : null}
+
+            {expired && !locked ? (
+                <Callout
+                    testID={`${testID}-expired`}
+                    tone="warning"
+                    role="status"
+                    title={t('auth:otp.expiredTitle')}
+                    body={t('auth:otp.expiredBody')}
+                />
+            ) : null}
+        </>
+    );
+
+    if (look === 'auth') {
+        const channels = locked ? (error?.promoteChannels ?? []) : challenge.availableChannels;
+        return (
+            <View testID={testID} className="flex-col gap-3.5">
+                <AuthText testID={`${testID}-destination`}>
+                    {t('auth:otp.body', { destination: challenge.maskedDestination })}
+                </AuthText>
+
+                <Text
+                    testID={`${testID}-alert`}
+                    role="alert"
+                    aria-live="assertive"
+                    tone="danger"
+                    variant="caption"
+                >
+                    {alert}
+                </Text>
+
+                {notices}
+
+                <CodeBoxes
+                    testID={`${testID}-code`}
+                    label={t('auth:otp.codeLabel')}
+                    value={code}
+                    length={challenge.codeLength}
+                    disabled={entryClosed || verifying}
+                    onChangeText={handleCode}
+                    onSubmitEditing={() => {
+                        if (!entryClosed && code.length >= challenge.codeLength) onVerify(code);
+                    }}
+                />
+
+                <View testID={`${testID}-status`} role="status" aria-live="polite">
+                    <RNText className="text-center text-xs font-medium text-content-secondary">
+                        {status}
+                    </RNText>
+                </View>
+
+                <AuthSubmit
+                    testID={`${testID}-submit`}
+                    label={t('auth:otp.submit')}
+                    busy={verifying}
+                    disabled={entryClosed || code.length < challenge.codeLength}
+                    onPress={() => {
+                        onVerify(code);
+                    }}
+                />
+
+                <View className="flex-row flex-wrap items-center justify-center gap-x-4">
+                    <AuthLink
+                        testID={`${testID}-resend`}
+                        label={t('auth:otp.resend')}
+                        disabled={resendBlocked}
+                        onPress={() => {
+                            handleResend(channel);
+                        }}
+                    />
+                    {channels.length === 0 || locked ? null : (
+                        <AuthLink
+                            testID={`${testID}-other-ways`}
+                            label={t('auth:otp.channelSwitch')}
+                            onPress={() => {
+                                setOtherWays((open) => !open);
+                            }}
+                        />
+                    )}
+                </View>
+
+                {/* A lockout promotes the other channels from "another way" to the way out. */}
+                {otherWays || locked ? (
+                    <View className="items-center">
+                        <ChannelPicker
+                            testID={`${testID}-channels`}
+                            channels={channels}
+                            current={channel}
+                            simulated={challenge.simulatedChannels}
+                            disabled={resending || (locked && cooldown.running)}
+                            onSelect={handleResend}
+                        />
+                    </View>
+                ) : null}
+            </View>
+        );
+    }
+
     return (
         <Stack testID={testID} space="lg">
             <Stack space="xs">
@@ -253,31 +372,13 @@ export function OtpChallengePanel({
                 {alert}
             </Text>
 
-            {locked ? (
-                <Callout
-                    testID={`${testID}-locked`}
-                    tone="danger"
-                    role="alert"
-                    title={t('auth:otp.lockedTitle')}
-                    body={t('auth:otp.lockedBody', { count: error?.lockoutMinutes ?? 1 })}
-                />
-            ) : null}
+            {notices}
 
-            {expired && !locked ? (
-                <Callout
-                    testID={`${testID}-expired`}
-                    tone="warning"
-                    role="status"
-                    title={t('auth:otp.expiredTitle')}
-                    body={t('auth:otp.expiredBody')}
-                />
-            ) : null}
-
-            <OtpInput
+            <CodeBoxes
                 testID={`${testID}-code`}
-                id={`${testID}-code`}
                 label={t('auth:otp.codeLabel')}
-                hint={t('auth:otp.codeHint')}
+                size="lg"
+                align="start"
                 value={code}
                 length={challenge.codeLength}
                 disabled={entryClosed || verifying}

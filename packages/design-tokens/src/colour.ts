@@ -317,6 +317,54 @@ export const nutritionDark: Readonly<Record<NutritionLevel, NutritionStop>> = {
     },
 };
 
+/**
+ * Tints — the soft fills behind the shop's colour-coded cards (Discover's "Picked for today" and
+ * the menu's shelves), each with the ink that reads on it. The pairs are the accepted shop design's,
+ * and every one is contrast-tested in both themes like any surface and its text.
+ */
+export const TINT_NAMES = ['green', 'blue', 'orange', 'yellow', 'pink', 'violet', 'teal'] as const;
+export type TintName = (typeof TINT_NAMES)[number];
+
+export interface TintPair {
+    readonly surface: string;
+    readonly on: string;
+}
+
+export const tintLight: Readonly<Record<TintName, TintPair>> = {
+    green: { surface: '#dcfce7', on: '#14532d' },
+    blue: { surface: '#dbeafe', on: '#1e3a8a' },
+    orange: { surface: '#ffedd5', on: '#7c2d12' },
+    yellow: { surface: '#fef9c3', on: '#713f12' },
+    pink: { surface: '#fce7f3', on: '#831843' },
+    violet: { surface: '#ede9fe', on: '#4c1d95' },
+    teal: { surface: '#ccfbf1', on: '#134e4a' },
+};
+
+export const tintDark: Readonly<Record<TintName, TintPair>> = {
+    green: { surface: '#153a26', on: '#bbf7d0' },
+    blue: { surface: '#172554', on: '#bfdbfe' },
+    orange: { surface: '#431407', on: '#fed7aa' },
+    yellow: { surface: '#3f2a06', on: '#fef08a' },
+    pink: { surface: '#4a0d2b', on: '#fbcfe8' },
+    violet: { surface: '#2e1065', on: '#ddd6fe' },
+    teal: { surface: '#042f2e', on: '#99f6e4' },
+};
+
+/**
+ * Stage inks — the meal page's nutrition rings, drawn on the canopy panel: calories orange, protein
+ * green, carbohydrate blue, fat yellow, the accepted design's. The canopy is dark in both themes, so
+ * the inks are the same in both, and each is contrast-tested against both canopies.
+ */
+export const STAGE_INK_NAMES = ['orange', 'green', 'blue', 'yellow'] as const;
+export type StageInkName = (typeof STAGE_INK_NAMES)[number];
+
+export const stageInks: Readonly<Record<StageInkName, string>> = {
+    orange: '#fb923c',
+    green: '#4ade80',
+    blue: '#60a5fa',
+    yellow: '#facc15',
+};
+
 /** Surface / text / border roles per theme. */
 export interface ThemeColours {
     readonly surfaceBase: string;
@@ -454,11 +502,17 @@ export interface ThemeTokens {
     readonly colours: ThemeColours;
     readonly semantic: Readonly<Record<SemanticRole, SemanticColourSet>>;
     readonly nutrition: Readonly<Record<NutritionLevel, NutritionStop>>;
+    readonly tint: Readonly<Record<TintName, TintPair>>;
 }
 
 export const themes: Readonly<Record<ThemeName, ThemeTokens>> = {
-    light: { colours: themeLight, semantic: semanticLight, nutrition: nutritionLight },
-    dark: { colours: themeDark, semantic: semanticDark, nutrition: nutritionDark },
+    light: {
+        colours: themeLight,
+        semantic: semanticLight,
+        nutrition: nutritionLight,
+        tint: tintLight,
+    },
+    dark: { colours: themeDark, semantic: semanticDark, nutrition: nutritionDark, tint: tintDark },
 };
 
 /**
@@ -516,7 +570,10 @@ export const gradients: Readonly<Record<GradientName, GradientToken>> = {
     heroScrim: { colours: ['rgba(6,20,12,0.82)', 'rgba(6,20,12,0.28)'], locations: [0, 1] },
     accentScrim: { colours: ['rgba(12,10,34,0.72)', 'rgba(6,20,12,0.42)'], locations: [0, 1] },
     canopyScrim: {
-        colours: [withAlpha(themeLight.surfaceCanopy, 0.92), withAlpha(themeLight.surfaceCanopy, 0.35)],
+        colours: [
+            withAlpha(themeLight.surfaceCanopy, 0.92),
+            withAlpha(themeLight.surfaceCanopy, 0.35),
+        ],
         locations: [0, 1],
     },
 };

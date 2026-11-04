@@ -280,6 +280,11 @@ export interface StepContext {
     readonly hasSavedAddress: boolean;
     /** Tomorrow, or later when the plan's change cut-off reaches past it (`earliestStartDate`). */
     readonly earliestStartDate: string;
+    /**
+     * The codes of the kitchen's delivery windows — what the delivery step offers. Absent, the
+     * house windows are the answer, as they are for a kitchen that publishes none.
+     */
+    readonly slotCodes?: readonly string[] | undefined;
     readonly translate: (key: string) => string;
 }
 
@@ -338,7 +343,11 @@ function deliveryIssues(state: ConfiguratorState, context: StepContext): StepIss
         issues.push('commerce:configurator.issues.deliveryDayUnavailable');
     }
 
-    if (!isDeliverySlotCode(state.slotCode)) issues.push('commerce:configurator.issues.slot');
+    const slotKnown =
+        context.slotCodes === undefined
+            ? isDeliverySlotCode(state.slotCode)
+            : context.slotCodes.includes(state.slotCode);
+    if (!slotKnown) issues.push('commerce:configurator.issues.slot');
 
     if (!context.hasSavedAddress) issues.push('commerce:configurator.issues.address');
 
@@ -525,4 +534,62 @@ export function repeatFirstWeek(state: ConfiguratorState, plan: SubscriptionPlan
     }
 
     return next;
+}
+
+/**
+ * "Fill the rest" — one week's empty sittings filled from the person's own picks, never from a dish
+ * they did not choose. Each empty sitting takes, in order of preference: the dish on the same weekday
+ * and sitting in another week of the run, then the dishes already in that sitting's row this week,
+ * in turn, then the sitting's picks anywhere in the run, in turn. A sitting with no pick anywhere
+ * stays empty, and nothing already picked is changed.
+ */
+export function fillWeek(
+    state: ConfiguratorState,
+    plan: SubscriptionPlan,
+    week: readonly string[],
+): MealPicks {
+    const sittings = sittingsOf(plan, state);
+    const dates = configuredDeliveryDates(state, plan);
+    const next: Record<string, MealId> = { ...state.mealPicks };
+
+    for (const sitting of sittings) {
+        const pickOf = (date: string) => state.mealPicks[pickKey(date, sitting)];
+        const inWeek = week.map(pickOf).filter((id): id is MealId => id !== undefined);
+        const inRun = dates.map(pickOf).filter((id): id is MealId => id !== undefined);
+        const pool = inWeek.length > 0 ? inWeek : inRun;
+        let turn = 0;
+        for (const date of week) {
+            const key = pickKey(date, sitting);
+            if (next[key] !== undefined) continue;
+            const weekday = isoWeekday(date);
+            const sameDay = dates.find(
+                (other) =>
+                    other !== date && isoWeekday(other) === weekday && pickOf(other) !== undefined,
+            );
+            const source = sameDay === undefined ? undefined : pickOf(sameDay);
+            if (source !== undefined) {
+                next[key] = source;
+                continue;
+            }
+            const cycled = pool[turn % Math.max(pool.length, 1)];
+            if (cycled === undefined) continue;
+            next[key] = cycled;
+            turn += 1;
+        }
+    }
+
+    return next;
+}
+
+/** The run's delivery dates a week at a time, counted from the first delivery. */
+export function weeksOf(dates: readonly string[]): readonly (readonly string[])[] {
+    const [first] = dates;
+    const weeks: string[][] = [];
+    for (const date of dates) {
+        const index = Math.floor(
+            (first === undefined ? 0 : (daysBetween(first, date) ?? 0)) / REPEAT_WINDOW_DAYS,
+        );
+        (weeks[index] ??= []).push(date);
+    }
+    return weeks.filter((week) => week.length > 0);
 }

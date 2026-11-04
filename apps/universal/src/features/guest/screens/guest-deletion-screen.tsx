@@ -1,26 +1,28 @@
-import {
-    Button,
-    Callout,
-    Card,
-    Checkbox,
-    Heading,
-    Inline,
-    OtpInput,
-    Stack,
-    Text,
-    TextInputField,
-} from '@healthy360/design-system';
-import { useState } from 'react';
+import { Icon, cx } from '@healthy360/design-system';
+import { useRouter } from 'expo-router';
+import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Text as RNText, View } from 'react-native';
 
 import {
     toFailure,
     useConfirmGuestDeletionMutation,
     useRequestGuestDeletionMutation,
 } from '../../../data/guest-hooks.ts';
+import {
+    ExtraButton,
+    ExtraCard,
+    ExtraLink,
+    ExtraNote,
+    ExtraPage,
+} from '../../account/account-extra.tsx';
+import { AuthCheck, AuthField, AuthTick } from '../../../ui/auth-form.tsx';
+import { CodeBoxes } from '../../../ui/code-boxes.tsx';
 
 /**
- * `/privacy/delete-my-data` — erasure, for somebody who may never have had an account.
+ * `/privacy/delete-my-data` — erasure, for somebody who may never have had an account. Drawn as the
+ * Explorations board: the red bin tile over the three steps (ask, confirm, deleted), one card per
+ * step, and the tick with what is kept on purpose.
  *
  * ## It is public, and it is not behind the guest token
  *
@@ -56,8 +58,11 @@ const TEST_ID = 'guest-deletion';
 
 type Phase = 'request' | 'confirm' | 'done';
 
+const PHASES: readonly Phase[] = ['request', 'confirm', 'done'];
+
 export function GuestDeletionScreen() {
     const { t } = useTranslation();
+    const router = useRouter();
 
     const [email, setEmail] = useState('');
     const [mobile, setMobile] = useState('');
@@ -74,164 +79,315 @@ export function GuestDeletionScreen() {
         ...(mobile.trim().length === 0 ? {} : { mobile: mobile.trim() }),
     };
     const hasIdentity = Object.keys(identity).length > 0;
+    const requestFailure = toFailure(request.error);
 
-    if (phase === 'done') {
-        return (
-            <Stack space="lg" testID={`${TEST_ID}-done`}>
-                <Heading level={1}>{t('guest:deletion.title')}</Heading>
-                <Callout
-                    testID={`${TEST_ID}-done-callout`}
-                    role="status"
-                    tone="success"
-                    title={t('guest:deletion.doneTitle')}
-                    body={t('guest:deletion.doneBody')}
-                />
-                {/* What survives, said plainly and on the success screen — not in a policy. */}
-                <Text tone="secondary" variant="caption" testID={`${TEST_ID}-suppression-note`}>
-                    {t('guest:deletion.suppressionNote')}
-                </Text>
-            </Stack>
-        );
-    }
+    const sendRequest = () => {
+        if (!hasIdentity) return;
+        request.mutate(identity, {
+            // Always accepted. There is no branch here on whether the address is known, because
+            // the answer does not carry one.
+            onSuccess: (acknowledgement) => {
+                setMasked(acknowledgement.destinationMasked);
+                setPhase('confirm');
+            },
+        });
+    };
+
+    const toShop = () => {
+        router.push('/discover');
+    };
 
     return (
-        <Stack space="lg" testID={TEST_ID}>
-            <Stack space="xs">
-                <Heading level={1} testID={`${TEST_ID}-title`}>
-                    {t('guest:deletion.title')}
-                </Heading>
-                <Text tone="secondary">{t('guest:deletion.subtitle')}</Text>
-            </Stack>
+        <ExtraPage
+            testID={phase === 'done' ? `${TEST_ID}-done` : TEST_ID}
+            backTestID={`${TEST_ID}-back`}
+            backLabel={t('auth:frame.backToShop')}
+            onBack={toShop}
+            icon="ban"
+            tone="danger"
+            title={t('guest:deletion.title')}
+            titleTestID={`${TEST_ID}-title`}
+            lede={t('guest:deletion.subtitle')}
+        >
+            <Progress phase={phase} />
 
             {phase === 'request' ? (
-                <Card padding="md" testID={`${TEST_ID}-request-step`}>
-                    <Stack space="md">
-                        <TextInputField
-                            testID={`${TEST_ID}-email`}
-                            label={t('guest:deletion.email')}
-                            placeholder={t('auth:login.emailPlaceholder')}
-                            hint={t('guest:deletion.emailHint')}
-                            value={email}
-                            onChangeText={setEmail}
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                        />
-                        <TextInputField
-                            testID={`${TEST_ID}-mobile`}
-                            label={t('guest:deletion.mobile')}
-                            placeholder={t('guest:deletion.mobilePlaceholder')}
-                            hint={t('guest:deletion.mobileHint')}
-                            value={mobile}
-                            onChangeText={setMobile}
-                            keyboardType="phone-pad"
-                            autoCapitalize="none"
-                        />
+                <ExtraCard
+                    testID={`${TEST_ID}-request-step`}
+                    title={t('guest:deletion.requestTitle')}
+                >
+                    <RNText className="text-sm font-medium leading-[21px] text-content-secondary text-start">
+                        {t('guest:deletion.requestBody')}
+                    </RNText>
+                    <View className="mt-4 flex-col gap-3.5 md:flex-row md:items-start">
+                        <View className="min-w-0 md:flex-1">
+                            <AuthField
+                                testID={`${TEST_ID}-email`}
+                                icon="send"
+                                label={t('guest:deletion.email')}
+                                placeholder={t('auth:login.emailPlaceholder')}
+                                hint={t('guest:deletion.emailHint')}
+                                value={email}
+                                onChangeText={setEmail}
+                                keyboardType="email-address"
+                                autoComplete="email"
+                                autoCapitalize="none"
+                                onSubmitEditing={sendRequest}
+                            />
+                        </View>
+                        <View className="items-center justify-center md:h-[82px] md:pt-[26px]">
+                            <RNText className="text-xs font-bold uppercase tracking-widest text-content-secondary">
+                                {t('guest:deletion.or')}
+                            </RNText>
+                        </View>
+                        <View className="min-w-0 md:flex-1">
+                            <AuthField
+                                testID={`${TEST_ID}-mobile`}
+                                icon="smartphone"
+                                label={t('guest:deletion.mobile')}
+                                placeholder={t('guest:deletion.mobilePlaceholder')}
+                                hint={t('guest:deletion.mobileHint')}
+                                value={mobile}
+                                onChangeText={setMobile}
+                                keyboardType="phone-pad"
+                                inputMode="tel"
+                                autoComplete="tel"
+                                autoCapitalize="none"
+                                onSubmitEditing={sendRequest}
+                            />
+                        </View>
+                    </View>
 
-                        {toFailure(request.error) === null ? null : (
-                            <Callout
+                    {requestFailure === null ? null : (
+                        <View className="mt-4">
+                            <ExtraNote
                                 testID={`${TEST_ID}-request-error`}
                                 role="alert"
-                                tone="danger"
-                                title={toFailure(request.error)?.message ?? ''}
+                                tone="bad"
+                                icon="warning"
+                                title={requestFailure.message}
                             />
-                        )}
+                        </View>
+                    )}
 
-                        <Button
+                    <View className="mt-5 flex-row flex-wrap gap-2.5">
+                        <ExtraButton
                             testID={`${TEST_ID}-request`}
                             label={t('guest:deletion.request')}
-                            loading={request.isPending}
+                            icon="chevronForward"
+                            busy={request.isPending}
                             disabled={!hasIdentity}
-                            onPress={() => {
-                                request.mutate(identity, {
-                                    // Always accepted. There is no branch here on whether the
-                                    // address is known, because the answer does not carry one.
-                                    onSuccess: (acknowledgement) => {
-                                        setMasked(acknowledgement.destinationMasked);
-                                        setPhase('confirm');
-                                    },
-                                });
-                            }}
+                            onPress={sendRequest}
                         />
-                    </Stack>
-                </Card>
+                    </View>
+                </ExtraCard>
             ) : null}
 
             {phase === 'confirm' ? (
-                <Card padding="md" testID={`${TEST_ID}-confirm-step`}>
-                    <Stack space="md">
-                        <Callout
+                <ExtraCard
+                    testID={`${TEST_ID}-confirm-step`}
+                    title={t('guest:deletion.confirmCardTitle')}
+                >
+                    <View className="mt-3">
+                        <ExtraNote
                             testID={`${TEST_ID}-sent`}
-                            role="status"
-                            tone="info"
+                            icon="send"
                             title={t('guest:deletion.sentTitle', { destination: masked })}
                             body={t('guest:deletion.sentBody')}
                         />
+                    </View>
 
-                        <OtpInput
+                    <View className="mt-[18px]">
+                        <CodeBoxes
                             testID={`${TEST_ID}-code`}
+                            size="lg"
+                            align="start"
                             label={t('guest:deletion.code')}
                             value={code}
                             onChangeText={setCode}
                             length={6}
                         />
+                    </View>
 
-                        <Callout
+                    <View className="mt-[18px]">
+                        <ExtraNote
                             testID={`${TEST_ID}-irreversible`}
                             role="alert"
-                            tone="warning"
+                            tone="bad"
+                            icon="warning"
                             title={t('guest:deletion.confirmTitle')}
                             body={t('guest:deletion.confirmBody')}
                         />
+                    </View>
 
-                        {/* The second gate. Six digits is a muscle action; this is not reversible. */}
-                        <Checkbox
+                    {/* The second gate. Six digits is a muscle action; this is not reversible. */}
+                    <View testID={`${TEST_ID}-acknowledge`} className="mt-3">
+                        <AuthCheck
                             testID={`${TEST_ID}-acknowledge`}
                             label={t('guest:deletion.confirmAcknowledge')}
                             checked={acknowledged}
                             onChange={setAcknowledged}
                         />
+                    </View>
 
-                        {toFailure(confirm.error) === null ? null : (
-                            <Callout
+                    {toFailure(confirm.error) === null ? null : (
+                        <View className="mt-3">
+                            <ExtraNote
                                 testID={`${TEST_ID}-confirm-error`}
                                 role="alert"
-                                tone="danger"
+                                tone="bad"
+                                icon="warning"
                                 title={t('guest:deletion.invalidCode')}
                             />
-                        )}
+                        </View>
+                    )}
 
-                        <Inline space="sm">
-                            <Button
-                                testID={`${TEST_ID}-confirm`}
-                                variant="danger"
-                                label={t('guest:deletion.confirm')}
-                                loading={confirm.isPending}
-                                disabled={!acknowledged || code.length === 0}
-                                onPress={() => {
-                                    confirm.mutate(
-                                        { ...identity, code },
-                                        {
-                                            onSuccess: () => {
-                                                setPhase('done');
-                                            },
+                    <View className="mt-5 flex-row flex-wrap items-center gap-2.5">
+                        <ExtraButton
+                            testID={`${TEST_ID}-confirm`}
+                            tone="danger"
+                            label={t('guest:deletion.confirm')}
+                            busy={confirm.isPending}
+                            disabled={!acknowledged || code.length === 0}
+                            onPress={() => {
+                                confirm.mutate(
+                                    { ...identity, code },
+                                    {
+                                        onSuccess: () => {
+                                            setPhase('done');
                                         },
-                                    );
-                                }}
-                            />
-                            <Button
-                                testID={`${TEST_ID}-cancel`}
-                                variant="ghost"
-                                label={t('guest:deletion.cancel')}
-                                onPress={() => {
-                                    setPhase('request');
-                                    setCode('');
-                                    setAcknowledged(false);
-                                }}
-                            />
-                        </Inline>
-                    </Stack>
-                </Card>
+                                    },
+                                );
+                            }}
+                        />
+                        <ExtraLink
+                            testID={`${TEST_ID}-cancel`}
+                            label={t('guest:deletion.cancel')}
+                            onPress={() => {
+                                setPhase('request');
+                                setCode('');
+                                setAcknowledged(false);
+                            }}
+                        />
+                    </View>
+                </ExtraCard>
             ) : null}
-        </Stack>
+
+            {phase === 'done' ? (
+                <ExtraCard className="items-center">
+                    <View className="w-full flex-col items-center pt-4">
+                        <AuthTick />
+                        <View
+                            testID={`${TEST_ID}-done-callout`}
+                            role="status"
+                            className="items-center"
+                        >
+                            <RNText
+                                accessibilityRole="header"
+                                aria-level={2}
+                                className="mt-6 font-display text-2xl font-bold text-content-primary text-center"
+                            >
+                                {t('guest:deletion.doneTitle')}
+                            </RNText>
+                            <RNText className="mt-1.5 max-w-[460px] text-base font-medium leading-6 text-content-secondary text-center">
+                                {t('guest:deletion.doneBody')}
+                            </RNText>
+                        </View>
+                        {/* What survives, said plainly and on the success screen — not in a policy. */}
+                        <View className="mt-5 w-full max-w-[560px]">
+                            <ExtraNote
+                                testID={`${TEST_ID}-suppression-note`}
+                                icon="shield"
+                                body={t('guest:deletion.suppressionNote')}
+                            />
+                        </View>
+                        <View className="mt-5">
+                            <ExtraButton
+                                testID={`${TEST_ID}-to-shop`}
+                                label={t('auth:frame.backToShop')}
+                                onPress={toShop}
+                            />
+                        </View>
+                    </View>
+                </ExtraCard>
+            ) : null}
+        </ExtraPage>
+    );
+}
+
+/** The board's three numbered steps, joined by short rules: done in brand, the current one red. */
+function Progress({ phase }: { readonly phase: Phase }) {
+    const { t } = useTranslation();
+    const at = PHASES.indexOf(phase);
+    const labels: Readonly<Record<Phase, string>> = {
+        request: t('guest:deletion.stepAsk'),
+        confirm: t('guest:deletion.stepConfirm'),
+        done: t('guest:deletion.stepDone'),
+    };
+    return (
+        <View
+            testID={`${TEST_ID}-progress`}
+            role="list"
+            aria-label={t('guest:deletion.progress')}
+            className="mt-[22px] flex-row flex-wrap items-center gap-2.5"
+        >
+            {PHASES.map((step, index) => {
+                const done = index < at || phase === 'done';
+                const now = index === at && phase !== 'done';
+                return (
+                    <Fragment key={step}>
+                        {index === 0 ? null : (
+                            <View
+                                aria-hidden
+                                className="h-0.5 w-12 rounded-full bg-stroke-subtle"
+                            />
+                        )}
+                        <View
+                            role="listitem"
+                            aria-current={now ? 'step' : undefined}
+                            className="flex-row items-center gap-2"
+                        >
+                            <View
+                                className={cx(
+                                    'h-7 w-7 items-center justify-center rounded-full border-2',
+                                    done
+                                        ? 'border-surface-brand bg-surface-brand'
+                                        : now
+                                          ? 'border-danger bg-surface-raised'
+                                          : 'border-stroke bg-surface-raised',
+                                )}
+                            >
+                                {done ? (
+                                    <Icon
+                                        name="check"
+                                        size="sm"
+                                        className="text-content-on-brand"
+                                    />
+                                ) : (
+                                    <RNText
+                                        className={cx(
+                                            'text-xs font-bold',
+                                            now
+                                                ? 'text-danger-on-subtle'
+                                                : 'text-content-secondary',
+                                        )}
+                                    >
+                                        {String(index + 1)}
+                                    </RNText>
+                                )}
+                            </View>
+                            <RNText
+                                className={cx(
+                                    'text-sm font-semibold',
+                                    now || done ? 'text-content-primary' : 'text-content-secondary',
+                                )}
+                            >
+                                {labels[step]}
+                            </RNText>
+                        </View>
+                    </Fragment>
+                );
+            })}
+        </View>
     );
 }

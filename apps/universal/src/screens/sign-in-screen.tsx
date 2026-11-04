@@ -1,30 +1,33 @@
 import { isRateLimitFailure, isValidationFailure } from '@healthy360/api-client';
 import type { ApiFailure } from '@healthy360/api-client';
 import type { Translate } from '@healthy360/validation';
-import {
-    Button,
-    Card,
-    Checkbox,
-    Heading,
-    Inline,
-    PasswordInput,
-    Select,
-    Stack,
-    Text,
-    TextInputField,
-} from '@healthy360/design-system';
+import { Select } from '@healthy360/design-system';
 import { makeLoginSchema, toFormResolver } from '@healthy360/validation';
 import type { LoginInput, LoginValues } from '@healthy360/validation';
-import { Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { Text as RNText, View } from 'react-native';
 
 import { useStaffSignInDomainsQuery } from '../data/access-admin-hooks.ts';
 import { toFailure, useLoginMutation, useTwoFactorChallengeMutation } from '../data/hooks.ts';
-import { safeReturnTo, withReturnTo } from '../navigation/return-to.ts';
+import { returnDestination, safeReturnTo, withReturnTo } from '../navigation/return-to.ts';
+import { CodeBoxes } from '../ui/code-boxes.tsx';
 import { useKeepBrowsing } from '../navigation/use-keep-browsing.ts';
 import { useCompleteAuth } from '../navigation/use-return-to.ts';
+import {
+    AuthBadge,
+    AuthCheck,
+    AuthError,
+    AuthField,
+    AuthHint,
+    AuthLink,
+    AuthReturnChip,
+    AuthSubmit,
+    AuthTabs,
+    AuthTitle,
+} from '../ui/auth-form.tsx';
 import {
     applyServerFailure,
     useFailureMessage,
@@ -38,7 +41,10 @@ export interface SignInScreenProps {
 }
 
 /**
- * Sign in.
+ * Sign in, drawn as the accepted Sign-in board in the sign-in frame: the Sign in / Create account
+ * tabs, "Sign in" with the chip naming where finishing returns, the email (or a kitchen's sign-in
+ * name with its domain inside the field) and the password with its eye, "Keep me signed in" beside
+ * "Forgotten your password?", the Sign in pill, and "New to Healthy360? Create an account".
  *
  * Three server outcomes are handled distinctly, because collapsing them is what makes an
  * authentication screen frustrating:
@@ -67,6 +73,11 @@ export function SignInScreen({ returnTo: rawReturnTo }: SignInScreenProps = {}) 
     const returnTo = safeReturnTo(rawReturnTo);
     // The way out without signing in — see `navigation/use-keep-browsing.ts`.
     const keepBrowsing = useKeepBrowsing(returnTo);
+    const router = useRouter();
+    const destination = returnTo === null ? null : returnDestination(returnTo);
+    const toRegister = () => {
+        router.replace(withReturnTo('/register', returnTo) as never);
+    };
 
     const [challengeId, setChallengeId] = useState<string | null>(null);
 
@@ -126,21 +137,27 @@ export function SignInScreen({ returnTo: rawReturnTo }: SignInScreenProps = {}) 
     }
 
     return (
-        <Stack testID="sign-in-screen" space="lg">
-            <Stack space="xs">
-                <Heading level={1} testID="sign-in-title">
-                    {t('auth:login.title')}
-                </Heading>
-                <Text tone="secondary">{t('auth:login.subtitle')}</Text>
-            </Stack>
+        <View testID="sign-in-screen" className="flex-col gap-3.5">
+            <AuthTabs
+                value="in"
+                label={t('auth:frame.tabsLabel')}
+                signInLabel={t('auth:login.title')}
+                createLabel={t('auth:register.submit')}
+                onSignIn={() => undefined}
+                onCreate={toRegister}
+            />
 
-            {formError === null ? null : (
-                <Card tone="danger" padding="sm">
-                    <Text testID="sign-in-error" tone="danger" role="alert" aria-live="assertive">
-                        {formError}
-                    </Text>
-                </Card>
-            )}
+            <View className="mt-3 flex-row flex-wrap items-center justify-between gap-3">
+                <AuthTitle testID="sign-in-title">{t('auth:login.title')}</AuthTitle>
+                {destination === null || destination === 'previous' ? null : (
+                    <AuthReturnChip
+                        testID="sign-in-return"
+                        label={t(`common:destination.${destination}`)}
+                    />
+                )}
+            </View>
+
+            {formError === null ? null : <AuthError testID="sign-in-error" message={formError} />}
 
             <Controller
                 control={form.control}
@@ -160,15 +177,17 @@ export function SignInScreen({ returnTo: rawReturnTo }: SignInScreenProps = {}) 
                 control={form.control}
                 name="password"
                 render={({ field, fieldState }) => (
-                    <PasswordInput
+                    <AuthField
                         testID="sign-in-password"
-                        id="sign-in-password"
                         label={t('auth:login.passwordLabel')}
+                        icon="lock"
                         placeholder={t('auth:login.passwordPlaceholder')}
                         autoComplete="current-password"
                         textContentType="password"
-                        required
                         returnKeyType="go"
+                        secret
+                        showLabel={t('auth:changePassword.showPassword')}
+                        hideLabel={t('auth:changePassword.hidePassword')}
                         value={field.value}
                         onChangeText={field.onChange}
                         onBlur={field.onBlur}
@@ -178,65 +197,77 @@ export function SignInScreen({ returnTo: rawReturnTo }: SignInScreenProps = {}) 
                 )}
             />
 
-            <Controller
-                control={form.control}
-                name="remember"
-                render={({ field }) => (
-                    <Checkbox
-                        testID="sign-in-remember"
-                        id="sign-in-remember"
-                        label={t('auth:login.rememberLabel')}
-                        checked={field.value === true}
-                        onChange={field.onChange}
-                    />
-                )}
-            />
+            <View className="flex-row flex-wrap items-center justify-between gap-3">
+                <Controller
+                    control={form.control}
+                    name="remember"
+                    render={({ field }) => (
+                        <AuthCheck
+                            testID="sign-in-remember"
+                            label={t('auth:login.rememberLabel')}
+                            checked={field.value === true}
+                            onChange={field.onChange}
+                        />
+                    )}
+                />
+                <AuthTextLink
+                    testID="sign-in-forgot"
+                    label={t('auth:login.forgotLink')}
+                    onPress={() => {
+                        router.replace(withReturnTo('/forgot-password', returnTo) as never);
+                    }}
+                />
+            </View>
 
-            <Button
+            <AuthSubmit
                 testID="sign-in-submit"
-                block
                 label={t('auth:login.submit')}
-                loading={login.isPending}
+                busy={login.isPending}
                 onPress={submit}
             />
 
+            <View className="mt-4 flex-row flex-wrap items-center justify-center gap-x-1">
+                <RNText className="text-sm font-medium text-content-secondary">
+                    {t('auth:login.registerPrompt')}
+                </RNText>
+                <AuthTextLink
+                    testID="sign-in-register"
+                    label={t('auth:login.registerLink')}
+                    onPress={toRegister}
+                />
+            </View>
+
             {/* The marketplace browses without an account (4a): the way out of this form is a
-                visible choice, not a back button. */}
-            <Button
+                visible choice as well as the frame's Back to the shop. */}
+            <AuthLink
                 testID="sign-in-keep-browsing"
-                block
-                variant="secondary"
                 label={t('common:action.keepBrowsing')}
                 onPress={keepBrowsing}
             />
+        </View>
+    );
+}
 
-            <Inline space="xs">
-                <Link
-                    testID="sign-in-forgot"
-                    href={withReturnTo('/forgot-password', returnTo) as never}
-                    replace
-                    asChild
-                >
-                    <Text tone="info" accessibilityRole="link">
-                        {t('auth:login.forgotLink')}
-                    </Text>
-                </Link>
-            </Inline>
-
-            <Inline space="xs">
-                <Text tone="secondary">{t('auth:login.registerPrompt')}</Text>
-                <Link
-                    testID="sign-in-register"
-                    href={withReturnTo('/register', returnTo) as never}
-                    replace
-                    asChild
-                >
-                    <Text tone="info" accessibilityRole="link">
-                        {t('auth:login.registerLink')}
-                    </Text>
-                </Link>
-            </Inline>
-        </Stack>
+/** An inline text link in the boards' brand ink — "Forgotten your password?", "Create an account". */
+function AuthTextLink({
+    testID,
+    label,
+    onPress,
+}: {
+    readonly testID: string;
+    readonly label: string;
+    readonly onPress: () => void;
+}) {
+    return (
+        <RNText
+            testID={testID}
+            role="link"
+            accessibilityRole="link"
+            onPress={onPress}
+            className="min-h-touch py-3 text-sm font-semibold text-content-on-brand-subtle hover:underline"
+        >
+            {label}
+        </RNText>
     );
 }
 
@@ -326,105 +357,90 @@ function SignInIdentityField({
 
     if (domains.length === 0 || domain === null) {
         return (
-            <Stack space="xs">
-                <TextInputField
+            <View className="flex-col gap-1.5">
+                <AuthField
                     testID="sign-in-email"
-                    id="sign-in-email"
                     label={t('auth:login.emailLabel')}
+                    icon="send"
                     placeholder={t('auth:login.emailPlaceholder')}
                     keyboardType="email-address"
-                    autoCapitalize="none"
                     autoComplete="email"
                     textContentType="emailAddress"
-                    required
                     returnKeyType="go"
                     value={typed}
                     onChangeText={setTyped}
                     onBlur={onBlur}
                     onSubmitEditing={onSubmit}
-                    {...(error === undefined ? {} : { error })}
+                    error={error}
                 />
                 {domains.length === 0 ? null : (
-                    <Inline space="xs">
-                        <Button
-                            testID="sign-in-use-sign-in-name"
-                            variant="ghost"
-                            size="sm"
-                            label={t('auth:login.useSignInName')}
-                            onPress={() => {
-                                choose(domains[0]?.domain ?? null);
-                            }}
-                        />
-                    </Inline>
+                    <AuthLink
+                        testID="sign-in-use-sign-in-name"
+                        label={t('auth:login.useSignInName')}
+                        onPress={() => {
+                            choose(domains[0]?.domain ?? null);
+                        }}
+                    />
                 )}
-            </Stack>
+            </View>
         );
     }
 
     return (
-        <Stack space="xs" testID="sign-in-identity">
-            <Inline space="sm" align="end" wrap>
-                <TextInputField
-                    testID="sign-in-local-part"
-                    id="sign-in-local-part"
-                    label={t('auth:login.signInNameLabel')}
-                    placeholder={t('auth:login.signInNamePlaceholder')}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoComplete="username"
-                    required
-                    returnKeyType="go"
-                    value={typed}
-                    onChangeText={setTyped}
-                    onBlur={onBlur}
-                    onSubmitEditing={onSubmit}
-                    {...(error === undefined ? {} : { error })}
-                />
+        <View className="flex-col gap-1.5" testID="sign-in-identity">
+            <AuthField
+                testID="sign-in-local-part"
+                label={t('auth:login.signInNameLabel')}
+                icon="user"
+                placeholder={t('auth:login.signInNamePlaceholder')}
+                keyboardType="email-address"
+                autoComplete="username"
+                returnKeyType="go"
+                value={typed}
+                onChangeText={setTyped}
+                onBlur={onBlur}
+                onSubmitEditing={onSubmit}
+                error={error}
+                {...(domains.length > 1
+                    ? {}
+                    : { suffix: `@${domain}`, suffixTestID: 'sign-in-domain-fixed' })}
+            />
 
-                {domains.length > 1 ? (
-                    <Select
-                        testID="sign-in-domain"
-                        label={t('auth:login.domainLabel')}
-                        options={[
-                            ...domains.map((entry) => ({
-                                value: entry.domain,
-                                label: `@${entry.domain}`,
-                                description: entry.organisationName,
-                            })),
-                            { value: FULL_EMAIL, label: t('auth:login.domainFull') },
-                        ]}
-                        value={domain}
-                        onChange={(next) => {
-                            choose(next === FULL_EMAIL ? null : next);
-                        }}
-                    />
-                ) : (
-                    <Text testID="sign-in-domain-fixed" tone="secondary">
-                        {`@${domain}`}
-                    </Text>
-                )}
-            </Inline>
+            {domains.length > 1 ? (
+                <Select
+                    testID="sign-in-domain"
+                    label={t('auth:login.domainLabel')}
+                    options={[
+                        ...domains.map((entry) => ({
+                            value: entry.domain,
+                            label: `@${entry.domain}`,
+                            description: entry.organisationName,
+                        })),
+                        { value: FULL_EMAIL, label: t('auth:login.domainFull') },
+                    ]}
+                    value={domain}
+                    onChange={(next) => {
+                        choose(next === FULL_EMAIL ? null : next);
+                    }}
+                />
+            ) : null}
 
             {composed === '' ? null : (
-                <Text variant="caption" tone="secondary" testID="sign-in-composed">
-                    {t('auth:login.composedHint', { email: composed })}
-                </Text>
+                <View testID="sign-in-composed">
+                    <AuthHint>{t('auth:login.composedHint', { email: composed })}</AuthHint>
+                </View>
             )}
 
             {domains.length > 1 ? null : (
-                <Inline space="xs">
-                    <Button
-                        testID="sign-in-use-full-email"
-                        variant="ghost"
-                        size="sm"
-                        label={t('auth:login.useFullEmail')}
-                        onPress={() => {
-                            choose(null);
-                        }}
-                    />
-                </Inline>
+                <AuthLink
+                    testID="sign-in-use-full-email"
+                    label={t('auth:login.useFullEmail')}
+                    onPress={() => {
+                        choose(null);
+                    }}
+                />
             )}
-        </Stack>
+        </View>
     );
 }
 
@@ -487,75 +503,72 @@ function TwoFactorChallenge({ challengeId, onSignedIn, onCancel }: TwoFactorChal
     };
 
     return (
-        <Stack testID="two-factor-screen" space="lg">
-            <Stack space="xs">
-                <Heading level={1} testID="two-factor-title">
-                    {t('auth:login.twoFactor.title')}
-                </Heading>
-                <Text tone="secondary">{t('auth:login.twoFactor.subtitle')}</Text>
-            </Stack>
+        <View testID="two-factor-screen" className="flex-col gap-3.5">
+            <View className="items-center">
+                <AuthBadge icon="shield" round />
+            </View>
+            <AuthTitle testID="two-factor-title" centred>
+                {t('auth:login.twoFactor.title')}
+            </AuthTitle>
 
-            <TextInputField
-                testID="two-factor-code"
-                id="two-factor-code"
-                label={
-                    recovery
-                        ? t('auth:login.twoFactor.recoveryLabel')
-                        : t('auth:login.twoFactor.codeLabel')
-                }
-                hint={
-                    recovery
-                        ? t('auth:login.twoFactor.recoveryHint')
-                        : t('auth:login.twoFactor.codeHint')
-                }
-                placeholder={
-                    recovery
-                        ? t('auth:login.twoFactor.recoveryPlaceholder')
-                        : t('auth:login.twoFactor.codePlaceholder')
-                }
-                keyboardType={recovery ? 'default' : 'number-pad'}
-                autoCapitalize="characters"
-                autoComplete="one-time-code"
-                required
-                returnKeyType="go"
-                value={code}
-                onChangeText={setCode}
-                onSubmitEditing={submit}
-                {...(error === null ? {} : { error })}
-            />
+            {recovery ? (
+                <AuthField
+                    testID="two-factor-code"
+                    label={t('auth:login.twoFactor.recoveryLabel')}
+                    icon="keyRound"
+                    placeholder={t('auth:login.twoFactor.recoveryPlaceholder')}
+                    autoCapitalize="characters"
+                    autoComplete="one-time-code"
+                    returnKeyType="go"
+                    value={code}
+                    onChangeText={setCode}
+                    onSubmitEditing={submit}
+                    error={error ?? undefined}
+                />
+            ) : (
+                // The board's six boxes for the authenticator's code.
+                <CodeBoxes
+                    testID="two-factor-code"
+                    label={t('auth:login.twoFactor.codeLabel')}
+                    length={6}
+                    value={code}
+                    onChangeText={setCode}
+                    onSubmitEditing={submit}
+                    error={error ?? undefined}
+                    autoFocus
+                />
+            )}
+            <AuthHint>
+                {recovery
+                    ? t('auth:login.twoFactor.recoveryHint')
+                    : t('auth:login.twoFactor.codeHint')}
+            </AuthHint>
 
-            <Button
+            <AuthSubmit
                 testID="two-factor-submit"
-                block
                 label={t('auth:login.twoFactor.submit')}
-                loading={challenge.isPending}
+                busy={challenge.isPending}
                 onPress={submit}
             />
 
-            <Inline space="sm">
-                <Button
-                    testID="two-factor-toggle-recovery"
-                    variant="ghost"
-                    size="sm"
-                    label={
-                        recovery
-                            ? t('auth:login.twoFactor.useCode')
-                            : t('auth:login.twoFactor.useRecovery')
-                    }
-                    onPress={() => {
-                        setRecovery((current) => !current);
-                        setCode('');
-                        setError(null);
-                    }}
-                />
-                <Button
-                    testID="two-factor-cancel"
-                    variant="ghost"
-                    size="sm"
-                    label={t('auth:login.twoFactor.back')}
-                    onPress={onCancel}
-                />
-            </Inline>
-        </Stack>
+            <AuthLink
+                testID="two-factor-toggle-recovery"
+                label={
+                    recovery
+                        ? t('auth:login.twoFactor.useCode')
+                        : t('auth:login.twoFactor.useRecovery')
+                }
+                onPress={() => {
+                    setRecovery((current) => !current);
+                    setCode('');
+                    setError(null);
+                }}
+            />
+            <AuthLink
+                testID="two-factor-cancel"
+                label={t('auth:login.twoFactor.back')}
+                onPress={onCancel}
+            />
+        </View>
     );
 }

@@ -970,7 +970,7 @@ describe('the public deletion page', () => {
 
         await waitFor(() => screen.getByTestId('guest-deletion-email'));
         await fireEvent.changeText(
-            screen.getByTestId('guest-deletion-email'),
+            screen.getByTestId('guest-deletion-email-input'),
             'nobody@example.com',
         );
         await fireEvent.press(screen.getByTestId('guest-deletion-request'));
@@ -1009,7 +1009,7 @@ describe('the public deletion page', () => {
 
         await waitFor(() => screen.getByTestId('guest-deletion-email'));
         await fireEvent.changeText(
-            screen.getByTestId('guest-deletion-email'),
+            screen.getByTestId('guest-deletion-email-input'),
             'nobody@example.com',
         );
         await fireEvent.press(screen.getByTestId('guest-deletion-request'));
@@ -1045,7 +1045,10 @@ describe('the public deletion page', () => {
         });
 
         await waitFor(() => screen.getByTestId('guest-deletion-email'));
-        await fireEvent.changeText(screen.getByTestId('guest-deletion-email'), 'rana@example.com');
+        await fireEvent.changeText(
+            screen.getByTestId('guest-deletion-email-input'),
+            'rana@example.com',
+        );
         await fireEvent.press(screen.getByTestId('guest-deletion-request'));
 
         await waitFor(() => screen.getByTestId('guest-deletion-sent'));

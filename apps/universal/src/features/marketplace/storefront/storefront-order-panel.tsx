@@ -1,67 +1,317 @@
-import { Button } from '@healthy360/design-system';
-import type { Kitchen } from '@healthy360/api-client/contracts';
+import { Icon, cx } from '@healthy360/design-system';
+import type { CartItem, Kitchen, MarketplaceMeal } from '@healthy360/api-client/contracts';
 import type { Money } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Text as RNText, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
-import { Eyebrow } from '../../../ui/eyebrow.tsx';
-import { PillChip } from '../../../ui/pill-chip.tsx';
+import {
+    useCartQuery,
+    useRemoveCartItemMutation,
+    useSetCartItemQuantityMutation,
+} from '../../../data/commerce-hooks.ts';
+import { EntityImage } from '../../../media/entity-image.tsx';
+import { useSession } from '../../../session/session-provider.tsx';
+import { DeliverToMenu } from '../discover/deliver-to-menu.tsx';
 import { formatMoney } from '../format.ts';
+import { useShopViewOnly } from '../shop-view-only.tsx';
 import { deliveryTerms, pickupBranches } from '../storefront-facts.ts';
 
 import type { KitchenClock } from './storefront-today.ts';
 import { deliveryMinutesRange, minutesUntil } from './storefront-today.ts';
-import { useShopViewOnly } from '../shop-view-only.tsx';
 
-/** Which way an order leaves the kitchen. Drives the figures the panel states. */
+/** Which way an order leaves the kitchen. Drives the terms the panel states. */
 type StorefrontMode = 'delivery' | 'pickup';
 const MODES: readonly StorefrontMode[] = ['delivery', 'pickup'];
 
 /**
- * The storefront's order panel — HealthZone `§isStorefront`'s `<aside>`: the eyebrow, the
- * Delivery / Pickup switch, three terms for that mode, today's cut-off with its pill, then "Start
- * an order" and "See plans from this kitchen".
+ * The storefront's "Your order" panel, as the accepted shop board draws it: where and when the food
+ * goes (`deliver-to-menu.tsx`), this kitchen's lines in the basket — each with its photograph, a
+ * stepper and Remove — or "Tap + on a dish to start", and Checkout carrying the total.
  *
- * ## Every row the design draws, with "—" where the contract is silent
+ * Under Checkout, the kitchen's terms — the one thing the board's panel leaves out and a shopper
+ * needs before the first add: for delivery the estimate, the minimum order and the fee, for pickup
+ * where to collect, and today's cut-off. A figure the contract has no value for reads "—".
  *
- * * **Delivery** — the estimate range across the kitchen's zones, the lowest minimum order and the
- *   lowest fee, each "from" when zones differ.
- * * **Pickup** — where to collect from. No field records a collection lead time or a collection
- *   charge, so "Ready in" and "Fee" read "—" rather than the design's "15 min" and "Free".
- * * **The switch** always shows both modes, as designed; a mode the kitchen does not offer is drawn
- *   disabled rather than removed, so the panel says "no pickup here" instead of hiding the question.
- *
- * ## The cut-off pill
- *
- * The design's "18 MIN LEFT" is the minutes between the kitchen's clock and its published same-day
- * cut-off (`storefront-today.ts`). Where the kitchen's clock cannot be read on this device the pill
- * states the cut-off time instead, and once it has passed it says so; with no cut-off published
- * for today it reads "—".
+ * Staff view the storefront and order nothing (`shop-view-only.tsx`): they see the terms only.
  */
 export interface StorefrontOrderPanelProps {
     readonly kitchen: Kitchen;
+    /** The kitchen's whole menu, for each basket line's photograph. */
+    readonly meals: readonly MarketplaceMeal[];
     /** Today's same-day cut-off, `HH:mm`. */
     readonly cutOff: string | null;
     readonly clock: KitchenClock | null;
-    readonly onStartOrder: () => void;
-    readonly onSeePlans: () => void;
 }
 
-export function StorefrontOrderPanel({
-    kitchen,
-    cutOff,
-    clock,
-    onStartOrder,
-    onSeePlans,
-}: StorefrontOrderPanelProps) {
-    // Staff view the storefront and start no order (`shop-view-only.tsx`).
+export function StorefrontOrderPanel({ kitchen, meals, cutOff, clock }: StorefrontOrderPanelProps) {
     const viewOnly = useShopViewOnly();
     const { t } = useTranslation();
     const formatter: Formatter = useFormatter();
+    const router = useRouter();
+    const { me } = useSession();
+    const cart = useCartQuery(me !== null && !viewOnly);
+    const setQuantity = useSetCartItemQuantityMutation();
+    const removeItem = useRemoveCartItemMutation();
 
+    const basket = cart.data;
+    const lines = (basket?.items ?? []).filter((item) => item.kitchenId === kitchen.id);
+    const count = lines.reduce((sum, item) => sum + item.quantity, 0);
+    const first = lines[0];
+    const total =
+        first === undefined
+            ? null
+            : formatMoney(formatter, {
+                  amount: lines.reduce((sum, item) => sum + item.lineTotal.amount, 0),
+                  currency: first.lineTotal.currency,
+              });
+
+    return (
+        <View
+            testID="kitchen-order-panel"
+            className="flex-col rounded-3xl border border-stroke-subtle bg-surface-raised p-[18px] shadow-elevation-3"
+        >
+            <View className="flex-row items-center justify-between gap-3">
+                <RNText
+                    role="heading"
+                    aria-level={2}
+                    className="font-display text-lg font-bold text-content-primary"
+                >
+                    {t('marketplace:storefront.order.title')}
+                </RNText>
+                {viewOnly ? null : (
+                    <RNText
+                        testID="kitchen-basket-count"
+                        className="text-sm tabular-nums text-content-secondary"
+                    >
+                        {t('marketplace:storefront.order.itemCount', {
+                            count,
+                            formattedCount: formatter.formatNumber(count),
+                        })}
+                    </RNText>
+                )}
+            </View>
+
+            {viewOnly ? null : (
+                <>
+                    <View className="z-auto mt-3">
+                        <DeliverToMenu testID="kitchen-deliver" bar kitchenId={kitchen.id} />
+                    </View>
+
+                    {lines.length === 0 ? (
+                        <View
+                            testID="kitchen-basket-empty"
+                            className="flex-col items-center gap-2 px-2 py-[22px]"
+                        >
+                            <View className="h-16 w-16 items-center justify-center rounded-full bg-surface-brand-subtle">
+                                <Icon
+                                    name="shoppingBasket"
+                                    className="text-content-on-brand-subtle"
+                                />
+                            </View>
+                            <RNText className="text-center text-sm text-content-secondary">
+                                {t('marketplace:storefront.order.emptyHint')}
+                            </RNText>
+                        </View>
+                    ) : (
+                        <View testID="kitchen-basket" className="mt-3.5 flex-col gap-2.5">
+                            {lines.map((item) => (
+                                <BasketLine
+                                    key={item.id}
+                                    item={item}
+                                    meal={meals.find((meal) => meal.id === item.mealId)}
+                                    onQuantity={(quantity) => {
+                                        if (basket === undefined) return;
+                                        setQuantity.mutate({ cartId: basket.id, item, quantity });
+                                    }}
+                                    onRemove={() => {
+                                        if (basket === undefined) return;
+                                        removeItem.mutate({ cartId: basket.id, itemId: item.id });
+                                    }}
+                                />
+                            ))}
+                        </View>
+                    )}
+
+                    <Pressable
+                        testID="kitchen-checkout"
+                        role="button"
+                        accessibilityRole="button"
+                        disabled={lines.length === 0}
+                        accessibilityState={{ disabled: lines.length === 0 }}
+                        onPress={() => {
+                            router.push('/customer/checkout' as never);
+                        }}
+                        className={cx(
+                            'mt-3.5 h-[52px] flex-row items-center justify-between rounded-2xl px-[18px]',
+                            lines.length === 0
+                                ? 'bg-surface-base'
+                                : 'bg-surface-brand hover:bg-surface-canopy',
+                        )}
+                    >
+                        <RNText
+                            className={cx(
+                                'text-base font-bold',
+                                lines.length === 0
+                                    ? 'text-content-secondary'
+                                    : 'text-content-on-brand',
+                            )}
+                        >
+                            {t('marketplace:storefront.order.checkout')}
+                        </RNText>
+                        {total === null ? null : (
+                            <RNText
+                                testID="kitchen-basket-total"
+                                className="font-display text-base font-bold tabular-nums text-content-on-brand"
+                            >
+                                {total}
+                            </RNText>
+                        )}
+                    </Pressable>
+                </>
+            )}
+
+            <KitchenTerms kitchen={kitchen} cutOff={cutOff} clock={clock} />
+        </View>
+    );
+}
+
+/** One basket line: photograph, name and line total, then the stepper and Remove. */
+function BasketLine({
+    item,
+    meal,
+    onQuantity,
+    onRemove,
+}: {
+    readonly item: CartItem;
+    readonly meal: MarketplaceMeal | undefined;
+    readonly onQuantity: (quantity: number) => void;
+    readonly onRemove: () => void;
+}) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const id = `kitchen-basket-${item.id}`;
+
+    return (
+        <View testID={id} className="flex-row gap-2.5 rounded-2xl bg-surface-base p-2">
+            <View className="h-11 w-11 overflow-hidden rounded-xl">
+                <EntityImage
+                    assetId={meal?.imagePlaceholderId}
+                    photoUrl={meal?.photoUrl}
+                    seed={meal?.slug ?? item.id}
+                    label={item.name}
+                    decorative
+                    flush
+                    className="h-full w-full"
+                />
+            </View>
+            <View className="min-w-0 flex-1 flex-col gap-1.5">
+                <View className="flex-row items-center gap-2">
+                    <RNText
+                        numberOfLines={1}
+                        className="min-w-0 flex-1 text-sm font-semibold text-content-primary text-start"
+                    >
+                        {item.name}
+                    </RNText>
+                    <RNText className="font-display text-sm font-bold tabular-nums text-content-primary">
+                        {formatMoney(formatter, item.lineTotal)}
+                    </RNText>
+                </View>
+                <View className="flex-row items-center gap-1.5">
+                    <View
+                        role="group"
+                        aria-label={t('marketplace:storefront.order.quantityLabel', {
+                            item: item.name,
+                        })}
+                        className="h-9 flex-row items-center rounded-xl border border-stroke-subtle bg-surface-raised p-0.5"
+                    >
+                        <Pressable
+                            testID={`${id}-decrement`}
+                            role="button"
+                            accessibilityRole="button"
+                            accessibilityLabel={
+                                item.quantity <= 1
+                                    ? t('marketplace:storefront.order.removeLabel', {
+                                          item: item.name,
+                                      })
+                                    : t('marketplace:storefront.order.fewerLabel', {
+                                          item: item.name,
+                                      })
+                            }
+                            onPress={() => {
+                                if (item.quantity <= 1) onRemove();
+                                else onQuantity(item.quantity - 1);
+                            }}
+                            className="h-8 w-8 items-center justify-center rounded-[9px] hover:bg-surface-brand-subtle active:scale-90"
+                        >
+                            <Icon
+                                name={item.quantity <= 1 ? 'archive' : 'minus'}
+                                size="sm"
+                                className="text-content-primary"
+                            />
+                        </Pressable>
+                        <RNText
+                            testID={`${id}-quantity`}
+                            aria-live="polite"
+                            className="min-w-[26px] text-center font-display text-sm font-bold tabular-nums text-content-primary"
+                        >
+                            {formatter.formatNumber(item.quantity)}
+                        </RNText>
+                        <Pressable
+                            testID={`${id}-increment`}
+                            role="button"
+                            accessibilityRole="button"
+                            accessibilityLabel={t('marketplace:storefront.order.moreLabel', {
+                                item: item.name,
+                            })}
+                            onPress={() => {
+                                onQuantity(item.quantity + 1);
+                            }}
+                            className="h-8 w-8 items-center justify-center rounded-[9px] hover:bg-surface-brand-subtle active:scale-90"
+                        >
+                            <Icon name="plus" size="sm" className="text-content-primary" />
+                        </Pressable>
+                    </View>
+                    <Pressable
+                        testID={`${id}-remove`}
+                        role="button"
+                        accessibilityRole="button"
+                        accessibilityLabel={t('marketplace:storefront.order.removeLabel', {
+                            item: item.name,
+                        })}
+                        onPress={onRemove}
+                        className="ms-auto h-8 flex-row items-center gap-1 rounded-[9px] px-2 hover:bg-danger-subtle"
+                    >
+                        <Icon name="close" size="sm" className="text-content-secondary" />
+                        <RNText className="text-xs font-semibold text-content-secondary">
+                            {t('marketplace:storefront.order.remove')}
+                        </RNText>
+                    </Pressable>
+                </View>
+            </View>
+        </View>
+    );
+}
+
+/**
+ * The kitchen's terms under Checkout: the Delivery / Pickup switch, three figures for that mode, and
+ * today's cut-off. The switch shows both modes; one the kitchen does not offer is disabled rather
+ * than removed, so the panel says "no pickup here" instead of hiding the question.
+ */
+function KitchenTerms({
+    kitchen,
+    cutOff,
+    clock,
+}: {
+    readonly kitchen: Kitchen;
+    readonly cutOff: string | null;
+    readonly clock: KitchenClock | null;
+}) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
     const pickup = pickupBranches(kitchen);
     const terms = deliveryTerms(kitchen);
     const range = deliveryMinutesRange(kitchen);
@@ -75,7 +325,6 @@ export function StorefrontOrderPanel({
         !offered.delivery && offered.pickup ? 'pickup' : 'delivery',
     );
 
-    /** One label/value line. */
     const term = (key: string, label: string, value: string) => (
         <View
             key={key}
@@ -110,31 +359,6 @@ export function StorefrontOrderPanel({
                     max: formatter.formatNumber(range.max),
                 });
 
-    const rows =
-        mode === 'pickup'
-            ? [
-                  term(
-                      'collect',
-                      t('marketplace:storefront.order.collectFrom'),
-                      pickup.length === 0
-                          ? none
-                          : [...new Set(pickup.map((branch) => branch.area))].join(
-                                t('marketplace:common.listSeparator'),
-                            ),
-                  ),
-                  term('ready', t('marketplace:storefront.order.readyIn'), none),
-                  term('pickup-fee', t('marketplace:storefront.order.fee'), none),
-              ]
-            : [
-                  term('eta', t('marketplace:storefront.order.delivery'), eta),
-                  term(
-                      'minimum',
-                      t('marketplace:storefront.order.minimum'),
-                      amount(terms.minimumOrder),
-                  ),
-                  term('fee', t('marketplace:storefront.order.fee'), amount(terms.deliveryFee)),
-              ];
-
     const left = cutOff === null || clock === null ? null : minutesUntil(cutOff, clock);
     const pill =
         cutOff === null
@@ -153,40 +377,73 @@ export function StorefrontOrderPanel({
                     });
 
     return (
-        <View
-            testID="kitchen-order-panel"
-            className="flex-col gap-3 rounded-xl border border-stroke bg-surface-raised p-5"
-        >
-            <Eyebrow>{t('marketplace:storefront.order.eyebrow')}</Eyebrow>
-
+        <View className="mt-4 flex-col gap-2.5 border-t border-stroke-subtle pt-3.5">
             <View
-                className="flex-row gap-2"
                 testID="kitchen-order-modes"
-                role="group"
+                role="radiogroup"
                 aria-label={t('marketplace:storefront.order.modesLabel')}
+                className="flex-row gap-1 self-start rounded-xl bg-surface-base p-1"
             >
-                {MODES.map((option) => (
-                    <PillChip
-                        key={option}
-                        size="sm"
-                        floor="coarse"
-                        shape="tab"
-                        testID={`kitchen-order-mode-${option}`}
-                        label={t(`marketplace:storefront.order.${option}`)}
-                        selected={option === mode}
-                        disabled={!offered[option]}
-                        onPress={() => {
-                            setMode(option);
-                        }}
-                    />
-                ))}
+                {MODES.map((option) => {
+                    const on = option === mode;
+                    const disabled = !offered[option];
+                    return (
+                        <Pressable
+                            key={option}
+                            testID={`kitchen-order-mode-${option}`}
+                            role="radio"
+                            aria-checked={on}
+                            accessibilityState={{ checked: on, disabled }}
+                            disabled={disabled}
+                            onPress={() => {
+                                setMode(option);
+                            }}
+                            className={cx(
+                                'rounded-lg px-3 py-1',
+                                on ? 'bg-surface-raised shadow-elevation-1' : '',
+                                disabled ? 'opacity-40' : '',
+                            )}
+                        >
+                            <RNText
+                                className={cx(
+                                    'text-xs font-semibold',
+                                    on ? 'text-content-primary' : 'text-content-secondary',
+                                )}
+                            >
+                                {t(`marketplace:storefront.order.${option}`)}
+                            </RNText>
+                        </Pressable>
+                    );
+                })}
             </View>
 
-            {rows}
+            {mode === 'pickup'
+                ? [
+                      term(
+                          'collect',
+                          t('marketplace:storefront.order.collectFrom'),
+                          pickup.length === 0
+                              ? none
+                              : [...new Set(pickup.map((branch) => branch.area))].join(
+                                    t('marketplace:common.listSeparator'),
+                                ),
+                      ),
+                      term('ready', t('marketplace:storefront.order.readyIn'), none),
+                      term('pickup-fee', t('marketplace:storefront.order.fee'), none),
+                  ]
+                : [
+                      term('eta', t('marketplace:storefront.order.delivery'), eta),
+                      term(
+                          'minimum',
+                          t('marketplace:storefront.order.minimum'),
+                          amount(terms.minimumOrder),
+                      ),
+                      term('fee', t('marketplace:storefront.order.fee'), amount(terms.deliveryFee)),
+                  ]}
 
             <View
                 testID="kitchen-order-cutoff"
-                className="flex-row items-center justify-between gap-2.5 border-t border-stroke-subtle pt-3"
+                className="flex-row items-center justify-between gap-2.5"
             >
                 <RNText className="text-sm text-content-secondary text-start">
                     {t('marketplace:storefront.order.cutOff')}
@@ -195,31 +452,11 @@ export function StorefrontOrderPanel({
                     <RNText
                         testID="kitchen-order-cutoff-pill"
                         numberOfLines={1}
-                        className="text-sm font-semibold uppercase tabular-nums text-warning-on-subtle text-end"
+                        className="text-xs font-semibold uppercase tabular-nums text-warning-on-subtle text-end"
                     >
                         {pill}
                     </RNText>
                 </View>
-            </View>
-
-            <View className="mt-1 flex-col gap-3">
-                {viewOnly ? null : (
-                    <Button
-                        testID="kitchen-view-menu"
-                        block
-                        size="lg"
-                        label={t('marketplace:storefront.order.start')}
-                        onPress={onStartOrder}
-                    />
-                )}
-                <Button
-                    testID="kitchen-see-plans"
-                    block
-                    size="lg"
-                    variant="secondary"
-                    label={t('marketplace:storefront.order.seePlans')}
-                    onPress={onSeePlans}
-                />
             </View>
         </View>
     );

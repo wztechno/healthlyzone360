@@ -1,76 +1,78 @@
-import { cx } from '@healthy360/design-system';
+import { Icon, cx } from '@healthy360/design-system';
+import type { IconName } from '@healthy360/design-system';
 import type { Kitchen } from '@healthy360/api-client/contracts';
 import { gradients } from '@healthy360/design-tokens';
 import { useFormatter, useIsRtl } from '@healthy360/i18n';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text as RNText, View } from 'react-native';
+import { Pressable, StyleSheet, Text as RNText, View } from 'react-native';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
-import { Eyebrow } from '../../../ui/eyebrow.tsx';
+import { BackPill } from '../../../ui/back-pill.tsx';
 import { weekdayKey } from '../format.ts';
-import {
-    activeBranches,
-    hoursToday,
-    nextOpenWeekday,
-    pickupBranches,
-} from '../storefront-facts.ts';
-
-import { deliveryMinutesRange, monogram } from './storefront-today.ts';
+import { kitchenAreas, kitchenWhere, useKitchenTallies } from '../kitchen-card-facts.ts';
+import { hoursToday, nextOpenWeekday } from '../storefront-facts.ts';
 
 /**
- * The storefront's opening — HealthZone `§isStorefront`: one rounded canopy band, split into the
- * kitchen's panel and its photograph.
+ * The storefront's opening, as the accepted shop board draws it: one rounded cover — the kitchen's
+ * photograph under a green wash that deepens towards the start — with "All kitchens" at its top
+ * corner, and along its foot the kitchen's badge, today's hours, its name, a row of facts and "See
+ * weekly plans".
  *
- * ## Why not `StorefrontHero`
- *
- * The shared hero takes an eyebrow, a title, a body and an action slot pinned to the panel's foot,
- * and draws the panel and the photograph as two separate rounded blocks. The design's storefront
- * is one band with the photograph flush in its far half, a monogram tile beside the name, the
- * status pills *between* the name and the description, and the facts pinned to the foot. Bending
- * the shared hero to that would mean four new slots used by one caller, so it is built here.
- *
- * ## Top to bottom
- *
- * 1. **Eyebrow** — "Kitchen · {areas}", from the active branches.
- * 2. **Monogram and name** — the tile is the name's initials on the brand fill.
- * 3. **Pills** — today's published window (or the next day it opens), "Verified kitchen" for a verified
- *    kitchen, and the ways to order: delivery, pickup, plans, each only where offered. Today's
- *    window rather than "open now" — `storefront-facts.ts` says why.
- * 4. **Description** — the kitchen's own, falling back to its tagline.
- * 5. **Facts** — rating, delivery, cuisine, branches, always four, as the design draws them. A fact
- *    the contract has no value for reads "—", and the rating reads "Not rated yet" until there is
- *    one. The delivery figure is the range across the kitchen's zones.
+ * - **Today's hours, not "open now"** — `storefront-facts.ts` says why. A closed day names the next
+ *   day it opens.
+ * - **The facts are counted or published** — where it cooks, the areas it delivers to, its rating,
+ *   and its items and plans (`kitchen-card-facts.ts`). A rating not yet given reads so.
+ * - **Save** is not drawn: favourites have no backend.
  */
 export interface StorefrontCanopyProps {
     readonly kitchen: Kitchen;
+    readonly onBack: () => void;
+    /** Opens the Plans tab, which says so when the kitchen sells none. */
+    readonly onSeePlans: () => void;
     readonly testID?: string | undefined;
 }
 
-export function StorefrontCanopy({ kitchen, testID = 'kitchen-hero' }: StorefrontCanopyProps) {
+export function StorefrontCanopy({
+    kitchen,
+    onBack,
+    onSeePlans,
+    testID = 'kitchen-hero',
+}: StorefrontCanopyProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const isRtl = useIsRtl();
+    const tallies = useKitchenTallies(kitchen);
 
-    const branches = activeBranches(kitchen);
-    const areas = [...new Set(branches.map((branch) => branch.area))];
     const today = hoursToday(kitchen);
     // Add stays live on a closed day, because a basket can name another: so the pill says which.
     const nextOpen = today === null ? nextOpenWeekday(kitchen) : null;
-    const range = deliveryMinutesRange(kitchen);
-    const none = t('marketplace:storefront.facts.none');
+    const where = kitchenWhere(kitchen, t);
+    const areas = kitchenAreas(kitchen);
+    const dash = t('marketplace:kitchens.noCount');
 
-    const ways = [
-        kitchen.channels.delivery ? t('marketplace:storefront.ways.delivery') : null,
-        pickupBranches(kitchen).length > 0 ? t('marketplace:storefront.ways.pickup') : null,
-        kitchen.channels.subscription ? t('marketplace:storefront.ways.plans') : null,
-    ].filter((way) => way !== null);
-
-    const facts = [
+    const facts: readonly {
+        readonly key: string;
+        readonly icon: IconName | null;
+        readonly text: string;
+    }[] = [
+        ...(where === '' ? [] : [{ key: 'where', icon: 'mapPin' as const, text: where }]),
+        ...(areas === 0
+            ? []
+            : [
+                  {
+                      key: 'areas',
+                      icon: 'truck' as const,
+                      text: t('marketplace:storefront.facts.areasValue', {
+                          count: areas,
+                          formattedCount: formatter.formatNumber(areas),
+                      }),
+                  },
+              ]),
         {
             key: 'rating',
-            label: t('marketplace:storefront.facts.rating'),
-            value:
+            icon: 'star',
+            text:
                 kitchen.rating === null
                     ? t('marketplace:storefront.facts.notRated')
                     : t('marketplace:storefront.facts.ratingValue', {
@@ -83,62 +85,38 @@ export function StorefrontCanopy({ kitchen, testID = 'kitchen-hero' }: Storefron
                       }),
         },
         {
-            key: 'delivery',
-            label: t('marketplace:storefront.facts.delivery'),
-            value:
-                range === null
-                    ? none
-                    : range.min === range.max
-                      ? t('marketplace:storefront.facts.minutes', {
-                            minutes: formatter.formatNumber(range.min),
-                        })
-                      : t('marketplace:storefront.facts.minutesRange', {
-                            min: formatter.formatNumber(range.min),
-                            max: formatter.formatNumber(range.max),
-                        }),
-        },
-        {
-            key: 'cuisine',
-            label: t('marketplace:storefront.facts.cuisine'),
-            value:
-                kitchen.cuisines.length === 0
-                    ? none
-                    : kitchen.cuisines.join(t('marketplace:storefront.separator')),
-        },
-        {
-            key: 'branches',
-            label: t('marketplace:storefront.facts.branches'),
-            value:
-                branches.length === 0
-                    ? none
-                    : t('marketplace:storefront.facts.branchCount', {
-                          count: branches.length,
-                          formattedCount: formatter.formatNumber(branches.length),
-                      }),
+            key: 'counts',
+            icon: null,
+            text: t('marketplace:storefront.facts.countsValue', {
+                items: tallies.items ?? dash,
+                plans: tallies.plans ?? dash,
+            }),
         },
     ];
-
-    const description = kitchen.description === '' ? kitchen.tagline : kitchen.description;
-    const pill = 'rounded-full px-2.5 py-1';
-    const pillText = 'text-xs font-medium uppercase tracking-wide text-start';
 
     return (
         <View
             testID={testID}
-            className="flex-col overflow-hidden rounded-xl bg-surface-canopy lg:flex-row"
+            className="relative mt-1 overflow-hidden rounded-[30px] bg-surface-canopy lg:h-[300px]"
         >
+            <View testID={`${testID}-media`} className="absolute bottom-0 end-0 start-0 top-0">
+                <View className="h-full w-full scale-[1.03] opacity-55">
+                    <EntityImage
+                        testID={`${testID}-image`}
+                        assetId={kitchen.imagePlaceholderId}
+                        variant="detail"
+                        seed={kitchen.slug}
+                        label={t('marketplace:kitchens.imageLabel', { kitchen: kitchen.name })}
+                        decorative
+                        flush
+                        className="h-full w-full"
+                    />
+                </View>
+            </View>
             {/*
-             * The design's 135° canopy sweep, under the whole band, then the same reading-direction
-             * scrim `StorefrontHero` lays over it: the sweep runs brighter than the flat deep forest
-             * the canopy text alphas are measured on, and without the scrim the body fails AA there.
+             * The board's green wash, deepest at the start, where the text is: it keeps the cover's
+             * foreground at AA on any photograph.
              */}
-            <LinearGradient
-                colors={gradients.canopy.colours}
-                locations={gradients.canopy.locations}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-            />
             <LinearGradient
                 colors={gradients.canopyScrim.colours}
                 start={isRtl ? { x: 1, y: 0 } : { x: 0, y: 0 }}
@@ -146,54 +124,48 @@ export function StorefrontCanopy({ kitchen, testID = 'kitchen-hero' }: Storefron
                 style={StyleSheet.absoluteFill}
             />
 
-            <View testID={`${testID}-panel`} className="flex-1 flex-col gap-4 p-6 lg:px-9 lg:py-8">
-                <Eyebrow tone="canopy" testID={`${testID}-eyebrow`}>
-                    {areas.length === 0
-                        ? t('marketplace:storefront.eyebrow')
-                        : t('marketplace:storefront.eyebrowArea', {
-                              areas: areas.join(t('marketplace:storefront.separator')),
-                          })}
-                </Eyebrow>
+            <View className="z-10 p-[18px]">
+                <BackPill
+                    testID="kitchen-crumb-kitchens"
+                    label={t('marketplace:storefront.allKitchens')}
+                    onPress={onBack}
+                    className="shadow-elevation-3"
+                />
+            </View>
 
-                {/*
-                 * One row, never wrapped: a long name breaks inside its own column beside the
-                 * tile, as the design draws it, rather than dropping whole under the tile.
-                 */}
-                <View className="flex-row items-center gap-4">
-                    {/*
-                     * The design's tile: 58px, three round corners and one tight one at the
-                     * bottom-leading corner — `rounded-es-xs` is the logical corner, so it stays
-                     * under the text's start in both directions.
-                     */}
-                    <View
-                        testID={`${testID}-monogram`}
-                        aria-hidden
-                        accessibilityElementsHidden
-                        importantForAccessibility="no-hide-descendants"
-                        className="h-[58px] w-[58px] shrink-0 items-center justify-center rounded-xl rounded-es-sm bg-surface-brand"
-                    >
-                        <RNText className="font-display text-2xl font-bold text-content-on-brand">
-                            {monogram(kitchen.name)}
-                        </RNText>
-                    </View>
-                    <RNText
-                        testID={`${testID}-title`}
-                        accessibilityRole="header"
-                        aria-level={1}
-                        className="min-w-0 flex-1 font-display text-4xl font-bold leading-none tracking-display text-content-on-canopy text-start lg:text-5xl"
-                    >
-                        {kitchen.name}
-                    </RNText>
+            <View
+                testID={`${testID}-panel`}
+                className="z-10 mt-auto flex-col gap-5 px-6 pb-7 pt-10 lg:absolute lg:bottom-0 lg:end-0 lg:start-0 lg:flex-row lg:items-end lg:gap-6 lg:px-10 lg:pb-8"
+            >
+                <View
+                    testID={`${testID}-badge`}
+                    aria-hidden
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    className="h-[96px] w-[96px] shrink-0 overflow-hidden rounded-[28px] border-[5px] border-surface-raised shadow-elevation-4 lg:h-[120px] lg:w-[120px] lg:rounded-[32px]"
+                >
+                    <EntityImage
+                        assetId={kitchen.imagePlaceholderId}
+                        seed={`${kitchen.slug}-logo`}
+                        label={kitchen.name}
+                        decorative
+                        flush
+                        className="h-full w-full"
+                    />
                 </View>
 
-                <View className="flex-row flex-wrap gap-2" testID="kitchen-pills">
+                <View className="min-w-0 flex-1 flex-col items-start">
                     <View
                         testID="kitchen-hours-today"
-                        className={cx(pill, 'bg-surface-brand-subtle')}
+                        className="h-[30px] flex-row items-center gap-2 rounded-full bg-stage-green/20 px-3"
                     >
-                        <RNText
-                            className={cx(pillText, 'tabular-nums text-content-on-brand-subtle')}
-                        >
+                        <View
+                            className={cx(
+                                'h-2 w-2 rounded-full',
+                                today === null ? 'bg-content-on-canopy-muted' : 'bg-stage-green',
+                            )}
+                        />
+                        <RNText className="text-xs font-bold uppercase tracking-wider tabular-nums text-content-on-canopy">
                             {today === null
                                 ? nextOpen === null
                                     ? t('marketplace:storefront.closedToday')
@@ -206,73 +178,72 @@ export function StorefrontCanopy({ kitchen, testID = 'kitchen-hero' }: Storefron
                                   })}
                         </RNText>
                     </View>
-                    {kitchen.isVerified ? (
-                        <View testID="kitchen-verified" className={cx(pill, 'bg-info-subtle')}>
-                            <RNText className={cx(pillText, 'text-info-on-subtle')}>
-                                {t('marketplace:storefront.verified')}
-                            </RNText>
-                        </View>
-                    ) : null}
-                    {ways.length === 0 ? null : (
-                        <View testID="kitchen-ways" className={cx(pill, 'bg-surface-raised')}>
-                            <RNText className={cx(pillText, 'text-content-primary')}>
-                                {ways.join(t('marketplace:storefront.separator'))}
-                            </RNText>
-                        </View>
-                    )}
-                </View>
 
-                {description === '' ? null : (
                     <RNText
-                        testID={`${testID}-body`}
-                        className="max-w-[560px] text-base leading-relaxed text-content-on-canopy-muted text-start"
+                        testID={`${testID}-title`}
+                        accessibilityRole="header"
+                        aria-level={1}
+                        className="mt-2.5 font-display text-4xl font-bold leading-tight tracking-display text-content-on-canopy text-start lg:text-5xl"
                     >
-                        {description}
+                        {kitchen.name}
                     </RNText>
-                )}
 
-                {/*
-                 * The design's `auto-fit, minmax(130px, 1fr)`: `basis` with a `min-w`, so a wide
-                 * panel sets the four across and a phone two by two. `mt-auto` pins the row to the
-                 * panel's foot when the photograph beside it is the taller column.
-                 */}
-                <View
-                    testID="kitchen-facts"
-                    className="mt-auto flex-row flex-wrap gap-4 border-t border-surface-canopy-deep pt-4"
+                    <View testID="kitchen-facts" className="mt-3 flex-row flex-wrap gap-2">
+                        {kitchen.isVerified ? (
+                            <FactPill testID="kitchen-verified" icon="badgeCheck">
+                                {t('marketplace:storefront.verified')}
+                            </FactPill>
+                        ) : null}
+                        {facts.map((fact) => (
+                            <FactPill
+                                key={fact.key}
+                                testID={`kitchen-fact-${fact.key}`}
+                                icon={fact.icon}
+                            >
+                                {fact.text}
+                            </FactPill>
+                        ))}
+                    </View>
+                </View>
+
+                <Pressable
+                    testID="kitchen-see-plans"
+                    role="button"
+                    accessibilityRole="button"
+                    onPress={onSeePlans}
+                    className="h-12 flex-row items-center gap-2 self-start rounded-2xl bg-surface-raised px-[18px] hover:bg-surface-brand-subtle lg:self-end"
                 >
-                    {facts.map((fact) => (
-                        <View
-                            key={fact.key}
-                            testID={`kitchen-fact-${fact.key}`}
-                            className="min-w-[130px] flex-1 grow basis-[20%]"
-                        >
-                            <Eyebrow tone="canopy">{fact.label}</Eyebrow>
-                            <RNText className="mt-1 font-display text-base font-bold leading-tight tracking-display text-content-on-canopy text-start">
-                                {fact.value}
-                            </RNText>
-                        </View>
-                    ))}
-                </View>
+                    <Icon name="calendarDays" size="sm" className="text-content-on-brand-subtle" />
+                    <RNText className="text-sm font-bold text-content-on-brand-subtle">
+                        {t('marketplace:storefront.seePlans')}
+                    </RNText>
+                </Pressable>
             </View>
+        </View>
+    );
+}
 
-            <View
-                testID={`${testID}-media`}
-                className="relative min-h-[240px] flex-1 lg:min-h-[340px]"
-            >
-                <View className="absolute inset-0">
-                    <EntityImage
-                        testID={`${testID}-image`}
-                        assetId={kitchen.imagePlaceholderId}
-                        variant="detail"
-                        seed={kitchen.slug}
-                        label={t('marketplace:kitchens.imageLabel', { kitchen: kitchen.name })}
-                        aspect="card"
-                        decorative
-                        flush
-                        className="h-full"
-                    />
-                </View>
-            </View>
+/** One fact on the cover: a soft translucent pill, an icon and the line. */
+function FactPill({
+    testID,
+    icon,
+    children,
+}: {
+    readonly testID: string;
+    readonly icon: IconName | null;
+    readonly children: string;
+}) {
+    return (
+        <View
+            testID={testID}
+            className="h-[34px] flex-row items-center gap-1.5 rounded-full bg-content-on-canopy/10 px-3"
+        >
+            {icon === null ? null : (
+                <Icon name={icon} size="sm" className="text-content-on-canopy" />
+            )}
+            <RNText className="text-sm font-semibold tabular-nums text-content-on-canopy">
+                {children}
+            </RNText>
         </View>
     );
 }

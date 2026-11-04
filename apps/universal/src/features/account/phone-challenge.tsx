@@ -39,6 +39,8 @@ export interface PhoneChallengeProps {
     readonly challengeId: string;
     readonly onVerified: () => void;
     readonly testID?: string | undefined;
+    /** The panel's look — `auth` inside the sign-in frame (`/verify-phone`). */
+    readonly look?: 'panel' | 'auth' | undefined;
 }
 
 interface LiveChallenge {
@@ -51,6 +53,7 @@ export function PhoneChallenge({
     challengeId,
     onVerified,
     testID = 'phone-challenge',
+    look = 'panel',
 }: PhoneChallengeProps) {
     const { t } = useTranslation();
 
@@ -100,6 +103,7 @@ export function PhoneChallenge({
     return (
         <OtpChallengePanel
             testID={testID}
+            look={look}
             challenge={challenge.data}
             failure={failure}
             fallbackMessage={t('account:phone.otpFallback')}

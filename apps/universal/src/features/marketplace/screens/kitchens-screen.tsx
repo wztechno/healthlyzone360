@@ -1,31 +1,18 @@
-import {
-    Button,
-    Icon,
-    SearchInput,
-    Select,
-    cx,
-    inputFrameClassName,
-    useBreakpoint,
-} from '@healthy360/design-system';
-import type {
-    CustomerAddress,
-    Kitchen,
-    KitchenFilter,
-    MealFilter,
-} from '@healthy360/api-client/contracts';
+import { Button, Icon, cx, useBreakpoint } from '@healthy360/design-system';
+import type { IconName } from '@healthy360/design-system';
+import type { CustomerAddress, Kitchen, KitchenFilter } from '@healthy360/api-client/contracts';
+import { neutral } from '@healthy360/design-tokens';
 import { DIET_CLASSIFICATIONS } from '@healthy360/domain-types';
 import type { SalesChannel } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, Text as RNText, View } from 'react-native';
+import { Pressable, ScrollView, Text as RNText, TextInput, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 
 import { useAddressesQuery, useDietaryProfileQuery } from '../../../data/account-hooks.ts';
-import { totalFromPages, useMealsQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
-import { EntityImage, resolveMarketingImage } from '../../../media/entity-image.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import {
     useCurrentHref,
@@ -33,9 +20,7 @@ import {
     useRememberQuery,
 } from '../../../navigation/use-return-to.ts';
 import { useSession } from '../../../session/session-provider.tsx';
-import { Eyebrow } from '../../../ui/eyebrow.tsx';
-import { ListingHeader } from '../../../ui/listing-header.tsx';
-import { PillChip } from '../../../ui/pill-chip.tsx';
+import { InkSortMenu } from '../../../ui/ink-sort-menu.tsx';
 import { useMarketplaceFilters } from '../filter-bar.tsx';
 import { KitchenFinderCard } from '../kitchen-finder-card.tsx';
 import {
@@ -55,10 +40,9 @@ import { QueryStates } from '../query-states.tsx';
 /**
  * `/kitchens` — the kitchen finder (the header's "Kitchens").
  *
- * Top to bottom: the listing title with its count; a sticky toolbar of two rows — the search, the
- * delivery address and the sort on one line, every filter as one row of pill chips under it; the
- * kitchen grid; and "Eat by goal". Kept deliberately plain: one shape of control per row, every
- * control on the row's centre line, and no prose the page does not need.
+ * As the accepted shop board draws it: the title, a count pill and where the food goes on one line;
+ * one white bar — the search, the filters as chips, the sort — pinned while the grid scrolls; and the
+ * kitchens three across (`kitchen-finder-card.tsx`), each with its own Quick look.
  *
  * ## The profile, the address, and who has them
  *
@@ -118,54 +102,10 @@ const FAST = '30';
 /** How long a typed term waits before it becomes the URL's `?q=` and a request. */
 const SEARCH_DEBOUNCE_MS = 300;
 
-/**
- * One track for both grids — `minmax(260px,1fr)` — so the kitchens and the goal tiles under them
- * share their column lines at every width.
- */
-const TRACK = 260;
-/** `gap-4` between cells, in the unit the measured width comes back in. */
-const GRID_GAP = 16;
-
-interface Goal {
-    readonly key: string;
-    readonly href: string;
-    readonly image: string;
-    /** The count query — the same narrowing `/meals` applies for the tile's link. */
-    readonly filter: Omit<MealFilter, 'cursor'>;
-}
-
-/**
- * The collections the page closes on, each landing on a filter `/meals` already applies.
- *
- * Images are the diet heroes the manifest already carries; a key with no photograph falls back to
- * the generated pattern rather than to nothing.
- */
-const GOALS: readonly Goal[] = [
-    {
-        key: 'high_protein',
-        href: '/meals?diet=high_protein',
-        image: 'diets/high-protein.hero',
-        filter: { itemTypes: ['meal'], dietClassifications: ['high_protein'], limit: 1 },
-    },
-    {
-        key: 'vegan',
-        href: '/meals?diet=vegan',
-        image: 'diets/plant-based.hero',
-        filter: { itemTypes: ['meal'], dietClassifications: ['vegan'], limit: 1 },
-    },
-    {
-        key: 'under500',
-        href: '/meals?energyMax=500',
-        image: 'diets/weight-management.hero',
-        filter: { itemTypes: ['meal'], energy: { max: 500 }, limit: 1 },
-    },
-    {
-        key: 'low_carb',
-        href: '/meals?diet=low_carb',
-        image: 'diets/low-carb.hero',
-        filter: { itemTypes: ['meal'], dietClassifications: ['low_carb'], limit: 1 },
-    },
-];
+/** The board's three-across grid: `minmax(340px,1fr)` cells, as many as fit. */
+const TRACK = 340;
+/** The board's 22px gutter, in the unit the measured width comes back in. */
+const GRID_GAP = 22;
 
 /** The address the control names: the default one, else the first saved. */
 function deliveryAddress(
@@ -183,6 +123,8 @@ export function KitchensScreen() {
     const { atLeast } = useBreakpoint();
     const { me } = useSession();
     const signedIn = me !== null;
+    const wide = atLeast('lg');
+    const [searchFocused, setSearchFocused] = useState(false);
     const filters = useMarketplaceFilters(GROUP_KEYS);
     const sorting = useMarketplaceFilters(SORT_KEYS);
     // The search, chips and sort, so a storefront's "Kitchens" crumb comes back to the directory
@@ -282,80 +224,167 @@ export function KitchensScreen() {
     };
 
     return (
-        <View className="flex-col" testID="kitchens-screen">
-            <ListingHeader
-                testID="kitchens-header"
-                title={t('marketplace:kitchens.title')}
-                metaTestID="kitchens-results-count"
-                {...(loaded
-                    ? {
-                          meta:
-                              kitchens.length === total
-                                  ? t('marketplace:kitchens.finder.count', { count: total })
-                                  : t('marketplace:kitchens.finder.countOf', {
-                                        shown: kitchens.length,
-                                        count: total,
-                                    }),
-                      }
-                    : {})}
-            />
+        <View className="flex-col pb-11" testID="kitchens-screen">
+            {/* The title, the count and where the food goes, on one line. */}
+            <View testID="kitchens-header" className="flex-row flex-wrap items-center gap-3.5 pt-1">
+                <RNText
+                    testID="kitchens-header-title"
+                    role="heading"
+                    aria-level={1}
+                    className="font-display text-3xl font-bold tracking-display text-content-primary text-start"
+                >
+                    {t('marketplace:kitchens.title')}
+                </RNText>
+                {loaded ? (
+                    <View className="h-[30px] justify-center rounded-full bg-surface-brand-subtle px-3">
+                        <RNText
+                            testID="kitchens-results-count"
+                            className="text-sm font-medium tabular-nums text-content-on-brand-subtle"
+                        >
+                            {kitchens.length === total
+                                ? t('marketplace:kitchens.finder.count', { count: total })
+                                : t('marketplace:kitchens.finder.countOf', {
+                                      shown: kitchens.length,
+                                      count: total,
+                                  })}
+                        </RNText>
+                    </View>
+                ) : null}
+                <AddressControl
+                    signedIn={signedIn}
+                    pending={signedIn && addresses.data === undefined && addresses.error === null}
+                    address={deliveryAddress(addresses.data)}
+                    onPress={() => {
+                        // Signed out, "Add address" starts with signing in, and comes back here
+                        // (AUTH-14). Signed in with none, it opens the form and comes back here;
+                        // with one, it is a change, made on the account page.
+                        if (!signedIn) {
+                            goToAuth('/sign-in');
+                        } else if (deliveryAddress(addresses.data) === null) {
+                            router.push(
+                                withReturnTo('/customer/account/addresses/new', here) as never,
+                            );
+                        } else {
+                            router.push('/customer/account?section=addresses' as never);
+                        }
+                    }}
+                />
+            </View>
 
             {/*
-             * Sticky on the web against the shell's scroll port — `top-0` pins it just under the
-             * marketplace bar. The chips scroll sideways on a phone rather than wrapping into a band
-             * that eats the screen; the sort sits outside that scroller so its listbox is never
-             * clipped by it.
+             * One white bar — the search, the filters as chips, the sort — pinned on the web against
+             * the shell's scroll port while the grid scrolls. The chips scroll sideways rather than
+             * wrapping; the sort sits outside that scroller so its list is never clipped by it.
              */}
-            <View
-                testID="kitchens-filters"
-                role="toolbar"
-                aria-label={t('marketplace:kitchens.finder.filtersLabel')}
-                className="z-10 mt-6 flex-col gap-1 border-b border-stroke bg-surface-base pb-2 pt-2 web:sticky web:top-0"
-            >
-                <View className="flex-row flex-wrap items-center gap-2">
-                    <View className="min-w-[240px] flex-1">
-                        <SearchInput
-                            testID="kitchens-search"
-                            label={t('marketplace:kitchens.finder.searchLabel')}
+            <View className="z-10 bg-surface-base pb-2 pt-4 web:sticky web:top-0">
+                <View
+                    testID="kitchens-filters"
+                    role="toolbar"
+                    aria-label={t('marketplace:kitchens.finder.filtersLabel')}
+                    className={cx(
+                        'z-auto rounded-3xl border border-stroke-subtle bg-surface-raised p-2 shadow-elevation-2',
+                        wide ? 'flex-row items-center gap-1.5' : 'flex-col gap-2',
+                    )}
+                >
+                    <View
+                        className={cx(
+                            'h-[52px] flex-row items-center gap-2 rounded-2xl border-2 bg-surface-base px-4',
+                            searchFocused ? 'border-surface-brand-subtle' : 'border-transparent',
+                            wide ? 'min-w-[200px] flex-1 basis-[240px]' : 'w-full',
+                        )}
+                    >
+                        <Icon name="search" size="sm" className="text-content-secondary" />
+                        <TextInput
+                            testID="kitchens-search-input"
+                            accessibilityLabel={t('marketplace:kitchens.finder.searchLabel')}
                             placeholder={t('marketplace:kitchens.finder.searchPlaceholder')}
+                            placeholderTextColor={neutral[600]}
                             value={draft}
                             onChangeText={setDraft}
                             onSubmitEditing={() => {
                                 setQuery(draft.trim());
                             }}
-                            size="md"
+                            onFocus={() => {
+                                setSearchFocused(true);
+                            }}
+                            onBlur={() => {
+                                setSearchFocused(false);
+                            }}
+                            returnKeyType="search"
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            className="h-full min-w-0 flex-1 text-sm text-content-primary text-start web:outline-none"
                         />
                     </View>
-                    <View className="w-full flex-row items-center gap-2 md:w-auto">
-                        <AddressControl
-                            signedIn={signedIn}
-                            pending={
-                                signedIn && addresses.data === undefined && addresses.error === null
-                            }
-                            address={deliveryAddress(addresses.data)}
+                    {wide ? <View aria-hidden className="mx-1.5 h-[30px] w-px bg-stroke" /> : null}
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        className={wide ? 'shrink' : 'w-full'}
+                        contentContainerClassName="flex-row items-center gap-1"
+                    >
+                        {dietOptions.map((diet) => {
+                            const on = selectedDiets.includes(diet);
+                            return (
+                                <KitchenChip
+                                    key={diet}
+                                    testID={`kitchens-filter-diet-${diet}`}
+                                    icon="leaf"
+                                    label={t(`marketplace:diets.${diet}`)}
+                                    selected={on}
+                                    onPress={() => {
+                                        filters.toggle('diet', diet, !on);
+                                    }}
+                                />
+                            );
+                        })}
+                        <KitchenChip
+                            testID="kitchens-filter-open-today"
+                            icon="clock"
+                            label={t('marketplace:kitchens.finder.toggle.openToday')}
+                            selected={onlyOpenToday}
                             onPress={() => {
-                                // Signed out, "Add address" starts with signing in, and comes back
-                                // here (AUTH-14). Signed in with none, it opens the form and comes
-                                // back here; with one, it is a change, made on the account page.
-                                if (!signedIn) {
-                                    goToAuth('/sign-in');
-                                } else if (deliveryAddress(addresses.data) === null) {
-                                    router.push(
-                                        withReturnTo(
-                                            '/customer/account/addresses/new',
-                                            here,
-                                        ) as never,
-                                    );
-                                } else {
-                                    router.push('/customer/account?section=addresses' as never);
-                                }
+                                filters.select('open', onlyOpenToday ? null : OPEN_TODAY);
                             }}
                         />
-                        <Select<KitchenSort>
+                        {anyFast || onlyFast ? (
+                            <KitchenChip
+                                testID="kitchens-filter-fast"
+                                icon="bike"
+                                label={t('marketplace:kitchens.finder.under30')}
+                                selected={onlyFast}
+                                onPress={() => {
+                                    filters.select('fast', onlyFast ? null : FAST);
+                                }}
+                            />
+                        ) : null}
+                        <KitchenChip
+                            testID="kitchens-filter-channel-subscription"
+                            icon="calendarDays"
+                            label={t('marketplace:kitchens.finder.toggle.subscription')}
+                            selected={selectedChannels.includes('subscription')}
+                            onPress={() => {
+                                toggleChannel('subscription');
+                            }}
+                        />
+                        <KitchenChip
+                            testID="kitchens-filter-channel-pickup"
+                            icon="store"
+                            label={t('marketplace:kitchens.finder.toggle.pickup')}
+                            selected={selectedChannels.includes('pickup')}
+                            onPress={() => {
+                                toggleChannel('pickup');
+                            }}
+                        />
+                    </ScrollView>
+                    <View className={cx('z-auto', wide ? 'ms-auto' : 'self-start')}>
+                        <InkSortMenu<KitchenSort>
                             testID="kitchens-sort"
-                            id="kitchens-sort"
                             label={t('marketplace:kitchens.finder.sortFieldLabel')}
-                            labelHidden
+                            accessibilityLabel={t('catalogue:filters.sortCurrent', {
+                                label: t('marketplace:kitchens.finder.sortFieldLabel'),
+                                value: t(`marketplace:kitchens.finder.sort.${sort}`),
+                            })}
                             value={sort}
                             options={availableKitchenSorts(profileDiets, hasRatings).map(
                                 (option) => ({
@@ -366,138 +395,99 @@ export function KitchensScreen() {
                             onChange={(next) => {
                                 sorting.select('sort', next === defaultSort ? null : next);
                             }}
-                            className="min-w-[160px]"
                         />
                     </View>
                 </View>
-
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerClassName="flex-row items-center gap-2"
-                >
-                    {dietOptions.map((diet) => {
-                        const on = selectedDiets.includes(diet);
-                        return (
-                            <PillChip
-                                key={diet}
-                                testID={`kitchens-filter-diet-${diet}`}
-                                label={t(`marketplace:diets.${diet}`)}
-                                selected={on}
-                                onPress={() => {
-                                    filters.toggle('diet', diet, !on);
-                                }}
-                            />
-                        );
-                    })}
-                    {anyFast || onlyFast ? (
-                        <PillChip
-                            testID="kitchens-filter-fast"
-                            label={t('marketplace:kitchens.finder.under30')}
-                            selected={onlyFast}
-                            onPress={() => {
-                                filters.select('fast', onlyFast ? null : FAST);
-                            }}
-                        />
-                    ) : null}
-                    <PillChip
-                        testID="kitchens-filter-open-today"
-                        label={t('marketplace:kitchens.finder.toggle.openToday')}
-                        selected={onlyOpenToday}
-                        onPress={() => {
-                            filters.select('open', onlyOpenToday ? null : OPEN_TODAY);
-                        }}
-                    />
-                    <PillChip
-                        testID="kitchens-filter-channel-pickup"
-                        label={t('marketplace:kitchens.finder.toggle.pickup')}
-                        selected={selectedChannels.includes('pickup')}
-                        onPress={() => {
-                            toggleChannel('pickup');
-                        }}
-                    />
-                    <PillChip
-                        testID="kitchens-filter-channel-subscription"
-                        label={t('marketplace:kitchens.finder.toggle.subscription')}
-                        selected={selectedChannels.includes('subscription')}
-                        onPress={() => {
-                            toggleChannel('subscription');
-                        }}
-                    />
-                </ScrollView>
             </View>
 
-            <RNText
-                testID="kitchens-results"
-                accessibilityRole="header"
-                aria-level={2}
-                className="mb-4 mt-8 font-display text-2xl font-bold tracking-display text-content-primary text-start"
-            >
-                {filters.isFiltered
-                    ? t('marketplace:kitchens.finder.listMatching')
-                    : t('marketplace:kitchens.finder.listAll')}
-            </RNText>
-
-            <QueryStates
-                query={query}
-                isEmpty={kitchens.length === 0}
-                emptyTitle={t('marketplace:kitchens.finder.emptyTitle')}
-                emptyBody={t('marketplace:kitchens.finder.emptyBody')}
-                emptyActions={
-                    filters.isFiltered ? (
-                        <Button
-                            testID="kitchens-empty-clear"
-                            label={t('marketplace:filters.clear')}
-                            onPress={filters.clear}
-                        />
-                    ) : undefined
-                }
-                testID="kitchens"
-            >
-                <TrackGrid
-                    testID="kitchens-grid"
-                    track={TRACK}
-                    fallback={atLeast('lg') ? 4 : atLeast('sm') ? 2 : 1}
+            <View className="mt-5">
+                <QueryStates
+                    query={query}
+                    isEmpty={kitchens.length === 0}
+                    emptyTitle={t('marketplace:kitchens.finder.emptyTitle')}
+                    emptyBody={t('marketplace:kitchens.finder.emptyBody')}
+                    emptyActions={
+                        filters.isFiltered ? (
+                            <Button
+                                testID="kitchens-empty-clear"
+                                label={t('marketplace:filters.clear')}
+                                onPress={filters.clear}
+                            />
+                        ) : undefined
+                    }
+                    testID="kitchens"
                 >
-                    {kitchens.map((kitchen) => (
-                        <KitchenFinderCard key={String(kitchen.id)} kitchen={kitchen} />
-                    ))}
-                </TrackGrid>
-            </QueryStates>
-
-            <View testID="kitchens-goals" className="mt-12 flex-col gap-4">
-                <RNText
-                    accessibilityRole="header"
-                    aria-level={2}
-                    className="font-display text-2xl font-bold tracking-display text-content-primary text-start"
-                >
-                    {t('marketplace:kitchens.finder.goalsTitle')}
-                </RNText>
-                <TrackGrid
-                    track={TRACK}
-                    max={GOALS.length}
-                    fallback={atLeast('lg') ? 4 : atLeast('sm') ? 2 : 1}
-                >
-                    {GOALS.map((goal) => (
-                        <GoalCard
-                            key={goal.key}
-                            goal={goal}
-                            onOpen={() => {
-                                router.push(goal.href as never);
-                            }}
-                        />
-                    ))}
-                </TrackGrid>
+                    <TrackGrid
+                        testID="kitchens-grid"
+                        track={TRACK}
+                        fallback={atLeast('lg') ? 3 : atLeast('sm') ? 2 : 1}
+                    >
+                        {kitchens.map((kitchen) => (
+                            <KitchenFinderCard key={String(kitchen.id)} kitchen={kitchen} />
+                        ))}
+                    </TrackGrid>
+                </QueryStates>
             </View>
         </View>
     );
 }
 
+/** One filter chip on the bar: an icon in its own square, the label, a soft fill when on. */
+function KitchenChip({
+    testID,
+    icon,
+    label,
+    selected,
+    onPress,
+}: {
+    readonly testID: string;
+    readonly icon: IconName;
+    readonly label: string;
+    readonly selected: boolean;
+    readonly onPress: () => void;
+}) {
+    return (
+        <Pressable
+            testID={testID}
+            role="button"
+            accessibilityRole="button"
+            aria-pressed={selected}
+            accessibilityState={{ selected }}
+            onPress={onPress}
+            className={cx(
+                'h-[52px] flex-row items-center gap-2 rounded-2xl pe-3 ps-2 transition duration-normal ease-standard active:scale-95',
+                selected ? 'bg-surface-brand-subtle' : 'hover:bg-surface-base',
+            )}
+        >
+            <View
+                className={cx(
+                    'h-8 w-8 items-center justify-center rounded-[11px]',
+                    selected ? 'bg-surface-brand' : 'bg-surface-base',
+                )}
+            >
+                <Icon
+                    name={icon}
+                    size="sm"
+                    className={selected ? 'text-content-on-brand' : 'text-content-secondary'}
+                />
+            </View>
+            <RNText
+                numberOfLines={1}
+                className={cx(
+                    'text-sm font-semibold',
+                    selected ? 'text-content-on-brand-subtle' : 'text-content-primary',
+                )}
+            >
+                {label}
+            </RNText>
+        </Pressable>
+    );
+}
+
 /**
- * The delivery address, drawn as a field so it sits level with the search beside it: a pin, the
- * shopper's default saved address (else the first) and "Change"; with none saved — or for a
- * visitor — "Add delivery address". One press target, to the address book or to sign-in. Nothing
- * here invents an address.
+ * Where the food goes, at the end of the title row: a pin and "Delivering to Home · Antelias", or
+ * "Add address" for a shopper with none and for a visitor. One press, to the address book or to
+ * sign-in. Nothing here invents an address.
  */
 function AddressControl({
     signedIn,
@@ -514,7 +504,10 @@ function AddressControl({
     const value = pending
         ? t('marketplace:kitchens.finder.addressPending')
         : signedIn && address !== null
-          ? address.line1
+          ? t('marketplace:kitchens.finder.addressName', {
+                label: address.label,
+                area: address.areaName,
+            })
           : null;
 
     return (
@@ -529,71 +522,24 @@ function AddressControl({
             }
             disabled={pending}
             onPress={onPress}
-            className={cx(
-                inputFrameClassName({ invalid: false, focused: false, disabled: false }),
-                'min-w-0 flex-1 hover:border-stroke-strong md:w-[260px] md:flex-none',
-            )}
+            className="ms-auto min-h-touch flex-row items-center gap-2 rounded-full px-2 hover:bg-surface-brand-subtle"
         >
-            <Icon name="mapPin" size="md" className="text-content-secondary" />
+            <Icon name="mapPin" size="sm" className="text-content-secondary" />
+            {value === null ? null : (
+                <RNText className="text-sm text-content-secondary">
+                    {t('marketplace:kitchens.finder.deliveringPrefix')}
+                </RNText>
+            )}
             <RNText
                 testID="kitchens-address-value"
                 numberOfLines={1}
-                className={
-                    value === null
-                        ? 'min-w-0 flex-1 text-sm font-medium text-content-on-brand-subtle text-start'
-                        : 'min-w-0 flex-1 text-sm font-medium text-content-primary text-start'
-                }
+                className={cx(
+                    'max-w-[260px] text-sm font-semibold text-start',
+                    value === null ? 'text-content-on-brand-subtle' : 'text-content-primary',
+                )}
             >
                 {value ?? t('marketplace:kitchens.finder.addressAdd')}
             </RNText>
-            {value === null || pending ? null : (
-                <RNText className="text-sm font-semibold text-content-on-brand-subtle">
-                    {t('marketplace:kitchens.finder.addressChange')}
-                </RNText>
-            )}
-        </Pressable>
-    );
-}
-
-/** One "Eat by goal" tile — photograph, title, and the real meal count where the API has one. */
-function GoalCard({ goal, onOpen }: { readonly goal: Goal; readonly onOpen: () => void }) {
-    const { t } = useTranslation();
-    const total = totalFromPages(useMealsQuery(goal.filter).data?.pages);
-    const title = t(`marketplace:kitchens.finder.goal.${goal.key}.title`);
-
-    return (
-        <Pressable
-            testID={`kitchens-goal-${goal.key}`}
-            role="link"
-            accessibilityRole="link"
-            accessibilityLabel={title}
-            onPress={onOpen}
-            className="flex-1 overflow-hidden rounded-panel border border-stroke bg-surface-raised hover:border-surface-brand"
-        >
-            <View className="h-[110px]">
-                <EntityImage
-                    source={resolveMarketingImage(goal.image)}
-                    seed={`kitchens-goal-${goal.key}`}
-                    label={title}
-                    decorative
-                    flush
-                    className="h-full"
-                />
-            </View>
-            <View className="flex-col gap-1 px-4 pb-4 pt-3">
-                <RNText className="font-display text-base font-bold tracking-display text-content-primary text-start">
-                    {title}
-                </RNText>
-                <Eyebrow
-                    testID={`kitchens-goal-${goal.key}-count`}
-                    tone="brand"
-                    className="tabular-nums"
-                >
-                    {total === null
-                        ? t('marketplace:kitchens.finder.goalAction')
-                        : t('marketplace:kitchens.finder.goalCount', { count: total })}
-                </Eyebrow>
-            </View>
         </Pressable>
     );
 }
@@ -630,13 +576,13 @@ function TrackGrid({
     return (
         <View
             testID={testID}
-            className="flex-col gap-4"
+            className="flex-col gap-[22px]"
             onLayout={(event: LayoutChangeEvent) => {
                 setWidth(event.nativeEvent.layout.width);
             }}
         >
             {rows.map((row, rowIndex) => (
-                <View key={rowIndex} className="flex-row gap-4">
+                <View key={rowIndex} className="flex-row gap-[22px]">
                     {row}
                     {Array.from({ length: columns - row.length }, (_, index) => (
                         <View key={`pad-${String(index)}`} className="flex-1" />

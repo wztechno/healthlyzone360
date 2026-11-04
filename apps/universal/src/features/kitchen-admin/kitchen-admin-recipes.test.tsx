@@ -4868,12 +4868,23 @@ describe('adding an ingredient from the line picker', () => {
             },
             { timeout: 10000 },
         );
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-publish'));
-        });
+        // Even then, what the draft owes is gathered a render after the read lands, and a press
+        // before that opens the publish dialog as for a draft that owes nothing. Such a press is
+        // closed and made again until the notice answers it.
+        await waitFor(
+            () => {
+                if (screen.queryByTestId('kitchen-recipe-publish-dialog') !== null) {
+                    fireEvent.press(screen.getByTestId('kitchen-recipe-publish-cancel'));
+                }
+                if (screen.queryByTestId('kitchen-recipe-tray-blocked') === null) {
+                    fireEvent.press(screen.getByTestId('kitchen-recipe-publish'));
+                }
+                expect(screen.getByTestId('kitchen-recipe-tray-blocked')).toBeTruthy();
+            },
+            { timeout: 10000 },
+        );
 
         // Owed by the draft on screen, so the notice says it rather than the publish dialog.
-        await untilVisible('kitchen-recipe-tray-blocked');
         expect(screen.getByTestId('kitchen-recipe-tray-blocked-title')).toHaveTextContent(
             '1 thing before publishing',
         );

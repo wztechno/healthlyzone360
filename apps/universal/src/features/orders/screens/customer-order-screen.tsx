@@ -6,7 +6,7 @@ import { View } from 'react-native';
 import { useMyOrderQuery } from '../../../data/commerce-hooks.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useOnlineStatus } from '../../../online/online-status.tsx';
-import { SubpageTrail } from '../../../ui/subpage-trail.tsx';
+import { BackPill } from '../../../ui/back-pill.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { OrderTracking } from '../order-tracking.tsx';
 
@@ -20,7 +20,7 @@ import { OrderTracking } from '../order-tracking.tsx';
  *
  * **The way back is at the top.** The customer area is a `<Slot/>` with no header of its own, and
  * on iOS there is no swipe back inside it, so the history used to be reachable only from a button
- * under every tracking card. The trail ("Order history › H360-1042") is where every other sub-page
+ * under every tracking card. The back pill ("Order history") is where every other shop sub-page
  * keeps its way up, and it goes there by name (`dismissTo`) — never a second copy of the account
  * stacked on top of the order.
  *
@@ -93,17 +93,15 @@ export function CustomerOrderScreen({ orderId }: CustomerOrderScreenProps) {
                     testID={`${TEST_ID}-states`}
                 >
                     {order.data === undefined ? null : (
-                        <View className="flex-col gap-6">
-                            {/*
-                             * Not in the design, which has no history to go back to. The order
-                             * lives in the account's history, and this is the way up to it.
-                             */}
-                            <SubpageTrail
-                                testID={`${TEST_ID}-trail`}
-                                back={history}
-                                parentLabel={t('account:orders.title')}
-                                current={order.data.reference}
-                            />
+                        <View className="flex-col">
+                            {/* The board's back pill: up to the account's order history, by name. */}
+                            <View testID={`${TEST_ID}-trail`} className="items-start pt-1">
+                                <BackPill
+                                    testID={`${TEST_ID}-trail-up`}
+                                    label={t('account:orders.title')}
+                                    onPress={history.up}
+                                />
+                            </View>
                             <OrderTracking
                                 testID={TEST_ID}
                                 order={order.data}

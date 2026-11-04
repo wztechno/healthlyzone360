@@ -116,6 +116,42 @@ export const nativeTokens = {
           "pattern": "dots-dense",
           "patternId": "nutrition-excessive"
         }
+      },
+      "tint": {
+        "green": {
+          "surface": "#dcfce7",
+          "on": "#14532d"
+        },
+        "blue": {
+          "surface": "#dbeafe",
+          "on": "#1e3a8a"
+        },
+        "orange": {
+          "surface": "#ffedd5",
+          "on": "#7c2d12"
+        },
+        "yellow": {
+          "surface": "#fef9c3",
+          "on": "#713f12"
+        },
+        "pink": {
+          "surface": "#fce7f3",
+          "on": "#831843"
+        },
+        "violet": {
+          "surface": "#ede9fe",
+          "on": "#4c1d95"
+        },
+        "teal": {
+          "surface": "#ccfbf1",
+          "on": "#134e4a"
+        }
+      },
+      "stage": {
+        "orange": "#fb923c",
+        "green": "#4ade80",
+        "blue": "#60a5fa",
+        "yellow": "#facc15"
       }
     },
     "dark": {
@@ -226,6 +262,42 @@ export const nativeTokens = {
           "pattern": "dots-dense",
           "patternId": "nutrition-excessive"
         }
+      },
+      "tint": {
+        "green": {
+          "surface": "#153a26",
+          "on": "#bbf7d0"
+        },
+        "blue": {
+          "surface": "#172554",
+          "on": "#bfdbfe"
+        },
+        "orange": {
+          "surface": "#431407",
+          "on": "#fed7aa"
+        },
+        "yellow": {
+          "surface": "#3f2a06",
+          "on": "#fef08a"
+        },
+        "pink": {
+          "surface": "#4a0d2b",
+          "on": "#fbcfe8"
+        },
+        "violet": {
+          "surface": "#2e1065",
+          "on": "#ddd6fe"
+        },
+        "teal": {
+          "surface": "#042f2e",
+          "on": "#99f6e4"
+        }
+      },
+      "stage": {
+        "orange": "#fb923c",
+        "green": "#4ade80",
+        "blue": "#60a5fa",
+        "yellow": "#facc15"
       }
     }
   },
