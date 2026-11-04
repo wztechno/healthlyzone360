@@ -206,7 +206,7 @@ export function SetupStepper({
                                 className={cx(
                                     'hidden max-w-[220px] text-xs font-medium md:flex',
                                     step.state === 'current'
-                                        ? 'text-content-brand'
+                                        ? 'text-content-on-brand-subtle'
                                         : 'text-content-secondary',
                                 )}
                             >

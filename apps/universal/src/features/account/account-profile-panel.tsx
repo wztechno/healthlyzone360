@@ -157,7 +157,7 @@ function MobileField({ phone }: { readonly phone: ContactPoint | null }) {
                             'text-sm font-semibold',
                             phone !== null && !phone.verified
                                 ? 'text-warning-strong'
-                                : 'text-content-brand',
+                                : 'text-content-on-brand-subtle',
                         )}
                     >
                         {action}

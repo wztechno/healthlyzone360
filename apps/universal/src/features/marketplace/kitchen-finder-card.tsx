@@ -257,7 +257,7 @@ export function KitchenFinderCard({ kitchen, testID }: KitchenFinderCardProps) {
                 >
                     <RNText
                         numberOfLines={1}
-                        className="min-w-0 shrink text-sm font-semibold text-content-brand text-start"
+                        className="min-w-0 shrink text-sm font-semibold text-content-on-brand-subtle text-start"
                     >
                         {t('marketplace:kitchens.openKitchen', { kitchen: kitchen.name })}
                     </RNText>
@@ -266,7 +266,11 @@ export function KitchenFinderCard({ kitchen, testID }: KitchenFinderCardProps) {
                         className="transition duration-normal ease-standard"
                         style={{ transform: [{ translateX: hovered ? 4 * axisSign : 0 }] }}
                     >
-                        <Icon name="chevronForward" size="sm" className="text-content-brand" />
+                        <Icon
+                            name="chevronForward"
+                            size="sm"
+                            className="text-content-on-brand-subtle"
+                        />
                     </View>
                 </Pressable>
             </View>

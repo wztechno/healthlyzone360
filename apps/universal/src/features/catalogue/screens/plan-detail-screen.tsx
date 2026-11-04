@@ -458,7 +458,7 @@ function PlanOverview({
                                 className="h-7 w-7"
                             />
                         </View>
-                        <RNText className="text-sm font-semibold text-content-primary hover:text-content-brand">
+                        <RNText className="text-sm font-semibold text-content-primary hover:text-content-on-brand-subtle">
                             {t('catalogue:plan.byKitchen', { kitchen: kitchenName })}
                         </RNText>
                     </Pressable>
@@ -510,7 +510,7 @@ function Fact({
 }) {
     return (
         <View className="h-[34px] flex-row items-center gap-1.5 rounded-full border border-stroke-subtle bg-surface-base px-3">
-            <Icon name={icon} size="sm" className="text-content-brand" />
+            <Icon name={icon} size="sm" className="text-content-on-brand-subtle" />
             <RNText className="text-sm font-semibold tabular-nums text-content-primary">
                 {label}
             </RNText>
@@ -625,7 +625,7 @@ function EachDay({
                     className="mt-4 flex-row flex-wrap items-center gap-1.5 border-t border-stroke-subtle pt-4"
                 >
                     <View className="me-auto flex-row items-center gap-1.5">
-                        <Icon name="calendar" size="sm" className="text-content-brand" />
+                        <Icon name="calendar" size="sm" className="text-content-on-brand-subtle" />
                         <RNText className="text-sm font-semibold text-content-secondary">
                             {t('catalogue:plan.delivered')}
                         </RNText>
@@ -990,7 +990,7 @@ function PriceCard({
                                     {t('catalogue:plan.durationTotal', { total: totalOf(option) })}
                                 </RNText>
                                 {option.discountPercent > 0 ? (
-                                    <RNText className="text-xs font-bold text-content-brand">
+                                    <RNText className="text-xs font-bold text-content-on-brand-subtle">
                                         {t('catalogue:plan.durationDiscount', {
                                             discount: formatter.formatNumber(
                                                 option.discountPercent,
@@ -1085,13 +1085,13 @@ function PriceCard({
                 </Pressable>
                 <View className="flex-col gap-2 pt-1">
                     <View className="flex-row items-center gap-2">
-                        <Icon name="check" size="sm" className="text-content-brand" />
+                        <Icon name="check" size="sm" className="text-content-on-brand-subtle" />
                         <RNText className="text-sm font-medium text-content-secondary">
                             {t('catalogue:plan.priceLocked')}
                         </RNText>
                     </View>
                     <View className="flex-row items-center gap-2">
-                        <Icon name="check" size="sm" className="text-content-brand" />
+                        <Icon name="check" size="sm" className="text-content-on-brand-subtle" />
                         <RNText className="text-sm font-medium text-content-secondary">
                             {t('catalogue:plan.allergenSafe')}
                         </RNText>

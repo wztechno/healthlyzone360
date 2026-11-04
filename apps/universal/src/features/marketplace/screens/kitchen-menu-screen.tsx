@@ -228,7 +228,11 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
                     <Icon
                         name="search"
                         size="sm"
-                        className={searchFocused ? 'text-content-brand' : 'text-content-secondary'}
+                        className={
+                            searchFocused
+                                ? 'text-content-on-brand-subtle'
+                                : 'text-content-secondary'
+                        }
                     />
                     <TextInput
                         testID="kitchen-menu-search-input"

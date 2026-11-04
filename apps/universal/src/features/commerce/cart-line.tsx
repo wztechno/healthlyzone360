@@ -106,7 +106,7 @@ export function CartLine({
                 >
                     <RNText
                         testID={`${testID}-name`}
-                        className="font-display text-lg font-bold text-content-primary text-start hover:text-content-brand"
+                        className="font-display text-lg font-bold text-content-primary text-start hover:text-content-on-brand-subtle"
                     >
                         {item.name}
                     </RNText>

@@ -338,7 +338,7 @@ export function HowPlansWorkScreen() {
                 className="mt-[18px] flex-col gap-8 lg:flex-row lg:items-center"
             >
                 <View className="min-w-0 flex-1 flex-col">
-                    <RNText className="text-xs font-bold uppercase tracking-wider text-content-brand text-start">
+                    <RNText className="text-xs font-bold uppercase tracking-wider text-content-on-brand-subtle text-start">
                         {t('catalogue:howPlans.eyebrow')}
                     </RNText>
                     <RNText
@@ -468,7 +468,7 @@ export function HowPlansWorkScreen() {
                                             last ? '' : 'pb-5',
                                         )}
                                     >
-                                        <RNText className="text-xs font-bold uppercase tracking-wide text-content-brand text-start">
+                                        <RNText className="text-xs font-bold uppercase tracking-wide text-content-on-brand-subtle text-start">
                                             {t(`catalogue:howPlans.cutoff.${step}.time`)}
                                         </RNText>
                                         <RNText className="mt-0.5 text-base font-bold text-content-primary text-start">
@@ -510,7 +510,7 @@ export function HowPlansWorkScreen() {
                                     <RNText className="mt-0.5 text-sm font-medium text-content-secondary text-start">
                                         {t(`catalogue:howPlans.states.${state.key}.body`)}
                                     </RNText>
-                                    <RNText className="mt-1 text-xs font-semibold text-content-brand text-start">
+                                    <RNText className="mt-1 text-xs font-semibold text-content-on-brand-subtle text-start">
                                         {t(`catalogue:howPlans.states.${state.key}.next`)}
                                     </RNText>
                                 </View>

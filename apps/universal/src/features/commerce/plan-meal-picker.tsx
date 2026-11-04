@@ -342,7 +342,9 @@ export function MealsStep({ plan, state, patch, menu, menuLoading, showIssues }:
                                                 name="check"
                                                 size="sm"
                                                 className={
-                                                    on ? 'text-surface-base' : 'text-content-brand'
+                                                    on
+                                                        ? 'text-surface-base'
+                                                        : 'text-content-on-brand-subtle'
                                                 }
                                             />
                                         ) : null}
@@ -380,7 +382,7 @@ export function MealsStep({ plan, state, patch, menu, menuLoading, showIssues }:
                                         className={cx(
                                             'font-display text-sm font-bold',
                                             day === curDay
-                                                ? 'text-content-brand'
+                                                ? 'text-content-on-brand-subtle'
                                                 : 'text-content-primary',
                                         )}
                                     >
@@ -473,7 +475,7 @@ export function MealsStep({ plan, state, patch, menu, menuLoading, showIssues }:
                                                         size="sm"
                                                         className={
                                                             current
-                                                                ? 'text-content-brand'
+                                                                ? 'text-content-on-brand-subtle'
                                                                 : 'text-content-secondary'
                                                         }
                                                     />

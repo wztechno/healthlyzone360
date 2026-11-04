@@ -258,8 +258,8 @@ export function CartScreen() {
                         onPress={goBrowse}
                         className="h-10 flex-row items-center gap-1.5 rounded-xl px-3 hover:bg-surface-brand-subtle"
                     >
-                        <Icon name="plus" size="sm" className="text-content-brand" />
-                        <RNText className="text-sm font-semibold text-content-brand">
+                        <Icon name="plus" size="sm" className="text-content-on-brand-subtle" />
+                        <RNText className="text-sm font-semibold text-content-on-brand-subtle">
                             {t('commerce:cart.addMore')}
                         </RNText>
                     </Pressable>

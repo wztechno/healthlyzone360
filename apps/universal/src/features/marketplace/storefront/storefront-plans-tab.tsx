@@ -63,10 +63,10 @@ export function StorefrontPlansTab({
                     onPress={onHowPlansWork}
                     className="min-h-touch flex-row items-center gap-1 rounded-full px-2 hover:bg-surface-brand-subtle"
                 >
-                    <RNText className="text-sm font-semibold text-content-brand">
+                    <RNText className="text-sm font-semibold text-content-on-brand-subtle">
                         {t('marketplace:storefront.plans.howItWorks')}
                     </RNText>
-                    <Icon name="chevronEnd" size="sm" className="text-content-brand" />
+                    <Icon name="chevronEnd" size="sm" className="text-content-on-brand-subtle" />
                 </Pressable>
             </View>
 

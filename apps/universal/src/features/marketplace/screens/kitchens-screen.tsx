@@ -535,7 +535,7 @@ function AddressControl({
                 numberOfLines={1}
                 className={cx(
                     'max-w-[260px] text-sm font-semibold text-start',
-                    value === null ? 'text-content-brand' : 'text-content-primary',
+                    value === null ? 'text-content-on-brand-subtle' : 'text-content-primary',
                 )}
             >
                 {value ?? t('marketplace:kitchens.finder.addressAdd')}

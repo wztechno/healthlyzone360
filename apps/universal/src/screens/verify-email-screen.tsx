@@ -258,7 +258,7 @@ export function VerifyEmailScreen({ returnTo: rawReturnTo }: VerifyEmailScreenPr
                     }}
                     className="min-h-touch justify-center"
                 >
-                    <RNText className="text-sm font-semibold text-content-brand hover:underline">
+                    <RNText className="text-sm font-semibold text-content-on-brand-subtle hover:underline">
                         {t('auth:verifyEmail.wrongAddress')}
                     </RNText>
                 </Pressable>

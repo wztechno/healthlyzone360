@@ -128,7 +128,7 @@ export function PlanStep({
                         onPress={onChangePlan}
                         className="h-9 justify-center rounded-[10px] bg-surface-raised px-3"
                     >
-                        <RNText className="text-sm font-semibold text-content-primary hover:text-content-brand">
+                        <RNText className="text-sm font-semibold text-content-primary hover:text-content-on-brand-subtle">
                             {t('commerce:configurator.plan.changePlan')}
                         </RNText>
                     </Pressable>
@@ -568,8 +568,8 @@ export function DeliveryStep({
                         showIssues && addressId === null ? 'border-danger-border' : 'border-stroke',
                     )}
                 >
-                    <Icon name="plus" size="sm" className="text-content-brand" />
-                    <RNText className="text-sm font-semibold text-content-brand">
+                    <Icon name="plus" size="sm" className="text-content-on-brand-subtle" />
+                    <RNText className="text-sm font-semibold text-content-on-brand-subtle">
                         {t('commerce:configurator.delivery.addAddress')}
                     </RNText>
                 </Pressable>
@@ -896,7 +896,7 @@ function ReviewRow({
                 onPress={onEdit}
                 className="h-11 justify-center px-1"
             >
-                <RNText className="text-sm font-semibold text-content-brand">
+                <RNText className="text-sm font-semibold text-content-on-brand-subtle">
                     {t('commerce:configurator.review.change')}
                 </RNText>
             </Pressable>

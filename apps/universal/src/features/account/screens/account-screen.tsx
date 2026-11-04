@@ -475,9 +475,9 @@ function AddressesPanel({ here }: { readonly here: string }) {
                                             <Icon
                                                 name="plus"
                                                 size="md"
-                                                className="text-content-secondary group-hover:text-content-brand"
+                                                className="text-content-secondary group-hover:text-content-on-brand-subtle"
                                             />
-                                            <RNText className="text-sm font-semibold text-content-secondary group-hover:text-content-brand">
+                                            <RNText className="text-sm font-semibold text-content-secondary group-hover:text-content-on-brand-subtle">
                                                 {t('account:addresses.add')}
                                             </RNText>
                                         </Pressable>
@@ -640,7 +640,7 @@ function PaymentsPanel() {
             <PanelHead testID="account-payments-title" title={t('account:nav.payments')} />
             <View className="flex-row items-center gap-3.5 rounded-[20px] border-2 border-surface-brand bg-surface-brand-subtle p-4">
                 <View className="h-12 w-12 items-center justify-center rounded-2xl bg-surface-raised">
-                    <Icon name="basket" size="md" className="text-content-brand" />
+                    <Icon name="basket" size="md" className="text-content-on-brand-subtle" />
                 </View>
                 <View className="min-w-0 flex-1">
                     <RNText
@@ -661,7 +661,7 @@ function PaymentsPanel() {
             </View>
             <View className="mt-2.5 flex-row items-center gap-3.5 rounded-[20px] border-2 border-stroke-subtle p-4">
                 <View className="h-12 w-12 items-center justify-center rounded-2xl bg-surface-base">
-                    <Icon name="home" size="md" className="text-content-brand" />
+                    <Icon name="home" size="md" className="text-content-on-brand-subtle" />
                 </View>
                 <View className="min-w-0 flex-1">
                     <RNText className="text-base font-bold text-content-primary text-start">

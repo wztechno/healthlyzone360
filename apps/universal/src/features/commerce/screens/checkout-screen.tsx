@@ -588,8 +588,8 @@ export function CheckoutScreen() {
                             }}
                             className="min-h-16 min-w-[220px] flex-1 flex-row items-center justify-center gap-2 rounded-[18px] border-[1.5px] border-dashed border-stroke hover:border-surface-brand hover:bg-surface-brand-subtle"
                         >
-                            <Icon name="plus" size="sm" className="text-content-brand" />
-                            <RNText className="text-sm font-semibold text-content-brand">
+                            <Icon name="plus" size="sm" className="text-content-on-brand-subtle" />
+                            <RNText className="text-sm font-semibold text-content-on-brand-subtle">
                                 {t('commerce:checkout.addAddressShort')}
                             </RNText>
                         </Pressable>
@@ -760,7 +760,11 @@ export function CheckoutScreen() {
                         className="flex-row items-center gap-3.5 rounded-[18px] border-[1.5px] border-surface-brand bg-surface-brand-subtle p-4"
                     >
                         <View className="h-11 w-11 items-center justify-center rounded-[14px] bg-surface-raised">
-                            <Icon name="basket" size="md" className="text-content-brand" />
+                            <Icon
+                                name="basket"
+                                size="md"
+                                className="text-content-on-brand-subtle"
+                            />
                         </View>
                         <View className="min-w-0 flex-1">
                             <RNText className="text-base font-bold text-content-on-brand-subtle text-start">
@@ -1208,7 +1212,9 @@ function CheckoutTop({
                                     <RNText
                                         className={cx(
                                             'text-sm font-bold',
-                                            now ? 'text-content-brand' : 'text-content-secondary',
+                                            now
+                                                ? 'text-content-on-brand-subtle'
+                                                : 'text-content-secondary',
                                         )}
                                     >
                                         {String(index + 1)}
@@ -1370,7 +1376,7 @@ function ChoiceTile({
                     chosen ? 'bg-surface-raised' : 'bg-surface-base',
                 )}
             >
-                <Icon name={icon} size="sm" className="text-content-brand" />
+                <Icon name={icon} size="sm" className="text-content-on-brand-subtle" />
             </View>
             <View className="min-w-0 flex-1">
                 <View className="flex-row flex-wrap items-center gap-1.5">
@@ -1428,7 +1434,7 @@ function ReviewCell({
                 onPress={onChange}
                 className="mt-1.5 self-start"
             >
-                <RNText className="text-sm font-semibold text-content-brand">
+                <RNText className="text-sm font-semibold text-content-on-brand-subtle">
                     {t('commerce:checkout.change')}
                 </RNText>
             </Pressable>
@@ -1616,7 +1622,7 @@ function DeliveryFacts({
         >
             {facts.map((fact) => (
                 <View key={fact.key} className="flex-row items-center gap-2">
-                    <Icon name={fact.icon} size="sm" className="text-content-brand" />
+                    <Icon name={fact.icon} size="sm" className="text-content-on-brand-subtle" />
                     <RNText className="min-w-0 flex-1 text-sm font-bold text-content-primary text-start">
                         {fact.text}
                     </RNText>

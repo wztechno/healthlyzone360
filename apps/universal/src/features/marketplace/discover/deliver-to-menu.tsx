@@ -350,8 +350,8 @@ export function DeliverToMenu({
                             }}
                             className="h-11 flex-row items-center justify-center gap-1.5 rounded-2xl border border-dashed border-stroke-strong transition duration-normal ease-standard hover:border-surface-brand hover:bg-surface-base"
                         >
-                            <Icon name="plus" size="sm" className="text-content-brand" />
-                            <RNText className="text-sm font-semibold text-content-brand">
+                            <Icon name="plus" size="sm" className="text-content-on-brand-subtle" />
+                            <RNText className="text-sm font-semibold text-content-on-brand-subtle">
                                 {t('marketplace:discover.addAddress')}
                             </RNText>
                         </Pressable>

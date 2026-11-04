@@ -82,14 +82,18 @@ export function InkSortMenu<T extends string>({
                                     className={cx(
                                         'text-sm',
                                         on
-                                            ? 'font-bold text-content-brand'
+                                            ? 'font-bold text-content-on-brand-subtle'
                                             : 'font-medium text-content-primary',
                                     )}
                                 >
                                     {option.label}
                                 </RNText>
                                 {on ? (
-                                    <Icon name="check" size="sm" className="text-content-brand" />
+                                    <Icon
+                                        name="check"
+                                        size="sm"
+                                        className="text-content-on-brand-subtle"
+                                    />
                                 ) : null}
                             </Pressable>
                         );

@@ -529,7 +529,7 @@ export function AddressEditorScreen({ addressId, returnTo }: AddressEditorScreen
                                                                 <Icon
                                                                     name="check"
                                                                     size="sm"
-                                                                    className="text-content-brand"
+                                                                    className="text-content-on-brand-subtle"
                                                                 />
                                                             ) : null}
                                                         </Pressable>
@@ -644,7 +644,7 @@ export function AddressEditorScreen({ addressId, returnTo }: AddressEditorScreen
                                         }}
                                         className="min-h-touch justify-center"
                                     >
-                                        <RNText className="text-sm font-semibold text-content-brand">
+                                        <RNText className="text-sm font-semibold text-content-on-brand-subtle">
                                             {phone === null
                                                 ? t('account:profile.phoneAdd')
                                                 : t('account:profile.phoneChange')}

@@ -184,8 +184,8 @@ export function StorefrontMenuTab({
                     onPress={onSearch}
                     className="min-h-touch flex-row items-center gap-2 rounded-full px-3 hover:bg-surface-brand-subtle"
                 >
-                    <Icon name="search" size="sm" className="text-content-brand" />
-                    <RNText className="text-sm font-semibold text-content-brand">
+                    <Icon name="search" size="sm" className="text-content-on-brand-subtle" />
+                    <RNText className="text-sm font-semibold text-content-on-brand-subtle">
                         {t('marketplace:menu.searchLabel')}
                     </RNText>
                 </Pressable>

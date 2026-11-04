@@ -471,10 +471,10 @@ export function PlanComparisonScreen() {
                                             <Icon
                                                 name="plus"
                                                 size="md"
-                                                className="text-content-brand"
+                                                className="text-content-on-brand-subtle"
                                             />
                                         </View>
-                                        <RNText className="text-sm font-semibold text-content-brand">
+                                        <RNText className="text-sm font-semibold text-content-on-brand-subtle">
                                             {t('catalogue:compare.addPlan')}
                                         </RNText>
                                     </Pressable>
@@ -497,7 +497,7 @@ export function PlanComparisonScreen() {
                                             <Icon
                                                 name={group.icon}
                                                 size="sm"
-                                                className="text-content-brand"
+                                                className="text-content-on-brand-subtle"
                                             />
                                             <RNText
                                                 role="heading"
