@@ -335,7 +335,13 @@
         "nextTitle": "Have a look around",
         "nextBody": "Nothing on the marketplace needs an account.",
         "meetDietitians": "Meet the dietitians",
-        "browsePlans": "Browse plans"
+        "browsePlans": "Browse plans",
+        "path": {
+            "tell": "Tell us",
+            "target": "See a target",
+            "plan": "Fill the week",
+            "eat": "Cook or order"
+        }
     },
     "forBusiness": {
         "title": "Healthy360 for business",
@@ -704,7 +710,12 @@
         "title": "Image credits",
         "intro": "Photography used across Healthy360 is openly licensed and bundled with the app. Where a licence requires attribution, the credit is shown here and beside the image itself. Every photograph has been cropped to a fixed frame and re-encoded.",
         "synthetic": "These are stock photographs chosen to match each record — not photographs of real Healthy360 products, premises or staff. Public-domain and CC0 images require no attribution and are recorded in the project’s provenance file rather than listed here.",
-        "none": "No image currently in use requires attribution."
+        "none": "No image currently in use requires attribution.",
+        "openTitle": "Openly licensed, bundled with the app",
+        "stockTitle": "Stock photographs, not our products",
+        "listTitle": "Credits",
+        "count_one": "{{count}} image",
+        "count_other": "{{count}} images"
     },
     "packSize": {
         "per": "/ {{size}}",

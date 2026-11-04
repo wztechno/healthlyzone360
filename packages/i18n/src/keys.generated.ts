@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10153 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10169 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3117,6 +3117,7 @@ export interface NamespaceKeys {
     | 'deletion.confirm'
     | 'deletion.confirmAcknowledge'
     | 'deletion.confirmBody'
+    | 'deletion.confirmCardTitle'
     | 'deletion.confirmTitle'
     | 'deletion.doneBody'
     | 'deletion.doneTitle'
@@ -3126,9 +3127,16 @@ export interface NamespaceKeys {
     | 'deletion.mobile'
     | 'deletion.mobileHint'
     | 'deletion.mobilePlaceholder'
+    | 'deletion.or'
+    | 'deletion.progress'
     | 'deletion.request'
+    | 'deletion.requestBody'
+    | 'deletion.requestTitle'
     | 'deletion.sentBody'
     | 'deletion.sentTitle'
+    | 'deletion.stepAsk'
+    | 'deletion.stepConfirm'
+    | 'deletion.stepDone'
     | 'deletion.subtitle'
     | 'deletion.suppressionNote'
     | 'deletion.title'
@@ -8235,6 +8243,10 @@ export interface NamespaceKeys {
     | 'howItWorks.meetDietitians'
     | 'howItWorks.nextBody'
     | 'howItWorks.nextTitle'
+    | 'howItWorks.path.eat'
+    | 'howItWorks.path.plan'
+    | 'howItWorks.path.target'
+    | 'howItWorks.path.tell'
     | 'howItWorks.step.eat.body'
     | 'howItWorks.step.eat.title'
     | 'howItWorks.step.plan.body'
@@ -8245,8 +8257,12 @@ export interface NamespaceKeys {
     | 'howItWorks.step.tell.title'
     | 'howItWorks.subtitle'
     | 'howItWorks.title'
+    | 'imageCredits.count'
     | 'imageCredits.intro'
+    | 'imageCredits.listTitle'
     | 'imageCredits.none'
+    | 'imageCredits.openTitle'
+    | 'imageCredits.stockTitle'
     | 'imageCredits.synthetic'
     | 'imageCredits.title'
     | 'itemTypes.dressing'
@@ -13290,6 +13306,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:deletion.confirm',
   'guest:deletion.confirmAcknowledge',
   'guest:deletion.confirmBody',
+  'guest:deletion.confirmCardTitle',
   'guest:deletion.confirmTitle',
   'guest:deletion.doneBody',
   'guest:deletion.doneTitle',
@@ -13299,9 +13316,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:deletion.mobile',
   'guest:deletion.mobileHint',
   'guest:deletion.mobilePlaceholder',
+  'guest:deletion.or',
+  'guest:deletion.progress',
   'guest:deletion.request',
+  'guest:deletion.requestBody',
+  'guest:deletion.requestTitle',
   'guest:deletion.sentBody',
   'guest:deletion.sentTitle',
+  'guest:deletion.stepAsk',
+  'guest:deletion.stepConfirm',
+  'guest:deletion.stepDone',
   'guest:deletion.subtitle',
   'guest:deletion.suppressionNote',
   'guest:deletion.title',
@@ -18405,6 +18429,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:howItWorks.meetDietitians',
   'marketplace:howItWorks.nextBody',
   'marketplace:howItWorks.nextTitle',
+  'marketplace:howItWorks.path.eat',
+  'marketplace:howItWorks.path.plan',
+  'marketplace:howItWorks.path.target',
+  'marketplace:howItWorks.path.tell',
   'marketplace:howItWorks.step.eat.body',
   'marketplace:howItWorks.step.eat.title',
   'marketplace:howItWorks.step.plan.body',
@@ -18415,8 +18443,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:howItWorks.step.tell.title',
   'marketplace:howItWorks.subtitle',
   'marketplace:howItWorks.title',
+  'marketplace:imageCredits.count',
   'marketplace:imageCredits.intro',
+  'marketplace:imageCredits.listTitle',
   'marketplace:imageCredits.none',
+  'marketplace:imageCredits.openTitle',
+  'marketplace:imageCredits.stockTitle',
   'marketplace:imageCredits.synthetic',
   'marketplace:imageCredits.title',
   'marketplace:itemTypes.dressing',

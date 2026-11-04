@@ -16,6 +16,7 @@ const BOARD_PAGES: ReadonlySet<string> = new Set([
     'forgot-password',
     'reset-password',
     'verify-email',
+    'verify-phone',
 ]);
 
 /**

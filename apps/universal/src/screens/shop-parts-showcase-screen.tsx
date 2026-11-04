@@ -2,13 +2,30 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Text as RNText, View } from 'react-native';
 
+import { ExtraNote } from '../features/account/account-extra.tsx';
+import { OtpChallengePanel } from '../features/verification/otp-challenge-panel.tsx';
+import type { OtpChallengeView } from '../features/verification/otp-challenge-panel.tsx';
 import { CodeBoxes } from '../ui/code-boxes.tsx';
 import { ShopSwitch } from '../ui/shop-switch.tsx';
 
 /**
  * `/showcase-shop` — the web shop's own parts, on a page of their own: the code boxes every
- * one-time code is typed into, in each state, and the shop's switch. Development only.
+ * one-time code is typed into, in each state, the code panel as the sign-in frame draws it, the
+ * boards' notes, and the shop's switch. Development only.
  */
+
+/** A challenge as the server would describe one — enough to draw the panel without a backend. */
+const SAMPLE_CHALLENGE: OtpChallengeView = {
+    id: 'showcase',
+    channel: 'sms',
+    maskedDestination: '+971 50 ••• 4567',
+    codeLength: 6,
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    resendCooldownSeconds: 42,
+    attemptsRemaining: 3,
+    availableChannels: ['sms', 'whatsapp', 'email'],
+    simulatedChannels: ['email'],
+};
 
 function Section({ title, children }: { readonly title: string; readonly children: ReactNode }) {
     return (
@@ -66,6 +83,23 @@ export function ShopPartsShowcaseScreen() {
                         onChangeText={() => undefined}
                     />
                 </Labelled>
+            </Section>
+            <Section title="Code panel — sign-in frame look (/verify-phone)">
+                <View className="w-full max-w-[420px] self-center">
+                    <OtpChallengePanel
+                        look="auth"
+                        testID="showcase-otp"
+                        challenge={SAMPLE_CHALLENGE}
+                        onVerify={() => undefined}
+                        onResend={() => undefined}
+                    />
+                </View>
+            </Section>
+            <Section title="Board notes">
+                <ExtraNote icon="send" title="Check n••••@example.com" body="A neutral note." />
+                <ExtraNote tone="ok" icon="check" title="Saved" body="News in the brand's green." />
+                <ExtraNote tone="amber" icon="clock" title="Wait a moment" body="A caution." />
+                <ExtraNote tone="bad" icon="warning" title="This cannot be undone" body="Danger." />
             </Section>
             <Section title="Switch">
                 <View className="flex-row items-center gap-6">
