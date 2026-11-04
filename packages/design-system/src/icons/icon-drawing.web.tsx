@@ -732,7 +732,31 @@ const GRID_24_DRAWINGS: Partial<Record<IconName, ReactElement>> = {
             <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
             <rect width="20" height="14" x="2" y="6" rx="2" />
         </>
+    ) /*
+     * The brand's leaf (the shop's logo, a diet filter, a snack slot) and the theme switch's sun and
+     * moon. Their glyphs (♣ ☀ ☾) drew in whatever font the platform fell back to, and the logo read
+     * as a card suit. Lucide's `leaf`, `sun` and `moon`; native keeps the glyphs.
+     */,
+    leaf: (
+        <>
+            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
+        </>
     ),
+    sun: (
+        <>
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2" />
+            <path d="M12 20v2" />
+            <path d="m4.93 4.93 1.41 1.41" />
+            <path d="m17.66 17.66 1.41 1.41" />
+            <path d="M2 12h2" />
+            <path d="M20 12h2" />
+            <path d="m6.34 17.66-1.41 1.41" />
+            <path d="m19.07 4.93-1.41 1.41" />
+        </>
+    ),
+    moon: <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />,
 };
 
 /** Drawings that point along the line of reading, and so face the other way in Arabic. */
