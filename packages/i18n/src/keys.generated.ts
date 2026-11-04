@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10078 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10123 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2131,6 +2131,7 @@ export interface NamespaceKeys {
     | 'cancel.keep'
     | 'cancel.open'
     | 'cancel.title'
+    | 'cancel.titleNamed'
     | 'cart.addAnother'
     | 'cart.addMore'
     | 'cart.addMoreBody'
@@ -2466,6 +2467,39 @@ export interface NamespaceKeys {
     | 'subscription.addressDialogBody'
     | 'subscription.addressDialogTitle'
     | 'subscription.backToList'
+    | 'subscription.board.addAddress'
+    | 'subscription.board.address'
+    | 'subscription.board.again'
+    | 'subscription.board.back'
+    | 'subscription.board.bought'
+    | 'subscription.board.cancelPlan'
+    | 'subscription.board.changesClose'
+    | 'subscription.board.created'
+    | 'subscription.board.days'
+    | 'subscription.board.daysLeft'
+    | 'subscription.board.deliveries'
+    | 'subscription.board.lastsUntil'
+    | 'subscription.board.meals'
+    | 'subscription.board.mealsValue'
+    | 'subscription.board.nextDelivery'
+    | 'subscription.board.noDate'
+    | 'subscription.board.noDayUsed'
+    | 'subscription.board.noMore'
+    | 'subscription.board.pickMeals'
+    | 'subscription.board.resume'
+    | 'subscription.board.save'
+    | 'subscription.board.seeMeals'
+    | 'subscription.board.skipDay'
+    | 'subscription.board.skippedFree'
+    | 'subscription.board.tabs.all'
+    | 'subscription.board.tabs.delivered'
+    | 'subscription.board.tabs.skipped'
+    | 'subscription.board.tag.free'
+    | 'subscription.board.tag.next'
+    | 'subscription.board.tag.used'
+    | 'subscription.board.used'
+    | 'subscription.board.window'
+    | 'subscription.board.yourPlan'
     | 'subscription.change'
     | 'subscription.changeAddress'
     | 'subscription.changeSlot'
@@ -2517,14 +2551,24 @@ export interface NamespaceKeys {
     | 'subscription.slotDaysTitle'
     | 'subscription.slotDialogBody'
     | 'subscription.slotDialogTitle'
+    | 'subscriptions.aDay'
+    | 'subscriptions.activeCount'
+    | 'subscriptions.bandDay'
     | 'subscriptions.body'
     | 'subscriptions.browse'
+    | 'subscriptions.browseShort'
+    | 'subscriptions.changeMeals'
     | 'subscriptions.clearFilter'
+    | 'subscriptions.dayOf'
     | 'subscriptions.dayPrice'
     | 'subscriptions.emptyBody'
     | 'subscriptions.emptyFilteredBody'
     | 'subscriptions.emptyFilteredTitle'
     | 'subscriptions.emptyTitle'
+    | 'subscriptions.ends'
+    | 'subscriptions.facts.days'
+    | 'subscriptions.facts.deliverTo'
+    | 'subscriptions.facts.next'
     | 'subscriptions.filterLabel'
     | 'subscriptions.filters.all'
     | 'subscriptions.filters.ended'
@@ -2534,6 +2578,7 @@ export interface NamespaceKeys {
     | 'subscriptions.noNextDelivery'
     | 'subscriptions.open'
     | 'subscriptions.rowSummary'
+    | 'subscriptions.thisWeek'
     | 'subscriptions.title'
     | 'title'
     | 'validation.countryCode'
@@ -12233,6 +12278,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:cancel.keep',
   'commerce:cancel.open',
   'commerce:cancel.title',
+  'commerce:cancel.titleNamed',
   'commerce:cart.addAnother',
   'commerce:cart.addMore',
   'commerce:cart.addMoreBody',
@@ -12568,6 +12614,39 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:subscription.addressDialogBody',
   'commerce:subscription.addressDialogTitle',
   'commerce:subscription.backToList',
+  'commerce:subscription.board.addAddress',
+  'commerce:subscription.board.address',
+  'commerce:subscription.board.again',
+  'commerce:subscription.board.back',
+  'commerce:subscription.board.bought',
+  'commerce:subscription.board.cancelPlan',
+  'commerce:subscription.board.changesClose',
+  'commerce:subscription.board.created',
+  'commerce:subscription.board.days',
+  'commerce:subscription.board.daysLeft',
+  'commerce:subscription.board.deliveries',
+  'commerce:subscription.board.lastsUntil',
+  'commerce:subscription.board.meals',
+  'commerce:subscription.board.mealsValue',
+  'commerce:subscription.board.nextDelivery',
+  'commerce:subscription.board.noDate',
+  'commerce:subscription.board.noDayUsed',
+  'commerce:subscription.board.noMore',
+  'commerce:subscription.board.pickMeals',
+  'commerce:subscription.board.resume',
+  'commerce:subscription.board.save',
+  'commerce:subscription.board.seeMeals',
+  'commerce:subscription.board.skipDay',
+  'commerce:subscription.board.skippedFree',
+  'commerce:subscription.board.tabs.all',
+  'commerce:subscription.board.tabs.delivered',
+  'commerce:subscription.board.tabs.skipped',
+  'commerce:subscription.board.tag.free',
+  'commerce:subscription.board.tag.next',
+  'commerce:subscription.board.tag.used',
+  'commerce:subscription.board.used',
+  'commerce:subscription.board.window',
+  'commerce:subscription.board.yourPlan',
   'commerce:subscription.change',
   'commerce:subscription.changeAddress',
   'commerce:subscription.changeSlot',
@@ -12619,14 +12698,24 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:subscription.slotDaysTitle',
   'commerce:subscription.slotDialogBody',
   'commerce:subscription.slotDialogTitle',
+  'commerce:subscriptions.aDay',
+  'commerce:subscriptions.activeCount',
+  'commerce:subscriptions.bandDay',
   'commerce:subscriptions.body',
   'commerce:subscriptions.browse',
+  'commerce:subscriptions.browseShort',
+  'commerce:subscriptions.changeMeals',
   'commerce:subscriptions.clearFilter',
+  'commerce:subscriptions.dayOf',
   'commerce:subscriptions.dayPrice',
   'commerce:subscriptions.emptyBody',
   'commerce:subscriptions.emptyFilteredBody',
   'commerce:subscriptions.emptyFilteredTitle',
   'commerce:subscriptions.emptyTitle',
+  'commerce:subscriptions.ends',
+  'commerce:subscriptions.facts.days',
+  'commerce:subscriptions.facts.deliverTo',
+  'commerce:subscriptions.facts.next',
   'commerce:subscriptions.filterLabel',
   'commerce:subscriptions.filters.all',
   'commerce:subscriptions.filters.ended',
@@ -12636,6 +12725,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:subscriptions.noNextDelivery',
   'commerce:subscriptions.open',
   'commerce:subscriptions.rowSummary',
+  'commerce:subscriptions.thisWeek',
   'commerce:subscriptions.title',
   'commerce:title',
   'commerce:validation.countryCode',

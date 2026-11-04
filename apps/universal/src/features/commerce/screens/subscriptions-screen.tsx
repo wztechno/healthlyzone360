@@ -1,60 +1,60 @@
-import {
-    Button,
-    Card,
-    Heading,
-    Inline,
-    SegmentedControl,
-    Stack,
-    Text,
-} from '@healthy360/design-system';
+import { Button, Callout, Dialog, Icon, Stack, cx } from '@healthy360/design-system';
 import type { Subscription, SubscriptionFilter } from '@healthy360/api-client/contracts';
 import type { SubscriptionState } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
-import { useSubscriptionsQuery } from '../../../data/commerce-hooks.ts';
+import {
+    usePauseSubscriptionMutation,
+    useResumeSubscriptionMutation,
+    useSubscriptionDaysQuery,
+    useSubscriptionsQuery,
+} from '../../../data/commerce-hooks.ts';
+import { mealsFromPages, useMealsQuery, usePlanQuery } from '../../../data/catalogue-hooks.ts';
+import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
+import { withQuery } from '../../../navigation/return-to.ts';
+import { EntityImage } from '../../../media/entity-image.tsx';
+import { ACCOUNT_CARD, PanelHead } from '../../account/account-card.tsx';
 import { subscriptionDayPrice } from '../../catalogue/plan-balance.ts';
-import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
+import { isLiveSubscription } from '../../catalogue/plan-subscription.ts';
+import { TINT_FILL, TINT_INK } from '../../catalogue/shelf-tints.ts';
+import type { ShelfTint } from '../../catalogue/shelf-tints.ts';
+import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
-import { SubscriptionStateBadge } from '../state-badge.tsx';
+import { bandLabel, mealsLine, slotName } from '../configurator-steps.tsx';
+import { todayIso } from '../dates.ts';
+import { deliverySlotsForKitchen } from '../delivery.ts';
+import { canPauseOrSkip, canResume, isTerminalSubscriptionState } from '../state-badge.tsx';
+import { estimatedEndDate } from '../subscription-board.ts';
+import { DialogFailure, shortWeekday } from '../subscription-editors.tsx';
 
 /**
- * `/customer/subscriptions` — every subscription this person has.
+ * `/customer/subscriptions` — every subscription this person has, drawn as the account page's
+ * Subscriptions section in the accepted Account board's card.
+ *
+ * ## One card per plan
+ *
+ * A tinted head (the plan's name, which opens it, its band and meals, the state, the day price),
+ * then the run — "Day 6 of 28", a bar, when it should end — three facts (next delivery, where it
+ * goes, which days), the week ahead with the meals chosen for each day, and the three things a
+ * person most often comes here to do: change the meals, pause (or resume), skip a day. Change meals
+ * and Skip a day open the subscription's own page on that control; Pause and Resume happen here,
+ * through the same consequence-stating dialogs the page uses.
  *
  * ## The filter is over states, not over a search box
  *
- * A person has a handful of subscriptions, not hundreds, so a text search would be a control with
- * nothing to do. What they do have is a *lifecycle* — live, paused, finished — and the useful
- * question is "which of these is still delivering?". The four groups map onto `SUBSCRIPTION_STATES`
- * exactly, and `skipped_today` sits with `active` because a subscription that skipped today is
- * still a live subscription, which is the whole reason it is a separate state rather than a flag.
+ * A person has a handful of subscriptions, not hundreds. What they do have is a *lifecycle* — live,
+ * paused, finished — so the four groups map onto `SUBSCRIPTION_STATES`, and `skipped_today` sits
+ * with `active` because a subscription that skipped today is still delivering. The group is in the
+ * URL as `?status=`, so Back and a refresh keep it.
  *
- * ## Every row says what is left of the balance
+ * ## Every card says what is left of the balance
  *
- * S1 made a subscription a consumable balance of delivery days, and "how many have I got left?" is
- * the question a list of them is opened to answer. It is on `Subscription` itself rather than behind
- * `getSubscriptionBalance`, so the list costs one request rather than one per row.
- *
- * ## Every row says when the next delivery is
- *
- * Doc 17, `SUB-12` puts the remaining entitlement first on the detail screen; on a list, the fact
- * that decides whether somebody needs to act at all is the next delivery date. A paused
- * subscription says so instead of showing a date it will not honour.
- *
- * ## The filter is in the URL
- *
- * `?status=` on whatever page draws the list — the account's subscriptions section — written with
- * `setParams`, so opening a subscription and coming Back, or a refresh, finds the group the person
- * chose rather than "All" again (plans-08). Never `?state=`: React Navigation reads `state` (with
- * `screen`, `params`, `initial`, `merge` and `pop`) as an instruction for a nested navigator.
- *
- * ## Another plan is one press away
- *
- * The list ends in "Browse meal plans", the action itself, where it used to end in a sentence naming
- * a button this page does not have (plans-14).
+ * The days are on `Subscription` itself rather than behind `getSubscriptionBalance`, so the list
+ * costs one request rather than one per card.
  */
 
 const FILTERS = ['all', 'live', 'paused', 'ended'] as const;
@@ -71,15 +71,21 @@ const FILTER_STATES: Readonly<Record<FilterKey, readonly SubscriptionState[]>> =
     ended: ['cancelled', 'expired'],
 };
 
+/** The card heads' tints, in turn. */
+const TINTS: readonly ShelfTint[] = ['green', 'orange', 'blue', 'violet'];
+
+/** How many days the "This week" strip shows. */
+const WEEK_DAYS = 5;
+
 export interface SubscriptionsScreenProps {
     /**
-     * Drawn as a section of the account page rather than as a page of its own: the account's side
-     * nav already names it, so the page heading is dropped.
+     * Drawn as a section of the account page. Kept for the route that used to own it; the card is
+     * the same either way.
      */
     readonly embedded?: boolean | undefined;
 }
 
-export function SubscriptionsScreen({ embedded = false }: SubscriptionsScreenProps = {}) {
+export function SubscriptionsScreen(_props: SubscriptionsScreenProps = {}) {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
@@ -105,42 +111,79 @@ export function SubscriptionsScreen({ embedded = false }: SubscriptionsScreenPro
 
     const subscriptions = useSubscriptionsQuery(request);
     const items: readonly Subscription[] = subscriptions.data?.items ?? [];
+    const active = items.filter(isLiveSubscription).length;
 
-    const browseAction = (
-        <Button
-            testID="subscriptions-browse"
-            label={t('commerce:subscriptions.browse')}
-            onPress={() => {
-                router.push('/plans');
-            }}
-        />
-    );
+    const browse = () => {
+        router.push('/plans');
+    };
 
     return (
-        <Stack space="lg" testID="subscriptions-screen">
-            {embedded ? null : (
-                <Stack space="xs">
-                    <Heading level={1} testID="subscriptions-title">
-                        {t('commerce:subscriptions.title')}
-                    </Heading>
-                    <Text tone="secondary">{t('commerce:subscriptions.body')}</Text>
-                </Stack>
-            )}
-
-            <SegmentedControl
-                testID="subscriptions-filter"
-                label={t('commerce:subscriptions.filterLabel')}
-                block
-                value={filter}
-                onChange={(next) => {
-                    if (isFilterKey(next)) chooseFilter(next);
-                }}
-                items={FILTERS.map((key) => ({
-                    value: key,
-                    label: t(`commerce:subscriptions.filters.${key}`),
-                    testID: `subscriptions-filter-${key}`,
-                }))}
+        <View testID="subscriptions-screen" className={`${ACCOUNT_CARD} p-6`}>
+            <PanelHead
+                testID="subscriptions-title"
+                title={t('commerce:subscriptions.title')}
+                {...(active === 0
+                    ? {}
+                    : {
+                          count: t('commerce:subscriptions.activeCount', {
+                              count: active,
+                              formatted: formatter.formatNumber(active),
+                          }),
+                      })}
+                end={
+                    items.length === 0 ? undefined : (
+                        <Pressable
+                            testID="subscriptions-browse"
+                            role="link"
+                            accessibilityRole="link"
+                            onPress={browse}
+                            className="h-10 flex-row items-center gap-1.5 rounded-xl border border-stroke bg-surface-raised px-3.5 hover:bg-surface-brand-subtle"
+                        >
+                            <RNText className="text-sm font-semibold text-content-primary">
+                                {t('commerce:subscriptions.browseShort')}
+                            </RNText>
+                        </Pressable>
+                    )
+                }
             />
+
+            <View
+                testID="subscriptions-filter"
+                role="tablist"
+                aria-label={t('commerce:subscriptions.filterLabel')}
+                className="mb-4 flex-row flex-wrap gap-1.5"
+            >
+                {FILTERS.map((key) => {
+                    const on = key === filter;
+                    return (
+                        <Pressable
+                            key={key}
+                            testID={`subscriptions-filter-${key}`}
+                            role="tab"
+                            aria-selected={on}
+                            accessibilityState={{ selected: on }}
+                            onPress={() => {
+                                chooseFilter(key);
+                            }}
+                            className={cx(
+                                'h-9 justify-center rounded-full border px-3.5',
+                                on
+                                    ? 'border-content-primary bg-content-primary'
+                                    : 'border-stroke-subtle bg-surface-raised hover:bg-surface-sunken',
+                            )}
+                        >
+                            <RNText
+                                className={cx(
+                                    'text-sm font-semibold',
+                                    on ? 'text-surface-base' : 'text-content-secondary',
+                                )}
+                            >
+                                {t(`commerce:subscriptions.filters.${key}`)}
+                            </RNText>
+                        </Pressable>
+                    );
+                })}
+            </View>
 
             <QueryStates
                 query={subscriptions}
@@ -157,7 +200,11 @@ export function SubscriptionsScreen({ embedded = false }: SubscriptionsScreenPro
                 }
                 emptyActions={
                     filter === 'all' ? (
-                        browseAction
+                        <Button
+                            testID="subscriptions-browse"
+                            label={t('commerce:subscriptions.browse')}
+                            onPress={browse}
+                        />
                     ) : (
                         <Button
                             testID="subscriptions-clear-filter"
@@ -172,96 +219,460 @@ export function SubscriptionsScreen({ embedded = false }: SubscriptionsScreenPro
                 skeletonCount={2}
                 testID="subscriptions"
             >
-                <Stack space="sm" testID="subscriptions-list">
-                    {items.map((subscription) => (
-                        <Card
+                <View testID="subscriptions-list" className="flex-col gap-4">
+                    {items.map((subscription, index) => (
+                        <SubscriptionCard
                             key={subscription.id}
-                            testID={`subscription-row-${String(subscription.id)}`}
-                            padding="md"
-                        >
-                            <Stack space="sm">
-                                <Inline space="sm" align="center" justify="between">
-                                    <Text variant="bodyStrong">{subscription.planName}</Text>
-                                    <SubscriptionStateBadge
-                                        state={subscription.state}
-                                        testID={`subscription-row-${String(subscription.id)}-state`}
-                                    />
-                                </Inline>
-
-                                <Text
-                                    testID={`subscription-row-${String(subscription.id)}-next`}
-                                    tone="secondary"
-                                >
-                                    {subscription.nextDeliveryDate === null
-                                        ? t('commerce:subscriptions.noNextDelivery')
-                                        : t('commerce:subscriptions.nextDelivery', {
-                                              date: formatter.formatDate(
-                                                  subscription.nextDeliveryDate,
-                                                  { dateStyle: 'full' },
-                                              ),
-                                          })}
-                                </Text>
-
-                                {/*
-                                 * The balance, on the list.
-                                 *
-                                 * `Subscription` carries `days` because the backend's own presenter
-                                 * does — so a list of five subscriptions says "6 of 20 days left"
-                                 * five times without five extra requests. A row that had to fetch
-                                 * its own balance would be the N+1 this field exists to prevent.
-                                 */}
-                                <Text
-                                    testID={`subscription-row-${String(subscription.id)}-balance`}
-                                    variant="bodyStrong"
-                                >
-                                    {t('commerce:balance.remaining', {
-                                        count: subscription.days.remaining,
-                                    })}
-                                </Text>
-
-                                <Text tone="secondary" variant="caption">
-                                    {t('commerce:subscriptions.rowSummary', {
-                                        price: formatMoney(
-                                            formatter,
-                                            subscriptionDayPrice(subscription),
-                                        ),
-                                        days: subscription.configuration.deliveryWeekdays
-                                            .map((weekday) => t(weekdayKey(weekday)))
-                                            .join(t('commerce:common.listSeparator')),
-                                    })}
-                                </Text>
-
-                                <Inline space="sm" wrap>
-                                    <Button
-                                        testID={`subscription-row-${String(subscription.id)}-open`}
-                                        size="sm"
-                                        label={t('commerce:subscriptions.open')}
-                                        onPress={() => {
-                                            router.push(
-                                                `/customer/subscriptions/${String(subscription.id)}` as never,
-                                            );
-                                        }}
-                                    />
-                                </Inline>
-                            </Stack>
-                        </Card>
+                            subscription={subscription}
+                            tint={TINTS[index % TINTS.length] ?? 'green'}
+                        />
                     ))}
-                </Stack>
+                </View>
             </QueryStates>
+        </View>
+    );
+}
 
-            {/* The empty state already carries it; under a list it is the way to another plan. */}
-            {items.length === 0 ? null : (
-                <View className="self-start">
-                    <Button
-                        testID="subscriptions-browse"
-                        variant="secondary"
-                        label={t('commerce:subscriptions.browse')}
+/* ── one subscription ────────────────────────────────────────────────────────────────────────── */
+
+function SubscriptionCard({
+    subscription,
+    tint,
+}: {
+    readonly subscription: Subscription;
+    readonly tint: ShelfTint;
+}) {
+    const { t } = useTranslation();
+    const router = useRouter();
+    const formatter = useFormatter();
+    const id = `subscription-row-${String(subscription.id)}`;
+    const href = `/customer/subscriptions/${String(subscription.id)}`;
+    const ended = isTerminalSubscriptionState(subscription.state);
+
+    const plan = usePlanQuery(subscription.configuration.planId);
+    const variant = plan.data?.variants.find(
+        (each) => each.id === subscription.configuration.variantId,
+    );
+    const kitchen = useKitchenQuery(subscription.kitchenId);
+    const slots = deliverySlotsForKitchen(kitchen.data);
+    const slot = slots.find((each) => each.code === subscription.configuration.slotCode);
+
+    const { total, consumed } = subscription.days;
+    const day = ended ? consumed : Math.min(total, consumed + 1);
+    const ends = estimatedEndDate(subscription);
+    const address = subscription.configuration.address;
+
+    const [dialog, setDialog] = useState<'pause' | 'resume' | null>(null);
+    const pause = usePauseSubscriptionMutation();
+    const resume = useResumeSubscriptionMutation();
+    const busy = pause.isPending || resume.isPending;
+    const close = () => {
+        setDialog(null);
+    };
+
+    return (
+        <View
+            testID={id}
+            className="flex-col overflow-hidden rounded-3xl border border-stroke-subtle"
+        >
+            {/* ── the head, on the plan's tint ──────────────────────────────────────────────── */}
+            <View className={cx('flex-row flex-wrap items-center gap-4 p-5', TINT_FILL[tint])}>
+                <View className="h-14 w-14 items-center justify-center rounded-[18px] bg-surface-raised">
+                    <Icon name="calendar" size="lg" className={TINT_INK[tint]} />
+                </View>
+                <View className="min-w-0 flex-1">
+                    <Pressable
+                        testID={`${id}-open`}
+                        role="link"
+                        accessibilityRole="link"
                         onPress={() => {
-                            router.push('/plans');
+                            router.push(href as never);
                         }}
+                        className="self-start"
+                    >
+                        <RNText className="font-display text-2xl font-bold tracking-display text-content-primary hover:underline text-start">
+                            {subscription.planName}
+                        </RNText>
+                    </Pressable>
+                    {variant === undefined ? null : (
+                        <View className="mt-2 flex-row flex-wrap gap-1.5">
+                            <HeadChip
+                                label={t('commerce:subscriptions.bandDay', {
+                                    band: bandLabel(variant, formatter.formatNumber, t),
+                                })}
+                            />
+                            <HeadChip label={mealsLine(variant, formatter.formatNumber, t)} />
+                        </View>
+                    )}
+                </View>
+                <View
+                    testID={`${id}-state`}
+                    className="h-[26px] flex-row items-center gap-1.5 rounded-full bg-surface-raised px-2.5"
+                >
+                    <View
+                        className={cx(
+                            'h-2 w-2 rounded-full',
+                            subscription.state === 'paused'
+                                ? 'bg-stage-orange'
+                                : ended
+                                  ? 'bg-stroke-strong'
+                                  : 'bg-surface-brand',
+                        )}
+                    />
+                    <RNText className="text-xs font-bold text-content-primary">
+                        {t(`commerce:states.${subscription.state}`)}
+                    </RNText>
+                </View>
+                <View className="items-end">
+                    <RNText
+                        className={cx(
+                            'font-display text-3xl font-bold tabular-nums',
+                            TINT_INK[tint],
+                        )}
+                    >
+                        {formatMoney(formatter, subscriptionDayPrice(subscription))}
+                    </RNText>
+                    <RNText className={cx('text-xs', TINT_INK[tint])}>
+                        {t('commerce:subscriptions.aDay')}
+                    </RNText>
+                </View>
+            </View>
+
+            {/* ── the run, the facts, the week, the actions ─────────────────────────────────── */}
+            <View className="flex-col gap-[18px] p-5">
+                <View testID={`${id}-balance`} className="flex-row items-center gap-3">
+                    <RNText className="text-sm font-bold tabular-nums text-content-primary">
+                        {t('commerce:subscriptions.dayOf', {
+                            day: formatter.formatNumber(day),
+                            total: formatter.formatNumber(total),
+                        })}
+                    </RNText>
+                    <View className="h-2.5 flex-1 flex-row overflow-hidden rounded-full bg-surface-base">
+                        <View
+                            className="h-full rounded-full bg-surface-brand"
+                            style={{ flex: total === 0 ? 0 : consumed }}
+                        />
+                        <View style={{ flex: Math.max(0, total - consumed) }} />
+                    </View>
+                    {ends === null ? null : (
+                        <RNText className="text-sm text-content-secondary">
+                            {t('commerce:subscriptions.ends', {
+                                date: formatter.formatDate(ends, {
+                                    weekday: 'short',
+                                    day: 'numeric',
+                                    month: 'short',
+                                }),
+                            })}
+                        </RNText>
+                    )}
+                </View>
+
+                <View className="flex-col gap-2.5 sm:flex-row">
+                    <Fact
+                        testID={`${id}-next`}
+                        label={t('commerce:subscriptions.facts.next')}
+                        value={
+                            subscription.nextDeliveryDate === null
+                                ? t('commerce:subscriptions.noNextDelivery')
+                                : `${formatter.formatDate(subscription.nextDeliveryDate, {
+                                      weekday: 'short',
+                                      day: 'numeric',
+                                      month: 'short',
+                                  })} · ${slotName(slot, subscription.configuration.slotCode, t)}`
+                        }
+                    />
+                    <Fact
+                        label={t('commerce:subscriptions.facts.deliverTo')}
+                        value={[address.label, address.area]
+                            .filter((part) => part.trim() !== '')
+                            .join(' · ')}
+                    />
+                    <Fact
+                        label={t('commerce:subscriptions.facts.days')}
+                        value={[...subscription.configuration.deliveryWeekdays]
+                            .sort((a, b) => a - b)
+                            .map((weekday) => shortWeekday(weekday, formatter.formatDate))
+                            .join(t('commerce:common.listSeparator'))}
                     />
                 </View>
+
+                {ended ? null : <ThisWeek subscription={subscription} testID={`${id}-week`} />}
+
+                {ended ? null : (
+                    <View className="flex-row flex-wrap gap-2">
+                        <CardAction
+                            testID={`${id}-meals`}
+                            label={t('commerce:subscriptions.changeMeals')}
+                            icon="plate"
+                            tone="primary"
+                            onPress={() => {
+                                router.push(withQuery(href, { meals: '1' }) as never);
+                            }}
+                        />
+                        {canPauseOrSkip(subscription.state) ? (
+                            <CardAction
+                                testID={`${id}-pause`}
+                                label={t('commerce:subscription.pause')}
+                                disabled={busy}
+                                onPress={() => {
+                                    pause.reset();
+                                    setDialog('pause');
+                                }}
+                            />
+                        ) : null}
+                        {canResume(subscription.state) ? (
+                            <CardAction
+                                testID={`${id}-resume`}
+                                label={t('commerce:subscription.resume')}
+                                disabled={busy}
+                                onPress={() => {
+                                    resume.reset();
+                                    setDialog('resume');
+                                }}
+                            />
+                        ) : null}
+                        {canPauseOrSkip(subscription.state) ? (
+                            <CardAction
+                                testID={`${id}-skip`}
+                                label={t('commerce:subscription.board.skipDay')}
+                                onPress={() => {
+                                    router.push(withQuery(href, { skip: '1' }) as never);
+                                }}
+                            />
+                        ) : null}
+                    </View>
+                )}
+            </View>
+
+            <Dialog
+                testID={`${id}-pause-dialog`}
+                open={dialog === 'pause'}
+                onClose={close}
+                title={t('commerce:subscription.pauseDialogTitle')}
+                description={t('commerce:subscription.pauseDialogBody')}
+                actions={
+                    <>
+                        <Button
+                            testID={`${id}-pause-cancel`}
+                            variant="quiet"
+                            label={t('commerce:common.cancel')}
+                            onPress={close}
+                        />
+                        <Button
+                            testID={`${id}-pause-confirm`}
+                            label={t('commerce:subscription.pauseConfirm')}
+                            loading={pause.isPending}
+                            onPress={() => {
+                                pause.mutate(
+                                    { subscriptionId: subscription.id },
+                                    { onSuccess: close },
+                                );
+                            }}
+                        />
+                    </>
+                }
+            >
+                <Stack space="sm">
+                    <Callout
+                        role="note"
+                        tone="warning"
+                        icon="info"
+                        title={t('commerce:subscription.pauseConsequenceTitle')}
+                        body={t('commerce:subscription.pauseConsequenceOpen')}
+                    />
+                    <DialogFailure error={pause.error} testID={`${id}-pause-failure`} />
+                </Stack>
+            </Dialog>
+
+            <Dialog
+                testID={`${id}-resume-dialog`}
+                open={dialog === 'resume'}
+                onClose={close}
+                title={t('commerce:subscription.resumeDialogTitle')}
+                description={t('commerce:subscription.resumeDialogBody')}
+                actions={
+                    <>
+                        <Button
+                            testID={`${id}-resume-cancel`}
+                            variant="quiet"
+                            label={t('commerce:common.cancel')}
+                            onPress={close}
+                        />
+                        <Button
+                            testID={`${id}-resume-confirm`}
+                            label={t('commerce:subscription.resumeConfirm')}
+                            loading={resume.isPending}
+                            onPress={() => {
+                                resume.mutate(subscription.id, { onSuccess: close });
+                            }}
+                        />
+                    </>
+                }
+            >
+                <DialogFailure error={resume.error} testID={`${id}-resume-failure`} />
+            </Dialog>
+        </View>
+    );
+}
+
+/** A chip on the head's tint. */
+function HeadChip({ label }: { readonly label: string }) {
+    return (
+        <View className="h-7 justify-center rounded-full bg-surface-raised px-[11px]">
+            <RNText className="text-xs font-semibold text-content-primary">{label}</RNText>
+        </View>
+    );
+}
+
+function Fact({
+    testID,
+    label,
+    value,
+}: {
+    readonly testID?: string;
+    readonly label: string;
+    readonly value: string;
+}) {
+    return (
+        <View className="min-w-0 flex-1 rounded-2xl bg-surface-base px-3.5 py-3">
+            <RNText className="text-xs font-semibold uppercase tracking-wider text-content-secondary text-start">
+                {label}
+            </RNText>
+            <RNText
+                testID={testID}
+                className="mt-1 text-base font-bold text-content-primary text-start"
+            >
+                {value}
+            </RNText>
+        </View>
+    );
+}
+
+/**
+ * The days ahead and the meals chosen for each — read from the subscription's own days, with the
+ * pictures from its kitchen's menu. Drawn only once there is a day to show.
+ */
+function ThisWeek({
+    subscription,
+    testID,
+}: {
+    readonly subscription: Subscription;
+    readonly testID: string;
+}) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const today = todayIso();
+    const days = useSubscriptionDaysQuery(subscription.id);
+    const meals = useMealsQuery(
+        { kitchenIds: [subscription.kitchenId], itemTypes: ['meal'], limit: 50 },
+        days.data !== undefined && days.data.days.length > 0,
+    );
+    const menu = useMemo(
+        () => new Map(mealsFromPages(meals.data?.pages).map((meal) => [String(meal.id), meal])),
+        [meals.data],
+    );
+    const week = (days.data?.days ?? []).filter((day) => day.date >= today).slice(0, WEEK_DAYS);
+    if (week.length === 0) return null;
+
+    return (
+        <View testID={testID}>
+            <RNText className="mb-2.5 text-xs font-bold uppercase tracking-wider text-content-secondary text-start">
+                {t('commerce:subscriptions.thisWeek')}
+            </RNText>
+            <View className="flex-row gap-2.5">
+                {week.map((day) => (
+                    <View
+                        key={day.date}
+                        testID={`${testID}-${day.date}`}
+                        className={cx(
+                            'min-w-0 flex-1 flex-col gap-2 rounded-2xl p-2.5',
+                            day.date === today ? 'bg-surface-brand-subtle' : 'bg-surface-base',
+                        )}
+                    >
+                        <View className="flex-row items-baseline justify-between gap-1">
+                            <RNText className="font-display text-sm font-bold text-content-primary">
+                                {formatter.formatDate(day.date, { weekday: 'short' })}
+                            </RNText>
+                            <RNText className="text-xs font-medium text-content-secondary">
+                                {formatter.formatDate(day.date, { day: 'numeric', month: 'short' })}
+                            </RNText>
+                        </View>
+                        {day.meals.slice(0, 2).map((chosen) => {
+                            const meal = menu.get(String(chosen.mealId));
+                            return (
+                                <View
+                                    key={`${chosen.slot}-${String(chosen.sequence)}`}
+                                    className="h-[58px] overflow-hidden rounded-xl bg-surface-sunken"
+                                >
+                                    {meal === undefined ? null : (
+                                        <EntityImage
+                                            assetId={meal.imagePlaceholderId}
+                                            photoUrl={meal.photoUrl}
+                                            seed={meal.slug}
+                                            label={chosen.mealName}
+                                            flush
+                                            className="h-[58px] w-full"
+                                        />
+                                    )}
+                                </View>
+                            );
+                        })}
+                    </View>
+                ))}
+            </View>
+        </View>
+    );
+}
+
+function CardAction({
+    testID,
+    label,
+    icon,
+    tone = 'neutral',
+    disabled = false,
+    onPress,
+}: {
+    readonly testID: string;
+    readonly label: string;
+    readonly icon?: 'plate' | undefined;
+    readonly tone?: 'primary' | 'neutral';
+    readonly disabled?: boolean;
+    readonly onPress: () => void;
+}) {
+    return (
+        <Pressable
+            testID={testID}
+            role="button"
+            accessibilityRole="button"
+            disabled={disabled}
+            aria-disabled={disabled}
+            accessibilityState={{ disabled }}
+            onPress={onPress}
+            className={cx(
+                'h-12 flex-row items-center justify-center gap-2 rounded-[14px] border px-4',
+                tone === 'primary'
+                    ? 'grow border-surface-brand bg-surface-brand hover:opacity-90'
+                    : 'border-stroke bg-surface-raised hover:bg-surface-brand-subtle',
+                disabled ? 'opacity-50' : '',
             )}
-        </Stack>
+        >
+            {icon === undefined ? null : (
+                <Icon
+                    name={icon}
+                    size="sm"
+                    className={
+                        tone === 'primary' ? 'text-content-on-brand' : 'text-content-primary'
+                    }
+                />
+            )}
+            <RNText
+                className={cx(
+                    'text-sm font-semibold',
+                    tone === 'primary' ? 'text-content-on-brand' : 'text-content-primary',
+                )}
+            >
+                {label}
+            </RNText>
+        </Pressable>
     );
 }

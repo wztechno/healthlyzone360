@@ -440,7 +440,25 @@
         "dayPrice": "{{price}} يوميًا",
         "nextDelivery": "التوصيلة القادمة {{date}}",
         "noNextDelivery": "لا توجد توصيلة مجدولة",
-        "rowSummary": "{{price}} يوميًا، تصل أيام {{days}}"
+        "rowSummary": "{{price}} يوميًا، تصل أيام {{days}}",
+        "activeCount_zero": "{{formatted}} نشطة",
+        "activeCount_one": "{{formatted}} نشطة",
+        "activeCount_two": "{{formatted}} نشطتان",
+        "activeCount_few": "{{formatted}} نشطة",
+        "activeCount_many": "{{formatted}} نشطة",
+        "activeCount_other": "{{formatted}} نشطة",
+        "browseShort": "تصفّح الخطط",
+        "bandDay": "{{band}} يوميًا",
+        "aDay": "يوميًا",
+        "dayOf": "اليوم {{day}} من {{total}}",
+        "ends": "تنتهي {{date}}",
+        "facts": {
+            "next": "التوصيل التالي",
+            "deliverTo": "التوصيل إلى",
+            "days": "أيام التوصيل"
+        },
+        "thisWeek": "هذا الأسبوع",
+        "changeMeals": "غيّر الوجبات"
     },
     "subscription": {
         "notFoundTitle": "لم نتمكن من العثور على هذا الاشتراك",
@@ -503,7 +521,56 @@
         "crumbAccount": "الحساب",
         "crumbSubscriptions": "الاشتراكات",
         "addAddress": "إضافة عنوان جديد",
-        "choosePlanAgain": "اختر هذه الخطة مرة أخرى"
+        "choosePlanAgain": "اختر هذه الخطة مرة أخرى",
+        "board": {
+            "back": "الاشتراكات",
+            "created": "تم إعداد خطتك",
+            "daysLeft_zero": "يوم متبقٍّ",
+            "daysLeft_one": "يوم متبقٍّ",
+            "daysLeft_two": "يومان متبقيان",
+            "daysLeft_few": "أيام متبقية",
+            "daysLeft_many": "يومًا متبقيًا",
+            "daysLeft_other": "يوم متبقٍّ",
+            "bought": "المشتراة",
+            "used": "المستخدمة",
+            "skippedFree": "المتخطّاة، مجانًا",
+            "lastsUntil": "تستمر حتى نحو",
+            "nextDelivery": "التوصيل التالي",
+            "noDate": "—",
+            "noMore": "لا مزيد من التوصيلات",
+            "skipDay": "تخطَّ يومًا",
+            "resume": "استئناف الخطة",
+            "again": "أعد إعداد هذه الخطة",
+            "yourPlan": "خطتك",
+            "address": "عنوان التوصيل",
+            "window": "نافذة التوصيل",
+            "days": "أيام التوصيل",
+            "meals": "الوجبات",
+            "mealsValue": "تختار وجبات كل يوم",
+            "pickMeals": "اختر الوجبات",
+            "seeMeals": "عرض الوجبات",
+            "addAddress": "إضافة عنوان",
+            "save": "حفظ",
+            "changesClose_zero": "تُغلق التغييرات قبل التوصيل مباشرة.",
+            "changesClose_one": "تُغلق التغييرات قبل التوصيل بساعة واحدة.",
+            "changesClose_two": "تُغلق التغييرات قبل التوصيل بساعتين.",
+            "changesClose_few": "تُغلق التغييرات قبل التوصيل بـ{{count}} ساعات.",
+            "changesClose_many": "تُغلق التغييرات قبل التوصيل بـ{{count}} ساعة.",
+            "changesClose_other": "تُغلق التغييرات قبل التوصيل بـ{{count}} ساعة.",
+            "cancelPlan": "إلغاء الخطة",
+            "deliveries": "التوصيلات",
+            "tabs": {
+                "all": "الكل",
+                "delivered": "المُسلّمة",
+                "skipped": "المتخطّاة"
+            },
+            "tag": {
+                "used": "يوم واحد",
+                "next": "التالي",
+                "free": "مجاني"
+            },
+            "noDayUsed": "لم يُستخدم أي يوم"
+        }
     },
     "balance": {
         "remaining_zero": "لم يتبقَّ أي يوم توصيل",
@@ -557,9 +624,9 @@
     "cancel": {
         "open": "إلغاء الاشتراك",
         "title": "إلغاء هذا الاشتراك؟",
-        "body": "تتوقف التوصيلات بعد مهلة التغيير. لا يمكن التراجع عن ذلك.",
-        "keep": "الاحتفاظ به",
-        "confirm": "إلغاء الاشتراك",
+        "body": "تتوقف التوصيلات بعد موعد إغلاق التغييرات. تدفع عند كل توصيل، لذا لا يُحتجز أي مبلغ.",
+        "keep": "الإبقاء على الخطة",
+        "confirm": "إلغاء الخطة",
         "consequenceTitle": "ما الذي سيتوقف",
         "consequenceBody_zero": "لا يوجد رصيد متبقٍ لتوصيله.",
         "consequenceBody_one": "لن يُوصَّل يوم التوصيل المتبقي الواحد.",
@@ -568,7 +635,8 @@
         "consequenceBody_many": "لن يُوصَّل {{count}} يوم توصيل متبقٍ.",
         "consequenceBody_other": "لن يُوصَّل {{count}} يوم توصيل متبقٍ.",
         "doneTitle": "أُلغي الاشتراك",
-        "doneBody": "لن تتم أي توصيلات أخرى."
+        "doneBody": "لن تتم أي توصيلات أخرى.",
+        "titleNamed": "إلغاء {{plan}}؟"
     },
     "weekdays": {
         "open": "تغيير أيام التوصيل",

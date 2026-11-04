@@ -359,20 +359,25 @@ describe('the balance is a count of delivery days', () => {
 
         // The server's own three numbers, printed rather than recomputed from the ledger.
         expect(screen.getByTestId('subscription-balance-remaining')).toHaveTextContent(
-            '9 delivery days left',
+            /^9\s*days left$/,
         );
-        expect(screen.getByTestId('subscription-balance-used')).toHaveTextContent('11 of 20 used');
+        expect(screen.getByTestId('subscription-balance-total')).toHaveTextContent('20');
+        expect(screen.getByTestId('subscription-balance-used')).toHaveTextContent('11');
 
         // The effective per-day price, not a weekly price divided by seven: 97.50 a week over three
         // deliveries would round to the same 32.50 only by coincidence, and the card prints the
         // number a refund is actually computed from.
-        expect(screen.getByTestId('subscription-balance-per-day')).toHaveTextContent('AED 32.50');
+        await waitFor(() => {
+            expect(screen.getByTestId('subscription-detail-price')).toHaveTextContent(
+                'AED 32.50 a day',
+            );
+        });
 
-        expect(screen.getByTestId('subscription-balance-skipped')).toHaveTextContent(
-            '3 skipped days, which cost you nothing',
-        );
+        await waitFor(() => {
+            expect(screen.getByTestId('subscription-balance-skipped')).toHaveTextContent('3');
+        });
         expect(screen.getByTestId('subscription-balance-cutoff')).toHaveTextContent(
-            'Changes apply to deliveries more than 24 hours away. Anything sooner goes as planned.',
+            'Changes close 24 hours before a delivery.',
         );
     });
 
@@ -386,9 +391,10 @@ describe('the balance is a count of delivery days', () => {
         // Twenty-three authored rows: eleven that consumed a day, three that consumed nothing and
         // nine still to come. The balance says 11 of 20 used with 3 skipped, and the evidence on
         // screen has to add up to exactly that.
-        expect(screen.getByTestId('subscription-deliveries-count')).toHaveTextContent('23 days');
-        expect(screen.getAllByText('Used a day')).toHaveLength(11);
-        expect(screen.getAllByText('Free')).toHaveLength(12);
+        expect(screen.getAllByTestId(/^subscription-deliveries-row-/)).toHaveLength(23);
+        expect(screen.getAllByText('1 day')).toHaveLength(11);
+        expect(screen.getAllByText('Free')).toHaveLength(3);
+        expect(screen.getAllByText('Next')).toHaveLength(9);
         expect(screen.getAllByText('Scheduled')).toHaveLength(9);
 
         // The badges carry a leading icon glyph, so these match the label within the badge.
@@ -430,12 +436,12 @@ describe('the balance is a count of delivery days', () => {
             expect(screen.getByTestId('subscriptions-list')).toBeTruthy();
         });
 
-        // Three rows, three balances, and the singular form on the row with one day left — which is
-        // only reachable if the count came from `Subscription.days` rather than from a placeholder.
+        // Three rows, three runs — each "Day n of m" read from `Subscription.days` rather than from a
+        // placeholder: the next day to come after those used, of those bought.
         for (const [row, expected] of [
-            [rows[0], '9 delivery days left'],
-            [rows[1], '1 delivery day left'],
-            [rows[2], '8 delivery days left'],
+            [rows[0], /^Day 12 of 20/],
+            [rows[1], /^Day 12 of 12/],
+            [rows[2], /^Day 1 of 8/],
         ] as const) {
             expect(
                 screen.getByTestId(`subscription-row-${String(row?.id)}-balance`),
@@ -487,9 +493,9 @@ describe('a skip consumes nothing', () => {
 
         // The one assertion the approved semantics turn on.
         expect(screen.getByTestId('subscription-balance-remaining')).toHaveTextContent(
-            '9 delivery days left',
+            /^9\s*days left$/,
         );
-        expect(screen.getByTestId('subscription-balance-used')).toHaveTextContent('11 of 20 used');
+        expect(screen.getByTestId('subscription-balance-used')).toHaveTextContent('11');
 
         expect(harness.repositories.commerce.skipDay).toHaveBeenCalledWith(SUBSCRIPTION_ID, {
             date: NEXT_DELIVERY,
@@ -506,9 +512,7 @@ describe('a skip consumes nothing', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('subscription-balance-skipped')).toHaveTextContent(
-                '3 skipped days, which cost you nothing',
-            );
+            expect(screen.getByTestId('subscription-balance-skipped')).toHaveTextContent('3');
         });
 
         await act(async () => {
@@ -525,16 +529,14 @@ describe('a skip consumes nothing', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('subscription-balance-skipped')).toHaveTextContent(
-                '4 skipped days, which cost you nothing',
-            );
+            expect(screen.getByTestId('subscription-balance-skipped')).toHaveTextContent('4');
         });
         // Four skipped days, and still nine to come — the balance stretched rather than shrank, and
         // the ledger grew a twenty-fourth row at the far end to prove where it stretched to.
         expect(screen.getByTestId('subscription-balance-remaining')).toHaveTextContent(
-            '9 delivery days left',
+            /^9\s*days left$/,
         );
-        expect(screen.getByTestId('subscription-deliveries-count')).toHaveTextContent('24 days');
+        expect(screen.getAllByTestId(/^subscription-deliveries-row-/)).toHaveLength(24);
     });
 });
 
@@ -631,7 +633,7 @@ describe('the 24-hour cut-off', () => {
 
         // The configuration redraws from the answer rather than from what was pressed.
         await waitFor(() => {
-            expect(screen.getByText('Tuesday, Thursday')).toBeTruthy();
+            expect(screen.getByLabelText('Tuesday, Thursday')).toBeTruthy();
         });
 
         /*
@@ -677,15 +679,15 @@ describe('the 24-hour cut-off', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByText('Tuesday, Thursday')).toBeTruthy();
+            expect(screen.getByLabelText('Tuesday, Thursday')).toBeTruthy();
         });
 
         // Somebody bought a number of days. Moving which weekdays they arrive on is not a purchase,
         // and the card must not have quietly re-derived the count from a shorter ledger.
         expect(screen.getByTestId('subscription-balance-remaining')).toHaveTextContent(
-            '9 delivery days left',
+            /^9\s*days left$/,
         );
-        expect(screen.getByTestId('subscription-balance-used')).toHaveTextContent('11 of 20 used');
+        expect(screen.getByTestId('subscription-balance-used')).toHaveTextContent('11');
     });
 
     it('refuses an empty weekday set rather than silently stopping deliveries', async () => {
@@ -748,8 +750,11 @@ describe('the 24-hour cut-off', () => {
                 /That change would touch a delivery inside the 24-hour cut-off\./,
             );
         });
-        // And nothing moved: the weekdays on the record are still Monday, Wednesday, Friday.
-        expect(screen.getByText('Monday, Wednesday, Friday')).toBeTruthy();
+        // And nothing moved: closed, the tile still reads Monday, Wednesday, Friday.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('subscription-weekdays-cancel'));
+        });
+        expect(screen.getByLabelText('Monday, Wednesday, Friday')).toBeTruthy();
     });
 });
 

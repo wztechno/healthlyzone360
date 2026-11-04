@@ -4666,40 +4666,21 @@ describe('SubscriptionDetailScreen', () => {
         // Resume is not offered from an active subscription: the repository would refuse it.
         expect(screen.queryByTestId('subscription-resume')).toBeNull();
 
-        // The length is what was bought, read as weeks and as the balance it created; the
-        // start date is in the past, so it "Started".
-        expect(screen.getByTestId('subscription-detail-row-duration')).toHaveTextContent(
-            /4 weeks · 28 delivery days/,
-        );
-        expect(screen.getByTestId('subscription-detail-row-start')).toHaveTextContent(/Started/);
-        expect(screen.getByTestId('subscription-detail-row-start')).toHaveTextContent(/Aug/);
-        expect(screen.getByTestId('subscription-detail-row-start')).toHaveTextContent(/2026/);
+        // The board's four tiles: address, window, days — each with its Change — and the meals.
+        expect(screen.getByTestId('subscription-detail-row-slot')).toBeTruthy();
+        expect(screen.getByTestId('subscription-detail-row-days')).toBeTruthy();
+        expect(screen.getByTestId('subscription-change-weekdays')).toBeTruthy();
+        expect(screen.getByTestId('subscription-pick-meals')).toBeTruthy();
         // No "Excluded" row reading a field nothing wrote: the allergy list is its own card.
         expect(screen.queryByTestId('subscription-detail-row-allergens')).toBeNull();
         expect(screen.queryByTestId('subscription-timeline-paused-until')).toBeNull();
     });
 
-    it('says a subscription that has not begun "Starts", and one with no date "Not planned yet"', async () => {
-        await renderDetail(
-            liveWorld({ configuration: testConfiguration({ startDate: '2099-01-04' }) }),
-        );
-        const future = await screen.findByTestId('subscription-detail-row-start');
-        expect(future).toHaveTextContent(/Starts/);
-        expect(future).not.toHaveTextContent(/Started/);
-        expect(future).toHaveTextContent(/Jan/);
-        expect(future).toHaveTextContent(/2099/);
-
-        await renderDetail(liveWorld({ configuration: testConfiguration({ startDate: '' }) }));
-        await waitFor(() => {
-            expect(screen.getByTestId('subscription-detail-row-start')).toHaveTextContent(
-                /Not planned yet/,
-            );
-        });
-    });
-
     it('shows the profile’s allergy list against the chosen dishes, with a way to change it', async () => {
         await renderDetail(liveWorld(), { profile: dietaryProfile([MILK]) });
 
+        // With the meals, under "Pick meals".
+        await fireEvent.press(await screen.findByTestId('subscription-pick-meals'));
         const card = await screen.findByTestId('subscription-detail-allergies');
         await waitFor(() => {
             expect(
@@ -4728,6 +4709,7 @@ describe('SubscriptionDetailScreen', () => {
         const world = liveWorld();
         const harness = await renderDetail(world);
 
+        await fireEvent.press(await screen.findByTestId('subscription-pick-meals'));
         const section = await screen.findByTestId('subscription-meals');
         const open = await within(section).findByTestId(`subscription-meals-day-${NEXT_DELIVERY}`);
         expect(
@@ -4807,6 +4789,10 @@ describe('SubscriptionDetailScreen', () => {
         };
         await renderDetail(world);
 
+        // Over, the tile still offers the meals — to see, not to pick.
+        const see = await screen.findByTestId('subscription-pick-meals');
+        expect(see).toHaveTextContent(/See meals/);
+        await fireEvent.press(see);
         expect(
             await screen.findByTestId(`subscription-meals-day-${NEXT_DELIVERY}-repeated`),
         ).toHaveTextContent(/Repeated/);
@@ -4943,11 +4929,9 @@ describe('SubscriptionDetailScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('subscription-slot-picker')).toBeTruthy();
         });
+        // Picking a window inside the tile is the change: the board's editor has no Save.
         await act(async () => {
             fireEvent.press(screen.getByTestId('subscription-slot-evening'));
-        });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('subscription-slot-confirm'));
         });
 
         await waitFor(() => {
@@ -4955,7 +4939,10 @@ describe('SubscriptionDetailScreen', () => {
         });
         expect(harness.repositories.commerce.changeSlot).toHaveBeenCalledWith(SUBSCRIPTION_ID, {
             slotCode: 'evening',
-            deliveryWeekdays: [1, 3, 5],
+        });
+        // And the editor closes on the answer.
+        await waitFor(() => {
+            expect(screen.queryByTestId('subscription-slot-picker')).toBeNull();
         });
     });
 
@@ -4985,20 +4972,18 @@ describe('SubscriptionDetailScreen', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('subscription-change-address'));
         });
-        await fireEvent.press(await screen.findByTestId('subscription-address-picker-trigger'));
-        await fireEvent.press(
-            await screen.findByTestId(`subscription-address-picker-option-${garden.id}`),
-        );
+        // Picking a saved address inside the tile is the change.
+        const option = await screen.findByTestId(`subscription-address-option-${garden.id}`);
         await act(async () => {
-            fireEvent.press(screen.getByTestId('subscription-address-confirm'));
+            fireEvent.press(option);
         });
 
         await waitFor(() => {
             expect(world.subscription.configuration.address.line1).toBe(garden.line1);
         });
-        // And the configuration table redraws from the answer rather than from what was pressed.
+        // And the tile redraws from the answer rather than from what was pressed.
         await waitFor(() => {
-            expect(screen.getByText('Villa 12, Garden Row, Dubai Marina')).toBeTruthy();
+            expect(screen.getByText(/Villa 12, Garden Row, Dubai Marina/)).toBeTruthy();
         });
         expect(harness.repositories.commerce.changeAddress).toHaveBeenCalledWith(SUBSCRIPTION_ID, {
             address: expect.objectContaining({ line1: garden.line1, area: garden.areaName }),
@@ -5053,12 +5038,12 @@ describe('SubscriptionDetailScreen', () => {
         await renderDetail(liveWorld());
 
         const created = await screen.findByTestId('subscription-created');
-        expect(created).toHaveTextContent(/Your subscription is set up/);
+        expect(created).toHaveTextContent(/Your plan is set up/);
         await fireEvent.press(screen.getByTestId('subscription-created-dismiss'));
         expect(routerMock.__router.setParams).toHaveBeenCalledWith({ created: undefined });
     });
 
-    it('adds a new address from the address dialog, and reopens it on that address', async () => {
+    it('adds a new address from the address editor, and reopens it on that address', async () => {
         const garden = testAddress({
             id: 'address-garden',
             label: 'Garden',
@@ -5083,12 +5068,9 @@ describe('SubscriptionDetailScreen', () => {
         routerMock.__set({ params: { dialog: 'address', address: garden.id } });
         await renderDetail(liveWorld(), { addresses: [HOME_ADDRESS, garden] });
 
-        expect(await screen.findByTestId('subscription-address-dialog')).toBeTruthy();
-        await waitFor(() => {
-            expect(screen.getByTestId('subscription-address-picker-trigger')).toHaveTextContent(
-                /Villa 12, Garden Row/,
-            );
-        });
+        // The editor is open again, with the address just saved among its choices.
+        expect(await screen.findByTestId(`subscription-address-option-${garden.id}`)).toBeTruthy();
+        expect(screen.getByTestId('subscription-address-add')).toBeTruthy();
         // Taken off the entry, so a refresh or a Back onto it does not open the dialog again.
         expect(routerMock.__router.setParams).toHaveBeenCalledWith({
             dialog: undefined,
@@ -5096,7 +5078,7 @@ describe('SubscriptionDetailScreen', () => {
         });
     });
 
-    it('goes up to the account and the list by name, never stacking a copy', async () => {
+    it('goes up to the list by name, never stacking a copy', async () => {
         await renderDetail(liveWorld());
         await screen.findByTestId('subscription-detail-name');
 
@@ -5104,12 +5086,10 @@ describe('SubscriptionDetailScreen', () => {
         expect(routerMock.__router.dismissTo).toHaveBeenLastCalledWith(
             '/customer/account?section=subscriptions',
         );
-        await fireEvent.press(screen.getByTestId('subscription-detail-crumb-account'));
-        expect(routerMock.__router.dismissTo).toHaveBeenLastCalledWith('/customer/account');
         expect(routerMock.__push).not.toHaveBeenCalled();
     });
 
-    it('offers the same plan again, or the list, once a subscription is over', async () => {
+    it('offers the same plan again once a subscription is over', async () => {
         await renderDetail(liveWorld({ state: 'expired', nextDeliveryDate: null }));
 
         const notice = await screen.findByTestId('subscription-detail-read-only');
@@ -5117,10 +5097,9 @@ describe('SubscriptionDetailScreen', () => {
         expect(routerMock.__push).toHaveBeenLastCalledWith(
             `/plans/${String(PLAN_ID)}?variant=${String(testConfiguration().variantId)}`,
         );
-        await fireEvent.press(within(notice).getByTestId('subscription-detail-list'));
-        expect(routerMock.__router.dismissTo).toHaveBeenLastCalledWith(
-            '/customer/account?section=subscriptions',
-        );
+        // Nothing to change on a finished plan.
+        expect(screen.queryByTestId('subscription-change-address')).toBeNull();
+        expect(screen.queryByTestId('subscription-cancel-open')).toBeNull();
     });
 
     /**

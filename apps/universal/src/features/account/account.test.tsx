@@ -352,7 +352,8 @@ describe('AccountScreen', () => {
 
         await fireEvent.press(await screen.findByTestId('account-tab-subscriptions'));
         expect(await screen.findByTestId('subscriptions-screen')).toBeTruthy();
-        expect(screen.queryByTestId('subscriptions-title')).toBeNull();
+        // Its title is the section's own, as every other section's — never a page heading.
+        expect(screen.getByTestId('subscriptions-title')).toHaveProp('aria-level', 2);
     });
 
     it('draws the design’s six sections, plus subscriptions, in order', async () => {

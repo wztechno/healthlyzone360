@@ -400,7 +400,21 @@
         "dayPrice": "{{price}} a day",
         "nextDelivery": "Next delivery {{date}}",
         "noNextDelivery": "No delivery scheduled",
-        "rowSummary": "{{price}} a day, delivered on {{days}}"
+        "rowSummary": "{{price}} a day, delivered on {{days}}",
+        "activeCount_one": "{{formatted}} active",
+        "activeCount_other": "{{formatted}} active",
+        "browseShort": "Browse plans",
+        "bandDay": "{{band}} a day",
+        "aDay": "a day",
+        "dayOf": "Day {{day}} of {{total}}",
+        "ends": "Ends {{date}}",
+        "facts": {
+            "next": "Next delivery",
+            "deliverTo": "Deliver to",
+            "days": "Delivery days"
+        },
+        "thisWeek": "This week",
+        "changeMeals": "Change meals"
     },
     "subscription": {
         "notFoundTitle": "We could not find that subscription",
@@ -463,7 +477,48 @@
         "crumbAccount": "Account",
         "crumbSubscriptions": "Subscriptions",
         "addAddress": "Add a new address",
-        "choosePlanAgain": "Choose this plan again"
+        "choosePlanAgain": "Choose this plan again",
+        "board": {
+            "back": "Subscriptions",
+            "created": "Your plan is set up",
+            "daysLeft_one": "day left",
+            "daysLeft_other": "days left",
+            "bought": "Bought",
+            "used": "Used",
+            "skippedFree": "Skipped, free",
+            "lastsUntil": "Lasts until about",
+            "nextDelivery": "Next delivery",
+            "noDate": "—",
+            "noMore": "No more deliveries",
+            "skipDay": "Skip a day",
+            "resume": "Resume plan",
+            "again": "Set up this plan again",
+            "yourPlan": "Your plan",
+            "address": "Delivery address",
+            "window": "Delivery window",
+            "days": "Delivery days",
+            "meals": "Meals",
+            "mealsValue": "You choose each day's meals",
+            "pickMeals": "Pick meals",
+            "seeMeals": "See meals",
+            "addAddress": "Add address",
+            "save": "Save",
+            "changesClose_one": "Changes close {{count}} hour before a delivery.",
+            "changesClose_other": "Changes close {{count}} hours before a delivery.",
+            "cancelPlan": "Cancel plan",
+            "deliveries": "Deliveries",
+            "tabs": {
+                "all": "All",
+                "delivered": "Delivered",
+                "skipped": "Skipped"
+            },
+            "tag": {
+                "used": "1 day",
+                "next": "Next",
+                "free": "Free"
+            },
+            "noDayUsed": "No day used"
+        }
     },
     "balance": {
         "remaining_one": "1 delivery day left",
@@ -501,14 +556,15 @@
     "cancel": {
         "open": "Cancel subscription",
         "title": "Cancel this subscription?",
-        "body": "Deliveries stop after the change cut-off. This cannot be undone.",
-        "keep": "Keep it",
-        "confirm": "Cancel subscription",
+        "body": "Deliveries stop after the change cut-off. You pay per delivery, so no money is held.",
+        "keep": "Keep plan",
+        "confirm": "Cancel plan",
         "consequenceTitle": "What stops",
         "consequenceBody_one": "Your 1 remaining delivery day will not be delivered.",
         "consequenceBody_other": "Your {{count}} remaining delivery days will not be delivered.",
         "doneTitle": "Subscription cancelled",
-        "doneBody": "No more deliveries will be made."
+        "doneBody": "No more deliveries will be made.",
+        "titleNamed": "Cancel {{plan}}?"
     },
     "weekdays": {
         "open": "Change delivery days",
