@@ -260,7 +260,7 @@ function DietaryPreferences({
                                         )}
                                     >
                                         <Icon
-                                            name="leaf"
+                                            name="salad"
                                             size="sm"
                                             className={
                                                 on
@@ -309,7 +309,7 @@ function DietaryPreferences({
                 className="flex-row flex-wrap items-center gap-3.5 rounded-[20px] border-[1.5px] border-warning-border bg-warning-subtle p-4 hover:shadow-elevation-2"
             >
                 <View className="h-12 w-12 items-center justify-center rounded-2xl bg-surface-raised">
-                    <Icon name="warning" size="md" className="text-warning-on-subtle" />
+                    <Icon name="alert" size="md" className="text-warning-on-subtle" />
                 </View>
                 <View className="min-w-[180px] flex-1">
                     <RNText className="text-base font-bold text-warning-on-subtle text-start">
@@ -475,7 +475,7 @@ function SecurityLinks() {
             {canManageDevices ? (
                 <LinkRow
                     testID={`${TEST_ID}-devices`}
-                    icon="device"
+                    icon="smartphone"
                     label={t('account:profile.devices')}
                     onPress={() => {
                         router.push(withReturnTo('/devices', PROFILE_HOME) as never);

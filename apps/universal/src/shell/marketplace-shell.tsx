@@ -416,7 +416,7 @@ export function MarketplaceShell({ children }: MarketplaceShellProps) {
                     ? 'rounded-full border-stroke-strong bg-surface-sunken'
                     : 'rounded-full border-stroke'
             }
-            icon={<Icon name="user" size="lg" className="text-content-primary" />}
+            icon={<Icon name="person" size="lg" className="text-content-primary" />}
             label={t('marketplace:nav.account')}
             {...(onAccount ? { 'aria-current': 'page' as const } : {})}
             aria-selected={onAccount}

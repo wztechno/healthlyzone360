@@ -77,7 +77,7 @@ export function LinkRow({
     onPress,
 }: {
     readonly testID: string;
-    readonly icon: 'lock' | 'device' | 'info' | 'close';
+    readonly icon: 'lock' | 'smartphone' | 'infoCircle' | 'circleX';
     readonly label: string;
     readonly tone?: 'neutral' | 'danger';
     readonly onPress: () => void;

@@ -152,17 +152,17 @@ interface SectionItem {
 }
 
 type AccountIcon =
-    'basket' | 'calendar' | 'starOutline' | 'user' | 'warning' | 'home' | 'lock' | 'info';
+    'shoppingBag' | 'calendar' | 'heart' | 'person' | 'alert' | 'mapPin' | 'banknote' | 'bell';
 
 const SECTION_ICONS: Readonly<Record<Section, AccountIcon>> = {
-    orders: 'basket',
+    orders: 'shoppingBag',
     subscriptions: 'calendar',
-    favorites: 'starOutline',
-    profile: 'user',
-    allergies: 'warning',
-    addresses: 'home',
-    payments: 'lock',
-    notifications: 'info',
+    favorites: 'heart',
+    profile: 'person',
+    allergies: 'alert',
+    addresses: 'mapPin',
+    payments: 'banknote',
+    notifications: 'bell',
 };
 
 /**
@@ -219,7 +219,7 @@ function SideNav({
                         >
                             <Icon
                                 name={item.icon}
-                                size="sm"
+                                size="md"
                                 className={
                                     selected ? 'text-content-on-brand' : 'text-content-secondary'
                                 }
@@ -296,7 +296,7 @@ function SignOutButton({ row = false }: { readonly row?: boolean }) {
             className="h-12 flex-row items-center gap-3 rounded-[14px] px-3 hover:bg-danger-subtle"
         >
             <View className="h-8 w-8 items-center justify-center rounded-[10px] bg-danger-subtle">
-                <Icon name="signOut" size="sm" className="text-danger-on-subtle" />
+                <Icon name="signOut" size="md" className="text-danger-on-subtle" />
             </View>
             <RNText className="flex-1 text-sm font-semibold text-danger-on-subtle text-start">
                 {t('common:action.signOut')}
@@ -349,7 +349,7 @@ function FavoritesPanel() {
             <PanelHead title={t('account:nav.favorites')} />
             <View testID="account-favorites-empty" className="items-center gap-3 px-6 py-14">
                 <View className="h-24 w-24 items-center justify-center rounded-full bg-surface-brand-subtle">
-                    <Icon name="starOutline" size="lg" className="text-content-on-brand-subtle" />
+                    <Icon name="heart" size="lg" className="text-content-on-brand-subtle" />
                 </View>
                 <RNText
                     accessibilityRole="header"
@@ -511,7 +511,7 @@ function AddressesPanel({ here }: { readonly here: string }) {
                                             )}
                                         >
                                             <Icon
-                                                name="home"
+                                                name="house"
                                                 size="md"
                                                 className={
                                                     address.isDefault
@@ -640,7 +640,7 @@ function PaymentsPanel() {
             <PanelHead testID="account-payments-title" title={t('account:nav.payments')} />
             <View className="flex-row items-center gap-3.5 rounded-[20px] border-2 border-surface-brand bg-surface-brand-subtle p-4">
                 <View className="h-12 w-12 items-center justify-center rounded-2xl bg-surface-raised">
-                    <Icon name="basket" size="md" className="text-content-on-brand-subtle" />
+                    <Icon name="banknote" size="md" className="text-content-on-brand-subtle" />
                 </View>
                 <View className="min-w-0 flex-1">
                     <RNText
@@ -661,7 +661,7 @@ function PaymentsPanel() {
             </View>
             <View className="mt-2.5 flex-row items-center gap-3.5 rounded-[20px] border-2 border-stroke-subtle p-4">
                 <View className="h-12 w-12 items-center justify-center rounded-2xl bg-surface-base">
-                    <Icon name="home" size="md" className="text-content-on-brand-subtle" />
+                    <Icon name="store" size="md" className="text-content-on-brand-subtle" />
                 </View>
                 <View className="min-w-0 flex-1">
                     <RNText className="text-base font-bold text-content-primary text-start">
@@ -738,7 +738,7 @@ function NotificationsPanel() {
             <View testID="account-privacy" className="mt-[22px]">
                 <LinkRow
                     testID="account-privacy-consents"
-                    icon="info"
+                    icon="infoCircle"
                     label={t('account:privacy.reviewConsents')}
                     onPress={() => {
                         router.push('/customer/account/consents' as never);
@@ -746,7 +746,7 @@ function NotificationsPanel() {
                 />
                 <LinkRow
                     testID="account-privacy-close"
-                    icon="close"
+                    icon="circleX"
                     tone="danger"
                     label={t('account:privacy.closeAccount')}
                     onPress={() => {

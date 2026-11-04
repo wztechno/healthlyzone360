@@ -171,7 +171,7 @@ export function AllergiesPanel({ testID, guard, onSaved, onCancel }: AllergiesPa
                 )}
 
                 <View className="flex-row flex-wrap items-center gap-4 rounded-[20px] bg-surface-base px-[18px] py-4">
-                    <Icon name="warning" size="md" className="text-warning-on-subtle" />
+                    <Icon name="alert" size="md" className="text-warning-on-subtle" />
                     <RNText className="min-w-0 flex-1 text-base font-bold text-content-primary text-start">
                         {question}
                     </RNText>

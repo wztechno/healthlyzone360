@@ -221,7 +221,7 @@ function LiveOrder({ order }: { readonly order: PlacedOrder }) {
                 className="absolute -end-16 -top-24 h-56 w-56 rounded-full bg-stage-green opacity-15"
             />
             <View className="h-14 w-14 items-center justify-center rounded-[18px] bg-surface-brand-subtle">
-                <Icon name="basket" size="lg" className="text-content-on-brand-subtle" />
+                <Icon name="shoppingBag" size="lg" className="text-content-on-brand-subtle" />
             </View>
             <View className="min-w-[220px] flex-1">
                 <RNText className="text-xs font-semibold uppercase tracking-wider text-content-on-canopy-muted text-start">

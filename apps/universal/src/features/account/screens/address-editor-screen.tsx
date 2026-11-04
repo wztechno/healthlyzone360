@@ -96,8 +96,8 @@ export interface AddressEditorScreenProps {
 type LabelKind = 'home' | 'work' | 'other';
 
 const LABEL_KINDS: readonly { readonly kind: LabelKind; readonly icon: IconName }[] = [
-    { kind: 'home', icon: 'home' },
-    { kind: 'work', icon: 'basket' },
+    { kind: 'home', icon: 'house' },
+    { kind: 'work', icon: 'briefcase' },
     { kind: 'other', icon: 'plus' },
 ];
 
@@ -468,7 +468,7 @@ export function AddressEditorScreen({ addressId, returnTo }: AddressEditorScreen
                                     <View className="mt-2 rounded-[18px] border border-stroke-subtle bg-surface-raised p-2 shadow-elevation-3">
                                         <View className="h-11 flex-row items-center gap-2 rounded-xl bg-surface-base px-3">
                                             <Icon
-                                                name="search"
+                                                name="searchLens"
                                                 size="sm"
                                                 className="text-content-secondary"
                                             />
@@ -616,7 +616,7 @@ export function AddressEditorScreen({ addressId, returnTo }: AddressEditorScreen
                                     className="h-[50px] flex-row items-center gap-2.5 rounded-[14px] border-[1.5px] border-stroke bg-surface-base px-3.5"
                                 >
                                     <Icon
-                                        name="device"
+                                        name="smartphone"
                                         size="sm"
                                         className="text-content-secondary"
                                     />
@@ -732,7 +732,7 @@ export function AddressEditorScreen({ addressId, returnTo }: AddressEditorScreen
                                     <View className="mt-2 flex-row items-center gap-2.5 rounded-[14px] bg-content-on-canopy/10 p-3">
                                         <View className="h-7 w-7 items-center justify-center rounded-full bg-content-on-canopy/20">
                                             <Icon
-                                                name="info"
+                                                name="infoCircle"
                                                 size="sm"
                                                 className="text-content-on-canopy"
                                             />

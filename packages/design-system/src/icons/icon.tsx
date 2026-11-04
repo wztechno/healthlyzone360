@@ -218,6 +218,13 @@ export const DRAWN_ICON_FALLBACKS = {
     scanBarcode: 'search',
     // The kitchen top bar's staff alerts. Lucide's `bell`.
     bell: 'warning',
+    // The shop's account: the header button and the account menu's Profile. Lucide's `user`.
+    person: 'user',
+    // The account menu's Favourites. Lucide's `heart`.
+    heart: 'starOutline',
+    // An address's kind on the account pages: home and work. Lucide's `house` and `briefcase`.
+    house: 'home',
+    briefcase: 'device',
 } as const satisfies Readonly<Record<string, IconGlyphName>>;
 export type DrawnIconName = keyof typeof DRAWN_ICON_FALLBACKS;
 
