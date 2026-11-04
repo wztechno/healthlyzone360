@@ -1,17 +1,9 @@
 import { PASSCODE_LENGTH, isRateLimitFailure } from '@healthy360/api-client';
-import {
-    Badge,
-    Button,
-    Card,
-    Heading,
-    Inline,
-    OtpInput,
-    Stack,
-    Text,
-} from '@healthy360/design-system';
+import { Icon, OtpInput } from '@healthy360/design-system';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import {
     useSendEmailPasscodeMutation,
@@ -22,6 +14,15 @@ import { safeReturnTo } from '../navigation/return-to.ts';
 import { useKeepBrowsing } from '../navigation/use-keep-browsing.ts';
 import { useCompleteAuth } from '../navigation/use-return-to.ts';
 import { useSession } from '../session/session-provider.tsx';
+import {
+    AuthBadge,
+    AuthLink,
+    AuthNote,
+    AuthSubmit,
+    AuthText,
+    AuthTick,
+    AuthTitle,
+} from '../ui/auth-form.tsx';
 
 export interface VerifyEmailScreenProps {
     /** The route's raw `?returnTo=`. Validated here; an unsafe value is ignored. */
@@ -29,7 +30,10 @@ export interface VerifyEmailScreenProps {
 }
 
 /**
- * Email verification status.
+ * Email verification status, drawn as the accepted Verify-email board in the sign-in frame: the
+ * envelope badge, "Confirm your email address" over the address, the six code boxes, the confirm
+ * pill, and the address chip beside "Signed in as the wrong person?"; then the tick and "Email
+ * confirmed".
  *
  * ## The code, not the link
  *
@@ -159,61 +163,47 @@ export function VerifyEmailScreen({ returnTo: rawReturnTo }: VerifyEmailScreenPr
 
     if (verified) {
         return (
-            <Stack testID="verify-email-screen" space="lg">
-                <Badge
-                    testID="verify-email-verified"
-                    tone="success"
-                    label={t('auth:verifyEmail.verifiedTitle')}
-                />
-                <Heading level={1}>{t('auth:verifyEmail.verifiedTitle')}</Heading>
-                <Text tone="secondary">{t('auth:verifyEmail.verifiedBody')}</Text>
-                <Button
-                    testID="verify-email-continue"
-                    block
-                    label={t('auth:verifyEmail.continue')}
-                    onPress={() => {
-                        completeAuth(returnTo);
-                    }}
-                />
-            </Stack>
+            <View testID="verify-email-screen" className="flex-col items-center gap-3.5">
+                <AuthTick />
+                <View testID="verify-email-verified">
+                    <AuthTitle centred>{t('auth:verifyEmail.verifiedTitle')}</AuthTitle>
+                </View>
+                <AuthText centred>{t('auth:verifyEmail.verifiedBody')}</AuthText>
+                <View className="mt-2 w-full">
+                    <AuthSubmit
+                        testID="verify-email-continue"
+                        label={t('auth:verifyEmail.continue')}
+                        onPress={() => {
+                            completeAuth(returnTo);
+                        }}
+                    />
+                </View>
+            </View>
         );
     }
 
     return (
-        <Stack testID="verify-email-screen" space="lg">
-            <Stack space="xs">
-                <Heading level={1} testID="verify-email-title">
-                    {t('auth:verifyEmail.title')}
-                </Heading>
-                <Text testID="verify-email-body" tone="secondary">
-                    {t('auth:verifyEmail.body', { email })}
-                </Text>
-            </Stack>
+        <View testID="verify-email-screen" className="flex-col gap-3.5">
+            <AuthBadge icon="send" />
+            <AuthTitle testID="verify-email-title">{t('auth:verifyEmail.title')}</AuthTitle>
+            <AuthText testID="verify-email-body">{t('auth:verifyEmail.body', { email })}</AuthText>
 
             {notice === null ? null : (
-                <Card tone="brand" padding="sm">
-                    <Text testID="verify-email-notice" role="status" aria-live="polite">
-                        {notice}
-                    </Text>
-                </Card>
+                <AuthNote testID="verify-email-notice" tone="brand">
+                    {notice}
+                </AuthNote>
             )}
 
             {stillPending ? (
-                <Card tone="default" padding="sm">
-                    <Stack space="xs">
-                        <Text testID="verify-email-pending-title" variant="bodyStrong">
-                            {t('auth:verifyEmail.pendingTitle')}
-                        </Text>
-                        <Text tone="secondary">{t('auth:verifyEmail.pendingBody')}</Text>
-                    </Stack>
-                </Card>
+                <AuthNote testID="verify-email-pending-title" tone="warning">
+                    {t('auth:verifyEmail.pendingTitle')}
+                </AuthNote>
             ) : null}
 
             <OtpInput
                 testID="verify-email-code"
                 id="verify-email-code"
                 label={t('auth:otp.codeLabel')}
-                hint={t('auth:otp.codeHint')}
                 value={code}
                 length={PASSCODE_LENGTH}
                 disabled={verifyCode.isPending}
@@ -223,58 +213,62 @@ export function VerifyEmailScreen({ returnTo: rawReturnTo }: VerifyEmailScreenPr
                 onChangeText={setCode}
             />
 
-            <Inline space="sm">
-                <Button
-                    testID="verify-email-submit"
-                    label={t('auth:otp.submit')}
-                    loading={verifyCode.isPending}
-                    disabled={code.length < PASSCODE_LENGTH}
-                    onPress={onSubmitCode}
-                />
-                <Button
+            <AuthSubmit
+                testID="verify-email-submit"
+                label={t('auth:otp.submit')}
+                busy={verifyCode.isPending}
+                disabled={code.length < PASSCODE_LENGTH}
+                onPress={onSubmitCode}
+            />
+
+            <View className="flex-row flex-wrap items-center justify-center gap-x-4">
+                <AuthLink
                     testID="verify-email-resend"
-                    variant="secondary"
-                    label={t('auth:otp.resend')}
-                    loading={sendCode.isPending}
-                    disabled={cooldown > 0}
+                    label={
+                        cooldown > 0
+                            ? t('auth:otp.resendIn', { count: cooldown })
+                            : t('auth:otp.resend')
+                    }
+                    disabled={cooldown > 0 || sendCode.isPending}
                     onPress={onSendCode}
                 />
-                <Button
+                <AuthLink
                     testID="verify-email-recheck"
-                    variant="ghost"
                     label={t('auth:verifyEmail.checkAgain')}
-                    loading={recheck.isPending}
+                    disabled={recheck.isPending}
                     onPress={onRecheck}
                 />
-            </Inline>
+            </View>
 
-            {cooldown > 0 ? (
-                <Text testID="verify-email-cooldown" variant="caption" tone="secondary">
-                    {t('auth:otp.resendIn', { count: cooldown })}
-                </Text>
-            ) : null}
+            <View className="flex-row flex-wrap items-center justify-between gap-3">
+                <View className="h-[34px] flex-row items-center gap-2 rounded-full bg-surface-sunken px-3">
+                    <Icon name="send" size="sm" className="text-content-secondary" />
+                    <RNText className="text-sm font-semibold text-content-primary">{email}</RNText>
+                </View>
+                <Pressable
+                    testID="verify-email-sign-out"
+                    role="button"
+                    accessibilityRole="button"
+                    onPress={() => {
+                        logout.mutate(undefined, {
+                            onSuccess: () => {
+                                router.replace('/sign-in');
+                            },
+                        });
+                    }}
+                    className="min-h-touch justify-center"
+                >
+                    <RNText className="text-sm font-semibold text-content-brand hover:underline">
+                        {t('auth:verifyEmail.wrongAddress')}
+                    </RNText>
+                </Pressable>
+            </View>
 
-            <Button
+            <AuthLink
                 testID="verify-email-keep-browsing"
-                block
-                variant="secondary"
                 label={t('common:action.keepBrowsing')}
                 onPress={keepBrowsing}
             />
-
-            <Button
-                testID="verify-email-sign-out"
-                variant="ghost"
-                size="sm"
-                label={t('auth:verifyEmail.wrongAddress')}
-                onPress={() => {
-                    logout.mutate(undefined, {
-                        onSuccess: () => {
-                            router.replace('/sign-in');
-                        },
-                    });
-                }}
-            />
-        </Stack>
+        </View>
     );
 }

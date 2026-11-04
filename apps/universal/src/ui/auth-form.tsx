@@ -212,6 +212,47 @@ export function AuthField({
     );
 }
 
+/**
+ * How strong a new password looks, 0 to 4: long enough, longer still, letters with digits, and a
+ * mix of cases or a symbol. A guide drawn under the field, never a rule — the server's own length
+ * rule is the one that refuses.
+ */
+export function passwordStrength(value: string, minimum: number): number {
+    if (value === '') return 0;
+    let score = 0;
+    if (value.length >= minimum) score += 1;
+    if (value.length >= minimum + 4) score += 1;
+    if (/\d/.test(value) && /\p{L}/u.test(value)) score += 1;
+    if ((/\p{Lu}/u.test(value) && /\p{Ll}/u.test(value)) || /[^\p{L}\d\s]/u.test(value)) {
+        score += 1;
+    }
+    return score;
+}
+
+/** The boards' four-bar meter under a new password. */
+export function AuthMeter({
+    value,
+    minimum,
+}: {
+    readonly value: string;
+    readonly minimum: number;
+}) {
+    const score = passwordStrength(value, minimum);
+    return (
+        <View aria-hidden className="-mt-1 flex-row gap-1">
+            {[1, 2, 3, 4].map((bar) => (
+                <View
+                    key={bar}
+                    className={cx(
+                        'h-1.5 flex-1 rounded-full transition-colors duration-300',
+                        bar <= score ? 'bg-surface-brand' : 'bg-stroke-subtle',
+                    )}
+                />
+            ))}
+        </View>
+    );
+}
+
 /** The boards' hint line, tucked under the field above it. */
 export function AuthHint({ children }: { readonly children: string }) {
     return (
@@ -316,14 +357,16 @@ export function AuthSubmit({
     );
 }
 
-/** The quiet way out under a pane — Cancel, Back to sign in. */
+/** The quiet way out under a pane — Cancel, Back to sign in, Send a new code. */
 export function AuthLink({
     testID,
     label,
+    disabled = false,
     onPress,
 }: {
     readonly testID: string;
     readonly label: string;
+    readonly disabled?: boolean;
     readonly onPress: () => void;
 }) {
     return (
@@ -331,13 +374,60 @@ export function AuthLink({
             testID={testID}
             role="button"
             accessibilityRole="button"
+            disabled={disabled}
+            aria-disabled={disabled}
+            accessibilityState={{ disabled }}
             onPress={onPress}
-            className="min-h-touch items-center justify-center self-center px-3"
+            className="min-h-touch items-center justify-center self-center rounded-full px-3 hover:bg-surface-brand-subtle"
         >
-            <RNText className="text-sm font-semibold text-content-brand hover:underline">
+            <RNText
+                className={cx(
+                    'text-sm font-semibold',
+                    disabled ? 'text-content-secondary' : 'text-content-brand',
+                )}
+            >
                 {label}
             </RNText>
         </Pressable>
+    );
+}
+
+/** A short line in a soft box: news in the brand tint ("A new code is on its way"), a wait in amber. */
+export function AuthNote({
+    testID,
+    tone,
+    children,
+}: {
+    readonly testID?: string | undefined;
+    readonly tone: 'brand' | 'warning';
+    readonly children: string;
+}) {
+    return (
+        <View
+            role="status"
+            aria-live="polite"
+            className={cx(
+                'flex-row items-center gap-2.5 rounded-[14px] px-3.5 py-3',
+                tone === 'warning' ? 'bg-warning-subtle' : 'bg-surface-brand-subtle',
+            )}
+        >
+            <Icon
+                name={tone === 'warning' ? 'clock' : 'check'}
+                size="sm"
+                className={
+                    tone === 'warning' ? 'text-warning-on-subtle' : 'text-content-on-brand-subtle'
+                }
+            />
+            <RNText
+                testID={testID}
+                className={cx(
+                    'flex-1 text-sm font-semibold text-start',
+                    tone === 'warning' ? 'text-warning-on-subtle' : 'text-content-on-brand-subtle',
+                )}
+            >
+                {children}
+            </RNText>
+        </View>
     );
 }
 

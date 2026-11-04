@@ -9,7 +9,12 @@ import { AuthFrame } from '../../src/ui/auth-frame.tsx';
  * form side (`ui/auth-frame.tsx`). The rest keep the shell's `auth` variant until their board is
  * built; the staff branch and organisation pickers are not shop pages and keep it for good.
  */
-const BOARD_PAGES: ReadonlySet<string> = new Set(['change-password']);
+const BOARD_PAGES: ReadonlySet<string> = new Set([
+    'change-password',
+    'forgot-password',
+    'reset-password',
+    'verify-email',
+]);
 
 /**
  * The `auth` area: sign in, register, verify, reset, and the two context pickers.
