@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10184 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10281 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -8228,6 +8228,103 @@ export interface NamespaceKeys {
     | 'footer.help'
     | 'footer.more'
     | 'footer.shop'
+    | 'forBusiness.board.application'
+    | 'forBusiness.board.apply'
+    | 'forBusiness.board.codeSent'
+    | 'forBusiness.board.endTitle'
+    | 'forBusiness.board.everyWeek'
+    | 'forBusiness.board.faq.a1'
+    | 'forBusiness.board.faq.a2'
+    | 'forBusiness.board.faq.a3'
+    | 'forBusiness.board.faq.a4'
+    | 'forBusiness.board.faq.q1'
+    | 'forBusiness.board.faq.q2'
+    | 'forBusiness.board.faq.q3'
+    | 'forBusiness.board.faq.q4'
+    | 'forBusiness.board.faqTitle'
+    | 'forBusiness.board.fewer'
+    | 'forBusiness.board.gets.dashboard.body'
+    | 'forBusiness.board.gets.dashboard.title'
+    | 'forBusiness.board.gets.invoice.body'
+    | 'forBusiness.board.gets.invoice.o1'
+    | 'forBusiness.board.gets.invoice.o2'
+    | 'forBusiness.board.gets.invoice.o3'
+    | 'forBusiness.board.gets.invoice.title'
+    | 'forBusiness.board.gets.recurring.body'
+    | 'forBusiness.board.gets.recurring.title'
+    | 'forBusiness.board.gets.volume.body'
+    | 'forBusiness.board.gets.volume.title'
+    | 'forBusiness.board.getsTitle'
+    | 'forBusiness.board.heroAccent'
+    | 'forBusiness.board.heroTitle'
+    | 'forBusiness.board.howTitle'
+    | 'forBusiness.board.mealsCount'
+    | 'forBusiness.board.mock.active'
+    | 'forBusiness.board.mock.agreement'
+    | 'forBusiness.board.mock.days2'
+    | 'forBusiness.board.mock.days30'
+    | 'forBusiness.board.mock.delivered'
+    | 'forBusiness.board.mock.dishChicken'
+    | 'forBusiness.board.mock.dishCordon'
+    | 'forBusiness.board.mock.dishMayo'
+    | 'forBusiness.board.mock.leadTime'
+    | 'forBusiness.board.mock.meals40'
+    | 'forBusiness.board.mock.minimum'
+    | 'forBusiness.board.mock.net30'
+    | 'forBusiness.board.mock.notice'
+    | 'forBusiness.board.mock.paymentTerms'
+    | 'forBusiness.board.mock.quotation'
+    | 'forBusiness.board.mock.quoted'
+    | 'forBusiness.board.mock.times'
+    | 'forBusiness.board.more'
+    | 'forBusiness.board.perk.invoice'
+    | 'forBusiness.board.perk.perLocation'
+    | 'forBusiness.board.perk.recurring'
+    | 'forBusiness.board.quoteRequest'
+    | 'forBusiness.board.quoteState.accepted'
+    | 'forBusiness.board.quoteState.quoted'
+    | 'forBusiness.board.quoteState.submitted'
+    | 'forBusiness.board.readyToSign'
+    | 'forBusiness.board.requestQuote'
+    | 'forBusiness.board.review.approved'
+    | 'forBusiness.board.review.ask'
+    | 'forBusiness.board.review.inReview'
+    | 'forBusiness.board.review.submitted'
+    | 'forBusiness.board.section.company'
+    | 'forBusiness.board.section.contacts'
+    | 'forBusiness.board.section.locations'
+    | 'forBusiness.board.section.registration'
+    | 'forBusiness.board.section.terms'
+    | 'forBusiness.board.section.volume'
+    | 'forBusiness.board.sectionsDone'
+    | 'forBusiness.board.signInApproved'
+    | 'forBusiness.board.step.apply.label'
+    | 'forBusiness.board.step.apply.p1'
+    | 'forBusiness.board.step.apply.p2'
+    | 'forBusiness.board.step.apply.p3'
+    | 'forBusiness.board.step.apply.p4'
+    | 'forBusiness.board.step.apply.sub'
+    | 'forBusiness.board.step.apply.title'
+    | 'forBusiness.board.step.order.label'
+    | 'forBusiness.board.step.order.p1'
+    | 'forBusiness.board.step.order.p2'
+    | 'forBusiness.board.step.order.p3'
+    | 'forBusiness.board.step.order.sub'
+    | 'forBusiness.board.step.order.title'
+    | 'forBusiness.board.step.review.label'
+    | 'forBusiness.board.step.review.p1'
+    | 'forBusiness.board.step.review.p2'
+    | 'forBusiness.board.step.review.p3'
+    | 'forBusiness.board.step.review.sub'
+    | 'forBusiness.board.step.review.title'
+    | 'forBusiness.board.step.sign.label'
+    | 'forBusiness.board.step.sign.p1'
+    | 'forBusiness.board.step.sign.p2'
+    | 'forBusiness.board.step.sign.p3'
+    | 'forBusiness.board.step.sign.sub'
+    | 'forBusiness.board.step.sign.title'
+    | 'forBusiness.board.stepsLabel'
+    | 'forBusiness.board.weekdays'
     | 'forBusiness.capability.deliverySchedule'
     | 'forBusiness.capability.eligibility'
     | 'forBusiness.capability.leadTime'
@@ -18429,6 +18526,103 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:footer.help',
   'marketplace:footer.more',
   'marketplace:footer.shop',
+  'marketplace:forBusiness.board.application',
+  'marketplace:forBusiness.board.apply',
+  'marketplace:forBusiness.board.codeSent',
+  'marketplace:forBusiness.board.endTitle',
+  'marketplace:forBusiness.board.everyWeek',
+  'marketplace:forBusiness.board.faq.a1',
+  'marketplace:forBusiness.board.faq.a2',
+  'marketplace:forBusiness.board.faq.a3',
+  'marketplace:forBusiness.board.faq.a4',
+  'marketplace:forBusiness.board.faq.q1',
+  'marketplace:forBusiness.board.faq.q2',
+  'marketplace:forBusiness.board.faq.q3',
+  'marketplace:forBusiness.board.faq.q4',
+  'marketplace:forBusiness.board.faqTitle',
+  'marketplace:forBusiness.board.fewer',
+  'marketplace:forBusiness.board.gets.dashboard.body',
+  'marketplace:forBusiness.board.gets.dashboard.title',
+  'marketplace:forBusiness.board.gets.invoice.body',
+  'marketplace:forBusiness.board.gets.invoice.o1',
+  'marketplace:forBusiness.board.gets.invoice.o2',
+  'marketplace:forBusiness.board.gets.invoice.o3',
+  'marketplace:forBusiness.board.gets.invoice.title',
+  'marketplace:forBusiness.board.gets.recurring.body',
+  'marketplace:forBusiness.board.gets.recurring.title',
+  'marketplace:forBusiness.board.gets.volume.body',
+  'marketplace:forBusiness.board.gets.volume.title',
+  'marketplace:forBusiness.board.getsTitle',
+  'marketplace:forBusiness.board.heroAccent',
+  'marketplace:forBusiness.board.heroTitle',
+  'marketplace:forBusiness.board.howTitle',
+  'marketplace:forBusiness.board.mealsCount',
+  'marketplace:forBusiness.board.mock.active',
+  'marketplace:forBusiness.board.mock.agreement',
+  'marketplace:forBusiness.board.mock.days2',
+  'marketplace:forBusiness.board.mock.days30',
+  'marketplace:forBusiness.board.mock.delivered',
+  'marketplace:forBusiness.board.mock.dishChicken',
+  'marketplace:forBusiness.board.mock.dishCordon',
+  'marketplace:forBusiness.board.mock.dishMayo',
+  'marketplace:forBusiness.board.mock.leadTime',
+  'marketplace:forBusiness.board.mock.meals40',
+  'marketplace:forBusiness.board.mock.minimum',
+  'marketplace:forBusiness.board.mock.net30',
+  'marketplace:forBusiness.board.mock.notice',
+  'marketplace:forBusiness.board.mock.paymentTerms',
+  'marketplace:forBusiness.board.mock.quotation',
+  'marketplace:forBusiness.board.mock.quoted',
+  'marketplace:forBusiness.board.mock.times',
+  'marketplace:forBusiness.board.more',
+  'marketplace:forBusiness.board.perk.invoice',
+  'marketplace:forBusiness.board.perk.perLocation',
+  'marketplace:forBusiness.board.perk.recurring',
+  'marketplace:forBusiness.board.quoteRequest',
+  'marketplace:forBusiness.board.quoteState.accepted',
+  'marketplace:forBusiness.board.quoteState.quoted',
+  'marketplace:forBusiness.board.quoteState.submitted',
+  'marketplace:forBusiness.board.readyToSign',
+  'marketplace:forBusiness.board.requestQuote',
+  'marketplace:forBusiness.board.review.approved',
+  'marketplace:forBusiness.board.review.ask',
+  'marketplace:forBusiness.board.review.inReview',
+  'marketplace:forBusiness.board.review.submitted',
+  'marketplace:forBusiness.board.section.company',
+  'marketplace:forBusiness.board.section.contacts',
+  'marketplace:forBusiness.board.section.locations',
+  'marketplace:forBusiness.board.section.registration',
+  'marketplace:forBusiness.board.section.terms',
+  'marketplace:forBusiness.board.section.volume',
+  'marketplace:forBusiness.board.sectionsDone',
+  'marketplace:forBusiness.board.signInApproved',
+  'marketplace:forBusiness.board.step.apply.label',
+  'marketplace:forBusiness.board.step.apply.p1',
+  'marketplace:forBusiness.board.step.apply.p2',
+  'marketplace:forBusiness.board.step.apply.p3',
+  'marketplace:forBusiness.board.step.apply.p4',
+  'marketplace:forBusiness.board.step.apply.sub',
+  'marketplace:forBusiness.board.step.apply.title',
+  'marketplace:forBusiness.board.step.order.label',
+  'marketplace:forBusiness.board.step.order.p1',
+  'marketplace:forBusiness.board.step.order.p2',
+  'marketplace:forBusiness.board.step.order.p3',
+  'marketplace:forBusiness.board.step.order.sub',
+  'marketplace:forBusiness.board.step.order.title',
+  'marketplace:forBusiness.board.step.review.label',
+  'marketplace:forBusiness.board.step.review.p1',
+  'marketplace:forBusiness.board.step.review.p2',
+  'marketplace:forBusiness.board.step.review.p3',
+  'marketplace:forBusiness.board.step.review.sub',
+  'marketplace:forBusiness.board.step.review.title',
+  'marketplace:forBusiness.board.step.sign.label',
+  'marketplace:forBusiness.board.step.sign.p1',
+  'marketplace:forBusiness.board.step.sign.p2',
+  'marketplace:forBusiness.board.step.sign.p3',
+  'marketplace:forBusiness.board.step.sign.sub',
+  'marketplace:forBusiness.board.step.sign.title',
+  'marketplace:forBusiness.board.stepsLabel',
+  'marketplace:forBusiness.board.weekdays',
   'marketplace:forBusiness.capability.deliverySchedule',
   'marketplace:forBusiness.capability.eligibility',
   'marketplace:forBusiness.capability.leadTime',

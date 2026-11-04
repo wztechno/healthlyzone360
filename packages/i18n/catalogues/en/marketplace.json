@@ -381,7 +381,139 @@
         "pricingBody": "Rates depend on volume, specification, delivery pattern and lead time, and are agreed per account. No consumer page carries a business price, and none is shown here.",
         "prototypeNotice": "This page presents the business programmes. Quotations, contract catalogues and volume pricing live behind a business account and are not part of the public marketplace.",
         "enquiryTitle": "Quotations need a business account",
-        "enquiryBody": "A quotation is priced against your organisation — volume, specification, sites and delivery pattern — so it is raised from inside a business account rather than from a public page. Sign in if you have one, or create an account and we will take it from there."
+        "enquiryBody": "A quotation is priced against your organisation — volume, specification, sites and delivery pattern — so it is raised from inside a business account rather than from a public page. Sign in if you have one, or create an account and we will take it from there.",
+        "board": {
+            "heroTitle": "Healthy meals for your",
+            "heroAccent": "whole team",
+            "apply": "Apply for a business account",
+            "perk": {
+                "invoice": "Pay on invoice",
+                "perLocation": "Invoice per location",
+                "recurring": "Recurring deliveries"
+            },
+            "mock": {
+                "agreement": "Supply agreement",
+                "active": "Active",
+                "paymentTerms": "Payment terms",
+                "net30": "Net 30",
+                "notice": "Notice period",
+                "days30": "30 days",
+                "leadTime": "Lead time",
+                "days2": "2 days",
+                "minimum": "Minimum order",
+                "meals40": "40 meals",
+                "quotation": "Quotation",
+                "quoted": "Quoted",
+                "times": "× {{count}}",
+                "delivered": "Delivered · Head office · 12:30",
+                "dishChicken": "Grilled chicken",
+                "dishCordon": "Cordon bleu",
+                "dishMayo": "Garlic mayo"
+            },
+            "howTitle": "How it works",
+            "stepsLabel": "Steps",
+            "step": {
+                "apply": {
+                    "label": "Apply",
+                    "sub": "Company, locations, volume",
+                    "title": "Tell us about your company",
+                    "p1": "Company and commercial registration",
+                    "p2": "Every location you want delivered to",
+                    "p3": "Expected volume and how often",
+                    "p4": "The payment terms you would like"
+                },
+                "review": {
+                    "label": "We review",
+                    "sub": "You see where it stands",
+                    "title": "We check the details",
+                    "p1": "You see where your application is",
+                    "p2": "If something is missing, we ask for just that",
+                    "p3": "Approved accounts get an agreement to sign"
+                },
+                "sign": {
+                    "label": "Sign",
+                    "sub": "Your terms, signed with a code",
+                    "title": "Sign your agreement",
+                    "p1": "Payment terms, credit limit and minimum order",
+                    "p2": "Lead time and notice period",
+                    "p3": "Signed with a code sent to your phone"
+                },
+                "order": {
+                    "label": "Order",
+                    "sub": "Quotes from the menu, delivered",
+                    "title": "Order for your team",
+                    "p1": "Pick dishes from the menu, the kitchen prices them",
+                    "p2": "Accept the quote and it becomes an order",
+                    "p3": "Make it weekly, invoiced per location"
+                }
+            },
+            "application": "Your application",
+            "sectionsDone": "{{done}} of {{total}}",
+            "section": {
+                "company": "Company",
+                "registration": "Commercial registration",
+                "locations": "Locations",
+                "contacts": "Contacts",
+                "volume": "Volume and frequency",
+                "terms": "Payment terms"
+            },
+            "review": {
+                "submitted": "Submitted",
+                "inReview": "In review",
+                "approved": "Approved",
+                "ask": "Sometimes: \"Information requested\" for one section"
+            },
+            "readyToSign": "Ready to sign",
+            "codeSent": "Code sent to your phone",
+            "quoteRequest": "Quote request",
+            "mealsCount_one": "{{count}} meal",
+            "mealsCount_other": "{{count}} meals",
+            "fewer": "Fewer {{dish}}",
+            "more": "More {{dish}}",
+            "everyWeek": "Every week",
+            "requestQuote": "Request a quote",
+            "quoteState": {
+                "submitted": "Submitted",
+                "quoted": "Quoted",
+                "accepted": "Accepted"
+            },
+            "getsTitle": "What your team gets",
+            "gets": {
+                "volume": {
+                    "title": "Better rates in volume",
+                    "body": "Your agreed rates drop as orders grow"
+                },
+                "invoice": {
+                    "title": "An invoice per location",
+                    "body": "Each office, its own paperwork",
+                    "o1": "Head office",
+                    "o2": "Branch office",
+                    "o3": "Clinic"
+                },
+                "recurring": {
+                    "title": "Recurring deliveries",
+                    "body": "Set the week once, change any day"
+                },
+                "dashboard": {
+                    "title": "One business dashboard",
+                    "body": "Programmes, quotes and orders"
+                }
+            },
+            "weekdays": "M T W T F S",
+            "faqTitle": "Questions",
+            "faq": {
+                "q1": "How long does the review take?",
+                "a1": "You can see where your application stands at every step, and we write to you if anything is missing.",
+                "q2": "Can we pay on invoice?",
+                "a2": "Yes. Your payment terms are part of your agreement, for example Net 30.",
+                "q3": "Is there a minimum order?",
+                "a3": "Your agreement sets one, together with the lead time the kitchen needs.",
+                "q4": "Can each office get its own invoice?",
+                "a4": "Yes. Add every location when you apply and choose invoice per location."
+            },
+            "endTitle": "Ready to feed your team?",
+            "signInApproved": "Already approved? Sign in"
+        }
     },
     "consumer": {
         "nav": {

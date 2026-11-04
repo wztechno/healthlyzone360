@@ -1425,16 +1425,21 @@ describe('HowItWorksScreen', () => {
 });
 
 describe('ForBusinessScreen', () => {
-    it('presents the programmes without a single price', async () => {
+    it('walks through the four steps and what a team gets, without a single price', async () => {
         await renderStubScreen(<ForBusinessScreen />);
 
-        for (const programme of ['corporate', 'clinic', 'gym', 'wholesale']) {
-            expect(screen.getByTestId(`for-business-programme-${programme}`)).toBeTruthy();
+        for (const step of ['apply', 'review', 'sign', 'order']) {
+            expect(screen.getByTestId(`for-business-step-${step}`)).toBeTruthy();
+        }
+        expect(screen.getByTestId('for-business-panel-apply')).toBeTruthy();
+        await fireEvent.press(screen.getByTestId('for-business-step-order'));
+        expect(screen.getByTestId('for-business-panel-order')).toBeTruthy();
+        for (const tile of ['volume', 'invoice', 'recurring', 'dashboard']) {
+            expect(screen.getByTestId(`for-business-gets-${tile}`)).toBeTruthy();
         }
         // Business-price privacy: no currency marker may appear anywhere on this screen.
         const rendered = JSON.stringify(screen.toJSON());
-        expect(rendered).not.toMatch(/AED|SAR|\bfrom \d/i);
-        expect(screen.getByTestId('for-business-pricing')).toBeTruthy();
+        expect(rendered).not.toMatch(/AED|SAR|\$|\bfrom \d/i);
     });
 
     it('answers the quotation request with a real route rather than a dead control', async () => {
