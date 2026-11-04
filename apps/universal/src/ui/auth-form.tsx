@@ -104,7 +104,8 @@ export function AuthText({
 export interface AuthFieldProps {
     readonly testID: string;
     readonly label: string;
-    readonly icon: IconName;
+    /** The leading glyph; a field with a `prefix` may go without. */
+    readonly icon?: IconName | undefined;
     readonly value: string;
     readonly onChangeText: (text: string) => void;
     readonly onBlur?: (() => void) | undefined;
@@ -126,6 +127,10 @@ export interface AuthFieldProps {
     readonly onSubmitEditing?: (() => void) | undefined;
     readonly returnKeyType?: TextInputProps['returnKeyType'];
     readonly textContentType?: TextInputProps['textContentType'];
+    /** Text fixed at the field's start, inside it — a dialling code. */
+    readonly prefix?: string | undefined;
+    readonly inputMode?: TextInputProps['inputMode'];
+    readonly hint?: string | undefined;
     /** Text fixed at the field's end, inside it — a kitchen's sign-in domain. */
     readonly suffix?: string | undefined;
     readonly suffixTestID?: string | undefined;
@@ -151,6 +156,9 @@ export function AuthField({
     onSubmitEditing,
     returnKeyType,
     textContentType,
+    prefix,
+    inputMode,
+    hint,
     suffix,
     suffixTestID,
     autoCapitalize = 'none',
@@ -179,11 +187,20 @@ export function AuthField({
                           : 'border-stroke hover:border-surface-brand',
                 )}
             >
-                <Icon
-                    name={icon}
-                    size="md"
-                    className={focused ? 'text-content-on-brand-subtle' : 'text-content-secondary'}
-                />
+                {icon === undefined ? null : (
+                    <Icon
+                        name={icon}
+                        size="md"
+                        className={
+                            focused ? 'text-content-on-brand-subtle' : 'text-content-secondary'
+                        }
+                    />
+                )}
+                {prefix === undefined ? null : (
+                    <RNText className="text-base font-semibold text-content-secondary">
+                        {prefix}
+                    </RNText>
+                )}
                 <TextInput
                     testID={`${testID}-input`}
                     accessibilityLabel={label}
@@ -201,6 +218,7 @@ export function AuthField({
                     autoComplete={autoComplete}
                     autoCapitalize={autoCapitalize}
                     keyboardType={keyboardType}
+                    inputMode={inputMode}
                     returnKeyType={returnKeyType}
                     textContentType={textContentType}
                     {...(onSubmitEditing === undefined
@@ -240,6 +258,11 @@ export function AuthField({
                     </Pressable>
                 ) : null}
             </View>
+            {hint === undefined || error !== undefined ? null : (
+                <RNText className="text-sm font-medium text-content-secondary text-start">
+                    {hint}
+                </RNText>
+            )}
             {error === undefined ? null : (
                 <RNText
                     testID={`${testID}-error`}

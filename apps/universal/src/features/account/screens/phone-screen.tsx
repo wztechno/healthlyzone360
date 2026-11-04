@@ -1,20 +1,10 @@
 import type { ContactPoint } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Button,
-    Callout,
-    Card,
-    Heading,
-    Inline,
-    Select,
-    Stack,
-    Text,
-    TextInputField,
-    useToast,
-} from '@healthy360/design-system';
+import { Icon, Select, useToast } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Text as RNText, View } from 'react-native';
 
 import {
     toFailure,
@@ -23,13 +13,17 @@ import {
     useIssueChallengeMutation,
 } from '../../../data/account-hooks.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
-import { SubpageTrail } from '../../../ui/subpage-trail.tsx';
+import { AuthError, AuthField, AuthNote, AuthTick } from '../../../ui/auth-form.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
+import { ExtraButton, ExtraCard, ExtraChip, ExtraPage } from '../account-extra.tsx';
 import { PhoneChallenge } from '../phone-challenge.tsx';
 import { DEFAULT_DIALING_CODE, DIALING_CODES, toE164, validatePhone } from '../phone.ts';
 
 /**
- * `/customer/account/phone` — add a mobile number and confirm it.
+ * `/customer/account/phone` — add a mobile number and confirm it, drawn as the accepted Mobile-number
+ * board: the back pill, "Your mobile number" beside its phone tile, and one card for the state the
+ * person is in — the number on file with its chip, the country and number with "Send me a code", the
+ * code, or the tick and "Your number is confirmed".
  *
  * ## Three states, and the screen picks between them from the contact list
  *
@@ -123,8 +117,21 @@ export function PhoneScreen({ returnTo, challengeId: challengeParam }: PhoneScre
         back.finish();
     };
 
-    const trail = (
-        <SubpageTrail testID={`${TEST_ID}-trail`} back={back} current={t('account:phone.title')} />
+    const backLabel =
+        back.returnTo === null ? t('account:title') : t(`common:destination.${back.destination}`);
+
+    const page = (testID: string, children: ReactNode) => (
+        <ExtraPage
+            testID={testID}
+            backTestID={`${TEST_ID}-trail-up`}
+            backLabel={backLabel}
+            onBack={back.up}
+            icon="smartphone"
+            title={t('account:phone.title')}
+            titleTestID={`${TEST_ID}-title`}
+        >
+            {children}
+        </ExtraPage>
     );
 
     const phone = currentPhone(contacts.data ?? []);
@@ -165,168 +172,187 @@ export function PhoneScreen({ returnTo, challengeId: challengeParam }: PhoneScre
     };
 
     if (verified) {
-        return (
-            <Stack space="lg" testID={`${TEST_ID}-verified`}>
-                {trail}
-                <Heading level={1}>{t('account:phone.title')}</Heading>
-                <Callout
-                    testID={`${TEST_ID}-verified-callout`}
-                    role="status"
-                    tone="success"
-                    title={t('account:phone.verifiedTitle')}
-                    body={t('account:phone.verifiedBody')}
-                    actions={
-                        <Button
-                            testID={`${TEST_ID}-back`}
-                            label={t(`common:returnTo.${back.destination}`)}
-                            onPress={() => {
-                                back.finish();
-                            }}
-                        />
-                    }
-                />
-            </Stack>
+        return page(
+            `${TEST_ID}-verified`,
+            <ExtraCard testID={`${TEST_ID}-verified-callout`}>
+                <View role="status" className="flex-col items-center px-5 pb-2.5 pt-7">
+                    <AuthTick />
+                    <RNText className="mt-6 font-display text-2xl font-bold text-content-primary text-center">
+                        {t('account:phone.verifiedTitle')}
+                    </RNText>
+                    <RNText className="mb-5 mt-1.5 max-w-[440px] text-base font-medium leading-6 text-content-secondary text-center">
+                        {t('account:phone.verifiedBody')}
+                    </RNText>
+                    <ExtraButton
+                        testID={`${TEST_ID}-back`}
+                        label={t(`common:returnTo.${back.destination}`)}
+                        onPress={() => {
+                            back.finish();
+                        }}
+                    />
+                </View>
+            </ExtraCard>,
         );
     }
 
-    return (
-        <Stack space="lg" testID={TEST_ID}>
-            {trail}
-            <Stack space="xs">
-                <Heading level={1} testID={`${TEST_ID}-title`}>
-                    {t('account:phone.title')}
-                </Heading>
-                <Text tone="secondary">{t('account:phone.subtitle')}</Text>
-            </Stack>
-
-            <QueryStates
-                query={contacts}
-                isEmpty={false}
-                emptyTitle={t('account:phone.title')}
-                skeletonCount={1}
-                testID={`${TEST_ID}-contacts`}
-            >
-                <Stack space="lg">
-                    {phone !== null && phone.verified ? (
-                        <Card testID={`${TEST_ID}-existing`} padding="md">
-                            <Inline space="sm" align="center" justify="between">
-                                <Text variant="bodyStrong">{phone.maskedValue}</Text>
-                                <Badge
-                                    testID={`${TEST_ID}-existing-state`}
-                                    tone="success"
-                                    label={t('account:contacts.verified')}
-                                />
-                            </Inline>
-                        </Card>
-                    ) : null}
-
-                    {/* An unconfirmed number already on file: offer it before offering the form. */}
-                    {challengeId === null && phone !== null && !phone.verified ? (
-                        <Card testID={`${TEST_ID}-pending`} padding="md">
-                            <Stack space="sm">
-                                <Inline space="sm" align="center" justify="between">
-                                    <Text variant="bodyStrong">{phone.maskedValue}</Text>
-                                    <Badge
-                                        testID={`${TEST_ID}-pending-state`}
-                                        tone="warning"
-                                        label={t('account:contacts.unverified')}
-                                    />
-                                </Inline>
-                                <Text tone="secondary">{t('account:phone.pendingBody')}</Text>
-                                <Inline space="sm">
-                                    <Button
-                                        testID={`${TEST_ID}-send`}
-                                        label={t('account:phone.sendCode')}
-                                        loading={issue.isPending}
-                                        onPress={() => {
-                                            startChallengeFor(phone.id);
-                                        }}
-                                    />
-                                </Inline>
-                                {issueFailure === null ? null : (
-                                    <Callout
-                                        testID={`${TEST_ID}-issue-error`}
-                                        role="alert"
-                                        tone="danger"
-                                        title={issueFailure.message}
-                                    />
-                                )}
-                            </Stack>
-                        </Card>
-                    ) : null}
-
-                    {challengeId === null ? (
-                        <Card testID={`${TEST_ID}-form`} padding="md">
-                            <Stack space="sm">
-                                <Heading level={2}>{t('account:phone.formTitle')}</Heading>
-
-                                {duplicate ? (
-                                    <Callout
-                                        testID={`${TEST_ID}-duplicate`}
-                                        role="alert"
-                                        tone="warning"
-                                        title={t('account:phone.duplicateTitle')}
-                                        body={t('account:phone.duplicateBody')}
-                                    />
-                                ) : null}
-
-                                {addFailure !== null && !duplicate ? (
-                                    <Callout
-                                        testID={`${TEST_ID}-add-error`}
-                                        role="alert"
-                                        tone="danger"
-                                        title={addFailure.message}
-                                    />
-                                ) : null}
-
-                                <Select
-                                    testID={`${TEST_ID}-country`}
-                                    label={t('account:phone.countryLabel')}
-                                    hint={t('account:phone.countryHint')}
-                                    searchable
-                                    value={dial}
-                                    options={DIALING_CODES.map((entry) => ({
-                                        value: entry.dial,
-                                        label: `${t(`account:phone.countries.${entry.country}`)} ${entry.dial}`,
-                                    }))}
-                                    onChange={setDial}
-                                />
-
-                                <TextInputField
-                                    testID={`${TEST_ID}-number`}
-                                    label={t('account:phone.numberLabel')}
-                                    placeholder={t('account:phone.numberPlaceholder')}
-                                    hint={t('account:phone.numberHint')}
-                                    value={national}
-                                    required
-                                    inputMode="tel"
-                                    keyboardType="phone-pad"
-                                    autoComplete="tel-national"
-                                    onChangeText={setNational}
-                                    {...(shownError === undefined ? {} : { error: shownError })}
-                                />
-
-                                <Inline space="sm">
-                                    <Button
-                                        testID={`${TEST_ID}-submit`}
-                                        label={t('account:phone.submit')}
-                                        loading={addContact.isPending}
-                                        onPress={submit}
-                                    />
-                                </Inline>
-                            </Stack>
-                        </Card>
-                    ) : (
-                        <Card testID={`${TEST_ID}-challenge-card`} padding="md">
-                            <PhoneChallenge
-                                testID={`${TEST_ID}-challenge`}
-                                challengeId={challengeId}
-                                onVerified={onVerified}
+    return page(
+        TEST_ID,
+        <QueryStates
+            query={contacts}
+            isEmpty={false}
+            emptyTitle={t('account:phone.title')}
+            skeletonCount={1}
+            testID={`${TEST_ID}-contacts`}
+        >
+            {phone !== null && phone.verified ? (
+                <ExtraCard testID={`${TEST_ID}-existing`}>
+                    <NumberRow
+                        value={phone.maskedValue}
+                        chip={
+                            <ExtraChip
+                                testID={`${TEST_ID}-existing-state`}
+                                tone="ok"
+                                label={t('account:contacts.verified')}
                             />
-                        </Card>
+                        }
+                    />
+                </ExtraCard>
+            ) : null}
+
+            {/* An unconfirmed number already on file: offer it before offering the form. */}
+            {challengeId === null && phone !== null && !phone.verified ? (
+                <ExtraCard testID={`${TEST_ID}-pending`}>
+                    <NumberRow
+                        value={phone.maskedValue}
+                        note={t('account:phone.pendingBody')}
+                        chip={
+                            <ExtraChip
+                                testID={`${TEST_ID}-pending-state`}
+                                tone="amber"
+                                label={t('account:contacts.unverified')}
+                            />
+                        }
+                    />
+                    {issueFailure === null ? null : (
+                        <View className="mt-3">
+                            <AuthError
+                                testID={`${TEST_ID}-issue-error`}
+                                message={issueFailure.message}
+                            />
+                        </View>
                     )}
-                </Stack>
-            </QueryStates>
-        </Stack>
+                    <View className="mt-5 flex-row flex-wrap gap-2.5">
+                        <ExtraButton
+                            testID={`${TEST_ID}-send`}
+                            label={t('account:phone.sendCode')}
+                            icon="send"
+                            busy={issue.isPending}
+                            onPress={() => {
+                                startChallengeFor(phone.id);
+                            }}
+                        />
+                    </View>
+                </ExtraCard>
+            ) : null}
+
+            {challengeId === null ? (
+                <ExtraCard testID={`${TEST_ID}-form`} title={t('account:phone.formTitle')}>
+                    {duplicate ? (
+                        <View className="mt-3">
+                            <AuthNote testID={`${TEST_ID}-duplicate`} tone="warning">
+                                {`${t('account:phone.duplicateTitle')} ${t('account:phone.duplicateBody')}`}
+                            </AuthNote>
+                        </View>
+                    ) : null}
+
+                    {addFailure !== null && !duplicate ? (
+                        <View className="mt-3">
+                            <AuthError
+                                testID={`${TEST_ID}-add-error`}
+                                message={addFailure.message}
+                            />
+                        </View>
+                    ) : null}
+
+                    <View className="mt-3.5 flex-col gap-3 md:flex-row">
+                        <View className="md:w-[220px]">
+                            <Select
+                                testID={`${TEST_ID}-country`}
+                                label={t('account:phone.countryLabel')}
+                                searchable
+                                value={dial}
+                                options={DIALING_CODES.map((entry) => ({
+                                    value: entry.dial,
+                                    label: `${t(`account:phone.countries.${entry.country}`)} · ${entry.dial}`,
+                                }))}
+                                onChange={setDial}
+                            />
+                        </View>
+                        <View className="min-w-0 md:flex-1">
+                            <AuthField
+                                testID={`${TEST_ID}-number`}
+                                label={t('account:phone.numberLabel')}
+                                prefix={dial}
+                                placeholder={t('account:phone.numberPlaceholder')}
+                                value={national}
+                                inputMode="tel"
+                                keyboardType="phone-pad"
+                                autoComplete="tel-national"
+                                onChangeText={setNational}
+                                error={shownError}
+                            />
+                        </View>
+                    </View>
+
+                    <View className="mt-5 flex-row flex-wrap gap-2.5">
+                        <ExtraButton
+                            testID={`${TEST_ID}-submit`}
+                            label={t('account:phone.submit')}
+                            icon="send"
+                            busy={addContact.isPending}
+                            onPress={submit}
+                        />
+                    </View>
+                </ExtraCard>
+            ) : (
+                <ExtraCard testID={`${TEST_ID}-challenge-card`}>
+                    <PhoneChallenge
+                        testID={`${TEST_ID}-challenge`}
+                        challengeId={challengeId}
+                        onVerified={onVerified}
+                    />
+                </ExtraCard>
+            )}
+        </QueryStates>,
+    );
+}
+
+/** The boards' number row: a phone tile, the number large, a note under it, and its state chip. */
+function NumberRow({
+    value,
+    note,
+    chip,
+}: {
+    readonly value: string;
+    readonly note?: string | undefined;
+    readonly chip: ReactNode;
+}) {
+    return (
+        <View className="flex-row items-center gap-3.5 rounded-[18px] bg-surface-base p-4">
+            <View className="h-11 w-11 items-center justify-center rounded-[14px] bg-surface-brand-subtle">
+                <Icon name="smartphone" size="md" className="text-content-on-brand-subtle" />
+            </View>
+            <View className="min-w-0 flex-1">
+                <RNText className="font-display text-xl font-bold tracking-wide text-content-primary text-start">
+                    {value}
+                </RNText>
+                {note === undefined ? null : (
+                    <RNText className="text-sm font-semibold text-content-secondary text-start">
+                        {note}
+                    </RNText>
+                )}
+            </View>
+            {chip}
+        </View>
     );
 }
