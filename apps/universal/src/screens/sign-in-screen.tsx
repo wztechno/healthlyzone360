@@ -13,6 +13,7 @@ import { Text as RNText, View } from 'react-native';
 import { useStaffSignInDomainsQuery } from '../data/access-admin-hooks.ts';
 import { toFailure, useLoginMutation, useTwoFactorChallengeMutation } from '../data/hooks.ts';
 import { returnDestination, safeReturnTo, withReturnTo } from '../navigation/return-to.ts';
+import { CodeBoxes } from '../ui/code-boxes.tsx';
 import { useKeepBrowsing } from '../navigation/use-keep-browsing.ts';
 import { useCompleteAuth } from '../navigation/use-return-to.ts';
 import {
@@ -510,28 +511,33 @@ function TwoFactorChallenge({ challengeId, onSignedIn, onCancel }: TwoFactorChal
                 {t('auth:login.twoFactor.title')}
             </AuthTitle>
 
-            <AuthField
-                testID="two-factor-code"
-                label={
-                    recovery
-                        ? t('auth:login.twoFactor.recoveryLabel')
-                        : t('auth:login.twoFactor.codeLabel')
-                }
-                icon={recovery ? 'keyRound' : 'shield'}
-                placeholder={
-                    recovery
-                        ? t('auth:login.twoFactor.recoveryPlaceholder')
-                        : t('auth:login.twoFactor.codePlaceholder')
-                }
-                keyboardType={recovery ? 'default' : 'number-pad'}
-                autoCapitalize="characters"
-                autoComplete="one-time-code"
-                returnKeyType="go"
-                value={code}
-                onChangeText={setCode}
-                onSubmitEditing={submit}
-                error={error ?? undefined}
-            />
+            {recovery ? (
+                <AuthField
+                    testID="two-factor-code"
+                    label={t('auth:login.twoFactor.recoveryLabel')}
+                    icon="keyRound"
+                    placeholder={t('auth:login.twoFactor.recoveryPlaceholder')}
+                    autoCapitalize="characters"
+                    autoComplete="one-time-code"
+                    returnKeyType="go"
+                    value={code}
+                    onChangeText={setCode}
+                    onSubmitEditing={submit}
+                    error={error ?? undefined}
+                />
+            ) : (
+                // The board's six boxes for the authenticator's code.
+                <CodeBoxes
+                    testID="two-factor-code"
+                    label={t('auth:login.twoFactor.codeLabel')}
+                    length={6}
+                    value={code}
+                    onChangeText={setCode}
+                    onSubmitEditing={submit}
+                    error={error ?? undefined}
+                    autoFocus
+                />
+            )}
             <AuthHint>
                 {recovery
                     ? t('auth:login.twoFactor.recoveryHint')

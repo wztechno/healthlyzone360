@@ -5,7 +5,6 @@ import {
     Checkbox,
     Heading,
     Inline,
-    OtpInput,
     Stack,
     Text,
     TextInputField,
@@ -18,6 +17,7 @@ import {
     useConfirmGuestDeletionMutation,
     useRequestGuestDeletionMutation,
 } from '../../../data/guest-hooks.ts';
+import { CodeBoxes } from '../../../ui/code-boxes.tsx';
 
 /**
  * `/privacy/delete-my-data` — erasure, for somebody who may never have had an account.
@@ -167,8 +167,10 @@ export function GuestDeletionScreen() {
                             body={t('guest:deletion.sentBody')}
                         />
 
-                        <OtpInput
+                        <CodeBoxes
                             testID={`${TEST_ID}-code`}
+                            size="lg"
+                            align="start"
                             label={t('guest:deletion.code')}
                             value={code}
                             onChangeText={setCode}

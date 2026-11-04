@@ -1,9 +1,10 @@
 import type { ApiFailure } from '@healthy360/api-client';
-import { Badge, Button, Callout, Inline, OtpInput, Stack, Text } from '@healthy360/design-system';
+import { Badge, Button, Callout, Inline, Stack, Text } from '@healthy360/design-system';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { CodeBoxes } from '../../ui/code-boxes.tsx';
 import { describeOtpFailure } from './otp-errors.ts';
 import type { OtpChannel, OtpErrorView } from './otp-errors.ts';
 import { secondsUntil, useCountdown } from './use-countdown.ts';
@@ -273,11 +274,11 @@ export function OtpChallengePanel({
                 />
             ) : null}
 
-            <OtpInput
+            <CodeBoxes
                 testID={`${testID}-code`}
-                id={`${testID}-code`}
                 label={t('auth:otp.codeLabel')}
-                hint={t('auth:otp.codeHint')}
+                size="lg"
+                align="start"
                 value={code}
                 length={challenge.codeLength}
                 disabled={entryClosed || verifying}

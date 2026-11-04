@@ -1,5 +1,5 @@
 import { PASSCODE_LENGTH, isRateLimitFailure } from '@healthy360/api-client';
-import { Icon, OtpInput } from '@healthy360/design-system';
+import { Icon } from '@healthy360/design-system';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,7 @@ import { safeReturnTo } from '../navigation/return-to.ts';
 import { useKeepBrowsing } from '../navigation/use-keep-browsing.ts';
 import { useCompleteAuth } from '../navigation/use-return-to.ts';
 import { useSession } from '../session/session-provider.tsx';
+import { CodeBoxes } from '../ui/code-boxes.tsx';
 import {
     AuthBadge,
     AuthLink,
@@ -200,9 +201,8 @@ export function VerifyEmailScreen({ returnTo: rawReturnTo }: VerifyEmailScreenPr
                 </AuthNote>
             ) : null}
 
-            <OtpInput
+            <CodeBoxes
                 testID="verify-email-code"
-                id="verify-email-code"
                 label={t('auth:otp.codeLabel')}
                 value={code}
                 length={PASSCODE_LENGTH}
