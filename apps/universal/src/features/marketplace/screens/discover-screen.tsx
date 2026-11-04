@@ -49,6 +49,9 @@ const SHELF_PICKS: readonly {
 
 const shelfOf = (meal: MarketplaceMeal) => meal.publishedCategory?.code ?? null;
 
+/** How many of a chosen shelf's dishes "Picked for today" shows. */
+const PICK_DISHES = 6;
+
 /**
  * Discover — the marketplace home, as the accepted shop design draws it, top to bottom:
  *
@@ -110,6 +113,26 @@ export function DiscoverScreen() {
         },
     ];
 
+    /*
+     * A shelf chosen above turns "Picked for today" into that shelf's own dishes, each opening the
+     * dish, in the shelf's colour; All brings back the shortcuts. A shelf with nothing ranked yet
+     * keeps the shortcuts rather than an empty row.
+     */
+    const shelfDishes =
+        shelf === null
+            ? []
+            : ranked.filter((meal) => shelfOf(meal) === shelf).slice(0, PICK_DISHES);
+    const shownCards: readonly PickedCard[] =
+        shelfDishes.length === 0
+            ? cards
+            : shelfDishes.map((meal) => ({
+                  key: meal.slug,
+                  headline: meal.name,
+                  href: `/meals/${meal.slug}`,
+                  tint: SHELF_PICKS.find((pick) => pick.code === shelf)?.tint ?? 'green',
+                  meal,
+              }));
+
     const popular = (
         shelf === null ? ranked : ranked.filter((meal) => shelfOf(meal) === shelf)
     ).slice(0, POPULAR_COUNT);
@@ -144,7 +167,11 @@ export function DiscoverScreen() {
                     selected={shelf}
                     onSelect={setShelf}
                 />
-                <PickedForToday testID="discover-picks" cards={cards} />
+                <PickedForToday
+                    testID="discover-picks"
+                    cards={shownCards}
+                    entranceKey={shelf ?? 'all'}
+                />
                 <PopularCarousel
                     testID="discover-popular"
                     meals={popular}

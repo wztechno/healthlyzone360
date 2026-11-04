@@ -1,8 +1,18 @@
 import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
+import { useMotion } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, Text as RNText, ScrollView, View } from 'react-native';
+import {
+    Animated,
+    Easing,
+    Platform,
+    Pressable,
+    Text as RNText,
+    ScrollView,
+    View,
+} from 'react-native';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
 
@@ -11,7 +21,9 @@ export type PickTint = 'green' | 'blue' | 'orange' | 'yellow' | 'pink' | 'violet
 
 export interface PickedCard {
     readonly key: string;
-    readonly headlineKey: string;
+    /** The card's line, as a catalogue key — or, for a dish, its own name in `headline`. */
+    readonly headlineKey?: string | undefined;
+    readonly headline?: string | undefined;
     readonly href: string;
     readonly tint: PickTint;
     readonly meal: MarketplaceMeal | undefined;
@@ -40,9 +52,12 @@ const TINT_CLASS: Readonly<Record<PickTint, { readonly fill: string; readonly in
 export function PickedForToday({
     testID,
     cards,
+    entranceKey,
 }: {
     readonly testID: string;
     readonly cards: readonly PickedCard[];
+    /** A new key — another shelf chosen above — rises the row in again. */
+    readonly entranceKey?: string | undefined;
 }) {
     const { t } = useTranslation();
     if (cards.length === 0) return null;
@@ -63,8 +78,10 @@ export function PickedForToday({
                 contentContainerClassName="grow justify-center"
             >
                 <View className="flex-row gap-3 px-0.5 pb-2 pt-1">
-                    {cards.map((card) => (
-                        <PickCard key={card.key} testID={`${testID}-${card.key}`} card={card} />
+                    {cards.map((card, index) => (
+                        <Rise key={`${entranceKey ?? ''}:${card.key}`} index={index}>
+                            <PickCard testID={`${testID}-${card.key}`} card={card} />
+                        </Rise>
                     ))}
                 </View>
             </ScrollView>
@@ -77,7 +94,7 @@ function PickCard({ testID, card }: { readonly testID: string; readonly card: Pi
     const router = useRouter();
     const [hovered, setHovered] = useState(false);
     const tint = TINT_CLASS[card.tint];
-    const headline = t(card.headlineKey);
+    const headline = card.headline ?? (card.headlineKey === undefined ? '' : t(card.headlineKey));
 
     return (
         <Pressable
@@ -125,5 +142,40 @@ function PickCard({ testID, card }: { readonly testID: string; readonly card: Pi
                 </View>
             )}
         </Pressable>
+    );
+}
+
+/** The design's `up` entrance, as the carousel below uses it: a 12px rise and fade, a beat apart. */
+function Rise({ index, children }: { readonly index: number; readonly children: ReactNode }) {
+    const { enabled } = useMotion();
+    const [shown] = useState(() => new Animated.Value(enabled ? 0 : 1));
+    useEffect(() => {
+        if (!enabled) {
+            shown.setValue(1);
+            return undefined;
+        }
+        const animation = Animated.timing(shown, {
+            toValue: 1,
+            duration: 600,
+            delay: Math.min(index, 6) * 60,
+            easing: Easing.bezier(0.2, 0.7, 0.2, 1),
+            useNativeDriver: Platform.OS !== 'web',
+        });
+        animation.start();
+        return () => {
+            animation.stop();
+        };
+    }, [enabled, index, shown]);
+    return (
+        <Animated.View
+            style={{
+                opacity: shown,
+                transform: [
+                    { translateY: shown.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) },
+                ],
+            }}
+        >
+            {children}
+        </Animated.View>
     );
 }
