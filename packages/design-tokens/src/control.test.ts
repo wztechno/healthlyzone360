@@ -30,7 +30,7 @@ import {
 describe('control geometry', () => {
     const ladders = {
         controlHeight,
-            controlPaddingX,
+        controlPaddingX,
         controlGap,
         iconSize,
     } as const;

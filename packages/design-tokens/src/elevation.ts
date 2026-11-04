@@ -112,7 +112,12 @@ export interface NamedElevationToken {
 }
 
 /** Approximates a two-layer web shadow with the single shadow React Native supports. */
-function namedToken(height: number, opacity: number, radius: number, web: string): NamedElevationToken {
+function namedToken(
+    height: number,
+    opacity: number,
+    radius: number,
+    web: string,
+): NamedElevationToken {
     return {
         native: {
             shadowColor: '#0b3b26',
