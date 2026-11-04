@@ -17,7 +17,15 @@ import { usePathname, useRouter } from 'expo-router';
 import { useCallback, useEffect, useEffectEvent, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, Easing, Platform, Pressable, Text as RNText, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Animated,
+    Easing,
+    Platform,
+    Pressable,
+    Text as RNText,
+    View,
+} from 'react-native';
 
 import { recordResumeIntent } from '../features/marketplace/resume-intent.ts';
 import { useLogoutMutation } from '../data/hooks.ts';
@@ -505,21 +513,35 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
      */
     const staffControls = (
         <>
-            <Button
+            {/*
+             * The way back, drawn as the basket is for a shopper: the ink pill, the grid glyph and
+             * the word, which hides on a phone.
+             */}
+            <Pressable
                 testID="marketplace-workspaces-button"
-                size="sm"
-                variant="secondary"
-                label={t('marketplace:nav.workspaces')}
+                role="link"
+                accessibilityRole="link"
+                accessibilityLabel={t('marketplace:nav.workspaces')}
+                focusable
                 onPress={() => {
                     router.push('/workspace' as never);
                 }}
-            />
-            <Button
+                className="h-12 flex-row items-center gap-2 rounded-full bg-content-primary pe-3 ps-3.5 transition duration-normal ease-standard hover:opacity-90 active:opacity-80 md:pe-4"
+            >
+                <Icon name="layoutGrid" className="text-surface-base" />
+                <RNText className="hidden text-sm font-semibold text-surface-base md:flex">
+                    {t('marketplace:nav.workspaces')}
+                </RNText>
+            </Pressable>
+            {/* The workspace board's Sign out: an outlined pill, the door glyph and the word. */}
+            <Pressable
                 testID="marketplace-sign-out"
-                size="sm"
-                variant="quiet"
-                label={t('common:action.signOut')}
-                loading={logout.isPending}
+                role="button"
+                accessibilityRole="button"
+                accessibilityLabel={t('common:action.signOut')}
+                disabled={logout.isPending}
+                aria-busy={logout.isPending}
+                accessibilityState={{ disabled: logout.isPending, busy: logout.isPending }}
                 onPress={() => {
                     logout.mutate(undefined, {
                         onSuccess: () => {
@@ -527,7 +549,17 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
                         },
                     });
                 }}
-            />
+                className="h-11 flex-row items-center gap-2 rounded-full border border-stroke-subtle bg-surface-raised pe-4 ps-3 transition duration-normal ease-standard hover:border-stroke hover:bg-surface-brand-subtle active:opacity-80"
+            >
+                {logout.isPending ? (
+                    <ActivityIndicator size="small" />
+                ) : (
+                    <Icon name="signOut" className="text-content-primary" />
+                )}
+                <RNText className="hidden text-sm font-semibold text-content-primary md:flex">
+                    {t('common:action.signOut')}
+                </RNText>
+            </Pressable>
         </>
     );
 
