@@ -435,7 +435,7 @@ export function AddressEditorScreen({ addressId, returnTo }: AddressEditorScreen
                                     )}
                                 >
                                     <Icon
-                                        name="home"
+                                        name="mapPin"
                                         size="sm"
                                         className="text-content-secondary"
                                     />

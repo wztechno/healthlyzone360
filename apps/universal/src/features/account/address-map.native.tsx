@@ -19,7 +19,7 @@ export function AddressMap({ testID }: { readonly testID?: string | undefined })
             <View className="absolute inset-0 items-center justify-center">
                 <View className="absolute h-16 w-16 rounded-full border-2 border-stage-green opacity-40" />
                 <View className="h-10 w-10 items-center justify-center rounded-full bg-stage-green">
-                    <Icon name="home" size="md" className="text-surface-canopy" />
+                    <Icon name="mapPin" size="md" className="text-surface-canopy" />
                 </View>
             </View>
         </View>

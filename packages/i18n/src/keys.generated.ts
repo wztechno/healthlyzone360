@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10140 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10146 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -680,12 +680,15 @@ export interface NamespaceKeys {
     | 'changePassword.currentHint'
     | 'changePassword.currentLabel'
     | 'changePassword.currentPlaceholder'
+    | 'changePassword.hidePassword'
+    | 'changePassword.optionalCurrentLabel'
     | 'changePassword.optionalSubtitle'
     | 'changePassword.optionalTitle'
     | 'changePassword.passwordConfirmationLabel'
     | 'changePassword.passwordConfirmationPlaceholder'
     | 'changePassword.passwordLabel'
     | 'changePassword.passwordPlaceholder'
+    | 'changePassword.showPassword'
     | 'changePassword.submit'
     | 'changePassword.subtitle'
     | 'changePassword.successBody'
@@ -723,6 +726,9 @@ export interface NamespaceKeys {
     | 'forgotPassword.submit'
     | 'forgotPassword.subtitle'
     | 'forgotPassword.title'
+    | 'frame.backToShop'
+    | 'frame.headline'
+    | 'frame.headlineAccent'
     | 'login.composedHint'
     | 'login.domainFull'
     | 'login.domainLabel'
@@ -10848,12 +10854,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:changePassword.currentHint',
   'auth:changePassword.currentLabel',
   'auth:changePassword.currentPlaceholder',
+  'auth:changePassword.hidePassword',
+  'auth:changePassword.optionalCurrentLabel',
   'auth:changePassword.optionalSubtitle',
   'auth:changePassword.optionalTitle',
   'auth:changePassword.passwordConfirmationLabel',
   'auth:changePassword.passwordConfirmationPlaceholder',
   'auth:changePassword.passwordLabel',
   'auth:changePassword.passwordPlaceholder',
+  'auth:changePassword.showPassword',
   'auth:changePassword.submit',
   'auth:changePassword.subtitle',
   'auth:changePassword.successBody',
@@ -10891,6 +10900,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'auth:forgotPassword.submit',
   'auth:forgotPassword.subtitle',
   'auth:forgotPassword.title',
+  'auth:frame.backToShop',
+  'auth:frame.headline',
+  'auth:frame.headlineAccent',
   'auth:login.composedHint',
   'auth:login.domainFull',
   'auth:login.domainLabel',
