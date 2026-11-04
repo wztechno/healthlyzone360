@@ -5,22 +5,13 @@ import type {
     B2BSectionPayload,
 } from '@healthy360/api-client/contracts';
 import type { PickedFile } from '@healthy360/design-system';
-import {
-    Button,
-    Callout,
-    Checkbox,
-    Heading,
-    Inline,
-    Select,
-    Stack,
-    Stepper,
-    Text,
-    TextInputField,
-} from '@healthy360/design-system';
+import type { IconName } from '@healthy360/design-system';
+import { Checkbox, Icon, Select, TextInputField, cx } from '@healthy360/design-system';
 import { Redirect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import {
     toFailure,
@@ -33,12 +24,18 @@ import {
 } from '../../../data/b2b-application-hooks.ts';
 import { guardNavigation, useUnsavedGuardFor } from '../../../navigation/use-unsaved-guard.ts';
 import { UnsavedChangesDialog } from '../../../ui/unsaved-changes-dialog.tsx';
+import {
+    ExtraButton,
+    ExtraChip,
+    ExtraLink,
+    ExtraNote,
+    ExtraPage,
+} from '../../account/account-extra.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
+import { STEP_ICONS, SavedAsYouGo, StepCard, StepRail } from '../apply-ui.tsx';
 import { DocumentSlotList, buildSlots } from '../document-slot-list.tsx';
 import { ContactsStep, LocationsStep } from '../list-steps.tsx';
 import {
-    B2B_STEP_COUNT,
-    B2B_STEP_SLUGS,
     isApplicantEditable,
     isStepComplete,
     isStepEditable,
@@ -127,7 +124,6 @@ function StepBody({
     const replaceLocations = useReplaceLocationsMutation();
 
     const section = sectionForStep(step);
-    const position = B2B_STEP_SLUGS.indexOf(step) + 1;
 
     // Every write this screen can make, so no failure goes unsaid.
     const failure =
@@ -144,156 +140,198 @@ function StepBody({
         [router],
     );
 
-    return (
-        <Stack space="lg" testID={`${TEST_ID}-${step}`}>
-            <Stepper
-                testID={`${TEST_ID}-progress`}
-                label={t('b2bApplication:title')}
-                current={position}
-                total={B2B_STEP_COUNT}
-                stepLabel={
-                    section === null
-                        ? t(`b2bApplication:${step}.title`)
-                        : t(`b2bApplication:sections.${section}.title`)
-                }
-            />
+    const labelOf = (slug: B2BStepSlug): string => {
+        const owned = sectionForStep(slug);
+        return owned === null
+            ? t(`b2bApplication:${slug}.title`)
+            : t(`b2bApplication:sections.${owned}.title`);
+    };
 
+    /*
+     * The step's Back, in the card's footer. Through the step's guard: typed and not saved, it asks
+     * first. The first step has none, and an empty view keeps the footer's other end in place.
+     */
+    const previous = stepBefore(step);
+    const back =
+        previous === null ? (
+            <View />
+        ) : (
+            <ExtraButton
+                testID={`${TEST_ID}-back`}
+                tone="secondary"
+                label={t('b2bApplication:wizard.back')}
+                onPress={() => {
+                    guardNavigation(() => {
+                        goTo(previous);
+                    });
+                }}
+            />
+        );
+
+    return (
+        <ExtraPage
+            wide
+            testID={`${TEST_ID}-${step}`}
+            backTestID={`${TEST_ID}-to-business`}
+            backLabel={t('marketplace:nav.business')}
+            onBack={() => {
+                guardNavigation(() => {
+                    router.push('/for-business' as never);
+                });
+            }}
+            icon="building"
+            title={t('b2bApplication:entry.title')}
+        >
             {/*
              * `resource.conflict` is the one failure with a specific recovery: somebody saved this
-             * application somewhere else, so the version on screen is stale. Reload-or-keep, drawn
-             * the way the kitchen editors draw it.
+             * application somewhere else, so the version on screen is stale.
              */}
             {failure?.code === 'resource.conflict' ? (
-                <Callout
-                    testID={`${TEST_ID}-conflict`}
-                    role="alert"
-                    tone="warning"
-                    title={t('b2bApplication:wizard.conflictTitle')}
-                    body={t('b2bApplication:wizard.conflictBody')}
-                />
+                <View className="mt-[18px]">
+                    <ExtraNote
+                        testID={`${TEST_ID}-conflict`}
+                        role="alert"
+                        tone="amber"
+                        icon="warning"
+                        title={t('b2bApplication:wizard.conflictTitle')}
+                        body={t('b2bApplication:wizard.conflictBody')}
+                    />
+                </View>
             ) : failure === null ? null : (
-                <Callout
-                    testID={`${TEST_ID}-error`}
-                    role="alert"
-                    tone="danger"
-                    title={failure.message}
-                />
+                <View className="mt-[18px]">
+                    <ExtraNote
+                        testID={`${TEST_ID}-error`}
+                        role="alert"
+                        tone="bad"
+                        icon="warning"
+                        title={failure.message}
+                    />
+                </View>
             )}
 
-            {step === 'contacts' ? (
-                <ContactsStep
-                    application={application}
-                    saving={replaceContacts.isPending}
-                    onSave={(contacts) => {
-                        replaceContacts.mutate(
-                            { applicationId: application.id, contacts },
-                            {
-                                onSuccess: () => {
-                                    goTo(stepAfter(step));
-                                },
-                            },
-                        );
-                    }}
-                />
-            ) : step === 'locations' ? (
-                <LocationsStep
-                    application={application}
-                    saving={replaceLocations.isPending}
-                    onSave={(locations) => {
-                        replaceLocations.mutate(
-                            { applicationId: application.id, locations },
-                            {
-                                onSuccess: () => {
-                                    goTo(stepAfter(step));
-                                },
-                            },
-                        );
-                    }}
-                />
-            ) : step === 'documents' ? (
-                <DocumentsStep
-                    application={application}
-                    uploading={upload.isPending ? (upload.variables?.kind ?? null) : null}
-                    onUpload={(kind, file, replaces) => {
-                        upload.mutate({
-                            applicationId: application.id,
-                            kind,
-                            fileName: file.name,
-                            mimeType: file.mimeType,
-                            byteSize: file.size,
-                            content: file.base64 ?? '',
-                            ...(replaces === null ? {} : { replacesDocumentId: replaces }),
-                        });
-                    }}
-                />
-            ) : step === 'review' ? (
-                <ReviewStep
-                    application={application}
-                    submitting={submit.isPending}
-                    onEdit={goTo}
-                    onSubmit={() => {
-                        submit.mutate(
-                            {
-                                applicationId: application.id,
-                                lockVersion: application.lockVersion,
-                            },
-                            {
-                                onSuccess: () => {
-                                    router.replace('/apply/status' as never);
-                                },
-                            },
-                        );
-                    }}
-                />
-            ) : section === null ? null : (
-                <SectionStep
-                    application={application}
-                    section={section}
-                    saving={save.isPending}
-                    onSave={(payload, markComplete) => {
-                        save.mutate(
-                            {
-                                applicationId: application.id,
-                                section,
-                                payload,
-                                markComplete,
-                                lockVersion: application.lockVersion,
-                            },
-                            {
-                                onSuccess: () => {
-                                    goTo(stepAfter(step));
-                                },
-                            },
-                        );
-                    }}
-                />
-            )}
-
-            <Inline space="sm">
-                {stepBefore(step) === null ? null : (
-                    <Button
-                        testID={`${TEST_ID}-back`}
-                        variant="ghost"
-                        label={t('b2bApplication:wizard.back')}
-                        onPress={() => {
-                            // Through the step's guard: typed and not saved, it asks first.
+            <View className="mt-[22px] flex-col gap-6 lg:flex-row lg:items-start">
+                <View className="w-full lg:w-[260px]">
+                    <StepRail
+                        testID={`${TEST_ID}-progress`}
+                        current={step}
+                        labelOf={labelOf}
+                        stateOf={(slug) =>
+                            slug === step
+                                ? 'current'
+                                : !isStepEditable(application, slug)
+                                  ? 'locked'
+                                  : isStepComplete(application, slug)
+                                    ? 'done'
+                                    : 'open'
+                        }
+                        onOpen={(slug) => {
                             guardNavigation(() => {
-                                goTo(stepBefore(step));
+                                goTo(slug);
                             });
                         }}
                     />
-                )}
-                {step === 'documents' ? (
-                    <Button
-                        testID={`${TEST_ID}-next`}
-                        label={t('b2bApplication:wizard.next')}
-                        onPress={() => {
-                            goTo(stepAfter(step));
-                        }}
-                    />
-                ) : null}
-            </Inline>
-        </Stack>
+                </View>
+                <View className="min-w-0 flex-1">
+                    {step === 'contacts' ? (
+                        <ContactsStep
+                            application={application}
+                            saving={replaceContacts.isPending}
+                            back={back}
+                            onSave={(contacts) => {
+                                replaceContacts.mutate(
+                                    { applicationId: application.id, contacts },
+                                    {
+                                        onSuccess: () => {
+                                            goTo(stepAfter(step));
+                                        },
+                                    },
+                                );
+                            }}
+                        />
+                    ) : step === 'locations' ? (
+                        <LocationsStep
+                            application={application}
+                            saving={replaceLocations.isPending}
+                            back={back}
+                            onSave={(locations) => {
+                                replaceLocations.mutate(
+                                    { applicationId: application.id, locations },
+                                    {
+                                        onSuccess: () => {
+                                            goTo(stepAfter(step));
+                                        },
+                                    },
+                                );
+                            }}
+                        />
+                    ) : step === 'documents' ? (
+                        <DocumentsStep
+                            application={application}
+                            back={back}
+                            uploading={upload.isPending ? (upload.variables?.kind ?? null) : null}
+                            onNext={() => {
+                                goTo(stepAfter(step));
+                            }}
+                            onUpload={(kind, file, replaces) => {
+                                upload.mutate({
+                                    applicationId: application.id,
+                                    kind,
+                                    fileName: file.name,
+                                    mimeType: file.mimeType,
+                                    byteSize: file.size,
+                                    content: file.base64 ?? '',
+                                    ...(replaces === null ? {} : { replacesDocumentId: replaces }),
+                                });
+                            }}
+                        />
+                    ) : step === 'review' ? (
+                        <ReviewStep
+                            application={application}
+                            back={back}
+                            submitting={submit.isPending}
+                            onEdit={goTo}
+                            onSubmit={() => {
+                                submit.mutate(
+                                    {
+                                        applicationId: application.id,
+                                        lockVersion: application.lockVersion,
+                                    },
+                                    {
+                                        onSuccess: () => {
+                                            router.replace('/apply/status' as never);
+                                        },
+                                    },
+                                );
+                            }}
+                        />
+                    ) : section === null ? null : (
+                        <SectionStep
+                            application={application}
+                            section={section}
+                            step={step}
+                            back={back}
+                            saving={save.isPending}
+                            onSave={(payload, markComplete) => {
+                                save.mutate(
+                                    {
+                                        applicationId: application.id,
+                                        section,
+                                        payload,
+                                        markComplete,
+                                        lockVersion: application.lockVersion,
+                                    },
+                                    {
+                                        onSuccess: () => {
+                                            goTo(stepAfter(step));
+                                        },
+                                    },
+                                );
+                            }}
+                        />
+                    )}
+                </View>
+            </View>
+        </ExtraPage>
     );
 }
 
@@ -302,11 +340,15 @@ function StepBody({
 function SectionStep({
     application,
     section,
+    step,
+    back,
     saving,
     onSave,
 }: {
     readonly application: B2BApplication;
     readonly section: B2BApplicationSection;
+    readonly step: B2BStepSlug;
+    readonly back: ReactNode;
     readonly saving: boolean;
     readonly onSave: (payload: B2BSectionPayload, markComplete: boolean) => void;
 }) {
@@ -349,150 +391,227 @@ function SectionStep({
         return reason === undefined ? undefined : t(`b2bApplication:validation.${reason}`);
     };
 
+    const saveSection = () => {
+        const result = validateSection(section, draft);
+        if (!result.ok) {
+            setErrors(result.errors);
+            return;
+        }
+        setErrors({});
+        onSave(result.value as B2BSectionPayload, true);
+    };
+
     return (
-        <Stack space="md" testID={`${TEST_ID}-section-${section}`}>
-            <Stack space="xs">
-                <Heading level={1} testID={`${TEST_ID}-heading`}>
-                    {t(`b2bApplication:sections.${section}.title`)}
-                </Heading>
-                <Text tone="secondary">{t(`b2bApplication:sections.${section}.description`)}</Text>
-            </Stack>
+        <StepCard
+            icon={STEP_ICONS[step]}
+            title={t(`b2bApplication:sections.${section}.title`)}
+            titleTestID={`${TEST_ID}-heading`}
+            lede={t(`b2bApplication:sections.${section}.description`)}
+            footer={
+                <>
+                    {back}
+                    <SavedAsYouGo />
+                    <ExtraButton
+                        testID={`${TEST_ID}-save`}
+                        label={t('b2bApplication:wizard.save')}
+                        icon="arrowForward"
+                        busy={saving}
+                        onPress={saveSection}
+                    />
+                </>
+            }
+        >
+            <View testID={`${TEST_ID}-section-${section}`} className="flex-col gap-4">
+                {state?.complete === false && state.missingFields.length > 0 ? (
+                    <ExtraNote
+                        testID={`${TEST_ID}-missing`}
+                        tone="amber"
+                        icon="infoCircle"
+                        title={t('b2bApplication:wizard.incomplete')}
+                        body={state.missingFields
+                            .map((field) => t(`b2bApplication:fields.${field}`))
+                            .join(', ')}
+                    />
+                ) : null}
 
-            {state?.complete === false && state.missingFields.length > 0 ? (
-                <Callout
-                    testID={`${TEST_ID}-missing`}
-                    tone="info"
-                    role="status"
-                    title={t('b2bApplication:wizard.incomplete')}
-                    body={state.missingFields
-                        .map((field) => t(`b2bApplication:fields.${field}`))
-                        .join(', ')}
-                />
-            ) : null}
+                {/* The board's form: fields two to a row, the wide ones across both. */}
+                <View className="flex-row flex-wrap gap-x-4 gap-y-3.5">
+                    {FIELDS[section].map((field) => {
+                        const label = t(`b2bApplication:fields.${field.name}`);
+                        const hint = field.hint
+                            ? t(`b2bApplication:hints.${field.name}`)
+                            : undefined;
+                        const fieldTestID = `${TEST_ID}-${field.name}`;
+                        const wide =
+                            field.kind === 'multiline' ||
+                            field.kind === 'multiselect' ||
+                            field.kind === 'boolean';
+                        const cell = wide ? 'w-full' : 'min-w-[240px] flex-1 basis-[45%]';
 
-            {FIELDS[section].map((field) => {
-                const label = t(`b2bApplication:fields.${field.name}`);
-                const hint = field.hint ? t(`b2bApplication:hints.${field.name}`) : undefined;
-                const fieldTestID = `${TEST_ID}-${field.name}`;
+                        if (field.kind === 'select') {
+                            const options = VOCABULARIES[field.vocabulary].map((value) => ({
+                                value,
+                                label: t(`b2bApplication:${field.vocabulary}.${value}`),
+                            }));
+                            return (
+                                <View key={field.name} className={cell}>
+                                    <Select
+                                        testID={fieldTestID}
+                                        id={fieldTestID}
+                                        label={label}
+                                        {...(hint === undefined ? {} : { hint })}
+                                        required={field.required}
+                                        options={options}
+                                        value={
+                                            typeof draft[field.name] === 'string'
+                                                ? text(field.name)
+                                                : null
+                                        }
+                                        onChange={(value) => {
+                                            set(field.name, value);
+                                        }}
+                                        {...(errorFor(field.name) === undefined
+                                            ? {}
+                                            : { error: errorFor(field.name) })}
+                                    />
+                                </View>
+                            );
+                        }
 
-                if (field.kind === 'select') {
-                    const options = VOCABULARIES[field.vocabulary].map((value) => ({
-                        value,
-                        label: t(`b2bApplication:${field.vocabulary}.${value}`),
-                    }));
-                    return (
-                        <Select
-                            key={field.name}
-                            testID={fieldTestID}
-                            id={fieldTestID}
-                            label={label}
-                            {...(hint === undefined ? {} : { hint })}
-                            required={field.required}
-                            options={options}
-                            value={typeof draft[field.name] === 'string' ? text(field.name) : null}
-                            onChange={(value) => {
-                                set(field.name, value);
-                            }}
-                            {...(errorFor(field.name) === undefined
-                                ? {}
-                                : { error: errorFor(field.name) })}
-                        />
-                    );
-                }
-
-                if (field.kind === 'multiselect') {
-                    // A list of ticks rather than a multi-value select: six options fit on screen,
-                    // and a checkbox each is the control every platform already reads correctly.
-                    const picked = Array.isArray(draft[field.name])
-                        ? (draft[field.name] as readonly string[])
-                        : [];
-                    return (
-                        <View key={field.name} testID={fieldTestID} role="group" aria-label={label}>
-                            <Stack space="xs">
-                                <Text variant="bodyStrong">{label}</Text>
-                                {VOCABULARIES[field.vocabulary].map((value) => (
-                                    <Checkbox
-                                        key={value}
-                                        testID={`${fieldTestID}-${value}`}
-                                        id={`${fieldTestID}-${value}`}
-                                        label={t(`b2bApplication:${field.vocabulary}.${value}`)}
-                                        checked={picked.includes(value)}
-                                        onChange={(checked) => {
-                                            // Kept in the vocabulary's order, not the order ticked.
-                                            set(
-                                                field.name,
-                                                VOCABULARIES[field.vocabulary].filter((option) =>
-                                                    option === value
-                                                        ? checked
-                                                        : picked.includes(option),
-                                                ),
+                        if (field.kind === 'multiselect') {
+                            // The board's option chips: a pill each, ticked when chosen.
+                            const picked = Array.isArray(draft[field.name])
+                                ? (draft[field.name] as readonly string[])
+                                : [];
+                            return (
+                                <View
+                                    key={field.name}
+                                    testID={fieldTestID}
+                                    role="group"
+                                    aria-label={label}
+                                    className={cx(cell, 'flex-col gap-2')}
+                                >
+                                    <RNText className="text-sm font-semibold text-content-primary text-start">
+                                        {label}
+                                    </RNText>
+                                    <View className="flex-row flex-wrap gap-2">
+                                        {VOCABULARIES[field.vocabulary].map((value) => {
+                                            const on = picked.includes(value);
+                                            return (
+                                                <Pressable
+                                                    key={value}
+                                                    testID={`${fieldTestID}-${value}`}
+                                                    role="checkbox"
+                                                    accessibilityRole="checkbox"
+                                                    aria-checked={on}
+                                                    accessibilityState={{ checked: on }}
+                                                    onPress={() => {
+                                                        // Kept in the vocabulary's order, not the order ticked.
+                                                        set(
+                                                            field.name,
+                                                            VOCABULARIES[field.vocabulary].filter(
+                                                                (option) =>
+                                                                    option === value
+                                                                        ? !on
+                                                                        : picked.includes(option),
+                                                            ),
+                                                        );
+                                                    }}
+                                                    className={cx(
+                                                        'h-11 flex-row items-center gap-2 rounded-[14px] border-[1.5px] px-3.5 transition-colors duration-150',
+                                                        on
+                                                            ? 'border-surface-brand bg-surface-brand-subtle'
+                                                            : 'border-stroke bg-surface-raised hover:bg-surface-base',
+                                                    )}
+                                                >
+                                                    {on ? (
+                                                        <Icon
+                                                            name="check"
+                                                            size="sm"
+                                                            className="text-content-on-brand-subtle"
+                                                        />
+                                                    ) : null}
+                                                    <RNText
+                                                        className={cx(
+                                                            'text-sm font-semibold',
+                                                            on
+                                                                ? 'text-content-on-brand-subtle'
+                                                                : 'text-content-primary',
+                                                        )}
+                                                    >
+                                                        {t(
+                                                            `b2bApplication:${field.vocabulary}.${value}`,
+                                                        )}
+                                                    </RNText>
+                                                </Pressable>
                                             );
+                                        })}
+                                    </View>
+                                </View>
+                            );
+                        }
+
+                        if (field.kind === 'boolean') {
+                            return (
+                                <View key={field.name} className={cell}>
+                                    <Checkbox
+                                        testID={fieldTestID}
+                                        id={fieldTestID}
+                                        label={label}
+                                        checked={draft[field.name] === true}
+                                        onChange={(checked) => {
+                                            set(field.name, checked);
                                         }}
                                     />
-                                ))}
-                            </Stack>
-                        </View>
-                    );
-                }
+                                </View>
+                            );
+                        }
 
-                if (field.kind === 'boolean') {
-                    return (
-                        <Checkbox
-                            key={field.name}
-                            testID={fieldTestID}
-                            id={fieldTestID}
-                            label={label}
-                            checked={draft[field.name] === true}
-                            onChange={(checked) => {
-                                set(field.name, checked);
-                            }}
-                        />
-                    );
-                }
-
-                return (
-                    <TextInputField
-                        key={field.name}
-                        testID={fieldTestID}
-                        id={fieldTestID}
-                        label={label}
-                        placeholder={t(`b2bApplication:fields.${field.name}Placeholder`)}
-                        {...(hint === undefined ? {} : { hint })}
-                        required={field.required}
-                        multiline={field.kind === 'multiline'}
-                        {...(field.kind === 'number' ? { inputMode: 'numeric' as const } : {})}
-                        value={field.kind === 'number' ? numeric(field.name) : text(field.name)}
-                        onChangeText={(next) => {
-                            if (field.kind === 'number') {
-                                const digits = next.replace(/\D/gu, '');
-                                set(field.name, digits.length === 0 ? null : Number(digits));
-                            } else {
-                                set(field.name, next);
-                            }
-                        }}
-                        {...(errorFor(field.name) === undefined
-                            ? {}
-                            : { error: errorFor(field.name) })}
-                    />
-                );
-            })}
-
-            <Button
-                testID={`${TEST_ID}-save`}
-                label={t('b2bApplication:wizard.save')}
-                loading={saving}
-                onPress={() => {
-                    const result = validateSection(section, draft);
-                    if (!result.ok) {
-                        setErrors(result.errors);
-                        return;
-                    }
-                    setErrors({});
-                    onSave(result.value as B2BSectionPayload, true);
-                }}
-            />
+                        return (
+                            <View key={field.name} className={cell}>
+                                <TextInputField
+                                    testID={fieldTestID}
+                                    id={fieldTestID}
+                                    label={label}
+                                    placeholder={t(
+                                        `b2bApplication:fields.${field.name}Placeholder`,
+                                    )}
+                                    {...(hint === undefined ? {} : { hint })}
+                                    required={field.required}
+                                    multiline={field.kind === 'multiline'}
+                                    // A number field keeps its half-track cap, but fills up to it
+                                    // rather than shrinking to its placeholder in the row.
+                                    className="w-full"
+                                    {...(field.kind === 'number'
+                                        ? { inputMode: 'numeric' as const }
+                                        : {})}
+                                    value={
+                                        field.kind === 'number'
+                                            ? numeric(field.name)
+                                            : text(field.name)
+                                    }
+                                    onChangeText={(next) => {
+                                        if (field.kind === 'number') {
+                                            const digits = next.replace(/\D/gu, '');
+                                            set(
+                                                field.name,
+                                                digits.length === 0 ? null : Number(digits),
+                                            );
+                                        } else {
+                                            set(field.name, next);
+                                        }
+                                    }}
+                                    {...(errorFor(field.name) === undefined
+                                        ? {}
+                                        : { error: errorFor(field.name) })}
+                                />
+                            </View>
+                        );
+                    })}
+                </View>
+            </View>
             <UnsavedChangesDialog guard={guard} testID={`${TEST_ID}-unsaved`} />
-        </Stack>
+        </StepCard>
     );
 }
 
@@ -500,12 +619,16 @@ function SectionStep({
 
 function DocumentsStep({
     application,
+    back,
     uploading,
     onUpload,
+    onNext,
 }: {
     readonly application: B2BApplication;
+    readonly back: ReactNode;
     readonly uploading: B2BDocumentKind | null;
     readonly onUpload: (kind: B2BDocumentKind, file: PickedFile, replaces: string | null) => void;
+    readonly onNext: () => void;
 }) {
     const { t } = useTranslation();
 
@@ -525,40 +648,58 @@ function DocumentsStep({
     const missing = missingDocumentKinds(application);
 
     return (
-        <Stack space="md" testID={`${TEST_ID}-documents-body`}>
-            <Stack space="xs">
-                <Heading level={1}>{t('b2bApplication:documents.title')}</Heading>
-                <Text tone="secondary">{t('b2bApplication:documents.description')}</Text>
-            </Stack>
+        <StepCard
+            icon={STEP_ICONS.documents}
+            title={t('b2bApplication:documents.title')}
+            titleTestID={`${TEST_ID}-heading`}
+            lede={t('b2bApplication:documents.description')}
+            footer={
+                <>
+                    {back}
+                    <SavedAsYouGo />
+                    <ExtraButton
+                        testID={`${TEST_ID}-next`}
+                        label={t('b2bApplication:wizard.next')}
+                        icon="arrowForward"
+                        onPress={onNext}
+                    />
+                </>
+            }
+        >
+            <View testID={`${TEST_ID}-documents-body`} className="flex-col gap-4">
+                <View className="flex-row">
+                    <ExtraChip
+                        testID={`${TEST_ID}-documents-outstanding`}
+                        tone={missing.length === 0 ? 'ok' : 'amber'}
+                        label={t('b2bApplication:documents.missing', { count: missing.length })}
+                    />
+                </View>
 
-            <Text testID={`${TEST_ID}-documents-outstanding`} tone="secondary" variant="caption">
-                {t('b2bApplication:documents.missing', { count: missing.length })}
-            </Text>
-
-            <DocumentSlotList
-                slots={slots}
-                editable
-                uploadingKind={uploading}
-                {...(unreadable === null
-                    ? {}
-                    : {
-                          rejection: {
-                              kind: unreadable,
-                              message: t('b2bApplication:documents.unreadableOnDevice'),
-                          },
-                      })}
-                onPick={(kind, file, replaces) => {
-                    // No bytes means nothing to send. Saying so beats an empty upload that the
-                    // server would refuse for a reason the person cannot act on.
-                    if (file.base64 === null) {
-                        setUnreadable(kind);
-                        return;
-                    }
-                    setUnreadable(null);
-                    onUpload(kind, file, replaces);
-                }}
-            />
-        </Stack>
+                <DocumentSlotList
+                    slots={slots}
+                    editable
+                    uploadingKind={uploading}
+                    {...(unreadable === null
+                        ? {}
+                        : {
+                              rejection: {
+                                  kind: unreadable,
+                                  message: t('b2bApplication:documents.unreadableOnDevice'),
+                              },
+                          })}
+                    onPick={(kind, file, replaces) => {
+                        // No bytes means nothing to send. Saying so beats an empty upload that the
+                        // server would refuse for a reason the person cannot act on.
+                        if (file.base64 === null) {
+                            setUnreadable(kind);
+                            return;
+                        }
+                        setUnreadable(null);
+                        onUpload(kind, file, replaces);
+                    }}
+                />
+            </View>
+        </StepCard>
     );
 }
 
@@ -566,11 +707,13 @@ function DocumentsStep({
 
 function ReviewStep({
     application,
+    back,
     submitting,
     onEdit,
     onSubmit,
 }: {
     readonly application: B2BApplication;
+    readonly back: ReactNode;
     readonly submitting: boolean;
     readonly onEdit: (slug: B2BStepSlug) => void;
     readonly onSubmit: () => void;
@@ -582,113 +725,201 @@ function ReviewStep({
     const missingDocuments = missingDocumentKinds(application);
 
     return (
-        <Stack space="md" testID={`${TEST_ID}-review`}>
-            <Stack space="xs">
-                <Heading level={1}>{t('b2bApplication:review.title')}</Heading>
-                <Text tone="secondary">{t('b2bApplication:review.body')}</Text>
-            </Stack>
+        <StepCard
+            icon={STEP_ICONS.review}
+            title={t('b2bApplication:review.title')}
+            titleTestID={`${TEST_ID}-heading`}
+            lede={t('b2bApplication:review.body')}
+            footer={
+                <>
+                    {back}
+                    <SavedAsYouGo />
+                    <ExtraButton
+                        testID={`${TEST_ID}-submit`}
+                        label={t('b2bApplication:review.submit')}
+                        icon="arrowForward"
+                        busy={submitting}
+                        disabled={!ready}
+                        onPress={onSubmit}
+                    />
+                </>
+            }
+        >
+            <View testID={`${TEST_ID}-review`} className="flex-col">
+                {ready ? (
+                    <RNText
+                        testID={`${TEST_ID}-outstanding`}
+                        className="text-sm font-medium text-content-secondary text-start"
+                    >
+                        {t('b2bApplication:wizard.outstanding', { count: outstanding })}
+                    </RNText>
+                ) : (
+                    <ExtraNote
+                        testID={`${TEST_ID}-blocked`}
+                        tone="bad"
+                        icon="warning"
+                        title={t('b2bApplication:review.blockedTitle')}
+                        body={`${t('b2bApplication:wizard.outstanding', { count: outstanding })} ${t('b2bApplication:review.blockedBody')}`}
+                    />
+                )}
 
-            <Text testID={`${TEST_ID}-outstanding`} tone="secondary" variant="caption">
-                {t('b2bApplication:wizard.outstanding', { count: outstanding })}
-            </Text>
+                <View className="mt-2">
+                    {application.sectionStates.map((state) => (
+                        <ReviewRow
+                            key={state.section}
+                            testID={`${TEST_ID}-review-${state.section}`}
+                            icon={STEP_ICONS[stepForSection(state.section)]}
+                            title={t(`b2bApplication:sections.${state.section}.title`)}
+                            detail={
+                                // The server's missing-field list, named, so the applicant learns
+                                // what is left here rather than from a refused submission.
+                                state.missingFields.length === 0
+                                    ? undefined
+                                    : state.missingFields
+                                          .map((field) => t(`b2bApplication:fields.${field}`))
+                                          .join(', ')
+                            }
+                            detailTestID={`${TEST_ID}-review-${state.section}-missing`}
+                            chip={
+                                state.complete ? (
+                                    <ExtraChip
+                                        tone="ok"
+                                        label={t('b2bApplication:wizard.complete')}
+                                    />
+                                ) : (
+                                    <ExtraChip
+                                        tone="bad"
+                                        label={t('b2bApplication:wizard.incomplete')}
+                                    />
+                                )
+                            }
+                            {...(state.editable
+                                ? {
+                                      onEdit: () => {
+                                          onEdit(stepForSection(state.section));
+                                      },
+                                  }
+                                : {})}
+                        />
+                    ))}
 
-            {application.sectionStates.map((state) => (
-                <Stack key={state.section} space="xs" testID={`${TEST_ID}-review-${state.section}`}>
-                    <Text variant="bodyStrong">
-                        {t(`b2bApplication:sections.${state.section}.title`)}
-                    </Text>
-                    <Text tone={state.complete ? 'success' : 'warning'} variant="caption">
-                        {state.complete
-                            ? t('b2bApplication:wizard.complete')
-                            : t('b2bApplication:wizard.incomplete')}
-                    </Text>
                     {/*
-                     * The server's missing-field list, named, so the applicant learns what is
-                     * left here rather than from a refused submission.
+                     * Contacts and locations are not submission rules — the server sends without
+                     * them — so an empty one reads "not added yet" and never holds the button back.
                      */}
-                    {state.missingFields.length === 0 ? null : (
-                        <Text
-                            testID={`${TEST_ID}-review-${state.section}-missing`}
-                            tone="secondary"
-                            variant="caption"
-                        >
-                            {t('b2bApplication:review.blockedSection', {
-                                section: t(`b2bApplication:sections.${state.section}.title`),
-                                fields: state.missingFields
-                                    .map((field) => t(`b2bApplication:fields.${field}`))
-                                    .join(', '),
-                            })}
-                        </Text>
-                    )}
-                    {state.editable ? (
-                        <Button
-                            testID={`${TEST_ID}-review-${state.section}-edit`}
-                            variant="ghost"
-                            size="sm"
-                            label={t('b2bApplication:review.edit')}
-                            onPress={() => {
-                                onEdit(stepForSection(state.section));
+                    {(['contacts', 'locations'] as const).map((slug) => (
+                        <ReviewRow
+                            key={slug}
+                            testID={`${TEST_ID}-review-${slug}`}
+                            icon={STEP_ICONS[slug]}
+                            title={t(`b2bApplication:${slug}.title`)}
+                            {...(isStepComplete(application, slug)
+                                ? {}
+                                : { detail: t('b2bApplication:review.notAddedYet') })}
+                            chip={
+                                isStepComplete(application, slug) ? (
+                                    <ExtraChip
+                                        tone="ok"
+                                        label={t('b2bApplication:wizard.complete')}
+                                    />
+                                ) : (
+                                    <ExtraChip
+                                        tone="mute"
+                                        label={t('b2bApplication:wizard.optional')}
+                                    />
+                                )
+                            }
+                            onEdit={() => {
+                                onEdit(slug);
                             }}
                         />
-                    ) : null}
-                </Stack>
-            ))}
+                    ))}
 
-            {/*
-             * Contacts and locations are not submission rules — the server sends without them —
-             * so an empty one reads "not added yet" and never holds the button back.
-             */}
-            {(['contacts', 'locations'] as const).map((slug) => (
-                <Stack key={slug} space="xs" testID={`${TEST_ID}-review-${slug}`}>
-                    <Text variant="bodyStrong">{t(`b2bApplication:${slug}.title`)}</Text>
-                    <Text
-                        tone={isStepComplete(application, slug) ? 'success' : 'secondary'}
-                        variant="caption"
-                    >
-                        {isStepComplete(application, slug)
-                            ? t('b2bApplication:wizard.complete')
-                            : t('b2bApplication:review.notAddedYet')}
-                    </Text>
-                    <Button
-                        testID={`${TEST_ID}-review-${slug}-edit`}
-                        variant="ghost"
-                        size="sm"
-                        label={t('b2bApplication:review.edit')}
-                        onPress={() => {
-                            onEdit(slug);
+                    <ReviewRow
+                        testID={`${TEST_ID}-review-documents`}
+                        icon={STEP_ICONS.documents}
+                        title={t('b2bApplication:documents.title')}
+                        {...(missingDocuments.length === 0
+                            ? {}
+                            : {
+                                  detail: t('b2bApplication:review.blockedDocuments', {
+                                      kinds: missingDocuments
+                                          .map((kind) =>
+                                              t(`b2bApplication:documents.kinds.${kind}`),
+                                          )
+                                          .join(', '),
+                                  }),
+                              })}
+                        detailTestID={`${TEST_ID}-review-documents-missing`}
+                        chip={
+                            missingDocuments.length === 0 ? (
+                                <ExtraChip tone="ok" label={t('b2bApplication:wizard.complete')} />
+                            ) : (
+                                <ExtraChip
+                                    tone="bad"
+                                    label={t('b2bApplication:wizard.incomplete')}
+                                />
+                            )
+                        }
+                        onEdit={() => {
+                            onEdit('documents');
                         }}
                     />
-                </Stack>
-            ))}
+                </View>
+            </View>
+        </StepCard>
+    );
+}
 
-            {missingDocuments.length === 0 ? null : (
-                <Text testID={`${TEST_ID}-review-documents-missing`} tone="warning">
-                    {t('b2bApplication:review.blockedDocuments', {
-                        kinds: missingDocuments
-                            .map((kind) => t(`b2bApplication:documents.kinds.${kind}`))
-                            .join(', '),
-                    })}
-                </Text>
-            )}
-
-            {ready ? null : (
-                <Callout
-                    testID={`${TEST_ID}-blocked`}
-                    tone="warning"
-                    role="status"
-                    title={t('b2bApplication:review.blockedTitle')}
-                    body={t('b2bApplication:review.blockedBody')}
+/** One line of "Check and send": the step's glyph, its name, what is left, its state, and Change. */
+function ReviewRow({
+    testID,
+    icon,
+    title,
+    detail,
+    detailTestID,
+    chip,
+    onEdit,
+}: {
+    readonly testID: string;
+    readonly icon: IconName;
+    readonly title: string;
+    readonly detail?: string | undefined;
+    readonly detailTestID?: string | undefined;
+    readonly chip: ReactNode;
+    readonly onEdit?: (() => void) | undefined;
+}) {
+    const { t } = useTranslation();
+    return (
+        <View
+            testID={testID}
+            className="flex-row flex-wrap items-center gap-3 border-t border-stroke-subtle py-3 first:border-t-0"
+        >
+            <View className="h-10 w-10 items-center justify-center rounded-[13px] bg-surface-base">
+                <Icon name={icon} size="md" className="text-content-on-brand-subtle" />
+            </View>
+            <View className="min-w-0 flex-1">
+                <RNText className="text-base font-semibold text-content-primary text-start">
+                    {title}
+                </RNText>
+                {detail === undefined ? null : (
+                    <RNText
+                        testID={detailTestID}
+                        className="mt-0.5 text-sm text-content-secondary text-start"
+                    >
+                        {detail}
+                    </RNText>
+                )}
+            </View>
+            {chip}
+            {onEdit === undefined ? null : (
+                <ExtraLink
+                    testID={`${testID}-edit`}
+                    label={t('b2bApplication:review.edit')}
+                    onPress={onEdit}
                 />
             )}
-
-            <Button
-                testID={`${TEST_ID}-submit`}
-                label={t('b2bApplication:review.submit')}
-                loading={submitting}
-                disabled={!ready}
-                onPress={onSubmit}
-            />
-        </Stack>
+        </View>
     );
 }
 

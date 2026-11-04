@@ -10,16 +10,19 @@ import {
     Callout,
     Card,
     Checkbox,
-    Heading,
     Select,
     Stack,
     Text,
     TextInputField,
 } from '@healthy360/design-system';
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { useServiceAreasQuery } from '../../data/account-hooks.ts';
+import { ExtraButton } from '../account/account-extra.tsx';
+import { STEP_ICONS, SavedAsYouGo, StepCard } from './apply-ui.tsx';
 import { validateContacts, validateLocations } from './sections.ts';
 import type { ListErrors } from './sections.ts';
 
@@ -122,9 +125,11 @@ export interface ContactsStepProps {
     readonly application: B2BApplication;
     readonly saving: boolean;
     readonly onSave: (contacts: readonly B2BApplicationContact[]) => void;
+    /** The step's Back, drawn at the start of the card's footer. */
+    readonly back?: ReactNode;
 }
 
-export function ContactsStep({ application, saving, onSave }: ContactsStepProps) {
+export function ContactsStep({ application, saving, onSave, back }: ContactsStepProps) {
     const { t } = useTranslation();
     const reason = useReason();
 
@@ -145,159 +150,175 @@ export function ContactsStep({ application, saving, onSave }: ContactsStepProps)
     }));
 
     return (
-        <Stack space="md" testID={`${TEST_ID}-contacts`}>
-            <Stack space="xs">
-                <Heading level={1} testID={`${TEST_ID}-heading`}>
-                    {t('b2bApplication:contacts.title')}
-                </Heading>
-                <Text tone="secondary">{t('b2bApplication:contacts.description')}</Text>
+        <StepCard
+            icon={STEP_ICONS.contacts}
+            title={t('b2bApplication:contacts.title')}
+            titleTestID={`${TEST_ID}-heading`}
+            lede={t('b2bApplication:contacts.description')}
+            footer={
+                <>
+                    {back ?? <View />}
+                    <SavedAsYouGo />
+                    <ExtraButton
+                        testID={`${TEST_ID}-save`}
+                        label={t('b2bApplication:wizard.save')}
+                        icon="arrowForward"
+                        busy={saving}
+                        onPress={() => {
+                            const result = validateContacts(rows);
+                            if (!result.ok) {
+                                setErrors(result.errors);
+                                return;
+                            }
+                            setErrors(null);
+                            onSave(result.value);
+                        }}
+                    />
+                </>
+            }
+        >
+            <Stack space="md" testID={`${TEST_ID}-contacts`}>
+                {errors === null || errors.list === null ? null : (
+                    <Callout
+                        testID={`${TEST_ID}-contacts-list-error`}
+                        tone="danger"
+                        role="alert"
+                        title={t(`b2bApplication:validation.${errors.list}`)}
+                    />
+                )}
+
+                {rows.map((row, index) => {
+                    const rowID = `${TEST_ID}-contact-${String(index)}`;
+                    const rowErrors = errors?.rows[index] ?? {};
+                    const set = (change: Partial<ContactRow>) => {
+                        setRows((previous) => patched(previous, index, change));
+                    };
+                    const error = (field: string) => {
+                        const message = reason(rowErrors[field]);
+                        return message === undefined ? {} : { error: message };
+                    };
+
+                    return (
+                        <Card
+                            key={index}
+                            testID={rowID}
+                            title={t('b2bApplication:contacts.rowTitle', { position: index + 1 })}
+                        >
+                            <Stack space="sm">
+                                <Select
+                                    testID={`${rowID}-role`}
+                                    id={`${rowID}-role`}
+                                    label={t('b2bApplication:contacts.fields.role')}
+                                    hint={t('b2bApplication:contacts.roleHint')}
+                                    required
+                                    options={roleOptions}
+                                    value={row.role}
+                                    onChange={(role) => {
+                                        set({ role });
+                                    }}
+                                    {...error('role')}
+                                />
+                                <TextInputField
+                                    testID={`${rowID}-name`}
+                                    id={`${rowID}-name`}
+                                    label={t('b2bApplication:contacts.fields.name')}
+                                    placeholder={t(
+                                        'b2bApplication:fields.signatoryNamePlaceholder',
+                                    )}
+                                    required
+                                    value={row.name}
+                                    onChangeText={(name) => {
+                                        set({ name });
+                                    }}
+                                    {...error('name')}
+                                />
+                                <TextInputField
+                                    testID={`${rowID}-title`}
+                                    id={`${rowID}-title`}
+                                    label={t('b2bApplication:contacts.fields.title')}
+                                    placeholder={t(
+                                        'b2bApplication:fields.signatoryTitlePlaceholder',
+                                    )}
+                                    value={row.title}
+                                    onChangeText={(title) => {
+                                        set({ title });
+                                    }}
+                                    {...error('title')}
+                                />
+                                <TextInputField
+                                    testID={`${rowID}-email`}
+                                    id={`${rowID}-email`}
+                                    label={t('b2bApplication:contacts.fields.email')}
+                                    placeholder={t(
+                                        'b2bApplication:fields.signatoryEmailPlaceholder',
+                                    )}
+                                    hint={t('b2bApplication:contacts.reachHint')}
+                                    inputMode="email"
+                                    value={row.email}
+                                    onChangeText={(email) => {
+                                        set({ email });
+                                    }}
+                                    {...error('email')}
+                                />
+                                <TextInputField
+                                    testID={`${rowID}-phone`}
+                                    id={`${rowID}-phone`}
+                                    label={t('b2bApplication:contacts.fields.phone')}
+                                    placeholder={t(
+                                        'b2bApplication:fields.signatoryPhonePlaceholder',
+                                    )}
+                                    inputMode="tel"
+                                    value={row.phone}
+                                    onChangeText={(phone) => {
+                                        set({ phone });
+                                    }}
+                                    {...error('phone')}
+                                />
+                                <Button
+                                    testID={`${rowID}-remove`}
+                                    variant="ghost"
+                                    size="sm"
+                                    label={t('b2bApplication:contacts.remove')}
+                                    onPress={() => {
+                                        setRows((previous) =>
+                                            previous.filter((_, at) => at !== index),
+                                        );
+                                        setErrors(null);
+                                    }}
+                                />
+                            </Stack>
+                        </Card>
+                    );
+                })}
+
+                {rows.length === 0 ? (
+                    <Text testID={`${TEST_ID}-contacts-empty`} tone="secondary">
+                        {t('b2bApplication:contacts.empty')}
+                    </Text>
+                ) : null}
+
+                {freeRole === undefined ? null : (
+                    <Button
+                        testID={`${TEST_ID}-contacts-add`}
+                        variant="secondary"
+                        label={t('b2bApplication:contacts.add')}
+                        onPress={() => {
+                            setRows((previous) => [
+                                ...previous,
+                                {
+                                    role: freeRole,
+                                    name: '',
+                                    title: '',
+                                    email: '',
+                                    phone: '',
+                                    notes: '',
+                                },
+                            ]);
+                        }}
+                    />
+                )}
             </Stack>
-
-            {errors === null || errors.list === null ? null : (
-                <Callout
-                    testID={`${TEST_ID}-contacts-list-error`}
-                    tone="danger"
-                    role="alert"
-                    title={t(`b2bApplication:validation.${errors.list}`)}
-                />
-            )}
-
-            {rows.map((row, index) => {
-                const rowID = `${TEST_ID}-contact-${String(index)}`;
-                const rowErrors = errors?.rows[index] ?? {};
-                const set = (change: Partial<ContactRow>) => {
-                    setRows((previous) => patched(previous, index, change));
-                };
-                const error = (field: string) => {
-                    const message = reason(rowErrors[field]);
-                    return message === undefined ? {} : { error: message };
-                };
-
-                return (
-                    <Card
-                        key={index}
-                        testID={rowID}
-                        title={t('b2bApplication:contacts.rowTitle', { position: index + 1 })}
-                    >
-                        <Stack space="sm">
-                            <Select
-                                testID={`${rowID}-role`}
-                                id={`${rowID}-role`}
-                                label={t('b2bApplication:contacts.fields.role')}
-                                hint={t('b2bApplication:contacts.roleHint')}
-                                required
-                                options={roleOptions}
-                                value={row.role}
-                                onChange={(role) => {
-                                    set({ role });
-                                }}
-                                {...error('role')}
-                            />
-                            <TextInputField
-                                testID={`${rowID}-name`}
-                                id={`${rowID}-name`}
-                                label={t('b2bApplication:contacts.fields.name')}
-                                placeholder={t('b2bApplication:fields.signatoryNamePlaceholder')}
-                                required
-                                value={row.name}
-                                onChangeText={(name) => {
-                                    set({ name });
-                                }}
-                                {...error('name')}
-                            />
-                            <TextInputField
-                                testID={`${rowID}-title`}
-                                id={`${rowID}-title`}
-                                label={t('b2bApplication:contacts.fields.title')}
-                                placeholder={t('b2bApplication:fields.signatoryTitlePlaceholder')}
-                                value={row.title}
-                                onChangeText={(title) => {
-                                    set({ title });
-                                }}
-                                {...error('title')}
-                            />
-                            <TextInputField
-                                testID={`${rowID}-email`}
-                                id={`${rowID}-email`}
-                                label={t('b2bApplication:contacts.fields.email')}
-                                placeholder={t('b2bApplication:fields.signatoryEmailPlaceholder')}
-                                hint={t('b2bApplication:contacts.reachHint')}
-                                inputMode="email"
-                                value={row.email}
-                                onChangeText={(email) => {
-                                    set({ email });
-                                }}
-                                {...error('email')}
-                            />
-                            <TextInputField
-                                testID={`${rowID}-phone`}
-                                id={`${rowID}-phone`}
-                                label={t('b2bApplication:contacts.fields.phone')}
-                                placeholder={t('b2bApplication:fields.signatoryPhonePlaceholder')}
-                                inputMode="tel"
-                                value={row.phone}
-                                onChangeText={(phone) => {
-                                    set({ phone });
-                                }}
-                                {...error('phone')}
-                            />
-                            <Button
-                                testID={`${rowID}-remove`}
-                                variant="ghost"
-                                size="sm"
-                                label={t('b2bApplication:contacts.remove')}
-                                onPress={() => {
-                                    setRows((previous) => previous.filter((_, at) => at !== index));
-                                    setErrors(null);
-                                }}
-                            />
-                        </Stack>
-                    </Card>
-                );
-            })}
-
-            {rows.length === 0 ? (
-                <Text testID={`${TEST_ID}-contacts-empty`} tone="secondary">
-                    {t('b2bApplication:contacts.empty')}
-                </Text>
-            ) : null}
-
-            {freeRole === undefined ? null : (
-                <Button
-                    testID={`${TEST_ID}-contacts-add`}
-                    variant="secondary"
-                    label={t('b2bApplication:contacts.add')}
-                    onPress={() => {
-                        setRows((previous) => [
-                            ...previous,
-                            {
-                                role: freeRole,
-                                name: '',
-                                title: '',
-                                email: '',
-                                phone: '',
-                                notes: '',
-                            },
-                        ]);
-                    }}
-                />
-            )}
-
-            <Button
-                testID={`${TEST_ID}-save`}
-                label={t('b2bApplication:wizard.save')}
-                loading={saving}
-                onPress={() => {
-                    const result = validateContacts(rows);
-                    if (!result.ok) {
-                        setErrors(result.errors);
-                        return;
-                    }
-                    setErrors(null);
-                    onSave(result.value);
-                }}
-            />
-        </Stack>
+        </StepCard>
     );
 }
 
@@ -307,9 +328,11 @@ export interface LocationsStepProps {
     readonly application: B2BApplication;
     readonly saving: boolean;
     readonly onSave: (locations: readonly B2BApplicationLocation[]) => void;
+    /** The step's Back, drawn at the start of the card's footer. */
+    readonly back?: ReactNode;
 }
 
-export function LocationsStep({ application, saving, onSave }: LocationsStepProps) {
+export function LocationsStep({ application, saving, onSave, back }: LocationsStepProps) {
     const { t } = useTranslation();
     const reason = useReason();
     const areas = useServiceAreasQuery();
@@ -324,191 +347,203 @@ export function LocationsStep({ application, saving, onSave }: LocationsStepProp
     const areaOptions = (areas.data ?? []).map((area) => ({ value: area.id, label: area.name }));
 
     return (
-        <Stack space="md" testID={`${TEST_ID}-locations`}>
-            <Stack space="xs">
-                <Heading level={1} testID={`${TEST_ID}-heading`}>
-                    {t('b2bApplication:locations.title')}
-                </Heading>
-                <Text tone="secondary">{t('b2bApplication:locations.description')}</Text>
-            </Stack>
+        <StepCard
+            icon={STEP_ICONS.locations}
+            title={t('b2bApplication:locations.title')}
+            titleTestID={`${TEST_ID}-heading`}
+            lede={t('b2bApplication:locations.description')}
+            footer={
+                <>
+                    {back ?? <View />}
+                    <SavedAsYouGo />
+                    <ExtraButton
+                        testID={`${TEST_ID}-save`}
+                        label={t('b2bApplication:wizard.save')}
+                        icon="arrowForward"
+                        busy={saving}
+                        onPress={() => {
+                            const result = validateLocations(rows);
+                            if (!result.ok) {
+                                setErrors(result.errors);
+                                return;
+                            }
+                            setErrors(null);
+                            onSave(result.value);
+                        }}
+                    />
+                </>
+            }
+        >
+            <Stack space="md" testID={`${TEST_ID}-locations`}>
+                {errors === null || errors.list === null ? null : (
+                    <Callout
+                        testID={`${TEST_ID}-locations-list-error`}
+                        tone="danger"
+                        role="alert"
+                        title={t(`b2bApplication:validation.${errors.list}`)}
+                    />
+                )}
 
-            {errors === null || errors.list === null ? null : (
-                <Callout
-                    testID={`${TEST_ID}-locations-list-error`}
-                    tone="danger"
-                    role="alert"
-                    title={t(`b2bApplication:validation.${errors.list}`)}
+                {rows.map((row, index) => {
+                    const rowID = `${TEST_ID}-location-${String(index)}`;
+                    const rowErrors = errors?.rows[index] ?? {};
+                    const set = (change: Partial<LocationRow>) => {
+                        setRows((previous) => patched(previous, index, change));
+                    };
+                    const error = (field: string) => {
+                        const message = reason(rowErrors[field]);
+                        return message === undefined ? {} : { error: message };
+                    };
+
+                    return (
+                        <Card
+                            key={index}
+                            testID={rowID}
+                            title={t('b2bApplication:locations.rowTitle', { position: index + 1 })}
+                        >
+                            <Stack space="sm">
+                                <TextInputField
+                                    testID={`${rowID}-label`}
+                                    id={`${rowID}-label`}
+                                    label={t('b2bApplication:locations.fields.label')}
+                                    placeholder={t(
+                                        'b2bApplication:locations.fields.labelPlaceholder',
+                                    )}
+                                    required
+                                    value={row.label}
+                                    onChangeText={(label) => {
+                                        set({ label });
+                                    }}
+                                    {...error('label')}
+                                />
+                                <Select
+                                    testID={`${rowID}-area`}
+                                    id={`${rowID}-area`}
+                                    label={t('b2bApplication:locations.fields.deliveryArea')}
+                                    placeholder={t(
+                                        'b2bApplication:locations.fields.deliveryAreaPlaceholder',
+                                    )}
+                                    loading={areas.isPending}
+                                    searchable
+                                    options={areaOptions}
+                                    value={row.deliveryAreaId}
+                                    onChange={(deliveryAreaId) => {
+                                        set({ deliveryAreaId });
+                                    }}
+                                    {...error('deliveryAreaId')}
+                                />
+                                <TextInputField
+                                    testID={`${rowID}-line1`}
+                                    id={`${rowID}-line1`}
+                                    label={t('b2bApplication:locations.fields.addressLine1')}
+                                    placeholder={t(
+                                        'b2bApplication:locations.fields.addressLine1Placeholder',
+                                    )}
+                                    required
+                                    value={row.addressLine1}
+                                    onChangeText={(addressLine1) => {
+                                        set({ addressLine1 });
+                                    }}
+                                    {...error('addressLine1')}
+                                />
+                                <TextInputField
+                                    testID={`${rowID}-line2`}
+                                    id={`${rowID}-line2`}
+                                    label={t('b2bApplication:locations.fields.addressLine2')}
+                                    placeholder={t(
+                                        'b2bApplication:locations.fields.addressLine2Placeholder',
+                                    )}
+                                    value={row.addressLine2}
+                                    onChangeText={(addressLine2) => {
+                                        set({ addressLine2 });
+                                    }}
+                                    {...error('addressLine2')}
+                                />
+                                <TextInputField
+                                    testID={`${rowID}-city`}
+                                    id={`${rowID}-city`}
+                                    label={t('b2bApplication:locations.fields.city')}
+                                    placeholder={t(
+                                        'b2bApplication:locations.fields.cityPlaceholder',
+                                    )}
+                                    value={row.city}
+                                    onChangeText={(city) => {
+                                        set({ city });
+                                    }}
+                                    {...error('city')}
+                                />
+                                <TextInputField
+                                    testID={`${rowID}-headcount`}
+                                    id={`${rowID}-headcount`}
+                                    label={t('b2bApplication:locations.fields.expectedHeadcount')}
+                                    placeholder={t(
+                                        'b2bApplication:locations.fields.expectedHeadcountPlaceholder',
+                                    )}
+                                    inputMode="numeric"
+                                    value={
+                                        row.expectedHeadcount === null
+                                            ? ''
+                                            : String(row.expectedHeadcount)
+                                    }
+                                    onChangeText={(next) => {
+                                        const digits = next.replace(/\D/gu, '');
+                                        set({
+                                            expectedHeadcount:
+                                                digits.length === 0 ? null : Number(digits),
+                                        });
+                                    }}
+                                    {...error('expectedHeadcount')}
+                                />
+                                <Checkbox
+                                    testID={`${rowID}-primary`}
+                                    id={`${rowID}-primary`}
+                                    label={t('b2bApplication:locations.fields.isPrimary')}
+                                    checked={row.isPrimary}
+                                    onChange={(isPrimary) => {
+                                        set({ isPrimary });
+                                    }}
+                                />
+                                <Checkbox
+                                    testID={`${rowID}-billing`}
+                                    id={`${rowID}-billing`}
+                                    label={t('b2bApplication:locations.fields.isBillingAddress')}
+                                    checked={row.isBillingAddress}
+                                    onChange={(isBillingAddress) => {
+                                        set({ isBillingAddress });
+                                    }}
+                                />
+                                <Button
+                                    testID={`${rowID}-remove`}
+                                    variant="ghost"
+                                    size="sm"
+                                    label={t('b2bApplication:locations.remove')}
+                                    onPress={() => {
+                                        setRows((previous) =>
+                                            previous.filter((_, at) => at !== index),
+                                        );
+                                        setErrors(null);
+                                    }}
+                                />
+                            </Stack>
+                        </Card>
+                    );
+                })}
+
+                {rows.length === 0 ? (
+                    <Text testID={`${TEST_ID}-locations-empty`} tone="secondary">
+                        {t('b2bApplication:locations.empty')}
+                    </Text>
+                ) : null}
+
+                <Button
+                    testID={`${TEST_ID}-locations-add`}
+                    variant="secondary"
+                    label={t('b2bApplication:locations.add')}
+                    onPress={() => {
+                        setRows((previous) => [...previous, EMPTY_LOCATION]);
+                    }}
                 />
-            )}
-
-            {rows.map((row, index) => {
-                const rowID = `${TEST_ID}-location-${String(index)}`;
-                const rowErrors = errors?.rows[index] ?? {};
-                const set = (change: Partial<LocationRow>) => {
-                    setRows((previous) => patched(previous, index, change));
-                };
-                const error = (field: string) => {
-                    const message = reason(rowErrors[field]);
-                    return message === undefined ? {} : { error: message };
-                };
-
-                return (
-                    <Card
-                        key={index}
-                        testID={rowID}
-                        title={t('b2bApplication:locations.rowTitle', { position: index + 1 })}
-                    >
-                        <Stack space="sm">
-                            <TextInputField
-                                testID={`${rowID}-label`}
-                                id={`${rowID}-label`}
-                                label={t('b2bApplication:locations.fields.label')}
-                                placeholder={t('b2bApplication:locations.fields.labelPlaceholder')}
-                                required
-                                value={row.label}
-                                onChangeText={(label) => {
-                                    set({ label });
-                                }}
-                                {...error('label')}
-                            />
-                            <Select
-                                testID={`${rowID}-area`}
-                                id={`${rowID}-area`}
-                                label={t('b2bApplication:locations.fields.deliveryArea')}
-                                placeholder={t(
-                                    'b2bApplication:locations.fields.deliveryAreaPlaceholder',
-                                )}
-                                loading={areas.isPending}
-                                searchable
-                                options={areaOptions}
-                                value={row.deliveryAreaId}
-                                onChange={(deliveryAreaId) => {
-                                    set({ deliveryAreaId });
-                                }}
-                                {...error('deliveryAreaId')}
-                            />
-                            <TextInputField
-                                testID={`${rowID}-line1`}
-                                id={`${rowID}-line1`}
-                                label={t('b2bApplication:locations.fields.addressLine1')}
-                                placeholder={t(
-                                    'b2bApplication:locations.fields.addressLine1Placeholder',
-                                )}
-                                required
-                                value={row.addressLine1}
-                                onChangeText={(addressLine1) => {
-                                    set({ addressLine1 });
-                                }}
-                                {...error('addressLine1')}
-                            />
-                            <TextInputField
-                                testID={`${rowID}-line2`}
-                                id={`${rowID}-line2`}
-                                label={t('b2bApplication:locations.fields.addressLine2')}
-                                placeholder={t(
-                                    'b2bApplication:locations.fields.addressLine2Placeholder',
-                                )}
-                                value={row.addressLine2}
-                                onChangeText={(addressLine2) => {
-                                    set({ addressLine2 });
-                                }}
-                                {...error('addressLine2')}
-                            />
-                            <TextInputField
-                                testID={`${rowID}-city`}
-                                id={`${rowID}-city`}
-                                label={t('b2bApplication:locations.fields.city')}
-                                placeholder={t('b2bApplication:locations.fields.cityPlaceholder')}
-                                value={row.city}
-                                onChangeText={(city) => {
-                                    set({ city });
-                                }}
-                                {...error('city')}
-                            />
-                            <TextInputField
-                                testID={`${rowID}-headcount`}
-                                id={`${rowID}-headcount`}
-                                label={t('b2bApplication:locations.fields.expectedHeadcount')}
-                                placeholder={t(
-                                    'b2bApplication:locations.fields.expectedHeadcountPlaceholder',
-                                )}
-                                inputMode="numeric"
-                                value={
-                                    row.expectedHeadcount === null
-                                        ? ''
-                                        : String(row.expectedHeadcount)
-                                }
-                                onChangeText={(next) => {
-                                    const digits = next.replace(/\D/gu, '');
-                                    set({
-                                        expectedHeadcount:
-                                            digits.length === 0 ? null : Number(digits),
-                                    });
-                                }}
-                                {...error('expectedHeadcount')}
-                            />
-                            <Checkbox
-                                testID={`${rowID}-primary`}
-                                id={`${rowID}-primary`}
-                                label={t('b2bApplication:locations.fields.isPrimary')}
-                                checked={row.isPrimary}
-                                onChange={(isPrimary) => {
-                                    set({ isPrimary });
-                                }}
-                            />
-                            <Checkbox
-                                testID={`${rowID}-billing`}
-                                id={`${rowID}-billing`}
-                                label={t('b2bApplication:locations.fields.isBillingAddress')}
-                                checked={row.isBillingAddress}
-                                onChange={(isBillingAddress) => {
-                                    set({ isBillingAddress });
-                                }}
-                            />
-                            <Button
-                                testID={`${rowID}-remove`}
-                                variant="ghost"
-                                size="sm"
-                                label={t('b2bApplication:locations.remove')}
-                                onPress={() => {
-                                    setRows((previous) => previous.filter((_, at) => at !== index));
-                                    setErrors(null);
-                                }}
-                            />
-                        </Stack>
-                    </Card>
-                );
-            })}
-
-            {rows.length === 0 ? (
-                <Text testID={`${TEST_ID}-locations-empty`} tone="secondary">
-                    {t('b2bApplication:locations.empty')}
-                </Text>
-            ) : null}
-
-            <Button
-                testID={`${TEST_ID}-locations-add`}
-                variant="secondary"
-                label={t('b2bApplication:locations.add')}
-                onPress={() => {
-                    setRows((previous) => [...previous, EMPTY_LOCATION]);
-                }}
-            />
-
-            <Button
-                testID={`${TEST_ID}-save`}
-                label={t('b2bApplication:wizard.save')}
-                loading={saving}
-                onPress={() => {
-                    const result = validateLocations(rows);
-                    if (!result.ok) {
-                        setErrors(result.errors);
-                        return;
-                    }
-                    setErrors(null);
-                    onSave(result.value);
-                }}
-            />
-        </Stack>
+            </Stack>
+        </StepCard>
     );
 }

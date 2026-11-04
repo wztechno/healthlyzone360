@@ -1,7 +1,7 @@
-import { Callout, Heading, Stack } from '@healthy360/design-system';
 import { Redirect, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import {
     toFailure,
@@ -15,6 +15,7 @@ import {
     useResendChallengeMutation,
     useVerifyChallengeMutation,
 } from '../../../data/account-hooks.ts';
+import { ExtraNote, ExtraPage } from '../../account/account-extra.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { AgreementPanel } from '../agreement-panel.tsx';
 import { awaitsSignature } from '../sections.ts';
@@ -75,18 +76,28 @@ export function ApplyAgreementScreen() {
         toFailure(sign.error);
 
     return (
-        <Stack space="lg" testID={TEST_ID}>
-            <Heading level={1} testID={`${TEST_ID}-title`}>
-                {t('b2bApplication:agreement.title')}
-            </Heading>
-
+        <ExtraPage
+            wide
+            testID={TEST_ID}
+            backTestID={`${TEST_ID}-back`}
+            backLabel={t('b2bApplication:status.title')}
+            onBack={() => {
+                router.push('/apply/status' as never);
+            }}
+            icon="fileText"
+            title={t('b2bApplication:agreement.title')}
+            titleTestID={`${TEST_ID}-title`}
+        >
             {failure === null || failure.code.startsWith('otp.') ? null : (
-                <Callout
-                    testID={`${TEST_ID}-error`}
-                    role="alert"
-                    tone="danger"
-                    title={failure.message}
-                />
+                <View className="mt-[18px]">
+                    <ExtraNote
+                        testID={`${TEST_ID}-error`}
+                        role="alert"
+                        tone="bad"
+                        icon="warning"
+                        title={failure.message}
+                    />
+                </View>
             )}
 
             <QueryStates
@@ -167,6 +178,6 @@ export function ApplyAgreementScreen() {
                     />
                 )}
             </QueryStates>
-        </Stack>
+        </ExtraPage>
     );
 }

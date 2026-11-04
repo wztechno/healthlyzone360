@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10281 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10286 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1139,6 +1139,8 @@ export interface NamespaceKeys {
     | 'status.declined.label'
     | 'status.draft.body'
     | 'status.draft.label'
+    | 'status.everyStage'
+    | 'status.everyStageBody'
     | 'status.goToDocuments'
     | 'status.goToSection'
     | 'status.in_review.body'
@@ -1146,6 +1148,7 @@ export interface NamespaceKeys {
     | 'status.info_requested.body'
     | 'status.info_requested.label'
     | 'status.messageFromUs'
+    | 'status.now'
     | 'status.provisioned.body'
     | 'status.provisioned.label'
     | 'status.provisioning.body'
@@ -1257,11 +1260,13 @@ export interface NamespaceKeys {
     | 'wizard.lockedByRequest'
     | 'wizard.markComplete'
     | 'wizard.next'
+    | 'wizard.optional'
     | 'wizard.outstanding'
     | 'wizard.reload'
     | 'wizard.save'
     | 'wizard.saveFailed'
     | 'wizard.saved'
+    | 'wizard.savedAsYouGo'
     | 'wizard.saving'
     | 'wizard.stepPosition';
   readonly "business":
@@ -11447,6 +11452,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:status.declined.label',
   'b2bApplication:status.draft.body',
   'b2bApplication:status.draft.label',
+  'b2bApplication:status.everyStage',
+  'b2bApplication:status.everyStageBody',
   'b2bApplication:status.goToDocuments',
   'b2bApplication:status.goToSection',
   'b2bApplication:status.in_review.body',
@@ -11454,6 +11461,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:status.info_requested.body',
   'b2bApplication:status.info_requested.label',
   'b2bApplication:status.messageFromUs',
+  'b2bApplication:status.now',
   'b2bApplication:status.provisioned.body',
   'b2bApplication:status.provisioned.label',
   'b2bApplication:status.provisioning.body',
@@ -11565,11 +11573,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'b2bApplication:wizard.lockedByRequest',
   'b2bApplication:wizard.markComplete',
   'b2bApplication:wizard.next',
+  'b2bApplication:wizard.optional',
   'b2bApplication:wizard.outstanding',
   'b2bApplication:wizard.reload',
   'b2bApplication:wizard.save',
   'b2bApplication:wizard.saveFailed',
   'b2bApplication:wizard.saved',
+  'b2bApplication:wizard.savedAsYouGo',
   'b2bApplication:wizard.saving',
   'b2bApplication:wizard.stepPosition',
   'business:accept.address',

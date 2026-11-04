@@ -22,6 +22,8 @@ export function ExtraPage({
     titleTestID,
     lede,
     ledeTestID,
+    wide = false,
+    headless = false,
     children,
 }: {
     readonly testID: string;
@@ -35,6 +37,10 @@ export function ExtraPage({
     /** The quiet line under the title, beside the tile. */
     readonly lede?: string | undefined;
     readonly ledeTestID?: string | undefined;
+    /** The boards' wider page (1120px) — a form beside a rail, a panel beside an aside. */
+    readonly wide?: boolean;
+    /** No tile-and-title row: the page opens on its own band, which carries the title. */
+    readonly headless?: boolean;
     readonly children: ReactNode;
 }) {
     const heading = (
@@ -48,47 +54,55 @@ export function ExtraPage({
         </RNText>
     );
     return (
-        <View testID={testID} className="w-full max-w-[880px] flex-col self-center pb-12">
+        <View
+            testID={testID}
+            className={cx(
+                'w-full flex-col self-center pb-12',
+                wide ? 'max-w-[1120px]' : 'max-w-[880px]',
+            )}
+        >
             <View className="items-start pt-1">
                 <BackPill testID={backTestID} label={backLabel} onPress={onBack} />
             </View>
-            <View
-                className={cx(
-                    'mt-[18px] flex-row gap-4',
-                    lede === undefined ? 'items-center' : 'items-start',
-                )}
-            >
+            {headless ? null : (
                 <View
-                    aria-hidden
                     className={cx(
-                        'h-14 w-14 shrink-0 items-center justify-center rounded-[18px]',
-                        tone === 'danger' ? 'bg-danger-subtle' : 'bg-surface-brand-subtle',
+                        'mt-[18px] flex-row gap-4',
+                        lede === undefined ? 'items-center' : 'items-start',
                     )}
                 >
-                    <Icon
-                        name={icon}
-                        size="lg"
-                        className={
-                            tone === 'danger'
-                                ? 'text-danger-on-subtle'
-                                : 'text-content-on-brand-subtle'
-                        }
-                    />
-                </View>
-                {lede === undefined ? (
-                    <View className="min-w-0 flex-1">{heading}</View>
-                ) : (
-                    <View className="min-w-0 flex-1 flex-col gap-1">
-                        {heading}
-                        <RNText
-                            testID={ledeTestID}
-                            className="max-w-[640px] text-base font-medium leading-6 text-content-secondary text-start"
-                        >
-                            {lede}
-                        </RNText>
+                    <View
+                        aria-hidden
+                        className={cx(
+                            'h-14 w-14 shrink-0 items-center justify-center rounded-[18px]',
+                            tone === 'danger' ? 'bg-danger-subtle' : 'bg-surface-brand-subtle',
+                        )}
+                    >
+                        <Icon
+                            name={icon}
+                            size="lg"
+                            className={
+                                tone === 'danger'
+                                    ? 'text-danger-on-subtle'
+                                    : 'text-content-on-brand-subtle'
+                            }
+                        />
                     </View>
-                )}
-            </View>
+                    {lede === undefined ? (
+                        <View className="min-w-0 flex-1">{heading}</View>
+                    ) : (
+                        <View className="min-w-0 flex-1 flex-col gap-1">
+                            {heading}
+                            <RNText
+                                testID={ledeTestID}
+                                className="max-w-[640px] text-base font-medium leading-6 text-content-secondary text-start"
+                            >
+                                {lede}
+                            </RNText>
+                        </View>
+                    )}
+                </View>
+            )}
             {children}
         </View>
     );

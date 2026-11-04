@@ -32,7 +32,9 @@
         "outstanding_other": "{{count}} things still to do before you can send this.",
         "conflictTitle": "Somebody else changed this",
         "conflictBody": "This application was saved somewhere else while you were typing. Reload it to see what changed — your text is still on screen until you do.",
-        "reload": "Reload"
+        "reload": "Reload",
+        "savedAsYouGo": "Saved as you go",
+        "optional": "Optional"
     },
     "review": {
         "title": "Check and send",
@@ -327,7 +329,10 @@
         "withdrawn": {
             "label": "Withdrawn",
             "body": "You closed this application. You can start a new one whenever you like."
-        }
+        },
+        "now": "Now",
+        "everyStage": "Every stage",
+        "everyStageBody": "Where it is, and what comes next."
     },
     "agreement": {
         "title": "Your agreement",
