@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9980 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10019 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1508,21 +1508,34 @@ export interface NamespaceKeys {
     | 'common.perDay'
     | 'common.range'
     | 'common.syntheticData'
+    | 'compare.addPlan'
+    | 'compare.allowed'
     | 'compare.backToPlans'
     | 'compare.caption'
     | 'compare.countRange'
     | 'compare.durationOption'
+    | 'compare.eachDayValue'
     | 'compare.emptyBody'
     | 'compare.emptyTitle'
+    | 'compare.group.flexibility'
+    | 'compare.group.food'
+    | 'compare.group.price'
     | 'compare.macroCaveat'
     | 'compare.noFigure'
+    | 'compare.onlyDifferences'
+    | 'compare.remove'
+    | 'compare.row.aDay'
     | 'compare.row.carbohydrate'
     | 'compare.row.durations'
+    | 'compare.row.eachDay'
     | 'compare.row.energy'
+    | 'compare.row.energyADay'
     | 'compare.row.fat'
     | 'compare.row.meals'
     | 'compare.row.protein'
     | 'compare.row.snacks'
+    | 'compare.row.wholeRun'
+    | 'compare.runValue'
     | 'compare.title'
     | 'diet.browseAll'
     | 'diet.countsLabel'
@@ -1652,6 +1665,7 @@ export interface NamespaceKeys {
     | 'howPlans.calculator.weekLabel'
     | 'howPlans.calculator.weekdaysLabel'
     | 'howPlans.choosePlan'
+    | 'howPlans.closingTitle'
     | 'howPlans.ctaBody'
     | 'howPlans.ctaTitle'
     | 'howPlans.cutoff.delivered.body'
@@ -1827,30 +1841,55 @@ export interface NamespaceKeys {
     | 'nav.meals'
     | 'nav.plans'
     | 'nav.tools'
+    | 'plan.addToCompare'
+    | 'plan.allergenSafe'
     | 'plan.browseAll'
     | 'plan.byKitchen'
     | 'plan.combinationMeals'
     | 'plan.combinationNoSnacks'
+    | 'plan.combinationNoSnacksShort'
     | 'plan.combinationSnacks'
     | 'plan.configure'
     | 'plan.configureSignIn'
+    | 'plan.delivered'
+    | 'plan.deliversOn'
     | 'plan.durationDiscount'
     | 'plan.durationNoDiscount'
     | 'plan.durationTotal'
     | 'plan.durationsTitle'
+    | 'plan.eachDay'
+    | 'plan.howPlansWork'
     | 'plan.imageLabel'
+    | 'plan.itemsADay'
+    | 'plan.kcalBand'
+    | 'plan.kcalValue'
     | 'plan.loading'
     | 'plan.macroBandLabel'
     | 'plan.macroRange'
     | 'plan.macrosTitle'
+    | 'plan.mainMealKind'
     | 'plan.noDurations'
     | 'plan.notFoundBody'
     | 'plan.notFoundTitle'
+    | 'plan.notOn'
     | 'plan.priceForRun'
+    | 'plan.priceLocked'
     | 'plan.pricePerDay'
     | 'plan.priceTitle'
+    | 'plan.ratingFact'
+    | 'plan.ruleChanges'
+    | 'plan.ruleChangesHours'
+    | 'plan.ruleChangesSub'
+    | 'plan.rulePause'
+    | 'plan.rulePauseSub'
+    | 'plan.ruleSkip'
+    | 'plan.ruleSkipSub'
+    | 'plan.rulesTitle'
+    | 'plan.snackKind'
     | 'plan.variantLabel'
     | 'plan.variantsTitle'
+    | 'plan.weeklyPlanTag'
+    | 'plan.youChoose'
     | 'plans.aDay'
     | 'plans.allKitchens'
     | 'plans.balancePrice'
@@ -11513,21 +11552,34 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:common.perDay',
   'catalogue:common.range',
   'catalogue:common.syntheticData',
+  'catalogue:compare.addPlan',
+  'catalogue:compare.allowed',
   'catalogue:compare.backToPlans',
   'catalogue:compare.caption',
   'catalogue:compare.countRange',
   'catalogue:compare.durationOption',
+  'catalogue:compare.eachDayValue',
   'catalogue:compare.emptyBody',
   'catalogue:compare.emptyTitle',
+  'catalogue:compare.group.flexibility',
+  'catalogue:compare.group.food',
+  'catalogue:compare.group.price',
   'catalogue:compare.macroCaveat',
   'catalogue:compare.noFigure',
+  'catalogue:compare.onlyDifferences',
+  'catalogue:compare.remove',
+  'catalogue:compare.row.aDay',
   'catalogue:compare.row.carbohydrate',
   'catalogue:compare.row.durations',
+  'catalogue:compare.row.eachDay',
   'catalogue:compare.row.energy',
+  'catalogue:compare.row.energyADay',
   'catalogue:compare.row.fat',
   'catalogue:compare.row.meals',
   'catalogue:compare.row.protein',
   'catalogue:compare.row.snacks',
+  'catalogue:compare.row.wholeRun',
+  'catalogue:compare.runValue',
   'catalogue:compare.title',
   'catalogue:diet.browseAll',
   'catalogue:diet.countsLabel',
@@ -11657,6 +11709,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:howPlans.calculator.weekLabel',
   'catalogue:howPlans.calculator.weekdaysLabel',
   'catalogue:howPlans.choosePlan',
+  'catalogue:howPlans.closingTitle',
   'catalogue:howPlans.ctaBody',
   'catalogue:howPlans.ctaTitle',
   'catalogue:howPlans.cutoff.delivered.body',
@@ -11832,30 +11885,55 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:nav.meals',
   'catalogue:nav.plans',
   'catalogue:nav.tools',
+  'catalogue:plan.addToCompare',
+  'catalogue:plan.allergenSafe',
   'catalogue:plan.browseAll',
   'catalogue:plan.byKitchen',
   'catalogue:plan.combinationMeals',
   'catalogue:plan.combinationNoSnacks',
+  'catalogue:plan.combinationNoSnacksShort',
   'catalogue:plan.combinationSnacks',
   'catalogue:plan.configure',
   'catalogue:plan.configureSignIn',
+  'catalogue:plan.delivered',
+  'catalogue:plan.deliversOn',
   'catalogue:plan.durationDiscount',
   'catalogue:plan.durationNoDiscount',
   'catalogue:plan.durationTotal',
   'catalogue:plan.durationsTitle',
+  'catalogue:plan.eachDay',
+  'catalogue:plan.howPlansWork',
   'catalogue:plan.imageLabel',
+  'catalogue:plan.itemsADay',
+  'catalogue:plan.kcalBand',
+  'catalogue:plan.kcalValue',
   'catalogue:plan.loading',
   'catalogue:plan.macroBandLabel',
   'catalogue:plan.macroRange',
   'catalogue:plan.macrosTitle',
+  'catalogue:plan.mainMealKind',
   'catalogue:plan.noDurations',
   'catalogue:plan.notFoundBody',
   'catalogue:plan.notFoundTitle',
+  'catalogue:plan.notOn',
   'catalogue:plan.priceForRun',
+  'catalogue:plan.priceLocked',
   'catalogue:plan.pricePerDay',
   'catalogue:plan.priceTitle',
+  'catalogue:plan.ratingFact',
+  'catalogue:plan.ruleChanges',
+  'catalogue:plan.ruleChangesHours',
+  'catalogue:plan.ruleChangesSub',
+  'catalogue:plan.rulePause',
+  'catalogue:plan.rulePauseSub',
+  'catalogue:plan.ruleSkip',
+  'catalogue:plan.ruleSkipSub',
+  'catalogue:plan.rulesTitle',
+  'catalogue:plan.snackKind',
   'catalogue:plan.variantLabel',
   'catalogue:plan.variantsTitle',
+  'catalogue:plan.weeklyPlanTag',
+  'catalogue:plan.youChoose',
   'catalogue:plans.aDay',
   'catalogue:plans.allKitchens',
   'catalogue:plans.balancePrice',

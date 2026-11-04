@@ -1,24 +1,20 @@
-import { Breadcrumbs, Button, Collapse, Icon, cx } from '@healthy360/design-system';
-import { gradients } from '@healthy360/design-tokens';
+import { Collapse, Icon, cx } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, Pressable, Text as RNText, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, Text as RNText, View } from 'react-native';
 
 import { usePlansQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchensQuery } from '../../../data/marketplace-hooks.ts';
 import { useNavigateUp } from '../../../navigation/use-return-to.ts';
-import { Eyebrow } from '../../../ui/eyebrow.tsx';
+import { BackPill } from '../../../ui/back-pill.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { PlanBalanceCalculator } from '../plan-balance-calculator.tsx';
-import { PlanPanel, StatePill } from '../plan-controls.tsx';
-import type { StatePillTone } from '../plan-controls.tsx';
 
 /**
- * `/plans/how-it-works` — HealthZone's `howplans` screen, element for element: the breadcrumb, the
- * title beside the canopy example panel, the six rules, the balance calculator, the cut-off
- * timeline beside the plan states, the questions people ask, and the closing brand band.
+ * `/plans/how-it-works` — the accepted "How plans work" board: "Weekly plans" back, the title beside
+ * the canopy example balance, the six rules, the balance calculator, the cut-off timeline beside the
+ * plan states, the questions people ask, and the closing canopy band.
  *
  * ## Every rule is the platform's, checked against it
  *
@@ -49,9 +45,9 @@ import type { StatePillTone } from '../plan-controls.tsx';
  * two footer figures state rules rather than a price and a date somebody could mistake for an offer.
  */
 
-/** The example balance drawn in the hero: a 14-day run, six of them delivered. */
+/** The example balance drawn in the hero: a 14-day run, nine of them delivered. */
 const EXAMPLE_DAYS = 14;
-const EXAMPLE_DELIVERED = 6;
+const EXAMPLE_DELIVERED = 9;
 const EXAMPLE_COLUMNS = 7;
 
 /** The calculator's anchor, for the hero's "Try the balance calculator" on the web. */
@@ -59,46 +55,29 @@ const CALCULATOR_ID = 'plans-balance-calculator';
 
 const RULE_KEYS = ['days', 'skip', 'cutoff', 'price', 'allergies', 'cancel'] as const;
 const CUTOFF_STEPS = ['lock', 'order', 'delivered'] as const;
-const STATES: readonly { readonly key: string; readonly tone: StatePillTone }[] = [
-    { key: 'active', tone: 'success' },
-    { key: 'paused', tone: 'warning' },
-    { key: 'completed', tone: 'info' },
-    { key: 'cancelled', tone: 'danger' },
+const STATES: readonly { readonly key: string }[] = [
+    { key: 'active' },
+    { key: 'paused' },
+    { key: 'completed' },
+    { key: 'cancelled' },
 ];
 const FAQ_KEYS = ['soldOut', 'chooseMeals', 'expire', 'address', 'priceRise'] as const;
 
-function SectionHeader({
-    title,
-    meta,
-    testID,
-    className,
-}: {
-    readonly title: string;
-    readonly meta?: string | undefined;
-    readonly testID: string;
-    readonly className?: string | undefined;
-}) {
+/** A section's title, as the board sets them: display type over the cards. */
+function SectionTitle({ title, testID }: { readonly title: string; readonly testID: string }) {
     return (
-        <View
+        <RNText
             testID={testID}
-            className={cx(
-                'flex-row flex-wrap items-baseline justify-between gap-2 border-b border-stroke pb-3',
-                className,
-            )}
+            accessibilityRole="header"
+            aria-level={2}
+            className="mb-4 font-display text-3xl font-bold tracking-display text-content-primary text-start"
         >
-            <RNText
-                accessibilityRole="header"
-                aria-level={2}
-                className="font-display text-2xl font-bold tracking-display text-content-primary text-start"
-            >
-                {title}
-            </RNText>
-            {meta === undefined ? null : <Eyebrow>{meta}</Eyebrow>}
-        </View>
+            {title}
+        </RNText>
     );
 }
 
-/** The canopy illustration beside the title: a balance as cells, some used, the rest still yours. */
+/** The canopy example beside the title: a 14-day balance as numbered cells, some delivered. */
 function BalanceExample() {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -110,106 +89,108 @@ function BalanceExample() {
     return (
         <View
             testID="how-plans-example"
-            className="min-w-[280px] flex-1 basis-[440px] overflow-hidden rounded-xl"
+            className="relative min-w-[280px] overflow-hidden rounded-[26px] bg-surface-canopy p-[22px] lg:w-[440px]"
         >
-            <LinearGradient
-                colors={gradients.canopy.colours}
-                locations={gradients.canopy.locations}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
+            <View
+                aria-hidden
+                pointerEvents="none"
+                className="absolute -end-[120px] -top-[140px] h-[380px] w-[380px] rounded-full bg-stage-green opacity-15"
             />
-            <View className="flex-1 flex-col gap-3 px-8 py-8">
-                <Eyebrow tone="canopy">
-                    {t('catalogue:howPlans.example.eyebrow', {
-                        days: formatter.formatNumber(EXAMPLE_DAYS),
-                    })}
-                </Eyebrow>
-                <RNText
-                    testID="how-plans-example-left"
-                    className="font-display text-5xl font-bold leading-none tracking-display text-content-on-canopy text-start"
-                >
-                    {t('catalogue:howPlans.example.left', { count: remaining })}
-                </RNText>
-                <RNText className="text-sm text-content-on-canopy-muted text-start">
-                    {t('catalogue:howPlans.example.body', {
-                        delivered: formatter.formatNumber(EXAMPLE_DELIVERED),
-                    })}
-                </RNText>
-                <View
-                    accessibilityRole="image"
-                    accessibilityLabel={t('catalogue:howPlans.example.gridLabel', {
-                        delivered: formatter.formatNumber(EXAMPLE_DELIVERED),
-                        remaining: formatter.formatNumber(remaining),
-                    })}
-                    className="mt-1.5 flex-col gap-2"
-                >
-                    {rows.map((row) => (
-                        <View key={row[0]} className="flex-row gap-2">
-                            {row.map((cell) => (
+            <RNText className="text-xs font-bold uppercase tracking-wider text-content-on-canopy-muted">
+                {t('catalogue:howPlans.example.eyebrow', {
+                    days: formatter.formatNumber(EXAMPLE_DAYS),
+                })}
+            </RNText>
+            <RNText
+                testID="how-plans-example-left"
+                className="mt-1.5 font-display text-3xl font-bold tracking-display text-content-on-canopy text-start"
+            >
+                {t('catalogue:howPlans.example.left', { count: remaining })}
+            </RNText>
+            <RNText className="mt-0.5 text-sm font-medium text-content-on-canopy-muted text-start">
+                {t('catalogue:howPlans.example.body', {
+                    delivered: formatter.formatNumber(EXAMPLE_DELIVERED),
+                })}
+            </RNText>
+            <View
+                accessibilityRole="image"
+                accessibilityLabel={t('catalogue:howPlans.example.gridLabel', {
+                    delivered: formatter.formatNumber(EXAMPLE_DELIVERED),
+                    remaining: formatter.formatNumber(remaining),
+                })}
+                className="my-[18px] flex-col gap-2"
+            >
+                {rows.map((row) => (
+                    <View key={row[0]} className="flex-row gap-2">
+                        {row.map((cell) => {
+                            const delivered = cell < EXAMPLE_DELIVERED;
+                            return (
                                 <View
                                     key={cell}
                                     className={cx(
-                                        'aspect-square min-w-0 flex-1 rounded',
-                                        cell < EXAMPLE_DELIVERED
-                                            ? 'bg-surface-brand'
-                                            : 'border-2 border-content-on-canopy-muted',
+                                        'h-[38px] min-w-0 flex-1 items-center justify-center rounded-xl',
+                                        delivered
+                                            ? 'bg-surface-brand-subtle'
+                                            : 'border border-dashed border-content-on-canopy/30 bg-content-on-canopy/10',
                                     )}
-                                />
-                            ))}
-                        </View>
-                    ))}
-                </View>
-                <View className="flex-row flex-wrap gap-4">
-                    <View className="flex-row items-center gap-2">
-                        <View aria-hidden className="h-3 w-3 rounded-sm bg-surface-brand" />
-                        <Eyebrow tone="canopy">{t('catalogue:howPlans.example.delivered')}</Eyebrow>
+                                >
+                                    <RNText
+                                        className={cx(
+                                            'text-xs font-bold tabular-nums',
+                                            delivered
+                                                ? 'text-content-on-brand-subtle'
+                                                : 'text-content-on-canopy-muted',
+                                        )}
+                                    >
+                                        {formatter.formatNumber(cell + 1)}
+                                    </RNText>
+                                </View>
+                            );
+                        })}
                     </View>
-                    <View className="flex-row items-center gap-2">
-                        <View
-                            aria-hidden
-                            className="h-3 w-3 rounded-sm border-2 border-content-on-canopy-muted"
-                        />
-                        <Eyebrow tone="canopy">
-                            {t('catalogue:howPlans.example.stillYours')}
-                        </Eyebrow>
+                ))}
+            </View>
+            <View className="flex-row gap-2.5">
+                {(['price', 'skips'] as const).map((fact) => (
+                    <View
+                        key={fact}
+                        className="min-w-0 flex-1 rounded-[14px] bg-content-on-canopy/10 px-3 py-2.5"
+                    >
+                        <RNText className="text-xs font-medium text-content-on-canopy-muted text-start">
+                            {t(`catalogue:howPlans.example.${fact}Label`)}
+                        </RNText>
+                        <RNText className="text-sm font-bold text-content-on-canopy text-start">
+                            {t(`catalogue:howPlans.example.${fact}Value`)}
+                        </RNText>
                     </View>
-                </View>
-                <View className="mt-auto flex-row gap-4 border-t border-surface-canopy-deep pt-4">
-                    {(['price', 'skips'] as const).map((fact) => (
-                        <View key={fact} className="min-w-0 flex-1 flex-col gap-1">
-                            <Eyebrow tone="canopy">
-                                {t(`catalogue:howPlans.example.${fact}Label`)}
-                            </Eyebrow>
-                            <RNText className="font-display text-lg font-bold text-content-on-canopy text-start">
-                                {t(`catalogue:howPlans.example.${fact}Value`)}
-                            </RNText>
-                        </View>
-                    ))}
-                </View>
+                ))}
             </View>
         </View>
     );
 }
 
-/**
- * The design's question list: open rows divided by hairlines, the question at body-large weight and
- * a plus that turns into a minus. `Accordion` draws a boxed list with chevrons, which is a different
- * component on the page; the behaviour — one open at a time, `aria-expanded`, the answer as a
- * labelled region — is the same.
- */
+/** "Questions people ask" — one card, a question to a row, one open at a time. */
 function Faq() {
     const { t } = useTranslation();
     const [open, setOpen] = useState<string | null>(FAQ_KEYS[0]);
 
     return (
-        <View testID="how-plans-faq" className="mt-1.5 flex-col">
-            {FAQ_KEYS.map((key) => {
+        <View
+            testID="how-plans-faq"
+            className="overflow-hidden rounded-3xl border border-stroke-subtle bg-surface-raised"
+        >
+            {FAQ_KEYS.map((key, index) => {
                 const isOpen = open === key;
                 const headerId = `how-plans-faq-${key}-header`;
                 const panelId = `how-plans-faq-${key}-panel`;
                 return (
-                    <View key={key} className="flex-col border-b border-stroke">
+                    <View
+                        key={key}
+                        className={cx(
+                            'flex-col',
+                            index === 0 ? '' : 'border-t border-stroke-subtle',
+                        )}
+                    >
                         <Pressable
                             testID={`how-plans-faq-${key}`}
                             nativeID={headerId}
@@ -222,13 +203,13 @@ function Faq() {
                             onPress={() => {
                                 setOpen(isOpen ? null : key);
                             }}
-                            className="min-h-touch flex-row items-center justify-between gap-4 py-4"
+                            className="min-h-[60px] flex-row items-center justify-between gap-3 px-[22px] hover:bg-surface-base"
                         >
-                            <RNText className="flex-1 text-base font-semibold text-content-primary text-start">
+                            <RNText className="flex-1 text-base font-bold text-content-primary text-start">
                                 {t(`catalogue:howPlans.faq.${key}.q`)}
                             </RNText>
                             <Icon
-                                name={isOpen ? 'minus' : 'plus'}
+                                name={isOpen ? 'chevronUp' : 'chevronDown'}
                                 size="md"
                                 className="text-content-secondary"
                             />
@@ -240,7 +221,7 @@ function Faq() {
                             aria-labelledby={headerId}
                             open={isOpen}
                         >
-                            <RNText className="max-w-[720px] pb-4 text-base leading-relaxed text-content-secondary text-start">
+                            <RNText className="px-[22px] pb-[18px] text-base font-medium leading-relaxed text-content-secondary text-start">
                                 {t(`catalogue:howPlans.faq.${key}.a`)}
                             </RNText>
                         </Collapse>
@@ -250,6 +231,65 @@ function Faq() {
         </View>
     );
 }
+
+/** The board's primary button: label, then an arrow in a soft circle. */
+function ArrowButton({
+    testID,
+    label,
+    onPress,
+    tone = 'brand',
+}: {
+    readonly testID: string;
+    readonly label: string;
+    readonly onPress: () => void;
+    readonly tone?: 'brand' | 'onCanopy';
+}) {
+    return (
+        <Pressable
+            testID={testID}
+            role="button"
+            accessibilityRole="button"
+            onPress={onPress}
+            className={cx(
+                'h-[54px] flex-row items-center justify-between gap-3 rounded-2xl px-5',
+                tone === 'brand'
+                    ? 'bg-surface-brand hover:bg-surface-canopy'
+                    : 'bg-surface-brand-subtle hover:bg-surface-raised',
+            )}
+        >
+            <RNText
+                className={cx(
+                    'text-base font-bold',
+                    tone === 'brand' ? 'text-content-on-brand' : 'text-content-on-brand-subtle',
+                )}
+            >
+                {label}
+            </RNText>
+            <View
+                className={cx(
+                    'h-8 w-8 items-center justify-center rounded-full',
+                    tone === 'brand' ? 'bg-content-on-brand/20' : 'bg-content-on-brand-subtle/10',
+                )}
+            >
+                <Icon
+                    name="chevronForward"
+                    size="sm"
+                    className={
+                        tone === 'brand' ? 'text-content-on-brand' : 'text-content-on-brand-subtle'
+                    }
+                />
+            </View>
+        </Pressable>
+    );
+}
+
+const CUTOFF_ICONS = { lock: 'lock', order: 'basket', delivered: 'check' } as const;
+const STATE_DOTS: Readonly<Record<string, string>> = {
+    active: 'bg-success-on-subtle',
+    paused: 'bg-warning-on-subtle',
+    completed: 'bg-info-on-subtle',
+    cancelled: 'bg-content-disabled',
+};
 
 export function HowPlansWorkScreen() {
     const { t } = useTranslation();
@@ -263,7 +303,7 @@ export function HowPlansWorkScreen() {
         return map;
     }, [kitchens.data]);
 
-    // Both the crumb and "Choose a plan" lead to the listing this page is read from — so back to
+    // Both the back pill and "Choose a plan" lead to the listing this page is read from — so back to
     // it, kitchen chip and compare tray intact, when it is the page underneath (browse-05).
     const choosePlan = () => {
         navigateUp('/plans');
@@ -284,104 +324,99 @@ export function HowPlansWorkScreen() {
             : undefined;
 
     return (
-        <View testID="how-plans-screen" className="flex-col">
-            <Breadcrumbs
-                testID="how-plans-breadcrumbs"
-                items={[
-                    {
-                        key: 'plans',
-                        label: t('catalogue:howPlans.breadcrumbPlans'),
-                        onPress: choosePlan,
-                    },
-                    { key: 'how', label: t('catalogue:howPlans.breadcrumbCurrent') },
-                ]}
-            />
+        <View testID="how-plans-screen" className="flex-col pb-10">
+            <View className="items-start pt-1">
+                <BackPill
+                    testID="how-plans-breadcrumbs"
+                    label={t('catalogue:howPlans.breadcrumbPlans')}
+                    onPress={choosePlan}
+                />
+            </View>
 
-            <View testID="how-plans-hero" className="mt-3 flex-row flex-wrap items-stretch gap-8">
-                <View className="min-w-[280px] flex-1 basis-[440px] flex-col justify-center gap-4 py-2.5">
-                    <Eyebrow>{t('catalogue:howPlans.eyebrow')}</Eyebrow>
+            <View
+                testID="how-plans-hero"
+                className="mt-[18px] flex-col gap-8 lg:flex-row lg:items-center"
+            >
+                <View className="min-w-0 flex-1 flex-col">
+                    <RNText className="text-xs font-bold uppercase tracking-wider text-content-brand text-start">
+                        {t('catalogue:howPlans.eyebrow')}
+                    </RNText>
                     <RNText
                         testID="how-plans-title"
                         accessibilityRole="header"
                         aria-level={1}
-                        className="font-display text-4xl font-bold leading-none tracking-display text-content-primary text-start lg:text-5xl lg:leading-none"
+                        className="mt-2.5 font-display text-4xl font-bold tracking-display text-content-primary text-start lg:text-5xl lg:leading-[52px]"
                     >
                         {t('catalogue:howPlans.title')}
                     </RNText>
-                    <RNText className="max-w-[520px] text-base leading-relaxed text-content-secondary text-start">
+                    <RNText className="mt-3.5 max-w-[560px] text-lg font-medium leading-relaxed text-content-secondary text-start">
                         {t('catalogue:howPlans.lede')}
                     </RNText>
-                    <View className="mt-1.5 flex-row flex-wrap gap-2.5">
-                        <Button
+                    <View className="mt-[22px] flex-row flex-wrap gap-2.5">
+                        <ArrowButton
                             testID="how-plans-choose"
-                            variant="primary"
-                            size="lg"
                             label={t('catalogue:howPlans.choosePlan')}
                             onPress={choosePlan}
                         />
                         {scrollToCalculator === undefined ? null : (
-                            <Button
+                            <Pressable
                                 testID="how-plans-try-calculator"
-                                variant="secondary"
-                                size="lg"
-                                label={t('catalogue:howPlans.tryCalculator')}
+                                role="button"
+                                accessibilityRole="button"
                                 onPress={scrollToCalculator}
-                            />
+                                className="h-[54px] justify-center rounded-2xl border border-stroke bg-surface-raised px-4 hover:bg-surface-brand-subtle"
+                            >
+                                <RNText className="text-sm font-semibold text-content-primary">
+                                    {t('catalogue:howPlans.tryCalculator')}
+                                </RNText>
+                            </Pressable>
                         )}
                     </View>
                 </View>
                 <BalanceExample />
             </View>
 
-            <SectionHeader
-                testID="how-plans-rules-header"
-                className="mt-12"
-                title={t('catalogue:howPlans.rulesTitle')}
-                meta={t('catalogue:howPlans.rulesMeta')}
-            />
-            <View testID="how-plans-rules" className="mt-4 flex-row flex-wrap gap-4">
-                {RULE_KEYS.map((key, index) => (
-                    <View
-                        key={key}
-                        testID={`how-plans-rule-${key}`}
-                        className="min-w-[280px] flex-1 basis-[300px] flex-col gap-2.5 rounded-xl border border-stroke bg-surface-raised p-6"
-                    >
-                        <View className="h-[34px] w-[34px] items-center justify-center rounded-full bg-surface-brand-subtle">
-                            <RNText className="text-xs font-semibold tabular-nums text-content-on-brand-subtle">
-                                {formatNumberPadded(index + 1)}
+            <View className="mt-10">
+                <SectionTitle
+                    testID="how-plans-rules-header"
+                    title={t('catalogue:howPlans.rulesTitle')}
+                />
+                <View testID="how-plans-rules" className="flex-row flex-wrap gap-3.5">
+                    {RULE_KEYS.map((key, index) => (
+                        <View
+                            key={key}
+                            testID={`how-plans-rule-${key}`}
+                            className="min-w-[260px] flex-1 basis-[300px] rounded-3xl border border-stroke-subtle bg-surface-raised p-5 transition duration-normal ease-standard hover:-translate-y-1 hover:shadow-elevation-3"
+                        >
+                            <View className="h-10 w-10 items-center justify-center rounded-[13px] bg-surface-brand-subtle">
+                                <RNText className="font-display text-base font-bold tabular-nums text-content-on-brand-subtle">
+                                    {String(index + 1)}
+                                </RNText>
+                            </View>
+                            <RNText
+                                accessibilityRole="header"
+                                aria-level={3}
+                                className="mb-1.5 mt-3.5 font-display text-lg font-bold text-content-primary text-start"
+                            >
+                                {t(`catalogue:howPlans.rules.${key}.title`)}
+                            </RNText>
+                            <RNText className="text-sm font-medium leading-normal text-content-secondary text-start">
+                                {t(`catalogue:howPlans.rules.${key}.body`)}
                             </RNText>
                         </View>
-                        <RNText
-                            accessibilityRole="header"
-                            aria-level={3}
-                            className="font-display text-lg font-bold tracking-display text-content-primary text-start"
-                        >
-                            {t(`catalogue:howPlans.rules.${key}.title`)}
-                        </RNText>
-                        <RNText className="text-sm leading-relaxed text-content-secondary text-start">
-                            {t(`catalogue:howPlans.rules.${key}.body`)}
-                        </RNText>
-                    </View>
-                ))}
+                    ))}
+                </View>
             </View>
 
-            <PlanPanel
-                testID="how-plans-calculator"
-                nativeID={CALCULATOR_ID}
-                className="mt-10 px-6 py-6 md:px-8"
-            >
-                <Eyebrow>{t('catalogue:howPlans.calculator.eyebrow')}</Eyebrow>
-                <RNText
-                    accessibilityRole="header"
-                    aria-level={2}
-                    className="mb-1 mt-2 font-display text-2xl font-bold tracking-display text-content-primary text-start"
+            <View className="mt-10" nativeID={CALCULATOR_ID}>
+                <SectionTitle
+                    testID="how-plans-calculator-title"
+                    title={t('catalogue:howPlans.calculator.title')}
+                />
+                <View
+                    testID="how-plans-calculator"
+                    className="rounded-3xl border border-stroke-subtle bg-surface-raised p-6"
                 >
-                    {t('catalogue:howPlans.calculator.title')}
-                </RNText>
-                <RNText className="text-sm text-content-secondary text-start">
-                    {t('catalogue:howPlans.calculator.body')}
-                </RNText>
-                <View className="mt-6">
                     <QueryStates
                         query={plans}
                         isEmpty={(plans.data?.items.length ?? 0) === 0}
@@ -395,42 +430,51 @@ export function HowPlansWorkScreen() {
                         />
                     </QueryStates>
                 </View>
-            </PlanPanel>
+            </View>
 
-            <View className="mt-4 flex-row flex-wrap gap-4">
-                <PlanPanel
-                    testID="how-plans-cutoff"
-                    className="min-w-[280px] flex-1 basis-[320px] p-6"
-                >
-                    <Eyebrow>{t('catalogue:howPlans.cutoff.eyebrow')}</Eyebrow>
-                    <View className="mt-4 flex-col">
+            <View className="mt-10">
+                <SectionTitle
+                    testID="how-plans-cutoff-title"
+                    title={t('catalogue:howPlans.cutoff.eyebrow')}
+                />
+                <View className="flex-col gap-3.5 lg:flex-row">
+                    <View
+                        testID="how-plans-cutoff"
+                        className="rounded-3xl border border-stroke-subtle bg-surface-raised p-[22px] lg:flex-[1.2]"
+                    >
                         {CUTOFF_STEPS.map((step, index) => {
                             const last = index === CUTOFF_STEPS.length - 1;
                             return (
                                 <View
                                     key={step}
                                     testID={`how-plans-cutoff-${step}`}
-                                    className="flex-row gap-3"
+                                    className="flex-row gap-3.5"
                                 >
-                                    <View aria-hidden className="w-[22px] flex-col items-center">
-                                        <View
-                                            className={cx(
-                                                'mt-0.5 h-[13px] w-[13px] rounded-full border-2 border-surface-brand',
-                                                last ? 'bg-surface-brand' : 'bg-surface-raised',
-                                            )}
-                                        />
+                                    <View aria-hidden className="w-10 flex-col items-center">
+                                        <View className="h-10 w-10 items-center justify-center rounded-full bg-surface-brand-subtle">
+                                            <Icon
+                                                name={CUTOFF_ICONS[step]}
+                                                size="sm"
+                                                className="text-content-on-brand-subtle"
+                                            />
+                                        </View>
                                         {last ? null : (
-                                            <View className="min-h-[20px] w-0.5 flex-1 bg-stroke-strong" />
+                                            <View className="min-h-[20px] w-0.5 flex-1 bg-stroke" />
                                         )}
                                     </View>
-                                    <View className="min-w-0 flex-1 flex-col pb-4">
-                                        <RNText className="text-xs font-semibold uppercase tabular-nums text-content-secondary text-start">
+                                    <View
+                                        className={cx(
+                                            'min-w-0 flex-1 flex-col',
+                                            last ? '' : 'pb-5',
+                                        )}
+                                    >
+                                        <RNText className="text-xs font-bold uppercase tracking-wide text-content-brand text-start">
                                             {t(`catalogue:howPlans.cutoff.${step}.time`)}
                                         </RNText>
-                                        <RNText className="mt-0.5 font-display text-base font-bold tracking-display text-content-primary text-start">
+                                        <RNText className="mt-0.5 text-base font-bold text-content-primary text-start">
                                             {t(`catalogue:howPlans.cutoff.${step}.title`)}
                                         </RNText>
-                                        <RNText className="mt-0.5 text-sm leading-normal text-content-secondary text-start">
+                                        <RNText className="mt-1 text-sm font-medium leading-normal text-content-secondary text-start">
                                             {t(`catalogue:howPlans.cutoff.${step}.body`)}
                                         </RNText>
                                     </View>
@@ -438,76 +482,75 @@ export function HowPlansWorkScreen() {
                             );
                         })}
                     </View>
-                </PlanPanel>
 
-                <PlanPanel
-                    testID="how-plans-states"
-                    className="min-w-[280px] flex-1 basis-[320px] p-6"
-                >
-                    <Eyebrow>{t('catalogue:howPlans.states.eyebrow')}</Eyebrow>
-                    <View className="mt-4 flex-col gap-3">
+                    <View
+                        testID="how-plans-states"
+                        className="flex-col gap-2.5 rounded-3xl border border-stroke-subtle bg-surface-raised p-[22px] lg:flex-1"
+                    >
+                        <RNText className="mb-1 text-sm font-bold uppercase tracking-wider text-content-secondary text-start">
+                            {t('catalogue:howPlans.states.eyebrow')}
+                        </RNText>
                         {STATES.map((state) => (
                             <View
                                 key={state.key}
                                 testID={`how-plans-state-${state.key}`}
-                                className="flex-row items-start gap-3 border-b border-stroke-subtle pb-3"
+                                className="flex-row gap-3 rounded-2xl bg-surface-base px-3.5 py-3"
                             >
-                                <View className="w-[112px]">
-                                    <StatePill
-                                        tone={state.tone}
-                                        label={t(`catalogue:howPlans.states.${state.key}.name`)}
-                                    />
-                                </View>
-                                <View className="min-w-0 flex-1 flex-col gap-1">
-                                    <RNText className="text-sm leading-normal text-content-primary text-start">
+                                <View
+                                    aria-hidden
+                                    className={cx(
+                                        'mt-1 h-3 w-3 rounded-full',
+                                        STATE_DOTS[state.key],
+                                    )}
+                                />
+                                <View className="min-w-0 flex-1">
+                                    <RNText className="text-base font-bold text-content-primary text-start">
+                                        {t(`catalogue:howPlans.states.${state.key}.name`)}
+                                    </RNText>
+                                    <RNText className="mt-0.5 text-sm font-medium text-content-secondary text-start">
                                         {t(`catalogue:howPlans.states.${state.key}.body`)}
                                     </RNText>
-                                    <Eyebrow>
+                                    <RNText className="mt-1 text-xs font-semibold text-content-brand text-start">
                                         {t(`catalogue:howPlans.states.${state.key}.next`)}
-                                    </Eyebrow>
+                                    </RNText>
                                 </View>
                             </View>
                         ))}
                     </View>
-                </PlanPanel>
+                </View>
             </View>
 
-            <SectionHeader
-                testID="how-plans-faq-header"
-                className="mt-12"
-                title={t('catalogue:howPlans.faqTitle')}
-            />
-            <Faq />
+            <View className="mt-10">
+                <SectionTitle
+                    testID="how-plans-faq-header"
+                    title={t('catalogue:howPlans.faqTitle')}
+                />
+                <Faq />
+            </View>
 
             <View
                 testID="how-plans-cta"
-                className="mt-10 flex-row flex-wrap items-center justify-between gap-5 rounded-xl bg-surface-brand-subtle px-8 py-8"
+                className="relative mt-10 flex-col gap-5 overflow-hidden rounded-[28px] bg-surface-canopy px-9 py-[34px] md:flex-row md:items-center md:justify-between"
             >
-                <View className="min-w-[240px] flex-1 flex-col gap-1.5">
-                    <RNText
-                        accessibilityRole="header"
-                        aria-level={2}
-                        className="font-display text-3xl font-bold leading-tight tracking-display text-content-on-brand-subtle text-start"
-                    >
-                        {t('catalogue:howPlans.ctaTitle')}
-                    </RNText>
-                    <RNText className="text-base text-content-on-brand-subtle text-start">
-                        {t('catalogue:howPlans.ctaBody')}
-                    </RNText>
-                </View>
-                <Button
+                <View
+                    aria-hidden
+                    pointerEvents="none"
+                    className="absolute -end-20 -top-40 h-[420px] w-[420px] rounded-full bg-stage-green opacity-15"
+                />
+                <RNText
+                    accessibilityRole="header"
+                    aria-level={2}
+                    className="font-display text-3xl font-bold tracking-display text-content-on-canopy text-start"
+                >
+                    {t('catalogue:howPlans.closingTitle')}
+                </RNText>
+                <ArrowButton
                     testID="how-plans-cta-choose"
-                    variant="primary"
-                    size="lg"
+                    tone="onCanopy"
                     label={t('catalogue:howPlans.choosePlan')}
                     onPress={choosePlan}
                 />
             </View>
         </View>
     );
-}
-
-/** "01" … "06": the rule's ordinal as the design sets it, two digits. */
-function formatNumberPadded(value: number): string {
-    return String(value).padStart(2, '0');
 }

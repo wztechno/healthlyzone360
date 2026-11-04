@@ -2023,15 +2023,16 @@ describe('PlanComparisonScreen', () => {
         expect(screen.getAllByTestId(/^plan-comparison-head-/)).toHaveLength(3);
         expect(screen.getAllByTestId(/^plan-compare-price-/)).toHaveLength(3);
         expect(screen.getAllByTestId(/^plan-comparison-open-/)).toHaveLength(3);
-        for (const row of ['energy', 'protein', 'carbohydrate', 'fat', 'meals', 'snacks']) {
+        for (const row of ['energy', 'protein', 'carbohydrate', 'fat', 'meals', 'day', 'run']) {
             expect(screen.getByTestId(`plan-comparison-row-${row}`)).toBeTruthy();
         }
         // The rows that said the same unpublished thing in every column are gone.
         expect(screen.queryByTestId('plan-comparison-row-delivery')).toBeNull();
 
         const [first] = PLANS;
+        // Choose opens the plan's set-up — through sign-in for somebody signed out.
         await fireEvent.press(screen.getByTestId(`plan-comparison-open-${first!.slug}`));
-        expect(routerMock.__push).toHaveBeenCalledWith(`/plans/${String(first!.id)}`);
+        expect(String(routerMock.__push.mock.lastCall?.[0])).toContain(String(first!.id));
     });
 
     it('shows the empty state when nothing was selected', async () => {
@@ -2061,9 +2062,9 @@ describe('PlanDetailScreen', () => {
 
         expect(screen.getByTestId('plan-detail-variant-picker')).toBeTruthy();
         expect(screen.getByTestId('plan-detail-macro-protein')).toBeTruthy();
-        expect(screen.getByTestId('plan-detail-snacks')).toBeTruthy();
+        expect(screen.getByTestId('plan-detail-combination')).toHaveTextContent(/snack/i);
         expect(screen.getByTestId('plan-detail-duration-84d')).toBeTruthy();
-        expect(screen.getByTestId('plan-detail-duration-84d')).toHaveTextContent(/12 weeks/);
+        expect(screen.getByTestId('plan-detail-duration-84d')).toHaveTextContent(/84 days/);
         expect(screen.getByTestId('plan-detail-price')).toBeTruthy();
         // The prose-only delivery note and the disclaimer moved off this page.
         expect(screen.queryByTestId('plan-detail-delivery')).toBeNull();

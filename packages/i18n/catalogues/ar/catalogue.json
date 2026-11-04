@@ -542,7 +542,8 @@
             }
         },
         "ctaTitle": "مستعد لتتوقّف عن التفكير في غدائك كل يوم؟",
-        "ctaBody": "ابدأ بأصغر رصيد، وتخطَّ متى شئت."
+        "ctaBody": "ابدأ بأصغر رصيد، وتخطَّ متى شئت.",
+        "closingTitle": "اعثر على الخطة التي تناسب أسبوعك."
     },
     "compare": {
         "title": "مقارنة البرامج",
@@ -557,12 +558,27 @@
             "fat": "الدهون",
             "meals": "وجبات في اليوم",
             "durations": "المدد",
-            "snacks": "وجبات خفيفة في اليوم"
+            "snacks": "وجبات خفيفة في اليوم",
+            "energyADay": "السعرات في اليوم",
+            "eachDay": "كل يوم",
+            "aDay": "في اليوم",
+            "wholeRun": "للخطة كاملة"
         },
         "macroCaveat": "أرقام العناصر الكبرى نطاقات لا قيمًا مفردة: برنامج يدور على قوائم موسم كامل ليس له رقم بروتين واحد صحيح، وذكر رقم مفرد دقة زائفة.",
         "durationOption": "{{duration}} بخصم {{discount}}%",
         "countRange": "{{min}}–{{max}}",
-        "noFigure": "—"
+        "noFigure": "—",
+        "allowed": "مسموح",
+        "group": {
+            "food": "الطعام",
+            "price": "السعر",
+            "flexibility": "المرونة"
+        },
+        "eachDayValue": "الوجبات: {{meals}} · الخفيفة: {{snacks}}",
+        "onlyDifferences": "الاختلافات فقط",
+        "addPlan": "أضف خطة",
+        "remove": "أزل {{plan}}",
+        "runValue": "{{days}} · {{total}}"
     },
     "plan": {
         "loading": "جارٍ تحميل البرنامج",
@@ -598,7 +614,47 @@
         "priceTitle": "السعر",
         "pricePerDay": "{{price}} يوميًا",
         "priceForRun": "{{price}} لمدة {{run}}",
-        "noDurations": "لا تتوفر مدة للبيع في هذه الخطة بعد."
+        "noDurations": "لا تتوفر مدة للبيع في هذه الخطة بعد.",
+        "weeklyPlanTag": "خطة أسبوعية",
+        "kcalBand": "{{min}}–{{max}} سعرة",
+        "kcalValue": "{{kcal}} سعرة",
+        "ratingFact_zero": "{{rating}} · بلا تقييمات",
+        "ratingFact_one": "{{rating}} · تقييم واحد",
+        "ratingFact_two": "{{rating}} · تقييمان",
+        "ratingFact_few": "{{rating}} · {{count}} تقييمات",
+        "ratingFact_many": "{{rating}} · {{count}} تقييمًا",
+        "ratingFact_other": "{{rating}} · {{count}} تقييم",
+        "combinationNoSnacksShort": "بلا وجبات خفيفة",
+        "eachDay": "كل يوم",
+        "itemsADay_zero": "أصناف في اليوم",
+        "itemsADay_one": "صنف في اليوم",
+        "itemsADay_two": "صنفان في اليوم",
+        "itemsADay_few": "أصناف في اليوم",
+        "itemsADay_many": "صنفًا في اليوم",
+        "itemsADay_other": "صنف في اليوم",
+        "youChoose": "أنت تختار كل طبق",
+        "mainMealKind": "وجبة رئيسية",
+        "snackKind": "وجبة خفيفة",
+        "delivered": "التوصيل",
+        "deliversOn": "يُوصَّل يوم {{day}}",
+        "notOn": "لا توصيل يوم {{day}}",
+        "rulesTitle": "قواعد الخطة",
+        "ruleSkip": "تخطَّ يومًا",
+        "ruleSkipSub": "لا يُحتسب",
+        "rulePause": "إيقاف مؤقت",
+        "rulePauseSub": "استأنف متى شئت",
+        "ruleChanges": "التعديلات",
+        "ruleChangesSub": "حتى اليوم السابق",
+        "ruleChangesHours_zero": "حتى موعد التوصيل",
+        "ruleChangesHours_one": "حتى ساعة قبل",
+        "ruleChangesHours_two": "حتى ساعتين قبل",
+        "ruleChangesHours_few": "حتى {{count}} ساعات قبل",
+        "ruleChangesHours_many": "حتى {{count}} ساعة قبل",
+        "ruleChangesHours_other": "حتى {{count}} ساعة قبل",
+        "howPlansWork": "كيف تعمل الخطط",
+        "addToCompare": "أضف إلى المقارنة",
+        "priceLocked": "السعر ثابت طوال الرصيد",
+        "allergenSafe": "لا تُستبدل أبدًا بما يحتوي على مسببات حساسيتك"
     },
     "diet": {
         "loading": "جارٍ تحميل فئة النظام الغذائي",

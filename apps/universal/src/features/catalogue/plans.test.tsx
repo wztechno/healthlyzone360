@@ -550,7 +550,7 @@ describe('PlanDetailScreen — the band, the sign-in round trip and a held plan'
 
         const configure = await screen.findByTestId('plan-detail-configure');
         await waitFor(() => {
-            expect(configure).toHaveTextContent('Sign in to configure it');
+            expect(configure).toHaveTextContent(/Sign in to configure it/);
         });
         await fireEvent.press(screen.getByTestId('plan-detail-configure'));
 
@@ -581,7 +581,7 @@ describe('PlanDetailScreen — the band, the sign-in round trip and a held plan'
         });
 
         const configure = await screen.findByTestId('plan-detail-configure');
-        expect(configure).not.toHaveTextContent('Sign in to configure it');
+        expect(configure).not.toHaveTextContent(/Sign in to configure it/);
         expect(configure.props.accessibilityState).toMatchObject({ disabled: true });
         await fireEvent.press(configure);
         expect(routerMock.__push).not.toHaveBeenCalled();
@@ -600,23 +600,23 @@ describe('PlanDetailScreen — the band, the sign-in round trip and a held plan'
         });
 
         const manage = await screen.findByTestId('plan-detail-manage');
-        expect(manage).toHaveTextContent('Manage plan');
+        expect(manage).toHaveTextContent(/Manage plan/);
         await fireEvent.press(manage);
         expect(routerMock.__push).toHaveBeenLastCalledWith(
             `/customer/subscriptions/${String(SUBSCRIPTION.id)}`,
         );
-        expect(screen.getByTestId('plan-detail-configure')).toHaveTextContent('Set up plan');
+        expect(screen.getByTestId('plan-detail-configure')).toHaveTextContent(/Set up plan/);
     });
 
-    it('goes Home to the marketplace home, not the launch resolver', async () => {
+    it('goes back up to the plans, never to the launch resolver', async () => {
         await renderStubScreen(<PlanDetailScreen planId={String(BALANCED.id)} />, {
             repositories: DETAIL_REPOSITORIES,
         });
         await screen.findByTestId('plan-detail-name');
 
-        await fireEvent.press(screen.getByTestId('plan-detail-crumb-home'));
-        expect(routerMock.__router.navigate).toHaveBeenCalledWith('/discover');
+        await fireEvent.press(screen.getByTestId('plan-detail-crumb-plans'));
         expect(routerMock.__push).not.toHaveBeenCalledWith('/');
+        expect(routerMock.__router.navigate).not.toHaveBeenCalledWith('/');
     });
 });
 

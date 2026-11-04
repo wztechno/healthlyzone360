@@ -1,34 +1,35 @@
-import {
-    Badge,
-    Breadcrumbs,
-    Button,
-    Card,
-    EmptyState,
-    Heading,
-    Inline,
-    MeterBar,
-    Rating,
-    SegmentedControl,
-    Stack,
-    TagRow,
-    Text,
-    useBreakpoint,
-} from '@healthy360/design-system';
+import { Button, EmptyState, Icon, MeterBar, cx } from '@healthy360/design-system';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
-import type { PlanVariant, SubscriptionPlan } from '@healthy360/api-client/contracts';
+import type {
+    MealSlot,
+    PlanSitting,
+    PlanVariant,
+    SubscriptionPlan,
+} from '@healthy360/api-client/contracts';
 import { SubscriptionPlanId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
-import { ROUTE_PATHS } from '@healthy360/permissions';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import type { TFunction } from 'i18next';
+import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { ActivityIndicator, Pressable, Text as RNText, View } from 'react-native';
 
 import { StaffReturnButton } from '../../marketplace/staff-return-button.tsx';
 
 import { usePlanQuery } from '../../../data/catalogue-hooks.ts';
-import { estimatedTotal } from '../../commerce/configurator.ts';
+import { usePlanAvailabilityQuery } from '../../../data/commerce-hooks.ts';
+import { BackPill } from '../../../ui/back-pill.tsx';
+import { toDeliveryAddress } from '../../commerce/address.ts';
+import {
+    estimatedTotal,
+    initialConfiguratorState,
+    toConfiguration,
+} from '../../commerce/configurator.ts';
+import { earliestStartDate } from '../../commerce/dates.ts';
+import { useSittingLabel } from '../../commerce/plan-meal-picker.tsx';
+import { SegChoice } from '../../commerce/plan-setup-frame.tsx';
 import { configuratorHref } from '../../commerce/configurator-draft.ts';
 import { variantName } from '../../commerce/configurator-steps.tsx';
 import { PlanAllergyNotice } from '../../commerce/my-allergens.tsx';
@@ -36,25 +37,28 @@ import { useKitchenQuery, useSubscriptionsQuery } from '../../../data/marketplac
 import { withQuery } from '../../../navigation/return-to.ts';
 import { useCurrentHref, useGoToAuth, useNavigateUp } from '../../../navigation/use-return-to.ts';
 import { useSession } from '../../../session/session-provider.tsx';
-import { formatMoney } from '../../marketplace/format.ts';
+import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { recordResumeIntent } from '../../marketplace/resume-intent.ts';
 import { useShopViewOnly } from '../../marketplace/shop-view-only.tsx';
 import { listDayPrice } from '../plan-balance.ts';
 import { durationWithBalance } from '../plan-duration-label.ts';
-import { isLiveSubscription } from '../plan-subscription.ts';
+import { isLiveSubscription, weekdayName } from '../plan-subscription.ts';
+import { TINT_FILL, TINT_INK } from '../shelf-tints.ts';
+import type { ShelfTint } from '../shelf-tints.ts';
 
 /**
  * `/plans/{plan}` — one subscription plan.
  *
- * ## Cards at a reading width, the price beside them
+ * ## The accepted board
  *
- * The page is held to {@link PAGE_MAX_WIDTH} and centred, and each part of the plan is its own card:
- * the overview (a small picture beside the name rather than a full-width banner), the band with
- * what arrives each day, the macros when the band publishes any, the durations, and the sample week
- * when the plan publishes one. Each card is its title and its data — no sentence explaining it. From
- * `lg` the price and the call to action sit in a card beside them that stays in view; below it,
- * that card follows the content.
+ * "Weekly plans" back, then the plan in cards on the left — the overview (picture, name, kitchen,
+ * facts), "Each day" (a tile per sitting and the weekdays it is delivered), "Calorie band" (the band on
+ * a kcal scale, the bands to choose from, the macros it publishes), "Plan rules" with the way to how
+ * plans work, and the reader's allergy list — and beside them the price card that stays in view: a day
+ * on the canopy, the lengths, Set up plan, Add to compare (the list with this plan ticked) and the two
+ * promises. The delivery weekdays and the cut-off come from the quote, which only a verified session
+ * may read, so anybody else sees the page without them.
  *
  * ## Marketing above, transaction below, and never interleaved
  *
@@ -111,13 +115,6 @@ export interface PlanDetailScreenProps {
     readonly returnTo?: string | undefined;
 }
 
-/** The page's reading width: the content column and the price card beside it, and no wider. */
-const PAGE_MAX_WIDTH = 1080;
-/** The price card beside the content from `lg`. */
-const ASIDE_WIDTH = 320;
-/** The plan's picture in the overview card, beside its name rather than above the page. */
-const IMAGE_WIDTH = 200;
-
 /** The three macro ranges of a variant, in label order, with their translation keys. */
 function macroRanges(variant: PlanVariant) {
     return [
@@ -133,7 +130,6 @@ export function PlanDetailScreen({ planId, returnTo }: PlanDetailScreenProps) {
     const navigateUp = useNavigateUp();
     const goToAuth = useGoToAuth();
     const here = useCurrentHref();
-    const formatter = useFormatter();
     // Read from the session's phase, not from `me`: `me` is also null while a stored session is
     // still being restored, and that is not the same as being signed out.
     const { phase } = useSession();
@@ -142,7 +138,6 @@ export function PlanDetailScreen({ planId, returnTo }: PlanDetailScreenProps) {
     // Staff view the plan and set nothing up (`shop-view-only.tsx`).
     const viewOnly = useShopViewOnly();
     const verified = phase === 'contextPending' || phase === 'ready';
-    const wide = useBreakpoint().atLeast('lg');
 
     const parsed = planId === undefined ? null : SubscriptionPlanId.safeParse(planId);
     const plan = usePlanQuery(parsed);
@@ -196,460 +191,913 @@ export function PlanDetailScreen({ planId, returnTo }: PlanDetailScreenProps) {
         />
     );
 
-    const macroScale =
-        selected === undefined
-            ? 1
-            : Math.max(1, ...macroRanges(selected).map((entry) => entry.range?.max ?? 0));
+    // The weekdays the plan delivers on and its change cut-off come from the quote, which only a
+    // verified session may read; anybody else sees the page without them.
+    const probe = useMemo(() => {
+        if (item === undefined || selected === undefined || !verified) return null;
+        const seed = initialConfiguratorState({
+            plan: item,
+            variantId: selected.id,
+            startDate: earliestStartDate(),
+        });
+        return toConfiguration({ ...seed, deliveryWeekdays: [1] }, item, (values) =>
+            toDeliveryAddress(values),
+        );
+    }, [item, selected, verified]);
+    const availability = usePlanAvailabilityQuery(probe);
+    const weekdays = availability.data?.availableWeekdays ?? null;
+    const cutoffHours = availability.data?.changeCutoffHours ?? null;
 
-    // The server states one figure only when every configuration agrees; otherwise the total is
-    // the selected variant's, derived from numbers the kitchen did quote.
-    const durationTotal = (option: SubscriptionPlan['durations'][number]) => {
-        const total = estimatedTotal(selected ?? null, option);
-        return total === null ? null : formatMoney(formatter, total);
+    const setUp = () => {
+        if (item === undefined || selected === undefined) return;
+        const href = configuratorHref({ plan: String(item.id), variant: String(selected.id) });
+        if (signedIn) {
+            router.push(href as never);
+            return;
+        }
+        // The fallback for a sign-in that ends somewhere else in the tab; `returnTo` is the way back.
+        recordResumeIntent({
+            href: withQuery(`/plans/${String(item.id)}`, { variant: String(selected.id) }),
+            labelKey: 'catalogue:nav.plans',
+            name: item.name,
+        });
+        goToAuth('/sign-in', href);
     };
-    const shortestRun = item?.durations[0];
+
+    const notFound = (
+        <EmptyState
+            testID="plan-detail-empty"
+            title={t('catalogue:plan.notFoundTitle')}
+            body={t('catalogue:plan.notFoundBody')}
+            actions={browseAction}
+        />
+    );
 
     return (
-        // Held to a reading width and centred, breadcrumbs included, so the page does not run the
-        // full width of a desktop window: a plan is read top to bottom, and a 1,400px line is not.
-        <View
-            testID="plan-detail-screen"
-            className="w-full flex-col gap-6 self-center"
-            style={{ maxWidth: PAGE_MAX_WIDTH }}
-        >
+        <View testID="plan-detail-screen" className="w-full flex-col pb-10">
             <StaffReturnButton returnTo={returnTo} testID="plan-detail-staff-return" />
-            <Breadcrumbs
-                testID="plan-detail-breadcrumbs"
-                items={[
-                    {
-                        key: 'home',
-                        label: t('catalogue:nav.home'),
-                        testID: 'plan-detail-crumb-home',
-                        // The marketplace home itself, not `/` — the launch resolver, which sends an
-                        // unverified account to verify its email (browse-10). `navigate`, so it adds
-                        // no entry when that page is already the one underneath.
-                        onPress: () => {
-                            router.navigate(ROUTE_PATHS.customerHome as never);
-                        },
-                    },
-                    {
-                        key: 'plans',
-                        label: t('catalogue:nav.plans'),
-                        testID: 'plan-detail-crumb-plans',
-                        // Back to the listing as it was left — its kitchen chip and compare tray.
-                        onPress: () => {
-                            navigateUp('/plans');
-                        },
-                    },
-                    { key: 'plan', label: item?.name ?? t('catalogue:plan.loading') },
-                ]}
-            />
+            <View className="items-start pt-1">
+                {/* Back to the listing as it was left — its kitchen chip and compare tray. */}
+                <BackPill
+                    testID="plan-detail-crumb-plans"
+                    label={t('marketplace:nav.weeklyPlans')}
+                    onPress={() => {
+                        navigateUp('/plans');
+                    }}
+                />
+            </View>
 
             {/* A link carrying something that is not an identifier leaves the query disabled, and
                 a disabled query never settles: the not-found answer is rendered directly rather
                 than behind a skeleton that would spin for ever. */}
             {parsed === null ? (
-                <EmptyState
-                    testID="plan-detail-empty"
-                    title={t('catalogue:plan.notFoundTitle')}
-                    body={t('catalogue:plan.notFoundBody')}
-                    actions={browseAction}
-                />
+                <View className="mt-[18px]">{notFound}</View>
             ) : (
-                <QueryStates
-                    query={plan}
-                    isEmpty={item === undefined}
-                    emptyTitle={t('catalogue:plan.notFoundTitle')}
-                    emptyBody={t('catalogue:plan.notFoundBody')}
-                    emptyActions={browseAction}
-                    skeletonCount={2}
-                    testID="plan-detail"
-                >
-                    {item === undefined || selected === undefined ? null : (
-                        /*
-                         * The plan in cards on the left, the price and the one way forward in a
-                         * card beside them that stays in view while the reader scrolls. Below `lg`
-                         * the price card follows the content, where the scroll ends.
-                         */
-                        <View className="flex-col gap-6 lg:flex-row lg:items-start">
-                            <View className="min-w-0 flex-1 flex-col gap-4">
-                                <Card testID="plan-detail-overview" tone="raised" padding="md">
-                                    <View className="flex-col gap-4 sm:flex-row">
-                                        <View
-                                            className="overflow-hidden rounded-lg"
-                                            style={wide ? { width: IMAGE_WIDTH } : undefined}
+                <View className="mt-[18px]">
+                    <QueryStates
+                        query={plan}
+                        isEmpty={item === undefined}
+                        emptyTitle={t('catalogue:plan.notFoundTitle')}
+                        emptyBody={t('catalogue:plan.notFoundBody')}
+                        emptyActions={browseAction}
+                        skeletonCount={2}
+                        testID="plan-detail"
+                    >
+                        {item === undefined || selected === undefined ? null : (
+                            <View className="flex-col gap-6 lg:flex-row lg:items-start">
+                                <View className="min-w-0 flex-1 flex-col gap-4">
+                                    <PlanOverview
+                                        plan={item}
+                                        variant={selected}
+                                        kitchenName={kitchen.data?.name}
+                                        kitchenImage={kitchen.data?.imagePlaceholderId}
+                                        onKitchen={() => {
+                                            router.push(
+                                                `/kitchens/${String(item.kitchenId)}` as never,
+                                            );
+                                        }}
+                                    />
+                                    <EachDay variant={selected} weekdays={weekdays} />
+                                    <CalorieBand
+                                        plan={item}
+                                        variant={selected}
+                                        onChoose={chooseVariant}
+                                    />
+                                    <PlanRules
+                                        cutoffHours={cutoffHours}
+                                        onHow={() => {
+                                            router.push('/plans/how-it-works' as never);
+                                        }}
+                                    />
+                                    {/* A signed-in reader's allergy list. The dishes are chosen at
+                                        set-up, where each pick names its clash, so there is nothing
+                                        to check against here yet. */}
+                                    {signedIn ? (
+                                        <Section
+                                            testID="plan-detail-allergies"
+                                            title={t(
+                                                'commerce:configurator.delivery.allergensTitle',
+                                            )}
                                         >
-                                            <EntityImage
-                                                testID="plan-detail-image"
-                                                assetId={item.imagePlaceholderId}
-                                                variant="card"
-                                                seed={item.slug}
-                                                label={t('catalogue:plan.imageLabel', {
-                                                    plan: item.name,
-                                                })}
-                                                aspect="card"
+                                            <PlanAllergyNotice
+                                                testID="plan-detail-allergy-notice"
+                                                meals={[]}
+                                                checked
+                                                returnTo={here}
                                             />
-                                        </View>
-
-                                        <Stack space="sm" className="min-w-0 flex-1">
-                                            <Heading level={1} testID="plan-detail-name">
-                                                {item.name}
-                                            </Heading>
-                                            {item.summary === '' ? null : (
-                                                <Text tone="secondary">{item.summary}</Text>
-                                            )}
-                                            {item.description === '' ? null : (
-                                                <Text>{item.description}</Text>
-                                            )}
-                                            <Inline space="sm" align="center" wrap>
-                                                {kitchen.data === undefined ? null : (
-                                                    <Button
-                                                        testID="plan-detail-kitchen"
-                                                        size="sm"
-                                                        variant="secondary"
-                                                        label={t('catalogue:plan.byKitchen', {
-                                                            kitchen: kitchen.data.name,
-                                                        })}
-                                                        onPress={() => {
-                                                            router.push(
-                                                                `/kitchens/${String(item.kitchenId)}` as never,
-                                                            );
-                                                        }}
-                                                    />
-                                                )}
-                                                {item.rating === null ? null : (
-                                                    <Rating
-                                                        testID="plan-detail-rating"
-                                                        label={t('catalogue:plans.ratingLabel', {
-                                                            plan: item.name,
-                                                        })}
-                                                        value={item.rating}
-                                                        count={item.ratingCount}
-                                                        size="sm"
-                                                    />
-                                                )}
-                                            </Inline>
-                                            {/* Labels, not links — `/diets/{diet}` has no backend yet. */}
-                                            {item.dietClassifications.length === 0 ? null : (
-                                                <TagRow
-                                                    testID="plan-detail-diets"
-                                                    items={item.dietClassifications.map((diet) => ({
-                                                        key: diet,
-                                                        label: t(`marketplace:diets.${diet}`),
-                                                        tone: 'brand' as const,
-                                                    }))}
-                                                />
-                                            )}
-                                        </Stack>
-                                    </View>
-                                </Card>
-
-                                <Card
-                                    testID="plan-detail-variants"
-                                    tone="raised"
-                                    padding="md"
-                                    title={t('catalogue:plan.variantsTitle')}
-                                >
-                                    <Stack space="sm">
-                                        {/* One band is an answer, not a choice: a lone segment
-                                            asks a question nobody can answer differently. */}
-                                        {item.variants.length > 1 ? (
-                                            <SegmentedControl
-                                                testID="plan-detail-variant-picker"
-                                                label={t('catalogue:plan.variantsTitle')}
-                                                block
-                                                value={String(selected.id)}
-                                                onChange={chooseVariant}
-                                                items={item.variants.map((variant) => ({
-                                                    value: String(variant.id),
-                                                    label: variantName(
-                                                        variant,
-                                                        formatter.formatNumber,
-                                                        t,
-                                                    ),
-                                                    testID: `plan-detail-variant-${String(variant.id)}`,
-                                                }))}
-                                            />
-                                        ) : null}
-                                        <Text testID="plan-detail-variant-band">
-                                            {t('catalogue:plan.variantLabel', {
-                                                name: variantName(
-                                                    selected,
-                                                    formatter.formatNumber,
-                                                    t,
-                                                ),
-                                                min: formatter.formatNumber(
-                                                    selected.energyRange.min,
-                                                ),
-                                                max: formatter.formatNumber(
-                                                    selected.energyRange.max,
-                                                ),
-                                            })}
-                                        </Text>
-                                        <Inline space="xs" wrap testID="plan-detail-combination">
-                                            <Badge
-                                                tone="neutral"
-                                                label={t('catalogue:plan.combinationMeals', {
-                                                    count: selected.mealsPerDay,
-                                                })}
-                                            />
-                                            <Badge
-                                                testID="plan-detail-snacks"
-                                                tone="neutral"
-                                                label={
-                                                    selected.snacksPerDay === 0
-                                                        ? t('catalogue:plan.combinationNoSnacks')
-                                                        : t('catalogue:plan.combinationSnacks', {
-                                                              count: selected.snacksPerDay,
-                                                          })
-                                                }
-                                            />
-                                        </Inline>
-                                    </Stack>
-                                </Card>
-
-                                {/* Only when the band publishes a figure: a card of nothing but its
-                                    own caveat says less than leaving it out. */}
-                                {macroRanges(selected).every(
-                                    (entry) => entry.range === null,
-                                ) ? null : (
-                                    <Card
-                                        testID="plan-detail-macros"
-                                        tone="raised"
-                                        padding="md"
-                                        title={t('catalogue:plan.macrosTitle')}
-                                    >
-                                        <Stack space="sm">
-                                            {macroRanges(selected).map((entry) =>
-                                                entry.range === null ? null : (
-                                                    <MeterBar
-                                                        key={entry.nutrientId}
-                                                        testID={`plan-detail-macro-${entry.nutrientId}`}
-                                                        label={t('catalogue:plan.macroBandLabel', {
-                                                            nutrient: t(
-                                                                `marketplace:nutrients.${entry.nutrientId}`,
-                                                            ),
-                                                            variant: variantName(
-                                                                selected,
-                                                                formatter.formatNumber,
-                                                                t,
-                                                            ),
-                                                        })}
-                                                        value={
-                                                            (entry.range.min + entry.range.max) / 2
-                                                        }
-                                                        target={macroScale}
-                                                        valueText={t('catalogue:plan.macroRange', {
-                                                            min: formatter.formatNumber(
-                                                                entry.range.min,
-                                                            ),
-                                                            max: formatter.formatNumber(
-                                                                entry.range.max,
-                                                            ),
-                                                        })}
-                                                    />
-                                                ),
-                                            )}
-                                        </Stack>
-                                    </Card>
-                                )}
-
-                                <Card
-                                    testID="plan-detail-durations"
-                                    tone="raised"
-                                    padding="md"
-                                    title={t('catalogue:plan.durationsTitle')}
-                                >
-                                    {/* One hairline row per length: the length, its total, and
-                                        what the commitment earns, read across like a price list.
-                                        A plan with no length on sale says so instead. */}
-                                    {item.durations.length === 0 ? (
-                                        <Text testID="plan-detail-durations-none" tone="secondary">
-                                            {t('catalogue:plan.noDurations')}
-                                        </Text>
+                                        </Section>
                                     ) : null}
-                                    <View className="flex-col">
-                                        {item.durations.map((option, index) => (
-                                            <View
-                                                key={option.duration}
-                                                testID={`plan-detail-duration-${option.duration}`}
-                                                className={
-                                                    index === 0
-                                                        ? 'min-h-touch flex-row flex-wrap items-center gap-3 py-2'
-                                                        : 'min-h-touch flex-row flex-wrap items-center gap-3 border-t border-stroke-subtle py-2'
-                                                }
-                                            >
-                                                <Text
-                                                    variant="bodyStrong"
-                                                    className="min-w-0 flex-1"
-                                                >
-                                                    {durationWithBalance(
-                                                        option.days,
-                                                        t,
-                                                        formatter.formatNumber,
-                                                    )}
-                                                </Text>
-                                                <Text className="tabular-nums">
-                                                    {t('catalogue:plan.durationTotal', {
-                                                        total: durationTotal(option) ?? '—',
-                                                    })}
-                                                </Text>
-                                                <Badge
-                                                    tone={
-                                                        option.discountPercent > 0
-                                                            ? 'success'
-                                                            : 'neutral'
-                                                    }
-                                                    label={
-                                                        option.discountPercent > 0
-                                                            ? t('catalogue:plan.durationDiscount', {
-                                                                  discount: formatter.formatNumber(
-                                                                      option.discountPercent,
-                                                                  ),
-                                                              })
-                                                            : t('catalogue:plan.durationNoDiscount')
-                                                    }
-                                                />
-                                            </View>
-                                        ))}
-                                    </View>
-                                </Card>
+                                </View>
 
-                                {/* A signed-in reader's allergy list. The dishes are chosen at set-up,
-                                    where each pick names its clash, so there is nothing to check
-                                    against here yet. */}
-                                {signedIn ? (
-                                    <Card
-                                        testID="plan-detail-allergies"
-                                        tone="raised"
-                                        padding="md"
-                                        title={t('commerce:configurator.delivery.allergensTitle')}
-                                    >
-                                        <PlanAllergyNotice
-                                            testID="plan-detail-allergy-notice"
-                                            meals={[]}
-                                            checked
-                                            returnTo={here}
-                                        />
-                                    </Card>
+                                <View className="flex-col web:sticky web:top-0 lg:w-[380px]">
+                                    <PriceCard
+                                        plan={item}
+                                        variant={selected}
+                                        held={held === undefined ? null : String(held.id)}
+                                        viewOnly={viewOnly}
+                                        signedIn={signedIn}
+                                        restoring={restoring}
+                                        onSetUp={setUp}
+                                        onManage={(id) => {
+                                            router.push(`/customer/subscriptions/${id}` as never);
+                                        }}
+                                        onCompare={() => {
+                                            router.push(
+                                                withQuery('/plans', {
+                                                    compare: String(item.id),
+                                                }) as never,
+                                            );
+                                        }}
+                                    />
+                                </View>
+                            </View>
+                        )}
+                    </QueryStates>
+                </View>
+            )}
+        </View>
+    );
+}
+
+/* ── the parts ───────────────────────────────────────────────────────────────────────────────── */
+
+const SLOT_ORDER: readonly MealSlot[] = ['breakfast', 'lunch', 'dinner', 'snack'];
+/** The kcal scale the band is drawn on, widened when a band reaches past it. */
+const SCALE_LOW = 400;
+const SCALE_HIGH = 2200;
+
+/** A sitting's colour and glyph, as the board's "Each day" tiles wear them. */
+const SITTING_LOOK: Readonly<
+    Record<MealSlot, { tint: ShelfTint; icon: 'sun' | 'plate' | 'moon' | 'leaf' }>
+> = {
+    breakfast: { tint: 'yellow', icon: 'sun' },
+    lunch: { tint: 'green', icon: 'plate' },
+    dinner: { tint: 'blue', icon: 'moon' },
+    snack: { tint: 'orange', icon: 'leaf' },
+};
+
+/** One white card of the page, with the board's small uppercase title. */
+function Section({
+    testID,
+    title,
+    children,
+}: {
+    readonly testID: string;
+    readonly title: string;
+    readonly children: ReactNode;
+}) {
+    return (
+        <View
+            testID={testID}
+            className="rounded-3xl border border-stroke-subtle bg-surface-raised px-[22px] py-5"
+        >
+            <RNText
+                role="heading"
+                aria-level={2}
+                className="mb-3 text-sm font-bold uppercase tracking-wider text-content-secondary text-start"
+            >
+                {title}
+            </RNText>
+            {children}
+        </View>
+    );
+}
+
+function PlanOverview({
+    plan,
+    variant,
+    kitchenName,
+    kitchenImage,
+    onKitchen,
+}: {
+    readonly plan: SubscriptionPlan;
+    readonly variant: PlanVariant;
+    readonly kitchenName: string | undefined;
+    readonly kitchenImage: string | undefined;
+    readonly onKitchen: () => void;
+}) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    return (
+        <View
+            testID="plan-detail-overview"
+            className="flex-col gap-[22px] rounded-3xl border border-stroke-subtle bg-surface-raised p-[18px] md:flex-row"
+        >
+            <View className="h-[220px] overflow-hidden rounded-[20px] md:w-[260px]">
+                <EntityImage
+                    testID="plan-detail-image"
+                    assetId={plan.imagePlaceholderId}
+                    variant="card"
+                    seed={plan.slug}
+                    label={t('catalogue:plan.imageLabel', { plan: plan.name })}
+                    flush
+                    className="h-full w-full"
+                />
+            </View>
+            <View className="min-w-0 flex-1 items-start">
+                <View
+                    className={cx('h-[26px] justify-center rounded-full px-2.5', TINT_FILL.green)}
+                >
+                    <RNText className={cx('text-xs font-bold', TINT_INK.green)}>
+                        {t('catalogue:plan.weeklyPlanTag')}
+                    </RNText>
+                </View>
+                <RNText
+                    testID="plan-detail-name"
+                    role="heading"
+                    aria-level={1}
+                    className="mt-2.5 font-display text-4xl font-bold leading-[46px] tracking-display text-content-primary text-start"
+                >
+                    {plan.name}
+                </RNText>
+                {plan.summary === '' ? null : (
+                    <RNText className="mt-1.5 text-base font-medium text-content-secondary text-start">
+                        {plan.summary}
+                    </RNText>
+                )}
+                {plan.description === '' ? null : (
+                    <RNText className="mt-1.5 text-sm text-content-secondary text-start">
+                        {plan.description}
+                    </RNText>
+                )}
+                {kitchenName === undefined ? null : (
+                    <Pressable
+                        testID="plan-detail-kitchen"
+                        role="link"
+                        accessibilityRole="link"
+                        onPress={onKitchen}
+                        className="mt-3.5 flex-row items-center gap-2"
+                    >
+                        <View className="h-7 w-7 overflow-hidden rounded-[9px]">
+                            <EntityImage
+                                assetId={kitchenImage}
+                                seed={`kitchen-${String(plan.kitchenId)}`}
+                                label={kitchenName}
+                                decorative
+                                flush
+                                className="h-7 w-7"
+                            />
+                        </View>
+                        <RNText className="text-sm font-semibold text-content-primary hover:text-content-brand">
+                            {t('catalogue:plan.byKitchen', { kitchen: kitchenName })}
+                        </RNText>
+                    </Pressable>
+                )}
+                <View testID="plan-detail-combination" className="mt-4 flex-row flex-wrap gap-2">
+                    <Fact icon="plate" label={mealsFact(variant, t)} />
+                    <Fact
+                        icon="leaf"
+                        label={t('catalogue:plan.kcalBand', {
+                            min: formatter.formatNumber(variant.energyRange.min),
+                            max: formatter.formatNumber(variant.energyRange.max),
+                        })}
+                    />
+                    {plan.rating === null ? null : (
+                        <Fact
+                            icon="star"
+                            label={t('catalogue:plan.ratingFact', {
+                                rating: formatter.formatNumber(plan.rating, {
+                                    maximumFractionDigits: 1,
+                                }),
+                                count: plan.ratingCount,
+                            })}
+                        />
+                    )}
+                    {plan.dietClassifications.map((diet) => (
+                        <Fact key={diet} icon="check" label={t(`marketplace:diets.${diet}`)} />
+                    ))}
+                </View>
+            </View>
+        </View>
+    );
+}
+
+/** "3 main meals · 1 snack", or "· No snacks". */
+function mealsFact(variant: PlanVariant, t: TFunction): string {
+    return `${t('catalogue:plan.combinationMeals', { count: variant.mealsPerDay })} · ${
+        variant.snacksPerDay === 0
+            ? t('catalogue:plan.combinationNoSnacksShort')
+            : t('catalogue:plan.combinationSnacks', { count: variant.snacksPerDay })
+    }`;
+}
+
+function Fact({
+    icon,
+    label,
+}: {
+    readonly icon: 'plate' | 'leaf' | 'star' | 'check' | 'calendar';
+    readonly label: string;
+}) {
+    return (
+        <View className="h-[34px] flex-row items-center gap-1.5 rounded-full border border-stroke-subtle bg-surface-base px-3">
+            <Icon name={icon} size="sm" className="text-content-brand" />
+            <RNText className="text-sm font-semibold tabular-nums text-content-primary">
+                {label}
+            </RNText>
+        </View>
+    );
+}
+
+/** "Each day" — how many dishes arrive, a tile per sitting, and the days it is delivered. */
+function EachDay({
+    variant,
+    weekdays,
+}: {
+    readonly variant: PlanVariant;
+    readonly weekdays: readonly number[] | null;
+}) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const sittingLabel = useSittingLabel();
+    const sittings: readonly PlanSitting[] =
+        variant.sittings.length > 0
+            ? [...variant.sittings].sort(
+                  (a, b) =>
+                      SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot) ||
+                      a.sequence - b.sequence,
+              )
+            : [];
+    const count =
+        sittings.length === 0 ? variant.mealsPerDay + variant.snacksPerDay : sittings.length;
+
+    return (
+        <View
+            testID="plan-detail-each-day"
+            className="rounded-3xl border border-stroke-subtle bg-surface-raised px-6 py-[22px]"
+        >
+            <View className="flex-row flex-wrap items-end justify-between gap-3">
+                <View>
+                    <RNText
+                        role="heading"
+                        aria-level={2}
+                        className="text-sm font-bold uppercase tracking-wider text-content-secondary text-start"
+                    >
+                        {t('catalogue:plan.eachDay')}
+                    </RNText>
+                    <View className="mt-1.5 flex-row items-baseline gap-1.5">
+                        <RNText className="font-display text-4xl font-bold tabular-nums text-content-primary">
+                            {formatter.formatNumber(count)}
+                        </RNText>
+                        <RNText className="text-base font-semibold text-content-secondary">
+                            {t('catalogue:plan.itemsADay', { count })}
+                        </RNText>
+                    </View>
+                </View>
+                <View className="h-8 flex-row items-center gap-1.5 rounded-full bg-surface-brand-subtle px-3">
+                    <Icon name="check" size="sm" className="text-content-on-brand-subtle" />
+                    <RNText className="text-sm font-semibold text-content-on-brand-subtle">
+                        {t('catalogue:plan.youChoose')}
+                    </RNText>
+                </View>
+            </View>
+
+            {sittings.length === 0 ? null : (
+                <View className="mt-4 flex-row flex-wrap gap-2.5">
+                    {sittings.map((sitting) => {
+                        const look = SITTING_LOOK[sitting.slot];
+                        return (
+                            <View
+                                key={`${sitting.slot}-${String(sitting.sequence)}`}
+                                testID={`plan-detail-sitting-${sitting.slot}-${String(sitting.sequence)}`}
+                                className={cx(
+                                    'relative min-w-[130px] flex-1 flex-col gap-0.5 overflow-hidden rounded-[18px] p-3.5 transition duration-normal ease-standard hover:-translate-y-1',
+                                    TINT_FILL[look.tint],
+                                )}
+                            >
+                                <View
+                                    aria-hidden
+                                    className="absolute -end-[30px] -top-[30px] h-[90px] w-[90px] rounded-full bg-surface-raised opacity-35"
+                                />
+                                <View className="mb-2.5 h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-surface-raised shadow-elevation-1">
+                                    <Icon
+                                        name={look.icon}
+                                        size="md"
+                                        className={TINT_INK[look.tint]}
+                                    />
+                                </View>
+                                <RNText
+                                    className={cx(
+                                        'font-display text-base font-bold',
+                                        TINT_INK[look.tint],
+                                    )}
+                                >
+                                    {sittingLabel(sitting)}
+                                </RNText>
+                                <RNText
+                                    className={cx(
+                                        'text-xs font-semibold opacity-80',
+                                        TINT_INK[look.tint],
+                                    )}
+                                >
+                                    {sitting.slot === 'snack'
+                                        ? t('catalogue:plan.snackKind')
+                                        : t('catalogue:plan.mainMealKind')}
+                                </RNText>
+                            </View>
+                        );
+                    })}
+                </View>
+            )}
+
+            {weekdays === null ? null : (
+                <View
+                    testID="plan-detail-delivery"
+                    className="mt-4 flex-row flex-wrap items-center gap-1.5 border-t border-stroke-subtle pt-4"
+                >
+                    <View className="me-auto flex-row items-center gap-1.5">
+                        <Icon name="calendar" size="sm" className="text-content-brand" />
+                        <RNText className="text-sm font-semibold text-content-secondary">
+                            {t('catalogue:plan.delivered')}
+                        </RNText>
+                    </View>
+                    {[1, 2, 3, 4, 5, 6, 7].map((weekday) => {
+                        const on = weekdays.includes(weekday);
+                        return (
+                            <View
+                                key={weekday}
+                                testID={`plan-detail-delivery-${String(weekday)}`}
+                                accessibilityLabel={t(
+                                    on ? 'catalogue:plan.deliversOn' : 'catalogue:plan.notOn',
+                                    {
+                                        day: t(weekdayKey(weekday)),
+                                    },
+                                )}
+                                className={cx(
+                                    'h-8 min-w-[52px] flex-row items-center justify-center gap-1 rounded-full px-2.5',
+                                    on ? 'bg-surface-brand' : 'border border-dashed border-stroke',
+                                )}
+                            >
+                                {on ? (
+                                    <Icon
+                                        name="check"
+                                        size="sm"
+                                        className="text-content-on-brand"
+                                    />
+                                ) : null}
+                                <RNText
+                                    className={cx(
+                                        'text-xs font-bold',
+                                        on ? 'text-content-on-brand' : 'text-content-secondary',
+                                    )}
+                                >
+                                    {weekdayName(formatter, weekday, 'short')}
+                                </RNText>
+                            </View>
+                        );
+                    })}
+                </View>
+            )}
+        </View>
+    );
+}
+
+/** "Calorie band" — the band on a kcal scale, the bands to choose from, and the macros it publishes. */
+function CalorieBand({
+    plan,
+    variant,
+    onChoose,
+}: {
+    readonly plan: SubscriptionPlan;
+    readonly variant: PlanVariant;
+    readonly onChoose: (id: string) => void;
+}) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const low = Math.min(SCALE_LOW, ...plan.variants.map((each) => each.energyRange.min));
+    const high = Math.max(SCALE_HIGH, ...plan.variants.map((each) => each.energyRange.max));
+    const before = Math.max(0, variant.energyRange.min - low);
+    const band = Math.max(1, variant.energyRange.max - variant.energyRange.min);
+    const after = Math.max(0, high - variant.energyRange.max);
+    const macros = macroRanges(variant);
+    const macroScale = Math.max(1, ...macros.map((entry) => entry.range?.max ?? 0));
+    const name = variantName(variant, formatter.formatNumber, t);
+    const bandText = t('catalogue:plan.kcalBand', {
+        min: formatter.formatNumber(variant.energyRange.min),
+        max: formatter.formatNumber(variant.energyRange.max),
+    });
+
+    return (
+        <Section testID="plan-detail-variants" title={t('catalogue:plan.variantsTitle')}>
+            {/* One band is an answer, not a choice: a lone segment asks a question nobody can answer
+                differently. */}
+            {plan.variants.length > 1 ? (
+                <View className="mb-2">
+                    <SegChoice
+                        testID="plan-detail-variant-picker"
+                        label={t('catalogue:plan.variantsTitle')}
+                        value={String(variant.id)}
+                        onChange={onChoose}
+                        options={plan.variants.map((each) => ({
+                            value: String(each.id),
+                            title: variantName(each, formatter.formatNumber, t),
+                            testID: `plan-detail-variant-${String(each.id)}`,
+                        }))}
+                    />
+                </View>
+            ) : null}
+            {/* The band on the scale: three flexed parts, so the range sits right in either direction. */}
+            <View className="mx-1 mt-3 flex-row">
+                <View style={{ flex: before }} />
+                <View style={{ flex: band }} className="items-center">
+                    {/* Wider than the band itself, so a narrow band still names itself whole. */}
+                    <View className="-mx-32 items-center">
+                        <RNText
+                            testID="plan-detail-variant-band"
+                            className="text-center text-sm font-bold tabular-nums text-content-primary"
+                        >
+                            {name === bandText ? bandText : `${name} · ${bandText}`}
+                        </RNText>
+                    </View>
+                </View>
+                <View style={{ flex: after }} />
+            </View>
+            <View
+                aria-hidden
+                className="mx-1 mb-2 mt-2 h-3.5 flex-row items-center rounded-full bg-surface-brand-subtle"
+            >
+                <View style={{ flex: before }} />
+                <View
+                    style={{ flex: band }}
+                    className="-my-1 h-[22px] rounded-full bg-surface-brand shadow-elevation-1 transition-all duration-normal ease-standard"
+                />
+                <View style={{ flex: after }} />
+            </View>
+            <View aria-hidden className="flex-row justify-between">
+                {[low, Math.round((low + high) / 2 / 100) * 100, high].map((value, index) => (
+                    <RNText
+                        key={index}
+                        className="text-xs font-semibold tabular-nums text-content-secondary"
+                    >
+                        {index === 2
+                            ? t('catalogue:plan.kcalValue', { kcal: formatter.formatNumber(value) })
+                            : formatter.formatNumber(value)}
+                    </RNText>
+                ))}
+            </View>
+
+            {/* Only when the band publishes a figure: a row of nothing but its own caveat says less
+                than leaving it out. */}
+            {macros.every((entry) => entry.range === null) ? null : (
+                <View
+                    testID="plan-detail-macros"
+                    className="mt-4 flex-col gap-2 border-t border-stroke-subtle pt-4"
+                >
+                    <RNText className="text-sm font-bold uppercase tracking-wider text-content-secondary text-start">
+                        {t('catalogue:plan.macrosTitle')}
+                    </RNText>
+                    {macros.map((entry) =>
+                        entry.range === null ? null : (
+                            <MeterBar
+                                key={entry.nutrientId}
+                                testID={`plan-detail-macro-${entry.nutrientId}`}
+                                label={t('catalogue:plan.macroBandLabel', {
+                                    nutrient: t(`marketplace:nutrients.${entry.nutrientId}`),
+                                    variant: variantName(variant, formatter.formatNumber, t),
+                                })}
+                                value={(entry.range.min + entry.range.max) / 2}
+                                target={macroScale}
+                                valueText={t('catalogue:plan.macroRange', {
+                                    min: formatter.formatNumber(entry.range.min),
+                                    max: formatter.formatNumber(entry.range.max),
+                                })}
+                            />
+                        ),
+                    )}
+                </View>
+            )}
+        </Section>
+    );
+}
+
+/** "Plan rules" — skip, pause, changes — and the way to how plans work. */
+function PlanRules({
+    cutoffHours,
+    onHow,
+}: {
+    readonly cutoffHours: number | null;
+    readonly onHow: () => void;
+}) {
+    const { t } = useTranslation();
+    const rules = [
+        {
+            key: 'skip',
+            icon: 'chevronForward' as const,
+            title: t('catalogue:plan.ruleSkip'),
+            sub: t('catalogue:plan.ruleSkipSub'),
+        },
+        {
+            key: 'pause',
+            icon: 'minus' as const,
+            title: t('catalogue:plan.rulePause'),
+            sub: t('catalogue:plan.rulePauseSub'),
+        },
+        {
+            key: 'changes',
+            icon: 'clock' as const,
+            title: t('catalogue:plan.ruleChanges'),
+            sub:
+                cutoffHours === null
+                    ? t('catalogue:plan.ruleChangesSub')
+                    : t('catalogue:plan.ruleChangesHours', { count: cutoffHours }),
+        },
+    ];
+    return (
+        <Section testID="plan-detail-rules" title={t('catalogue:plan.rulesTitle')}>
+            <View className="flex-row flex-wrap gap-2.5">
+                {rules.map((rule) => (
+                    <View
+                        key={rule.key}
+                        testID={`plan-detail-rule-${rule.key}`}
+                        className="min-w-[180px] flex-1 flex-row items-center gap-2.5 rounded-2xl bg-surface-base p-3"
+                    >
+                        <View className="h-9 w-9 items-center justify-center rounded-xl bg-surface-brand-subtle">
+                            <Icon
+                                name={rule.icon}
+                                size="sm"
+                                className="text-content-on-brand-subtle"
+                            />
+                        </View>
+                        <View className="min-w-0 flex-1">
+                            <RNText className="text-sm font-bold text-content-primary text-start">
+                                {rule.title}
+                            </RNText>
+                            <RNText className="text-xs font-medium text-content-secondary text-start">
+                                {rule.sub}
+                            </RNText>
+                        </View>
+                    </View>
+                ))}
+            </View>
+            <Pressable
+                testID="plan-detail-how"
+                role="link"
+                accessibilityRole="link"
+                onPress={onHow}
+                className="mt-4 flex-row items-center gap-3 rounded-[20px] bg-surface-brand-subtle px-[18px] py-4 transition duration-normal ease-standard hover:-translate-y-0.5"
+            >
+                <Icon name="info" size="md" className="text-content-on-brand-subtle" />
+                <RNText className="text-base font-bold text-content-on-brand-subtle">
+                    {t('catalogue:plan.howPlansWork')}
+                </RNText>
+                <View className="ms-auto h-9 w-9 items-center justify-center rounded-full bg-surface-raised">
+                    <Icon
+                        name="chevronForward"
+                        size="sm"
+                        className="text-content-on-brand-subtle"
+                    />
+                </View>
+            </Pressable>
+        </Section>
+    );
+}
+
+/** The price card beside the plan: a day on the canopy, the lengths, and the ways on. */
+function PriceCard({
+    plan,
+    variant,
+    held,
+    viewOnly,
+    signedIn,
+    restoring,
+    onSetUp,
+    onManage,
+    onCompare,
+}: {
+    readonly plan: SubscriptionPlan;
+    readonly variant: PlanVariant;
+    readonly held: string | null;
+    readonly viewOnly: boolean;
+    readonly signedIn: boolean;
+    readonly restoring: boolean;
+    readonly onSetUp: () => void;
+    readonly onManage: (id: string) => void;
+    readonly onCompare: () => void;
+}) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    // The server states one figure only when every configuration agrees; otherwise the total is the
+    // selected variant's, derived from numbers the kitchen did quote.
+    const totalOf = (option: SubscriptionPlan['durations'][number]) => {
+        const total = estimatedTotal(variant, option);
+        return total === null ? '—' : formatMoney(formatter, total);
+    };
+    const shortest = plan.durations[0];
+    const single = plan.durations.length === 1;
+
+    return (
+        <View
+            testID="plan-detail-commerce"
+            className="overflow-hidden rounded-3xl border border-stroke-subtle bg-surface-raised"
+        >
+            <View className="relative overflow-hidden bg-surface-canopy px-[22px] py-5">
+                <View
+                    aria-hidden
+                    pointerEvents="none"
+                    className="absolute -end-20 -top-24 h-60 w-60 rounded-full bg-stage-green opacity-15"
+                />
+                <RNText className="text-xs font-bold uppercase tracking-wider text-content-on-canopy-muted">
+                    {t('catalogue:plan.priceTitle')}
+                </RNText>
+                <View
+                    testID="plan-detail-price"
+                    accessibilityLabel={t('catalogue:plan.pricePerDay', {
+                        price: formatMoney(formatter, listDayPrice(variant)),
+                    })}
+                    className="mt-1.5 flex-row items-baseline gap-1.5"
+                >
+                    <RNText className="font-display text-5xl font-bold tabular-nums tracking-display text-content-on-canopy">
+                        {formatMoney(formatter, listDayPrice(variant))}
+                    </RNText>
+                    <RNText className="text-base font-semibold text-content-on-canopy-muted">
+                        {t('catalogue:plans.aDay')}
+                    </RNText>
+                </View>
+                <RNText
+                    testID="plan-detail-price-run"
+                    className="mt-2 text-sm font-medium text-content-on-canopy-muted"
+                >
+                    {shortest === undefined
+                        ? t('catalogue:plan.noDurations')
+                        : t('catalogue:plan.priceForRun', {
+                              run: durationWithBalance(shortest.days, t, formatter.formatNumber),
+                              price: totalOf(shortest),
+                          })}
+                </RNText>
+            </View>
+
+            <View className="flex-col gap-3 px-[22px] pb-[22px] pt-[18px]">
+                <RNText className="text-sm font-bold uppercase tracking-wider text-content-secondary">
+                    {t('catalogue:plan.durationsTitle')}
+                </RNText>
+                {plan.durations.length === 0 ? (
+                    <RNText
+                        testID="plan-detail-durations-none"
+                        className="text-sm text-content-secondary"
+                    >
+                        {t('catalogue:plan.noDurations')}
+                    </RNText>
+                ) : (
+                    <View testID="plan-detail-durations" className="flex-row flex-wrap gap-2">
+                        {plan.durations.map((option) => (
+                            <View
+                                key={option.duration}
+                                testID={`plan-detail-duration-${option.duration}`}
+                                className={cx(
+                                    'min-h-14 min-w-[96px] flex-1 items-center justify-center rounded-[14px] border-[1.5px] px-2 py-1.5',
+                                    single
+                                        ? 'border-surface-brand bg-surface-brand-subtle'
+                                        : 'border-stroke-subtle bg-surface-base',
+                                )}
+                            >
+                                <RNText
+                                    className={cx(
+                                        'text-base font-bold tabular-nums',
+                                        single
+                                            ? 'text-content-on-brand-subtle'
+                                            : 'text-content-primary',
+                                    )}
+                                >
+                                    {t('catalogue:plans.finderDaysValue', { count: option.days })}
+                                </RNText>
+                                <RNText
+                                    className={cx(
+                                        'text-xs font-medium tabular-nums',
+                                        single
+                                            ? 'text-content-on-brand-subtle'
+                                            : 'text-content-secondary',
+                                    )}
+                                >
+                                    {t('catalogue:plan.durationTotal', { total: totalOf(option) })}
+                                </RNText>
+                                {option.discountPercent > 0 ? (
+                                    <RNText className="text-xs font-bold text-content-brand">
+                                        {t('catalogue:plan.durationDiscount', {
+                                            discount: formatter.formatNumber(
+                                                option.discountPercent,
+                                            ),
+                                        })}
+                                    </RNText>
                                 ) : null}
                             </View>
+                        ))}
+                    </View>
+                )}
 
+                {held === null ? null : (
+                    <Pressable
+                        testID="plan-detail-manage"
+                        role="button"
+                        accessibilityRole="button"
+                        accessibilityLabel={t('catalogue:plans.managePlanNamed', {
+                            plan: plan.name,
+                        })}
+                        onPress={() => {
+                            onManage(held);
+                        }}
+                        className="h-[54px] flex-row items-center justify-between rounded-2xl bg-surface-brand px-5 hover:bg-surface-canopy"
+                    >
+                        <RNText className="text-base font-bold text-content-on-brand">
+                            {t('catalogue:plans.managePlan')}
+                        </RNText>
+                        <Icon name="chevronForward" size="md" className="text-content-on-brand" />
+                    </Pressable>
+                )}
+                {viewOnly ? null : (
+                    <Pressable
+                        testID="plan-detail-configure"
+                        role="button"
+                        accessibilityRole="button"
+                        accessibilityState={{ disabled: restoring, busy: restoring }}
+                        disabled={restoring}
+                        onPress={onSetUp}
+                        className={cx(
+                            'group h-[54px] flex-row items-center justify-between rounded-2xl px-5',
+                            held === null
+                                ? 'bg-surface-brand hover:bg-surface-canopy'
+                                : 'border border-stroke bg-surface-raised hover:bg-surface-brand-subtle',
+                        )}
+                    >
+                        <RNText
+                            className={cx(
+                                'text-base font-bold',
+                                held === null ? 'text-content-on-brand' : 'text-content-primary',
+                            )}
+                        >
+                            {signedIn || restoring
+                                ? t('catalogue:plan.configure')
+                                : t('catalogue:plan.configureSignIn')}
+                        </RNText>
+                        {restoring ? (
+                            <ActivityIndicator size="small" />
+                        ) : (
                             <View
-                                className="flex-col gap-4 web:sticky web:top-0"
-                                style={wide ? { width: ASIDE_WIDTH } : undefined}
+                                className={cx(
+                                    'h-8 w-8 items-center justify-center rounded-full transition duration-normal ease-standard',
+                                    held === null
+                                        ? 'bg-content-on-brand/20'
+                                        : 'bg-surface-brand-subtle',
+                                )}
                             >
-                                <Card
-                                    testID="plan-detail-commerce"
-                                    padding="md"
-                                    tone="raised"
-                                    title={t('catalogue:plan.priceTitle')}
-                                >
-                                    <Stack space="md">
-                                        <Stack space="xs">
-                                            <Text
-                                                testID="plan-detail-price"
-                                                variant="display"
-                                                className="tabular-nums"
-                                            >
-                                                {t('catalogue:plan.pricePerDay', {
-                                                    price: formatMoney(
-                                                        formatter,
-                                                        listDayPrice(selected),
-                                                    ),
-                                                })}
-                                            </Text>
-                                            <Text testID="plan-detail-price-run" tone="secondary">
-                                                {shortestRun === undefined
-                                                    ? t('catalogue:plan.noDurations')
-                                                    : t('catalogue:plan.priceForRun', {
-                                                          run: durationWithBalance(
-                                                              shortestRun.days,
-                                                              t,
-                                                              formatter.formatNumber,
-                                                          ),
-                                                          price: durationTotal(shortestRun) ?? '—',
-                                                      })}
-                                            </Text>
-                                            <Text tone="secondary" variant="caption">
-                                                {t('catalogue:plan.variantLabel', {
-                                                    name: variantName(
-                                                        selected,
-                                                        formatter.formatNumber,
-                                                        t,
-                                                    ),
-                                                    min: formatter.formatNumber(
-                                                        selected.energyRange.min,
-                                                    ),
-                                                    max: formatter.formatNumber(
-                                                        selected.energyRange.max,
-                                                    ),
-                                                })}
-                                            </Text>
-                                        </Stack>
-
-                                        {held === undefined ? null : (
-                                            <Button
-                                                testID="plan-detail-manage"
-                                                block
-                                                label={t('catalogue:plans.managePlan')}
-                                                accessibilityLabel={t(
-                                                    'catalogue:plans.managePlanNamed',
-                                                    { plan: item.name },
-                                                )}
-                                                onPress={() => {
-                                                    router.push(
-                                                        `/customer/subscriptions/${String(held.id)}` as never,
-                                                    );
-                                                }}
-                                            />
-                                        )}
-                                        {viewOnly ? null : (
-                                            <Button
-                                                testID="plan-detail-configure"
-                                                block
-                                                variant={
-                                                    held === undefined ? 'primary' : 'secondary'
-                                                }
-                                                label={
-                                                    signedIn || restoring
-                                                        ? t('catalogue:plan.configure')
-                                                        : t('catalogue:plan.configureSignIn')
-                                                }
-                                                loading={restoring}
-                                                disabled={restoring}
-                                                onPress={() => {
-                                                    const setUp = configuratorHref({
-                                                        plan: String(item.id),
-                                                        variant: String(selected.id),
-                                                    });
-                                                    if (signedIn) {
-                                                        router.push(setUp as never);
-                                                        return;
-                                                    }
-                                                    // The fallback for a sign-in that ends somewhere
-                                                    // else in the tab; `returnTo` is the way back.
-                                                    recordResumeIntent({
-                                                        href: withQuery(
-                                                            `/plans/${String(item.id)}`,
-                                                            {
-                                                                variant: String(selected.id),
-                                                            },
-                                                        ),
-                                                        labelKey: 'catalogue:nav.plans',
-                                                        name: item.name,
-                                                    });
-                                                    goToAuth('/sign-in', setUp);
-                                                }}
-                                            />
-                                        )}
-                                    </Stack>
-                                </Card>
+                                <Icon
+                                    name="chevronForward"
+                                    size="sm"
+                                    className={
+                                        held === null
+                                            ? 'text-content-on-brand'
+                                            : 'text-content-on-brand-subtle'
+                                    }
+                                />
                             </View>
-                        </View>
-                    )}
-                </QueryStates>
-            )}
+                        )}
+                    </Pressable>
+                )}
+                <Pressable
+                    testID="plan-detail-compare"
+                    role="button"
+                    accessibilityRole="button"
+                    onPress={onCompare}
+                    className="h-12 flex-row items-center justify-center gap-2 rounded-[14px] border border-stroke bg-surface-raised px-4 hover:bg-surface-brand-subtle"
+                >
+                    <Icon name="filter" size="sm" className="text-content-primary" />
+                    <RNText className="text-sm font-semibold text-content-primary">
+                        {t('catalogue:plan.addToCompare')}
+                    </RNText>
+                </Pressable>
+                <View className="flex-col gap-2 pt-1">
+                    <View className="flex-row items-center gap-2">
+                        <Icon name="check" size="sm" className="text-content-brand" />
+                        <RNText className="text-sm font-medium text-content-secondary">
+                            {t('catalogue:plan.priceLocked')}
+                        </RNText>
+                    </View>
+                    <View className="flex-row items-center gap-2">
+                        <Icon name="check" size="sm" className="text-content-brand" />
+                        <RNText className="text-sm font-medium text-content-secondary">
+                            {t('catalogue:plan.allergenSafe')}
+                        </RNText>
+                    </View>
+                </View>
+            </View>
         </View>
     );
 }
