@@ -110,7 +110,20 @@
         "discountValue": "−{{amount}}",
         "promoLabel": "Promo code",
         "promoApply": "Apply",
-        "finePrint": "Pay the driver in cash when it arrives. Nothing is charged in the app."
+        "finePrint": "Pay the driver in cash when it arrives. Nothing is charged in the app.",
+        "each": "{{price}} each",
+        "timesUnit": "{{count}} × {{price}}",
+        "itemCount_one": "{{formattedCount}} item",
+        "itemCount_other": "{{formattedCount}} items",
+        "goesWell": "Goes well with it",
+        "addMore": "Add more",
+        "emptyBasket": "Empty basket",
+        "deliveryTo": "Delivery · {{area}}",
+        "cashOnDelivery": "Cash on delivery",
+        "keepShopping": "Keep shopping",
+        "popularNow": "Popular right now",
+        "addAnother": "Add another {{meal}}",
+        "addNamed": "Add {{meal}}"
     },
     "checkout": {
         "title": "Checkout",
@@ -174,7 +187,16 @@
         "addAddressAction": "Add address",
         "addAnotherAddress": "Add another address",
         "editAddress": "Edit this address",
-        "placeOrderBlockedHint": "Finish the steps above to place your order."
+        "placeOrderBlockedHint": "Finish the steps above to place your order.",
+        "savedAddress": "Saved address",
+        "defaultAddress": "Default",
+        "addAddressShort": "Add address",
+        "tomorrowShort": "Tmrw",
+        "payWith": "Pay with",
+        "deliveringToLabel": "Delivering to",
+        "whenLabel": "When",
+        "change": "Change",
+        "basket": "Basket"
     },
     "configurator": {
         "title": "Set up your subscription",

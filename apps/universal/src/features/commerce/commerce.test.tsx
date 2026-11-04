@@ -1893,7 +1893,7 @@ describe('CartScreen', () => {
         expect(screen.getByTestId('cart-price-delivery-amount')).toHaveTextContent('At checkout');
         // No tax figure exists, and no discount was quoted: neither row is drawn.
         expect(screen.queryByTestId('cart-price-discount')).toBeNull();
-        expect(screen.getByTestId('cart-fine-print')).toHaveTextContent(/cash/);
+        expect(screen.getByTestId('cart-fine-print')).toHaveTextContent(/cash/i);
     });
 
     it('names the default saved address and prices delivery to it', async () => {
@@ -1902,11 +1902,12 @@ describe('CartScreen', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('cart-subtitle')).toHaveTextContent(/12 Sunset Street/);
-        });
-        await waitFor(() => {
             expect(screen.getByTestId('cart-price-delivery-amount')).toHaveTextContent('AED 15.00');
         });
+        // The delivery row names the area it is priced to.
+        expect(screen.getByTestId('cart-price-delivery')).toHaveTextContent(
+            new RegExp(HOME_ADDRESS.areaName),
+        );
         expect(screen.getByTestId('cart-price-total-amount')).toHaveTextContent('AED 105.00');
         // The preview was asked about the default address, not the first one in the list.
         expect(harness.repositories.commerce.previewCheckout).toHaveBeenCalledWith(
@@ -2062,7 +2063,9 @@ describe('CartScreen', () => {
         const increment = screen.getByTestId(`cart-line-${BASKET_LINE_ID}-quantity-increment`);
         expect(decrement.props.accessibilityLabel).toContain(BASKET_MEAL.name);
         expect(increment.props.accessibilityLabel).toContain(BASKET_MEAL.name);
-        expect(decrement.props.accessibilityState).toMatchObject({ disabled: true });
+        // At one portion the minus is the board's bin: it removes the line rather than going to none.
+        expect(decrement.props.accessibilityState).toMatchObject({ disabled: false });
+        expect(decrement.props.accessibilityLabel).toMatch(/Remove/i);
         expect(screen.getByTestId(`cart-line-${BASKET_LINE_ID}-quantity-value`)).toHaveTextContent(
             '1',
         );
@@ -2197,8 +2200,7 @@ async function reviewCheckout(addressId: string): Promise<void> {
     await act(async () => {
         await kitchenServed;
     });
-    await fireEvent.press(await screen.findByTestId('checkout-address-picker-trigger'));
-    await fireEvent.press(await screen.findByTestId(`checkout-address-picker-option-${addressId}`));
+    await fireEvent.press(await screen.findByTestId(`checkout-address-${addressId}`));
     await waitFor(() => {
         expect(screen.getByTestId('checkout-review')).toBeTruthy();
     });
@@ -2272,7 +2274,7 @@ describe('CheckoutScreen', () => {
         });
 
         expect(screen.getByTestId('checkout-slot-picker')).toBeTruthy();
-        expect(screen.getByTestId('checkout-date-field')).toBeTruthy();
+        expect(screen.getByTestId('checkout-date')).toBeTruthy();
         // Delivery is the real fulfilment and is chosen; this kitchen publishes no pickup, so the
         // design's Pickup card is drawn and refuses rather than pretending.
         expect(screen.getByTestId('checkout-mode-delivery').props.accessibilityState).toMatchObject(
@@ -2293,27 +2295,29 @@ describe('CheckoutScreen', () => {
         const address = testAddress({ line2: 'Flat 4', notes: 'Ring twice' });
         await renderCheckout(basketOf(1), { addresses: [address] });
 
-        await fireEvent.press(await screen.findByTestId('checkout-address-picker-trigger'));
-        await fireEvent.press(
-            await screen.findByTestId(`checkout-address-picker-option-${address.id}`),
-        );
+        await fireEvent.press(await screen.findByTestId(`checkout-address-${address.id}`));
 
+        // The tile names the area and the street line as the driver reads it.
         await waitFor(() => {
-            expect(screen.getByTestId('checkout-street-input').props.value).toBe(
-                '12 Sunset Street, Flat 4',
+            expect(screen.getByTestId(`checkout-address-${address.id}`)).toHaveTextContent(
+                /12 Sunset Street, Flat 4/,
             );
         });
-        expect(screen.getByTestId('checkout-area-input').props.value).toBe('Business Bay');
-        expect(screen.getByTestId('checkout-note-input').props.value).toBe('Ring twice');
-        // Edited in the address book, not here.
-        expect(screen.getByTestId('checkout-street-input').props.editable).toBe(false);
+        expect(screen.getByTestId(`checkout-address-${address.id}`)).toHaveTextContent(
+            /Business Bay/,
+        );
+        expect(
+            screen.getByTestId(`checkout-address-${address.id}`).props.accessibilityState,
+        ).toMatchObject({ checked: true });
     });
 
     it('chooses the default address by itself and prices delivery straight away (HA-22)', async () => {
         await renderCheckout(basketOf(1), { addresses: [HOME_ADDRESS] });
 
         await waitFor(() => {
-            expect(screen.getByTestId('checkout-street-input').props.value).not.toBe('');
+            expect(
+                screen.getByTestId(`checkout-address-${HOME_ADDRESS.id}`).props.accessibilityState,
+            ).toMatchObject({ checked: true });
         });
         await waitFor(() => {
             expect(screen.getByTestId('checkout-price-delivery')).toBeTruthy();
@@ -2337,9 +2341,10 @@ describe('CheckoutScreen', () => {
             fireEvent.press(screen.getByTestId('checkout-review'));
         });
 
-        await waitFor(() => {
-            expect(screen.getByTestId('checkout-address-picker-error')).toBeTruthy();
-        });
+        // Nothing was chosen for them, and pressing Continue does not choose one either.
+        expect(
+            screen.getByTestId('checkout-address-address-office').props.accessibilityState,
+        ).toMatchObject({ checked: false });
         // Still collecting: no place-order control has appeared.
         expect(screen.queryByTestId('checkout-place-order')).toBeNull();
     });
@@ -2372,8 +2377,6 @@ describe('CheckoutScreen', () => {
             checked: true,
         });
         expect(screen.queryByTestId('checkout-card-number')).toBeNull();
-        // The receipt printer waits beside Place order.
-        expect(screen.getByTestId('checkout-printer-status')).toHaveTextContent('Ready to print');
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('checkout-place-order'));
@@ -2398,16 +2401,10 @@ describe('CheckoutScreen', () => {
 
         // The confirmation prices itself from the placed order — the preview query dies with the
         // emptied basket, and a price block fed from there rendered nothing.
-        // It is printed as the receipt, by the printer that stood beside Place order.
-        expect(screen.getByTestId('checkout-printer-status')).toHaveTextContent(
-            'Printing your receipt',
+        expect(screen.getByTestId('checkout-receipt-total-amount')).toHaveTextContent('AED 60.00');
+        expect(screen.getByTestId('checkout-receipt')).toHaveTextContent(
+            new RegExp(BASKET_MEAL.name),
         );
-        expect(
-            screen.getByTestId('checkout-receipt-total-amount', { includeHiddenElements: true }),
-        ).toHaveTextContent('AED 60.00');
-        expect(
-            screen.getByTestId('checkout-receipt-items', { includeHiddenElements: true }),
-        ).toHaveTextContent(new RegExp(BASKET_MEAL.name));
 
         // The placement carried the saved address identifier and no instrument of any kind.
         expect(harness.repositories.commerce.placeOrder).toHaveBeenCalledWith({
@@ -2447,9 +2444,7 @@ describe('CheckoutScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('checkout-slot-picker')).toBeTruthy();
         });
-        expect(screen.getByTestId('checkout-slot-picker').props.accessibilityRole).toBe(
-            'radiogroup',
-        );
+        expect(screen.getByTestId('checkout-slot-picker').props.role).toBe('radiogroup');
         expect(
             screen.getByTestId(`checkout-slot-${DEFAULT_SLOT_CODE}`).props.accessibilityState,
         ).toMatchObject({ checked: true });
@@ -2713,9 +2708,9 @@ describe('CheckoutScreen — its choices live in the URL', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('checkout-street-input').props.value).toBe(
-                '12 Sunset Street',
-            );
+            expect(
+                screen.getByTestId(`checkout-address-${HOME_ADDRESS.id}`).props.accessibilityState,
+            ).toMatchObject({ checked: true });
         });
         expect(
             screen.getByTestId(`checkout-slot-${DEFAULT_SLOT_CODE}`).props.accessibilityState,
@@ -2734,28 +2729,16 @@ describe('CheckoutScreen — its choices live in the URL', () => {
             await kitchenServed;
         });
 
-        await fireEvent.press(await screen.findByTestId('checkout-address-picker-trigger'));
-        await fireEvent.press(
-            await screen.findByTestId(`checkout-address-picker-option-${OFFICE.id}`),
-        );
+        await fireEvent.press(await screen.findByTestId(`checkout-address-${OFFICE.id}`));
         expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ address: OFFICE.id });
-        await waitFor(() => {
-            expect(screen.getByTestId('checkout-street-input').props.value).toBe('1 Tower Road');
-        });
 
         await fireEvent.press(await screen.findByTestId('checkout-slot-evening'));
         expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ slot: 'evening' });
 
-        // The date: the same day next year, by its year select.
+        // The date: the third of the board's day tiles.
         const earliest = earliestStartDate();
-        const nextYear = String(Number(earliest.slice(0, 4)) + 1);
-        await fireEvent.press(screen.getByTestId('checkout-date-field-year-trigger'));
-        await fireEvent.press(
-            await screen.findByTestId(`checkout-date-field-year-option-${nextYear}`),
-        );
-        const chosenDate = earliest.endsWith('-02-29')
-            ? undefined
-            : `${nextYear}${earliest.slice(4)}`;
+        const chosenDate = addDays(earliest, 2)!;
+        await fireEvent.press(screen.getByTestId(`checkout-date-${chosenDate}`));
         expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ date: chosenDate });
 
         // A choice is a replace of this entry, never a push: Back does not walk through windows.
@@ -2889,7 +2872,9 @@ describe('CheckoutScreen — its choices live in the URL', () => {
     it('opens the address form for another address, or for the one chosen, with a way back', async () => {
         await renderCheckout(basketOf(1), { addresses: [HOME_ADDRESS] });
         await waitFor(() => {
-            expect(screen.getByTestId('checkout-street-input').props.value).not.toBe('');
+            expect(
+                screen.getByTestId(`checkout-address-${HOME_ADDRESS.id}`).props.accessibilityState,
+            ).toMatchObject({ checked: true });
         });
         await act(async () => {
             await kitchenServed;
@@ -2899,11 +2884,6 @@ describe('CheckoutScreen — its choices live in the URL', () => {
             date: earliestStartDate(),
             slot: DEFAULT_SLOT_CODE,
         });
-
-        await fireEvent.press(screen.getByTestId('checkout-edit-address'));
-        expect(routerMock.__push).toHaveBeenLastCalledWith(
-            withReturnTo(`/customer/account/addresses/${HOME_ADDRESS.id}`, here),
-        );
 
         await fireEvent.press(screen.getByTestId('checkout-manage-addresses'));
         expect(routerMock.__push).toHaveBeenLastCalledWith(
@@ -2960,10 +2940,7 @@ describe('CheckoutScreen — the slots the address zone offers', () => {
         await act(async () => {
             await kitchenServed;
         });
-        await fireEvent.press(await screen.findByTestId('checkout-address-picker-trigger'));
-        await fireEvent.press(
-            await screen.findByTestId(`checkout-address-picker-option-${addressId}`),
-        );
+        await fireEvent.press(await screen.findByTestId(`checkout-address-${addressId}`));
     }
 
     it('offers only the zone’s slots, moves off one it does not offer, and sends that', async () => {
@@ -3093,10 +3070,7 @@ describe('CheckoutScreen — a basket that crosses the person’s allergies', ()
         await act(async () => {
             await kitchenServed;
         });
-        await fireEvent.press(await screen.findByTestId('checkout-address-picker-trigger'));
-        await fireEvent.press(
-            await screen.findByTestId(`checkout-address-picker-option-${HOME_ADDRESS.id}`),
-        );
+        await fireEvent.press(await screen.findByTestId(`checkout-address-${HOME_ADDRESS.id}`));
         await act(async () => {
             fireEvent.press(screen.getByTestId('checkout-review'));
         });

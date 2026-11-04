@@ -1,14 +1,13 @@
 import {
     Button,
     Callout,
-    DateField,
     Dialog,
     FAILURE_MESSAGE_KEYS,
     Icon,
     Inline,
-    Select,
     Text,
-    TextInputField,
+    cx,
+    useBreakpoint,
 } from '@healthy360/design-system';
 import type {
     Cart,
@@ -17,15 +16,17 @@ import type {
     PlacedOrder,
 } from '@healthy360/api-client/contracts';
 import { OrderId } from '@healthy360/domain-types';
+import type { MealId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Text as RNText, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text as RNText, View } from 'react-native';
 
 import { useAccountChecklistQuery, useAddressesQuery } from '../../../data/account-hooks.ts';
+import { useMealQuery } from '../../../data/catalogue-hooks.ts';
 import {
     toFailure,
     useCartQuery,
@@ -38,7 +39,8 @@ import { queryKeys } from '../../../data/query-keys.ts';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { usePreviousEntry } from '../../../navigation/use-return-to.ts';
 import { usePrototypeAction } from '../../../prototype/index.ts';
-import { Eyebrow } from '../../../ui/eyebrow.tsx';
+import { EntityImage } from '../../../media/entity-image.tsx';
+import { BackPill } from '../../../ui/back-pill.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { AccountSetupPanel, stepForRequirement } from '../../account/account-setup-steps.tsx';
 import type { AccountSetupStep } from '../../account/account-setup-steps.tsx';
@@ -51,28 +53,9 @@ import {
     placedOrders,
     readCheckoutDraft,
 } from '../checkout-draft.ts';
-import {
-    CheckoutCard,
-    CheckoutColumns,
-    CheckoutPage,
-    CheckoutSteps,
-    CheckoutTitle,
-    ChoiceChips,
-    FieldCell,
-    FieldRow,
-    OptionCard,
-    RadioRow,
-    SummaryItems,
-    SummaryRow,
-    SummaryTotal,
-    TextLink,
-} from '../checkout-frame.tsx';
-import type { SummaryItem } from '../checkout-frame.tsx';
-import { earliestStartDate } from '../dates.ts';
+import { SummaryRow } from '../checkout-frame.tsx';
+import { addDays, earliestStartDate } from '../dates.ts';
 import { CURRENT_DELIVERY_CHOICE, deliveryChoices } from '../delivery-choice.ts';
-import { MealReceipt } from '../order-receipt.tsx';
-import { ReceiptPrinter } from '../receipt-printer.tsx';
-import type { ReceiptPrinterStage } from '../receipt-printer.tsx';
 import {
     defaultSlotCode,
     deliverySlotByCode,
@@ -88,22 +71,20 @@ import {
 } from '../warnings.ts';
 
 /**
- * `/customer/checkout` — one-off order checkout against a saved address, in HealthZone's
- * `checkout` composition: "Checkout", the three-segment bar (Delivery · Payment · Confirmation),
- * and the step's card beside a sticky rail that lists what is being bought and its total.
+ * `/customer/checkout` — one-off order checkout against a saved address, as the accepted Checkout
+ * board draws it: "Basket" back, "Checkout" and the three-step progress beside it (Delivery · Payment
+ * · Confirmation), the step's card, and beside it the order summary on the canopy — the dishes, the
+ * price, and where, when and how it is paid.
  *
  * Placement requires `addressId` (D-084): delivery zone and fee resolve from the address book, not
  * a typed street line. Payment is cash on delivery — never card details in the app.
  *
- * ## How the design's delivery form maps onto a saved address
+ * ## The delivery step is choices, not a form
  *
- * The design types a name, a street, a city, a ZIP, a phone and a drop-off note. Placement takes a
- * saved address *identifier*, a window and a date, and nothing else. So the grid keeps its shape
- * with the one real control on top — the saved-address select — and the address's own street,
- * area and driver note shown beneath it in disabled fields: what the kitchen will receive, edited
- * in the address book ("Edit this address"), not here. The date sits where the design's ZIP does;
- * the kitchen's own windows are the design's slot chips. Name and phone are not drawn: the order
- * carries neither, and the account's own contact is what the kitchen reaches.
+ * Placement takes a saved address *identifier*, a window and a date, and nothing else. So the step is
+ * the board's tiles: how it reaches you, the saved addresses (the default marked, "Add address" beside
+ * them), six delivery dates from the earliest the kitchen can make, and the kitchen's windows offered
+ * at that address. Name and phone are not drawn: the order carries neither.
  *
  * ## Delivery or pickup
  *
@@ -149,6 +130,7 @@ export function CheckoutScreen() {
     const formatter = useFormatter();
     const { locale } = useLocale();
     const runPrototype = usePrototypeAction();
+    const { atLeast } = useBreakpoint();
     const draft = readCheckoutDraft(useLocalSearchParams());
     const previous = usePreviousEntry();
     const channelCode = draft.channel;
@@ -338,12 +320,6 @@ export function CheckoutScreen() {
         router.push(withReturnTo(href, here) as never);
     };
 
-    const steps = [
-        { key: 'delivery', label: t('commerce:checkout.steps.delivery') },
-        { key: 'payment', label: t('commerce:checkout.steps.payment') },
-        { key: 'placed', label: t('commerce:checkout.steps.placed') },
-    ];
-
     const slotName = (code: string) =>
         deliverySlotByCode(code, kitchen.data)?.label ??
         // A kitchen may publish a window code this catalogue has never heard of, and the code
@@ -355,6 +331,23 @@ export function CheckoutScreen() {
             slot: slotLabel,
             date: formatter.formatDate(date, { dateStyle: 'medium' }),
         });
+
+    /*
+     * Placed, and the confirmation not drawn yet: the basket is empty, and that is not an empty
+     * checkout. Once the confirmation has been drawn the note says so, and Back to the now-empty
+     * checkout shows the empty state with "Track this order".
+     */
+    const placing =
+        placeOrder.isPending ||
+        (placeOrder.isSuccess &&
+            latestPlaced?.orderId === placeOrder.data.id &&
+            latestPlaced.printed !== true);
+    const seenPlaced = placedId !== null && latestPlaced?.orderId === placedId;
+    const seenAlready = latestPlaced?.printed === true;
+    useEffect(() => {
+        if (!seenPlaced || seenAlready || latestPlaced === null) return;
+        placedOrders.write(LATEST_PLACED, { ...latestPlaced, printed: true });
+    }, [latestPlaced, seenAlready, seenPlaced]);
 
     /*
      * The confirmation is `?placed={order}`, read back from the order itself, so a refresh, or Back
@@ -373,44 +366,34 @@ export function CheckoutScreen() {
                   order.slotNames?.en ??
                   slotName(order.slotCode));
         return (
-            <CheckoutPage testID="checkout-success-screen">
-                <CheckoutTitle testID="checkout-title">
-                    {t('commerce:checkout.title')}
-                </CheckoutTitle>
-                <CheckoutSteps
-                    testID="checkout-stepper"
-                    label={t('commerce:checkout.progressLabel')}
-                    steps={steps}
-                    current={3}
-                />
-                <QueryStates
-                    query={placedOrder}
-                    isEmpty={false}
-                    treatFailuresAsEmpty={['resource.not_found']}
-                    emptyTitle={t('account:orders.notFoundTitle')}
-                    emptyBody={t('account:orders.notFoundBody')}
-                    skeletonCount={2}
-                    testID="checkout-placed"
-                >
-                    {order === undefined ? null : (
-                        <OrderPlaced
-                            order={order}
-                            kitchenName={note?.kitchenName ?? null}
-                            arriving={slotSentence(orderSlot, order.deliveryDate)}
-                            // Printed once, straight after placing it; a revisit shows it printed.
-                            printNow={note !== null && note.printed !== true}
-                            onPrinted={() => {
-                                if (note !== null) {
-                                    placedOrders.write(LATEST_PLACED, { ...note, printed: true });
-                                }
-                            }}
-                            onTrack={() => {
-                                router.push(`/customer/orders/${order.id}` as never);
-                            }}
-                        />
-                    )}
-                </QueryStates>
-            </CheckoutPage>
+            <View testID="checkout-success-screen" className="flex-col pb-12">
+                <CheckoutTop current={2} />
+                <View className="mt-[22px]">
+                    <QueryStates
+                        query={placedOrder}
+                        isEmpty={false}
+                        treatFailuresAsEmpty={['resource.not_found']}
+                        emptyTitle={t('account:orders.notFoundTitle')}
+                        emptyBody={t('account:orders.notFoundBody')}
+                        skeletonCount={2}
+                        testID="checkout-placed"
+                    >
+                        {order === undefined ? null : (
+                            <OrderPlaced
+                                order={order}
+                                kitchenName={note?.kitchenName ?? null}
+                                arriving={slotSentence(orderSlot, order.deliveryDate)}
+                                onTrack={() => {
+                                    router.push(`/customer/orders/${order.id}` as never);
+                                }}
+                                onKeepShopping={() => {
+                                    router.push('/meals' as never);
+                                }}
+                            />
+                        )}
+                    </QueryStates>
+                </View>
+            </View>
         );
     }
 
@@ -498,24 +481,28 @@ export function CheckoutScreen() {
 
     /* ── step one: delivery details ─────────────────────────────────────────────────────────── */
 
+    const dateTiles = Array.from({ length: DATE_TILES }, (_, index) =>
+        addDays(earliestDate, index),
+    ).filter((date): date is string => date !== null);
+    const noon = (date: string) => `${date}T12:00:00Z`;
+
     const deliveryStep = (
         <View className="flex-col" testID="checkout-delivery-step">
-            <StepHeading
-                title={t('commerce:checkout.deliveryTitle')}
-                body={t('commerce:checkout.deliveryBody')}
-            />
+            <PanelTitle title={t('commerce:checkout.deliveryTitle')} />
 
+            <PanelLabel first>{t('commerce:checkout.modeLabel')}</PanelLabel>
             <View
                 testID="checkout-mode"
                 role="radiogroup"
                 accessibilityRole="radiogroup"
                 aria-label={t('commerce:checkout.modeLabel')}
                 accessibilityLabel={t('commerce:checkout.modeLabel')}
-                className="mt-5 flex-row gap-2"
+                className="flex-row flex-wrap gap-2.5"
             >
-                <OptionCard
+                <ChoiceTile
                     testID="checkout-mode-delivery"
-                    label={t('commerce:checkout.modeDelivery')}
+                    icon="home"
+                    title={t('commerce:checkout.modeDelivery')}
                     sub={
                         quotation?.deliveryFee === null || quotation === undefined
                             ? t('commerce:checkout.modeDeliverySub')
@@ -525,9 +512,10 @@ export function CheckoutScreen() {
                     }
                     chosen
                 />
-                <OptionCard
+                <ChoiceTile
                     testID="checkout-mode-pickup"
-                    label={t('commerce:checkout.modePickup')}
+                    icon="basket"
+                    title={t('commerce:checkout.modePickup')}
                     sub={
                         kitchenOffersPickup
                             ? t('commerce:checkout.modePickupSub')
@@ -542,7 +530,8 @@ export function CheckoutScreen() {
                 />
             </View>
 
-            <View className="mt-5 flex-col gap-3" testID="checkout-address">
+            <PanelLabel>{t('commerce:checkout.savedAddress')}</PanelLabel>
+            <View testID="checkout-address">
                 <QueryStates
                     query={addresses}
                     isEmpty={addressList.length === 0}
@@ -560,107 +549,108 @@ export function CheckoutScreen() {
                     skeletonCount={1}
                     testID="checkout-addresses"
                 >
-                    <View className="flex-col gap-3">
-                        <FieldRow>
-                            <FieldCell>
-                                <Select
-                                    testID="checkout-address-picker"
-                                    label={t('commerce:checkout.addressTitle')}
-                                    value={addressId}
-                                    onChange={(next) => {
-                                        router.setParams({ address: next ?? undefined } as never);
-                                    }}
-                                    options={addressList.map((entry) => ({
-                                        value: entry.id,
-                                        label: formatSavedAddress(entry),
-                                    }))}
-                                    placeholder={t('commerce:checkout.addressPlaceholder')}
-                                    required
-                                    {...(showErrors && addressId === null
-                                        ? { error: t('commerce:validation.required') }
-                                        : {})}
-                                />
-                            </FieldCell>
-                        </FieldRow>
-                        <FieldRow>
-                            <FieldCell>
-                                <TextInputField
-                                    testID="checkout-street"
-                                    label={t('commerce:checkout.streetLabel')}
-                                    placeholder={t('commerce:checkout.fromAddress')}
-                                    value={streetOf(
-                                        selectedAddress,
-                                        t('commerce:common.listSeparator'),
-                                    )}
-                                    disabled
-                                />
-                            </FieldCell>
-                        </FieldRow>
-                        <FieldRow>
-                            <FieldCell>
-                                <TextInputField
-                                    testID="checkout-area"
-                                    label={t('commerce:checkout.areaLabel')}
-                                    placeholder={t('commerce:checkout.fromAddress')}
-                                    value={selectedAddress?.areaName ?? ''}
-                                    disabled
-                                />
-                            </FieldCell>
-                            <FieldCell>
-                                <View testID="checkout-date">
-                                    <DateField
-                                        testID="checkout-date-field"
-                                        label={t('commerce:checkout.dateLabel')}
-                                        value={deliveryDate}
-                                        min={earliestStartDate()}
-                                        required
-                                        onChange={(next) => {
-                                            router.setParams({ date: next ?? undefined } as never);
-                                        }}
-                                    />
-                                </View>
-                            </FieldCell>
-                        </FieldRow>
-                        <FieldRow>
-                            <FieldCell>
-                                <TextInputField
-                                    testID="checkout-note"
-                                    label={t('commerce:checkout.noteLabel')}
-                                    placeholder={
-                                        selectedAddress === null
-                                            ? t('commerce:checkout.fromAddress')
-                                            : t('commerce:checkout.noNote')
-                                    }
-                                    value={selectedAddress?.notes ?? ''}
-                                    disabled
-                                />
-                            </FieldCell>
-                        </FieldRow>
-                        <View className="flex-row flex-wrap gap-x-5 gap-y-2">
-                            {selectedAddress === null ? null : (
-                                <TextLink
-                                    testID="checkout-edit-address"
-                                    label={t('commerce:checkout.editAddress')}
-                                    onPress={() => {
-                                        openDetour(
-                                            `/customer/account/addresses/${selectedAddress.id}`,
-                                        );
-                                    }}
-                                />
-                            )}
-                            <TextLink
-                                testID="checkout-manage-addresses"
-                                label={t('commerce:checkout.addAnotherAddress')}
+                    <View
+                        testID="checkout-address-picker"
+                        role="radiogroup"
+                        aria-label={t('commerce:checkout.addressTitle')}
+                        className="flex-row flex-wrap gap-2.5"
+                    >
+                        {addressList.map((entry) => (
+                            <ChoiceTile
+                                key={entry.id}
+                                testID={`checkout-address-${entry.id}`}
+                                icon="home"
+                                title={entry.label.trim() === '' ? entry.areaName : entry.label}
+                                badge={
+                                    entry.isDefault
+                                        ? t('commerce:checkout.defaultAddress')
+                                        : undefined
+                                }
+                                sub={[
+                                    entry.areaName,
+                                    streetOf(entry, t('commerce:common.listSeparator')),
+                                ]
+                                    .filter((part) => part.trim() !== '')
+                                    .join(' · ')}
+                                chosen={entry.id === addressId}
+                                invalid={showErrors && addressId === null}
                                 onPress={() => {
-                                    openDetour('/customer/account/addresses/new');
+                                    router.setParams({ address: entry.id } as never);
                                 }}
                             />
-                        </View>
+                        ))}
+                        <Pressable
+                            testID="checkout-manage-addresses"
+                            role="button"
+                            accessibilityRole="button"
+                            onPress={() => {
+                                openDetour('/customer/account/addresses/new');
+                            }}
+                            className="min-h-16 min-w-[220px] flex-1 flex-row items-center justify-center gap-2 rounded-[18px] border-[1.5px] border-dashed border-stroke hover:border-surface-brand hover:bg-surface-brand-subtle"
+                        >
+                            <Icon name="plus" size="sm" className="text-content-brand" />
+                            <RNText className="text-sm font-semibold text-content-brand">
+                                {t('commerce:checkout.addAddressShort')}
+                            </RNText>
+                        </Pressable>
                     </View>
                 </QueryStates>
             </View>
 
-            <View className="mt-5" testID="checkout-slot">
+            <PanelLabel>{t('commerce:checkout.dateLabel')}</PanelLabel>
+            <View
+                testID="checkout-date"
+                role="radiogroup"
+                aria-label={t('commerce:checkout.dateLabel')}
+                className="flex-row flex-wrap gap-2"
+            >
+                {dateTiles.map((date, index) => {
+                    const on = date === deliveryDate;
+                    return (
+                        <Pressable
+                            key={date}
+                            testID={`checkout-date-${date}`}
+                            role="radio"
+                            aria-checked={on}
+                            accessibilityState={{ checked: on, selected: on }}
+                            accessibilityLabel={formatter.formatDate(noon(date), {
+                                dateStyle: 'full',
+                            })}
+                            onPress={() => {
+                                router.setParams({ date } as never);
+                            }}
+                            className={cx(
+                                'h-[72px] w-[68px] items-center justify-center gap-0.5 rounded-2xl border-[1.5px] transition duration-normal ease-standard hover:-translate-y-0.5',
+                                on
+                                    ? 'border-surface-brand bg-surface-brand'
+                                    : 'border-stroke bg-surface-raised hover:border-surface-brand',
+                            )}
+                        >
+                            <RNText
+                                className={cx(
+                                    'text-xs font-semibold uppercase tracking-wide',
+                                    on ? 'text-content-on-brand' : 'text-content-secondary',
+                                )}
+                            >
+                                {index === 0
+                                    ? t('commerce:checkout.tomorrowShort')
+                                    : formatter.formatDate(noon(date), { weekday: 'short' })}
+                            </RNText>
+                            <RNText
+                                className={cx(
+                                    'font-display text-xl font-bold tabular-nums',
+                                    on ? 'text-content-on-brand' : 'text-content-primary',
+                                )}
+                            >
+                                {formatter.formatDate(noon(date), { day: 'numeric' })}
+                            </RNText>
+                        </Pressable>
+                    );
+                })}
+            </View>
+
+            <PanelLabel>{t('commerce:checkout.slotTitle')}</PanelLabel>
+            <View testID="checkout-slot">
                 {slotCode === null ? (
                     <Callout
                         testID="checkout-slot-none"
@@ -671,81 +661,135 @@ export function CheckoutScreen() {
                         body={t('commerce:checkout.noSlotsOffered')}
                     />
                 ) : (
-                    <ChoiceChips
+                    <View
                         testID="checkout-slot-picker"
-                        label={t('commerce:checkout.slotTitle')}
-                        value={slotCode}
-                        onChange={(next) => {
-                            router.setParams({ slot: next } as never);
-                        }}
-                        options={slotOptions.map((slot) => ({
-                            value: slot.code,
-                            label: t('commerce:checkout.slotChip', {
-                                slot: slotName(slot.code),
-                                from: slot.startsAt,
-                                to: slot.endsAt,
-                            }),
-                            testID: `checkout-slot-${slot.code}`,
-                        }))}
-                    />
+                        role="radiogroup"
+                        aria-label={t('commerce:checkout.slotTitle')}
+                        className="flex-row flex-wrap gap-2"
+                    >
+                        {slotOptions.map((slot) => {
+                            const on = slot.code === slotCode;
+                            return (
+                                <Pressable
+                                    key={slot.code}
+                                    testID={`checkout-slot-${slot.code}`}
+                                    role="radio"
+                                    aria-checked={on}
+                                    accessibilityState={{ checked: on, selected: on }}
+                                    onPress={() => {
+                                        router.setParams({ slot: slot.code } as never);
+                                    }}
+                                    className={cx(
+                                        'h-[60px] min-w-[120px] flex-1 items-center justify-center gap-0.5 rounded-2xl border-[1.5px]',
+                                        on
+                                            ? 'border-surface-brand bg-surface-brand-subtle'
+                                            : 'border-stroke bg-surface-raised hover:border-surface-brand',
+                                    )}
+                                >
+                                    <RNText
+                                        className={cx(
+                                            'text-sm font-bold',
+                                            on
+                                                ? 'text-content-on-brand-subtle'
+                                                : 'text-content-primary',
+                                        )}
+                                    >
+                                        {slotName(slot.code)}
+                                    </RNText>
+                                    <RNText
+                                        className={cx(
+                                            'text-xs font-medium tabular-nums',
+                                            on
+                                                ? 'text-content-on-brand-subtle'
+                                                : 'text-content-secondary',
+                                        )}
+                                    >
+                                        {`${slot.startsAt} – ${slot.endsAt}`}
+                                    </RNText>
+                                </Pressable>
+                            );
+                        })}
+                    </View>
                 )}
             </View>
 
-            <View className="mt-6 flex-row">
-                <Button
+            <PanelActions>
+                <ArrowAction
                     testID="checkout-review"
-                    size="lg"
                     label={t('commerce:checkout.review')}
-                    // No saved address, nothing to continue with — the empty state above says what
-                    // to do, and the disabled button says it again to somebody who cannot see it.
+                    // No saved address, nothing to continue with — the empty state above says what to
+                    // do, and the disabled button says it again to somebody who cannot see it.
                     disabled={addresses.isSuccess && addressList.length === 0}
                     {...(addresses.isSuccess && addressList.length === 0
                         ? { accessibilityHint: t('commerce:checkout.noAddressTitle') }
                         : {})}
                     onPress={onReview}
                 />
-            </View>
+            </PanelActions>
         </View>
     );
 
     /* ── step two: payment ──────────────────────────────────────────────────────────────────── */
 
+    const whenLine = (date: string, slotLabel: string, slot: string) => {
+        const window = deliverySlotByCode(slot, kitchen.data);
+        return [
+            formatter.formatDate(noon(date), { weekday: 'short', day: 'numeric', month: 'short' }),
+            window === null ? slotLabel : `${slotLabel} ${window.startsAt} – ${window.endsAt}`,
+        ].join(' · ');
+    };
+
     const paymentStep =
         committed === null ? null : (
             <View className="flex-col" testID="checkout-payment-step">
-                <RNText
-                    accessibilityRole="header"
-                    aria-level={2}
-                    className="font-display text-2xl font-bold tracking-display text-content-primary text-start"
-                >
-                    {t('commerce:checkout.paymentTitle')}
-                </RNText>
-                {/* What is being committed to, in one muted line under the heading — the design's
-                    payment card has no room for a review table, and the details step is one
-                    "Back" away. */}
-                <RNText className="mb-5 mt-1 text-sm text-content-secondary text-start">
-                    <RNText testID="checkout-committed-address">
-                        {t('commerce:checkout.deliveringTo', { address: committed.addressLabel })}
-                    </RNText>
-                    {t('commerce:checkout.committedSeparator')}
-                    <RNText testID="checkout-committed-slot">
-                        {slotSentence(committed.slotLabel, committed.deliveryDate)}
-                    </RNText>
-                </RNText>
+                <PanelTitle title={t('commerce:checkout.paymentTitle')} />
 
+                <PanelLabel first>{t('commerce:checkout.payWith')}</PanelLabel>
                 <View
                     testID="checkout-payment-methods"
                     role="radiogroup"
                     accessibilityRole="radiogroup"
                     aria-label={t('commerce:checkout.paymentTitle')}
                     accessibilityLabel={t('commerce:checkout.paymentTitle')}
-                    className="flex-col gap-2.5"
                 >
-                    <RadioRow
+                    <View
                         testID="checkout-payment-cod"
-                        label={t('commerce:checkout.paymentCod')}
-                        meta={t('commerce:checkout.paymentCodMeta')}
-                        chosen
+                        role="radio"
+                        aria-checked
+                        accessibilityState={{ checked: true }}
+                        className="flex-row items-center gap-3.5 rounded-[18px] border-[1.5px] border-surface-brand bg-surface-brand-subtle p-4"
+                    >
+                        <View className="h-11 w-11 items-center justify-center rounded-[14px] bg-surface-raised">
+                            <Icon name="basket" size="md" className="text-content-brand" />
+                        </View>
+                        <View className="min-w-0 flex-1">
+                            <RNText className="text-base font-bold text-content-on-brand-subtle text-start">
+                                {t('commerce:checkout.paymentCod')}
+                            </RNText>
+                            <RNText className="text-sm font-medium text-content-on-brand-subtle opacity-85 text-start">
+                                {t('commerce:checkout.paymentCodMeta')}
+                            </RNText>
+                        </View>
+                        <RadioDot on />
+                    </View>
+                </View>
+
+                <View className="mt-3.5 flex-row flex-wrap gap-2.5">
+                    <ReviewCell
+                        testID="checkout-committed-address"
+                        label={t('commerce:checkout.deliveringToLabel')}
+                        value={committed.addressLabel}
+                        onChange={onBackToDelivery}
+                    />
+                    <ReviewCell
+                        testID="checkout-committed-slot"
+                        label={t('commerce:checkout.whenLabel')}
+                        value={whenLine(
+                            committed.deliveryDate,
+                            committed.slotLabel,
+                            committed.slotCode,
+                        )}
+                        onChange={onBackToDelivery}
                     />
                 </View>
 
@@ -760,8 +804,8 @@ export function CheckoutScreen() {
                             title={t('commerce:checkout.placeFailedTitle')}
                             body={t(
                                 FAILURE_MESSAGE_KEYS[placeFailure.code],
-                                // The server's own sentence only when this build has no copy for
-                                // the code — never in preference to it.
+                                // The server's own sentence only when this build has no copy for the
+                                // code — never in preference to it.
                                 { defaultValue: placeFailure.message },
                             )}
                             actions={
@@ -799,7 +843,7 @@ export function CheckoutScreen() {
                 )}
 
                 {allergenConflicts.length === 0 ? null : (
-                    <View className="mt-6">
+                    <View className="mt-5">
                         <Callout
                             testID="checkout-allergen-conflict"
                             role="alert"
@@ -851,124 +895,130 @@ export function CheckoutScreen() {
                     }
                 />
 
-                <View className="mt-6 flex-row gap-2.5">
-                    <Button
+                <PanelActions>
+                    <Pressable
                         testID="checkout-edit"
-                        variant="secondary"
-                        size="lg"
-                        label={t('commerce:checkout.back')}
+                        role="button"
+                        accessibilityRole="button"
                         onPress={onBackToDelivery}
+                        className="h-[52px] flex-row items-center gap-2 rounded-2xl border border-stroke bg-surface-raised pe-[18px] ps-3 hover:bg-surface-brand-subtle"
+                    >
+                        <Icon name="chevronBackward" size="sm" className="text-content-primary" />
+                        <RNText className="text-base font-semibold text-content-primary">
+                            {t('commerce:checkout.back')}
+                        </RNText>
+                    </Pressable>
+                    <ArrowAction
+                        testID="checkout-place-order"
+                        label={
+                            quotation === undefined
+                                ? t('commerce:checkout.placeOrder')
+                                : t('commerce:checkout.placeOrderTotal', {
+                                      total: formatMoney(formatter, quotation.total),
+                                  })
+                        }
+                        accessibilityHint={
+                            setupSteps.length > 0
+                                ? t('commerce:checkout.placeOrderBlockedHint')
+                                : t('commerce:checkout.placeOrderHint')
+                        }
+                        loading={placeOrder.isPending}
+                        // No confirmed total, no placement; nor while account steps are left.
+                        disabled={quotation === undefined || setupSteps.length > 0}
+                        onPress={() => {
+                            onPlace();
+                        }}
                     />
-                    <View className="min-w-0 flex-1">
-                        <Button
-                            testID="checkout-place-order"
-                            block
-                            size="lg"
-                            label={
-                                quotation === undefined
-                                    ? t('commerce:checkout.placeOrder')
-                                    : t('commerce:checkout.placeOrderTotal', {
-                                          total: formatMoney(formatter, quotation.total),
-                                      })
-                            }
-                            accessibilityHint={
-                                setupSteps.length > 0
-                                    ? t('commerce:checkout.placeOrderBlockedHint')
-                                    : t('commerce:checkout.placeOrderHint')
-                            }
-                            loading={placeOrder.isPending}
-                            // No confirmed total, no placement; nor while account steps are left.
-                            disabled={quotation === undefined || setupSteps.length > 0}
-                            onPress={() => {
-                                onPlace();
-                            }}
-                        />
-                    </View>
-                </View>
+                </PanelActions>
             </View>
         );
 
-    /* ── the rail ───────────────────────────────────────────────────────────────────────────── */
+    /* ── the summary ────────────────────────────────────────────────────────────────────────── */
 
-    /*
-     * The printer stands beside Place order and starts when it is pressed. It goes on "Processing"
-     * until the confirmation replaces this page, where the same printer, in the same place, prints
-     * the receipt — so the hand-over is not seen.
-     */
-    const placing =
-        placeOrder.isPending ||
-        // Placed, and the confirmation not drawn yet. Once its receipt has printed this is false
-        // again, so Back to a now-empty checkout shows the empty state with "Track this order".
-        (placeOrder.isSuccess &&
-            latestPlaced?.orderId === placeOrder.data.id &&
-            latestPlaced.printed !== true);
-    const printer =
-        committed === null ? null : (
-            <ReceiptPrinter.Root testID="checkout-printer" stage={placing ? 'processing' : 'idle'}>
-                <ReceiptPrinter.Machine>
-                    <ReceiptPrinter.Screen>
-                        <ReceiptPrinter.Status />
-                    </ReceiptPrinter.Screen>
-                </ReceiptPrinter.Machine>
-            </ReceiptPrinter.Root>
-        );
+    const addressLine =
+        selectedAddress === null
+            ? null
+            : [selectedAddress.label, selectedAddress.areaName]
+                  .filter((part) => part.trim() !== '')
+                  .join(' · ');
+    const slotForSummary = slotCode === null ? null : slotName(slotCode);
 
     const summary =
         basket === undefined ? null : (
-            <View className="flex-col gap-4">
-                {printer}
-                <SummaryRail
-                    testID="checkout-summary"
-                    countTestID="checkout-summary-count"
-                    itemsTestID="checkout-items"
-                    itemCount={basket.itemCount}
-                    items={basket.items.map((item) => ({
-                        key: item.id,
-                        name: item.name,
-                        quantity: item.quantity,
-                        lineTotal: item.lineTotal,
-                    }))}
+            <SummaryCard
+                testID="checkout-summary"
+                countTestID="checkout-summary-count"
+                total={quotation === undefined ? null : formatMoney(formatter, quotation.total)}
+                itemCount={basket.itemCount}
+            >
+                <View testID="checkout-items" className="flex-col">
+                    {basket.items.map((item) => (
+                        <MiniLine
+                            key={item.id}
+                            testID={`checkout-items-${item.id}`}
+                            name={item.name}
+                            mealId={item.mealId}
+                            quantity={item.quantity}
+                            unit={formatMoney(formatter, item.unitPrice)}
+                            total={formatMoney(formatter, item.lineTotal)}
+                        />
+                    ))}
+                </View>
+                <QueryStates
+                    query={preview}
+                    isEmpty={false}
+                    emptyTitle={t('commerce:cart.summaryEmpty')}
+                    skeletonCount={1}
+                    testID="checkout-preview"
                 >
-                    <QueryStates
-                        query={preview}
-                        isEmpty={false}
-                        emptyTitle={t('commerce:cart.summaryEmpty')}
-                        skeletonCount={1}
-                        testID="checkout-preview"
-                    >
-                        {quotation === undefined ? null : (
-                            <View className="flex-col gap-4">
-                                {/*
-                                 * What the total is made of, as the basket showed it (HA-22): a total
-                                 * that grew by the delivery fee with no line saying so read as an error.
-                                 */}
-                                <View className="flex-col gap-3">
-                                    <SummaryRow
-                                        testID="checkout-price-subtotal"
-                                        label={t('commerce:cart.subtotal')}
-                                        value={formatMoney(formatter, quotation.subtotal)}
-                                    />
-                                    {/* Unknown until an address is chosen; the warning below says so. */}
-                                    {quotation.deliveryFee === null ? null : (
-                                        <SummaryRow
-                                            testID="checkout-price-delivery"
-                                            label={t('commerce:cart.delivery')}
-                                            value={formatMoney(formatter, quotation.deliveryFee)}
-                                        />
-                                    )}
-                                </View>
-                                <SummaryTotal
-                                    testID="checkout-price-total"
-                                    label={t('commerce:cart.total')}
-                                    total={quotation.total}
-                                    rule
+                    {quotation === undefined ? null : (
+                        <View className="flex-col">
+                            {/*
+                             * What the total is made of, as the basket showed it (HA-22): a total that
+                             * grew by the delivery fee with no line saying so read as an error.
+                             */}
+                            <View className="mt-1.5 flex-col gap-3 border-t border-stroke-subtle pt-3">
+                                <SummaryRow
+                                    testID="checkout-price-subtotal"
+                                    label={t('commerce:cart.subtotal')}
+                                    value={formatMoney(formatter, quotation.subtotal)}
                                 />
-                                {/* The allergen one is said beside Place order, which asks about it. */}
-                                {displayableWarnings(quotation.warnings)
-                                    .filter((code) => code !== ALLERGEN_CONFLICT_WARNING)
-                                    .map((code) => (
+                                {/* Unknown until an address is chosen; the warning below says so. */}
+                                {quotation.deliveryFee === null ? null : (
+                                    <SummaryRow
+                                        testID="checkout-price-delivery"
+                                        label={
+                                            selectedAddress === null ||
+                                            selectedAddress.areaName.trim() === ''
+                                                ? t('commerce:cart.delivery')
+                                                : t('commerce:cart.deliveryTo', {
+                                                      area: selectedAddress.areaName,
+                                                  })
+                                        }
+                                        value={formatMoney(formatter, quotation.deliveryFee)}
+                                    />
+                                )}
+                            </View>
+                            <View
+                                testID="checkout-price-total"
+                                className="mt-3 flex-row items-baseline justify-between border-t border-dashed border-stroke pt-3"
+                            >
+                                <RNText className="text-sm text-content-secondary">
+                                    {t('commerce:cart.total')}
+                                </RNText>
+                                <RNText
+                                    testID="checkout-price-total-amount"
+                                    className="font-display text-2xl font-bold tabular-nums tracking-display text-content-primary"
+                                >
+                                    {formatMoney(formatter, quotation.total)}
+                                </RNText>
+                            </View>
+                            {/* The allergen one is said beside Place order, which asks about it. */}
+                            {displayableWarnings(quotation.warnings)
+                                .filter((code) => code !== ALLERGEN_CONFLICT_WARNING)
+                                .map((code) => (
+                                    <View key={code} className="mt-3">
                                         <Callout
-                                            key={code}
                                             testID={`checkout-warning-${code.replace(/\./g, '-')}`}
                                             role={isCriticalWarning(code) ? 'alert' : 'note'}
                                             tone={isCriticalWarning(code) ? 'danger' : 'warning'}
@@ -976,145 +1026,603 @@ export function CheckoutScreen() {
                                             title={t('commerce:warnings.title')}
                                             body={t(warningMessageKey(code), { code })}
                                         />
-                                    ))}
-                            </View>
-                        )}
-                    </QueryStates>
-                </SummaryRail>
-            </View>
+                                    </View>
+                                ))}
+                        </View>
+                    )}
+                </QueryStates>
+                <DeliveryFacts
+                    address={addressLine}
+                    when={
+                        slotCode === null || slotForSummary === null
+                            ? null
+                            : whenLine(deliveryDate, slotForSummary, slotCode)
+                    }
+                />
+            </SummaryCard>
         );
 
-    return (
-        <CheckoutPage testID="checkout-screen">
-            <CheckoutTitle testID="checkout-title">{t('commerce:checkout.title')}</CheckoutTitle>
+    const wide = atLeast('lg');
 
-            {/* Delivery → Payment → Confirmation. Payment is the committed state the two-phase
-                flow below already tracks; the third segment is reached only by a placed order. */}
-            <CheckoutSteps
-                testID="checkout-stepper"
-                label={t('commerce:checkout.progressLabel')}
-                steps={steps}
-                current={committed === null ? 1 : 2}
+    return (
+        <View testID="checkout-screen" className="flex-col pb-12">
+            <CheckoutTop
+                current={committed === null ? 0 : 1}
+                onBasket={() => {
+                    router.push('/customer/cart' as never);
+                }}
             />
 
-            <QueryStates
-                query={cart}
-                // Placement empties the basket before the confirmation takes over: an order on its
-                // way is not an empty checkout.
-                isEmpty={basket !== undefined && basket.items.length === 0 && !placing}
-                emptyTitle={t('commerce:checkout.emptyTitle')}
-                emptyBody={t('commerce:checkout.emptyBody')}
-                emptyActions={
-                    <Inline space="sm">
-                        {/* Back from a confirmation lands here, on the now-empty basket's
-                            checkout: the order that emptied it is one press away. */}
-                        {latestPlaced === null ? null : (
+            <View className="mt-[22px]">
+                <QueryStates
+                    query={cart}
+                    // Placement empties the basket before the confirmation takes over: an order on
+                    // its way is not an empty checkout.
+                    isEmpty={basket !== undefined && basket.items.length === 0 && !placing}
+                    emptyTitle={t('commerce:checkout.emptyTitle')}
+                    emptyBody={t('commerce:checkout.emptyBody')}
+                    emptyActions={
+                        <Inline space="sm">
+                            {/* Back from a confirmation lands here, on the now-empty basket's
+                                checkout: the order that emptied it is one press away. */}
+                            {latestPlaced === null ? null : (
+                                <Button
+                                    testID="checkout-track-latest"
+                                    label={t('commerce:checkout.successTrack')}
+                                    onPress={() => {
+                                        router.push(
+                                            `/customer/orders/${latestPlaced.orderId}` as never,
+                                        );
+                                    }}
+                                />
+                            )}
                             <Button
-                                testID="checkout-track-latest"
-                                label={t('commerce:checkout.successTrack')}
+                                testID="checkout-browse"
+                                variant={latestPlaced === null ? 'primary' : 'secondary'}
+                                label={t('commerce:cart.browse')}
                                 onPress={() => {
-                                    router.push(
-                                        `/customer/orders/${latestPlaced.orderId}` as never,
-                                    );
+                                    router.push('/meals');
                                 }}
                             />
-                        )}
-                        <Button
-                            testID="checkout-browse"
-                            variant={latestPlaced === null ? 'primary' : 'secondary'}
-                            label={t('commerce:cart.browse')}
-                            onPress={() => {
-                                router.push('/meals');
-                            }}
-                        />
-                    </Inline>
-                }
-                skeletonCount={2}
-                testID="checkout"
-            >
-                <CheckoutColumns
-                    testID="checkout-layout"
-                    asideWidth="md"
-                    main={
-                        <CheckoutCard padding="lg" testID="checkout-step-card">
-                            {setupSteps.length === 0 ? null : (
-                                <View className="mb-6">
-                                    <AccountSetupPanel
-                                        testID="checkout-setup-required"
-                                        role={refusedForSetup ? 'alert' : 'status'}
-                                        title={t('commerce:checkout.setupTitle')}
-                                        body={t('commerce:checkout.setupBody', {
-                                            count: setupSteps.length,
-                                        })}
-                                        steps={setupSteps}
-                                        stepsTestID="checkout-setup-step"
-                                        returnTo={here}
-                                    />
-                                </View>
-                            )}
-                            {committed === null ? deliveryStep : paymentStep}
-                        </CheckoutCard>
+                        </Inline>
                     }
-                    aside={summary}
-                />
-            </QueryStates>
-        </CheckoutPage>
+                    skeletonCount={2}
+                    testID="checkout"
+                >
+                    <Columns
+                        testID="checkout-layout"
+                        wide={wide}
+                        main={
+                            <View
+                                testID="checkout-step-card"
+                                className="rounded-[26px] border border-stroke-subtle bg-surface-raised px-6 pb-6 pt-[22px] shadow-elevation-2"
+                            >
+                                {setupSteps.length === 0 ? null : (
+                                    <View className="mb-6">
+                                        <AccountSetupPanel
+                                            testID="checkout-setup-required"
+                                            role={refusedForSetup ? 'alert' : 'status'}
+                                            title={t('commerce:checkout.setupTitle')}
+                                            body={t('commerce:checkout.setupBody', {
+                                                count: setupSteps.length,
+                                            })}
+                                            steps={setupSteps}
+                                            stepsTestID="checkout-setup-step"
+                                            returnTo={here}
+                                        />
+                                    </View>
+                                )}
+                                {committed === null ? deliveryStep : paymentStep}
+                            </View>
+                        }
+                        aside={summary}
+                    />
+                </QueryStates>
+            </View>
+        </View>
     );
 }
 
 /* ── pieces ─────────────────────────────────────────────────────────────────────────────────── */
 
-function StepHeading({ title, body }: { readonly title: string; readonly body: string }) {
+const STEP_KEYS = ['delivery', 'payment', 'placed'] as const;
+
+/** How many delivery dates the board offers, from the earliest. */
+const DATE_TILES = 6;
+
+/** The page's top row: back to the basket, "Checkout", and the three-step progress beside it. */
+function CheckoutTop({
+    current,
+    onBasket,
+}: {
+    /** 0 delivery, 1 payment, 2 confirmation. */
+    readonly current: 0 | 1 | 2;
+    readonly onBasket?: (() => void) | undefined;
+}) {
+    const { t } = useTranslation();
+    const steps = [
+        t('commerce:checkout.steps.delivery'),
+        t('commerce:checkout.steps.payment'),
+        t('commerce:checkout.steps.placed'),
+    ];
     return (
-        <View className="flex-col gap-1">
+        <View className="flex-row flex-wrap items-center gap-3.5 pt-1">
+            {onBasket === undefined ? null : (
+                <BackPill
+                    testID="checkout-back-basket"
+                    label={t('commerce:checkout.basket')}
+                    onPress={onBasket}
+                    className="me-1.5"
+                />
+            )}
             <RNText
-                accessibilityRole="header"
-                aria-level={2}
-                className="font-display text-2xl font-bold tracking-display text-content-primary text-start"
+                testID="checkout-title"
+                role="heading"
+                aria-level={1}
+                className="font-display text-4xl font-bold tracking-display text-content-primary text-start"
             >
-                {title}
+                {t('commerce:checkout.title')}
             </RNText>
-            <RNText className="text-sm text-content-secondary text-start">{body}</RNText>
+            <View
+                testID="checkout-stepper"
+                role="list"
+                aria-label={t('commerce:checkout.progressLabel')}
+                className="relative w-full max-w-[520px] flex-row md:ms-auto md:w-[420px]"
+            >
+                {/* The track between the first and last circle, filled up to the current step. */}
+                <View
+                    aria-hidden
+                    className="absolute end-[16.6%] start-[16.6%] top-[15px] h-[3px] flex-row rounded-full bg-stroke-subtle"
+                >
+                    <View style={{ flex: current }} className="rounded-full bg-surface-brand" />
+                    <View style={{ flex: 2 - current }} />
+                </View>
+                {steps.map((label, index) => {
+                    const done = index < current;
+                    const now = index === current;
+                    return (
+                        <View
+                            key={label}
+                            testID={`checkout-stepper-${STEP_KEYS[index] ?? 'placed'}`}
+                            role="listitem"
+                            aria-current={now ? 'step' : undefined}
+                            className="flex-1 items-center gap-1.5"
+                        >
+                            <View
+                                className={cx(
+                                    'h-8 w-8 items-center justify-center rounded-full border-2',
+                                    done
+                                        ? 'border-surface-brand bg-surface-brand'
+                                        : now
+                                          ? 'border-surface-brand bg-surface-raised'
+                                          : 'border-stroke bg-surface-raised',
+                                )}
+                            >
+                                {done ? (
+                                    <Icon
+                                        name="check"
+                                        size="sm"
+                                        className="text-content-on-brand"
+                                    />
+                                ) : (
+                                    <RNText
+                                        className={cx(
+                                            'text-sm font-bold',
+                                            now ? 'text-content-brand' : 'text-content-secondary',
+                                        )}
+                                    >
+                                        {String(index + 1)}
+                                    </RNText>
+                                )}
+                            </View>
+                            <RNText
+                                className={cx(
+                                    'text-sm font-semibold',
+                                    now ? 'text-content-primary' : 'text-content-secondary',
+                                )}
+                            >
+                                {label}
+                            </RNText>
+                        </View>
+                    );
+                })}
+            </View>
         </View>
     );
 }
 
-interface SummaryRailProps {
+/** The step card beside the summary from `lg`, above it below. */
+function Columns({
+    main,
+    aside,
+    wide,
+    testID,
+}: {
+    readonly main: ReactNode;
+    readonly aside: ReactNode;
+    readonly wide: boolean;
     readonly testID: string;
-    readonly countTestID?: string | undefined;
-    readonly itemsTestID: string;
-    readonly itemCount: number;
-    readonly items: readonly SummaryItem[];
-    readonly children: ReactNode;
+}) {
+    if (!wide) {
+        return (
+            <View testID={testID} className="flex-col gap-6">
+                <View testID={`${testID}-main`}>{main}</View>
+                <View testID={`${testID}-aside`}>{aside}</View>
+            </View>
+        );
+    }
+    return (
+        <View testID={testID} className="flex-row items-start gap-6">
+            <View testID={`${testID}-main`} className="min-w-0 flex-1">
+                {main}
+            </View>
+            <View
+                testID={`${testID}-aside`}
+                className="z-auto w-[380px] shrink-0 self-start web:sticky web:top-0"
+            >
+                {aside}
+            </View>
+        </View>
+    );
 }
 
-/** The design's checkout rail: "N ITEMS", one line per meal, then the total under a rule. */
-function SummaryRail({
+function PanelTitle({ title }: { readonly title: string }) {
+    return (
+        <RNText
+            accessibilityRole="header"
+            aria-level={2}
+            className="mb-1 font-display text-2xl font-bold tracking-display text-content-primary text-start"
+        >
+            {title}
+        </RNText>
+    );
+}
+
+function PanelLabel({
+    children,
+    first = false,
+}: {
+    readonly children: string;
+    readonly first?: boolean;
+}) {
+    return (
+        <RNText
+            className={cx(
+                'mb-2.5 text-xs font-bold uppercase tracking-wider text-content-secondary text-start',
+                first ? 'mt-1.5' : 'mt-5',
+            )}
+        >
+            {children}
+        </RNText>
+    );
+}
+
+function PanelActions({ children }: { readonly children: ReactNode }) {
+    return (
+        <View className="mt-6 flex-row items-center gap-2.5 border-t border-stroke-subtle pt-[18px]">
+            {children}
+        </View>
+    );
+}
+
+function RadioDot({ on }: { readonly on: boolean }) {
+    return (
+        <View
+            aria-hidden
+            className={cx(
+                'ms-auto h-[22px] w-[22px] items-center justify-center rounded-full border-2',
+                on ? 'border-surface-brand' : 'border-stroke',
+            )}
+        >
+            {on ? <View className="h-2.5 w-2.5 rounded-full bg-surface-brand" /> : null}
+        </View>
+    );
+}
+
+/** The board's option: an icon box, a title over a line, a radio dot at the end. */
+function ChoiceTile({
+    testID,
+    icon,
+    title,
+    sub,
+    badge,
+    chosen,
+    disabled = false,
+    invalid = false,
+    accessibilityHint,
+    onPress,
+}: {
+    readonly testID: string;
+    readonly icon: 'home' | 'basket';
+    readonly title: string;
+    readonly sub: string;
+    readonly badge?: string | undefined;
+    readonly chosen: boolean;
+    readonly disabled?: boolean;
+    readonly invalid?: boolean;
+    readonly accessibilityHint?: string | undefined;
+    readonly onPress?: (() => void) | undefined;
+}) {
+    return (
+        <Pressable
+            testID={testID}
+            role="radio"
+            aria-checked={chosen}
+            accessibilityState={{ checked: chosen, selected: chosen, disabled }}
+            {...(accessibilityHint === undefined ? {} : { accessibilityHint })}
+            disabled={disabled || onPress === undefined}
+            onPress={onPress}
+            className={cx(
+                'min-h-16 min-w-[220px] flex-1 flex-row items-center gap-3 rounded-[18px] border-[1.5px] px-3.5 py-3 transition duration-normal ease-standard',
+                chosen
+                    ? 'border-surface-brand bg-surface-brand-subtle shadow-elevation-1'
+                    : disabled
+                      ? 'border-dashed border-stroke bg-surface-raised opacity-50'
+                      : cx(
+                            'bg-surface-raised hover:border-surface-brand',
+                            invalid ? 'border-danger-border' : 'border-stroke',
+                        ),
+            )}
+        >
+            <View
+                className={cx(
+                    'h-10 w-10 items-center justify-center rounded-xl',
+                    chosen ? 'bg-surface-raised' : 'bg-surface-base',
+                )}
+            >
+                <Icon name={icon} size="sm" className="text-content-brand" />
+            </View>
+            <View className="min-w-0 flex-1">
+                <View className="flex-row flex-wrap items-center gap-1.5">
+                    <RNText className="text-base font-bold text-content-primary text-start">
+                        {title}
+                    </RNText>
+                    {badge === undefined ? null : (
+                        <View className="h-5 justify-center rounded-full bg-surface-brand px-[7px]">
+                            <RNText className="text-xs font-bold uppercase tracking-wide text-content-on-brand">
+                                {badge}
+                            </RNText>
+                        </View>
+                    )}
+                </View>
+                <RNText
+                    numberOfLines={2}
+                    className="mt-px text-sm font-medium text-content-secondary text-start"
+                >
+                    {sub}
+                </RNText>
+            </View>
+            <RadioDot on={chosen} />
+        </Pressable>
+    );
+}
+
+/** One committed choice on the payment step, with "Change" back to the delivery step. */
+function ReviewCell({
+    testID,
+    label,
+    value,
+    onChange,
+}: {
+    readonly testID: string;
+    readonly label: string;
+    readonly value: string;
+    readonly onChange: () => void;
+}) {
+    const { t } = useTranslation();
+    return (
+        <View className="min-w-[220px] flex-1 rounded-2xl border border-stroke-subtle bg-surface-base px-4 py-3.5">
+            <RNText className="text-xs font-semibold text-content-secondary text-start">
+                {label}
+            </RNText>
+            <RNText
+                testID={testID}
+                className="mt-0.5 text-base font-bold text-content-primary text-start"
+            >
+                {value}
+            </RNText>
+            <Pressable
+                testID={`${testID}-change`}
+                role="button"
+                accessibilityRole="button"
+                onPress={onChange}
+                className="mt-1.5 self-start"
+            >
+                <RNText className="text-sm font-semibold text-content-brand">
+                    {t('commerce:checkout.change')}
+                </RNText>
+            </Pressable>
+        </View>
+    );
+}
+
+/** The board's main button: a label and an arrow in a soft circle; a spinner while it works. */
+function ArrowAction({
+    testID,
+    label,
+    disabled = false,
+    loading = false,
+    accessibilityHint,
+    onPress,
+}: {
+    readonly testID: string;
+    readonly label: string;
+    readonly disabled?: boolean;
+    readonly loading?: boolean;
+    readonly accessibilityHint?: string | undefined;
+    readonly onPress: () => void;
+}) {
+    const off = disabled || loading;
+    return (
+        <Pressable
+            testID={testID}
+            role="button"
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            {...(accessibilityHint === undefined ? {} : { accessibilityHint })}
+            accessibilityState={{ disabled: off, busy: loading }}
+            disabled={off}
+            onPress={onPress}
+            className={cx(
+                'h-14 min-w-0 flex-1 flex-row items-center rounded-2xl px-5',
+                loading ? 'justify-center' : 'justify-between',
+                disabled ? 'bg-stroke-subtle' : 'bg-surface-brand hover:bg-surface-canopy',
+            )}
+        >
+            {loading ? (
+                <ActivityIndicator size="small" />
+            ) : (
+                <>
+                    <RNText
+                        numberOfLines={1}
+                        className={cx(
+                            'shrink text-base font-bold',
+                            disabled ? 'text-content-secondary' : 'text-content-on-brand',
+                        )}
+                    >
+                        {label}
+                    </RNText>
+                    <View className="h-8 w-8 items-center justify-center rounded-full bg-content-on-brand/20">
+                        <Icon
+                            name="chevronForward"
+                            size="sm"
+                            className={
+                                disabled ? 'text-content-secondary' : 'text-content-on-brand'
+                            }
+                        />
+                    </View>
+                </>
+            )}
+        </Pressable>
+    );
+}
+
+/** The order summary: the total on the canopy, then what is inside. */
+function SummaryCard({
     testID,
     countTestID,
-    itemsTestID,
+    total,
     itemCount,
-    items,
     children,
-}: SummaryRailProps) {
+}: {
+    readonly testID: string;
+    readonly countTestID?: string | undefined;
+    readonly total: string | null;
+    readonly itemCount: number;
+    readonly children: ReactNode;
+}) {
     const { t } = useTranslation();
     const formatter = useFormatter();
-
     return (
-        <CheckoutCard testID={testID}>
-            <View className="flex-col">
-                <Eyebrow testID={countTestID}>
-                    {t('commerce:checkout.itemCount', {
-                        count: itemCount,
-                        items: formatter.formatNumber(itemCount),
-                    })}
-                </Eyebrow>
-                <View className="mb-4 mt-3">
-                    <SummaryItems testID={itemsTestID} items={items} />
+        <View
+            testID={testID}
+            className="overflow-hidden rounded-[26px] border border-stroke-subtle bg-surface-raised shadow-elevation-2"
+        >
+            <View className="relative overflow-hidden bg-surface-canopy px-5 py-[18px]">
+                <View
+                    aria-hidden
+                    pointerEvents="none"
+                    className="absolute -end-16 -top-20 h-48 w-48 rounded-full bg-stage-green opacity-15"
+                />
+                <RNText className="text-xs font-semibold uppercase tracking-wider text-content-on-canopy-muted">
+                    {t('commerce:cart.summaryTitle')}
+                </RNText>
+                <View className="mt-1.5 flex-row items-baseline justify-between gap-3">
+                    <RNText className="font-display text-4xl font-bold tabular-nums tracking-display text-content-on-canopy">
+                        {total ?? '—'}
+                    </RNText>
+                    <RNText testID={countTestID} className="text-sm text-content-on-canopy-muted">
+                        {t('commerce:checkout.itemCount', {
+                            count: itemCount,
+                            items: formatter.formatNumber(itemCount),
+                        })}
+                    </RNText>
                 </View>
-                {children}
             </View>
-        </CheckoutCard>
+            <View className="px-5 pb-5 pt-3">{children}</View>
+        </View>
+    );
+}
+
+/** One line of the summary: the dish's picture, its name and "2 × $9.00", its total. */
+function MiniLine({
+    testID,
+    name,
+    mealId,
+    quantity,
+    unit,
+    total,
+}: {
+    readonly testID: string;
+    readonly name: string;
+    readonly mealId?: MealId | undefined;
+    readonly quantity: number;
+    readonly unit: string;
+    readonly total: string;
+}) {
+    const formatter = useFormatter();
+    const meal = useMealQuery(mealId ?? null);
+    return (
+        <View testID={testID} className="flex-row items-center gap-3 py-2">
+            <View className="h-12 w-12 overflow-hidden rounded-xl">
+                <EntityImage
+                    assetId={meal.data?.imagePlaceholderId}
+                    photoUrl={meal.data?.photoUrl}
+                    variant="card"
+                    seed={meal.data?.slug ?? name}
+                    label={name}
+                    decorative
+                    flush
+                    className="h-full w-full"
+                />
+            </View>
+            <View className="min-w-0 flex-1">
+                <RNText
+                    numberOfLines={1}
+                    className="text-sm font-semibold text-content-primary text-start"
+                >
+                    {name}
+                </RNText>
+                <RNText className="text-xs font-medium tabular-nums text-content-secondary text-start">
+                    {`${formatter.formatNumber(quantity)} × ${unit}`}
+                </RNText>
+            </View>
+            <RNText className="text-sm font-bold tabular-nums text-content-primary">{total}</RNText>
+        </View>
+    );
+}
+
+/** Where, when and how it is paid, under the total. */
+function DeliveryFacts({
+    address,
+    when,
+}: {
+    readonly address: string | null;
+    readonly when: string | null;
+}) {
+    const { t } = useTranslation();
+    const facts = [
+        { key: 'address', icon: 'home' as const, text: address },
+        { key: 'when', icon: 'calendar' as const, text: when },
+        { key: 'pay', icon: 'basket' as const, text: t('commerce:checkout.paymentCod') },
+    ].filter(
+        (fact): fact is { key: string; icon: 'home' | 'calendar' | 'basket'; text: string } =>
+            fact.text !== null,
+    );
+    return (
+        <View
+            testID="checkout-facts"
+            className="mt-3 flex-col gap-1.5 rounded-[14px] bg-surface-base px-3.5 py-3"
+        >
+            {facts.map((fact) => (
+                <View key={fact.key} className="flex-row items-center gap-2">
+                    <Icon name={fact.icon} size="sm" className="text-content-brand" />
+                    <RNText className="min-w-0 flex-1 text-sm font-bold text-content-primary text-start">
+                        {fact.text}
+                    </RNText>
+                </View>
+            ))}
+        </View>
     );
 }
 
@@ -1124,103 +1632,104 @@ interface OrderPlacedProps {
     /** "Midday on 13 Aug 2026" — the committed window, already worded. */
     readonly arriving: string;
     readonly onTrack: () => void;
-    /** Just placed: print the receipt. False draws it already printed. */
-    readonly printNow: boolean;
-    readonly onPrinted: () => void;
+    readonly onKeepShopping: () => void;
 }
 
 /**
- * The confirmation, as the design's third step: a centred acknowledgement in the step card — the
- * check badge, "Order … confirmed", one line, "Track this order" — and the order's own lines and
- * total in the rail.
+ * The confirmation, as the board's third step: the big tick, "Order … confirmed", one line, "Keep
+ * shopping" and "Track this order" — and beside it the order's own lines and total.
  *
- * Priced from the order, not from the checkout preview. Placement empties the basket, which
- * disables the preview query — a confirmation that read its figures from there rendered an empty
- * price block. The placed order carries the figures the platform actually charged for.
+ * Priced from the order, not from the checkout preview. Placement empties the basket, which disables
+ * the preview query — a confirmation that read its figures from there rendered an empty price block.
+ * The placed order carries the figures the platform actually charged for.
  *
- * "Track this order" goes to `/customer/orders/{order}` — the identifier, not the printed
- * reference, because that is what `GET /me/orders/{order}` takes.
+ * "Track this order" goes to `/customer/orders/{order}` — the identifier, not the printed reference,
+ * because that is what `GET /me/orders/{order}` takes.
  */
-function OrderPlaced({
-    order,
-    kitchenName,
-    arriving,
-    onTrack,
-    printNow,
-    onPrinted,
-}: OrderPlacedProps) {
+function OrderPlaced({ order, kitchenName, arriving, onTrack, onKeepShopping }: OrderPlacedProps) {
     const { t } = useTranslation();
-    // Read once: the note's `printed` flips when this finishes and must not restart it.
-    const [animate] = useState(printNow);
-    const [stage, setStage] = useState<ReceiptPrinterStage>(printNow ? 'printing' : 'complete');
+    const formatter = useFormatter();
+    const wide = useBreakpoint().atLeast('lg');
+    const count = order.lines.reduce((sum, line) => sum + line.quantity, 0);
 
     const main = (
-        <CheckoutCard padding="lg" testID="checkout-success-card">
-            <View className="flex-col items-center px-2 py-6">
-                <View className="h-14 w-14 items-center justify-center rounded-full bg-surface-brand-subtle">
-                    <Icon name="check" size="lg" className="text-content-on-brand-subtle" />
+        <View
+            testID="checkout-success-card"
+            className="items-center rounded-[26px] border border-stroke-subtle bg-surface-raised px-6 pb-7 pt-[34px] shadow-elevation-2"
+        >
+            <View className="rounded-full bg-surface-brand-subtle p-3">
+                <View className="h-[92px] w-[92px] items-center justify-center rounded-full bg-surface-brand">
+                    <Icon name="check" size="lg" className="text-content-on-brand" />
                 </View>
-                <RNText
-                    testID="checkout-success-title"
-                    accessibilityRole="header"
-                    aria-level={2}
-                    className="mb-2 mt-4 font-display text-3xl font-bold tracking-display text-content-primary text-center"
+            </View>
+            <RNText
+                testID="checkout-success-title"
+                accessibilityRole="header"
+                aria-level={2}
+                className="mb-1.5 mt-[26px] font-display text-3xl font-bold tracking-display text-content-primary text-center"
+            >
+                {t('commerce:checkout.confirmedTitle', { reference: order.reference })}
+            </RNText>
+            <RNText
+                testID="checkout-success-body"
+                role="status"
+                className="max-w-[440px] text-base font-medium leading-normal text-content-secondary text-center"
+            >
+                {t('commerce:checkout.confirmedBody', {
+                    kitchen: kitchenName ?? t('commerce:checkout.theKitchen'),
+                    arriving,
+                })}
+            </RNText>
+            <View className="mt-6 w-full max-w-[440px] flex-row items-center gap-2.5">
+                <Pressable
+                    testID="checkout-success-keep-shopping"
+                    role="button"
+                    accessibilityRole="button"
+                    onPress={onKeepShopping}
+                    className="h-[52px] justify-center rounded-2xl border border-stroke px-[18px] hover:bg-surface-brand-subtle"
                 >
-                    {t('commerce:checkout.confirmedTitle', { reference: order.reference })}
-                </RNText>
-                <RNText
-                    testID="checkout-success-body"
-                    role="status"
-                    className="mb-5 max-w-[52ch] text-base text-content-secondary text-center"
-                >
-                    {t('commerce:checkout.confirmedBody', {
-                        kitchen: kitchenName ?? t('commerce:checkout.theKitchen'),
-                        arriving,
-                    })}
-                </RNText>
-                <Button
+                    <RNText className="text-base font-semibold text-content-primary">
+                        {t('commerce:cart.keepShopping')}
+                    </RNText>
+                </Pressable>
+                <ArrowAction
                     testID="checkout-success-track"
                     label={t('commerce:checkout.successTrack')}
                     onPress={onTrack}
                 />
             </View>
-        </CheckoutCard>
+        </View>
     );
 
     const aside = (
-        <ReceiptPrinter.Root
-            testID="checkout-printer"
-            stage={stage}
-            animate={animate}
-            onPrinted={() => {
-                setStage('complete');
-                onPrinted();
-            }}
+        <SummaryCard
+            testID="checkout-receipt"
+            total={formatMoney(formatter, order.total)}
+            itemCount={count}
         >
-            <ReceiptPrinter.Machine>
-                <ReceiptPrinter.Screen>
-                    <ReceiptPrinter.Status />
-                </ReceiptPrinter.Screen>
-            </ReceiptPrinter.Machine>
-            <ReceiptPrinter.Output>
-                <ReceiptPrinter.Paper>
-                    <MealReceipt
-                        testID="checkout-receipt"
-                        order={order}
-                        kitchenName={kitchenName}
-                        arriving={arriving}
-                    />
-                </ReceiptPrinter.Paper>
-            </ReceiptPrinter.Output>
-        </ReceiptPrinter.Root>
+            {order.lines.map((line) => (
+                <MiniLine
+                    key={line.id}
+                    testID={`checkout-receipt-${line.id}`}
+                    name={line.name}
+                    quantity={line.quantity}
+                    unit={formatMoney(formatter, line.unitPrice)}
+                    total={formatMoney(formatter, line.lineTotal)}
+                />
+            ))}
+            <View className="mt-2 flex-row items-baseline justify-between border-t border-dashed border-stroke pt-3">
+                <RNText className="text-sm text-content-secondary">
+                    {t('commerce:cart.total')}
+                </RNText>
+                <RNText
+                    testID="checkout-receipt-total-amount"
+                    className="font-display text-2xl font-bold tabular-nums tracking-display text-content-primary"
+                >
+                    {formatMoney(formatter, order.total)}
+                </RNText>
+            </View>
+        </SummaryCard>
     );
 
-    return (
-        <CheckoutColumns
-            testID="checkout-success-layout"
-            asideWidth="md"
-            main={main}
-            aside={aside}
-        />
-    );
+    return <Columns testID="checkout-success-layout" wide={wide} main={main} aside={aside} />;
 }

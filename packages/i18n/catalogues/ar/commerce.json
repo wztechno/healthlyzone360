@@ -110,7 +110,24 @@
         "discountValue": "−{{amount}}",
         "promoLabel": "رمز الخصم",
         "promoApply": "تطبيق",
-        "finePrint": "ادفع للسائق نقدًا عند الاستلام. لا يُخصم أي مبلغ داخل التطبيق."
+        "finePrint": "ادفع للسائق نقدًا عند الاستلام. لا يُخصم أي مبلغ داخل التطبيق.",
+        "each": "{{price}} للواحدة",
+        "timesUnit": "{{count}} × {{price}}",
+        "itemCount_zero": "لا أصناف",
+        "itemCount_one": "صنف واحد",
+        "itemCount_two": "صنفان",
+        "itemCount_few": "{{formattedCount}} أصناف",
+        "itemCount_many": "{{formattedCount}} صنفًا",
+        "itemCount_other": "{{formattedCount}} صنف",
+        "goesWell": "يليق بها",
+        "addMore": "أضف المزيد",
+        "emptyBasket": "أفرغ السلة",
+        "deliveryTo": "التوصيل · {{area}}",
+        "cashOnDelivery": "الدفع نقدًا عند التوصيل",
+        "keepShopping": "تابع التسوق",
+        "popularNow": "الأكثر طلبًا الآن",
+        "addAnother": "أضف {{meal}} آخر",
+        "addNamed": "أضف {{meal}}"
     },
     "checkout": {
         "title": "إتمام الطلب",
@@ -182,7 +199,16 @@
         "addAddressAction": "إضافة عنوان",
         "addAnotherAddress": "إضافة عنوان آخر",
         "editAddress": "تعديل هذا العنوان",
-        "placeOrderBlockedHint": "أكمل الخطوات أعلاه لتقديم طلبك."
+        "placeOrderBlockedHint": "أكمل الخطوات أعلاه لتقديم طلبك.",
+        "savedAddress": "العنوان المحفوظ",
+        "defaultAddress": "الافتراضي",
+        "addAddressShort": "أضف عنوانًا",
+        "tomorrowShort": "غدًا",
+        "payWith": "الدفع عبر",
+        "deliveringToLabel": "التوصيل إلى",
+        "whenLabel": "الموعد",
+        "change": "غيّر",
+        "basket": "السلة"
     },
     "configurator": {
         "title": "إعداد اشتراكك",

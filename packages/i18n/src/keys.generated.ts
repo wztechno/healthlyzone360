@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10019 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10040 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2093,23 +2093,34 @@ export interface NamespaceKeys {
     | 'cancel.keep'
     | 'cancel.open'
     | 'cancel.title'
+    | 'cart.addAnother'
+    | 'cart.addMore'
     | 'cart.addMoreBody'
+    | 'cart.addNamed'
     | 'cart.allergenBody'
     | 'cart.allergenTitle'
     | 'cart.browse'
     | 'cart.browseMenu'
+    | 'cart.cashOnDelivery'
     | 'cart.checkout'
     | 'cart.decrease'
     | 'cart.delivery'
     | 'cart.deliveryAtCheckout'
+    | 'cart.deliveryTo'
     | 'cart.discount'
     | 'cart.discountValue'
+    | 'cart.each'
+    | 'cart.emptyBasket'
     | 'cart.emptyBody'
     | 'cart.emptyTitle'
     | 'cart.finePrint'
+    | 'cart.goesWell'
     | 'cart.increase'
+    | 'cart.itemCount'
+    | 'cart.keepShopping'
     | 'cart.lineSummary'
     | 'cart.noChanges'
+    | 'cart.popularNow'
     | 'cart.promoApply'
     | 'cart.promoLabel'
     | 'cart.quantityValue'
@@ -2120,23 +2131,29 @@ export interface NamespaceKeys {
     | 'cart.subtotal'
     | 'cart.summaryEmpty'
     | 'cart.summaryTitle'
+    | 'cart.timesUnit'
     | 'cart.title'
     | 'cart.total'
     | 'cart.updateFailedTitle'
     | 'cart.viewMeal'
     | 'checkout.addAddress'
     | 'checkout.addAddressAction'
+    | 'checkout.addAddressShort'
     | 'checkout.addAnotherAddress'
     | 'checkout.addressPlaceholder'
     | 'checkout.addressTitle'
     | 'checkout.areaLabel'
     | 'checkout.back'
+    | 'checkout.basket'
+    | 'checkout.change'
     | 'checkout.committedSeparator'
     | 'checkout.committedSlot'
     | 'checkout.confirmedBody'
     | 'checkout.confirmedTitle'
     | 'checkout.dateLabel'
+    | 'checkout.defaultAddress'
     | 'checkout.deliveringTo'
+    | 'checkout.deliveringToLabel'
     | 'checkout.deliveryBody'
     | 'checkout.deliveryTitle'
     | 'checkout.editAddress'
@@ -2157,6 +2174,7 @@ export interface NamespaceKeys {
     | 'checkout.noNote'
     | 'checkout.noSlotsOffered'
     | 'checkout.noteLabel'
+    | 'checkout.payWith'
     | 'checkout.paymentCod'
     | 'checkout.paymentCodMeta'
     | 'checkout.paymentTitle'
@@ -2167,6 +2185,7 @@ export interface NamespaceKeys {
     | 'checkout.placeOrderTotal'
     | 'checkout.progressLabel'
     | 'checkout.review'
+    | 'checkout.savedAddress'
     | 'checkout.setupBody'
     | 'checkout.setupTitle'
     | 'checkout.slotChip'
@@ -2182,6 +2201,8 @@ export interface NamespaceKeys {
     | 'checkout.summaryTitle'
     | 'checkout.theKitchen'
     | 'checkout.title'
+    | 'checkout.tomorrowShort'
+    | 'checkout.whenLabel'
     | 'choices.change'
     | 'choices.confirm'
     | 'choices.empty'
@@ -12136,23 +12157,34 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:cancel.keep',
   'commerce:cancel.open',
   'commerce:cancel.title',
+  'commerce:cart.addAnother',
+  'commerce:cart.addMore',
   'commerce:cart.addMoreBody',
+  'commerce:cart.addNamed',
   'commerce:cart.allergenBody',
   'commerce:cart.allergenTitle',
   'commerce:cart.browse',
   'commerce:cart.browseMenu',
+  'commerce:cart.cashOnDelivery',
   'commerce:cart.checkout',
   'commerce:cart.decrease',
   'commerce:cart.delivery',
   'commerce:cart.deliveryAtCheckout',
+  'commerce:cart.deliveryTo',
   'commerce:cart.discount',
   'commerce:cart.discountValue',
+  'commerce:cart.each',
+  'commerce:cart.emptyBasket',
   'commerce:cart.emptyBody',
   'commerce:cart.emptyTitle',
   'commerce:cart.finePrint',
+  'commerce:cart.goesWell',
   'commerce:cart.increase',
+  'commerce:cart.itemCount',
+  'commerce:cart.keepShopping',
   'commerce:cart.lineSummary',
   'commerce:cart.noChanges',
+  'commerce:cart.popularNow',
   'commerce:cart.promoApply',
   'commerce:cart.promoLabel',
   'commerce:cart.quantityValue',
@@ -12163,23 +12195,29 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:cart.subtotal',
   'commerce:cart.summaryEmpty',
   'commerce:cart.summaryTitle',
+  'commerce:cart.timesUnit',
   'commerce:cart.title',
   'commerce:cart.total',
   'commerce:cart.updateFailedTitle',
   'commerce:cart.viewMeal',
   'commerce:checkout.addAddress',
   'commerce:checkout.addAddressAction',
+  'commerce:checkout.addAddressShort',
   'commerce:checkout.addAnotherAddress',
   'commerce:checkout.addressPlaceholder',
   'commerce:checkout.addressTitle',
   'commerce:checkout.areaLabel',
   'commerce:checkout.back',
+  'commerce:checkout.basket',
+  'commerce:checkout.change',
   'commerce:checkout.committedSeparator',
   'commerce:checkout.committedSlot',
   'commerce:checkout.confirmedBody',
   'commerce:checkout.confirmedTitle',
   'commerce:checkout.dateLabel',
+  'commerce:checkout.defaultAddress',
   'commerce:checkout.deliveringTo',
+  'commerce:checkout.deliveringToLabel',
   'commerce:checkout.deliveryBody',
   'commerce:checkout.deliveryTitle',
   'commerce:checkout.editAddress',
@@ -12200,6 +12238,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:checkout.noNote',
   'commerce:checkout.noSlotsOffered',
   'commerce:checkout.noteLabel',
+  'commerce:checkout.payWith',
   'commerce:checkout.paymentCod',
   'commerce:checkout.paymentCodMeta',
   'commerce:checkout.paymentTitle',
@@ -12210,6 +12249,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:checkout.placeOrderTotal',
   'commerce:checkout.progressLabel',
   'commerce:checkout.review',
+  'commerce:checkout.savedAddress',
   'commerce:checkout.setupBody',
   'commerce:checkout.setupTitle',
   'commerce:checkout.slotChip',
@@ -12225,6 +12265,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:checkout.summaryTitle',
   'commerce:checkout.theKitchen',
   'commerce:checkout.title',
+  'commerce:checkout.tomorrowShort',
+  'commerce:checkout.whenLabel',
   'commerce:choices.change',
   'commerce:choices.confirm',
   'commerce:choices.empty',
