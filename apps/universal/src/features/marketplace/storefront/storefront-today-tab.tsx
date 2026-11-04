@@ -1,37 +1,35 @@
-import { Button, cx, useBreakpoint } from '@healthy360/design-system';
+import { cx } from '@healthy360/design-system';
+import type { DimensionValue } from 'react-native';
 import type { Kitchen } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Text as RNText, View } from 'react-native';
 
-import { Eyebrow } from '../../../ui/eyebrow.tsx';
-import { PillChip } from '../../../ui/pill-chip.tsx';
+import { TINT_FILL, TINT_INK } from '../../catalogue/shelf-tints.ts';
+import type { ShelfTint } from '../../catalogue/shelf-tints.ts';
+import { hoursToday } from '../storefront-facts.ts';
 
 import type { KitchenClock, ScheduleEvent, ScheduleStatus } from './storefront-today.ts';
-import { daySchedule, minutesUntil, scheduleStatus, windowsOn } from './storefront-today.ts';
-import { useShopViewOnly } from '../shop-view-only.tsx';
+import {
+    daySchedule,
+    minutesUntil,
+    scheduleStatus,
+    toMinutes,
+    windowsOn,
+} from './storefront-today.ts';
 
 /**
- * The storefront's "Today in the kitchen" tab — HealthZone `§isStorefront` `storeIsToday`: the
- * day's timeline card, then two cards side by side — what is on the line, and the cut-off.
+ * The storefront's Today tab, as the accepted shop board draws it: one card for the day — its name
+ * and opening hours, a track across the open hours with each delivery window laid on it and a
+ * marker at the kitchen's time — and under the track a card per step of the day, each saying
+ * whether it is done, now, next or later. Then a card for the week.
  *
  * ## Drawn from what the kitchen publishes
  *
- * The public marketplace has no production endpoint, so the design's cook-to-door steps ("Prep
- * starts", "Grill fires", "Lunch cooked") and its batch progress cannot be drawn. What *is*
- * published — today's opening and closing, the same-day cut-off and the delivery windows — makes
- * the timeline instead, each step marked passed / next / later against the kitchen's own clock
- * (`storefront-today.ts`). The pill states that clock, not "LIVE": it is the time where the kitchen
- * is, which is true, rather than a claim that the card streams from the line.
- *
- * "On the line right now" keeps its card and says plainly that the line's progress is not
- * published. The cut-off card counts down to the published cut-off when the kitchen's clock can be
- * read, lists today's delivery windows (the next one marked, none selectable — a storefront cannot
- * book a slot), and "Pick from the menu" opens the Menu tab.
- *
- * Six columns on a wide page, as designed; a column per step rather than a fixed six, because a
- * kitchen publishes as many steps as it has. Below `md` the timeline runs down the card.
+ * Opening and closing, the same-day cut-off and the delivery windows, each step marked against the
+ * kitchen's own clock (`storefront-today.ts`). Where that clock cannot be read on this device there
+ * is no "now" marker and no step is called done or now — the steps are listed, nothing more.
  */
 export interface StorefrontTodayTabProps {
     readonly kitchen: Kitchen;
@@ -42,8 +40,13 @@ export interface StorefrontTodayTabProps {
     readonly dateLabel: string | null;
     /** Today's same-day cut-off, `HH:mm`. */
     readonly cutOff: string | null;
-    readonly onPickFromMenu: () => void;
 }
+
+/** The windows' colours on the track and in their cards, in turn. */
+const WINDOW_TINTS: readonly ShelfTint[] = ['orange', 'green', 'yellow', 'blue', 'violet'];
+
+/** How many time labels sit under the track. */
+const TICKS = 6;
 
 function eventTitle(t: TFunction, event: ScheduleEvent): string {
     if (event.kind === 'window') {
@@ -52,34 +55,15 @@ function eventTitle(t: TFunction, event: ScheduleEvent): string {
     return t(`marketplace:storefront.today.events.${event.kind}`);
 }
 
-function eventNote(t: TFunction, event: ScheduleEvent): string {
-    if (event.kind === 'window' && event.window !== undefined) {
-        return t('marketplace:storefront.today.events.windowNote', {
-            startsAt: event.window.startsAt,
-            endsAt: event.window.endsAt,
-        });
-    }
-    return t(`marketplace:storefront.today.events.${event.kind}Note`);
+/** `HH:mm` for a minute of the day. */
+function clockTime(minutes: number): string {
+    const whole = Math.max(0, Math.round(minutes));
+    return `${String(Math.floor(whole / 60) % 24).padStart(2, '0')}:${String(whole % 60).padStart(2, '0')}`;
 }
 
-/** A step's marker: filled when passed, ringed with a halo when next, hollow when later. */
-function Dot({ status }: { readonly status: ScheduleStatus }) {
-    const dot = (
-        <View
-            className={cx(
-                'h-icon-sm w-icon-sm shrink-0 rounded-full',
-                status === 'done' && 'bg-surface-brand',
-                status === 'next' && 'border-[3px] border-surface-brand bg-surface-raised',
-                status === 'todo' && 'border-2 border-stroke-strong bg-surface-raised',
-            )}
-        />
-    );
-    // The design's 4px halo, as a padded ring that gives its 4px back so the row does not shift.
-    return status === 'next' ? (
-        <View className="-m-1 shrink-0 rounded-full bg-surface-brand-subtle p-1">{dot}</View>
-    ) : (
-        dot
-    );
+/** A share of the track, as a style value. */
+function percent(value: number): DimensionValue {
+    return `${String(Math.max(0, Math.min(100, value)))}%` as DimensionValue;
 }
 
 export function StorefrontTodayTab({
@@ -88,80 +72,75 @@ export function StorefrontTodayTab({
     weekday,
     dateLabel,
     cutOff,
-    onPickFromMenu,
 }: StorefrontTodayTabProps) {
-    // Staff view the storefront and start no order (`shop-view-only.tsx`).
-    const viewOnly = useShopViewOnly();
     const { t } = useTranslation();
     const formatter = useFormatter();
-    const { atLeast } = useBreakpoint();
-    const across = atLeast('md');
 
     const events = daySchedule(kitchen, weekday);
     const statuses = scheduleStatus(events, clock);
     const windows = windowsOn(kitchen, weekday);
-    const nextWindow =
-        clock === null
-            ? undefined
-            : windows.find((window) => minutesUntil(window.startsAt, clock) > 0);
+    const hours = hoursToday(kitchen, weekday);
 
-    const left = cutOff === null || clock === null ? null : minutesUntil(cutOff, clock);
-    const headline =
-        cutOff === null
-            ? t('marketplace:storefront.today.cutoff.none')
-            : left === null
-              ? t('marketplace:storefront.today.cutoff.orderBy', { time: cutOff })
-              : left <= 0
-                ? t('marketplace:storefront.today.cutoff.passed')
-                : left < 60
-                  ? t('marketplace:storefront.today.cutoff.inMinutes', {
-                        minutes: formatter.formatNumber(left),
-                    })
-                  : t('marketplace:storefront.today.cutoff.inHours', {
-                        hours: formatter.formatNumber(Math.floor(left / 60)),
-                        minutes: formatter.formatNumber(left % 60),
-                    });
-    const body =
-        cutOff === null
-            ? t('marketplace:storefront.today.cutoff.bodyNone')
-            : left !== null && left <= 0
-              ? t('marketplace:storefront.today.cutoff.bodyPassed', { time: cutOff })
-              : t('marketplace:storefront.today.cutoff.body', { time: cutOff });
+    // The track spans the open hours, else the windows, else the day.
+    const start =
+        hours !== null
+            ? toMinutes(hours.opensAt)
+            : windows.length > 0
+              ? Math.min(...windows.map((window) => toMinutes(window.startsAt)))
+              : 0;
+    const end =
+        hours !== null
+            ? toMinutes(hours.closesAt)
+            : windows.length > 0
+              ? Math.max(...windows.map((window) => toMinutes(window.endsAt)))
+              : 24 * 60;
+    const span = Math.max(1, end - start);
+    const at = (minutes: number) => ((minutes - start) / span) * 100;
+    const now = clock === null ? null : toMinutes(clock.time);
+
+    const stateOf = (event: ScheduleEvent, status: ScheduleStatus): string => {
+        if (clock !== null && event.kind === 'window' && event.window !== undefined) {
+            const opens = minutesUntil(event.window.startsAt, clock);
+            const closes = minutesUntil(event.window.endsAt, clock);
+            if (opens <= 0 && closes > 0) return t('marketplace:storefront.today.state.now');
+        }
+        if (clock === null) return '';
+        return status === 'done'
+            ? t('marketplace:storefront.today.state.done')
+            : status === 'next'
+              ? t('marketplace:storefront.today.state.next')
+              : t('marketplace:storefront.today.state.later');
+    };
+
+    const weekdayName = (day: number, style: 'long' | 'short') =>
+        formatter.formatDate(`2024-01-0${String(day)}`, { weekday: style, timeZone: 'UTC' });
 
     return (
         <View className="flex-col gap-4" testID="kitchen-today-tab">
             <View
                 testID="kitchen-today-timeline"
-                className="rounded-xl border border-stroke bg-surface-raised px-6 py-6"
+                className="rounded-3xl border border-stroke-subtle bg-surface-raised p-[22px]"
             >
-                <View className="flex-row flex-wrap items-start justify-between gap-3">
-                    <View className="min-w-0 shrink flex-col gap-2">
-                        <Eyebrow>
-                            {dateLabel === null
-                                ? t('marketplace:storefront.today.eyebrow')
-                                : t('marketplace:storefront.today.eyebrowDate', {
-                                      date: dateLabel,
-                                  })}
-                        </Eyebrow>
-                        <RNText
-                            accessibilityRole="header"
-                            aria-level={2}
-                            className="max-w-[420px] font-display text-2xl font-bold leading-tight tracking-display text-content-primary text-start"
-                        >
-                            {t('marketplace:storefront.today.title')}
-                        </RNText>
-                    </View>
-                    {clock === null ? null : (
-                        <View
-                            testID="kitchen-today-clock"
-                            className="flex-row items-center gap-2 rounded-full bg-success-subtle px-3 py-1"
-                        >
-                            <View className="h-2 w-2 rounded-full bg-surface-brand" />
-                            <RNText className="text-xs font-medium uppercase tracking-wide tabular-nums text-success-on-subtle">
-                                {t('marketplace:storefront.today.clock', { time: clock.time })}
-                            </RNText>
-                        </View>
-                    )}
+                <View className="flex-row flex-wrap items-baseline justify-between gap-3">
+                    <RNText
+                        accessibilityRole="header"
+                        aria-level={2}
+                        className="font-display text-xl font-bold text-content-primary text-start"
+                    >
+                        {dateLabel === null
+                            ? t('marketplace:storefront.today.dayTitle', {
+                                  day: weekdayName(weekday, 'long'),
+                              })
+                            : t('marketplace:storefront.today.dayTitle', { day: dateLabel })}
+                    </RNText>
+                    <RNText className="text-sm tabular-nums text-content-secondary">
+                        {hours === null
+                            ? t('marketplace:storefront.closedToday')
+                            : t('marketplace:storefront.today.openRange', {
+                                  opensAt: hours.opensAt,
+                                  closesAt: hours.closesAt,
+                              })}
+                    </RNText>
                 </View>
 
                 {events.length === 0 ? (
@@ -172,132 +151,188 @@ export function StorefrontTodayTab({
                         {t('marketplace:storefront.today.none')}
                     </RNText>
                 ) : (
-                    <View
-                        testID="kitchen-today-steps"
-                        className={cx('mt-6', across ? 'flex-row' : 'flex-col gap-4')}
-                    >
-                        {events.map((event, index) => {
-                            const status = statuses[index] ?? 'todo';
-                            const last = index === events.length - 1;
-                            const text = (
-                                <View className="flex-col gap-1">
-                                    <RNText className="text-xs font-semibold tabular-nums text-content-secondary text-start">
-                                        {event.time}
-                                    </RNText>
-                                    <RNText
+                    <>
+                        <View
+                            aria-label={t('marketplace:storefront.today.cutoff.windowsLabel')}
+                            className="relative mt-[22px] h-16"
+                        >
+                            <View className="absolute end-0 start-0 top-[26px] h-3 rounded-full bg-surface-base" />
+                            {windows.map((window, index) => {
+                                const tint = WINDOW_TINTS[index % WINDOW_TINTS.length] ?? 'green';
+                                const from = at(toMinutes(window.startsAt));
+                                const to = at(toMinutes(window.endsAt));
+                                return (
+                                    <View
+                                        key={window.code}
                                         className={cx(
-                                            'font-display text-base font-bold leading-tight text-start',
-                                            status === 'todo'
-                                                ? 'text-content-secondary'
-                                                : 'text-content-primary',
+                                            'absolute top-5 h-6 items-center justify-center overflow-hidden rounded-[9px]',
+                                            TINT_FILL[tint],
+                                        )}
+                                        style={{ start: percent(from), width: percent(to - from) }}
+                                    >
+                                        <RNText
+                                            numberOfLines={1}
+                                            className={cx('text-xs font-bold', TINT_INK[tint])}
+                                        >
+                                            {window.label}
+                                        </RNText>
+                                    </View>
+                                );
+                            })}
+                            {now === null || now < start || now > end ? null : (
+                                <View
+                                    testID="kitchen-today-clock"
+                                    className="absolute bottom-0 top-1.5 w-0.5 bg-content-primary"
+                                    style={{ start: percent(at(now)) }}
+                                >
+                                    <View className="absolute -start-[22px] -top-[22px] h-5 justify-center rounded-md bg-content-primary px-1.5">
+                                        <RNText className="text-xs font-bold tabular-nums text-surface-base">
+                                            {clock?.time}
+                                        </RNText>
+                                    </View>
+                                </View>
+                            )}
+                        </View>
+                        <View aria-hidden className="mt-1 flex-row justify-between">
+                            {Array.from({ length: TICKS }, (_, index) => (
+                                <RNText
+                                    key={index}
+                                    className="text-xs font-medium tabular-nums text-content-secondary"
+                                >
+                                    {clockTime(start + (span * index) / (TICKS - 1))}
+                                </RNText>
+                            ))}
+                        </View>
+
+                        <View
+                            testID="kitchen-today-steps"
+                            className="mt-5 flex-row flex-wrap gap-2.5"
+                        >
+                            {events.map((event, index) => {
+                                const status = statuses[index] ?? 'todo';
+                                const windowIndex =
+                                    event.window === undefined
+                                        ? -1
+                                        : windows.findIndex(
+                                              (window) => window.code === event.window?.code,
+                                          );
+                                const tint: ShelfTint =
+                                    windowIndex >= 0
+                                        ? (WINDOW_TINTS[windowIndex % WINDOW_TINTS.length] ??
+                                          'green')
+                                        : event.kind === 'cutoff'
+                                          ? 'pink'
+                                          : 'neutral';
+                                const state = stateOf(event, status);
+                                return (
+                                    <View
+                                        key={event.key}
+                                        testID={`kitchen-today-step-${event.key}`}
+                                        className={cx(
+                                            'min-w-[130px] flex-1 basis-[22%] flex-col rounded-2xl px-3.5 py-3',
+                                            TINT_FILL[tint],
+                                            status === 'done' ? 'opacity-70' : '',
                                         )}
                                     >
-                                        {eventTitle(t, event)}
-                                    </RNText>
-                                    <RNText className="text-xs leading-snug text-content-secondary text-start">
-                                        {eventNote(t, event)}
-                                    </RNText>
-                                </View>
-                            );
-                            return across ? (
-                                <View
-                                    key={event.key}
-                                    testID={`kitchen-today-step-${event.key}`}
-                                    className="min-w-0 flex-1 flex-col gap-2 pe-3"
-                                >
-                                    <View className="-me-3 flex-row items-center">
-                                        <Dot status={status} />
-                                        <View
+                                        <RNText
                                             className={cx(
-                                                'h-0.5 flex-1',
-                                                last
-                                                    ? 'bg-transparent'
-                                                    : status === 'done'
-                                                      ? 'bg-surface-brand'
-                                                      : 'bg-stroke',
+                                                'font-display text-base font-bold text-start',
+                                                TINT_INK[tint],
                                             )}
-                                        />
+                                        >
+                                            {eventTitle(t, event)}
+                                        </RNText>
+                                        <RNText
+                                            {...(event.window === undefined
+                                                ? {}
+                                                : {
+                                                      testID: `kitchen-today-window-${event.window.code}`,
+                                                  })}
+                                            className={cx(
+                                                'mt-0.5 text-sm tabular-nums text-start',
+                                                TINT_INK[tint],
+                                            )}
+                                        >
+                                            {event.window === undefined
+                                                ? event.kind === 'cutoff' && cutOff !== null
+                                                    ? cutOff
+                                                    : event.time
+                                                : t('marketplace:storefront.today.cutoff.window', {
+                                                      startsAt: event.window.startsAt,
+                                                      endsAt: event.window.endsAt,
+                                                  })}
+                                        </RNText>
+                                        {state === '' ? null : (
+                                            <RNText
+                                                className={cx(
+                                                    'mt-2 text-xs font-semibold uppercase tracking-wider opacity-85 text-start',
+                                                    TINT_INK[tint],
+                                                )}
+                                            >
+                                                {state}
+                                            </RNText>
+                                        )}
                                     </View>
-                                    {text}
-                                </View>
-                            ) : (
-                                <View
-                                    key={event.key}
-                                    testID={`kitchen-today-step-${event.key}`}
-                                    className="flex-row items-start gap-3"
-                                >
-                                    <Dot status={status} />
-                                    <View className="min-w-0 flex-1">{text}</View>
-                                </View>
-                            );
-                        })}
-                    </View>
+                                );
+                            })}
+                        </View>
+                    </>
                 )}
             </View>
 
-            <View className="flex-row flex-wrap gap-4">
-                <View
-                    testID="kitchen-today-line"
-                    className="min-w-[280px] flex-1 grow basis-[40%] flex-col gap-4 rounded-xl border border-stroke bg-surface-raised p-5"
+            <View
+                testID="kitchen-today-week"
+                className="rounded-3xl border border-stroke-subtle bg-surface-raised p-[22px]"
+            >
+                <RNText
+                    accessibilityRole="header"
+                    aria-level={2}
+                    className="font-display text-lg font-bold text-content-primary text-start"
                 >
-                    <Eyebrow>{t('marketplace:storefront.today.line.eyebrow')}</Eyebrow>
-                    <RNText className="text-sm leading-normal text-content-secondary text-start">
-                        {t('marketplace:storefront.today.line.empty')}
-                    </RNText>
-                </View>
-
-                <View
-                    testID="kitchen-today-cutoff"
-                    className="min-w-[280px] flex-1 grow basis-[40%] flex-col gap-2.5 rounded-xl bg-surface-brand-subtle p-5"
-                >
-                    <Eyebrow tone="brand">
-                        {cutOff === null
-                            ? t('marketplace:storefront.today.cutoff.eyebrow')
-                            : t('marketplace:storefront.today.cutoff.eyebrowTime', {
-                                  time: cutOff,
-                              })}
-                    </Eyebrow>
-                    <RNText
-                        testID="kitchen-today-cutoff-headline"
-                        className="font-display text-4xl font-bold leading-tight tracking-display tabular-nums text-content-on-brand-subtle text-start"
-                    >
-                        {headline}
-                    </RNText>
-                    <RNText className="text-sm leading-normal text-content-on-brand-subtle text-start">
-                        {body}
-                    </RNText>
-                    {windows.length === 0 ? null : (
-                        <View
-                            testID="kitchen-today-windows"
-                            role="list"
-                            aria-label={t('marketplace:storefront.today.cutoff.windowsLabel')}
-                            className="mt-1.5 flex-row flex-wrap gap-2"
-                        >
-                            {windows.map((window) => (
-                                <PillChip
-                                    key={window.code}
-                                    size="sm"
-                                    testID={`kitchen-today-window-${window.code}`}
-                                    label={t('marketplace:storefront.today.cutoff.window', {
-                                        startsAt: window.startsAt,
-                                        endsAt: window.endsAt,
-                                    })}
-                                    selected={window === nextWindow}
-                                />
-                            ))}
-                        </View>
-                    )}
-                    {viewOnly ? null : (
-                        <View className="mt-auto pt-2">
-                            <Button
-                                testID="kitchen-today-pick"
-                                block
-                                size="lg"
-                                label={t('marketplace:storefront.today.cutoff.pick')}
-                                onPress={onPickFromMenu}
-                            />
-                        </View>
-                    )}
+                    {t('marketplace:storefront.today.week')}
+                </RNText>
+                <View className="mt-4 flex-row flex-wrap gap-2">
+                    {[1, 2, 3, 4, 5, 6, 7].map((day) => {
+                        const open = hoursToday(kitchen, day);
+                        const isToday = day === weekday;
+                        return (
+                            <View
+                                key={day}
+                                testID={`kitchen-today-week-${String(day)}`}
+                                className={cx(
+                                    'min-w-[76px] flex-1 items-center rounded-2xl px-1.5 py-3',
+                                    isToday ? 'bg-surface-brand-subtle' : 'bg-surface-base',
+                                    open === null ? 'opacity-55' : '',
+                                )}
+                            >
+                                <RNText
+                                    className={cx(
+                                        'mb-1 font-display text-sm font-bold',
+                                        isToday
+                                            ? 'text-content-on-brand-subtle'
+                                            : 'text-content-primary',
+                                    )}
+                                >
+                                    {weekdayName(day, 'short')}
+                                </RNText>
+                                <RNText
+                                    className={cx(
+                                        'text-center text-xs tabular-nums',
+                                        isToday
+                                            ? 'text-content-on-brand-subtle'
+                                            : 'text-content-secondary',
+                                    )}
+                                >
+                                    {open === null
+                                        ? t('marketplace:storefront.today.closed')
+                                        : t('marketplace:storefront.today.cutoff.window', {
+                                              startsAt: open.opensAt,
+                                              endsAt: open.closesAt,
+                                          })}
+                                </RNText>
+                            </View>
+                        );
+                    })}
                 </View>
             </View>
         </View>

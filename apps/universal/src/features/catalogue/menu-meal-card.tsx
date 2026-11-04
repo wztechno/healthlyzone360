@@ -48,6 +48,11 @@ export interface MenuMealCardProps {
     readonly meal: MarketplaceMeal;
     readonly onOpen: () => void;
     readonly onAdd: () => void;
+    /**
+     * The storefront's smaller card: a 160px photograph, no tag and no kitchen line — the page is
+     * the kitchen's — and a tighter strip.
+     */
+    readonly compact?: boolean | undefined;
     readonly testID?: string | undefined;
 }
 
@@ -59,7 +64,7 @@ const STRIP: readonly { readonly nutrientId: string; readonly tint: ShelfTint }[
     { nutrientId: 'fat', tint: 'yellow' },
 ];
 
-export function MenuMealCard({ meal, onOpen, onAdd, testID }: MenuMealCardProps) {
+export function MenuMealCard({ meal, onOpen, onAdd, compact = false, testID }: MenuMealCardProps) {
     const viewOnly = useShopViewOnly();
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -95,7 +100,7 @@ export function MenuMealCard({ meal, onOpen, onAdd, testID }: MenuMealCardProps)
         >
             {/* The photograph opens the meal but is hidden from assistive technology; the tag
                 sits over it as a sibling so it is still read, before the name. */}
-            <View className="relative h-[190px] overflow-hidden">
+            <View className={cx('relative overflow-hidden', compact ? 'h-[160px]' : 'h-[190px]')}>
                 <Pressable
                     testID={`${id}-media`}
                     onPress={onOpen}
@@ -125,7 +130,7 @@ export function MenuMealCard({ meal, onOpen, onAdd, testID }: MenuMealCardProps)
                         />
                     </View>
                 </Pressable>
-                {tag === null ? null : (
+                {tag === null || compact ? null : (
                     <View
                         pointerEvents="none"
                         className={cx(
@@ -144,7 +149,7 @@ export function MenuMealCard({ meal, onOpen, onAdd, testID }: MenuMealCardProps)
                 )}
             </View>
 
-            <View className="flex-1 flex-col px-4 py-3.5">
+            <View className={cx('flex-1 flex-col', compact ? 'px-3.5 pb-3.5 pt-3' : 'px-4 py-3.5')}>
                 <View className="flex-row items-start justify-between gap-2">
                     <Pressable
                         testID={`${id}-open`}
@@ -181,12 +186,14 @@ export function MenuMealCard({ meal, onOpen, onAdd, testID }: MenuMealCardProps)
                         </RNText>
                     )}
                 </View>
-                <RNText
-                    numberOfLines={1}
-                    className="mt-1 text-sm text-content-secondary text-start"
-                >
-                    {meal.kitchenName}
-                </RNText>
+                {compact ? null : (
+                    <RNText
+                        numberOfLines={1}
+                        className="mt-1 text-sm text-content-secondary text-start"
+                    >
+                        {meal.kitchenName}
+                    </RNText>
+                )}
 
                 {nutrients.length === 0 ? (
                     <RNText
@@ -235,7 +242,9 @@ export function MenuMealCard({ meal, onOpen, onAdd, testID }: MenuMealCardProps)
                                     <RNText
                                         numberOfLines={1}
                                         className={cx(
-                                            'text-base font-bold tabular-nums',
+                                            compact
+                                                ? 'text-sm font-bold tabular-nums'
+                                                : 'text-base font-bold tabular-nums',
                                             isEnergy ? TINT_INK[cell.tint] : 'text-content-primary',
                                         )}
                                     >

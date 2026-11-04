@@ -236,8 +236,25 @@
             "fee": "رسوم {{amount}}",
             "feeFrom": "رسوم من {{amount}}",
             "minimum": "الحد الأدنى {{amount}}",
-            "minimumFrom": "الحد الأدنى من {{amount}}"
-        }
+            "minimumFrom": "الحد الأدنى من {{amount}}",
+            "addressName": "{{label}} · {{area}}",
+            "deliveringPrefix": "التوصيل إلى"
+        },
+        "noCount": "—",
+        "whereSeparator": "، ",
+        "cardItems": "أصناف",
+        "cardAreas": "مناطق",
+        "cardPlans": "خطط",
+        "openKitchen": "افتح {{kitchen}}",
+        "quickLook": "نظرة سريعة",
+        "quickLookLabel": "نظرة سريعة على {{kitchen}}",
+        "windowsToday": "مواعيد التوصيل اليوم",
+        "popularHere": "الأكثر طلبًا هنا",
+        "knownFor": "يشتهر بـ",
+        "keepBrowsing": "متابعة التصفح",
+        "openKitchenShort": "افتح المطبخ",
+        "close": "إغلاق",
+        "ratingShort": "★ {{rating}} ({{count}})"
     },
     "kitchen": {
         "loading": "جارٍ التحميل",
@@ -288,7 +305,14 @@
         },
         "openMeal": "افتح {{meal}}",
         "add": "أضِف",
-        "ratingLabel": "متوسط تقييم {{meal}}"
+        "ratingLabel": "متوسط تقييم {{meal}}",
+        "clearSearch": "مسح البحث",
+        "showing_zero": "لا أطباق معروضة",
+        "showing_one": "عرض طبق واحد",
+        "showing_two": "عرض طبقين",
+        "showing_few": "عرض {{formattedCount}} أطباق",
+        "showing_many": "عرض {{formattedCount}} طبقًا",
+        "showing_other": "عرض {{formattedCount}} طبق"
     },
     "dietitians": {
         "title": "أخصائيو التغذية",
@@ -574,7 +598,14 @@
             "branchCount_few": "{{formattedCount}} فروع",
             "branchCount_many": "{{formattedCount}} فرعًا",
             "branchCount_other": "{{formattedCount}} فرع",
-            "none": "—"
+            "none": "—",
+            "areasValue_zero": "لا يوصّل إلى أي منطقة",
+            "areasValue_one": "يوصّل إلى منطقة واحدة",
+            "areasValue_two": "يوصّل إلى منطقتين",
+            "areasValue_few": "يوصّل إلى {{formattedCount}} مناطق",
+            "areasValue_many": "يوصّل إلى {{formattedCount}} منطقة",
+            "areasValue_other": "يوصّل إلى {{formattedCount}} منطقة",
+            "countsValue": "{{items}} صنف · {{plans}} خطط"
         },
         "tabs": {
             "label": "عن هذا المطبخ",
@@ -625,7 +656,21 @@
             "hoursLeft": "متبقٍّ {{hours}} س {{minutes}} د",
             "passed": "أُغلق · {{time}}",
             "start": "ابدأ طلبًا",
-            "seePlans": "اطّلع على خطط هذا المطبخ"
+            "seePlans": "اطّلع على خطط هذا المطبخ",
+            "title": "طلبك",
+            "itemCount_zero": "لا أصناف",
+            "itemCount_one": "صنف واحد",
+            "itemCount_two": "صنفان",
+            "itemCount_few": "{{formattedCount}} أصناف",
+            "itemCount_many": "{{formattedCount}} صنفًا",
+            "itemCount_other": "{{formattedCount}} صنف",
+            "emptyHint": "اضغط + على طبق للبدء",
+            "checkout": "إتمام الطلب",
+            "quantityLabel": "كمية {{item}}",
+            "fewerLabel": "واحد أقل من {{item}}",
+            "moreLabel": "واحد إضافي من {{item}}",
+            "removeLabel": "إزالة {{item}}",
+            "remove": "إزالة"
         },
         "today": {
             "eyebrow": "جدول اليوم",
@@ -661,7 +706,17 @@
                 "windowsLabel": "فترات التوصيل اليوم",
                 "window": "{{startsAt}}–{{endsAt}}",
                 "pick": "اختر من القائمة"
-            }
+            },
+            "state": {
+                "done": "انتهى",
+                "next": "التالي",
+                "later": "لاحقًا",
+                "now": "الآن"
+            },
+            "dayTitle": "اليوم، {{day}}",
+            "openRange": "مفتوح {{opensAt}} – {{closesAt}}",
+            "week": "هذا الأسبوع",
+            "closed": "مغلق"
         },
         "plans": {
             "title": "خطط {{kitchen}}",
@@ -670,7 +725,9 @@
             "perWeek": "في الأسبوع",
             "choose": "اختر",
             "chooseLabel": "اختر خطة {{plan}}",
-            "empty": "لم ينشر هذا المطبخ خطة أسبوعية بعد. لا يزال بالإمكان طلب كل ما في قائمته."
+            "empty": "لم ينشر هذا المطبخ خطة أسبوعية بعد. لا يزال بالإمكان طلب كل ما في قائمته.",
+            "youPick": "تختار وجبات كل يوم بنفسك.",
+            "start": "ابدأ هذه الخطة"
         },
         "safety": {
             "allergensTitle": "مسببات الحساسية المُعلنة",
@@ -703,7 +760,9 @@
         },
         "nextOpen": "مغلق اليوم · يفتح يوم {{day}}",
         "pausedTitle": "أوقف هذا المطبخ استقبال الطلبات الجديدة مؤقتًا",
-        "pausedBody": "يمكنك تصفّح القائمة الآن والطلب مجددًا ابتداءً من {{time}}."
+        "pausedBody": "يمكنك تصفّح القائمة الآن والطلب مجددًا ابتداءً من {{time}}.",
+        "allKitchens": "كل المطابخ",
+        "seePlans": "عرض الخطط الأسبوعية"
     },
     "imageCredits": {
         "title": "اعتمادات الصور",

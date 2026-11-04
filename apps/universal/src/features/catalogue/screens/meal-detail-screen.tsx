@@ -1,4 +1,4 @@
-import { Button, Callout, EmptyState, Icon, cx, useMotion } from '@healthy360/design-system';
+import { Button, Callout, EmptyState, Icon, cx } from '@healthy360/design-system';
 import type { ApiFailure, MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { neutral } from '@healthy360/design-tokens';
 import type { StageInkName } from '@healthy360/design-tokens';
@@ -6,19 +6,12 @@ import { MealId } from '@healthy360/domain-types';
 import type { KitchenId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-    Animated,
-    Easing,
-    Platform,
-    Pressable,
-    Text as RNText,
-    TextInput,
-    View,
-} from 'react-native';
+import { Pressable, Text as RNText, TextInput, View } from 'react-native';
 import type { DimensionValue } from 'react-native';
 
+import { BackPill } from '../../../ui/back-pill.tsx';
 import { StaffReturnButton } from '../../marketplace/staff-return-button.tsx';
 
 import { mealsFromPages, useMealQuery, useMealsQuery } from '../../../data/catalogue-hooks.ts';
@@ -497,76 +490,6 @@ function MealStage({
 
             <StageRings item={item} />
         </View>
-    );
-}
-
-/**
- * The board's back pill: a soft pill with a bold chevron in a raised circle. On hover the pill turns
- * the brand's soft green and the chevron steps back 3px — towards the start, so to the right in
- * Arabic — on the board's easing.
- */
-function BackPill({ label, onPress }: { readonly label: string; readonly onPress: () => void }) {
-    const { enabled, axisSign } = useMotion();
-    const [hovered, setHovered] = useState(false);
-    const [nudge] = useState(() => new Animated.Value(0));
-
-    useEffect(() => {
-        const to = hovered ? -3 * axisSign : 0;
-        if (!enabled) {
-            nudge.setValue(to);
-            return undefined;
-        }
-        const animation = Animated.timing(nudge, {
-            toValue: to,
-            duration: 250,
-            easing: Easing.bezier(0.22, 1, 0.36, 1),
-            useNativeDriver: Platform.OS !== 'web',
-        });
-        animation.start();
-        return () => {
-            animation.stop();
-        };
-    }, [axisSign, enabled, hovered, nudge]);
-
-    return (
-        <Pressable
-            testID="meal-detail-back"
-            role="link"
-            accessibilityRole="link"
-            onPress={onPress}
-            onHoverIn={() => {
-                setHovered(true);
-            }}
-            onHoverOut={() => {
-                setHovered(false);
-            }}
-            onFocus={() => {
-                setHovered(true);
-            }}
-            onBlur={() => {
-                setHovered(false);
-            }}
-            className={cx(
-                'h-11 flex-row items-center gap-2.5 rounded-full border pe-4 ps-1.5 transition duration-normal ease-standard',
-                hovered
-                    ? 'border-stroke bg-surface-brand-subtle'
-                    : 'border-stroke-subtle bg-surface-base',
-            )}
-        >
-            <Animated.View
-                className="h-8 w-8 items-center justify-center rounded-full bg-surface-raised shadow-elevation-2"
-                style={{ transform: [{ translateX: nudge }] }}
-            >
-                {/* The board's 2.6 stroke chevron: two borders of a small square, turned to point
-                    towards the start. In Arabic the start is the right, so it turns the other way. */}
-                <View
-                    aria-hidden
-                    className="ms-1 h-2 w-2 border-b-[2.5px] border-s-[2.5px] border-surface-brand"
-                    style={{ transform: [{ rotate: `${String(45 * axisSign)}deg` }] }}
-                />
-            </Animated.View>
-            <RNText className="text-sm font-semibold text-content-primary">{label}</RNText>
-        </Pressable>
     );
 }
 

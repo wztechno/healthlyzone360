@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9897 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9939 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -8059,7 +8059,11 @@ export interface NamespaceKeys {
     | 'kitchen.zoneMinimum'
     | 'kitchen.zoneMinutes'
     | 'kitchens.areaSeparator'
+    | 'kitchens.cardAreas'
+    | 'kitchens.cardItems'
     | 'kitchens.cardLabel'
+    | 'kitchens.cardPlans'
+    | 'kitchens.close'
     | 'kitchens.collectionOnly'
     | 'kitchens.deliversTo'
     | 'kitchens.deliversToTimed'
@@ -8069,10 +8073,12 @@ export interface NamespaceKeys {
     | 'kitchens.etaMinutes'
     | 'kitchens.finder.addressAdd'
     | 'kitchens.finder.addressChange'
+    | 'kitchens.finder.addressName'
     | 'kitchens.finder.addressPending'
     | 'kitchens.finder.closedToday'
     | 'kitchens.finder.count'
     | 'kitchens.finder.countOf'
+    | 'kitchens.finder.deliveringPrefix'
     | 'kitchens.finder.deliveringTo'
     | 'kitchens.finder.emptyBody'
     | 'kitchens.finder.emptyTitle'
@@ -8106,14 +8112,25 @@ export interface NamespaceKeys {
     | 'kitchens.finder.under30'
     | 'kitchens.freeDelivery'
     | 'kitchens.imageLabel'
+    | 'kitchens.keepBrowsing'
+    | 'kitchens.knownFor'
+    | 'kitchens.noCount'
     | 'kitchens.noPublishedZone'
     | 'kitchens.notRatedYet'
+    | 'kitchens.openKitchen'
+    | 'kitchens.openKitchenShort'
+    | 'kitchens.popularHere'
+    | 'kitchens.quickLook'
+    | 'kitchens.quickLookLabel'
     | 'kitchens.ratingLabel'
+    | 'kitchens.ratingShort'
     | 'kitchens.searchLabel'
     | 'kitchens.searchPlaceholder'
     | 'kitchens.subtitle'
     | 'kitchens.title'
     | 'kitchens.verified'
+    | 'kitchens.whereSeparator'
+    | 'kitchens.windowsToday'
     | 'landing.browseKitchens'
     | 'levels.excessive'
     | 'levels.good'
@@ -8130,6 +8147,7 @@ export interface NamespaceKeys {
     | 'menu.allLoaded'
     | 'menu.allergensTitle'
     | 'menu.cardLabel'
+    | 'menu.clearSearch'
     | 'menu.containsAllergens'
     | 'menu.detailTitle'
     | 'menu.emptyBody'
@@ -8146,6 +8164,7 @@ export interface NamespaceKeys {
     | 'menu.ratingLabel'
     | 'menu.searchLabel'
     | 'menu.searchPlaceholder'
+    | 'menu.showing'
     | 'menu.stats.carbohydrate'
     | 'menu.stats.energy'
     | 'menu.stats.fat'
@@ -8214,11 +8233,14 @@ export interface NamespaceKeys {
     | 'staffReturn.plan'
     | 'staffReturn.recipe'
     | 'storefront.addLabel'
+    | 'storefront.allKitchens'
     | 'storefront.closedToday'
     | 'storefront.eyebrow'
     | 'storefront.eyebrowArea'
+    | 'storefront.facts.areasValue'
     | 'storefront.facts.branchCount'
     | 'storefront.facts.branches'
+    | 'storefront.facts.countsValue'
     | 'storefront.facts.cuisine'
     | 'storefront.facts.delivery'
     | 'storefront.facts.minutes'
@@ -8238,21 +8260,30 @@ export interface NamespaceKeys {
     | 'storefront.nextOpen'
     | 'storefront.openMeal'
     | 'storefront.openToday'
+    | 'storefront.order.checkout'
     | 'storefront.order.collectFrom'
     | 'storefront.order.cutOff'
     | 'storefront.order.delivery'
+    | 'storefront.order.emptyHint'
     | 'storefront.order.eyebrow'
     | 'storefront.order.fee'
+    | 'storefront.order.fewerLabel'
     | 'storefront.order.fromAmount'
     | 'storefront.order.hoursLeft'
+    | 'storefront.order.itemCount'
     | 'storefront.order.minimum'
     | 'storefront.order.minutesLeft'
     | 'storefront.order.modesLabel'
+    | 'storefront.order.moreLabel'
     | 'storefront.order.passed'
     | 'storefront.order.pickup'
+    | 'storefront.order.quantityLabel'
     | 'storefront.order.readyIn'
+    | 'storefront.order.remove'
+    | 'storefront.order.removeLabel'
     | 'storefront.order.seePlans'
     | 'storefront.order.start'
+    | 'storefront.order.title'
     | 'storefront.pausedBody'
     | 'storefront.pausedTitle'
     | 'storefront.plans.choose'
@@ -8260,8 +8291,10 @@ export interface NamespaceKeys {
     | 'storefront.plans.empty'
     | 'storefront.plans.howItWorks'
     | 'storefront.plans.perWeek'
+    | 'storefront.plans.start'
     | 'storefront.plans.subtitle'
     | 'storefront.plans.title'
+    | 'storefront.plans.youPick'
     | 'storefront.reviews.barLabel'
     | 'storefront.reviews.count'
     | 'storefront.reviews.emptyBody'
@@ -8284,6 +8317,7 @@ export interface NamespaceKeys {
     | 'storefront.safety.verifiedBody'
     | 'storefront.safety.verifiedFigure'
     | 'storefront.safety.verifiedTitle'
+    | 'storefront.seePlans'
     | 'storefront.separator'
     | 'storefront.tabs.label'
     | 'storefront.tabs.menu'
@@ -8292,6 +8326,7 @@ export interface NamespaceKeys {
     | 'storefront.tabs.safety'
     | 'storefront.tabs.today'
     | 'storefront.today.clock'
+    | 'storefront.today.closed'
     | 'storefront.today.cutoff.body'
     | 'storefront.today.cutoff.bodyNone'
     | 'storefront.today.cutoff.bodyPassed'
@@ -8305,6 +8340,7 @@ export interface NamespaceKeys {
     | 'storefront.today.cutoff.pick'
     | 'storefront.today.cutoff.window'
     | 'storefront.today.cutoff.windowsLabel'
+    | 'storefront.today.dayTitle'
     | 'storefront.today.events.closes'
     | 'storefront.today.events.closesNote'
     | 'storefront.today.events.cutoff'
@@ -8318,7 +8354,13 @@ export interface NamespaceKeys {
     | 'storefront.today.line.empty'
     | 'storefront.today.line.eyebrow'
     | 'storefront.today.none'
+    | 'storefront.today.openRange'
+    | 'storefront.today.state.done'
+    | 'storefront.today.state.later'
+    | 'storefront.today.state.next'
+    | 'storefront.today.state.now'
     | 'storefront.today.title'
+    | 'storefront.today.week'
     | 'storefront.verified'
     | 'storefront.ways.delivery'
     | 'storefront.ways.pickup'
@@ -17973,7 +18015,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:kitchen.zoneMinimum',
   'marketplace:kitchen.zoneMinutes',
   'marketplace:kitchens.areaSeparator',
+  'marketplace:kitchens.cardAreas',
+  'marketplace:kitchens.cardItems',
   'marketplace:kitchens.cardLabel',
+  'marketplace:kitchens.cardPlans',
+  'marketplace:kitchens.close',
   'marketplace:kitchens.collectionOnly',
   'marketplace:kitchens.deliversTo',
   'marketplace:kitchens.deliversToTimed',
@@ -17983,10 +18029,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:kitchens.etaMinutes',
   'marketplace:kitchens.finder.addressAdd',
   'marketplace:kitchens.finder.addressChange',
+  'marketplace:kitchens.finder.addressName',
   'marketplace:kitchens.finder.addressPending',
   'marketplace:kitchens.finder.closedToday',
   'marketplace:kitchens.finder.count',
   'marketplace:kitchens.finder.countOf',
+  'marketplace:kitchens.finder.deliveringPrefix',
   'marketplace:kitchens.finder.deliveringTo',
   'marketplace:kitchens.finder.emptyBody',
   'marketplace:kitchens.finder.emptyTitle',
@@ -18020,14 +18068,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:kitchens.finder.under30',
   'marketplace:kitchens.freeDelivery',
   'marketplace:kitchens.imageLabel',
+  'marketplace:kitchens.keepBrowsing',
+  'marketplace:kitchens.knownFor',
+  'marketplace:kitchens.noCount',
   'marketplace:kitchens.noPublishedZone',
   'marketplace:kitchens.notRatedYet',
+  'marketplace:kitchens.openKitchen',
+  'marketplace:kitchens.openKitchenShort',
+  'marketplace:kitchens.popularHere',
+  'marketplace:kitchens.quickLook',
+  'marketplace:kitchens.quickLookLabel',
   'marketplace:kitchens.ratingLabel',
+  'marketplace:kitchens.ratingShort',
   'marketplace:kitchens.searchLabel',
   'marketplace:kitchens.searchPlaceholder',
   'marketplace:kitchens.subtitle',
   'marketplace:kitchens.title',
   'marketplace:kitchens.verified',
+  'marketplace:kitchens.whereSeparator',
+  'marketplace:kitchens.windowsToday',
   'marketplace:landing.browseKitchens',
   'marketplace:levels.excessive',
   'marketplace:levels.good',
@@ -18044,6 +18103,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:menu.allLoaded',
   'marketplace:menu.allergensTitle',
   'marketplace:menu.cardLabel',
+  'marketplace:menu.clearSearch',
   'marketplace:menu.containsAllergens',
   'marketplace:menu.detailTitle',
   'marketplace:menu.emptyBody',
@@ -18060,6 +18120,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:menu.ratingLabel',
   'marketplace:menu.searchLabel',
   'marketplace:menu.searchPlaceholder',
+  'marketplace:menu.showing',
   'marketplace:menu.stats.carbohydrate',
   'marketplace:menu.stats.energy',
   'marketplace:menu.stats.fat',
@@ -18128,11 +18189,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:staffReturn.plan',
   'marketplace:staffReturn.recipe',
   'marketplace:storefront.addLabel',
+  'marketplace:storefront.allKitchens',
   'marketplace:storefront.closedToday',
   'marketplace:storefront.eyebrow',
   'marketplace:storefront.eyebrowArea',
+  'marketplace:storefront.facts.areasValue',
   'marketplace:storefront.facts.branchCount',
   'marketplace:storefront.facts.branches',
+  'marketplace:storefront.facts.countsValue',
   'marketplace:storefront.facts.cuisine',
   'marketplace:storefront.facts.delivery',
   'marketplace:storefront.facts.minutes',
@@ -18152,21 +18216,30 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:storefront.nextOpen',
   'marketplace:storefront.openMeal',
   'marketplace:storefront.openToday',
+  'marketplace:storefront.order.checkout',
   'marketplace:storefront.order.collectFrom',
   'marketplace:storefront.order.cutOff',
   'marketplace:storefront.order.delivery',
+  'marketplace:storefront.order.emptyHint',
   'marketplace:storefront.order.eyebrow',
   'marketplace:storefront.order.fee',
+  'marketplace:storefront.order.fewerLabel',
   'marketplace:storefront.order.fromAmount',
   'marketplace:storefront.order.hoursLeft',
+  'marketplace:storefront.order.itemCount',
   'marketplace:storefront.order.minimum',
   'marketplace:storefront.order.minutesLeft',
   'marketplace:storefront.order.modesLabel',
+  'marketplace:storefront.order.moreLabel',
   'marketplace:storefront.order.passed',
   'marketplace:storefront.order.pickup',
+  'marketplace:storefront.order.quantityLabel',
   'marketplace:storefront.order.readyIn',
+  'marketplace:storefront.order.remove',
+  'marketplace:storefront.order.removeLabel',
   'marketplace:storefront.order.seePlans',
   'marketplace:storefront.order.start',
+  'marketplace:storefront.order.title',
   'marketplace:storefront.pausedBody',
   'marketplace:storefront.pausedTitle',
   'marketplace:storefront.plans.choose',
@@ -18174,8 +18247,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:storefront.plans.empty',
   'marketplace:storefront.plans.howItWorks',
   'marketplace:storefront.plans.perWeek',
+  'marketplace:storefront.plans.start',
   'marketplace:storefront.plans.subtitle',
   'marketplace:storefront.plans.title',
+  'marketplace:storefront.plans.youPick',
   'marketplace:storefront.reviews.barLabel',
   'marketplace:storefront.reviews.count',
   'marketplace:storefront.reviews.emptyBody',
@@ -18198,6 +18273,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:storefront.safety.verifiedBody',
   'marketplace:storefront.safety.verifiedFigure',
   'marketplace:storefront.safety.verifiedTitle',
+  'marketplace:storefront.seePlans',
   'marketplace:storefront.separator',
   'marketplace:storefront.tabs.label',
   'marketplace:storefront.tabs.menu',
@@ -18206,6 +18282,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:storefront.tabs.safety',
   'marketplace:storefront.tabs.today',
   'marketplace:storefront.today.clock',
+  'marketplace:storefront.today.closed',
   'marketplace:storefront.today.cutoff.body',
   'marketplace:storefront.today.cutoff.bodyNone',
   'marketplace:storefront.today.cutoff.bodyPassed',
@@ -18219,6 +18296,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:storefront.today.cutoff.pick',
   'marketplace:storefront.today.cutoff.window',
   'marketplace:storefront.today.cutoff.windowsLabel',
+  'marketplace:storefront.today.dayTitle',
   'marketplace:storefront.today.events.closes',
   'marketplace:storefront.today.events.closesNote',
   'marketplace:storefront.today.events.cutoff',
@@ -18232,7 +18310,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:storefront.today.line.empty',
   'marketplace:storefront.today.line.eyebrow',
   'marketplace:storefront.today.none',
+  'marketplace:storefront.today.openRange',
+  'marketplace:storefront.today.state.done',
+  'marketplace:storefront.today.state.later',
+  'marketplace:storefront.today.state.next',
+  'marketplace:storefront.today.state.now',
   'marketplace:storefront.today.title',
+  'marketplace:storefront.today.week',
   'marketplace:storefront.verified',
   'marketplace:storefront.ways.delivery',
   'marketplace:storefront.ways.pickup',

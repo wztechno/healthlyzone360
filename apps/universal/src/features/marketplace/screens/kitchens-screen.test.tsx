@@ -322,8 +322,8 @@ describe('KitchensScreen — the finder', () => {
         await fireEvent.press(screen.getByTestId('kitchens-address'));
         expect(routerMock.__push).toHaveBeenCalledWith(withReturnTo('/sign-in', '/kitchens'));
 
-        // The whole card is the link to the storefront.
-        await fireEvent.press(screen.getByTestId('kitchen-card-alpha'));
+        // "Open {kitchen}" is the card's link to the storefront.
+        await fireEvent.press(screen.getByTestId('kitchen-card-alpha-open'));
         expect(routerMock.__push).toHaveBeenCalledWith(`/kitchens/${String(ALPHA.id)}`);
     });
 
@@ -345,7 +345,6 @@ describe('KitchensScreen — the finder', () => {
             expect(screen.getByTestId('kitchen-card-bravo')).toBeTruthy();
         });
         expect(cardOrder()).toEqual(['bravo']);
-        expect(screen.getByText('Matching kitchens')).toBeTruthy();
         await waitFor(() => {
             expect(screen.getByTestId('kitchens-results-count')).toHaveTextContent(
                 '1 of 3 kitchens',
@@ -387,21 +386,27 @@ describe('KitchensScreen — the finder', () => {
         expect(screen.queryByTestId('kitchen-card-charlie-today')).toBeNull();
     });
 
-    it('states the delivery terms a kitchen publishes and none it does not', async () => {
+    it('states in Quick look the delivery terms a kitchen publishes and none it does not', async () => {
         await renderStubScreen(<KitchensScreen />, { repositories: REPOSITORIES });
 
         await waitFor(() => {
             expect(screen.getByTestId('kitchens-grid')).toBeTruthy();
         });
+        expect(screen.getByTestId('kitchen-card-bravo-verified')).toBeTruthy();
+        // The card shows no terms; its Quick look does.
+        expect(screen.queryByTestId('kitchen-card-alpha-facts')).toBeNull();
+        await fireEvent.press(screen.getByTestId('kitchen-card-alpha-quick-look'));
         expect(screen.getByTestId('kitchen-card-alpha-facts')).toHaveTextContent(
             /^40 min · .*15\.00 fee · Min .*50\.00$/,
         );
+        await fireEvent.press(screen.getByTestId('kitchen-card-alpha-quick-close'));
+
         // No estimate is published, so no time is drawn — not a dash, not a guess.
+        await fireEvent.press(screen.getByTestId('kitchen-card-charlie-quick-look'));
         expect(screen.getByTestId('kitchen-card-charlie-facts')).toHaveTextContent(
             /^Free delivery · Min .*50\.00$/,
         );
         expect(screen.getByTestId('kitchen-card-charlie-unrated')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-card-bravo-verified')).toBeTruthy();
     });
 
     it('writes the search term and the toggles to the URL', async () => {
@@ -438,24 +443,6 @@ describe('KitchensScreen — the finder', () => {
         });
         expect(cardOrder()).toEqual(['bravo']);
         expect(screen.getByTestId('kitchens-filter-fast')).toHaveProp('aria-pressed', true);
-    });
-
-    it('lands each goal tile on a filter the meals catalogue reads', async () => {
-        await renderStubScreen(<KitchensScreen />, { repositories: REPOSITORIES });
-
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchens-goals')).toBeTruthy();
-        });
-        await fireEvent.press(screen.getByTestId('kitchens-goal-high_protein'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/meals?diet=high_protein');
-        await fireEvent.press(screen.getByTestId('kitchens-goal-under500'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/meals?energyMax=500');
-        // The count is the catalogue's own total for the same filter.
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchens-goal-high_protein-count')).toHaveTextContent(
-                '2 meals →',
-            );
-        });
     });
 
     it('orders by a signed-in shopper’s declared diets and names their address', async () => {
@@ -497,7 +484,7 @@ describe('KitchensScreen — the finder', () => {
 
         await waitFor(() => {
             expect(screen.getByTestId('kitchens-address-value')).toHaveTextContent(
-                '14 Al Wasl Road',
+                'Home · Jumeirah 1',
             );
         });
         await fireEvent.press(screen.getByTestId('kitchens-address'));

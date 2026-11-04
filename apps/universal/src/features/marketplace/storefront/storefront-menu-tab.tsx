@@ -1,42 +1,35 @@
-import { Button, Icon } from '@healthy360/design-system';
+import { Icon, cx } from '@healthy360/design-system';
 import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
-import { Eyebrow } from '../../../ui/eyebrow.tsx';
-import { PillChip } from '../../../ui/pill-chip.tsx';
+import { EntityImage } from '../../../media/entity-image.tsx';
+import { MenuMealCard } from '../../catalogue/menu-meal-card.tsx';
+import { TINT_BORDER, TINT_FILL, TINT_INK, shelfTint } from '../../catalogue/shelf-tints.ts';
 
-import { StorefrontMealRow } from './storefront-meal-row.tsx';
 import { OTHER_SHELF, isOnShelf, menuShelves } from './storefront-menu.ts';
 
-/** The "every shelf" chip. Not a category code the platform can mint — codes are lower-case words. */
+/** The "every shelf" tile. Not a category code the platform can mint — codes are lower-case words. */
 const ALL = '*';
 
 /**
- * The storefront's Menu tab — HealthZone `§isStorefront` `storeIsMenu`: a row of shelf chips with
- * their counts and the dish count opposite, then the dishes two across.
+ * The storefront's Menu tab, as the accepted shop board draws it: the kitchen's shelves as colour
+ * tiles with a photograph and a count, "Search this menu", then the dishes three across on the
+ * menu's own card (`MenuMealCard`, compact).
  *
- * ## The chips are the kitchen's own shelves
+ * ## The tiles are the kitchen's own shelves
  *
- * The design's chips are the menu's categories, each with how many dishes it holds — "All · 12",
- * "Bowls · 5". Here they are the `publishedCategory` shelves this kitchen actually files listings
- * under, counted over the whole menu — the screen loads every page before this renders, so
- * "Bowls · 5" is five, not "five of the first twenty-five". A listing the kitchen never filed lands
- * on a trailing "Other" chip so the shelves always add up to "All".
+ * The `publishedCategory` shelves this kitchen files listings under, counted over the whole menu —
+ * the screen loads every page before this renders, so "Bowls · 5" is five, not "five of the first
+ * twenty-five". A listing the kitchen never filed lands on a trailing "Other" tile so the shelves
+ * always add up to "All".
  *
  * ## The count's second clause
  *
- * The design's eyebrow reads "12 DISHES · COOKED 11 AM". Nothing publishes when a menu was cooked,
- * so the clause is the kitchen's same-day cut-off where it publishes one — "12 DISHES · ORDER BY
- * 11:30" — and absent where it does not.
- *
- * ## Two across, one below
- *
- * `basis-[45%]` with a `min-w`: two cells and the gap fit a row and three cannot, and below about
- * 600 points the minimum width forces one column — the design's `auto-fill, minmax(320px, 1fr)`
- * without a breakpoint.
+ * The kitchen's same-day cut-off where it publishes one — "12 DISHES · ORDER BY 11:30" — and absent
+ * where it does not.
  */
 export interface StorefrontMenuTabProps {
     /** The whole menu — every page. */
@@ -78,78 +71,132 @@ export function StorefrontMenuTab({
         [meals, shelf],
     );
 
-    const chip = (key: string, label: string, count: number) => (
-        <PillChip
-            key={key}
-            size="sm"
-            floor="coarse"
-            testID={`kitchen-shelf-${key === ALL ? 'all' : key}`}
-            label={t('marketplace:storefront.menu.chip', {
-                label,
-                count: formatter.formatNumber(count),
-            })}
-            selected={shelf === key}
-            onPress={() => {
-                onShelfChange(key === ALL ? null : key);
-            }}
-        />
-    );
+    const tile = (key: string, label: string, count: number) => {
+        const on = shelf === key;
+        const tint = key === ALL || key === OTHER_SHELF ? 'neutral' : shelfTint(key);
+        const photo = key === ALL ? undefined : meals.find((meal) => isOnShelf(meal, key));
+        const countText = formatter.formatNumber(count);
+        return (
+            <Pressable
+                key={key}
+                testID={`kitchen-shelf-${key === ALL ? 'all' : key}`}
+                role="radio"
+                accessibilityRole="radio"
+                aria-checked={on}
+                accessibilityState={{ checked: on, selected: on }}
+                accessibilityLabel={t('marketplace:storefront.menu.chip', {
+                    label,
+                    count: countText,
+                })}
+                onPress={() => {
+                    onShelfChange(key === ALL ? null : key);
+                }}
+                className={cx(
+                    'h-[68px] min-w-[150px] flex-1 basis-[22%] flex-row items-center gap-2.5 rounded-[18px] border-2 pe-3 ps-2 transition duration-normal ease-standard hover:-translate-y-0.5',
+                    TINT_FILL[tint],
+                    on ? TINT_BORDER[tint] : 'border-transparent',
+                )}
+            >
+                <View className="h-[50px] w-[50px] items-center justify-center overflow-hidden rounded-xl">
+                    {photo === undefined ? (
+                        <Icon name="layoutGrid" className={TINT_INK[tint]} />
+                    ) : (
+                        <EntityImage
+                            assetId={photo.imagePlaceholderId}
+                            photoUrl={photo.photoUrl}
+                            seed={photo.slug}
+                            label={label}
+                            decorative
+                            flush
+                            className="h-[50px] w-[50px]"
+                        />
+                    )}
+                </View>
+                <View className="min-w-0 flex-1 flex-col">
+                    <RNText
+                        numberOfLines={1}
+                        className={cx(
+                            'font-display text-base font-bold text-start',
+                            TINT_INK[tint],
+                        )}
+                    >
+                        {label}
+                    </RNText>
+                    <RNText
+                        className={cx(
+                            'text-xs font-medium tabular-nums opacity-85 text-start',
+                            TINT_INK[tint],
+                        )}
+                    >
+                        {t('catalogue:filters.shelfCount', { count, n: countText })}
+                    </RNText>
+                </View>
+            </Pressable>
+        );
+    };
 
     const count = formatter.formatNumber(visible.length);
 
     return (
         <View className="flex-col gap-4" testID="kitchen-menu-tab">
-            <View className="flex-row flex-wrap items-center justify-between gap-3">
-                <View
-                    testID="kitchen-shelves"
-                    role="group"
-                    aria-label={t('marketplace:storefront.menu.shelvesLabel')}
-                    className="min-w-0 shrink flex-row flex-wrap gap-1.5"
-                >
-                    {chip(ALL, t('marketplace:storefront.menu.all'), meals.length)}
-                    {shelves.map((entry) =>
-                        chip(
-                            entry.key,
-                            entry.key === OTHER_SHELF || entry.name === null
-                                ? t('marketplace:storefront.menu.other')
-                                : entry.name,
-                            entry.count,
-                        ),
-                    )}
-                </View>
-
-                <View className="flex-row flex-wrap items-center gap-3">
-                    <Eyebrow testID="kitchen-menu-count" className="tabular-nums">
-                        {cutOff === null
-                            ? t('marketplace:storefront.menu.count', {
-                                  count: visible.length,
-                                  formattedCount: count,
-                              })
-                            : t('marketplace:storefront.menu.countCutOff', {
-                                  count: visible.length,
-                                  formattedCount: count,
-                                  time: cutOff,
-                              })}
-                    </Eyebrow>
-                    {/*
-                     * The way into the searchable menu, named for what it is (browse-12). "Start an
-                     * order" used to open it, and found a second copy of these same dishes.
-                     */}
-                    <Button
-                        testID="kitchen-menu-search"
-                        size="sm"
-                        variant="quiet"
-                        iconStart={<Icon name="search" size="sm" />}
-                        label={t('marketplace:menu.searchLabel')}
-                        onPress={onSearch}
-                    />
-                </View>
+            <View
+                testID="kitchen-shelves"
+                role="radiogroup"
+                aria-label={t('marketplace:storefront.menu.shelvesLabel')}
+                className="flex-row flex-wrap gap-2.5"
+            >
+                {tile(ALL, t('marketplace:storefront.menu.all'), meals.length)}
+                {shelves.map((entry) =>
+                    tile(
+                        entry.key,
+                        entry.key === OTHER_SHELF || entry.name === null
+                            ? t('marketplace:storefront.menu.other')
+                            : entry.name,
+                        entry.count,
+                    ),
+                )}
             </View>
 
-            <View testID="kitchen-menu-rows" className="flex-row flex-wrap gap-3">
+            <View className="flex-row flex-wrap items-center justify-between gap-3">
+                <RNText
+                    testID="kitchen-menu-count"
+                    className="text-xs font-semibold uppercase tracking-wider tabular-nums text-content-secondary"
+                >
+                    {cutOff === null
+                        ? t('marketplace:storefront.menu.count', {
+                              count: visible.length,
+                              formattedCount: count,
+                          })
+                        : t('marketplace:storefront.menu.countCutOff', {
+                              count: visible.length,
+                              formattedCount: count,
+                              time: cutOff,
+                          })}
+                </RNText>
+                {/*
+                 * The way into the searchable menu, named for what it is (browse-12). "Start an
+                 * order" used to open it, and found a second copy of these same dishes.
+                 */}
+                <Pressable
+                    testID="kitchen-menu-search"
+                    role="link"
+                    accessibilityRole="link"
+                    onPress={onSearch}
+                    className="min-h-touch flex-row items-center gap-2 rounded-full px-3 hover:bg-surface-brand-subtle"
+                >
+                    <Icon name="search" size="sm" className="text-content-brand" />
+                    <RNText className="text-sm font-semibold text-content-brand">
+                        {t('marketplace:menu.searchLabel')}
+                    </RNText>
+                </Pressable>
+            </View>
+
+            <View testID="kitchen-menu-rows" className="flex-row flex-wrap gap-4">
                 {visible.map((meal) => (
-                    <View key={meal.id} className="min-w-[280px] flex-1 grow basis-[45%]">
-                        <StorefrontMealRow
+                    <View key={meal.id} className="min-w-[220px] flex-1 grow basis-[30%] flex-col">
+                        <MenuMealCard
+                            compact
+                            testID={`storefront-menu-${meal.slug}`}
                             meal={meal}
                             onOpen={() => {
                                 onOpen(meal);

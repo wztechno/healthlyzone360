@@ -208,8 +208,25 @@
             "fee": "{{amount}} fee",
             "feeFrom": "From {{amount}} fee",
             "minimum": "Min {{amount}}",
-            "minimumFrom": "Min from {{amount}}"
-        }
+            "minimumFrom": "Min from {{amount}}",
+            "addressName": "{{label}} · {{area}}",
+            "deliveringPrefix": "Delivering to"
+        },
+        "noCount": "—",
+        "whereSeparator": ", ",
+        "cardItems": "Items",
+        "cardAreas": "Areas",
+        "cardPlans": "Plans",
+        "openKitchen": "Open {{kitchen}}",
+        "quickLook": "Quick look",
+        "quickLookLabel": "Quick look at {{kitchen}}",
+        "windowsToday": "Today's delivery windows",
+        "popularHere": "Popular here",
+        "knownFor": "Known for",
+        "keepBrowsing": "Keep browsing",
+        "openKitchenShort": "Open kitchen",
+        "close": "Close",
+        "ratingShort": "★ {{rating}} ({{count}})"
     },
     "kitchen": {
         "loading": "Loading",
@@ -260,7 +277,10 @@
         },
         "openMeal": "Open {{meal}}",
         "add": "Add",
-        "ratingLabel": "Average rating for {{meal}}"
+        "ratingLabel": "Average rating for {{meal}}",
+        "clearSearch": "Clear search",
+        "showing_one": "Showing {{formattedCount}} dish",
+        "showing_other": "Showing {{formattedCount}} dishes"
     },
     "dietitians": {
         "title": "Dietitians",
@@ -534,7 +554,10 @@
             "branches": "Branches",
             "branchCount_one": "{{formattedCount}} branch",
             "branchCount_other": "{{formattedCount}} branches",
-            "none": "—"
+            "none": "—",
+            "areasValue_one": "Delivers to {{formattedCount}} area",
+            "areasValue_other": "Delivers to {{formattedCount}} areas",
+            "countsValue": "{{items}} items · {{plans}} plans"
         },
         "tabs": {
             "label": "About this kitchen",
@@ -577,7 +600,17 @@
             "hoursLeft": "{{hours}} h {{minutes}} min left",
             "passed": "Closed · {{time}}",
             "start": "Start an order",
-            "seePlans": "See plans from this kitchen"
+            "seePlans": "See plans from this kitchen",
+            "title": "Your order",
+            "itemCount_one": "{{formattedCount}} item",
+            "itemCount_other": "{{formattedCount}} items",
+            "emptyHint": "Tap + on a dish to start",
+            "checkout": "Checkout",
+            "quantityLabel": "Quantity of {{item}}",
+            "fewerLabel": "One fewer {{item}}",
+            "moreLabel": "One more {{item}}",
+            "removeLabel": "Remove {{item}}",
+            "remove": "Remove"
         },
         "today": {
             "eyebrow": "Today's schedule",
@@ -613,7 +646,17 @@
                 "windowsLabel": "Today's delivery windows",
                 "window": "{{startsAt}}–{{endsAt}}",
                 "pick": "Pick from the menu"
-            }
+            },
+            "state": {
+                "done": "Done",
+                "next": "Next",
+                "later": "Later",
+                "now": "Now"
+            },
+            "dayTitle": "Today, {{day}}",
+            "openRange": "Open {{opensAt}} – {{closesAt}}",
+            "week": "This week",
+            "closed": "Closed"
         },
         "plans": {
             "title": "Plans from {{kitchen}}",
@@ -622,7 +665,9 @@
             "perWeek": "per week",
             "choose": "Choose",
             "chooseLabel": "Choose the {{plan}} plan",
-            "empty": "This kitchen has not published a weekly plan yet. Everything on its menu can still be ordered."
+            "empty": "This kitchen has not published a weekly plan yet. Everything on its menu can still be ordered.",
+            "youPick": "You pick every day's meals.",
+            "start": "Start this plan"
         },
         "safety": {
             "allergensTitle": "Allergens declared",
@@ -651,7 +696,9 @@
         },
         "nextOpen": "Closed today · Opens {{day}}",
         "pausedTitle": "This kitchen has paused new orders",
-        "pausedBody": "You can browse the menu now and order again from {{time}}."
+        "pausedBody": "You can browse the menu now and order again from {{time}}.",
+        "allKitchens": "All kitchens",
+        "seePlans": "See weekly plans"
     },
     "imageCredits": {
         "title": "Image credits",

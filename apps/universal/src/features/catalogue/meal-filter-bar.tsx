@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, Text as RNText, View } from 'react-native';
 
 import { EntityImage } from '../../media/entity-image.tsx';
+import { InkSortMenu } from '../../ui/ink-sort-menu.tsx';
 import { useOutsideDismiss } from '../../ui/use-outside-dismiss.ts';
 import type { MarketplaceFilterState } from '../marketplace/filter-bar.tsx';
 import { FilterRows } from './filter-rows.tsx';
@@ -484,93 +485,6 @@ function FilterPill({
     );
 }
 
-/* ── the sort ────────────────────────────────────────────────────────────────────────────────── */
-
-function SortMenu({
-    sort,
-    options,
-    onSort,
-}: {
-    readonly sort: MenuSort;
-    readonly options: readonly MenuSort[];
-    readonly onSort: (sort: MenuSort) => void;
-}) {
-    const { t } = useTranslation();
-    const [open, setOpen] = useState(false);
-    const close = useCallback(() => {
-        setOpen(false);
-    }, []);
-    const root = useOutsideDismiss(open, close);
-    const current = t(`catalogue:meals.sort.${sort}`);
-
-    return (
-        <View ref={root} className="relative z-auto">
-            <Pressable
-                testID="meals-sort"
-                role="button"
-                accessibilityRole="button"
-                accessibilityLabel={t('catalogue:filters.sortCurrent', {
-                    label: t('catalogue:meals.sortLabel'),
-                    value: current,
-                })}
-                aria-haspopup="menu"
-                aria-expanded={open}
-                accessibilityState={{ expanded: open }}
-                onPress={() => {
-                    setOpen((now) => !now);
-                }}
-                className="h-[52px] flex-row items-center gap-2.5 rounded-2xl bg-content-primary pe-4 ps-3.5"
-            >
-                <Icon name="listChecks" size="sm" className="text-surface-base" />
-                <RNText numberOfLines={1} className="text-sm font-semibold text-surface-base">
-                    {current}
-                </RNText>
-                <Icon name="chevronDown" size="sm" className="text-surface-base" />
-            </Pressable>
-            {open ? (
-                <View
-                    testID="meals-sort-panel"
-                    role="menu"
-                    aria-label={t('catalogue:meals.sortLabel')}
-                    className="absolute end-0 top-full z-tooltip mt-2 w-[260px] rounded-2xl border border-stroke-subtle bg-surface-raised p-2 shadow-elevation-3"
-                >
-                    {options.map((option) => {
-                        const on = option === sort;
-                        return (
-                            <Pressable
-                                key={option}
-                                testID={`meals-sort-${option}`}
-                                role="menuitem"
-                                aria-selected={on}
-                                accessibilityState={{ selected: on }}
-                                onPress={() => {
-                                    onSort(option);
-                                    close();
-                                }}
-                                className="h-11 flex-row items-center justify-between rounded-xl px-3 hover:bg-surface-base"
-                            >
-                                <RNText
-                                    className={cx(
-                                        'text-sm',
-                                        on
-                                            ? 'font-bold text-content-brand'
-                                            : 'font-medium text-content-primary',
-                                    )}
-                                >
-                                    {t(`catalogue:meals.sort.${option}`)}
-                                </RNText>
-                                {on ? (
-                                    <Icon name="check" size="sm" className="text-content-brand" />
-                                ) : null}
-                            </Pressable>
-                        );
-                    })}
-                </View>
-            ) : null}
-        </View>
-    );
-}
-
 /* ── the bar ─────────────────────────────────────────────────────────────────────────────────── */
 
 export interface MealFilterBarProps {
@@ -809,12 +723,18 @@ export function MealFilterBar({
     );
 
     const sortMenu = (
-        <SortMenu
-            sort={sort}
+        <InkSortMenu<MenuSort>
+            testID="meals-sort"
+            label={t('catalogue:meals.sortLabel')}
+            accessibilityLabel={t('catalogue:filters.sortCurrent', {
+                label: t('catalogue:meals.sortLabel'),
+                value: t(`catalogue:meals.sort.${sort}`),
+            })}
+            value={sort}
             options={MENU_SORTS.filter(
                 (option) => option !== 'rating' || hasRatings || sort === 'rating',
-            )}
-            onSort={onSort}
+            ).map((option) => ({ value: option, label: t(`catalogue:meals.sort.${option}`) }))}
+            onChange={onSort}
         />
     );
 

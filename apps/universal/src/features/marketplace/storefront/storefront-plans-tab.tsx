@@ -1,30 +1,33 @@
-import { Button, Icon, cx } from '@healthy360/design-system';
+import { Icon, cx } from '@healthy360/design-system';
 import type { SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
-import { Eyebrow } from '../../../ui/eyebrow.tsx';
 import { cheapestVariant } from '../../catalogue/plan-catalogue.ts';
+import { TINT_FILL, TINT_INK } from '../../catalogue/shelf-tints.ts';
+import type { ShelfTint } from '../../catalogue/shelf-tints.ts';
 import { formatMoney } from '../format.ts';
 import { useShopViewOnly } from '../shop-view-only.tsx';
 
+/** The plans' icon tiles, in turn. */
+const PLAN_TINTS: readonly ShelfTint[] = ['green', 'violet', 'orange', 'blue'];
+
 /**
- * The storefront's Plans tab — HealthZone `§isStorefront` `storeIsPlans`: one card, a heading row
- * with "How plans work", then a row per plan with its name and summary, its price and Choose.
+ * The storefront's Plans tab, as the accepted shop board draws it: "How plans work", then the
+ * kitchen's plans three across, each a card with its icon tile, name and summary, its price and
+ * "Start this plan".
  *
  * ## The price is per week, from the cheapest size
  *
- * The design states a price "per delivery day". A plan variant publishes a weekly price and nothing
- * that says how many deliveries a week buys, so a per-delivery figure would be arithmetic over a
- * number the contract does not have. The row states the weekly price of the cheapest variant,
- * prefixed "from" — the same figure, and the same refusal to advertise from one size and show
- * another, as the `/plans` catalogue (`plan-catalogue.ts`, `cheapestVariant`).
+ * A plan variant publishes a weekly price and nothing that says how many deliveries a week buys, so
+ * the card states the weekly price of the cheapest variant, prefixed "from" — the same figure, and
+ * the same refusal to advertise from one size and show another, as the `/plans` catalogue
+ * (`plan-catalogue.ts`, `cheapestVariant`).
  *
  * ## No plans
  *
- * A kitchen that sells none keeps the card and its heading, and its one row says so — the tab is
- * always there, as designed, and an empty card is the honest answer to it.
+ * A kitchen that sells none gets the board's dashed empty card, saying so.
  */
 export interface StorefrontPlansTabProps {
     readonly kitchenName: string;
@@ -44,106 +47,117 @@ export function StorefrontPlansTab({
     const formatter = useFormatter();
 
     return (
-        <View
-            testID="kitchen-plans-tab"
-            className="overflow-hidden rounded-xl border border-stroke bg-surface-raised"
-        >
-            <View className="flex-row flex-wrap items-baseline justify-between gap-3 border-b border-stroke-subtle px-5 py-5">
-                <View className="min-w-0 shrink flex-col gap-1">
-                    <RNText
-                        accessibilityRole="header"
-                        aria-level={2}
-                        className="font-display text-xl font-bold leading-tight tracking-display text-content-primary text-start"
-                    >
-                        {t('marketplace:storefront.plans.title', { kitchen: kitchenName })}
-                    </RNText>
-                    <RNText className="text-sm text-content-secondary text-start">
-                        {t('marketplace:storefront.plans.subtitle')}
-                    </RNText>
-                </View>
+        <View testID="kitchen-plans-tab" className="flex-col gap-4">
+            <View className="flex-row flex-wrap items-baseline justify-between gap-3">
+                <RNText
+                    accessibilityRole="header"
+                    aria-level={2}
+                    className="font-display text-xl font-bold text-content-primary text-start"
+                >
+                    {t('marketplace:storefront.plans.title', { kitchen: kitchenName })}
+                </RNText>
                 <Pressable
                     testID="kitchen-plans-how"
                     role="link"
                     accessibilityRole="link"
                     onPress={onHowPlansWork}
-                    className="min-h-touch flex-row items-center gap-1"
+                    className="min-h-touch flex-row items-center gap-1 rounded-full px-2 hover:bg-surface-brand-subtle"
                 >
-                    <RNText className="text-sm font-semibold text-content-on-brand-subtle hover:underline">
+                    <RNText className="text-sm font-semibold text-content-brand">
                         {t('marketplace:storefront.plans.howItWorks')}
                     </RNText>
-                    <Icon name="chevronEnd" size="sm" className="text-content-on-brand-subtle" />
+                    <Icon name="chevronEnd" size="sm" className="text-content-brand" />
                 </Pressable>
             </View>
 
             {plans.length === 0 ? (
-                <View testID="kitchen-plans-empty" className="px-5 py-5">
-                    <RNText className="text-sm text-content-secondary text-start">
+                <View
+                    testID="kitchen-plans-empty"
+                    className="items-center gap-2 rounded-3xl border-2 border-dashed border-stroke px-6 py-12"
+                >
+                    <Icon name="calendarDays" size="lg" className="text-content-secondary" />
+                    <RNText className="text-center text-sm text-content-secondary">
                         {t('marketplace:storefront.plans.empty')}
                     </RNText>
                 </View>
-            ) : null}
-
-            {plans.map((plan, index) => {
-                const cheapest = cheapestVariant(plan);
-                return (
-                    <View
-                        key={plan.id}
-                        testID={`kitchen-plan-${plan.slug}`}
-                        className={cx(
-                            'flex-row flex-wrap items-center gap-4 px-5 py-4',
-                            index === plans.length - 1 ? null : 'border-b border-stroke-subtle',
-                        )}
-                    >
-                        <View className="min-w-[200px] flex-1 flex-col gap-0.5">
-                            <RNText className="font-display text-base font-bold leading-tight tracking-display text-content-primary text-start">
-                                {plan.name}
-                            </RNText>
-                            {plan.summary === '' ? null : (
+            ) : (
+                <View className="flex-row flex-wrap gap-4">
+                    {plans.map((plan, index) => {
+                        const cheapest = cheapestVariant(plan);
+                        const tint = PLAN_TINTS[index % PLAN_TINTS.length] ?? 'green';
+                        return (
+                            <View
+                                key={plan.id}
+                                testID={`kitchen-plan-${plan.slug}`}
+                                className="min-w-[220px] flex-1 basis-[30%] flex-col gap-2.5 rounded-3xl border border-stroke-subtle bg-surface-raised p-5"
+                            >
+                                <View
+                                    className={cx(
+                                        'h-11 w-11 items-center justify-center rounded-[14px]',
+                                        TINT_FILL[tint],
+                                    )}
+                                >
+                                    <Icon
+                                        name="calendarDays"
+                                        size="sm"
+                                        className={TINT_INK[tint]}
+                                    />
+                                </View>
+                                <RNText className="font-display text-lg font-bold text-content-primary text-start">
+                                    {plan.name}
+                                </RNText>
                                 <RNText
                                     numberOfLines={2}
                                     className="text-sm text-content-secondary text-start"
                                 >
-                                    {plan.summary}
+                                    {plan.summary === ''
+                                        ? t('marketplace:storefront.plans.youPick')
+                                        : plan.summary}
                                 </RNText>
-                            )}
-                        </View>
-
-                        <View className="flex-row items-center gap-4">
-                            {cheapest === null ? null : (
-                                <View className="items-end">
-                                    <RNText
-                                        testID={`kitchen-plan-${plan.slug}-price`}
-                                        className="font-display text-lg font-bold tabular-nums text-content-primary text-end"
-                                    >
-                                        {t('marketplace:storefront.order.fromAmount', {
-                                            amount: formatMoney(formatter, cheapest.pricePerWeek),
-                                        })}
+                                {cheapest === null ? null : (
+                                    <View className="mt-auto flex-row items-baseline gap-1.5 pt-1">
+                                        <RNText
+                                            testID={`kitchen-plan-${plan.slug}-price`}
+                                            className="font-display text-2xl font-bold tabular-nums text-content-primary"
+                                        >
+                                            {t('marketplace:storefront.order.fromAmount', {
+                                                amount: formatMoney(
+                                                    formatter,
+                                                    cheapest.pricePerWeek,
+                                                ),
+                                            })}
+                                        </RNText>
+                                        <RNText className="text-sm text-content-secondary">
+                                            {t('marketplace:storefront.plans.perWeek')}
+                                        </RNText>
+                                    </View>
+                                )}
+                                <Pressable
+                                    testID={`kitchen-plan-${plan.slug}-choose`}
+                                    role="button"
+                                    accessibilityRole="button"
+                                    accessibilityLabel={t(
+                                        'marketplace:storefront.plans.chooseLabel',
+                                        {
+                                            plan: plan.name,
+                                        },
+                                    )}
+                                    onPress={() => {
+                                        onChoose(plan);
+                                    }}
+                                    className="mt-1 h-[52px] items-center justify-center rounded-2xl bg-surface-brand hover:bg-surface-canopy"
+                                >
+                                    <RNText className="text-base font-bold text-content-on-brand">
+                                        {viewOnly
+                                            ? t('catalogue:plans.viewPlanShort')
+                                            : t('marketplace:storefront.plans.start')}
                                     </RNText>
-                                    <Eyebrow className="text-end">
-                                        {t('marketplace:storefront.plans.perWeek')}
-                                    </Eyebrow>
-                                </View>
-                            )}
-                            <Button
-                                testID={`kitchen-plan-${plan.slug}-choose`}
-                                size="sm"
-                                variant="primary"
-                                label={
-                                    viewOnly
-                                        ? t('catalogue:plans.viewPlanShort')
-                                        : t('marketplace:storefront.plans.choose')
-                                }
-                                accessibilityLabel={t('marketplace:storefront.plans.chooseLabel', {
-                                    plan: plan.name,
-                                })}
-                                onPress={() => {
-                                    onChoose(plan);
-                                }}
-                            />
-                        </View>
-                    </View>
-                );
-            })}
+                                </Pressable>
+                            </View>
+                        );
+                    })}
+                </View>
+            )}
         </View>
     );
 }
