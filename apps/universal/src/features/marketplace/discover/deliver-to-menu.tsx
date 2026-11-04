@@ -47,15 +47,18 @@ const DAYS_OFFERED = 3;
  * a day the checkout would refuse. Signed out, the trigger asks the person to sign in instead.
  *
  * `framed` is the Menu's own slot: a bordered control on the page, whose dropdown opens towards
- * the end. Unframed, it sits inside Discover's search bar and opens towards the start.
+ * the end. `bar` is the meal page's order-bar slot — the address's name over the day and window.
+ * Neither, it sits inside Discover's search bar and opens towards the start.
  */
 export function DeliverToMenu({
     testID,
     framed = false,
+    bar = false,
     kitchenId = null,
 }: {
     readonly testID: string;
     readonly framed?: boolean | undefined;
+    readonly bar?: boolean | undefined;
     /** The kitchen of the food on screen, whose own delivery windows the When row offers. */
     readonly kitchenId?: KitchenId | null | undefined;
 }) {
@@ -152,6 +155,12 @@ export function DeliverToMenu({
         slot.label ?? t(`commerce:slots.${slot.code}`, { defaultValue: slot.code });
     const slotTime = (slot: DeliverySlotOption) =>
         t('marketplace:discover.slotTime', { start: slot.startsAt, end: slot.endsAt });
+    const whenShort = (date: string, code: string) => {
+        const slot = slots.find((candidate) => candidate.code === code);
+        return slot === undefined
+            ? dayName(date)
+            : t('marketplace:discover.slotShort', { day: dayName(date), slot: slotName(slot) });
+    };
     const whenText = (date: string, code: string) => {
         const slot = slots.find((candidate) => candidate.code === code);
         return slot === undefined
@@ -221,45 +230,72 @@ export function DeliverToMenu({
                     setOpen((current) => !current);
                 }}
                 className={
-                    framed
-                        ? [
-                              'h-[52px] flex-row items-center gap-2.5 rounded-2xl border bg-surface-raised pe-3.5 ps-3 transition duration-normal ease-standard hover:border-surface-brand',
-                              open ? 'border-surface-brand' : 'border-stroke',
-                          ].join(' ')
-                        : [
-                              'h-12 flex-row items-center gap-2.5 rounded-full pe-4 ps-3 transition duration-normal ease-standard hover:bg-surface-brand-subtle',
-                              open ? 'bg-surface-brand-subtle' : '',
-                          ].join(' ')
+                    bar
+                        ? cx(
+                              'h-14 flex-row items-center gap-2.5 rounded-2xl px-3.5 transition duration-normal ease-standard hover:bg-surface-brand-subtle',
+                              open ? 'bg-surface-brand-subtle' : 'bg-surface-base',
+                          )
+                        : framed
+                          ? [
+                                'h-[52px] flex-row items-center gap-2.5 rounded-2xl border bg-surface-raised pe-3.5 ps-3 transition duration-normal ease-standard hover:border-surface-brand',
+                                open ? 'border-surface-brand' : 'border-stroke',
+                            ].join(' ')
+                          : [
+                                'h-12 flex-row items-center gap-2.5 rounded-full pe-4 ps-3 transition duration-normal ease-standard hover:bg-surface-brand-subtle',
+                                open ? 'bg-surface-brand-subtle' : '',
+                            ].join(' ')
                 }
             >
                 <Icon name="mapPin" className="text-content-on-brand-subtle" />
-                <View className="flex-col items-start">
-                    <RNText className="hidden text-xs font-medium text-content-secondary md:flex">
-                        {framed && home !== undefined
-                            ? t('marketplace:discover.deliverToNamed', { label: home.label })
-                            : t('marketplace:discover.deliverTo')}
-                    </RNText>
-                    <RNText
-                        testID={`${testID}-area`}
-                        numberOfLines={1}
-                        className={cx(
-                            'text-sm font-semibold text-content-primary',
-                            framed ? 'max-w-[260px]' : 'max-w-[180px]',
+                {bar ? (
+                    <View className="flex-col items-start">
+                        <RNText
+                            testID={`${testID}-area`}
+                            numberOfLines={1}
+                            className="max-w-[160px] text-sm font-semibold text-content-primary"
+                        >
+                            {home === undefined ? t('marketplace:discover.chooseArea') : home.label}
+                        </RNText>
+                        {home === undefined ? null : (
+                            <RNText
+                                numberOfLines={1}
+                                className="max-w-[160px] text-xs font-medium text-content-secondary"
+                            >
+                                {whenShort(when.date, when.slot)}
+                            </RNText>
                         )}
-                    >
-                        {home === undefined
-                            ? t('marketplace:discover.chooseArea')
-                            : framed
-                              ? whenText(when.date, when.slot)
-                              : t('marketplace:discover.areaDay', {
-                                    area: home.areaName,
-                                    day: dayName(when.date),
-                                })}
-                    </RNText>
-                </View>
-                <View className={open ? 'hidden rotate-180 md:flex' : 'hidden md:flex'}>
-                    <Icon name="chevronDown" size="sm" className="text-content-secondary" />
-                </View>
+                    </View>
+                ) : (
+                    <View className="flex-col items-start">
+                        <RNText className="hidden text-xs font-medium text-content-secondary md:flex">
+                            {framed && home !== undefined
+                                ? t('marketplace:discover.deliverToNamed', { label: home.label })
+                                : t('marketplace:discover.deliverTo')}
+                        </RNText>
+                        <RNText
+                            testID={`${testID}-area`}
+                            numberOfLines={1}
+                            className={cx(
+                                'text-sm font-semibold text-content-primary',
+                                framed ? 'max-w-[260px]' : 'max-w-[180px]',
+                            )}
+                        >
+                            {home === undefined
+                                ? t('marketplace:discover.chooseArea')
+                                : framed
+                                  ? whenText(when.date, when.slot)
+                                  : t('marketplace:discover.areaDay', {
+                                        area: home.areaName,
+                                        day: dayName(when.date),
+                                    })}
+                        </RNText>
+                    </View>
+                )}
+                {bar ? null : (
+                    <View className={open ? 'hidden rotate-180 md:flex' : 'hidden md:flex'}>
+                        <Icon name="chevronDown" size="sm" className="text-content-secondary" />
+                    </View>
+                )}
             </Pressable>
 
             {open ? (
@@ -267,7 +303,7 @@ export function DeliverToMenu({
                     testID={`${testID}-addresses`}
                     role="dialog"
                     aria-label={t('marketplace:discover.deliverTo')}
-                    className={`absolute ${framed ? 'end-0' : 'start-0'} top-full z-tooltip mt-3 w-[380px] rounded-3xl border border-stroke-subtle bg-surface-raised p-4 shadow-elevation-3 web:max-w-[calc(100vw-32px)]`}
+                    className={`absolute ${framed || bar ? 'end-0' : 'start-0'} top-full z-tooltip mt-3 w-[380px] rounded-3xl border border-stroke-subtle bg-surface-raised p-4 shadow-elevation-3 web:max-w-[calc(100vw-32px)]`}
                 >
                     <View className="flex-row items-center gap-2">
                         <View className="h-6 w-6 items-center justify-center rounded-lg bg-surface-brand-subtle">

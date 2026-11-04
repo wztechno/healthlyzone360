@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 9880 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 9897 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1734,6 +1734,7 @@ export interface NamespaceKeys {
     | 'meal.addToCart'
     | 'meal.addToCartLabel'
     | 'meal.addToPlan'
+    | 'meal.addedShort'
     | 'meal.addedToBasket'
     | 'meal.addedToPlan'
     | 'meal.addingToBasket'
@@ -1744,7 +1745,10 @@ export interface NamespaceKeys {
     | 'meal.allergensNoneShort'
     | 'meal.allergensTitle'
     | 'meal.allergensValue'
+    | 'meal.backToKitchen'
+    | 'meal.backToMenu'
     | 'meal.browseAll'
+    | 'meal.contains'
     | 'meal.factsPanelTitle'
     | 'meal.factsTitle'
     | 'meal.imageLabel'
@@ -1755,6 +1759,7 @@ export interface NamespaceKeys {
     | 'meal.instructionsPlaceholder'
     | 'meal.loading'
     | 'meal.macroValue'
+    | 'meal.makeAMeal'
     | 'meal.makeItYours'
     | 'meal.moreFromKitchen'
     | 'meal.noPlanBody'
@@ -1764,8 +1769,13 @@ export interface NamespaceKeys {
     | 'meal.notFoundBody'
     | 'meal.notFoundTitle'
     | 'meal.notRatedYet'
+    | 'meal.notePlaceholder'
     | 'meal.optionsNone'
+    | 'meal.perPack'
+    | 'meal.perServing'
+    | 'meal.perServingEyebrow'
     | 'meal.planSignIn'
+    | 'meal.prepMinutes'
     | 'meal.pricePerPack'
     | 'meal.quantityDecrease'
     | 'meal.quantityIncrease'
@@ -1779,8 +1789,13 @@ export interface NamespaceKeys {
     | 'meal.replaceMeal'
     | 'meal.replaceTitle'
     | 'meal.requestQuotation'
+    | 'meal.ringLabel'
     | 'meal.servingGrams'
     | 'meal.servingLabel'
+    | 'meal.sidePrice'
+    | 'meal.sideToggle'
+    | 'meal.sidesAdded'
+    | 'meal.sidesNote'
     | 'meal.strip.carbohydrate'
     | 'meal.strip.energy'
     | 'meal.strip.fat'
@@ -1788,6 +1803,7 @@ export interface NamespaceKeys {
     | 'meal.stripPer100g'
     | 'meal.thumbEmpty'
     | 'meal.thumbKitchen'
+    | 'meal.visitKitchen'
     | 'meals.countAvailable'
     | 'meals.countSoFar'
     | 'meals.emptyBody'
@@ -7952,6 +7968,7 @@ export interface NamespaceKeys {
     | 'discover.savedAddresses'
     | 'discover.searchFor'
     | 'discover.shopBy'
+    | 'discover.slotShort'
     | 'discover.slotSummary'
     | 'discover.slotTime'
     | 'discover.tileCount'
@@ -11639,6 +11656,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meal.addToCart',
   'catalogue:meal.addToCartLabel',
   'catalogue:meal.addToPlan',
+  'catalogue:meal.addedShort',
   'catalogue:meal.addedToBasket',
   'catalogue:meal.addedToPlan',
   'catalogue:meal.addingToBasket',
@@ -11649,7 +11667,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meal.allergensNoneShort',
   'catalogue:meal.allergensTitle',
   'catalogue:meal.allergensValue',
+  'catalogue:meal.backToKitchen',
+  'catalogue:meal.backToMenu',
   'catalogue:meal.browseAll',
+  'catalogue:meal.contains',
   'catalogue:meal.factsPanelTitle',
   'catalogue:meal.factsTitle',
   'catalogue:meal.imageLabel',
@@ -11660,6 +11681,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meal.instructionsPlaceholder',
   'catalogue:meal.loading',
   'catalogue:meal.macroValue',
+  'catalogue:meal.makeAMeal',
   'catalogue:meal.makeItYours',
   'catalogue:meal.moreFromKitchen',
   'catalogue:meal.noPlanBody',
@@ -11669,8 +11691,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meal.notFoundBody',
   'catalogue:meal.notFoundTitle',
   'catalogue:meal.notRatedYet',
+  'catalogue:meal.notePlaceholder',
   'catalogue:meal.optionsNone',
+  'catalogue:meal.perPack',
+  'catalogue:meal.perServing',
+  'catalogue:meal.perServingEyebrow',
   'catalogue:meal.planSignIn',
+  'catalogue:meal.prepMinutes',
   'catalogue:meal.pricePerPack',
   'catalogue:meal.quantityDecrease',
   'catalogue:meal.quantityIncrease',
@@ -11684,8 +11711,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meal.replaceMeal',
   'catalogue:meal.replaceTitle',
   'catalogue:meal.requestQuotation',
+  'catalogue:meal.ringLabel',
   'catalogue:meal.servingGrams',
   'catalogue:meal.servingLabel',
+  'catalogue:meal.sidePrice',
+  'catalogue:meal.sideToggle',
+  'catalogue:meal.sidesAdded',
+  'catalogue:meal.sidesNote',
   'catalogue:meal.strip.carbohydrate',
   'catalogue:meal.strip.energy',
   'catalogue:meal.strip.fat',
@@ -11693,6 +11725,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meal.stripPer100g',
   'catalogue:meal.thumbEmpty',
   'catalogue:meal.thumbKitchen',
+  'catalogue:meal.visitKitchen',
   'catalogue:meals.countAvailable',
   'catalogue:meals.countSoFar',
   'catalogue:meals.emptyBody',
@@ -17849,6 +17882,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:discover.savedAddresses',
   'marketplace:discover.searchFor',
   'marketplace:discover.shopBy',
+  'marketplace:discover.slotShort',
   'marketplace:discover.slotSummary',
   'marketplace:discover.slotTime',
   'marketplace:discover.tileCount',

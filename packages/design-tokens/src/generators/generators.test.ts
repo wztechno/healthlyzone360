@@ -5,7 +5,13 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-import { NUTRITION_LEVELS, SEMANTIC_ROLES, TINT_NAMES, themes } from '../colour.ts';
+import {
+    NUTRITION_LEVELS,
+    SEMANTIC_ROLES,
+    STAGE_INK_NAMES,
+    TINT_NAMES,
+    themes,
+} from '../colour.ts';
 import { TYPEFACE_ROLES, typefaces } from '../typography.ts';
 import { fontFaceEntries, renderFontManifest } from './fonts.ts';
 import { renderTokensCss } from './css.ts';
@@ -33,7 +39,8 @@ describe('shared helpers', () => {
             Object.keys(themes.light.colours).length +
             SEMANTIC_ROLES.length * Object.keys(themes.light.semantic.success).length +
             NUTRITION_LEVELS.length * 2 +
-            TINT_NAMES.length * 2;
+            TINT_NAMES.length * 2 +
+            STAGE_INK_NAMES.length;
         expect(variables).toHaveLength(expected);
         expect(new Set(variables.map((v) => v.name)).size).toBe(variables.length);
         for (const variable of variables) {

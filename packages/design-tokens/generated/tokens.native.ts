@@ -146,6 +146,12 @@ export const nativeTokens = {
           "surface": "#ccfbf1",
           "on": "#134e4a"
         }
+      },
+      "stage": {
+        "orange": "#fb923c",
+        "green": "#4ade80",
+        "blue": "#60a5fa",
+        "yellow": "#facc15"
       }
     },
     "dark": {
@@ -286,6 +292,12 @@ export const nativeTokens = {
           "surface": "#042f2e",
           "on": "#99f6e4"
         }
+      },
+      "stage": {
+        "orange": "#fb923c",
+        "green": "#4ade80",
+        "blue": "#60a5fa",
+        "yellow": "#facc15"
       }
     }
   },

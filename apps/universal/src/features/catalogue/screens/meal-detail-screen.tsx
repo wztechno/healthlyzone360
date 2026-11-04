@@ -1,22 +1,23 @@
-import {
-    Breadcrumbs,
-    Button,
-    Callout,
-    EmptyState,
-    Icon,
-    IconButton,
-    TextInputField,
-} from '@healthy360/design-system';
-import type { BreadcrumbItem } from '@healthy360/design-system';
+import { Button, Callout, EmptyState, Icon, cx, useMotion } from '@healthy360/design-system';
 import type { ApiFailure, MarketplaceMeal } from '@healthy360/api-client/contracts';
+import { neutral } from '@healthy360/design-tokens';
+import type { StageInkName } from '@healthy360/design-tokens';
 import { MealId } from '@healthy360/domain-types';
 import type { KitchenId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
-import { ROUTE_PATHS } from '@healthy360/permissions';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, Text as RNText, View } from 'react-native';
+import {
+    Animated,
+    Easing,
+    Platform,
+    Pressable,
+    Text as RNText,
+    TextInput,
+    View,
+} from 'react-native';
+import type { DimensionValue } from 'react-native';
 
 import { StaffReturnButton } from '../../marketplace/staff-return-button.tsx';
 
@@ -25,57 +26,49 @@ import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { EntityImage } from '../../../media/entity-image.tsx';
 import { PhotoCredit } from '../../../media/photo-credit.tsx';
 import { useNavigateUp, usePreviousEntry } from '../../../navigation/use-return-to.ts';
-import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { useFailureMessage } from '../../../screens/form-helpers.ts';
 import { DishChoiceFields, NO_DISH_CHOICES } from '../../../ui/dish-choices.tsx';
 import type { DishChoiceValue } from '../../../ui/dish-choices.tsx';
-import { Eyebrow } from '../../../ui/eyebrow.tsx';
 import { YourAllergens } from '../../commerce/my-allergens.tsx';
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
+import { DeliverToMenu } from '../../marketplace/discover/deliver-to-menu.tsx';
 import { formatMoney, formatPackSize } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
-import { leadTag, publishedFigure } from '../meal-readings.ts';
-import { MenuGrid } from '../menu-grid.tsx';
-import { RelatedMealCard } from '../menu-meal-card.tsx';
 import { useShopViewOnly } from '../../marketplace/shop-view-only.tsx';
-import { NutritionFactsPanel } from '../nutrition-facts-panel.tsx';
+import { macroBreakdown } from '../format.ts';
+import { leadTag, publishedFigure } from '../meal-readings.ts';
+import { MealNutrition } from '../meal-nutrition.tsx';
+// Extensionless, as `range-slider` is: Metro picks the web or the phone half.
+import { StageRing } from '../stage-ring';
 
 /**
- * `/meals/{meal}` — HealthZone's `§isMeal`, bound to what the meal record holds.
+ * `/meals/{meal}` — the accepted shop board's meal page, bound to what the meal record holds.
  *
- * ## The design's page, top to bottom
+ * ## The page, top to bottom
  *
- * A trail. Then the 1.1 : 1 split: on the left a 460px photograph over a row of three 110px
- * frames; on the right the tag and rating, the 42px name, the description, the four-cell nutrition
- * strip, `INGREDIENTS` with the warning-toned allergen bar under it, a rule, `MAKE IT YOURS` with
- * the special-instructions box, and the quantity stepper beside a full-width "Add to basket" carrying
- * the total — pinned to the foot of the scroll port while the column runs past it. Then, full
- * width, the four smaller cards.
+ * **The stage** — one canopy panel: on the start side the way back, the kitchen, the name and the
+ * price; in the middle the dish on a round plate with its tags around it; on the end side the four
+ * figures per serving as rings. **The order bar** overlaps the stage's foot: the quantity, a note for
+ * the kitchen, where and when it goes (`deliver-to-menu.tsx`), and Add with the total. Then the
+ * dish's own choices when it has any, **Make it a meal** — the same kitchen's sauces and dressings
+ * to tick and add with it — and three cards: allergens, ingredients and the kitchen. The full
+ * nutrition facts follow, because the rings summarise them and do not replace them.
  *
- * ## Where the record is thinner than the design
+ * ## Where the record is thinner than the board
  *
- * * **Thumbnails.** A meal carries one photograph. The first frame is that photograph, the second
- *   is the app's empty image slot rather than an invented "ingredients" shot, and the third is the
- *   kitchen's own photograph — the design's "in kitchen" frame — which also opens the kitchen, the
- *   one place this page now links to it.
- * * **Ingredients.** The public meal record has no list; the slot says so in the design's place.
- * * **Make it yours.** The API has no modifiers, so the option list is the design's row stating
- *   that, not four invented add-ons with invented prices. The special-instructions box is drawn as
- *   designed; `AddCartItemRequest` carries no note, so a note typed into it is reported through the
- *   prototype notice when the meal is added, rather than silently dropped.
- * * **"Pairs well with".** Nothing curates pairings. The row is the same kitchen's other meals and
- *   its heading says exactly that.
+ * * **The tags around the plate** are the board's ingredients; the record has no ingredient list, so
+ *   they are what it does hold — the dish's diets, cuisines, meal times and preparation time — and
+ *   a dish with none of those wears none.
+ * * **Ingredients** say the list is not published, in the board's card.
+ * * **Allergens** are what the kitchen declares; the record has no "may contain".
+ * * **Save** is not drawn: favourites have no backend.
  *
- * ## Below the design's sections
+ * ## Make it a meal
  *
- * Two things the design does not draw are obligations, not decoration, and follow the related row
- * in the design's own section language (a rule, a 24px heading): the full **nutrition facts** with
- * their basis, serving and provenance — the strip's four figures are a summary of them, not a
- * replacement — and the standing **medical disclaimer**. The macro rings, the availability chips,
- * the dietary tag list, the sales-channel badges and the preparation-time chip are gone: the strip
- * and the tag carry the first and third, and the rest were the record's bookkeeping rather than a
- * shopper's question. No business price was ever shown, and with the channel badges gone there is
- * not even the sentence about one.
+ * Ticking a side adds its price to the total on Add; pressing Add adds the meal, and once the meal
+ * has landed — past any allergen or new-basket question — each ticked side, one after another. A
+ * visitor who has to sign in first comes back with the meal; the sides are a choice made on this
+ * page and are not carried through the sign-in.
  */
 export interface MealDetailScreenProps {
     readonly mealId: string | undefined;
@@ -86,8 +79,11 @@ export interface MealDetailScreenProps {
 /** A ceiling on the stepper. The API refuses nothing above zero; this only stops a held button. */
 const MAX_QUANTITY = 99;
 
-/** The other meals from the kitchen, fetched one past what is shown so this meal can drop out. */
-const RELATED_COUNT = 4;
+/** How many sides "Make it a meal" offers. */
+const SIDE_COUNT = 6;
+
+/** How long Add wears "Added to basket". */
+const ADDED_MS = 1600;
 
 /** The catalogue a meal belongs to when nothing says otherwise. */
 const MENU_PATH = '/meals';
@@ -95,132 +91,57 @@ const MENU_PATH = '/meals';
 /** A storefront (`/kitchens/{id}`) or its searchable menu (`/kitchens/{id}/menu`). */
 const KITCHEN_PAGE = /^\/kitchens\/([^/]+)(\/menu)?$/;
 
+/** The four rings, in the board's order and inks. */
+const RINGS: readonly { readonly nutrientId: string; readonly ink: StageInkName }[] = [
+    { nutrientId: 'energy', ink: 'orange' },
+    { nutrientId: 'protein', ink: 'green' },
+    { nutrientId: 'carbohydrate', ink: 'blue' },
+    { nutrientId: 'fat', ink: 'yellow' },
+];
+
+/** The dot each tag around the plate wears, in turn. */
+const TAG_INKS = ['bg-stage-green', 'bg-stage-orange', 'bg-stage-blue', 'bg-stage-yellow'] as const;
+
 /**
- * The trail above the meal, built from where the person came from (browse-05).
- *
- * It was always "Home › Today's menu › meal", and "Today's menu" pushed the bare `/meals`: a meal
- * opened from a kitchen's storefront offered a way "back" to a page the person had never seen, and
- * one opened from `/meals?diet=vegan` came back to the menu without its diet. Now:
- *
- * - opened from a kitchen's storefront or its menu — the entry right below this one — the trail is
- *   that kitchen's, "Home › Kitchens › Verdant › meal", and each crumb goes *up* to its page;
- * - otherwise it is the menu's, as before.
- *
- * Every parent crumb goes through `useNavigateUp`: Back when the parent is the entry right below —
- * the listing exactly as it was, filters, shelf and scroll — and otherwise a push of the parent with
- * the query it was last shown with. "Home" is the marketplace home itself (`router.navigate`), never
- * `/`, which is the launch resolver (browse-10).
- *
- * After a refresh there is no entry below to read, and the trail falls back to the menu's — the
- * one page every meal is on.
+ * The way back above the meal (browse-05): to the kitchen's storefront or menu when that is the
+ * entry right below, otherwise to the menu. It goes *up* through `useNavigateUp` — Back when the
+ * parent is the entry below, the listing exactly as it was, and otherwise the parent with the query
+ * it was last shown with.
  */
-function useMealTrail(item: MarketplaceMeal | undefined): readonly BreadcrumbItem[] {
+function useMealBack(item: MarketplaceMeal | undefined): {
+    readonly label: string;
+    readonly onPress: () => void;
+} {
     const { t } = useTranslation();
-    const router = useRouter();
     const navigateUp = useNavigateUp();
     const previous = usePreviousEntry();
-
-    const home: BreadcrumbItem = {
-        key: 'home',
-        label: t('catalogue:nav.home'),
-        testID: 'meal-detail-crumb-home',
+    const fromKitchen = previous === null ? null : KITCHEN_PAGE.exec(previous.pathname);
+    if (previous !== null && fromKitchen?.[1] !== undefined) {
+        return {
+            label: t('catalogue:meal.backToKitchen', {
+                kitchen: item?.kitchenName ?? t('marketplace:kitchen.loading'),
+            }),
+            onPress: () => {
+                navigateUp(previous.pathname);
+            },
+        };
+    }
+    return {
+        label: t('catalogue:meal.backToMenu'),
         onPress: () => {
-            router.navigate(ROUTE_PATHS.customerHome as never);
+            navigateUp(MENU_PATH);
         },
     };
-    const meal: BreadcrumbItem = { key: 'meal', label: item?.name ?? t('catalogue:meal.loading') };
-
-    const fromKitchen = previous === null ? null : KITCHEN_PAGE.exec(previous.pathname);
-    const kitchenId = fromKitchen?.[1];
-    if (previous !== null && kitchenId !== undefined) {
-        const storefront = `/kitchens/${kitchenId}`;
-        const kitchenName = item?.kitchenName ?? t('marketplace:kitchen.loading');
-        return [
-            home,
-            {
-                key: 'kitchens',
-                label: t('marketplace:nav.kitchens'),
-                testID: 'meal-detail-crumb-kitchens',
-                onPress: () => {
-                    navigateUp('/kitchens');
-                },
-            },
-            {
-                key: 'kitchen',
-                label: kitchenName,
-                testID: 'meal-detail-crumb-kitchen',
-                onPress: () => {
-                    navigateUp(storefront);
-                },
-            },
-            ...(fromKitchen?.[2] === undefined
-                ? []
-                : [
-                      {
-                          key: 'kitchen-menu',
-                          label: t('marketplace:menu.title'),
-                          testID: 'meal-detail-crumb-kitchen-menu',
-                          onPress: () => {
-                              navigateUp(previous.pathname);
-                          },
-                      },
-                  ]),
-            meal,
-        ];
-    }
-
-    return [
-        home,
-        {
-            key: 'meals',
-            label: t('catalogue:meals.title'),
-            testID: 'meal-detail-crumb-meals',
-            onPress: () => {
-                navigateUp(MENU_PATH);
-            },
-        },
-        meal,
-    ];
 }
 
 export function MealDetailScreen({ mealId, returnTo }: MealDetailScreenProps) {
     const { t } = useTranslation();
-    const router = useRouter();
     const navigateUp = useNavigateUp();
 
     const parsed = mealId === undefined ? null : MealId.safeParse(mealId);
     const meal = useMealQuery(parsed);
     const item = meal.data;
-
-    const [quantity, setQuantity] = useState(1);
-    const [instructions, setInstructions] = useState('');
-    const [choices, setChoices] = useState<DishChoiceValue>(NO_DISH_CHOICES);
-
-    /*
-     * The grids' "add to basket", with the quantity threaded through — the mutation, the
-     * confirmation, and the guest-entry dialog for somebody who is not signed in.
-     */
-    const basket = useBasketAdd({
-        labelKey: 'catalogue:nav.meals',
-        testID: 'meal-detail',
-        reportsInline: true,
-    });
-
-    const relatedFilter = useMemo(
-        () => ({
-            kitchenIds: (item === undefined ? [] : [item.kitchenId]) as readonly KitchenId[],
-            itemTypes: ['meal'] as const,
-            limit: RELATED_COUNT + 1,
-        }),
-        [item],
-    );
-    const related = useMealsQuery(relatedFilter, item !== undefined);
-    const relatedMeals =
-        item === undefined
-            ? []
-            : mealsFromPages(related.data?.pages)
-                  .filter((candidate) => candidate.id !== item.id)
-                  .slice(0, RELATED_COUNT);
+    const back = useMealBack(item);
 
     const browseAction = (
         <Button
@@ -233,12 +154,9 @@ export function MealDetailScreen({ mealId, returnTo }: MealDetailScreenProps) {
         />
     );
 
-    const trail = useMealTrail(item);
-
     return (
-        <View testID="meal-detail-screen" className="flex-col gap-4">
+        <View testID="meal-detail-screen" className="flex-col gap-4 pb-11">
             <StaffReturnButton returnTo={returnTo} testID="meal-detail-staff-return" />
-            <Breadcrumbs testID="meal-detail-breadcrumbs" items={trail} />
 
             {/* A link carrying something that is not an identifier at all leaves the query
                 disabled, and a disabled query never settles — so the not-found answer is rendered
@@ -260,71 +178,171 @@ export function MealDetailScreen({ mealId, returnTo }: MealDetailScreenProps) {
                     skeletonCount={2}
                     testID="meal-detail"
                 >
-                    {item === undefined ? null : (
-                        <View className="flex-col">
-                            {/* The design's `1.1fr 1fr` with a 36px gap from `lg` up; one column
-                                below it, photographs first. */}
-                            <View className="flex-col gap-8 lg:flex-row lg:items-start lg:gap-9">
-                                <MealGallery item={item} />
-
-                                <MealInfoColumn
-                                    item={item}
-                                    quantity={quantity}
-                                    onQuantityChange={setQuantity}
-                                    instructions={instructions}
-                                    onInstructionsChange={setInstructions}
-                                    choices={choices}
-                                    onChoicesChange={setChoices}
-                                    pending={basket.pending}
-                                    failure={basket.failure}
-                                    onAdd={() => {
-                                        basket.add(
-                                            {
-                                                ...item,
-                                                choices: {
-                                                    catalogueItemVariantId:
-                                                        choices.catalogueItemVariantId,
-                                                    optionIds: choices.optionIds,
-                                                    note: instructions,
-                                                },
-                                            },
-                                            quantity,
-                                        );
-                                    }}
-                                />
-                            </View>
-
-                            {relatedMeals.length === 0 ? null : (
-                                <View
-                                    testID="meal-detail-related"
-                                    className="mt-12 flex-col gap-[18px] border-t border-stroke pt-6"
-                                >
-                                    <SectionHeading>
-                                        {t('catalogue:meal.moreFromKitchen', {
-                                            kitchen: item.kitchenName,
-                                        })}
-                                    </SectionHeading>
-                                    <MenuGrid testID="meal-detail-related-grid">
-                                        {relatedMeals.map((other) => (
-                                            <RelatedMealCard
-                                                key={other.id}
-                                                meal={other}
-                                                onOpen={() => {
-                                                    router.push(
-                                                        `/meals/${String(other.id)}` as never,
-                                                    );
-                                                }}
-                                            />
-                                        ))}
-                                    </MenuGrid>
-                                </View>
-                            )}
-
-                            <MealFacts item={item} />
-                        </View>
-                    )}
+                    {item === undefined ? null : <MealPage item={item} back={back} />}
                 </QueryStates>
             )}
+        </View>
+    );
+}
+
+/** The page once the meal is in hand. */
+function MealPage({
+    item,
+    back,
+}: {
+    readonly item: MarketplaceMeal;
+    readonly back: { readonly label: string; readonly onPress: () => void };
+}) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const viewOnly = useShopViewOnly();
+
+    const [quantity, setQuantity] = useState(1);
+    const [instructions, setInstructions] = useState('');
+    const [choices, setChoices] = useState<DishChoiceValue>(NO_DISH_CHOICES);
+    const [picked, setPicked] = useState<readonly string[]>([]);
+    const [added, setAdded] = useState(false);
+
+    /*
+     * The grids' "add to basket", with the quantity threaded through — the mutation, the
+     * confirmation, and the guest-entry dialog for somebody who is not signed in.
+     */
+    const basket = useBasketAdd({
+        labelKey: 'catalogue:nav.meals',
+        testID: 'meal-detail',
+        reportsInline: true,
+    });
+
+    // The same kitchen's sauces and dressings, for "Make it a meal".
+    const sidesFilter = useMemo(
+        () => ({
+            kitchenIds: [item.kitchenId] as readonly KitchenId[],
+            itemTypes: ['sauce', 'dressing'] as const,
+            limit: SIDE_COUNT + 1,
+        }),
+        [item.kitchenId],
+    );
+    const sidesQuery = useMealsQuery(sidesFilter);
+    const sides = mealsFromPages(sidesQuery.data?.pages)
+        .filter((candidate) => candidate.id !== item.id)
+        .slice(0, SIDE_COUNT);
+    const pickedSides = sides.filter((side) => picked.includes(String(side.id)));
+
+    const options = item.options ?? [];
+    const sidesAmount = pickedSides.reduce((sum, side) => sum + side.price.amount, 0);
+    const total = formatMoney(formatter, {
+        amount: item.price.amount * quantity + sidesAmount,
+        currency: item.price.currency,
+    });
+
+    /** Each ticked side, one after another, once the one before it has landed. */
+    const addSides = (queue: readonly MarketplaceMeal[]) => {
+        const [next, ...rest] = queue;
+        if (next === undefined) {
+            setPicked([]);
+            return;
+        }
+        basket.add(next, 1, {
+            onAdded: () => {
+                addSides(rest);
+            },
+        });
+    };
+
+    const onAdd = () => {
+        basket.add(
+            {
+                ...item,
+                choices: {
+                    catalogueItemVariantId: choices.catalogueItemVariantId,
+                    optionIds: choices.optionIds,
+                    note: instructions,
+                },
+            },
+            quantity,
+            {
+                onAdded: () => {
+                    setAdded(true);
+                    setTimeout(() => {
+                        setAdded(false);
+                    }, ADDED_MS);
+                    addSides(pickedSides);
+                },
+            },
+        );
+    };
+
+    return (
+        <View className="flex-col">
+            <MealStage item={item} back={back} />
+
+            <OrderBar
+                item={item}
+                viewOnly={viewOnly}
+                quantity={quantity}
+                onQuantityChange={setQuantity}
+                instructions={instructions}
+                onInstructionsChange={setInstructions}
+                total={total}
+                pending={basket.pending}
+                added={added}
+                failure={basket.failure}
+                onAdd={onAdd}
+            />
+
+            {/* Staff view the shop and order nothing (`shop-view-only.tsx`): no choices, no sides. */}
+            {/*
+             * Add-ons only. A dish's "portions" are the kitchen's per-channel packs (a B2C pack, a B2B
+             * pack), not a choice for a shopper, so the shop never offers them: the add goes in with
+             * no variant and the server prices it for the shop.
+             */}
+            {viewOnly || options.length === 0 ? null : (
+                <View testID="meal-detail-options" className="mt-14 flex-col gap-3">
+                    <SectionHeading>{t('catalogue:meal.makeItYours')}</SectionHeading>
+                    <DishChoiceFields
+                        testID="meal-detail-choices"
+                        options={options}
+                        portions={[]}
+                        value={choices}
+                        onChange={setChoices}
+                        formatPrice={(choice) =>
+                            formatMoney(formatter, {
+                                amount: choice.unitPriceMinor,
+                                currency: item.price.currency,
+                            })
+                        }
+                    />
+                </View>
+            )}
+
+            {viewOnly || sides.length === 0 ? null : (
+                <MakeItAMeal
+                    sides={sides}
+                    picked={picked}
+                    onToggle={(id) => {
+                        setPicked((current) =>
+                            current.includes(id)
+                                ? current.filter((entry) => entry !== id)
+                                : [...current, id],
+                        );
+                    }}
+                    note={
+                        pickedSides.length === 0
+                            ? t('catalogue:meal.sidesNote')
+                            : t('catalogue:meal.sidesAdded', {
+                                  count: pickedSides.length,
+                                  price: formatMoney(formatter, {
+                                      amount: sidesAmount,
+                                      currency: item.price.currency,
+                                  }),
+                              })
+                    }
+                />
+            )}
+
+            <FactCards item={item} />
+
+            <MealFacts item={item} />
 
             {/*
              * The signed-out entry point. A real dialog rather than a redirect: Sign in and Create
@@ -336,7 +354,7 @@ export function MealDetailScreen({ mealId, returnTo }: MealDetailScreenProps) {
     );
 }
 
-/** The design's 24px section heading — "Pairs well with", and the facts below it. */
+/** The board's 26px section heading. */
 function SectionHeading({ children }: { readonly children: string }) {
     return (
         <RNText
@@ -349,72 +367,47 @@ function SectionHeading({ children }: { readonly children: string }) {
     );
 }
 
-/* ── the photographs ─────────────────────────────────────────────────────────────────────────── */
+/* ── the stage ───────────────────────────────────────────────────────────────────────────────── */
 
 /**
- * The 460px photograph over three 110px frames.
- *
- * Only real images: the meal's own photograph, the app's empty image slot, and the kitchen's
- * photograph. The first two frames are decorative — one repeats the picture above it, the other
- * holds nothing — so they are hidden from assistive technology; the third is the link to the kitchen
- * and is named as one.
+ * The canopy panel: who and what on the start side, the plate in the middle, the rings on the end
+ * side. One column below `lg`, in that order.
  */
-function MealGallery({ item }: { readonly item: MarketplaceMeal }) {
+function MealStage({
+    item,
+    back,
+}: {
+    readonly item: MarketplaceMeal;
+    readonly back: { readonly label: string; readonly onPress: () => void };
+}) {
     const { t } = useTranslation();
+    const formatter = useFormatter();
     const router = useRouter();
     const kitchen = useKitchenQuery(item.kitchenId);
+    const tag = leadTag(item, t);
 
     return (
         <View
-            testID="meal-detail-gallery"
-            className="w-full flex-col gap-2.5 lg:w-auto lg:flex-[1.1]"
+            testID="meal-detail-stage"
+            className="relative mt-1 flex-col gap-8 overflow-hidden rounded-[30px] bg-surface-canopy px-6 pb-16 pt-6 lg:h-[500px] lg:flex-row lg:items-center lg:gap-6 lg:px-10 lg:pb-0 lg:pt-0"
         >
-            <View className="h-[300px] overflow-hidden rounded-xl lg:h-[460px]">
-                <EntityImage
-                    testID="meal-detail-image"
-                    assetId={item.imagePlaceholderId}
-                    photoUrl={item.photoUrl}
-                    variant="detail"
-                    seed={item.slug}
-                    label={t('catalogue:meal.imageLabel', { meal: item.name })}
-                    aspect="wide"
-                    flush
-                    className="h-full"
-                />
-            </View>
+            {/* The board's soft glow and the dashed ring behind the plate. */}
+            <View
+                aria-hidden
+                pointerEvents="none"
+                className="absolute -top-12 end-0 start-0 mx-auto hidden h-[600px] w-[600px] rounded-full bg-stage-green opacity-10 lg:flex"
+            />
+            <View
+                aria-hidden
+                pointerEvents="none"
+                className="absolute end-0 start-0 top-[30px] mx-auto hidden h-[440px] w-[440px] rounded-full border-[1.5px] border-dashed border-content-on-canopy/30 lg:flex"
+            />
 
-            <View className="flex-row gap-2.5">
-                <View
-                    testID="meal-detail-thumb-meal"
-                    className="h-[110px] min-w-0 flex-1 overflow-hidden rounded-lg"
-                >
-                    <EntityImage
-                        assetId={item.imagePlaceholderId}
-                        photoUrl={item.photoUrl}
-                        variant="card"
-                        seed={item.slug}
-                        label={t('catalogue:meal.imageLabel', { meal: item.name })}
-                        aspect="wide"
-                        flush
-                        decorative
-                        className="h-full"
-                    />
-                </View>
-                <View
-                    testID="meal-detail-thumb-empty"
-                    className="h-[110px] min-w-0 flex-1 overflow-hidden rounded-lg"
-                >
-                    <EntityImage
-                        seed={`${item.slug}-detail`}
-                        label={t('catalogue:meal.thumbEmpty')}
-                        aspect="wide"
-                        flush
-                        decorative
-                        className="h-full"
-                    />
-                </View>
+            <View className="z-10 min-w-0 flex-col items-start lg:w-[330px]">
+                <BackPill label={back.label} onPress={back.onPress} />
+
                 <Pressable
-                    testID="meal-detail-thumb-kitchen"
+                    testID="meal-detail-kitchen"
                     role="link"
                     accessibilityRole="link"
                     accessibilityLabel={t('catalogue:meal.thumbKitchen', {
@@ -423,99 +416,69 @@ function MealGallery({ item }: { readonly item: MarketplaceMeal }) {
                     onPress={() => {
                         router.push(`/kitchens/${String(item.kitchenId)}` as never);
                     }}
-                    className="h-[110px] min-w-0 flex-1 overflow-hidden rounded-lg"
+                    className="mt-[18px] h-9 flex-row items-center gap-2 rounded-full bg-content-on-canopy/10 pe-3 ps-1"
                 >
-                    <EntityImage
-                        assetId={kitchen.data?.imagePlaceholderId}
-                        variant="card"
-                        seed={`kitchen-${String(item.kitchenId)}`}
-                        label={t('catalogue:meal.thumbKitchen', { kitchen: item.kitchenName })}
-                        aspect="wide"
-                        flush
-                        decorative
-                        className="h-full"
-                    />
-                </Pressable>
-            </View>
-
-            {/* The credit a photograph's licence obliges, under the photograph it belongs to —
-                nothing at all for one that obliges none, or for the kitchen's own upload. */}
-            {item.photoUrl === undefined || item.photoUrl === null || item.photoUrl === '' ? (
-                <PhotoCredit assetId={item.imagePlaceholderId} testID="meal-detail-photo-credit" />
-            ) : null}
-        </View>
-    );
-}
-
-/* ── the information column ──────────────────────────────────────────────────────────────────── */
-
-interface MealInfoColumnProps {
-    readonly item: MarketplaceMeal;
-    readonly quantity: number;
-    readonly onQuantityChange: (next: number) => void;
-    readonly instructions: string;
-    readonly onInstructionsChange: (next: string) => void;
-    readonly choices: DishChoiceValue;
-    readonly onChoicesChange: (next: DishChoiceValue) => void;
-    readonly pending: boolean;
-    /** Why the last add failed. A generic `server` keeps the page's own sentence. */
-    readonly failure: ApiFailure | null;
-    readonly onAdd: () => void;
-}
-
-function MealInfoColumn({
-    item,
-    quantity,
-    onQuantityChange,
-    instructions,
-    onInstructionsChange,
-    choices,
-    onChoicesChange,
-    pending,
-    failure,
-    onAdd,
-}: MealInfoColumnProps) {
-    const { t } = useTranslation();
-    const formatter = useFormatter();
-    const failureMessage = useFailureMessage();
-    const viewOnly = useShopViewOnly();
-
-    const tag = leadTag(item, t);
-    const options = item.options ?? [];
-    const portions = item.portions ?? [];
-    // The price the chosen portion's pack carries. The server re-reads it at placement.
-    const portion = portions.find(
-        (candidate) => candidate.catalogueItemVariantId === choices.catalogueItemVariantId,
-    );
-    const total = formatMoney(formatter, {
-        amount: (portion?.unitPriceMinor ?? item.price.amount) * quantity,
-        currency: item.price.currency,
-    });
-    const allergens =
-        item.allergens.length === 0
-            ? t('catalogue:meal.allergensNoneShort')
-            : t('catalogue:meal.allergensValue', {
-                  list: item.allergens
-                      .map((code) => t(`marketplace:allergens.${code}`))
-                      .join(t('marketplace:common.listSeparator')),
-              });
-
-    return (
-        <View className="min-w-0 flex-col lg:flex-1">
-            <View className="flex-row flex-wrap items-center gap-2">
-                {tag === null ? null : (
-                    <View className="rounded-full border border-success-border bg-success-subtle px-3 py-1">
-                        <RNText
-                            testID="meal-detail-lead-diet"
-                            className="text-xs font-medium uppercase tracking-wide text-content-primary"
-                        >
-                            {tag}
-                        </RNText>
+                    <View className="h-7 w-7 overflow-hidden rounded-full">
+                        <EntityImage
+                            assetId={kitchen.data?.imagePlaceholderId}
+                            seed={`kitchen-${String(item.kitchenId)}`}
+                            label={item.kitchenName}
+                            decorative
+                            flush
+                            className="h-7 w-7"
+                        />
                     </View>
+                    <RNText className="text-sm font-semibold text-content-on-canopy">
+                        {item.kitchenName}
+                    </RNText>
+                </Pressable>
+
+                {tag === null ? null : (
+                    <RNText
+                        testID="meal-detail-lead-diet"
+                        className="mt-4 text-xs font-semibold uppercase tracking-wider text-content-on-canopy-muted"
+                    >
+                        {tag}
+                    </RNText>
                 )}
+
+                <RNText
+                    testID="meal-detail-name"
+                    accessibilityRole="header"
+                    aria-level={1}
+                    className="mt-2 font-display text-5xl font-bold leading-tight tracking-display text-content-on-canopy text-start"
+                >
+                    {item.name}
+                </RNText>
+
+                <View className="mt-3.5 flex-row items-baseline gap-2.5">
+                    <RNText
+                        testID="meal-detail-price"
+                        className="font-display text-3xl font-bold tabular-nums text-content-on-canopy"
+                    >
+                        {formatMoney(formatter, item.price)}
+                    </RNText>
+                    <RNText className="text-sm text-content-on-canopy-muted">
+                        {item.pack === null
+                            ? t('catalogue:meal.perServing')
+                            : t('catalogue:meal.perPack', {
+                                  size: formatPackSize(t, formatter, item.pack),
+                              })}
+                    </RNText>
+                </View>
+
+                {item.description === '' ? null : (
+                    <RNText
+                        numberOfLines={3}
+                        className="mt-3 max-w-[330px] text-sm leading-relaxed text-content-on-canopy-muted text-start"
+                    >
+                        {item.description}
+                    </RNText>
+                )}
+
                 <RNText
                     testID="meal-detail-rating"
-                    className="text-xs font-medium tracking-wide tabular-nums text-content-secondary"
+                    className="mt-2 text-xs font-medium tabular-nums text-content-on-canopy-muted"
                 >
                     {item.rating === null
                         ? t('catalogue:meal.notRatedYet')
@@ -530,121 +493,292 @@ function MealInfoColumn({
                 </RNText>
             </View>
 
-            {/*
-             * `text-4xl` (36px) for the design's 42 — the same step and tracking `ListingHeader`
-             * gives the menu's title, so the catalogue and the record it opens set their names
-             * alike.
-             */}
-            <RNText
-                testID="meal-detail-name"
-                accessibilityRole="header"
-                aria-level={1}
-                className="mb-3 mt-[14px] text-4xl leading-[1.05] tracking-display text-content-primary text-start"
+            <Plate item={item} />
+
+            <StageRings item={item} />
+        </View>
+    );
+}
+
+/**
+ * The board's back pill: a soft pill with a bold chevron in a raised circle. On hover the pill turns
+ * the brand's soft green and the chevron steps back 3px — towards the start, so to the right in
+ * Arabic — on the board's easing.
+ */
+function BackPill({ label, onPress }: { readonly label: string; readonly onPress: () => void }) {
+    const { enabled, axisSign } = useMotion();
+    const [hovered, setHovered] = useState(false);
+    const [nudge] = useState(() => new Animated.Value(0));
+
+    useEffect(() => {
+        const to = hovered ? -3 * axisSign : 0;
+        if (!enabled) {
+            nudge.setValue(to);
+            return undefined;
+        }
+        const animation = Animated.timing(nudge, {
+            toValue: to,
+            duration: 250,
+            easing: Easing.bezier(0.22, 1, 0.36, 1),
+            useNativeDriver: Platform.OS !== 'web',
+        });
+        animation.start();
+        return () => {
+            animation.stop();
+        };
+    }, [axisSign, enabled, hovered, nudge]);
+
+    return (
+        <Pressable
+            testID="meal-detail-back"
+            role="link"
+            accessibilityRole="link"
+            onPress={onPress}
+            onHoverIn={() => {
+                setHovered(true);
+            }}
+            onHoverOut={() => {
+                setHovered(false);
+            }}
+            onFocus={() => {
+                setHovered(true);
+            }}
+            onBlur={() => {
+                setHovered(false);
+            }}
+            className={cx(
+                'h-11 flex-row items-center gap-2.5 rounded-full border pe-4 ps-1.5 transition duration-normal ease-standard',
+                hovered
+                    ? 'border-stroke bg-surface-brand-subtle'
+                    : 'border-stroke-subtle bg-surface-base',
+            )}
+        >
+            <Animated.View
+                className="h-8 w-8 items-center justify-center rounded-full bg-surface-raised shadow-elevation-2"
+                style={{ transform: [{ translateX: nudge }] }}
             >
-                {item.name}
-            </RNText>
-            <RNText className="mb-[22px] max-w-[480px] text-base leading-relaxed text-content-primary text-start">
-                {item.description}
-            </RNText>
-
-            <NutritionStrip item={item} />
-
-            <View testID="meal-detail-ingredients" className="mt-[26px] flex-col">
-                <Eyebrow>{t('catalogue:meal.ingredientsLabel')}</Eyebrow>
-                <RNText className="mt-2 text-base leading-relaxed text-content-secondary text-start">
-                    {t('catalogue:meal.ingredientsBody')}
-                </RNText>
+                {/* The board's 2.6 stroke chevron: two borders of a small square, turned to point
+                    towards the start. In Arabic the start is the right, so it turns the other way. */}
                 <View
-                    testID="meal-detail-allergens"
-                    className="mt-3 flex-row flex-wrap items-center gap-2 rounded border border-warning-border bg-warning-subtle px-3 py-2.5"
-                >
-                    <RNText className="text-xs font-semibold text-warning-on-subtle">
-                        {t('catalogue:meal.allergensTitle')}
-                    </RNText>
-                    <RNText
-                        testID="meal-detail-allergen-list"
-                        className="min-w-0 flex-1 text-sm text-warning-on-subtle text-start"
-                    >
-                        {allergens}
-                    </RNText>
-                </View>
-                <YourAllergens
-                    allergens={item.allergens}
-                    testID="meal-detail-your-allergens"
-                    className="mt-2"
+                    aria-hidden
+                    className="ms-1 h-2 w-2 border-b-[2.5px] border-s-[2.5px] border-surface-brand"
+                    style={{ transform: [{ rotate: `${String(45 * axisSign)}deg` }] }}
                 />
-            </View>
+            </Animated.View>
+            <RNText className="text-sm font-semibold text-content-primary">{label}</RNText>
+        </Pressable>
+    );
+}
 
-            {/* Staff view the shop and order nothing (`shop-view-only.tsx`): no options, no basket. */}
-            {viewOnly ? null : (
-                <View
-                    testID="meal-detail-options"
-                    className="mt-[26px] flex-col border-t border-stroke pt-[22px]"
-                >
-                    <Eyebrow className="mb-3">{t('catalogue:meal.makeItYours')}</Eyebrow>
-                    {options.length === 0 && portions.length === 0 ? (
-                        <View className="min-h-touch flex-row items-center gap-3 rounded-lg border border-stroke bg-surface-raised px-4 py-3">
-                            <RNText
-                                testID="meal-detail-options-none"
-                                className="min-w-0 flex-1 text-sm text-content-secondary text-start"
-                            >
-                                {t('catalogue:meal.optionsNone')}
-                            </RNText>
-                        </View>
-                    ) : (
-                        <DishChoiceFields
-                            testID="meal-detail-choices"
-                            options={options}
-                            portions={portions}
-                            value={choices}
-                            onChange={onChoicesChange}
-                            formatPrice={(choice) =>
-                                formatMoney(formatter, {
-                                    amount: choice.unitPriceMinor,
-                                    currency: item.price.currency,
-                                })
-                            }
-                        />
-                    )}
-                    <TextInputField
-                        testID="meal-detail-instructions"
-                        id="meal-detail-instructions"
-                        label={t('catalogue:meal.instructionsLabel')}
-                        labelHidden
-                        placeholder={t('catalogue:meal.instructionsPlaceholder')}
-                        multiline
-                        numberOfLines={3}
-                        value={instructions}
-                        onChangeText={onInstructionsChange}
-                        className="mt-2.5"
+/** The dish on its round plate, with what the record says about it around the rim. */
+function Plate({ item }: { readonly item: MarketplaceMeal }) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+
+    const tags = [
+        ...item.dietClassifications
+            .filter((diet) => diet !== 'omnivore')
+            .map((diet) => t(`marketplace:diets.${diet}`)),
+        ...item.cuisines,
+        ...item.mealTypes.map((type) => t(`marketplace:mealTypes.${type}`, { defaultValue: type })),
+        ...(item.preparationMinutes === null
+            ? []
+            : [
+                  t('catalogue:meal.prepMinutes', {
+                      minutes: formatter.formatNumber(item.preparationMinutes),
+                  }),
+              ]),
+    ].slice(0, 8);
+
+    return (
+        <View className="z-10 min-w-0 flex-1 items-center justify-center">
+            <View className="relative h-[300px] w-[300px] items-center justify-center lg:h-[480px] lg:w-[480px]">
+                <View className="h-[220px] w-[220px] overflow-hidden rounded-full border-[11px] border-surface-raised shadow-elevation-3 lg:h-[320px] lg:w-[320px]">
+                    <EntityImage
+                        testID="meal-detail-image"
+                        assetId={item.imagePlaceholderId}
+                        photoUrl={item.photoUrl}
+                        variant="detail"
+                        seed={item.slug}
+                        label={t('catalogue:meal.imageLabel', { meal: item.name })}
+                        flush
+                        className="h-full w-full"
                     />
                 </View>
-            )}
+                {tags.map((label, index) => {
+                    // An ellipse turned half a step, so no tag sits on the top or bottom edge where
+                    // the order bar overlaps the stage.
+                    const angle =
+                        (index / tags.length) * Math.PI * 2 - Math.PI / 2 + Math.PI / tags.length;
+                    return (
+                        <View
+                            key={label}
+                            aria-hidden
+                            className="absolute h-8 -translate-x-1/2 -translate-y-1/2 flex-row items-center gap-1.5 rounded-full bg-surface-raised px-3 shadow-elevation-2"
+                            style={{
+                                left: `${String(50 + Math.cos(angle) * 47)}%` as DimensionValue,
+                                top: `${String(47 + Math.sin(angle) * 34)}%` as DimensionValue,
+                            }}
+                        >
+                            <View
+                                className={cx(
+                                    'h-2 w-2 rounded-full',
+                                    TAG_INKS[index % TAG_INKS.length],
+                                )}
+                            />
+                            <RNText
+                                numberOfLines={1}
+                                className="text-xs font-semibold text-content-primary"
+                            >
+                                {label}
+                            </RNText>
+                        </View>
+                    );
+                })}
+            </View>
+            {/* The credit a photograph's licence obliges — nothing for the kitchen's own upload. */}
+            {item.photoUrl === undefined || item.photoUrl === null || item.photoUrl === '' ? (
+                <PhotoCredit assetId={item.imagePlaceholderId} testID="meal-detail-photo-credit" />
+            ) : null}
+        </View>
+    );
+}
 
-            {/*
-             * The purchase bar, pinned to the foot of the scroll port while the column runs past it
-             * — the design's `position: sticky; bottom: 16px`. `web:` because only the web can
-             * honour it; native keeps it in the flow, where it already sits. The containing block is
-             * this column, so the bar never rides over the sections below, and the page fill behind
-             * it keeps the column's text from showing through.
-             */}
-            <View
-                testID="meal-detail-actions"
-                className="mt-6 flex-col gap-2 bg-surface-base py-2.5 web:sticky web:bottom-4"
+/**
+ * The four figures per serving as rings. Calories fill their ring when published; each macro's ring
+ * is its share of the serving's energy — a proportion of the dish, never of a person's target. A
+ * figure the kitchen did not publish is a dash over an empty ring, never a zero.
+ */
+function StageRings({ item }: { readonly item: MarketplaceMeal }) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const dash = t('catalogue:card.noFigure');
+    const shares = macroBreakdown(item.nutrition);
+
+    return (
+        <View testID="meal-detail-strip" className="z-10 flex-col lg:w-[250px]">
+            <RNText
+                {...(item.nutrition.basis === 'per_100g'
+                    ? { testID: 'meal-detail-strip-basis' }
+                    : {})}
+                className="mb-3 text-xs font-semibold uppercase tracking-widest text-content-on-canopy-muted text-start"
             >
+                {item.nutrition.basis === 'per_100g'
+                    ? t('catalogue:meal.stripPer100g')
+                    : t('catalogue:meal.perServingEyebrow')}
+            </RNText>
+            <View className="flex-row flex-wrap gap-2.5">
+                {RINGS.map((ring) => {
+                    const figure = publishedFigure(item, ring.nutrientId);
+                    const label = t(`catalogue:card.strip.${ring.nutrientId}`);
+                    const value =
+                        figure === null
+                            ? dash
+                            : ring.nutrientId === 'energy'
+                              ? formatter.formatNumber(figure)
+                              : t('catalogue:meal.macroValue', {
+                                    grams: formatter.formatNumber(figure),
+                                });
+                    const share =
+                        figure === null
+                            ? 0
+                            : ring.nutrientId === 'energy'
+                              ? 1
+                              : (shares.find((entry) => entry.nutrientId === ring.nutrientId)
+                                    ?.percentageOfEnergy ?? 0) / 100;
+                    return (
+                        <View key={ring.nutrientId} className="min-w-[110px] flex-1 basis-[45%]">
+                            <StageRing
+                                testID={`meal-detail-strip-${ring.nutrientId}`}
+                                value={value}
+                                label={label}
+                                share={share}
+                                ink={ring.ink}
+                                accessibilityLabel={t('catalogue:meal.ringLabel', {
+                                    label,
+                                    value,
+                                })}
+                            />
+                        </View>
+                    );
+                })}
+            </View>
+        </View>
+    );
+}
+
+/* ── the order bar ───────────────────────────────────────────────────────────────────────────── */
+
+interface OrderBarProps {
+    readonly item: MarketplaceMeal;
+    readonly viewOnly: boolean;
+    readonly quantity: number;
+    readonly onQuantityChange: (next: number) => void;
+    readonly instructions: string;
+    readonly onInstructionsChange: (next: string) => void;
+    readonly total: string;
+    readonly pending: boolean;
+    readonly added: boolean;
+    /** Why the last add failed. A generic `server` keeps the page's own sentence. */
+    readonly failure: ApiFailure | null;
+    readonly onAdd: () => void;
+}
+
+/**
+ * The white bar over the stage's foot: quantity, the note for the kitchen, where and when, and Add
+ * carrying the total — which wears "Added to basket" for a moment once the add has landed.
+ */
+function OrderBar({
+    item,
+    viewOnly,
+    quantity,
+    onQuantityChange,
+    instructions,
+    onInstructionsChange,
+    total,
+    pending,
+    added,
+    failure,
+    onAdd,
+}: OrderBarProps) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const failureMessage = useFailureMessage();
+
+    return (
+        <View
+            testID="meal-detail-actions"
+            className="z-20 mx-auto -mt-9 w-full max-w-[1040px] flex-col gap-2 px-3 lg:px-0"
+        >
+            <View className="z-auto flex-row flex-wrap items-center gap-2.5 rounded-3xl border border-stroke-subtle bg-surface-raised p-2.5 shadow-elevation-3">
                 {viewOnly ? (
-                    <RNText
-                        testID="meal-detail-price"
-                        className="font-display text-xl font-bold tabular-nums text-content-primary text-start"
-                    >
+                    <RNText className="px-3 font-display text-xl font-bold tabular-nums text-content-primary text-start">
                         {total}
                     </RNText>
                 ) : (
-                    <View className="flex-row items-center gap-3">
+                    <>
                         <QuantityStepper
                             testID="meal-detail-quantity"
                             value={quantity}
                             onChange={onQuantityChange}
+                        />
+                        <View className="h-14 min-w-[200px] flex-1 flex-row items-center gap-2.5 rounded-2xl bg-surface-base px-4">
+                            <Icon name="pen" size="sm" className="text-content-secondary" />
+                            <TextInput
+                                testID="meal-detail-instructions-input"
+                                accessibilityLabel={t('catalogue:meal.instructionsLabel')}
+                                placeholder={t('catalogue:meal.notePlaceholder')}
+                                placeholderTextColor={neutral[600]}
+                                maxLength={200}
+                                value={instructions}
+                                onChangeText={onInstructionsChange}
+                                className="h-full min-w-0 flex-1 text-base text-content-primary text-start web:outline-none"
+                            />
+                        </View>
+                        <DeliverToMenu
+                            testID="meal-detail-deliver"
+                            bar
+                            kitchenId={item.kitchenId}
                         />
                         <Pressable
                             testID="meal-detail-add-to-basket"
@@ -659,110 +793,64 @@ function MealInfoColumn({
                             aria-disabled={pending}
                             disabled={pending}
                             onPress={onAdd}
-                            className="min-h-touch flex-1 flex-row items-center justify-between gap-3 rounded bg-surface-brand px-5 py-4 hover:bg-surface-canopy"
+                            className={cx(
+                                'h-14 min-w-[280px] grow flex-row items-center justify-between gap-4 rounded-2xl px-[22px] transition duration-normal ease-standard active:scale-[0.98] lg:grow-0',
+                                added
+                                    ? 'bg-content-primary'
+                                    : 'bg-surface-brand hover:bg-surface-canopy',
+                            )}
                         >
-                            <RNText className="text-base font-semibold text-content-on-brand">
+                            <RNText
+                                className={cx(
+                                    'text-base font-bold',
+                                    added ? 'text-surface-base' : 'text-content-on-brand',
+                                )}
+                            >
                                 {pending
                                     ? t('catalogue:meal.addingToBasket')
-                                    : t('catalogue:meal.addToCart')}
+                                    : added
+                                      ? t('catalogue:meal.addedShort')
+                                      : t('catalogue:meal.addToCart')}
                             </RNText>
                             <RNText
-                                testID="meal-detail-price"
-                                className="text-base font-semibold tabular-nums text-content-on-brand"
+                                testID="meal-detail-total"
+                                className={cx(
+                                    'font-display text-lg font-bold tabular-nums',
+                                    added ? 'text-surface-base' : 'text-content-on-brand',
+                                )}
                             >
                                 {total}
                             </RNText>
                         </Pressable>
-                    </View>
+                    </>
                 )}
-
-                {/* What one unit buys, when it is sold by weight: the total above is per pack. */}
-                {item.pack === null ? null : (
-                    <RNText
-                        testID="meal-detail-pack"
-                        className="text-sm tabular-nums text-content-secondary text-start"
-                    >
-                        {t('catalogue:meal.pricePerPack', {
-                            price: formatMoney(formatter, item.price),
-                            size: formatPackSize(t, formatter, item.pack),
-                        })}
-                    </RNText>
-                )}
-
-                {failure !== null ? (
-                    <Callout
-                        testID="meal-detail-action-error"
-                        role="alert"
-                        tone="danger"
-                        title={t('catalogue:meal.actionErrorTitle')}
-                        body={
-                            failure.code === 'server'
-                                ? t('catalogue:meal.actionErrorBody')
-                                : (failureMessage(failure) ?? t('catalogue:meal.actionErrorBody'))
-                        }
-                    />
-                ) : null}
             </View>
-        </View>
-    );
-}
 
-/**
- * The design's four-cell strip: calories and the three macronutrients, figure over name.
- *
- * Every cell is drawn, and a nutrient the kitchen did not publish reads "—" rather than the zero
- * `nutrientValue` would say — "0 g fat" is a claim about the food, not an absence of one. A listing
- * sold by weight states its basis under the strip, because per-100 g figures describe no portion
- * anybody is sold.
- */
-function NutritionStrip({ item }: { readonly item: MarketplaceMeal }) {
-    const { t } = useTranslation();
-    const formatter = useFormatter();
-    const dash = t('catalogue:card.noFigure');
-
-    const cells = (['energy', 'protein', 'carbohydrate', 'fat'] as const).map((nutrientId) => {
-        const figure = publishedFigure(item, nutrientId);
-        const value = figure === null ? dash : formatter.formatNumber(figure);
-        return {
-            key: nutrientId,
-            value:
-                figure === null || nutrientId === 'energy'
-                    ? value
-                    : t('catalogue:meal.macroValue', { grams: value }),
-            label: t(`catalogue:meal.strip.${nutrientId}`),
-        };
-    });
-
-    return (
-        <View testID="meal-detail-strip" className="flex-col gap-1.5">
-            <View className="flex-row overflow-hidden rounded-lg border border-stroke bg-surface-raised">
-                {cells.map((cell, index) => (
-                    <View
-                        key={cell.key}
-                        testID={`meal-detail-strip-${cell.key}`}
-                        className={
-                            index === cells.length - 1
-                                ? 'min-w-0 flex-1 flex-col gap-0.5 p-[14px]'
-                                : 'min-w-0 flex-1 flex-col gap-0.5 border-e border-stroke-subtle p-[14px]'
-                        }
-                    >
-                        <RNText
-                            numberOfLines={1}
-                            className="font-display text-xl font-bold tabular-nums tracking-display text-content-primary text-start"
-                        >
-                            {cell.value}
-                        </RNText>
-                        <Eyebrow>{cell.label}</Eyebrow>
-                    </View>
-                ))}
-            </View>
-            {item.nutrition.basis === 'per_100g' ? (
+            {/* What one unit buys, when it is sold by weight: the total above is per pack. */}
+            {item.pack === null ? null : (
                 <RNText
-                    testID="meal-detail-strip-basis"
-                    className="text-xs text-content-secondary text-start"
+                    testID="meal-detail-pack"
+                    className="px-2 text-sm tabular-nums text-content-secondary text-start"
                 >
-                    {t('catalogue:meal.stripPer100g')}
+                    {t('catalogue:meal.pricePerPack', {
+                        price: formatMoney(formatter, item.price),
+                        size: formatPackSize(t, formatter, item.pack),
+                    })}
                 </RNText>
+            )}
+
+            {failure !== null ? (
+                <Callout
+                    testID="meal-detail-action-error"
+                    role="alert"
+                    tone="danger"
+                    title={t('catalogue:meal.actionErrorTitle')}
+                    body={
+                        failure.code === 'server'
+                            ? t('catalogue:meal.actionErrorBody')
+                            : (failureMessage(failure) ?? t('catalogue:meal.actionErrorBody'))
+                    }
+                />
             ) : null}
         </View>
     );
@@ -775,7 +863,7 @@ interface QuantityStepperProps {
 }
 
 /**
- * The design's compact − 1 + beside Add.
+ * The board's − 1 + on a soft well.
  *
  * Not `NumberStepper`: that is a form field, with a visible label and a text input between its
  * buttons, and here the figure only ever moves one at a time beside a button that already says what
@@ -786,50 +874,270 @@ function QuantityStepper({ value, onChange, testID }: QuantityStepperProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
 
+    const step = (
+        id: string,
+        label: string,
+        icon: 'minus' | 'plus',
+        disabled: boolean,
+        next: number,
+    ) => (
+        <Pressable
+            testID={`${testID}-${id}`}
+            role="button"
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            accessibilityState={{ disabled }}
+            disabled={disabled}
+            onPress={() => {
+                onChange(next);
+            }}
+            className={cx(
+                'h-12 w-12 items-center justify-center rounded-[14px]',
+                disabled ? 'opacity-35' : 'hover:bg-surface-raised',
+            )}
+        >
+            <Icon name={icon} className="text-content-primary" />
+        </Pressable>
+    );
+
     return (
         <View
             testID={testID}
             role="group"
             aria-label={t('catalogue:meal.quantityLabel')}
             accessibilityLabel={t('catalogue:meal.quantityLabel')}
-            className="flex-row items-center rounded border border-stroke-strong bg-surface-raised"
+            className="h-14 flex-row items-center rounded-2xl bg-surface-base p-1"
         >
-            <IconButton
-                testID={`${testID}-decrement`}
-                label={t('catalogue:meal.quantityDecrease')}
-                icon={<Icon name="minus" />}
-                disabled={value <= 1}
-                onPress={() => {
-                    onChange(Math.max(1, value - 1));
-                }}
-            />
+            {step(
+                'decrement',
+                t('catalogue:meal.quantityDecrease'),
+                'minus',
+                value <= 1,
+                Math.max(1, value - 1),
+            )}
             <RNText
                 testID={`${testID}-value`}
                 aria-live="polite"
                 accessibilityLiveRegion="polite"
-                className="min-w-[26px] text-center text-base font-semibold tabular-nums text-content-primary"
+                className="min-w-[32px] text-center font-display text-xl font-bold tabular-nums text-content-primary"
             >
                 {formatter.formatNumber(value)}
             </RNText>
-            <IconButton
-                testID={`${testID}-increment`}
-                label={t('catalogue:meal.quantityIncrease')}
-                icon={<Icon name="plus" />}
-                disabled={value >= MAX_QUANTITY}
-                onPress={() => {
-                    onChange(Math.min(MAX_QUANTITY, value + 1));
-                }}
-            />
+            {step(
+                'increment',
+                t('catalogue:meal.quantityIncrease'),
+                'plus',
+                value >= MAX_QUANTITY,
+                Math.min(MAX_QUANTITY, value + 1),
+            )}
         </View>
     );
 }
 
-/* ── below the design's sections ─────────────────────────────────────────────────────────────── */
+/* ── make it a meal ──────────────────────────────────────────────────────────────────────────── */
 
-/**
- * The full nutrition facts and the medical disclaimer — the two obligations the design does not
- * draw — in its section language: a rule, a 24px heading, then the record.
- */
+function MakeItAMeal({
+    sides,
+    picked,
+    onToggle,
+    note,
+}: {
+    readonly sides: readonly MarketplaceMeal[];
+    readonly picked: readonly string[];
+    readonly onToggle: (id: string) => void;
+    readonly note: string;
+}) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+
+    return (
+        <View testID="meal-detail-sides" className="mt-14 flex-col">
+            <SectionHeading>{t('catalogue:meal.makeAMeal')}</SectionHeading>
+            <RNText
+                testID="meal-detail-sides-note"
+                className="mt-1.5 text-sm text-content-secondary text-start"
+            >
+                {note}
+            </RNText>
+            <View className="mt-4 flex-row flex-wrap gap-4">
+                {sides.map((side) => {
+                    const id = String(side.id);
+                    const on = picked.includes(id);
+                    const price = formatMoney(formatter, side.price);
+                    return (
+                        <Pressable
+                            key={id}
+                            testID={`meal-detail-side-${side.slug}`}
+                            role="checkbox"
+                            accessibilityRole="checkbox"
+                            aria-checked={on}
+                            accessibilityState={{ checked: on }}
+                            accessibilityLabel={t('catalogue:meal.sideToggle', {
+                                name: side.name,
+                                price,
+                            })}
+                            onPress={() => {
+                                onToggle(id);
+                            }}
+                            className={cx(
+                                'relative min-w-[150px] flex-1 basis-[150px] flex-col items-center gap-2 rounded-3xl border-2 px-2.5 pb-3.5 pt-4 transition duration-normal ease-standard hover:-translate-y-0.5',
+                                on
+                                    ? 'border-surface-brand bg-surface-brand-subtle'
+                                    : 'border-stroke-subtle bg-surface-raised',
+                            )}
+                        >
+                            <View
+                                className={cx(
+                                    'absolute end-3 top-3 h-[30px] w-[30px] items-center justify-center rounded-full transition duration-normal ease-emphasized',
+                                    on ? 'rotate-[360deg] bg-surface-brand' : 'bg-surface-base',
+                                )}
+                            >
+                                <Icon
+                                    name={on ? 'check' : 'plus'}
+                                    size="sm"
+                                    className={
+                                        on ? 'text-content-on-brand' : 'text-content-primary'
+                                    }
+                                />
+                            </View>
+                            <View className="h-24 w-24 overflow-hidden rounded-full">
+                                <EntityImage
+                                    assetId={side.imagePlaceholderId}
+                                    photoUrl={side.photoUrl}
+                                    seed={side.slug}
+                                    label={side.name}
+                                    decorative
+                                    flush
+                                    className="h-24 w-24"
+                                />
+                            </View>
+                            <RNText
+                                numberOfLines={2}
+                                className="h-9 text-center text-sm font-semibold leading-snug text-content-primary"
+                            >
+                                {side.name}
+                            </RNText>
+                            <RNText className="font-display text-base font-bold tabular-nums text-content-primary">
+                                {t('catalogue:meal.sidePrice', { price })}
+                            </RNText>
+                        </Pressable>
+                    );
+                })}
+            </View>
+        </View>
+    );
+}
+
+/* ── the three cards ─────────────────────────────────────────────────────────────────────────── */
+
+function FactCards({ item }: { readonly item: MarketplaceMeal }) {
+    const { t } = useTranslation();
+    const router = useRouter();
+    const kitchen = useKitchenQuery(item.kitchenId);
+
+    return (
+        <View className="mt-5 flex-col gap-4 lg:flex-row">
+            <View
+                testID="meal-detail-allergens"
+                className="flex-col rounded-3xl bg-warning-subtle p-5 lg:flex-[1.2]"
+            >
+                <View className="flex-row items-center gap-2.5">
+                    <View className="h-9 w-9 items-center justify-center rounded-xl bg-surface-raised">
+                        <Icon name="alert" size="sm" className="text-warning-on-subtle" />
+                    </View>
+                    <RNText className="font-display text-base font-bold text-warning-on-subtle">
+                        {t('catalogue:meal.allergensTitle')}
+                    </RNText>
+                </View>
+                <View
+                    testID="meal-detail-allergen-list"
+                    className="mt-3.5 flex-row flex-wrap items-center gap-2"
+                >
+                    {item.allergens.length === 0 ? (
+                        <RNText className="text-sm text-warning-on-subtle text-start">
+                            {t('catalogue:meal.allergensNoneShort')}
+                        </RNText>
+                    ) : (
+                        <>
+                            <RNText className="text-sm font-semibold text-warning-on-subtle">
+                                {t('catalogue:meal.contains')}
+                            </RNText>
+                            {item.allergens.map((code) => (
+                                <View
+                                    key={code}
+                                    className="h-[30px] justify-center rounded-[9px] bg-surface-raised px-3"
+                                >
+                                    <RNText className="text-sm font-bold text-warning-on-subtle">
+                                        {t(`marketplace:allergens.${code}`)}
+                                    </RNText>
+                                </View>
+                            ))}
+                        </>
+                    )}
+                </View>
+                <YourAllergens
+                    allergens={item.allergens}
+                    testID="meal-detail-your-allergens"
+                    className="mt-3"
+                />
+            </View>
+
+            <View
+                testID="meal-detail-ingredients"
+                className="flex-col rounded-3xl border border-stroke-subtle bg-surface-raised p-5 lg:flex-1"
+            >
+                <View className="flex-row items-center gap-2.5">
+                    <View className="h-9 w-9 items-center justify-center rounded-xl bg-surface-brand-subtle">
+                        <Icon name="leaf" size="sm" className="text-content-on-brand-subtle" />
+                    </View>
+                    <RNText className="font-display text-base font-bold text-content-primary">
+                        {t('catalogue:meal.ingredientsLabel')}
+                    </RNText>
+                </View>
+                <RNText className="mt-3 text-sm leading-relaxed text-content-secondary text-start">
+                    {t('catalogue:meal.ingredientsBody')}
+                </RNText>
+            </View>
+
+            <Pressable
+                testID="meal-detail-kitchen-card"
+                role="link"
+                accessibilityRole="link"
+                onPress={() => {
+                    router.push(`/kitchens/${String(item.kitchenId)}` as never);
+                }}
+                className="flex-row items-center gap-3.5 rounded-3xl border border-stroke-subtle bg-surface-raised p-5 hover:border-stroke lg:flex-1"
+            >
+                <View className="h-16 w-16 overflow-hidden rounded-[18px]">
+                    <EntityImage
+                        assetId={kitchen.data?.imagePlaceholderId}
+                        seed={`kitchen-${String(item.kitchenId)}`}
+                        label={item.kitchenName}
+                        decorative
+                        flush
+                        className="h-16 w-16"
+                    />
+                </View>
+                <View className="me-auto min-w-0 flex-1 flex-col">
+                    <RNText
+                        numberOfLines={1}
+                        className="font-display text-base font-bold text-content-primary text-start"
+                    >
+                        {item.kitchenName}
+                    </RNText>
+                    <RNText className="text-sm text-content-secondary text-start">
+                        {t('catalogue:meal.visitKitchen')}
+                    </RNText>
+                </View>
+                <Icon name="chevronForward" size="sm" className="text-content-secondary" />
+            </Pressable>
+        </View>
+    );
+}
+
+/* ── the full record ─────────────────────────────────────────────────────────────────────────── */
+
+/** The full nutrition facts — the rings summarise them, they do not replace them. */
 function MealFacts({ item }: { readonly item: MarketplaceMeal }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -837,7 +1145,7 @@ function MealFacts({ item }: { readonly item: MarketplaceMeal }) {
     return (
         <View
             testID="meal-detail-record"
-            className="mt-12 flex-col gap-[18px] border-t border-stroke pt-6"
+            className="mt-14 flex-col gap-[18px] border-t border-stroke pt-6"
         >
             <SectionHeading>{t('catalogue:meal.factsTitle')}</SectionHeading>
 
@@ -867,13 +1175,11 @@ function MealFacts({ item }: { readonly item: MarketplaceMeal }) {
                 </View>
             )}
 
-            <NutritionFactsPanel
+            <MealNutrition
                 testID="meal-detail-facts"
                 facts={item.nutrition}
                 title={t('catalogue:meal.factsPanelTitle')}
             />
-
-            <MedicalDisclaimer />
         </View>
     );
 }

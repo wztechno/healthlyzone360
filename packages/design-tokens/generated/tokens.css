@@ -90,6 +90,10 @@
   --h360-color-tint-violet-on: 76 29 149;
   --h360-color-tint-teal: 204 251 241;
   --h360-color-tint-teal-on: 19 78 74;
+  --h360-color-stage-orange: 251 146 60;
+  --h360-color-stage-green: 74 222 128;
+  --h360-color-stage-blue: 96 165 250;
+  --h360-color-stage-yellow: 250 204 21;
 
   --h360-space-0: 0px;
   --h360-space-1: 4px;
@@ -334,6 +338,10 @@
   --h360-color-tint-violet-on: 221 214 254;
   --h360-color-tint-teal: 4 47 46;
   --h360-color-tint-teal-on: 153 246 228;
+  --h360-color-stage-orange: 251 146 60;
+  --h360-color-stage-green: 74 222 128;
+  --h360-color-stage-blue: 96 165 250;
+  --h360-color-stage-yellow: 250 204 21;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -421,6 +429,10 @@
     --h360-color-tint-violet-on: 221 214 254;
     --h360-color-tint-teal: 4 47 46;
     --h360-color-tint-teal-on: 153 246 228;
+    --h360-color-stage-orange: 251 146 60;
+    --h360-color-stage-green: 74 222 128;
+    --h360-color-stage-blue: 96 165 250;
+    --h360-color-stage-yellow: 250 204 21;
   }
 }
 

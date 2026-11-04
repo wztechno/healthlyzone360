@@ -5,6 +5,7 @@ export {
     RAMPS,
     SEMANTIC_ROLES,
     THEMES,
+    STAGE_INK_NAMES,
     TINT_NAMES,
     brand,
     chartColours,
@@ -23,6 +24,7 @@ export {
     themes,
     tintDark,
     tintLight,
+    stageInks,
 } from './colour.ts';
 export type {
     ChartColours,
@@ -41,6 +43,7 @@ export type {
     ThemeTokens,
     TintName,
     TintPair,
+    StageInkName,
 } from './colour.ts';
 
 export {

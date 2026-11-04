@@ -131,7 +131,8 @@
         "day": "[[Ðáý āē]]",
         "window": "[[Ðéłíṽéŕý ŵíñðóŵ āēīōūā]]",
         "slotTime": "[[{{start}} – {{end}} āēīōūāēī]]",
-        "slotSummary": "[[{{day}}, {{slot}} {{time}} āēīōūāēīōūā]]"
+        "slotSummary": "[[{{day}}, {{slot}} {{time}} āēīōūāēīōūā]]",
+        "slotShort": "[[{{day}}, {{slot}} āēīōūāē]]"
     },
     "kitchens": {
         "title": "[[Ķíţçĥéñš āēīō]]",

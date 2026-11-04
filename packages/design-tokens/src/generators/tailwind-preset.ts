@@ -1,4 +1,4 @@
-import { NUTRITION_LEVELS, RAMPS, SEMANTIC_ROLES, TINT_NAMES } from '../colour.ts';
+import { NUTRITION_LEVELS, RAMPS, SEMANTIC_ROLES, STAGE_INK_NAMES, TINT_NAMES } from '../colour.ts';
 import { ELEVATION_LEVELS, NAMED_ELEVATIONS, elevation, namedElevation } from '../elevation.ts';
 import {
     cardWidth,
@@ -116,6 +116,11 @@ function colours(): Record<string, unknown> {
         ]),
     );
 
+    // `bg-stage-orange` — the meal page's ring inks on the canopy.
+    result['stage'] = Object.fromEntries(
+        STAGE_INK_NAMES.map((name) => [name, variableReference(`stage-${name}`)]),
+    );
+
     // `bg-tint-blue` for the fill, `text-tint-blue-on` for the ink on it.
     result['tint'] = Object.fromEntries(
         TINT_NAMES.flatMap((name) => [
@@ -185,7 +190,10 @@ export function renderTailwindPreset(): string {
                     // kept so a caller that means "a figure" keeps saying so. The first entry is the
                     // loader key React Native addresses; the web skips it (the web registers
                     // families by name) and lands on the stack — see `displayFamilies`.
-                    display: [displayFamilies.latin.bold, ...displayFamilies.latin.stack.split(', ')],
+                    display: [
+                        displayFamilies.latin.bold,
+                        ...displayFamilies.latin.stack.split(', '),
+                    ],
                     mono: [monoFamilies.latin.regular, ...monoFamilies.latin.stack.split(', ')],
                 },
                 fontSize: {

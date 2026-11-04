@@ -1,4 +1,4 @@
-import { NUTRITION_LEVELS, SEMANTIC_ROLES, themes } from '../colour.ts';
+import { NUTRITION_LEVELS, SEMANTIC_ROLES, stageInks, themes } from '../colour.ts';
 import {
     cardWidth,
     controlGap,
@@ -55,6 +55,7 @@ export function renderTokensNative(): string {
                         NUTRITION_LEVELS.map((level) => [level, themes[theme].nutrition[level]]),
                     ),
                     tint: themes[theme].tint,
+                    stage: stageInks,
                 },
             ]),
         ),

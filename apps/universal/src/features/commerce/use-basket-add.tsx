@@ -130,7 +130,11 @@ export interface BasketAdd {
      * Add. The meal page passes its stepper's count, so "three of these" is one request, and somebody
      * who chose three before signing in finds three in the basket afterwards.
      */
-    readonly add: (meal: BasketMeal, quantity?: number) => void;
+    readonly add: (
+        meal: BasketMeal,
+        quantity?: number,
+        options?: { readonly onAdded?: (() => void) | undefined },
+    ) => void;
     /** An add is in flight, or the session is still restoring and cannot take one yet. */
     readonly pending: boolean;
     /** True when the last add failed, for a surface that reports it beside the control. */
@@ -220,6 +224,8 @@ function useBasketAddMutation(): UseMutationResult<Cart, unknown, AddVariables> 
 interface Asked {
     readonly meal: BasketMeal;
     readonly quantity: number;
+    /** Called once the add has landed — the meal page adds the sides ticked beside it. */
+    readonly onAdded?: (() => void) | undefined;
 }
 
 interface AllergenAsk extends Asked {
@@ -324,6 +330,7 @@ export function useBasketAdd({
             { meal: choice.meal, quantity: choice.quantity, startOver },
             {
                 onSuccess: (cart) => {
+                    choice.onAdded?.();
                     /*
                      * Confirmed by a toast carrying the new basket count. Adding from a grid gives
                      * no other feedback — the card does not change, and the basket pill is up in the
@@ -362,11 +369,15 @@ export function useBasketAdd({
         commit(choice);
     };
 
-    const add = (meal: BasketMeal, quantity = 1) => {
+    const add = (
+        meal: BasketMeal,
+        quantity = 1,
+        options?: { readonly onAdded?: (() => void) | undefined },
+    ) => {
         // Staff and business buyers buy nothing from the shop. Every Add is already hidden from
         // them; this is the backstop for one that is not (`shop-view-only.tsx`).
         if (viewOnly) return;
-        const choice: Asked = { meal, quantity };
+        const choice: Asked = { meal, quantity, onAdded: options?.onAdded };
         switch (phase) {
             case 'restoring':
                 // Not knowable yet; `pending` keeps the control busy until it is.

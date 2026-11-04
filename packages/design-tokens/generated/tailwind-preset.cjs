@@ -134,6 +134,12 @@ module.exports = {
           "excessive": "rgb(var(--h360-color-nutrition-excessive) / <alpha-value>)",
           "excessive-on": "rgb(var(--h360-color-nutrition-excessive-on) / <alpha-value>)"
         },
+        "stage": {
+          "orange": "rgb(var(--h360-color-stage-orange) / <alpha-value>)",
+          "green": "rgb(var(--h360-color-stage-green) / <alpha-value>)",
+          "blue": "rgb(var(--h360-color-stage-blue) / <alpha-value>)",
+          "yellow": "rgb(var(--h360-color-stage-yellow) / <alpha-value>)"
+        },
         "tint": {
           "green": "rgb(var(--h360-color-tint-green) / <alpha-value>)",
           "green-on": "rgb(var(--h360-color-tint-green-on) / <alpha-value>)",

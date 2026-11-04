@@ -1,5 +1,12 @@
 import { hexToRgb, isHexColour } from '../contrast.ts';
-import { NUTRITION_LEVELS, SEMANTIC_ROLES, TINT_NAMES, themes } from '../colour.ts';
+import {
+    NUTRITION_LEVELS,
+    SEMANTIC_ROLES,
+    STAGE_INK_NAMES,
+    TINT_NAMES,
+    stageInks,
+    themes,
+} from '../colour.ts';
 import type { ThemeName } from '../colour.ts';
 
 export const GENERATED_BANNER = [
@@ -98,6 +105,10 @@ export function themeColourVariables(): readonly ThemeColourVariable[] {
     for (const name of TINT_NAMES) {
         variables.push(variable(`tint-${name}`, light.tint[name].surface, dark.tint[name].surface));
         variables.push(variable(`tint-${name}-on`, light.tint[name].on, dark.tint[name].on));
+    }
+    // The same in both themes: the canopy they are drawn on is dark in both.
+    for (const name of STAGE_INK_NAMES) {
+        variables.push(variable(`stage-${name}`, stageInks[name], stageInks[name]));
     }
 
     return variables;

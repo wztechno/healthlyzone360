@@ -350,6 +350,21 @@ export const tintDark: Readonly<Record<TintName, TintPair>> = {
     teal: { surface: '#042f2e', on: '#99f6e4' },
 };
 
+/**
+ * Stage inks — the meal page's nutrition rings, drawn on the canopy panel: calories orange, protein
+ * green, carbohydrate blue, fat yellow, the accepted design's. The canopy is dark in both themes, so
+ * the inks are the same in both, and each is contrast-tested against both canopies.
+ */
+export const STAGE_INK_NAMES = ['orange', 'green', 'blue', 'yellow'] as const;
+export type StageInkName = (typeof STAGE_INK_NAMES)[number];
+
+export const stageInks: Readonly<Record<StageInkName, string>> = {
+    orange: '#fb923c',
+    green: '#4ade80',
+    blue: '#60a5fa',
+    yellow: '#facc15',
+};
+
 /** Surface / text / border roles per theme. */
 export interface ThemeColours {
     readonly surfaceBase: string;
@@ -491,7 +506,12 @@ export interface ThemeTokens {
 }
 
 export const themes: Readonly<Record<ThemeName, ThemeTokens>> = {
-    light: { colours: themeLight, semantic: semanticLight, nutrition: nutritionLight, tint: tintLight },
+    light: {
+        colours: themeLight,
+        semantic: semanticLight,
+        nutrition: nutritionLight,
+        tint: tintLight,
+    },
     dark: { colours: themeDark, semantic: semanticDark, nutrition: nutritionDark, tint: tintDark },
 };
 
@@ -550,7 +570,10 @@ export const gradients: Readonly<Record<GradientName, GradientToken>> = {
     heroScrim: { colours: ['rgba(6,20,12,0.82)', 'rgba(6,20,12,0.28)'], locations: [0, 1] },
     accentScrim: { colours: ['rgba(12,10,34,0.72)', 'rgba(6,20,12,0.42)'], locations: [0, 1] },
     canopyScrim: {
-        colours: [withAlpha(themeLight.surfaceCanopy, 0.92), withAlpha(themeLight.surfaceCanopy, 0.35)],
+        colours: [
+            withAlpha(themeLight.surfaceCanopy, 0.92),
+            withAlpha(themeLight.surfaceCanopy, 0.35),
+        ],
         locations: [0, 1],
     },
 };
