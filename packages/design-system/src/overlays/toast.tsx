@@ -9,12 +9,14 @@ import {
 } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Text as RNText, View } from 'react-native';
+import { Animated, Easing, Image, Platform, Pressable, Text as RNText, View } from 'react-native';
+import type { ImageSourcePropType } from 'react-native';
 
 import { Button, IconButton } from '../actions/button.tsx';
 import { Icon } from '../icons/icon.tsx';
 import type { IconName } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
+import { useMotion } from '../motion/use-motion.ts';
 
 export const TOAST_TONES = ['neutral', 'success', 'warning', 'danger', 'info'] as const;
 export type ToastTone = (typeof TOAST_TONES)[number];
@@ -63,7 +65,23 @@ export interface ToastOptions {
      * dismisses the toast: the person has acted on it, so it has nothing left to say.
      */
     readonly action?: ToastAction | undefined;
+    /**
+     * A bold first line. With it, `message` becomes the quieter line under it — "Chicken Tawouk
+     * added" over "Your basket: 3 items". The default look reads the two as one sentence.
+     */
+    readonly title?: string | undefined;
+    /** A photograph in place of the tone's icon — the dish just added. `card` look only. */
+    readonly image?: ImageSourcePropType | undefined;
+    /**
+     * `card` is the web shop's toast: a dark rounded card centred at the foot of the page, the
+     * tone's colour in its icon disc and in a bar that runs down as it times out. The shop's shells
+     * set it for everything under them with {@link ToastLookScope}, so a call site never names it;
+     * everywhere else keeps `default`.
+     */
+    readonly look?: ToastLook | undefined;
 }
+
+export type ToastLook = 'default' | 'card';
 
 export interface ToastAction {
     readonly label: string;
@@ -83,6 +101,21 @@ export interface ToastApi {
 }
 
 const ToastContext = createContext<ToastApi | null>(null);
+const ToastLookContext = createContext<ToastLook>('default');
+
+/**
+ * Sets the look of every toast shown from under it. The web shop's shells wrap their pages in
+ * `<ToastLookScope look="card">`; the kitchen admin sets nothing and keeps the default.
+ */
+export function ToastLookScope({
+    look,
+    children,
+}: {
+    readonly look: ToastLook;
+    readonly children: ReactNode;
+}) {
+    return <ToastLookContext.Provider value={look}>{children}</ToastLookContext.Provider>;
+}
 
 export const DEFAULT_TOAST_DURATION_MS = 5000;
 
@@ -158,44 +191,57 @@ export function ToastProvider({ children, defaultDurationMs }: ToastProviderProp
         <ToastContext.Provider value={api}>
             {children}
 
+            {/*
+             * Pinned to the window on the web. The app's root view can be taller than the window,
+             * and a region anchored to its foot put every toast below the fold, where nobody saw
+             * it. `fixed` is web-only; native's root is the screen, so `absolute` is right there.
+             *
+             * One column holds both live regions, so a confirmation and a failure shown together
+             * stack instead of drawing over each other.
+             */}
             <View
-                testID="toast-region-polite"
-                role="status"
-                aria-live="polite"
-                accessibilityLiveRegion="polite"
-                className="absolute bottom-4 end-4 start-4 flex-col gap-2"
+                className="absolute bottom-4 end-4 start-4 z-50 flex-col gap-2 web:fixed web:bottom-6"
                 pointerEvents="box-none"
             >
-                {toasts
-                    .filter((toast) => TONE_POLITENESS[toast.tone ?? 'neutral'] === 'polite')
-                    .map((toast) => (
-                        <ToastItem
-                            key={toast.id}
-                            toast={toast}
-                            closeLabel={t('common:action.close')}
-                            onDismiss={dismiss}
-                        />
-                    ))}
-            </View>
+                <View
+                    testID="toast-region-polite"
+                    role="status"
+                    aria-live="polite"
+                    accessibilityLiveRegion="polite"
+                    className="flex-col gap-2"
+                    pointerEvents="box-none"
+                >
+                    {toasts
+                        .filter((toast) => TONE_POLITENESS[toast.tone ?? 'neutral'] === 'polite')
+                        .map((toast) => (
+                            <ToastItem
+                                key={toast.id}
+                                toast={toast}
+                                closeLabel={t('common:action.close')}
+                                onDismiss={dismiss}
+                            />
+                        ))}
+                </View>
 
-            <View
-                testID="toast-region-assertive"
-                role="alert"
-                aria-live="assertive"
-                accessibilityLiveRegion="assertive"
-                className="absolute bottom-4 end-4 start-4 flex-col gap-2"
-                pointerEvents="box-none"
-            >
-                {toasts
-                    .filter((toast) => TONE_POLITENESS[toast.tone ?? 'neutral'] === 'assertive')
-                    .map((toast) => (
-                        <ToastItem
-                            key={toast.id}
-                            toast={toast}
-                            closeLabel={t('common:action.close')}
-                            onDismiss={dismiss}
-                        />
-                    ))}
+                <View
+                    testID="toast-region-assertive"
+                    role="alert"
+                    aria-live="assertive"
+                    accessibilityLiveRegion="assertive"
+                    className="flex-col gap-2"
+                    pointerEvents="box-none"
+                >
+                    {toasts
+                        .filter((toast) => TONE_POLITENESS[toast.tone ?? 'neutral'] === 'assertive')
+                        .map((toast) => (
+                            <ToastItem
+                                key={toast.id}
+                                toast={toast}
+                                closeLabel={t('common:action.close')}
+                                onDismiss={dismiss}
+                            />
+                        ))}
+                </View>
             </View>
         </ToastContext.Provider>
     );
@@ -211,6 +257,9 @@ function ToastItem({
     readonly onDismiss: (id: string) => void;
 }) {
     const tone = toast.tone ?? 'neutral';
+    if (toast.look === 'card') {
+        return <CardToast toast={toast} closeLabel={closeLabel} onDismiss={onDismiss} />;
+    }
     return (
         <View
             testID={toast.testID ?? `toast-${tone}`}
@@ -221,7 +270,7 @@ function ToastItem({
         >
             <Icon name={TONE_ICON[tone]} size="sm" className={TONE_TEXT_CLASS[tone]} />
             <RNText className={cx('flex-1 text-sm text-start', TONE_TEXT_CLASS[tone])}>
-                {toast.message}
+                {toast.title === undefined ? toast.message : `${toast.title}. ${toast.message}`}
             </RNText>
             {toast.action === undefined ? null : (
                 <Button
@@ -248,10 +297,222 @@ function ToastItem({
     );
 }
 
+/** The card look's colours per tone. Amber is the one tone that is not dark. */
+interface CardTone {
+    readonly card: string;
+    readonly ink: string;
+    readonly disc: string;
+    readonly glyph: string;
+    readonly bar: string;
+    readonly action: string;
+    readonly actionInk: string;
+}
+
+const DARK_CARD: CardTone = {
+    card: 'bg-surface-inverse',
+    ink: 'text-content-inverse',
+    disc: 'bg-content-inverse/15',
+    glyph: 'text-content-inverse',
+    bar: 'bg-content-inverse/50',
+    action: 'bg-content-inverse/15',
+    actionInk: 'text-content-inverse',
+};
+
+const CARD_TONE: Readonly<Record<ToastTone, CardTone>> = {
+    neutral: DARK_CARD,
+    info: DARK_CARD,
+    success: {
+        ...DARK_CARD,
+        disc: 'bg-stage-green',
+        glyph: 'text-surface-canopy',
+        bar: 'bg-stage-green',
+    },
+    warning: {
+        card: 'bg-warning-subtle',
+        ink: 'text-warning-on-subtle',
+        disc: 'bg-warning-strong',
+        glyph: 'text-warning-on-strong',
+        bar: 'bg-warning-strong',
+        action: 'bg-warning-on-subtle/10',
+        actionInk: 'text-warning-on-subtle',
+    },
+    danger: {
+        ...DARK_CARD,
+        disc: 'bg-danger-strong',
+        glyph: 'text-danger-on-strong',
+        bar: 'bg-danger-strong',
+        action: 'bg-danger-strong',
+        actionInk: 'text-danger-on-strong',
+    },
+};
+
+const CARD_ICON: Readonly<Record<ToastTone, IconName>> = {
+    neutral: 'infoCircle',
+    info: 'infoCircle',
+    success: 'check',
+    warning: 'alert',
+    danger: 'circleX',
+};
+
+/**
+ * The shop's toast: it rises into place, then a bar along its foot runs down for as long as it
+ * stays. Reduced motion skips both — it simply appears, and goes.
+ */
+function CardToast({
+    toast,
+    closeLabel,
+    onDismiss,
+}: {
+    readonly toast: Toast;
+    readonly closeLabel: string;
+    readonly onDismiss: (id: string) => void;
+}) {
+    const tone = toast.tone ?? 'neutral';
+    const look = CARD_TONE[tone];
+    const { enabled } = useMotion();
+    const duration = toast.durationMs ?? DEFAULT_TOAST_DURATION_MS;
+    const [rise] = useState(() => new Animated.Value(enabled ? 0 : 1));
+    const [left] = useState(() => new Animated.Value(1));
+
+    useEffect(() => {
+        if (!enabled) return undefined;
+        const steps = [
+            Animated.timing(rise, {
+                toValue: 1,
+                duration: 500,
+                easing: Easing.bezier(0.22, 1, 0.36, 1),
+                useNativeDriver: Platform.OS !== 'web',
+            }),
+        ];
+        if (duration > 0) {
+            steps.push(
+                Animated.timing(left, {
+                    toValue: 0,
+                    duration,
+                    easing: Easing.linear,
+                    useNativeDriver: false,
+                }),
+            );
+        }
+        const all = Animated.parallel(steps);
+        all.start();
+        return () => {
+            all.stop();
+        };
+    }, [duration, enabled, left, rise]);
+
+    const testID = toast.testID ?? `toast-${tone}`;
+    return (
+        <Animated.View
+            testID={testID}
+            className={cx(
+                'w-full max-w-[440px] flex-row items-center gap-3 self-center overflow-hidden rounded-[18px] py-3 pe-3 ps-3.5 shadow-elevation-4',
+                look.card,
+            )}
+            style={{
+                opacity: rise,
+                transform: [
+                    { translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) },
+                    { scale: rise.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) },
+                ],
+            }}
+        >
+            {toast.image === undefined ? (
+                <View
+                    aria-hidden
+                    className={cx(
+                        'h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full',
+                        look.disc,
+                    )}
+                >
+                    <Icon name={CARD_ICON[tone]} size="md" className={look.glyph} />
+                </View>
+            ) : (
+                <Image
+                    source={toast.image}
+                    alt=""
+                    aria-hidden
+                    resizeMode="cover"
+                    style={{ width: 40, height: 40, borderRadius: 12 }}
+                />
+            )}
+            <View className="min-w-0 flex-1 flex-col">
+                {toast.title === undefined ? null : (
+                    <RNText className={cx('text-sm font-bold text-start', look.ink)}>
+                        {toast.title}
+                    </RNText>
+                )}
+                <RNText
+                    className={cx(
+                        'text-start',
+                        look.ink,
+                        toast.title === undefined
+                            ? 'text-sm font-semibold'
+                            : 'text-xs font-medium opacity-75',
+                    )}
+                >
+                    {toast.message}
+                </RNText>
+            </View>
+            {toast.action === undefined ? null : (
+                <Pressable
+                    testID={toast.action.testID ?? `${testID}-action`}
+                    role="button"
+                    accessibilityRole="button"
+                    onPress={() => {
+                        toast.action?.onPress();
+                        onDismiss(toast.id);
+                    }}
+                    className={cx(
+                        'h-9 shrink-0 justify-center rounded-[10px] px-3 hover:opacity-80',
+                        look.action,
+                    )}
+                >
+                    <RNText className={cx('text-sm font-bold', look.actionInk)}>
+                        {toast.action.label}
+                    </RNText>
+                </Pressable>
+            )}
+            <Pressable
+                testID={`${testID}-dismiss`}
+                role="button"
+                accessibilityRole="button"
+                accessibilityLabel={closeLabel}
+                onPress={() => {
+                    onDismiss(toast.id);
+                }}
+                className="h-9 w-9 shrink-0 items-center justify-center rounded-[10px] opacity-70 hover:opacity-100"
+            >
+                <Icon name="close" size="sm" className={look.ink} />
+            </Pressable>
+            {duration > 0 ? (
+                <Animated.View
+                    aria-hidden
+                    className={cx('absolute bottom-0 start-0 h-[3px]', look.bar)}
+                    style={{
+                        width: left.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ['0%', '100%'],
+                        }),
+                    }}
+                />
+            ) : null}
+        </Animated.View>
+    );
+}
+
 export function useToast(): ToastApi {
     const api = useContext(ToastContext);
+    const look = useContext(ToastLookContext);
     if (api === null) {
         throw new Error('useToast must be used inside a <ToastProvider>.');
     }
-    return api;
+    // Under a scope, every toast takes its look unless the call names one itself.
+    return useMemo(
+        () =>
+            look === 'default'
+                ? api
+                : { ...api, show: (options: ToastOptions) => api.show({ look, ...options }) },
+        [api, look],
+    );
 }

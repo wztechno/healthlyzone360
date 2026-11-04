@@ -139,6 +139,7 @@ export function CartLine({
                     allergens={item.allergens}
                     testID={`${testID}-your-allergens`}
                     className="mt-1"
+                    variant="tag"
                 />
                 <Pressable
                     testID={`${testID}-remove`}

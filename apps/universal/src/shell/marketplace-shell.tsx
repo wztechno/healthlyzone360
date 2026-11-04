@@ -6,6 +6,7 @@ import {
     Inline,
     OfflineIndicator,
     Text,
+    ToastLookScope,
     useBreakpoint,
     useMotion,
     useTheme,
@@ -215,7 +216,19 @@ function usePendingAddReplay(basket: BasketAdd, basketSettled: boolean): void {
     }, [basketSettled, ready, waiting]);
 }
 
-export function MarketplaceShell({ children }: MarketplaceShellProps) {
+/**
+ * The shop's chrome. Everything under it, the chrome's own hooks included, shows the shop's card
+ * toast (`ToastLookScope`); the admin's areas keep the design system's default.
+ */
+export function MarketplaceShell(props: MarketplaceShellProps) {
+    return (
+        <ToastLookScope look="card">
+            <MarketplaceShellBody {...props} />
+        </ToastLookScope>
+    );
+}
+
+function MarketplaceShellBody({ children }: MarketplaceShellProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const pathname = usePathname();

@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
 import { EntityImage } from '../../media/entity-image.tsx';
-import { YourAllergens } from '../commerce/my-allergens.tsx';
+import { YourAllergens, clashingAllergens, useMyAllergenCodes } from '../commerce/my-allergens.tsx';
 import { formatMoney } from '../marketplace/format.ts';
 import {
     cardFigureDigits,
@@ -72,6 +72,7 @@ export function MenuMealCard({ meal, onOpen, onAdd, compact = false, testID }: M
     const id = testID ?? `meal-card-${meal.slug}`;
 
     const tag = leadTag(meal, t);
+    const clashes = clashingAllergens(meal.allergens, useMyAllergenCodes()).length > 0;
     const tint = shelfTint(meal.publishedCategory?.code);
     const energy = publishedFigure(meal, 'energy');
     const protein = publishedFigure(meal, 'protein');
@@ -130,7 +131,16 @@ export function MenuMealCard({ meal, onOpen, onAdd, compact = false, testID }: M
                         />
                     </View>
                 </Pressable>
-                {tag === null || compact ? null : (
+                {/* A dish on the person's allergy list says so where the tag would sit; the
+                    warning outranks the tag. */}
+                <View pointerEvents="none" className="absolute end-2.5 start-2.5 top-2.5">
+                    <YourAllergens
+                        allergens={meal.allergens}
+                        testID={`${id}-your-allergens`}
+                        variant="badge"
+                    />
+                </View>
+                {tag === null || compact || clashes ? null : (
                     <View
                         pointerEvents="none"
                         className={cx(
@@ -273,8 +283,6 @@ export function MenuMealCard({ meal, onOpen, onAdd, compact = false, testID }: M
                         })}
                     </View>
                 )}
-
-                <YourAllergens allergens={meal.allergens} testID={`${id}-your-allergens`} />
 
                 {/* `mt-auto` keeps the price and Add on the bottom edge in every card of a row. */}
                 <View className="mt-auto flex-row items-center justify-between gap-3 pt-3">

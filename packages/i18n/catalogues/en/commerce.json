@@ -123,7 +123,10 @@
         "keepShopping": "Keep shopping",
         "popularNow": "Popular right now",
         "addAnother": "Add another {{meal}}",
-        "addNamed": "Add {{meal}}"
+        "addNamed": "Add {{meal}}",
+        "allergenGate_one": "{{count}} item contains your allergens",
+        "allergenGate_other": "{{count}} items contain your allergens",
+        "allergenAck": "I know, add them anyway"
     },
     "checkout": {
         "title": "Checkout",
@@ -612,7 +615,14 @@
         "planTitle_other": "{{count}} dishes in this plan contain something on your allergy list",
         "planBody": "The kitchen swaps these for a safe dish or skips that slot. Keep your list up to date so it can.",
         "planNone": "None of these dishes crosses your allergy list.",
-        "planUnchecked": "No dishes to check yet."
+        "planUnchecked": "No dishes to check yet.",
+        "containsTitle": "Contains {{allergens}}",
+        "containsShort": "Contains {{allergens}}",
+        "containsLabel": "Contains",
+        "whoFor": "Who is it for?",
+        "forMe": "Me",
+        "forSomeoneElse": "Someone else",
+        "findAnother": "Find another dish"
     },
     "receipt": {
         "printerLabel": "Receipt printer",

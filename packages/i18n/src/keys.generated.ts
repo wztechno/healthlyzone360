@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10169 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10182 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1814,7 +1814,10 @@ export interface NamespaceKeys {
     | 'meal.addToCart'
     | 'meal.addToCartLabel'
     | 'meal.addToPlan'
+    | 'meal.addedForOther'
+    | 'meal.addedOnYourList'
     | 'meal.addedShort'
+    | 'meal.addedTitle'
     | 'meal.addedToBasket'
     | 'meal.addedToPlan'
     | 'meal.addingToBasket'
@@ -1827,6 +1830,7 @@ export interface NamespaceKeys {
     | 'meal.allergensValue'
     | 'meal.backToKitchen'
     | 'meal.backToMenu'
+    | 'meal.basketNow'
     | 'meal.browseAll'
     | 'meal.contains'
     | 'meal.factsPanelTitle'
@@ -2164,7 +2168,9 @@ export interface NamespaceKeys {
     | 'cart.addMore'
     | 'cart.addMoreBody'
     | 'cart.addNamed'
+    | 'cart.allergenAck'
     | 'cart.allergenBody'
+    | 'cart.allergenGate'
     | 'cart.allergenTitle'
     | 'cart.browse'
     | 'cart.browseMenu'
@@ -2450,10 +2456,16 @@ export interface NamespaceKeys {
     | 'myAllergens.checkoutBody'
     | 'myAllergens.checkoutTitle'
     | 'myAllergens.confirmTitle'
+    | 'myAllergens.containsLabel'
+    | 'myAllergens.containsShort'
+    | 'myAllergens.containsTitle'
     | 'myAllergens.dialogBody'
     | 'myAllergens.dialogBodyUnnamed'
     | 'myAllergens.dialogTitle'
     | 'myAllergens.edit'
+    | 'myAllergens.findAnother'
+    | 'myAllergens.forMe'
+    | 'myAllergens.forSomeoneElse'
     | 'myAllergens.mealWithAllergens'
     | 'myAllergens.option'
     | 'myAllergens.placeAnyway'
@@ -2461,6 +2473,7 @@ export interface NamespaceKeys {
     | 'myAllergens.planNone'
     | 'myAllergens.planTitle'
     | 'myAllergens.planUnchecked'
+    | 'myAllergens.whoFor'
     | 'myAllergens.yourList'
     | 'myAllergens.yourListEmpty'
     | 'receipt.complete'
@@ -12008,7 +12021,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meal.addToCart',
   'catalogue:meal.addToCartLabel',
   'catalogue:meal.addToPlan',
+  'catalogue:meal.addedForOther',
+  'catalogue:meal.addedOnYourList',
   'catalogue:meal.addedShort',
+  'catalogue:meal.addedTitle',
   'catalogue:meal.addedToBasket',
   'catalogue:meal.addedToPlan',
   'catalogue:meal.addingToBasket',
@@ -12021,6 +12037,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:meal.allergensValue',
   'catalogue:meal.backToKitchen',
   'catalogue:meal.backToMenu',
+  'catalogue:meal.basketNow',
   'catalogue:meal.browseAll',
   'catalogue:meal.contains',
   'catalogue:meal.factsPanelTitle',
@@ -12357,7 +12374,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:cart.addMore',
   'commerce:cart.addMoreBody',
   'commerce:cart.addNamed',
+  'commerce:cart.allergenAck',
   'commerce:cart.allergenBody',
+  'commerce:cart.allergenGate',
   'commerce:cart.allergenTitle',
   'commerce:cart.browse',
   'commerce:cart.browseMenu',
@@ -12643,10 +12662,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:myAllergens.checkoutBody',
   'commerce:myAllergens.checkoutTitle',
   'commerce:myAllergens.confirmTitle',
+  'commerce:myAllergens.containsLabel',
+  'commerce:myAllergens.containsShort',
+  'commerce:myAllergens.containsTitle',
   'commerce:myAllergens.dialogBody',
   'commerce:myAllergens.dialogBodyUnnamed',
   'commerce:myAllergens.dialogTitle',
   'commerce:myAllergens.edit',
+  'commerce:myAllergens.findAnother',
+  'commerce:myAllergens.forMe',
+  'commerce:myAllergens.forSomeoneElse',
   'commerce:myAllergens.mealWithAllergens',
   'commerce:myAllergens.option',
   'commerce:myAllergens.placeAnyway',
@@ -12654,6 +12679,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:myAllergens.planNone',
   'commerce:myAllergens.planTitle',
   'commerce:myAllergens.planUnchecked',
+  'commerce:myAllergens.whoFor',
   'commerce:myAllergens.yourList',
   'commerce:myAllergens.yourListEmpty',
   'commerce:receipt.complete',

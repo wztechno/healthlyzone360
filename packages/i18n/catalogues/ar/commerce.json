@@ -127,7 +127,14 @@
         "keepShopping": "تابع التسوق",
         "popularNow": "الأكثر طلبًا الآن",
         "addAnother": "أضف {{meal}} آخر",
-        "addNamed": "أضف {{meal}}"
+        "addNamed": "أضف {{meal}}",
+        "allergenGate_zero": "لا أصناف تحتوي على مسببات حساسيتك",
+        "allergenGate_one": "صنف واحد يحتوي على مسببات حساسيتك",
+        "allergenGate_two": "صنفان يحتويان على مسببات حساسيتك",
+        "allergenGate_few": "{{count}} أصناف تحتوي على مسببات حساسيتك",
+        "allergenGate_many": "{{count}} صنفًا يحتوي على مسببات حساسيتك",
+        "allergenGate_other": "{{count}} صنف يحتوي على مسببات حساسيتك",
+        "allergenAck": "أعلم ذلك، أضفها على أي حال"
     },
     "checkout": {
         "title": "إتمام الطلب",
@@ -692,7 +699,14 @@
         "planTitle_other": "{{count}} طبق في هذه الخطة يحتوي على مكوّن من قائمة الحساسية لديك",
         "planBody": "يستبدل المطبخ هذه الأطباق بطبق آمن أو يتخطى تلك الوجبة. حدّث قائمتك ليتمكن من ذلك.",
         "planNone": "لا يتعارض أي من هذه الأطباق مع قائمة الحساسية لديك.",
-        "planUnchecked": "لا توجد أطباق للتحقق منها بعد."
+        "planUnchecked": "لا توجد أطباق للتحقق منها بعد.",
+        "containsTitle": "يحتوي على {{allergens}}",
+        "containsShort": "يحتوي على {{allergens}}",
+        "containsLabel": "يحتوي على",
+        "whoFor": "لمن هذا الطبق؟",
+        "forMe": "لي",
+        "forSomeoneElse": "لشخص آخر",
+        "findAnother": "ابحث عن طبق آخر"
     },
     "receipt": {
         "printerLabel": "طابعة الإيصالات",

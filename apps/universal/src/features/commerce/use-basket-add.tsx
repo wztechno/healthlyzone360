@@ -1,4 +1,5 @@
 import { Button, Dialog, useToast } from '@healthy360/design-system';
+import type { Money } from '@healthy360/domain-types';
 import type {
     ApiFailure,
     Cart,
@@ -14,6 +15,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { toFailure } from '../../data/hooks.ts';
+import { resolveEntityImage } from '../../media/entity-image.tsx';
 import { queryKeys } from '../../data/query-keys.ts';
 import { useRepositories } from '../../data/repository-provider.tsx';
 import { withReturnTo } from '../../navigation/return-to.ts';
@@ -22,6 +24,8 @@ import { useFailureMessage } from '../../screens/form-helpers.ts';
 import { useSession } from '../../session/session-provider.tsx';
 import { recordResumeIntent } from '../marketplace/resume-intent.ts';
 import { useShopViewOnly } from '../marketplace/shop-view-only.tsx';
+import { AllergenWarningDialog } from './allergen-warning-dialog.tsx';
+import type { AllergenRecipient } from './allergen-warning-dialog.tsx';
 import { clashingAllergens, useAllergenNames, useMyAllergenCodes } from './my-allergens.tsx';
 import { writePendingAdd } from './pending-add.ts';
 
@@ -122,6 +126,11 @@ export interface BasketMeal {
     readonly name?: string | undefined;
     /** What the meal page chose: a portion, its free options, a note. A grid's Add has none. */
     readonly choices?: DishLineChoices | undefined;
+    /** For the allergen question's dish row and the confirmation's photo, when the caller has them. */
+    readonly photoUrl?: string | null | undefined;
+    readonly imagePlaceholderId?: string | undefined;
+    readonly price?: Money | undefined;
+    readonly mealTypes?: readonly string[] | undefined;
 }
 
 export interface BasketAdd {
@@ -226,6 +235,9 @@ interface Asked {
     readonly quantity: number;
     /** Called once the add has landed — the meal page adds the sides ticked beside it. */
     readonly onAdded?: (() => void) | undefined;
+    /** Added past the allergen question: what it crosses, and who the person said it is for. */
+    readonly warned?:
+        { readonly clashing: readonly string[]; readonly recipient: AllergenRecipient } | undefined;
 }
 
 interface AllergenAsk extends Asked {
@@ -326,35 +338,58 @@ export function useBasketAdd({
     };
 
     const commit = (choice: Asked, startOver = false) => {
-        addToBasket.mutate(
-            { meal: choice.meal, quantity: choice.quantity, startOver },
-            {
-                onSuccess: (cart) => {
-                    choice.onAdded?.();
-                    /*
-                     * Confirmed by a toast carrying the new basket count. Adding from a grid gives
-                     * no other feedback — the card does not change, and the basket pill is up in the
-                     * chrome — so without it the press looks like it did nothing.
-                     *
-                     * It carries the way on, as HealthZone's does: a person who adds from a grid
-                     * is usually one press from the basket, and the pill is across the page.
-                     */
-                    toast.show({
-                        testID: 'basket-added',
-                        tone: 'success',
-                        message: t('catalogue:meal.addedToBasket', { count: cart.itemCount }),
-                        action: {
-                            label: t('common:action.viewBasket'),
-                            testID: 'basket-added-view',
-                            onPress: () => {
-                                router.push('/customer/cart' as never);
-                            },
+        /*
+         * The promise, not `mutate`'s own callbacks. TanStack Query drops a `mutate` call's
+         * callbacks when the component that made it has re-mounted by the time the add lands —
+         * which a grid does while the basket updates under it — and the confirmation silently never
+         * showed. The promise settles whatever happened to the component, and the toast lives in
+         * the provider above it.
+         */
+        addToBasket.mutateAsync({ meal: choice.meal, quantity: choice.quantity, startOver }).then(
+            (cart) => {
+                choice.onAdded?.();
+                /*
+                 * Confirmed by a toast carrying the new basket count. Adding from a grid gives
+                 * no other feedback — the card does not change, and the basket pill is up in the
+                 * chrome — so without it the press looks like it did nothing.
+                 *
+                 * It carries the way on, as HealthZone's does: a person who adds from a grid
+                 * is usually one press from the basket, and the pill is across the page.
+                 */
+                const { meal, warned } = choice;
+                const photo =
+                    meal.photoUrl !== undefined && meal.photoUrl !== null && meal.photoUrl !== ''
+                        ? { uri: meal.photoUrl }
+                        : resolveEntityImage(meal.imagePlaceholderId, 'card');
+                toast.show({
+                    testID: 'basket-added',
+                    tone: warned === undefined ? 'success' : 'warning',
+                    ...(meal.name === undefined
+                        ? {}
+                        : { title: t('catalogue:meal.addedTitle', { meal: meal.name }) }),
+                    ...(photo === null || warned !== undefined ? {} : { image: photo }),
+                    message:
+                        warned !== undefined
+                            ? t(
+                                  warned.recipient === 'other'
+                                      ? 'catalogue:meal.addedForOther'
+                                      : 'catalogue:meal.addedOnYourList',
+                                  { allergens: allergenNames(warned.clashing) },
+                              )
+                            : meal.name === undefined
+                              ? t('catalogue:meal.addedToBasket', { count: cart.itemCount })
+                              : t('catalogue:meal.basketNow', { count: cart.itemCount }),
+                    action: {
+                        label: t('common:action.viewBasket'),
+                        testID: 'basket-added-view',
+                        onPress: () => {
+                            router.push('/customer/cart' as never);
                         },
-                    });
-                },
-                onError: (error) => {
-                    reportFailure(error, choice);
-                },
+                    },
+                });
+            },
+            (error: unknown) => {
+                reportFailure(error, choice);
             },
         );
     };
@@ -404,48 +439,22 @@ export function useBasketAdd({
 
     const dialog = (
         <>
-            <Dialog
+            <AllergenWarningDialog
                 testID={`${testID}-allergen-warning`}
-                open={allergenAsk !== null}
+                meal={allergenAsk?.meal ?? null}
+                clashing={allergenAsk?.clashing ?? []}
+                names={allergenNames}
                 onClose={() => {
                     setAllergenAsk(null);
                 }}
-                title={t('commerce:myAllergens.dialogTitle')}
-                {...(allergenAsk === null
-                    ? {}
-                    : {
-                          description: t(
-                              allergenAsk.meal.name === undefined
-                                  ? 'commerce:myAllergens.dialogBodyUnnamed'
-                                  : 'commerce:myAllergens.dialogBody',
-                              {
-                                  meal: allergenAsk.meal.name,
-                                  count: allergenAsk.clashing.length,
-                                  allergens: allergenNames(allergenAsk.clashing),
-                              },
-                          ),
-                      })}
-                actions={
-                    <>
-                        <Button
-                            testID={`${testID}-allergen-warning-cancel`}
-                            variant="secondary"
-                            label={t('common:action.cancel')}
-                            onPress={() => {
-                                setAllergenAsk(null);
-                            }}
-                        />
-                        <Button
-                            testID={`${testID}-allergen-warning-add`}
-                            label={t('commerce:myAllergens.addAnyway')}
-                            onPress={() => {
-                                if (allergenAsk === null) return;
-                                setAllergenAsk(null);
-                                proceed(allergenAsk);
-                            }}
-                        />
-                    </>
-                }
+                onAddAnyway={(recipient) => {
+                    if (allergenAsk === null) return;
+                    setAllergenAsk(null);
+                    proceed({
+                        ...allergenAsk,
+                        warned: { clashing: allergenAsk.clashing, recipient },
+                    });
+                }}
             />
             <Dialog
                 testID={`${testID}-guest-entry-dialog`}

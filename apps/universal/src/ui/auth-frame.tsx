@@ -1,4 +1,4 @@
-import { useBreakpoint } from '@healthy360/design-system';
+import { ToastLookScope, useBreakpoint } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -26,29 +26,31 @@ export function AuthFrame({ children }: { readonly children: ReactNode }) {
     const { atLeast } = useBreakpoint();
 
     return (
-        <View testID="auth-frame" className="flex-1 flex-row bg-surface-base">
-            {atLeast('lg') ? <AuthStage /> : null}
-            <View className="relative min-w-0 flex-1">
-                <ScrollView
-                    testID="auth-shell-content"
-                    className="flex-1"
-                    contentContainerClassName="flex-grow items-center justify-center px-4 pb-10 pt-24 sm:px-10"
-                >
-                    <View role="main" className="w-full max-w-[420px]">
-                        {children}
+        <ToastLookScope look="card">
+            <View testID="auth-frame" className="flex-1 flex-row bg-surface-base">
+                {atLeast('lg') ? <AuthStage /> : null}
+                <View className="relative min-w-0 flex-1">
+                    <ScrollView
+                        testID="auth-shell-content"
+                        className="flex-1"
+                        contentContainerClassName="flex-grow items-center justify-center px-4 pb-10 pt-24 sm:px-10"
+                    >
+                        <View role="main" className="w-full max-w-[420px]">
+                            {children}
+                        </View>
+                    </ScrollView>
+                    <View className="absolute end-4 start-4 top-6 flex-row items-center justify-between sm:end-8 sm:start-8">
+                        <BackPill
+                            testID="auth-frame-shop"
+                            label={t('auth:frame.backToShop')}
+                            onPress={() => {
+                                router.dismissTo('/discover' as never);
+                            }}
+                        />
+                        <ThemeToggle />
                     </View>
-                </ScrollView>
-                <View className="absolute end-4 start-4 top-6 flex-row items-center justify-between sm:end-8 sm:start-8">
-                    <BackPill
-                        testID="auth-frame-shop"
-                        label={t('auth:frame.backToShop')}
-                        onPress={() => {
-                            router.dismissTo('/discover' as never);
-                        }}
-                    />
-                    <ThemeToggle />
                 </View>
             </View>
-        </View>
+        </ToastLookScope>
     );
 }

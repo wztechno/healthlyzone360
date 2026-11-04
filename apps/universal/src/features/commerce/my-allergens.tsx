@@ -1,4 +1,4 @@
-import { Button, Callout } from '@healthy360/design-system';
+import { Button, Callout, Icon, cx } from '@healthy360/design-system';
 import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
@@ -65,6 +65,11 @@ export interface YourAllergensProps {
     readonly testID: string;
     /** Spacing from what sits above it — applied only when the line is drawn. */
     readonly className?: string | undefined;
+    /**
+     * `line` is the dot and sentence; `badge` the amber pill the Allergen board lays over a card's
+     * photo ("Contains Milk"); `tag` the small amber pill it puts under a basket line's name.
+     */
+    readonly variant?: 'line' | 'badge' | 'tag' | undefined;
 }
 
 /** The meals of a set that cross the person's declarations, each with what it carries. */
@@ -166,12 +171,67 @@ export function PlanAllergyNotice({ meals, checked, returnTo, testID }: PlanAlle
 }
 
 /** "Contains your allergen: Eggs" — drawn only when the meal crosses a declaration. */
-export function YourAllergens({ allergens, testID, className }: YourAllergensProps) {
+export function YourAllergens({
+    allergens,
+    testID,
+    className,
+    variant = 'line',
+}: YourAllergensProps) {
     const { t } = useTranslation();
     const names = useAllergenNames();
     const clashing = clashingAllergens(allergens, useMyAllergenCodes());
 
     if (clashing.length === 0) return null;
+
+    const label = t('commerce:myAllergens.badge', {
+        count: clashing.length,
+        allergens: names(clashing),
+    });
+
+    if (variant === 'badge') {
+        return (
+            <View
+                testID={testID}
+                pointerEvents="none"
+                accessibilityLabel={label}
+                className={cx(
+                    'h-7 flex-row items-center gap-1.5 self-start rounded-full bg-warning-subtle pe-2.5 ps-1.5 shadow-elevation-2',
+                    className,
+                )}
+            >
+                <View className="h-[18px] w-[18px] items-center justify-center rounded-full bg-warning-strong">
+                    <Icon name="alert" size="sm" className="text-warning-on-strong" />
+                </View>
+                <RNText
+                    numberOfLines={1}
+                    className="shrink text-xs font-bold text-warning-on-subtle"
+                >
+                    {t('commerce:myAllergens.containsShort', { allergens: names(clashing) })}
+                </RNText>
+            </View>
+        );
+    }
+
+    if (variant === 'tag') {
+        return (
+            <View
+                testID={testID}
+                accessibilityLabel={label}
+                className={cx(
+                    'h-[22px] flex-row items-center gap-1 self-start rounded-full bg-warning-subtle px-2',
+                    className,
+                )}
+            >
+                <Icon name="alert" size="sm" className="text-warning-on-subtle" />
+                <RNText
+                    numberOfLines={1}
+                    className="shrink text-xs font-bold text-warning-on-subtle"
+                >
+                    {t('commerce:myAllergens.containsShort', { allergens: names(clashing) })}
+                </RNText>
+            </View>
+        );
+    }
 
     return (
         <View

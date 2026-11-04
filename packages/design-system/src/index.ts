@@ -398,6 +398,7 @@ export type {
 export {
     DEFAULT_TOAST_DURATION_MS,
     TOAST_TONES,
+    ToastLookScope,
     ToastProvider,
     useToast,
 } from './overlays/toast.tsx';
@@ -405,6 +406,7 @@ export type {
     Toast,
     ToastAction,
     ToastApi,
+    ToastLook,
     ToastOptions,
     ToastProviderProps,
     ToastTone,

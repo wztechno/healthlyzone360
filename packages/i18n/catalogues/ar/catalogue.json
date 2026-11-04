@@ -204,7 +204,16 @@
         "sideToggle": "أضف {{name}}، {{price}}، مع هذه الوجبة",
         "sidePrice": "+{{price}}",
         "contains": "يحتوي على",
-        "visitKitchen": "زيارة المطبخ"
+        "visitKitchen": "زيارة المطبخ",
+        "addedTitle": "تمت إضافة {{meal}}",
+        "basketNow_zero": "سلتك: لا أصناف",
+        "basketNow_one": "سلتك: صنف واحد",
+        "basketNow_two": "سلتك: صنفان",
+        "basketNow_few": "سلتك: {{count}} أصناف",
+        "basketNow_many": "سلتك: {{count}} صنفًا",
+        "basketNow_other": "سلتك: {{count}} صنف",
+        "addedForOther": "يحتوي على {{allergens}} · لشخص آخر",
+        "addedOnYourList": "يحتوي على {{allergens}} · ضمن قائمة حساسيتك"
     },
     "macros": {
         "title": "العناصر الكبرى",

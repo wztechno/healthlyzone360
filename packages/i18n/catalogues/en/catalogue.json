@@ -172,7 +172,12 @@
         "sideToggle": "Add {{name}}, {{price}}, with this meal",
         "sidePrice": "+{{price}}",
         "contains": "Contains",
-        "visitKitchen": "Visit the kitchen"
+        "visitKitchen": "Visit the kitchen",
+        "addedTitle": "{{meal}} added",
+        "basketNow_one": "Your basket: {{count}} item",
+        "basketNow_other": "Your basket: {{count}} items",
+        "addedForOther": "Contains {{allergens}} · for someone else",
+        "addedOnYourList": "Contains {{allergens}} · on your allergy list"
     },
     "macros": {
         "title": "Macronutrients",

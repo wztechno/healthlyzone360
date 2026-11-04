@@ -27,6 +27,7 @@ import { CartLine } from '../cart-line.tsx';
 import { SummaryRow } from '../checkout-frame.tsx';
 import { basketKitchenOf, useBasketAdd } from '../use-basket-add.tsx';
 import { ALLERGEN_CONFLICT_WARNING } from '../warnings.ts';
+import { clashingAllergens, useMyAllergenCodes } from '../my-allergens.tsx';
 
 /**
  * `/customer/cart` — the basket, as the accepted Basket board draws it: "Keep shopping", "Your basket"
@@ -113,6 +114,19 @@ export function CartScreen() {
     }, [addresses.isPending, basket, homeAddress]);
     const preview = useCheckoutPreviewQuery(previewRequest);
     const quotation = preview.data;
+    const myAllergens = useMyAllergenCodes();
+    const [allergenAck, setAllergenAck] = useState(false);
+    /*
+     * The Allergen board's gate: while the basket holds something on the person's allergy list,
+     * Checkout waits for "I know, add them anyway". The server's own warning decides whether the
+     * gate shows; the lines decide how many it names.
+     */
+    const allergenConflict = quotation?.warnings.includes(ALLERGEN_CONFLICT_WARNING) ?? false;
+    const clashingLines = (cart.data?.items ?? []).filter(
+        (line) => clashingAllergens(line.allergens, myAllergens).length > 0,
+    ).length;
+    const gated = allergenConflict && !allergenAck;
+    const checkoutOff = preview.isPending || preview.error !== null || gated;
 
     const mutationFailure = toFailure(setQuantity.error) ?? toFailure(removeItem.error);
     const busy = setQuantity.isPending || removeItem.isPending || clearing;
@@ -414,16 +428,55 @@ export function CartScreen() {
                                 </Pressable>
                             </View>
 
-                            {quotation.warnings.includes(ALLERGEN_CONFLICT_WARNING) ? (
-                                <View className="mt-4">
-                                    <Callout
-                                        testID="cart-allergen-warning"
-                                        role="alert"
-                                        tone="danger"
-                                        icon="warning"
-                                        title={t('commerce:cart.allergenTitle')}
-                                        body={t('commerce:cart.allergenBody')}
-                                    />
+                            {allergenConflict ? (
+                                <View
+                                    testID="cart-allergen-warning"
+                                    role="alert"
+                                    className="mt-4 rounded-2xl border border-warning-border bg-warning-subtle p-3"
+                                >
+                                    <View className="flex-row items-center gap-2">
+                                        <Icon
+                                            name="alert"
+                                            size="md"
+                                            className="text-warning-on-subtle"
+                                        />
+                                        <RNText className="flex-1 text-sm font-bold text-warning-on-subtle text-start">
+                                            {clashingLines > 0
+                                                ? t('commerce:cart.allergenGate', {
+                                                      count: clashingLines,
+                                                  })
+                                                : t('commerce:cart.allergenTitle')}
+                                        </RNText>
+                                    </View>
+                                    <Pressable
+                                        testID="cart-allergen-ack"
+                                        role="checkbox"
+                                        accessibilityRole="checkbox"
+                                        aria-checked={allergenAck}
+                                        accessibilityState={{ checked: allergenAck }}
+                                        onPress={() => {
+                                            setAllergenAck((on) => !on);
+                                        }}
+                                        className="mt-2.5 flex-row items-center gap-2.5 rounded-xl bg-surface-raised p-2.5"
+                                    >
+                                        <View
+                                            className={cx(
+                                                'h-[22px] w-[22px] items-center justify-center rounded-[7px] border-2 border-warning-strong transition-colors duration-200',
+                                                allergenAck ? 'bg-warning-strong' : '',
+                                            )}
+                                        >
+                                            {allergenAck ? (
+                                                <Icon
+                                                    name="check"
+                                                    size="sm"
+                                                    className="text-warning-on-strong"
+                                                />
+                                            ) : null}
+                                        </View>
+                                        <RNText className="flex-1 text-sm font-semibold text-content-primary text-start">
+                                            {t('commerce:cart.allergenAck')}
+                                        </RNText>
+                                    </Pressable>
                                 </View>
                             ) : null}
                         </View>
@@ -452,14 +505,14 @@ export function CartScreen() {
                     testID="cart-checkout"
                     role="button"
                     accessibilityRole="button"
-                    accessibilityState={{ disabled: preview.isPending || preview.error !== null }}
-                    disabled={preview.isPending || preview.error !== null}
+                    accessibilityState={{ disabled: checkoutOff }}
+                    disabled={checkoutOff}
                     onPress={() => {
                         router.push('/customer/checkout' as never);
                     }}
                     className={cx(
                         'group mt-3.5 h-14 flex-row items-center justify-between rounded-2xl px-5',
-                        preview.isPending || preview.error !== null
+                        checkoutOff
                             ? 'bg-stroke-subtle'
                             : 'bg-surface-brand hover:bg-surface-canopy',
                     )}
@@ -467,9 +520,7 @@ export function CartScreen() {
                     <RNText
                         className={cx(
                             'text-base font-bold',
-                            preview.isPending || preview.error !== null
-                                ? 'text-content-secondary'
-                                : 'text-content-on-brand',
+                            checkoutOff ? 'text-content-secondary' : 'text-content-on-brand',
                         )}
                     >
                         {t('commerce:cart.checkout')}
