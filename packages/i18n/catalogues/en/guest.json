@@ -149,7 +149,9 @@
         "courierDetail": "Courier details are not shared on this page.",
         "droppingAt": "Dropping at {{address}}.",
         "noteOnFile": "Note on file:",
-        "delivered": "Delivered"
+        "delivered": "Delivered",
+        "progressTitle": "Order progress",
+        "totalToPay": "Total — {{payment}}"
     },
     "convert": {
         "title": "Keep this order in an account?",

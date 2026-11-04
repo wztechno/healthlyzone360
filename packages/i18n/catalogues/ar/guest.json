@@ -149,7 +149,9 @@
         "courierDetail": "لا تُعرض بيانات المندوب في هذه الصفحة.",
         "droppingAt": "التسليم إلى {{address}}.",
         "noteOnFile": "ملاحظة محفوظة:",
-        "delivered": "تم التوصيل"
+        "delivered": "تم التوصيل",
+        "progressTitle": "تقدّم الطلب",
+        "totalToPay": "المجموع — {{payment}}"
     },
     "convert": {
         "title": "هل تريد الاحتفاظ بهذا الطلب في حساب؟",

@@ -138,7 +138,7 @@ describe('CustomerOrderScreen', () => {
         // at the top of the page, under its own name, with the order as the current crumb.
         expect(screen.queryByTestId('customer-order-reference-keep')).toBeNull();
         expect(screen.getByTestId('customer-order-trail-up')).toHaveTextContent('Order history');
-        expect(screen.getByTestId('customer-order-trail')).toHaveTextContent(/H360-1042/);
+        expect(screen.getByTestId('customer-order-reference')).toHaveTextContent(/H360-1042/);
         await fireEvent.press(screen.getByTestId('customer-order-trail-up'));
         // Up to the history by name: popped to when it is underneath, never pushed on top.
         expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(ORDER_HISTORY_HREF);

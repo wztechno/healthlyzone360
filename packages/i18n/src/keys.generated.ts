@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10151 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10153 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3172,6 +3172,7 @@ export interface NamespaceKeys {
     | 'order.position.current'
     | 'order.position.done'
     | 'order.position.upcoming'
+    | 'order.progressTitle'
     | 'order.reference'
     | 'order.refresh'
     | 'order.separator'
@@ -3196,6 +3197,7 @@ export interface NamespaceKeys {
     | 'order.steps.ready_for_pickup.title'
     | 'order.timeline'
     | 'order.total'
+    | 'order.totalToPay'
     | 'order.windowPending'
     | 'pay.title'
     | 'review.cashOnDelivery'
@@ -13343,6 +13345,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:order.position.current',
   'guest:order.position.done',
   'guest:order.position.upcoming',
+  'guest:order.progressTitle',
   'guest:order.reference',
   'guest:order.refresh',
   'guest:order.separator',
@@ -13367,6 +13370,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:order.steps.ready_for_pickup.title',
   'guest:order.timeline',
   'guest:order.total',
+  'guest:order.totalToPay',
   'guest:order.windowPending',
   'guest:pay.title',
   'guest:review.cashOnDelivery',
