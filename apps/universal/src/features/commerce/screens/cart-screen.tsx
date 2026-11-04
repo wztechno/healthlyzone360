@@ -485,7 +485,7 @@ export function CartScreen() {
 
                 {/* How payment works: the kitchen is paid in cash on delivery. */}
                 <View className="mt-3 flex-row items-center gap-2.5 rounded-[14px] bg-surface-brand-subtle p-3">
-                    <Icon name="basket" size="sm" className="text-content-on-brand-subtle" />
+                    <Icon name="banknote" size="md" className="text-content-on-brand-subtle" />
                     <RNText
                         testID="cart-fine-print"
                         className="min-w-0 flex-1 text-sm font-semibold text-content-on-brand-subtle text-start"
@@ -525,8 +525,19 @@ export function CartScreen() {
                     >
                         {t('commerce:cart.checkout')}
                     </RNText>
-                    <View className="h-8 w-8 items-center justify-center rounded-full bg-content-on-brand/20">
-                        <Icon name="chevronForward" size="sm" className="text-content-on-brand" />
+                    <View
+                        className={cx(
+                            'h-9 w-9 items-center justify-center rounded-full transition duration-normal ease-standard',
+                            checkoutOff ? 'bg-surface-raised/60' : 'bg-content-on-brand/20',
+                        )}
+                    >
+                        <Icon
+                            name="arrowForward"
+                            size="md"
+                            className={
+                                checkoutOff ? 'text-content-secondary' : 'text-content-on-brand'
+                            }
+                        />
                     </View>
                 </Pressable>
             </View>

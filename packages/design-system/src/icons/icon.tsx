@@ -225,6 +225,8 @@ export const DRAWN_ICON_FALLBACKS = {
     // An address's kind on the account pages: home and work. Lucide's `house` and `briefcase`.
     house: 'home',
     briefcase: 'device',
+    // A step onwards — the basket's Checkout. Lucide's `arrow-right`, turned round in Arabic.
+    arrowForward: 'chevronForward',
 } as const satisfies Readonly<Record<string, IconGlyphName>>;
 export type DrawnIconName = keyof typeof DRAWN_ICON_FALLBACKS;
 

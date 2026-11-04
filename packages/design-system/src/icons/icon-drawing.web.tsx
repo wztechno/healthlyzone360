@@ -757,10 +757,16 @@ const GRID_24_DRAWINGS: Partial<Record<IconName, ReactElement>> = {
         </>
     ),
     moon: <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />,
+    arrowForward: (
+        <>
+            <path d="M5 12h14" />
+            <path d="m12 5 7 7-7 7" />
+        </>
+    ),
 };
 
 /** Drawings that point along the line of reading, and so face the other way in Arabic. */
-const MIRRORED_IN_RTL: ReadonlySet<IconName> = new Set(['signOut']);
+const MIRRORED_IN_RTL: ReadonlySet<IconName> = new Set(['signOut', 'arrowForward']);
 
 /** 13px at `sm` is `iconSize.sm` in `control.ts` — the row-action size the handoff names. */
 const PIXELS: Readonly<Record<IconSize, number>> = { sm: 13, md: 16, lg: 20 };
