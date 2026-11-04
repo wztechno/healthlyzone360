@@ -160,6 +160,58 @@ export function ExtraButton({
     );
 }
 
+/** The boards' small 38px row button — Agree, Withdraw. */
+export function ExtraSmallButton({
+    testID,
+    label,
+    tone = 'brand',
+    busy = false,
+    disabled = false,
+    onPress,
+}: {
+    readonly testID: string;
+    readonly label: string;
+    readonly tone?: 'brand' | 'secondary';
+    readonly busy?: boolean;
+    readonly disabled?: boolean;
+    readonly onPress: () => void;
+}) {
+    const inert = busy || disabled;
+    return (
+        <Pressable
+            testID={testID}
+            role="button"
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            disabled={inert}
+            aria-disabled={inert}
+            aria-busy={busy}
+            accessibilityState={{ disabled: inert, busy }}
+            onPress={onPress}
+            className={cx(
+                'h-[38px] min-w-[72px] flex-row items-center justify-center rounded-xl border px-3.5',
+                tone === 'brand'
+                    ? 'border-surface-brand bg-surface-brand'
+                    : 'border-stroke bg-surface-raised hover:bg-surface-brand-subtle',
+                disabled ? 'opacity-45' : '',
+            )}
+        >
+            {busy ? (
+                <ActivityIndicator size="small" />
+            ) : (
+                <RNText
+                    className={cx(
+                        'text-sm font-semibold',
+                        tone === 'brand' ? 'text-content-on-brand' : 'text-content-primary',
+                    )}
+                >
+                    {label}
+                </RNText>
+            )}
+        </Pressable>
+    );
+}
+
 /** A state chip — Confirmed, Not confirmed, Required. */
 export function ExtraChip({
     testID,

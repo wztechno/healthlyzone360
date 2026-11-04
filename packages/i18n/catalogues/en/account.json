@@ -323,7 +323,11 @@
         "ageGate": "Confirm your age before agreeing to anything else.",
         "allRequiredDone": "Everything required has been agreed.",
         "outstanding_one": "{{count}} required permission still to agree to.",
-        "outstanding_other": "{{count}} required permissions still to agree to."
+        "outstanding_other": "{{count}} required permissions still to agree to.",
+        "neededNote": "Needed to order",
+        "allAgreed": "Everything required has been agreed.",
+        "leftToAgree_one": "{{count}} required permission still to agree to.",
+        "leftToAgree_other": "{{count}} required permissions still to agree to."
     },
     "closure": {
         "title": "Closing your account",
@@ -430,7 +434,8 @@
         "signedOutNote": "You have been signed out. This device no longer holds a session.",
         "optOutDoneTitle": "Marketing stopped",
         "optOutDoneBody": "We will not send you marketing again. Your account and everything in it is untouched.",
-        "keepAccount": "Keep my account"
+        "keepAccount": "Keep my account",
+        "codeTitle": "Enter the code we emailed you"
     },
     "favorites": {
         "empty": "No favorites yet",

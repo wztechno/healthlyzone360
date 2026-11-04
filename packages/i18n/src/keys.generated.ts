@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10147 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10151 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -406,6 +406,7 @@ export interface NamespaceKeys {
     | 'closure.checksTitle'
     | 'closure.closedBody'
     | 'closure.closedTitle'
+    | 'closure.codeTitle'
     | 'closure.failedTitle'
     | 'closure.finish'
     | 'closure.irreversibleBody'
@@ -468,6 +469,7 @@ export interface NamespaceKeys {
     | 'consents.ageGate'
     | 'consents.ageGateTitle'
     | 'consents.ageTitle'
+    | 'consents.allAgreed'
     | 'consents.allRequiredDone'
     | 'consents.empty'
     | 'consents.emptyBody'
@@ -480,6 +482,8 @@ export interface NamespaceKeys {
     | 'consents.items.marketingWhatsapp'
     | 'consents.items.privacy'
     | 'consents.items.terms'
+    | 'consents.leftToAgree'
+    | 'consents.neededNote'
     | 'consents.neededTitle'
     | 'consents.offersTitle'
     | 'consents.optional'
@@ -10582,6 +10586,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:closure.checksTitle',
   'account:closure.closedBody',
   'account:closure.closedTitle',
+  'account:closure.codeTitle',
   'account:closure.failedTitle',
   'account:closure.finish',
   'account:closure.irreversibleBody',
@@ -10644,6 +10649,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:consents.ageGate',
   'account:consents.ageGateTitle',
   'account:consents.ageTitle',
+  'account:consents.allAgreed',
   'account:consents.allRequiredDone',
   'account:consents.empty',
   'account:consents.emptyBody',
@@ -10656,6 +10662,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:consents.items.marketingWhatsapp',
   'account:consents.items.privacy',
   'account:consents.items.terms',
+  'account:consents.leftToAgree',
+  'account:consents.neededNote',
   'account:consents.neededTitle',
   'account:consents.offersTitle',
   'account:consents.optional',
