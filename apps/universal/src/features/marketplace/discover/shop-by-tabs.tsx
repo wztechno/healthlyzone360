@@ -1,8 +1,16 @@
 import { Icon, useMotion } from '@healthy360/design-system';
 import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, Easing, Pressable, Text as RNText, ScrollView, View } from 'react-native';
+import {
+    Animated,
+    Easing,
+    Platform,
+    Pressable,
+    Text as RNText,
+    ScrollView,
+    View,
+} from 'react-native';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
 
@@ -39,9 +47,12 @@ export function ShopByTabs({
         0,
         tabs.findIndex((tab) => tab.code === selected),
     );
-    const [offset] = useState(() => new Animated.Value(index * TAB_STEP * axisSign));
+    const target = index * TAB_STEP * axisSign;
+    const [offset] = useState(() => new Animated.Value(target));
 
     useEffect(() => {
+        // The web slides the bar with a CSS transition instead — no JavaScript per frame.
+        if (Platform.OS === 'web') return undefined;
         const animation = Animated.timing(offset, {
             toValue: index * TAB_STEP * axisSign,
             duration: enabled ? 350 : 0,
@@ -70,36 +81,55 @@ export function ShopByTabs({
                     <ShopByTile
                         key={tab.code ?? 'all'}
                         testID={`${testID}-${tab.code ?? 'all'}`}
-                        tab={tab}
+                        code={tab.code}
+                        label={tab.label}
+                        meal={tab.meal}
                         on={tab.code === selected}
-                        onPress={() => {
-                            onSelect(tab.code);
-                        }}
+                        onSelect={onSelect}
                     />
                 ))}
-                <Animated.View
-                    aria-hidden
-                    pointerEvents="none"
-                    className="absolute bottom-1 start-0.5 h-1 w-[100px] items-center"
-                    style={{ transform: [{ translateX: offset }] }}
-                >
-                    <View className="h-1 w-9 rounded-full bg-surface-brand" />
-                </Animated.View>
+                {Platform.OS === 'web' ? (
+                    <View
+                        aria-hidden
+                        pointerEvents="none"
+                        className={[
+                            'absolute bottom-1 start-0.5 h-1 w-[100px] items-center',
+                            enabled ? 'transition-transform duration-slow ease-standard' : '',
+                        ].join(' ')}
+                        style={{ transform: [{ translateX: target }] }}
+                    >
+                        <View className="h-1 w-9 rounded-full bg-surface-brand" />
+                    </View>
+                ) : (
+                    <Animated.View
+                        aria-hidden
+                        pointerEvents="none"
+                        className="absolute bottom-1 start-0.5 h-1 w-[100px] items-center"
+                        style={{ transform: [{ translateX: offset }] }}
+                    >
+                        <View className="h-1 w-9 rounded-full bg-surface-brand" />
+                    </Animated.View>
+                )}
             </View>
         </ScrollView>
     );
 }
 
-function ShopByTile({
+/** Memoised: a shelf switch re-draws the two tiles whose ring moved, not every photograph. */
+const ShopByTile = memo(function ShopByTile({
     testID,
-    tab,
+    code,
+    label,
+    meal,
     on,
-    onPress,
+    onSelect,
 }: {
     readonly testID: string;
-    readonly tab: ShopByTab;
+    readonly code: string | null;
+    readonly label: string;
+    readonly meal: MarketplaceMeal | undefined;
     readonly on: boolean;
-    readonly onPress: () => void;
+    readonly onSelect: (code: string | null) => void;
 }) {
     // State, not a hover class: the tint belongs on the tile inside, while the pointer target is
     // the whole tab, its label included.
@@ -112,7 +142,9 @@ function ShopByTile({
             accessibilityRole="tab"
             aria-selected={on}
             accessibilityState={{ selected: on }}
-            onPress={onPress}
+            onPress={() => {
+                onSelect(code);
+            }}
             onHoverIn={() => {
                 setHovered(true);
             }}
@@ -128,14 +160,14 @@ function ShopByTile({
                     hovered ? '-translate-y-0.5 bg-surface-brand-subtle' : 'bg-surface-sunken',
                 ].join(' ')}
             >
-                {tab.meal === undefined ? (
+                {meal === undefined ? (
                     <Icon name="layoutGrid" size="lg" className="text-content-primary" />
                 ) : (
                     <EntityImage
-                        assetId={tab.meal.imagePlaceholderId}
-                        photoUrl={tab.meal.photoUrl}
-                        seed={tab.meal.slug}
-                        label={tab.label}
+                        assetId={meal.imagePlaceholderId}
+                        photoUrl={meal.photoUrl}
+                        seed={meal.slug}
+                        label={label}
                         decorative
                         flush
                         aspect="square"
@@ -151,8 +183,8 @@ function ShopByTile({
                         : 'text-sm font-semibold text-content-secondary'
                 }
             >
-                {tab.label}
+                {label}
             </RNText>
         </Pressable>
     );
-}
+});

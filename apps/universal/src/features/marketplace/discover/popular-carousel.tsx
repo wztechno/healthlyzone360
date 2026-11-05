@@ -4,20 +4,12 @@ import { useFormatter } from '@healthy360/i18n';
 import { findAmount } from '@healthy360/nutrition';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-    Animated,
-    Easing,
-    Platform,
-    Pressable,
-    Text as RNText,
-    ScrollView,
-    View,
-} from 'react-native';
+import { Pressable, Text as RNText, ScrollView, View } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
+import { RiseIn } from '../../../ui/rise-in.tsx';
 import { YourAllergens } from '../../commerce/my-allergens.tsx';
 import { formatMoney, nutrientValue } from '../format.ts';
 import { useSession } from '../../../session/session-provider.tsx';
@@ -31,13 +23,6 @@ const TRACK_PADDING = 16;
 const AUTOPLAY_MS = 4000;
 /** How long the Add button wears its tick after an add. */
 const DONE_MS = 1400;
-/** The design's `up` entrance: a 12px rise and fade, each card a beat after the last. */
-const ENTER_MS = 700;
-const ENTER_STAGGER_MS = 60;
-const ENTER_RISE = 12;
-/** Past the cards a laptop shows, the rest enter together. */
-const ENTER_STAGGERED = 6;
-const ENTER_EASING = Easing.bezier(0.2, 0.7, 0.2, 1);
 
 /**
  * "Popular right now" — the accepted design's carousel: cards that move on by one every 4s, stop
@@ -70,6 +55,10 @@ export function PopularCarousel({
         setShownKey(entranceKey);
         setPlace((current) => ({ ...current, x: 0 }));
     }
+    // The track stays mounted across shelves — only its cards are new — so it is scrolled back.
+    useEffect(() => {
+        port.current?.scrollTo({ x: 0, animated: false });
+    }, [entranceKey]);
 
     /*
      * As many whole cards as the row holds, sharing its width evenly — so every card is the same
@@ -158,7 +147,6 @@ export function PopularCarousel({
                 }}
             >
                 <ScrollView
-                    key={entranceKey}
                     ref={port}
                     testID={`${testID}-track`}
                     horizontal
@@ -178,7 +166,12 @@ export function PopularCarousel({
                     className="-mx-2"
                 >
                     {meals.map((meal, index) => (
-                        <CardEntrance key={meal.id} index={index} width={cardWidth}>
+                        <RiseIn
+                            key={`${entranceKey ?? ''}:${meal.id}`}
+                            index={index}
+                            className="flex-col"
+                            style={{ width: cardWidth }}
+                        >
                             <PopularCard
                                 testID={`${testID}-${meal.slug}`}
                                 meal={meal}
@@ -192,64 +185,11 @@ export function PopularCarousel({
                                     setPaused(false);
                                 }}
                             />
-                        </CardEntrance>
+                        </RiseIn>
                     ))}
                 </ScrollView>
             </View>
         </View>
-    );
-}
-
-/** A card's rise into the row, a beat after the one before it. */
-function CardEntrance({
-    index,
-    width,
-    children,
-}: {
-    readonly index: number;
-    readonly width: number;
-    readonly children: ReactNode;
-}) {
-    const { enabled } = useMotion();
-    const [shown] = useState(() => new Animated.Value(enabled ? 0 : 1));
-
-    useEffect(() => {
-        if (!enabled) {
-            shown.setValue(1);
-            return undefined;
-        }
-        const animation = Animated.timing(shown, {
-            toValue: 1,
-            duration: ENTER_MS,
-            delay: Math.min(index, ENTER_STAGGERED) * ENTER_STAGGER_MS,
-            easing: ENTER_EASING,
-            useNativeDriver: Platform.OS !== 'web',
-        });
-        animation.start();
-        return () => {
-            animation.stop();
-        };
-    }, [enabled, index, shown]);
-
-    return (
-        <Animated.View
-            // The row stretches every wrapper to its tallest card; the card fills it.
-            style={{
-                width,
-                flexDirection: 'column',
-                opacity: shown,
-                transform: [
-                    {
-                        translateY: shown.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [ENTER_RISE, 0],
-                        }),
-                    },
-                ],
-            }}
-        >
-            {children}
-        </Animated.View>
     );
 }
 
