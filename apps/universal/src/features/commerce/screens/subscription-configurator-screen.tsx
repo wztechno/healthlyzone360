@@ -1,4 +1,4 @@
-import { Button, EmptyState, Icon, Stack, useBreakpoint } from '@healthy360/design-system';
+import { Icon, Stack, cx, useBreakpoint } from '@healthy360/design-system';
 import type {
     CustomerAddress,
     MarketplaceMeal,
@@ -35,6 +35,7 @@ import type { AccountSetupStep } from '../../account/account-setup-steps.tsx';
 import { listDayPrice } from '../../catalogue/plan-balance.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
+import { ShopStateButton, ShopStateCard } from '../../../ui/shop-state.tsx';
 import { EMPTY_ADDRESS, toDeliveryAddress } from '../address.ts';
 import {
     CONFIGURATOR_PATH,
@@ -67,6 +68,7 @@ import {
     mealCombinations,
     missingPicks,
     nextConfiguratorStep,
+    chosenDays,
     pickedMealIds,
     previousConfiguratorStep,
     savedAddressValues,
@@ -344,6 +346,31 @@ export function SubscriptionConfiguratorScreen({
         return menu.filter((meal) => ids.has(String(meal.id)));
     }, [item, menu, state]);
 
+    // The days each picked dish lands on, for the allergy card's "Wed 11 Nov · 3 days".
+    const pickedDates = useMemo(() => {
+        const byMeal = new Map<string, string[]>();
+        if (item === undefined || state === null) return byMeal;
+        for (const day of chosenDays(state, item)) {
+            for (const meal of day.meals) {
+                const key = String(meal.mealId);
+                byMeal.set(key, [...(byMeal.get(key) ?? []), day.date]);
+            }
+        }
+        return byMeal;
+    }, [item, state]);
+    const whenPicked = (meal: MarketplaceMeal): string | undefined => {
+        const [first, ...rest] = pickedDates.get(String(meal.id)) ?? [];
+        if (first === undefined) return undefined;
+        const date = formatter.formatDate(`${first}T12:00:00Z`, {
+            weekday: 'short',
+            day: 'numeric',
+            month: 'short',
+        });
+        return rest.length === 0
+            ? date
+            : t('commerce:myAllergens.pickedOnMore', { date, count: rest.length });
+    };
+
     // A saved address carries the server's own answer, computed against the published zone
     // coverage — authoritative over any client-side comparison of area strings, whose
     // granularities (gazetteer rows vs a zone's display label) need not match textually.
@@ -534,8 +561,10 @@ export function SubscriptionConfiguratorScreen({
     /* ── render ──────────────────────────────────────────────────────────────────────────────── */
 
     const browseAction = (
-        <Button
+        <ShopStateButton
             testID="configurator-browse"
+            icon="arrowForward"
+            iconAfter
             label={t('commerce:configurator.browsePlans')}
             onPress={() => {
                 router.push('/plans');
@@ -546,8 +575,9 @@ export function SubscriptionConfiguratorScreen({
     if (parsedPlanId === null) {
         return (
             <Stack space="lg" testID="configurator-screen">
-                <EmptyState
+                <ShopStateCard
                     testID="configurator-empty"
+                    icon="calendar"
                     title={t('commerce:configurator.notFoundTitle')}
                     body={t('commerce:configurator.notFoundBody')}
                     actions={browseAction}
@@ -619,6 +649,9 @@ export function SubscriptionConfiguratorScreen({
                 emptyTitle={t('commerce:configurator.notFoundTitle')}
                 emptyBody={t('commerce:configurator.notFoundBody')}
                 emptyActions={browseAction}
+                emptyIcon="calendar"
+                // A plan that is gone is the board's "We could not find that plan", not an error.
+                treatFailuresAsEmpty={['resource.not_found']}
                 skeletonCount={2}
                 testID="configurator"
             >
@@ -752,6 +785,7 @@ export function SubscriptionConfiguratorScreen({
                                         servedAreas={areas}
                                         chosenMeals={chosenMeals}
                                         chosenMealsLoaded={menuLoaded}
+                                        whenPicked={whenPicked}
                                         returnTo={here}
                                         showIssues={showIssues}
                                         savedAddresses={addressList}
@@ -782,6 +816,9 @@ export function SubscriptionConfiguratorScreen({
                                         isEmpty={preview.data === undefined}
                                         emptyTitle={t('commerce:configurator.previewEmptyTitle')}
                                         emptyBody={t('commerce:configurator.previewEmptyBody')}
+                                        emptyIcon="alert"
+                                        emptyTone="warning"
+                                        compact
                                         skeletonCount={2}
                                         testID="configurator-preview"
                                     >
@@ -795,6 +832,7 @@ export function SubscriptionConfiguratorScreen({
                                             cutoffHours={cutoffHours}
                                             chosenMeals={chosenMeals}
                                             chosenMealsLoaded={menuLoaded}
+                                            whenPicked={whenPicked}
                                             returnTo={here}
                                             pay={pay}
                                             onPay={setPay}
@@ -994,61 +1032,89 @@ function SetupNotice({
             stepForRequirement(entry.context['outstanding']) === null,
     );
 
+    /*
+     * Shop · Plan setup, pin 7: one amber card under "Something still needs an answer", each thing
+     * on its own white row with a dot — amber for a question not answered yet, red for what the
+     * server refused. The refusal's account steps are the same tiles as everywhere else.
+     */
     return (
-        <View testID="configurator-issues" role="alert" className="flex-col gap-1.5">
+        <View
+            testID="configurator-issues"
+            role="alert"
+            className="mb-1 mt-3.5 rounded-[18px] bg-warning-subtle px-3 pb-1.5 pt-3"
+        >
+            <View className="flex-row items-center gap-2 px-0.5 pb-1.5">
+                <Icon name="alert" size="md" className="text-warning-on-subtle" />
+                <RNText className="shrink text-sm font-bold text-warning-on-subtle text-start">
+                    {failure === null
+                        ? t('commerce:configurator.issuesTitle')
+                        : t('commerce:configurator.createFailedTitle')}
+                </RNText>
+            </View>
             {failure === null ? null : (
-                <View testID="configurator-create-error" className="flex-col gap-1">
-                    <RNText className="self-start text-sm font-semibold text-danger-on-subtle text-start">
-                        {t('commerce:configurator.createFailedTitle')}
-                    </RNText>
-                    {reasons.length === 0 ? (
-                        <RNText className="self-start text-sm text-danger-on-subtle text-start">
-                            {failure}
-                        </RNText>
-                    ) : null}
+                <View testID="configurator-create-error" className="flex-col">
+                    {reasons.length === 0 ? <IssueRow tone="danger" text={failure} /> : null}
                     {otherReasons.map((entry) => (
-                        <View
+                        <IssueRow
                             key={entry.reason}
                             testID={`configurator-create-reason-${entry.reason}`}
-                            className="flex-row items-start gap-2"
-                        >
-                            <Icon
-                                name="warning"
-                                size="sm"
-                                className="mt-0.5 text-danger-on-subtle"
-                            />
-                            <RNText className="min-w-0 shrink self-start text-sm text-danger-on-subtle text-start">
-                                {t(
-                                    [
-                                        `errors:subscriptionRefusal.${entry.reason}`,
-                                        `errors:orderRefusal.${entry.reason}`,
-                                    ],
-                                    { defaultValue: entry.reason },
-                                )}
-                            </RNText>
-                        </View>
+                            tone="danger"
+                            text={t(
+                                [
+                                    `errors:subscriptionRefusal.${entry.reason}`,
+                                    `errors:orderRefusal.${entry.reason}`,
+                                ],
+                                { defaultValue: entry.reason },
+                            )}
+                        />
                     ))}
                     {setupSteps.length === 0 ? null : (
-                        <AccountSetupSteps
-                            steps={setupSteps}
-                            returnTo={returnTo}
-                            testID="configurator-refusal-step"
-                        />
+                        <View className="mb-1.5">
+                            <AccountSetupSteps
+                                steps={setupSteps}
+                                returnTo={returnTo}
+                                testID="configurator-refusal-step"
+                            />
+                        </View>
                     )}
                 </View>
             )}
             {issues.map((key) => (
-                <View
+                <IssueRow
                     key={key}
                     testID={`configurator-issue-${key.split('.').pop() ?? key}`}
-                    className="flex-row items-start gap-2"
-                >
-                    <Icon name="warning" size="sm" className="mt-0.5 text-danger-on-subtle" />
-                    <RNText className="min-w-0 shrink self-start text-sm text-danger-on-subtle text-start">
-                        {t(key)}
-                    </RNText>
-                </View>
+                    tone="warning"
+                    text={t(key)}
+                />
             ))}
+        </View>
+    );
+}
+
+/** One thing still in the way: a white row, a dot for how serious, and the sentence. */
+function IssueRow({
+    text,
+    tone,
+    testID,
+}: {
+    readonly text: string;
+    readonly tone: 'warning' | 'danger';
+    readonly testID?: string | undefined;
+}) {
+    return (
+        <View
+            testID={testID}
+            className="mb-1.5 min-h-[44px] flex-row items-center gap-2.5 rounded-xl bg-surface-raised px-2.5 py-2"
+        >
+            <View
+                className={cx(
+                    'h-2 w-2 rounded-full',
+                    tone === 'danger' ? 'bg-danger-strong' : 'bg-warning-strong',
+                )}
+            />
+            <RNText className="min-w-0 shrink text-sm font-semibold leading-[17px] text-content-primary text-start">
+                {text}
+            </RNText>
         </View>
     );
 }

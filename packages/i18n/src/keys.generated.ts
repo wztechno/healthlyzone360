@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10290 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10301 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2321,6 +2321,7 @@ export interface NamespaceKeys {
     | 'configurator.delivery.addressTitle'
     | 'configurator.delivery.allergensTitle'
     | 'configurator.delivery.cutoffNote'
+    | 'configurator.delivery.cutoffShort'
     | 'configurator.delivery.deliverTo'
     | 'configurator.delivery.slotTitle'
     | 'configurator.delivery.startLabel'
@@ -2393,6 +2394,11 @@ export interface NamespaceKeys {
     | 'configurator.previewEmptyBody'
     | 'configurator.previewEmptyTitle'
     | 'configurator.progressLabel'
+    | 'configurator.receipt.discount'
+    | 'configurator.receipt.perDay'
+    | 'configurator.receipt.perDayAfter'
+    | 'configurator.receipt.percent'
+    | 'configurator.receipt.times'
     | 'configurator.review.change'
     | 'configurator.review.deliveryLine'
     | 'configurator.review.deliverySub'
@@ -2462,6 +2468,8 @@ export interface NamespaceKeys {
     | 'durations.4w'
     | 'myAllergens.addAnyway'
     | 'myAllergens.badge'
+    | 'myAllergens.changeMeal'
+    | 'myAllergens.checkNote'
     | 'myAllergens.checkoutBody'
     | 'myAllergens.checkoutTitle'
     | 'myAllergens.confirmTitle'
@@ -2475,8 +2483,11 @@ export interface NamespaceKeys {
     | 'myAllergens.findAnother'
     | 'myAllergens.forMe'
     | 'myAllergens.forSomeoneElse'
+    | 'myAllergens.listTitle'
     | 'myAllergens.mealWithAllergens'
+    | 'myAllergens.onMenu'
     | 'myAllergens.option'
+    | 'myAllergens.pickedOnMore'
     | 'myAllergens.placeAnyway'
     | 'myAllergens.planBody'
     | 'myAllergens.planNone'
@@ -12635,6 +12646,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.delivery.addressTitle',
   'commerce:configurator.delivery.allergensTitle',
   'commerce:configurator.delivery.cutoffNote',
+  'commerce:configurator.delivery.cutoffShort',
   'commerce:configurator.delivery.deliverTo',
   'commerce:configurator.delivery.slotTitle',
   'commerce:configurator.delivery.startLabel',
@@ -12707,6 +12719,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.previewEmptyBody',
   'commerce:configurator.previewEmptyTitle',
   'commerce:configurator.progressLabel',
+  'commerce:configurator.receipt.discount',
+  'commerce:configurator.receipt.perDay',
+  'commerce:configurator.receipt.perDayAfter',
+  'commerce:configurator.receipt.percent',
+  'commerce:configurator.receipt.times',
   'commerce:configurator.review.change',
   'commerce:configurator.review.deliveryLine',
   'commerce:configurator.review.deliverySub',
@@ -12776,6 +12793,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:durations.4w',
   'commerce:myAllergens.addAnyway',
   'commerce:myAllergens.badge',
+  'commerce:myAllergens.changeMeal',
+  'commerce:myAllergens.checkNote',
   'commerce:myAllergens.checkoutBody',
   'commerce:myAllergens.checkoutTitle',
   'commerce:myAllergens.confirmTitle',
@@ -12789,8 +12808,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:myAllergens.findAnother',
   'commerce:myAllergens.forMe',
   'commerce:myAllergens.forSomeoneElse',
+  'commerce:myAllergens.listTitle',
   'commerce:myAllergens.mealWithAllergens',
+  'commerce:myAllergens.onMenu',
   'commerce:myAllergens.option',
+  'commerce:myAllergens.pickedOnMore',
   'commerce:myAllergens.placeAnyway',
   'commerce:myAllergens.planBody',
   'commerce:myAllergens.planNone',

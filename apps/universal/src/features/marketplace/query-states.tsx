@@ -50,6 +50,8 @@ export interface QueryStatesProps {
     readonly skeleton?: 'cards' | 'rows' | undefined;
     /** The empty state's disc. Defaults to a search lens: "nothing here matched". */
     readonly emptyIcon?: IconName | undefined;
+    /** The empty disc's tint: `warning` when the person can fix it by going back a step. */
+    readonly emptyTone?: 'brand' | 'warning' | undefined;
     /** A state inside a panel: no card frame, a smaller disc. */
     readonly compact?: boolean | undefined;
     readonly testID: string;
@@ -66,6 +68,7 @@ export function QueryStates({
     skeletonCount = 3,
     skeleton = 'cards',
     emptyIcon = 'searchLens',
+    emptyTone = 'brand',
     compact = false,
     testID,
     children,
@@ -117,6 +120,7 @@ export function QueryStates({
             <ShopStateCard
                 testID={`${testID}-empty`}
                 icon={emptyIcon}
+                tone={emptyTone}
                 small={compact}
                 title={emptyTitle}
                 body={emptyBody}

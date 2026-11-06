@@ -3322,7 +3322,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         expect(screen.getByTestId('configurator-empty')).toBeTruthy();
     });
 
-    it('reports a failure rather than an empty page for an unknown plan', async () => {
+    it('says a plan that is gone could not be found, with the way to the plans', async () => {
         await renderConfigurator(
             { planId: UNKNOWN_PLAN_ID },
             {
@@ -3331,9 +3331,15 @@ describe('SubscriptionConfiguratorScreen', () => {
             },
         );
         expect(screen.getByTestId('configurator-loading')).toBeTruthy();
+        // Shop · Plan setup, pin 8: not a blank page and not "something went wrong" — the plan is
+        // gone, so the page says so and offers the plans.
         await waitFor(() => {
-            expect(screen.getByTestId('configurator-error')).toBeTruthy();
+            expect(screen.getByTestId('configurator-empty')).toHaveTextContent(
+                /We could not find that plan/,
+            );
         });
+        expect(screen.getByTestId('configurator-browse')).toBeTruthy();
+        expect(screen.queryByTestId('configurator-error')).toBeNull();
     });
 
     it('opens on the band, the meals and the length, with the progress beside them', async () => {
@@ -3462,7 +3468,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         await waitFor(() => {
             expect(
                 within(notice).getByTestId('configurator-allergy-notice-list'),
-            ).toHaveTextContent(/Your allergy list: Milk/);
+            ).toHaveTextContent(/Your allergy list.*Milk/);
         });
         // The run's one dish has milk in it; it is named, with what it carries.
         const clashes = await within(notice).findByTestId('configurator-allergy-notice-clashes');
@@ -3505,7 +3511,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         // yet, rather than giving a clean bill it cannot stand behind.
         await waitFor(() => {
             expect(screen.getByTestId('configurator-allergy-notice-unchecked')).toHaveTextContent(
-                /No dishes to check yet/,
+                /Each meal you pick is checked against this list/,
             );
         });
         expect(screen.queryByTestId('configurator-allergy-notice-none')).toBeNull();
@@ -3527,7 +3533,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         );
 
         const note = await screen.findByTestId('configurator-start-date-cutoff');
-        expect(note).toHaveTextContent(/locks each delivery 48 hours ahead/);
+        expect(note).toHaveTextContent(/each delivery locks 48 hours ahead/);
         // The floor the note names is the one the rules enforce: two days on, not tomorrow.
         const floor = earliestStartDate(new Date(), 48);
         expect(floor > earliestStartDate()).toBe(true);
@@ -3768,7 +3774,7 @@ describe('SubscriptionConfiguratorScreen', () => {
             within(screen.getByTestId('configurator-review-allergens')).getByTestId(
                 'configurator-review-allergy-notice-list',
             ),
-        ).toHaveTextContent('Your allergy list is empty.');
+        ).toHaveTextContent(/Your allergy list is empty\./);
 
         // How to pay is shown, not sent: the purchase takes no payment yet.
         expect(screen.getByTestId('configurator-pay-cash').props.accessibilityState).toMatchObject({
@@ -4685,7 +4691,7 @@ describe('SubscriptionDetailScreen', () => {
         await waitFor(() => {
             expect(
                 within(card).getByTestId('subscription-detail-allergy-notice-list'),
-            ).toHaveTextContent(/Your allergy list: Milk/);
+            ).toHaveTextContent(/Your allergy list.*Milk/);
         });
         // Three dishes across the run's days; the halloumi plate is the one with milk in it.
         const clashes = await within(card).findByTestId(

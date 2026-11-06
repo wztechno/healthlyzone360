@@ -269,7 +269,9 @@
             "addAddress": "Add a delivery address",
             "title": "Delivery",
             "startOn": "Start on",
-            "deliverTo": "Deliver to"
+            "deliverTo": "Deliver to",
+            "cutoffShort_one": "Earliest start {{date}} · each delivery locks {{count}} hour ahead",
+            "cutoffShort_other": "Earliest start {{date}} · each delivery locks {{count}} hours ahead"
         },
         "checks": {
             "areaServed": "Delivers to {{area}}",
@@ -381,6 +383,14 @@
             "body": "{{plan}} · starts {{date}}",
             "seePlan": "See my plan",
             "backToPlans": "Back to plans"
+        },
+        "receipt": {
+            "times_one": "× {{count}} delivery day",
+            "times_other": "× {{count}} delivery days",
+            "discount": "Duration discount",
+            "percent": "{{percent}} %",
+            "perDay": "per delivery day",
+            "perDayAfter": "per delivery day, after the discount"
         }
     },
     "subscriptions": {
@@ -623,14 +633,20 @@
         "planTitle_other": "{{count}} dishes in this plan contain something on your allergy list",
         "planBody": "The kitchen swaps these for a safe dish or skips that slot. Keep your list up to date so it can.",
         "planNone": "None of these dishes crosses your allergy list.",
-        "planUnchecked": "No dishes to check yet.",
+        "planUnchecked": "Each meal you pick is checked against this list.",
         "containsTitle": "Contains {{allergens}}",
         "containsShort": "Contains {{allergens}}",
         "containsLabel": "Contains",
         "whoFor": "Who is it for?",
         "forMe": "Me",
         "forSomeoneElse": "Someone else",
-        "findAnother": "Find another dish"
+        "findAnother": "Find another dish",
+        "listTitle": "Your allergy list",
+        "checkNote": "We check every dish against it",
+        "onMenu": "On this plan’s menu",
+        "changeMeal": "Change meal",
+        "pickedOnMore_one": "{{date}} and {{count}} more day",
+        "pickedOnMore_other": "{{date}} and {{count}} more days"
     },
     "receipt": {
         "printerLabel": "Receipt printer",

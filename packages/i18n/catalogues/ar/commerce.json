@@ -297,7 +297,13 @@
             "addAddress": "إضافة عنوان توصيل",
             "title": "التوصيل",
             "startOn": "ابدأ في",
-            "deliverTo": "التوصيل إلى"
+            "deliverTo": "التوصيل إلى",
+            "cutoffShort_zero": "أقرب بداية {{date}}",
+            "cutoffShort_one": "أقرب بداية {{date}} · يُقفل كل توصيل قبل ساعة",
+            "cutoffShort_two": "أقرب بداية {{date}} · يُقفل كل توصيل قبل ساعتين",
+            "cutoffShort_few": "أقرب بداية {{date}} · يُقفل كل توصيل قبل {{count}} ساعات",
+            "cutoffShort_many": "أقرب بداية {{date}} · يُقفل كل توصيل قبل {{count}} ساعة",
+            "cutoffShort_other": "أقرب بداية {{date}} · يُقفل كل توصيل قبل {{count}} ساعة"
         },
         "checks": {
             "areaServed": "يوصل إلى {{area}}",
@@ -425,6 +431,18 @@
             "body": "{{plan}} · تبدأ {{date}}",
             "seePlan": "اعرض خطتي",
             "backToPlans": "العودة إلى الخطط"
+        },
+        "receipt": {
+            "times_zero": "× لا أيام توصيل",
+            "times_one": "× يوم توصيل واحد",
+            "times_two": "× يوما توصيل",
+            "times_few": "× {{count}} أيام توصيل",
+            "times_many": "× {{count}} يوم توصيل",
+            "times_other": "× {{count}} يوم توصيل",
+            "discount": "خصم المدة",
+            "percent": "{{percent}}٪",
+            "perDay": "لكل يوم توصيل",
+            "perDayAfter": "لكل يوم توصيل، بعد الخصم"
         }
     },
     "subscriptions": {
@@ -715,14 +733,24 @@
         "planTitle_other": "{{count}} طبق في هذه الخطة يحتوي على مكوّن من قائمة الحساسية لديك",
         "planBody": "يستبدل المطبخ هذه الأطباق بطبق آمن أو يتخطى تلك الوجبة. حدّث قائمتك ليتمكن من ذلك.",
         "planNone": "لا يتعارض أي من هذه الأطباق مع قائمة الحساسية لديك.",
-        "planUnchecked": "لا توجد أطباق للتحقق منها بعد.",
+        "planUnchecked": "نتحقق من كل وجبة تختارها مقابل هذه القائمة.",
         "containsTitle": "يحتوي على {{allergens}}",
         "containsShort": "يحتوي على {{allergens}}",
         "containsLabel": "يحتوي على",
         "whoFor": "لمن هذا الطبق؟",
         "forMe": "لي",
         "forSomeoneElse": "لشخص آخر",
-        "findAnother": "ابحث عن طبق آخر"
+        "findAnother": "ابحث عن طبق آخر",
+        "listTitle": "قائمة الحساسية لديك",
+        "checkNote": "نتحقق من كل طبق مقابلها",
+        "onMenu": "ضمن قائمة هذه الخطة",
+        "changeMeal": "تغيير الوجبة",
+        "pickedOnMore_zero": "{{date}}",
+        "pickedOnMore_one": "{{date}} ويوم آخر",
+        "pickedOnMore_two": "{{date}} ويومان آخران",
+        "pickedOnMore_few": "{{date}} و{{count}} أيام أخرى",
+        "pickedOnMore_many": "{{date}} و{{count}} يومًا آخر",
+        "pickedOnMore_other": "{{date}} و{{count}} يوم آخر"
     },
     "receipt": {
         "printerLabel": "طابعة الإيصالات",

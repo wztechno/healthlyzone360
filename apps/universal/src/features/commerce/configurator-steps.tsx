@@ -1,4 +1,5 @@
 import { Callout, Icon, cx } from '@healthy360/design-system';
+import type { IconName } from '@healthy360/design-system';
 import type {
     CustomerAddress,
     MarketplaceMeal,
@@ -6,8 +7,10 @@ import type {
     SubscriptionPlan,
     SubscriptionPreview,
 } from '@healthy360/api-client/contracts';
+import type { Money } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
@@ -31,9 +34,14 @@ import { addDays, isoWeekday } from './dates.ts';
 import type { DeliveryAreaStatus, DeliverySlotOption } from './delivery.ts';
 import { PlanAllergyNotice } from './my-allergens.tsx';
 import { DayTile, OptionTile, SegChoice, SetupLabel, SetupPane } from './plan-setup-frame.tsx';
-import { PriceSummary } from './price-summary.tsx';
+import { PlanReceipt } from './price-summary.tsx';
 import type { PriceRow } from './price-summary.tsx';
-import { displayableWarnings, isCriticalWarning, warningMessageKey } from './warnings.ts';
+import {
+    SUBSCRIPTION_ALLERGEN_CONFLICT,
+    displayableWarnings,
+    isCriticalWarning,
+    warningMessageKey,
+} from './warnings.ts';
 
 /**
  * The plan, delivery and review steps of the plan setup, as the accepted board draws them: each one
@@ -333,6 +341,8 @@ export interface DeliveryStepProps {
     readonly chosenMeals: readonly MarketplaceMeal[];
     /** False until the kitchen's menu has loaded, so an empty list is not read as safe. */
     readonly chosenMealsLoaded: boolean;
+    /** When each picked dish lands — the allergy card's line under a clashing dish. */
+    readonly whenPicked: (meal: MarketplaceMeal) => string | undefined;
     /** This step's own URL — where the allergy editor comes back to. */
     readonly returnTo: string;
     readonly showIssues: boolean;
@@ -372,6 +382,7 @@ export function DeliveryStep({
     servedAreas,
     chosenMeals,
     chosenMealsLoaded,
+    whenPicked,
     returnTo,
     showIssues,
     savedAddresses,
@@ -406,7 +417,20 @@ export function DeliveryStep({
             testID="configurator-step-delivery"
             title={t('commerce:configurator.delivery.title')}
         >
-            <SetupLabel>{t('commerce:configurator.delivery.weekdaysTitle')}</SetupLabel>
+            <LabelWithNote
+                label={t('commerce:configurator.delivery.weekdaysTitle')}
+                note={
+                    allowedWeekdays === null || allowed.length === 7
+                        ? undefined
+                        : t('commerce:configurator.delivery.weekdaysLimited', {
+                              days: allowed
+                                  .map((weekday) => t(weekdayKey(weekday)))
+                                  .join(separator),
+                          })
+                }
+                noteIcon="calendar"
+                noteTestID="configurator-weekdays-limited"
+            />
             <View
                 testID="configurator-weekdays"
                 role="group"
@@ -434,7 +458,7 @@ export function DeliveryStep({
                                 on
                                     ? 'border-surface-brand bg-surface-brand-subtle'
                                     : 'border-stroke-subtle bg-surface-raised hover:border-stroke',
-                                off ? 'opacity-40' : '',
+                                off ? 'border-dashed opacity-55' : '',
                             )}
                         >
                             {on ? (
@@ -448,7 +472,6 @@ export function DeliveryStep({
                                 className={cx(
                                     'text-sm font-semibold',
                                     on ? 'text-content-on-brand-subtle' : 'text-content-secondary',
-                                    off ? 'line-through' : '',
                                 )}
                             >
                                 {t(weekdayKey(weekday))}
@@ -457,18 +480,23 @@ export function DeliveryStep({
                     );
                 })}
             </View>
-            {allowedWeekdays === null || allowed.length === 7 ? null : (
-                <RNText
-                    testID="configurator-weekdays-limited"
-                    className="mt-2 self-start text-sm text-content-secondary text-start"
-                >
-                    {t('commerce:configurator.delivery.weekdaysLimited', {
-                        days: allowed.map((weekday) => t(weekdayKey(weekday))).join(separator),
-                    })}
-                </RNText>
-            )}
-
-            <SetupLabel>{t('commerce:configurator.delivery.startOn')}</SetupLabel>
+            <LabelWithNote
+                label={t('commerce:configurator.delivery.startOn')}
+                note={
+                    cutoffHours <= 0
+                        ? undefined
+                        : t('commerce:configurator.delivery.cutoffShort', {
+                              count: cutoffHours,
+                              date: formatter.formatDate(`${earliestStartDate}T12:00:00Z`, {
+                                  weekday: 'short',
+                                  day: 'numeric',
+                                  month: 'short',
+                              }),
+                          })
+                }
+                noteIcon="clock"
+                noteTestID="configurator-start-date-cutoff"
+            />
             <View
                 testID="configurator-start-date"
                 role="radiogroup"
@@ -500,17 +528,6 @@ export function DeliveryStep({
                     );
                 })}
             </View>
-            {cutoffHours <= 0 ? null : (
-                <RNText
-                    testID="configurator-start-date-cutoff"
-                    className="mt-2 self-start text-sm text-content-secondary text-start"
-                >
-                    {t('commerce:configurator.delivery.cutoffNote', {
-                        count: cutoffHours,
-                        date: formatter.formatDate(earliestStartDate, { dateStyle: 'medium' }),
-                    })}
-                </RNText>
-            )}
 
             <SetupLabel>{t('commerce:configurator.delivery.slotTitle')}</SetupLabel>
             <SegChoice
@@ -556,6 +573,18 @@ export function DeliveryStep({
                         >
                             {entry.line1}
                         </RNText>
+                        {entry.id === addressId && areaStatus === 'served' ? (
+                            <View
+                                testID="configurator-area-served"
+                                role="status"
+                                className="mt-1.5 h-6 flex-row items-center gap-1 self-start rounded-full bg-surface-brand px-2.5"
+                            >
+                                <Icon name="check" size="sm" className="text-content-on-brand" />
+                                <RNText className="text-xs font-bold text-content-on-brand">
+                                    {t('commerce:configurator.checks.areaServed', { area })}
+                                </RNText>
+                            </View>
+                        ) : null}
                     </OptionTile>
                 ))}
                 <Pressable
@@ -574,22 +603,58 @@ export function DeliveryStep({
                     </RNText>
                 </Pressable>
             </View>
-            {addressId === null ? null : (
+            {addressId === null || areaStatus === 'served' ? null : (
                 <View className="mt-2.5">
                     <AreaStatus status={areaStatus} area={area} servedAreas={servedAreas} />
                 </View>
             )}
 
-            <SetupLabel>{t('commerce:configurator.delivery.allergensTitle')}</SetupLabel>
-            <View testID="configurator-allergens">
+            <View testID="configurator-allergens" className="mt-[22px]">
                 <PlanAllergyNotice
                     testID="configurator-allergy-notice"
                     meals={chosenMeals}
                     checked={chosenMealsLoaded}
+                    whenOf={whenPicked}
                     returnTo={returnTo}
                 />
             </View>
         </SetupPane>
+    );
+}
+
+/**
+ * A question's label with its one note beside it, as a small pill — "This plan delivers on Mon–Fri
+ * only", "Earliest start Wed 4 Nov · each delivery locks 24 hours ahead" (Shop · Plan setup, pin 2).
+ * They used to be loose grey lines under the answers.
+ */
+function LabelWithNote({
+    label,
+    note,
+    noteIcon,
+    noteTestID,
+}: {
+    readonly label: string;
+    readonly note: string | undefined;
+    readonly noteIcon: IconName;
+    readonly noteTestID: string;
+}) {
+    return (
+        <View className="mb-2.5 mt-[22px] flex-row flex-wrap items-center gap-x-2.5 gap-y-1.5">
+            <RNText className="text-xs font-bold uppercase tracking-wider text-content-secondary text-start">
+                {label}
+            </RNText>
+            {note === undefined ? null : (
+                <View
+                    testID={noteTestID}
+                    className="min-h-[26px] flex-row items-center gap-1.5 rounded-full border border-stroke-subtle bg-surface-base px-2.5 py-1"
+                >
+                    <Icon name={noteIcon} size="sm" className="text-content-on-brand-subtle" />
+                    <RNText className="shrink text-xs font-semibold text-content-secondary text-start">
+                        {note}
+                    </RNText>
+                </View>
+            )}
+        </View>
     );
 }
 
@@ -672,6 +737,8 @@ export interface ReviewStepProps {
     /** The dishes picked for the run, checked against the person's allergy list once more here. */
     readonly chosenMeals: readonly MarketplaceMeal[];
     readonly chosenMealsLoaded: boolean;
+    /** When each picked dish lands — the allergy card's line under a clashing dish. */
+    readonly whenPicked: (meal: MarketplaceMeal) => string | undefined;
     /** This step's own URL — where the allergy editor comes back to. */
     readonly returnTo: string;
     readonly pay: PayMethod;
@@ -690,6 +757,7 @@ export function ReviewStep({
     cutoffHours,
     chosenMeals,
     chosenMealsLoaded,
+    whenPicked,
     returnTo,
     pay,
     onPay,
@@ -703,22 +771,6 @@ export function ReviewStep({
     const dates = configuredDeliveryDates(state, plan);
     const total = dates.length * sittingsOf(plan, state).length;
     const picked = total - missingPicks(state, plan);
-
-    const rows: readonly PriceRow[] =
-        preview === undefined
-            ? []
-            : buildPriceRows(preview, {
-                  perDayList: t('commerce:configurator.summary.perDayList'),
-                  balance: t('commerce:configurator.summary.balance', {
-                      count: preview.deliveryCount,
-                  }),
-                  gross: t('commerce:configurator.summary.gross'),
-                  discount: t('commerce:configurator.summary.discount', {
-                      percent: formatter.formatNumber(preview.discountPercent),
-                  }),
-                  total: t('commerce:configurator.summary.total'),
-                  perDelivery: t('commerce:configurator.summary.perDelivery'),
-              });
 
     const address =
         savedAddress === undefined
@@ -789,32 +841,50 @@ export function ReviewStep({
                 <>
                     <SetupLabel>{t('commerce:configurator.review.priceTitle')}</SetupLabel>
                     <View testID="configurator-summary-price">
-                        <PriceSummary rows={rows} testID="configurator-price" />
+                        <PlanReceipt
+                            testID="configurator-price"
+                            perDayList={preview.perDayListPrice}
+                            deliveryCount={preview.deliveryCount}
+                            gross={{
+                                amount: preview.perDayListPrice.amount * preview.deliveryCount,
+                                currency: preview.total.currency,
+                            }}
+                            discount={receiptDiscount(preview)}
+                            total={preview.total}
+                            perDelivery={
+                                perDeliveryPrice(preview.total, preview.deliveryCount) ?? undefined
+                            }
+                        />
                     </View>
                 </>
             )}
 
-            <SetupLabel>{t('commerce:configurator.summary.allergens')}</SetupLabel>
-            <View testID="configurator-review-allergens">
+            <View testID="configurator-review-allergens" className="mt-[22px]">
                 <PlanAllergyNotice
                     testID="configurator-review-allergy-notice"
                     meals={chosenMeals}
                     checked={chosenMealsLoaded}
+                    whenOf={whenPicked}
+                    onChangeMeal={() => {
+                        onEdit('meals');
+                    }}
                     returnTo={returnTo}
                 />
             </View>
 
-            {displayableWarnings(preview?.warnings ?? []).map((code) => (
-                <View key={code} className="mt-3">
-                    <Callout
-                        testID={`configurator-warning-${code.replace(/\./g, '-')}`}
-                        role={isCriticalWarning(code) ? 'alert' : 'note'}
-                        tone={isCriticalWarning(code) ? 'danger' : 'warning'}
-                        icon="warning"
-                        title={t(warningMessageKey(code), { code })}
-                    />
-                </View>
-            ))}
+            {displayableWarnings(preview?.warnings ?? [])
+                .filter((code) => code !== SUBSCRIPTION_ALLERGEN_CONFLICT)
+                .map((code) => (
+                    <View key={code} className="mt-3">
+                        <Callout
+                            testID={`configurator-warning-${code.replace(/\./g, '-')}`}
+                            role={isCriticalWarning(code) ? 'alert' : 'note'}
+                            tone={isCriticalWarning(code) ? 'danger' : 'warning'}
+                            icon="warning"
+                            title={t(warningMessageKey(code), { code })}
+                        />
+                    </View>
+                ))}
 
             <SetupLabel>{t('commerce:configurator.review.payWith')}</SetupLabel>
             <View
@@ -842,11 +912,17 @@ export function ReviewStep({
                 ))}
             </View>
 
-            <TermsAcknowledgement state={state} patch={patch} showIssues={showIssues} />
-
-            <View className="mt-4">
-                <MedicalDisclaimer context={t('commerce:configurator.disclaimerContext')} />
-            </View>
+            <TermsAcknowledgement
+                state={state}
+                patch={patch}
+                showIssues={showIssues}
+                aside={
+                    <MedicalDisclaimer
+                        variant="tip"
+                        context={t('commerce:configurator.disclaimerContext')}
+                    />
+                }
+            />
         </SetupPane>
     );
 }
@@ -912,41 +988,49 @@ export function TermsAcknowledgement({
     state,
     patch,
     showIssues = false,
+    aside,
 }: {
     readonly state: ConfiguratorState;
     readonly patch: StepPatch;
     readonly showIssues?: boolean | undefined;
+    /** At the row's end, outside the checkbox — the (i) that holds the medical note. */
+    readonly aside?: ReactNode | undefined;
 }) {
     const { t } = useTranslation();
     const on = state.termsAcknowledged;
     return (
-        <Pressable
-            testID="configurator-confirm-acknowledge"
-            role="checkbox"
-            aria-checked={on}
-            accessibilityState={{ checked: on }}
-            onPress={() => {
-                patch({ termsAcknowledged: !on });
-            }}
+        <View
             className={cx(
-                'mt-[18px] flex-row items-start gap-3 rounded-2xl bg-surface-base p-3.5',
+                'mt-[18px] flex-row items-center gap-2 rounded-2xl bg-surface-base pe-3',
                 showIssues && !on ? 'border-2 border-danger-border' : '',
             )}
         >
-            <View
-                className={cx(
-                    'h-6 w-6 items-center justify-center rounded-[7px] border-2',
-                    on
-                        ? 'border-surface-brand bg-surface-brand'
-                        : 'border-stroke bg-surface-raised',
-                )}
+            <Pressable
+                testID="configurator-confirm-acknowledge"
+                role="checkbox"
+                aria-checked={on}
+                accessibilityState={{ checked: on }}
+                onPress={() => {
+                    patch({ termsAcknowledged: !on });
+                }}
+                className="min-w-0 flex-1 flex-row items-start gap-3 p-3.5"
             >
-                {on ? <Icon name="check" size="sm" className="text-content-on-brand" /> : null}
-            </View>
-            <RNText className="min-w-0 flex-1 text-sm leading-5 text-content-primary text-start">
-                {t('commerce:configurator.confirm.agree')}
-            </RNText>
-        </Pressable>
+                <View
+                    className={cx(
+                        'h-6 w-6 items-center justify-center rounded-[7px] border-2',
+                        on
+                            ? 'border-surface-brand bg-surface-brand'
+                            : 'border-stroke bg-surface-raised',
+                    )}
+                >
+                    {on ? <Icon name="check" size="sm" className="text-content-on-brand" /> : null}
+                </View>
+                <RNText className="min-w-0 flex-1 text-sm leading-5 text-content-primary text-start">
+                    {t('commerce:configurator.confirm.agree')}
+                </RNText>
+            </Pressable>
+            {aside}
+        </View>
     );
 }
 
@@ -974,6 +1058,19 @@ export interface PriceLabels {
  * and the saving are derived in one currency, and the authority for what is owed remains
  * `preview.total`, rendered as it arrived (plans-19).
  */
+/** The duration discount as the receipt shows it, when the run earns one. */
+function receiptDiscount(
+    preview: SubscriptionPreview,
+): { readonly percent: number; readonly amount: Money } | undefined {
+    const saving = preview.perDayListPrice.amount * preview.deliveryCount - preview.total.amount;
+    return preview.discountPercent > 0 && saving > 0
+        ? {
+              percent: preview.discountPercent,
+              amount: { amount: -saving, currency: preview.total.currency },
+          }
+        : undefined;
+}
+
 export function buildPriceRows(
     preview: SubscriptionPreview,
     labels: PriceLabels,

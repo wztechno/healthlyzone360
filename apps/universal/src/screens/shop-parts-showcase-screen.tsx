@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Text as RNText, View } from 'react-native';
 
 import { ExtraNote } from '../features/account/account-extra.tsx';
+import { PlanReceipt } from '../features/commerce/price-summary.tsx';
 import { OtpChallengePanel } from '../features/verification/otp-challenge-panel.tsx';
 import type { OtpChallengeView } from '../features/verification/otp-challenge-panel.tsx';
 import { CodeBoxes } from '../ui/code-boxes.tsx';
@@ -224,6 +225,17 @@ export function ShopPartsShowcaseScreen() {
                     onRetry={() => undefined}
                 />
                 <ShopCardSkeletons count={4} testID="showcase-skeletons" />
+            </Section>
+            <Section title="Plan price as a receipt (plan setup, review)">
+                <PlanReceipt
+                    testID="showcase-receipt"
+                    perDayList={{ amount: 2000, currency: 'USD' }}
+                    deliveryCount={20}
+                    gross={{ amount: 40000, currency: 'USD' }}
+                    discount={{ percent: 5, amount: { amount: -2000, currency: 'USD' } }}
+                    total={{ amount: 38000, currency: 'USD' }}
+                    perDelivery={{ amount: 1900, currency: 'USD' }}
+                />
             </Section>
             <Section title="Switch">
                 <View className="flex-row items-center gap-6">
