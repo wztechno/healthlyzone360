@@ -13,7 +13,12 @@ export interface SkeletonProps {
     /** Tailwind height utility, e.g. `h-4`. Kept as a class so it stays token-driven. */
     readonly heightClassName?: string | undefined;
     readonly widthClassName?: string | undefined;
-    readonly rounded?: 'sm' | 'md' | 'full' | undefined;
+    readonly rounded?: 'none' | 'sm' | 'md' | 'base' | 'lg' | 'full' | undefined;
+    /**
+     * `sunken` (the default) fills the block with the sunken surface. `line` fills it with the
+     * hairline colour, the shop's look: it stays visible on a raised card in the dark theme too.
+     */
+    readonly tone?: 'sunken' | 'line' | undefined;
     /**
      * `pulse` (the default) fades the block in and out. `shimmer` sweeps a highlight across it,
      * which reads better on a large block such as a card or an image placeholder.
@@ -23,7 +28,15 @@ export interface SkeletonProps {
     readonly testID?: string | undefined;
 }
 
-const ROUNDED_CLASS = { sm: 'rounded-sm', md: 'rounded-md', full: 'rounded-full' } as const;
+const ROUNDED_CLASS = {
+    none: 'rounded-none',
+    sm: 'rounded-sm',
+    md: 'rounded-md',
+    base: 'rounded',
+    lg: 'rounded-lg',
+    full: 'rounded-full',
+} as const;
+const TONE_CLASS = { sunken: 'bg-surface-sunken', line: 'bg-stroke-subtle' } as const;
 
 /**
  * Skeleton placeholder.
@@ -40,6 +53,7 @@ export function Skeleton({
     heightClassName = 'h-4',
     widthClassName = 'w-full',
     rounded = 'sm',
+    tone = 'sunken',
     variant = 'pulse',
     className,
     testID,
@@ -76,7 +90,7 @@ export function Skeleton({
     }, [pulse, reducedMotion]);
 
     const classes = cx(
-        'bg-surface-sunken',
+        TONE_CLASS[tone],
         heightClassName,
         widthClassName,
         ROUNDED_CLASS[rounded],

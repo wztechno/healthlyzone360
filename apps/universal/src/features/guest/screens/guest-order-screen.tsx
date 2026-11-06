@@ -51,7 +51,7 @@ export function GuestOrderScreen({ reference }: GuestOrderScreenProps) {
                 emptyTitle={t('guest:order.notFoundTitle')}
                 emptyBody={t('guest:order.notFoundBody')}
                 emptyIcon="receipt"
-                skeleton="rows"
+                skeleton="page"
                 skeletonCount={2}
                 testID={`${TEST_ID}-states`}
             >

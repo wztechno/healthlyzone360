@@ -738,6 +738,16 @@ export const nativeTokens = {
       "shadowRadius": 7,
       "elevation": 6
     },
+    "search": {
+      "shadowColor": "#0b3b26",
+      "shadowOffset": {
+        "width": 0,
+        "height": 4
+      },
+      "shadowOpacity": 0.12,
+      "shadowRadius": 10,
+      "elevation": 4
+    },
     "focus-ring": {
       "shadowColor": "#0b3b26",
       "shadowOffset": {

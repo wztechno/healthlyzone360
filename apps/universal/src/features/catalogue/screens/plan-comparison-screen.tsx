@@ -431,6 +431,7 @@ export function PlanComparisonScreen() {
                     />
                 ) : (
                     <QueryStates
+                        skeleton="rows"
                         query={comparison}
                         isEmpty={plans.length === 0}
                         emptyTitle={t('catalogue:compare.emptyTitle')}

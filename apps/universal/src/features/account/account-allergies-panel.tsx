@@ -187,6 +187,7 @@ export function AllergiesPanel({ testID, guard, onSaved, onCancel }: AllergiesPa
             />
 
             <QueryStates
+                skeleton="form"
                 query={profile}
                 isEmpty={false}
                 emptyTitle={t('account:dietary.title')}

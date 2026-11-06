@@ -543,6 +543,7 @@ export function AccountProfilePanel({
                 <DietaryUnavailable />
             ) : (
                 <QueryStates
+                    skeleton="form"
                     query={profile}
                     isEmpty={false}
                     emptyTitle={t('account:dietary.title')}

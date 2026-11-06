@@ -283,6 +283,7 @@ export function PlansScreen() {
 
             <View className="mt-3.5">
                 <QueryStates
+                    skeleton="plans"
                     query={plans}
                     isEmpty={items.length === 0}
                     emptyTitle={t('catalogue:plans.emptyTitle')}

@@ -217,6 +217,7 @@ describe('renderTailwindPreset', () => {
             'elevation-card-hover',
             'elevation-bar',
             'elevation-brand-glow',
+            'elevation-search',
             'elevation-focus-ring',
         ]);
     });

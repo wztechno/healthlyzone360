@@ -22,10 +22,15 @@ import {
 import type { ShopDialogTone } from '../ui/shop-dialog.tsx';
 import {
     ShopCardSkeletons,
-    ShopErrorCard,
-    ShopStateButton,
-    ShopStateCard,
-} from '../ui/shop-state.tsx';
+    ShopFiguresSkeleton,
+    ShopFormSkeleton,
+    ShopKitchenSkeletons,
+    ShopLinesSkeleton,
+    ShopPageSkeleton,
+    ShopPlanSkeletons,
+    ShopRowSkeletons,
+} from '../ui/shop-skeletons.tsx';
+import { ShopErrorCard, ShopStateButton, ShopStateCard } from '../ui/shop-state.tsx';
 import { ShopSwitch } from '../ui/shop-switch.tsx';
 
 /**
@@ -253,7 +258,16 @@ export function ShopPartsShowcaseScreen() {
                     })}
                     onRetry={() => undefined}
                 />
+            </Section>
+            <Section title="Loading shapes (one look: hairline blocks, shimmer)">
                 <ShopCardSkeletons count={4} testID="showcase-skeletons" />
+                <ShopPlanSkeletons count={3} testID="showcase-skeletons-plans" />
+                <ShopKitchenSkeletons count={3} testID="showcase-skeletons-kitchens" />
+                <ShopRowSkeletons count={3} testID="showcase-skeletons-rows" />
+                <ShopLinesSkeleton testID="showcase-skeletons-lines" />
+                <ShopFormSkeleton testID="showcase-skeletons-form" />
+                <ShopFiguresSkeleton count={4} testID="showcase-skeletons-figures" />
+                <ShopPageSkeleton testID="showcase-skeletons-page" />
             </Section>
             <Section title="Plan price as a receipt (plan setup, review)">
                 <PlanReceipt

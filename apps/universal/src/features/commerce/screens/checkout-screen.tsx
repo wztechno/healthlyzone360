@@ -379,6 +379,7 @@ export function CheckoutScreen() {
                 <CheckoutTop current={2} />
                 <View className="mt-[22px]">
                     <QueryStates
+                        skeleton="rows"
                         query={placedOrder}
                         isEmpty={false}
                         treatFailuresAsEmpty={['resource.not_found']}

@@ -1,4 +1,4 @@
-import { ErrorState, Skeleton, Stack } from '@healthy360/design-system';
+import { ErrorState, Stack } from '@healthy360/design-system';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -10,6 +10,8 @@ import {
 } from '../../data/account-hooks.ts';
 import { OtpChallengePanel } from '../verification/index.ts';
 import type { OtpChannel } from '../verification/index.ts';
+import { View } from 'react-native';
+import { Bone } from '../../ui/shop-skeletons.tsx';
 
 /**
  * The one-time-code panel, wired to a live challenge.
@@ -76,8 +78,19 @@ export function PhoneChallenge({
     if (challenge.isPending) {
         return (
             <Stack space="sm" testID={`${testID}-loading`}>
-                <Skeleton testID={`${testID}-skeleton`} heightClassName="h-24" />
-                <Skeleton heightClassName="h-10" widthClassName="w-1/2" />
+                <Bone
+                    testID={`${testID}-skeleton`}
+                    heightClassName="h-3.5"
+                    widthClassName="w-3/5"
+                />
+                <View className="flex-row gap-2">
+                    {[0, 1, 2, 3, 4, 5].map((box) => (
+                        <View key={box} className="flex-1">
+                            <Bone heightClassName="h-14" rounded="lg" />
+                        </View>
+                    ))}
+                </View>
+                <Bone heightClassName="h-11" widthClassName="w-1/2" rounded="full" />
             </Stack>
         );
     }

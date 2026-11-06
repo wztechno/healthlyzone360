@@ -1,4 +1,4 @@
-import { FAILURE_MESSAGE_KEYS, Icon, Skeleton, cx, useBreakpoint } from '@healthy360/design-system';
+import { FAILURE_MESSAGE_KEYS, Icon, cx } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import type { ApiFailure } from '@healthy360/api-client';
 import type { ReactNode } from 'react';
@@ -236,78 +236,4 @@ export function ShopErrorCard({
     );
 }
 
-/**
- * Grey cards while a card list loads (Menu, pin 11): the photo, two lines, the four nutrient cells
- * and the price row, shimmering — so the page does not reflow when the real cards land.
- */
-export function ShopCardSkeletons({
-    count,
-    testID,
-}: {
-    readonly count: number;
-    readonly testID: string;
-}) {
-    const { atLeast } = useBreakpoint();
-    const columns = atLeast('xl') ? 4 : atLeast('lg') ? 3 : atLeast('sm') ? 2 : 1;
-    const rows: number[][] = [];
-    for (let index = 0; index < count; index += columns) {
-        rows.push(Array.from({ length: Math.min(columns, count - index) }, (_, k) => index + k));
-    }
-    return (
-        <View testID={testID} aria-busy className="flex-col gap-4">
-            {rows.map((row) => (
-                <View key={row[0]} className="flex-row gap-4">
-                    {row.map((index) => (
-                        <View
-                            key={index}
-                            aria-hidden
-                            className="min-w-0 flex-1 overflow-hidden rounded-[22px] border border-stroke-subtle bg-surface-raised"
-                        >
-                            <Skeleton
-                                testID={`${testID.replace(/-loading$/, '')}-skeleton-${String(index + 1)}`}
-                                heightClassName="h-40"
-                                variant="shimmer"
-                                className="rounded-none"
-                            />
-                            <View className="flex-col gap-2.5 p-4">
-                                <Skeleton
-                                    heightClassName="h-3.5"
-                                    widthClassName="w-[70%]"
-                                    variant="shimmer"
-                                />
-                                <Skeleton
-                                    heightClassName="h-3.5"
-                                    widthClassName="w-[45%]"
-                                    variant="shimmer"
-                                />
-                                <View className="flex-row gap-1.5">
-                                    {[0, 1, 2, 3].map((cell) => (
-                                        <View key={cell} className="flex-1">
-                                            <Skeleton heightClassName="h-10" variant="shimmer" />
-                                        </View>
-                                    ))}
-                                </View>
-                                <View className="mt-1.5 flex-row items-center justify-between">
-                                    <Skeleton
-                                        heightClassName="h-[18px]"
-                                        widthClassName="w-16"
-                                        variant="shimmer"
-                                    />
-                                    <Skeleton
-                                        heightClassName="h-10"
-                                        widthClassName="w-10"
-                                        rounded="full"
-                                        variant="shimmer"
-                                    />
-                                </View>
-                            </View>
-                        </View>
-                    ))}
-                    {Array.from({ length: columns - row.length }, (_, k) => (
-                        <View key={`gap-${String(k)}`} className="min-w-0 flex-1" />
-                    ))}
-                </View>
-            ))}
-        </View>
-    );
-}
+export { ShopCardSkeletons } from './shop-skeletons.tsx';

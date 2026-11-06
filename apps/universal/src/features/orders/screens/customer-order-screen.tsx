@@ -106,7 +106,7 @@ export function CustomerOrderScreen({ orderId }: CustomerOrderScreenProps) {
                     emptyTitle={t('account:orders.notFoundTitle')}
                     emptyBody={t('account:orders.notFoundBody')}
                     emptyIcon="receipt"
-                    skeleton="rows"
+                    skeleton="page"
                     skeletonCount={2}
                     testID={`${TEST_ID}-states`}
                 >

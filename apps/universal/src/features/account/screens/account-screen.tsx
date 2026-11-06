@@ -1,13 +1,5 @@
 import type { AccountChecklistItem, ConsentState } from '@healthy360/api-client/contracts';
-import {
-    Button,
-    Callout,
-    Icon,
-    Skeleton,
-    Tabs,
-    cx,
-    useBreakpoint,
-} from '@healthy360/design-system';
+import { Button, Callout, Icon, Tabs, cx, useBreakpoint } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -48,6 +40,7 @@ import { AllergiesPanel } from '../account-allergies-panel.tsx';
 import { AccountOrdersPanel } from '../account-orders-panel.tsx';
 import { AccountProfilePanel } from '../account-profile-panel.tsx';
 import { clearClosureDraft } from './closure-wizard-screen.tsx';
+import { Bone } from '../../../ui/shop-skeletons.tsx';
 
 /**
  * `/customer/account` — the accepted Account board: the canopy band with the person's name, email and
@@ -461,6 +454,7 @@ function AddressesPanel({ here }: { readonly here: string }) {
                 />
             )}
             <QueryStates
+                skeleton="rows"
                 query={addresses}
                 isEmpty={items.length === 0}
                 emptyTitle={t('account:addresses.empty')}
@@ -774,22 +768,13 @@ function NotificationsPanel() {
                             )}
                         >
                             <View className="min-w-0 flex-1 flex-col gap-2">
-                                <Skeleton
-                                    heightClassName="h-3"
-                                    widthClassName="w-2/5"
-                                    variant="shimmer"
-                                />
-                                <Skeleton
-                                    heightClassName="h-3"
-                                    widthClassName="w-3/4"
-                                    variant="shimmer"
-                                />
+                                <Bone heightClassName="h-3" widthClassName="w-2/5" />
+                                <Bone heightClassName="h-3" widthClassName="w-3/4" />
                             </View>
-                            <Skeleton
+                            <Bone
                                 heightClassName="h-[30px]"
                                 widthClassName="w-[52px]"
                                 rounded="full"
-                                variant="shimmer"
                             />
                         </View>
                     ))}

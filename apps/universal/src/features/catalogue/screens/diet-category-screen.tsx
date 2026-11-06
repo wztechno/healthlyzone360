@@ -224,6 +224,7 @@ export function DietCategoryScreen({ slug }: DietCategoryScreenProps) {
                                 testID="diet-category-plans-header"
                             />
                             <QueryStates
+                                skeleton="plans"
                                 query={plans}
                                 isEmpty={planItems.length === 0}
                                 emptyTitle={t('catalogue:diet.plansEmptyTitle')}

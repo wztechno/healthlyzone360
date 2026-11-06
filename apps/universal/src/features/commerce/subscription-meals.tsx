@@ -1,4 +1,4 @@
-import { FadeIn, Icon, Skeleton, cx, useBreakpoint, useToast } from '@healthy360/design-system';
+import { FadeIn, Icon, cx, useBreakpoint, useToast } from '@healthy360/design-system';
 import type {
     ChosenMeal,
     MarketplaceMeal,
@@ -19,6 +19,7 @@ import { weeksOf } from './configurator.ts';
 import { clashingAllergens, useAllergenNames, useMyAllergenCodes } from './my-allergens.tsx';
 import { DishCard, SITTING_TINT, sittingKey, useSittingLabel } from './plan-meal-picker.tsx';
 import { DialogFailure } from './subscription-editors.tsx';
+import { Bone } from '../../ui/shop-skeletons.tsx';
 
 export interface SubscriptionMealsProps {
     readonly days: SubscriptionPlanDays | undefined;
@@ -176,12 +177,27 @@ export function SubscriptionMeals({
             </View>
 
             {loading || days === undefined ? (
-                <View className="px-5 pb-5 pt-3.5">
-                    <Skeleton
-                        testID="subscription-meals-loading"
-                        heightClassName="h-40"
-                        variant="shimmer"
-                    />
+                <View testID="subscription-meals-loading" aria-busy className="px-5 pb-5 pt-1">
+                    {[0, 1, 2].map((row) => (
+                        <View
+                            key={row}
+                            aria-hidden
+                            className={cx(
+                                'flex-row items-center gap-3 py-3',
+                                row === 0 ? null : 'border-t border-stroke-subtle',
+                            )}
+                        >
+                            <Bone heightClassName="h-3.5" widthClassName="w-12" />
+                            <Bone heightClassName="h-11" widthClassName="w-11" rounded="lg" />
+                            <View className="min-w-0 flex-1 gap-2">
+                                <Bone
+                                    heightClassName="h-3.5"
+                                    widthClassName={row === 1 ? 'w-2/5' : 'w-1/2'}
+                                />
+                                <Bone heightClassName="h-3" widthClassName="w-1/4" />
+                            </View>
+                        </View>
+                    ))}
                 </View>
             ) : all.length === 0 ? (
                 <RNText

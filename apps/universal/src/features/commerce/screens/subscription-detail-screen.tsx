@@ -407,7 +407,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                 // Shop · Subscription, pin 13: a subscription that is not there is "could not find",
                 // not "something went wrong".
                 treatFailuresAsEmpty={['resource.not_found']}
-                skeleton="rows"
+                skeleton="page"
                 skeletonCount={2}
                 testID="subscription-detail"
             >

@@ -491,6 +491,7 @@ export function KitchensScreen() {
 
             <View className={phone ? 'mt-3.5' : 'mt-5'}>
                 <QueryStates
+                    skeleton="kitchens"
                     query={query}
                     isEmpty={kitchens.length === 0}
                     emptyTitle={t('marketplace:kitchens.finder.emptyTitle')}

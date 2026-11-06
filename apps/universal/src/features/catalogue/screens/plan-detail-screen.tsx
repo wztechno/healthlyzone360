@@ -266,7 +266,7 @@ export function PlanDetailScreen({ planId, returnTo }: PlanDetailScreenProps) {
                         emptyIcon="calendarDays"
                         // Weekly plans, pin 3: a plan that is gone is "not on the marketplace".
                         treatFailuresAsEmpty={['resource.not_found']}
-                        skeleton="rows"
+                        skeleton="page"
                         skeletonCount={2}
                         testID="plan-detail"
                     >

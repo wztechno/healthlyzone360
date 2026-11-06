@@ -418,6 +418,7 @@ export function HowPlansWorkScreen() {
                     className="rounded-3xl border border-stroke-subtle bg-surface-raised p-6"
                 >
                     <QueryStates
+                        skeleton="plans"
                         query={plans}
                         isEmpty={(plans.data?.items.length ?? 0) === 0}
                         emptyTitle={t('catalogue:howPlans.calculator.empty')}

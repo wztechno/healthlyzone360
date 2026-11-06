@@ -110,7 +110,7 @@ export function KitchenProfileScreen({ kitchenId }: KitchenProfileScreenProps) {
                 // Shop · Kitchens + storefront, pin 6: a kitchen that is gone is "not on the
                 // marketplace", not "something went wrong".
                 treatFailuresAsEmpty={['resource.not_found']}
-                skeleton="rows"
+                skeleton="page"
                 skeletonCount={2}
                 testID="kitchen"
             >
@@ -289,6 +289,7 @@ function Storefront({
         plans: <KitchenPlans kitchen={kitchen} />,
         safety: (
             <QueryStates
+                skeleton="rows"
                 query={menuState}
                 isEmpty={false}
                 emptyTitle={t('marketplace:storefront.menu.emptyTitle')}
@@ -422,6 +423,7 @@ function SoldPlans({
 
     return (
         <QueryStates
+            skeleton="plans"
             query={plans}
             isEmpty={false}
             emptyTitle={t('marketplace:storefront.plans.empty')}

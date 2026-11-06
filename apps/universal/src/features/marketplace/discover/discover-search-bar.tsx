@@ -72,7 +72,7 @@ export function DiscoverSearchBar({
                         : 'h-[60px] max-w-[760px] gap-1.5 p-1.5',
                     focused
                         ? 'border-surface-brand shadow-elevation-focus-ring'
-                        : 'border-stroke shadow-elevation-2',
+                        : 'border-stroke shadow-elevation-search',
                 )}
             >
                 {compact ? null : (

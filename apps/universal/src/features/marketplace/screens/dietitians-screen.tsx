@@ -101,6 +101,7 @@ export function DietitiansScreen() {
             />
 
             <QueryStates
+                skeleton="kitchens"
                 query={query}
                 isEmpty={dietitians.length === 0}
                 emptyTitle={t('marketplace:dietitians.emptyTitle')}

@@ -315,6 +315,7 @@ export function AddressEditorScreen({ addressId, returnTo }: AddressEditorScreen
                 />
             ) : (
                 <QueryStates
+                    skeleton="form"
                     query={areas}
                     isEmpty={areaList.length === 0}
                     emptyTitle={t('account:addresses.noAreasTitle')}
