@@ -389,7 +389,9 @@ export function KitchensScreen() {
                     <View
                         className={cx(
                             'h-12 flex-row items-center gap-2 rounded-full border bg-surface-raised px-4',
-                            searchFocused ? 'border-surface-brand' : 'border-stroke-strong',
+                            searchFocused
+                                ? 'border-surface-brand shadow-elevation-focus-ring'
+                                : 'border-stroke-strong',
                         )}
                     >
                         <Icon name="search" size="sm" className="text-content-secondary" />
@@ -441,7 +443,7 @@ export function KitchensScreen() {
                             className={cx(
                                 'h-[52px] flex-row items-center gap-2 rounded-2xl border-2 bg-surface-base px-4',
                                 searchFocused
-                                    ? 'border-surface-brand-subtle'
+                                    ? 'border-surface-brand shadow-elevation-focus-ring'
                                     : 'border-transparent',
                                 wide ? 'min-w-[200px] flex-1 basis-[240px]' : 'w-full',
                             )}

@@ -47,6 +47,10 @@ export function KitchenFinderCard({ kitchen, testID, phone = false }: KitchenFin
     const [hovered, setHovered] = useState(false);
     const [looking, setLooking] = useState(false);
     const tallies = useKitchenTallies(kitchen);
+    // No kitchen photograph exists: the cover is its first dish with one, on the canopy green.
+    const cover = tallies.dishes.find(
+        (dish) => dish.photoUrl !== undefined && dish.photoUrl !== null && dish.photoUrl !== '',
+    );
 
     const today = todayWindow(kitchen);
     const tags = kitchenTags(kitchen, t);
@@ -90,16 +94,19 @@ export function KitchenFinderCard({ kitchen, testID, phone = false }: KitchenFin
                         hovered ? 'scale-[1.07]' : '',
                     )}
                 >
-                    <EntityImage
-                        testID={`${id}-image`}
-                        assetId={kitchen.imagePlaceholderId}
-                        variant="card"
-                        seed={kitchen.slug}
-                        label={t('marketplace:kitchens.imageLabel', { kitchen: kitchen.name })}
-                        decorative
-                        flush
-                        className={phone ? 'h-[140px]' : 'h-[170px]'}
-                    />
+                    {cover === undefined ? null : (
+                        <EntityImage
+                            testID={`${id}-image`}
+                            assetId={cover.imagePlaceholderId}
+                            photoUrl={cover.photoUrl}
+                            variant="card"
+                            seed={cover.slug}
+                            label={t('marketplace:kitchens.imageLabel', { kitchen: kitchen.name })}
+                            decorative
+                            flush
+                            className={cx('opacity-80', phone ? 'h-[140px]' : 'h-[170px]')}
+                        />
+                    )}
                 </View>
             </Pressable>
 

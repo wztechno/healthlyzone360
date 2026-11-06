@@ -1049,6 +1049,7 @@ export function CheckoutScreen() {
                     query={preview}
                     isEmpty={false}
                     emptyTitle={t('commerce:cart.summaryEmpty')}
+                    skeleton="lines"
                     skeletonCount={1}
                     testID="checkout-preview"
                 >

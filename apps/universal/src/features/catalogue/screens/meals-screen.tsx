@@ -310,11 +310,15 @@ export function MealsScreen() {
                 phone
                     ? cx(
                           'h-12 rounded-full border bg-surface-raised',
-                          searchFocused ? 'border-surface-brand' : 'border-stroke-strong',
+                          searchFocused
+                              ? 'border-surface-brand shadow-elevation-focus-ring'
+                              : 'border-stroke-strong',
                       )
                     : cx(
                           'h-[52px] rounded-2xl border-2 bg-surface-base',
-                          searchFocused ? 'border-surface-brand-subtle' : 'border-transparent',
+                          searchFocused
+                              ? 'border-surface-brand shadow-elevation-focus-ring'
+                              : 'border-transparent',
                       ),
             )}
         >

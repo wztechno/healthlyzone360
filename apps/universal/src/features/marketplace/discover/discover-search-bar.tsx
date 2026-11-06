@@ -66,9 +66,13 @@ export function DiscoverSearchBar({
             ) : null}
             <View
                 className={cx(
-                    'z-auto w-full flex-row items-center rounded-full border bg-surface-raised shadow-elevation-2',
-                    compact ? 'mt-1 h-[52px] gap-2 py-1 pe-1 ps-4' : 'h-[60px] max-w-[760px] gap-1.5 p-1.5',
-                    focused ? 'border-surface-brand' : 'border-stroke',
+                    'z-auto w-full flex-row items-center rounded-full border bg-surface-raised transition duration-normal ease-standard',
+                    compact
+                        ? 'mt-1 h-[52px] gap-2 py-1 pe-1 ps-4'
+                        : 'h-[60px] max-w-[760px] gap-1.5 p-1.5',
+                    focused
+                        ? 'border-surface-brand shadow-elevation-focus-ring'
+                        : 'border-stroke shadow-elevation-2',
                 )}
             >
                 {compact ? null : (

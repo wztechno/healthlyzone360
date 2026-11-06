@@ -275,7 +275,9 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
                 <View
                     className={cx(
                         'h-[52px] min-w-[240px] flex-1 basis-[360px] flex-row items-center gap-2.5 rounded-full border-[1.5px] bg-surface-raised pe-2 ps-4',
-                        searchFocused ? 'border-surface-brand' : 'border-stroke',
+                        searchFocused
+                            ? 'border-surface-brand shadow-elevation-focus-ring'
+                            : 'border-stroke',
                     )}
                 >
                     <Icon

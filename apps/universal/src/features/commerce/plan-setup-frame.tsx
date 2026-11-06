@@ -1,7 +1,8 @@
-import { Icon, cx } from '@healthy360/design-system';
+import { Icon, cx, useBreakpoint } from '@healthy360/design-system';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Pressable, Text as RNText, View } from 'react-native';
-import type { DimensionValue } from 'react-native';
+import { Platform, Pressable, Text as RNText, View } from 'react-native';
+import type { DimensionValue, ViewStyle } from 'react-native';
 
 import { BackPill } from '../../ui/back-pill.tsx';
 
@@ -26,10 +27,16 @@ export function SetupBand({
     readonly chips: readonly string[];
     readonly testID: string;
 }) {
+    const [attach, bleedOn, bleedStyle] = useEdgeBleed();
     return (
         <View
+            ref={attach}
             testID={testID}
-            className="relative mt-1 overflow-hidden rounded-[30px] bg-surface-canopy px-6 pb-[86px] pt-5 lg:px-8"
+            className={cx(
+                'relative overflow-hidden bg-surface-canopy pb-[86px] pt-5',
+                bleedOn ? '-mt-8' : 'mt-1 rounded-[30px] px-6 lg:px-8',
+            )}
+            style={bleedStyle}
         >
             {/* The board's two soft blobs, drifting behind the title. */}
             <View
@@ -460,4 +467,53 @@ export function DayTile({
             </RNText>
         </Pressable>
     );
+}
+
+/**
+ * The Plan setup board draws its band edge to edge under the shop bar, not as a card inside the
+ * page. On the web from `md` this measures where the page column sits in the shell's scroll port
+ * and pulls the band out to the port's edges — then pads it back by the same amounts, so the title
+ * still lines up with the cards below. Elsewhere (native, a phone, a test) it is the rounded card.
+ */
+function useEdgeBleed(): readonly [(node: View | null) => void, boolean, ViewStyle | undefined] {
+    const wide = useBreakpoint().atLeast('md');
+    const [node, setNode] = useState<View | null>(null);
+    const [edges, setEdges] = useState<{ start: number; end: number } | null>(null);
+
+    useEffect(() => {
+        if (Platform.OS !== 'web' || !wide || node === null) return undefined;
+        const element = node as unknown as HTMLElement;
+        const measure = () => {
+            const port = element.closest('[data-testid$="-shell-content"]');
+            if (port === null) return;
+            const box = element.getBoundingClientRect();
+            const frame = port.getBoundingClientRect();
+            // The port's own width without its scrollbar, so the band never pushes it sideways.
+            const inner = (port as HTMLElement).clientWidth;
+            const start = Math.max(0, Math.round(box.left - frame.left));
+            const end = Math.max(0, Math.round(inner - (box.left - frame.left) - box.width));
+            setEdges((current) =>
+                current !== null && current.start === start && current.end === end
+                    ? current
+                    : { start, end },
+            );
+        };
+        measure();
+        globalThis.addEventListener('resize', measure);
+        return () => {
+            globalThis.removeEventListener('resize', measure);
+        };
+    }, [node, wide]);
+
+    const on = Platform.OS === 'web' && wide && edges !== null;
+    const style: ViewStyle | undefined =
+        on && edges !== null
+            ? {
+                  marginLeft: -edges.start,
+                  marginRight: -edges.end,
+                  paddingLeft: edges.start,
+                  paddingRight: edges.end,
+              }
+            : undefined;
+    return [setNode, on, style] as const;
 }

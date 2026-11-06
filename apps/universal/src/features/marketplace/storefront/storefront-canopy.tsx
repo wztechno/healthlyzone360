@@ -47,6 +47,14 @@ export function StorefrontCanopy({
     const formatter = useFormatter();
     const isRtl = useIsRtl();
     const tallies = useKitchenTallies(kitchen);
+    /*
+     * A kitchen carries no photograph of its own (only a generated pattern, which read as a grey
+     * wash over the canopy), so the cover is its first dish with a real photo, faded into the
+     * green as the board fades its cover. With none, the canopy stays plain deep green.
+     */
+    const cover = tallies.dishes.find(
+        (dish) => dish.photoUrl !== undefined && dish.photoUrl !== null && dish.photoUrl !== '',
+    );
 
     const today = hoursToday(kitchen);
     // Add stays live on a closed day, because a basket can name another: so the pill says which.
@@ -134,16 +142,21 @@ export function StorefrontCanopy({
                         testID={`${testID}-media`}
                         className="absolute bottom-0 end-0 start-0 top-0 opacity-60"
                     >
-                        <EntityImage
-                            testID={`${testID}-image`}
-                            assetId={kitchen.imagePlaceholderId}
-                            variant="detail"
-                            seed={kitchen.slug}
-                            label={t('marketplace:kitchens.imageLabel', { kitchen: kitchen.name })}
-                            decorative
-                            flush
-                            className="h-full w-full"
-                        />
+                        {cover === undefined ? null : (
+                            <EntityImage
+                                testID={`${testID}-image`}
+                                assetId={cover.imagePlaceholderId}
+                                photoUrl={cover.photoUrl}
+                                variant="detail"
+                                seed={cover.slug}
+                                label={t('marketplace:kitchens.imageLabel', {
+                                    kitchen: kitchen.name,
+                                })}
+                                decorative
+                                flush
+                                className="h-full w-full"
+                            />
+                        )}
                     </View>
                     <LinearGradient
                         colors={gradients.canopyScrim.colours}
@@ -275,16 +288,19 @@ export function StorefrontCanopy({
         >
             <View testID={`${testID}-media`} className="absolute bottom-0 end-0 start-0 top-0">
                 <View className="h-full w-full scale-[1.03] opacity-55">
-                    <EntityImage
-                        testID={`${testID}-image`}
-                        assetId={kitchen.imagePlaceholderId}
-                        variant="detail"
-                        seed={kitchen.slug}
-                        label={t('marketplace:kitchens.imageLabel', { kitchen: kitchen.name })}
-                        decorative
-                        flush
-                        className="h-full w-full"
-                    />
+                    {cover === undefined ? null : (
+                        <EntityImage
+                            testID={`${testID}-image`}
+                            assetId={cover.imagePlaceholderId}
+                            photoUrl={cover.photoUrl}
+                            variant="detail"
+                            seed={cover.slug}
+                            label={t('marketplace:kitchens.imageLabel', { kitchen: kitchen.name })}
+                            decorative
+                            flush
+                            className="h-full w-full"
+                        />
+                    )}
                 </View>
             </View>
             {/*

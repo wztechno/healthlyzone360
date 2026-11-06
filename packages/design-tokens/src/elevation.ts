@@ -103,7 +103,7 @@ export const elevation: Readonly<Record<ElevationLevel, ElevationToken>> = {
  *
  * Note these are distinct from {@link elevationRoles}, which maps a role onto a *numeric* level.
  */
-export const NAMED_ELEVATIONS = ['card', 'card-hover'] as const;
+export const NAMED_ELEVATIONS = ['card', 'card-hover', 'bar', 'brand-glow', 'focus-ring'] as const;
 export type NamedElevationName = (typeof NAMED_ELEVATIONS)[number];
 
 export interface NamedElevationToken {
@@ -142,6 +142,30 @@ export const namedElevation: Readonly<Record<NamedElevationName, NamedElevationT
         0.26,
         23,
         '0 1px 2px rgb(23 21 20 / 0.05), 0 24px 46px -20px rgb(11 59 38 / 0.5)',
+    ),
+    /** The shop's floating bar: a wide green-black cast under it and a close contact shadow. */
+    bar: namedToken(
+        12,
+        0.22,
+        22,
+        '0 22px 44px -18px rgb(11 59 38 / 0.35), 0 2px 8px rgb(11 59 38 / 0.06)',
+    ),
+    /** The chosen tab's pill: a glow in its own brand green, so it reads as lit, not lifted. */
+    'brand-glow': namedToken(
+        6,
+        0.4,
+        7,
+        '0 6px 14px -4px rgb(var(--h360-color-brand-surface) / 0.6)',
+    ),
+    /**
+     * A search field holding the focus: a 4px ring in the soft brand tint around it, over the
+     * field's own soft shadow. The ring follows the theme through the colour variable.
+     */
+    'focus-ring': namedToken(
+        4,
+        0.12,
+        10,
+        '0 0 0 4px rgb(var(--h360-color-brand-surface-subtle)), 0 6px 20px rgb(11 59 38 / 0.12)',
     ),
 };
 

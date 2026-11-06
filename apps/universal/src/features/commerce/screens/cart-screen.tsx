@@ -394,6 +394,7 @@ export function CartScreen() {
                     query={preview}
                     isEmpty={false}
                     emptyTitle={t('commerce:cart.summaryEmpty')}
+                    skeleton="lines"
                     skeletonCount={1}
                     testID="cart-preview"
                 >
@@ -623,6 +624,7 @@ export function CartScreen() {
                     query={cart}
                     isEmpty={false}
                     emptyTitle={t('commerce:cart.emptyTitle')}
+                    skeleton="rows"
                     skeletonCount={2}
                     testID="cart"
                 >

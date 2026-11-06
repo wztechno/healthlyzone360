@@ -3,6 +3,7 @@ import type { IconName } from '@healthy360/design-system';
 import type { ApiFailureCode } from '@healthy360/api-client';
 import type { UseQueryResult } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import { View } from 'react-native';
 
 import { toFailure } from '../../data/hooks.ts';
 import { ShopCardSkeletons, ShopErrorCard, ShopStateCard } from '../../ui/shop-state.tsx';
@@ -47,7 +48,11 @@ export interface QueryStatesProps {
      * What arrives: `cards` (the default) is grey cards in the grid's columns, Shop · Menu pin 11;
      * `rows` is a stack of full-width rows, for a list drawn as rows (orders, deliveries).
      */
-    readonly skeleton?: 'cards' | 'rows' | undefined;
+    /**
+     * `lines` is a price summary's: a few label-and-amount lines and a total under a hairline, so a
+     * basket's or checkout's summary waits in its own shape rather than a card's.
+     */
+    readonly skeleton?: 'cards' | 'rows' | 'lines' | undefined;
     /** The empty state's disc. Defaults to a search lens: "nothing here matched". */
     readonly emptyIcon?: IconName | undefined;
     /** The empty disc's tint: `warning` when the person can fix it by going back a step. */
@@ -75,6 +80,30 @@ export function QueryStates({
 }: QueryStatesProps) {
     if (query.isPending && skeleton === 'cards') {
         return <ShopCardSkeletons count={skeletonCount} testID={`${testID}-loading`} />;
+    }
+    if (query.isPending && skeleton === 'lines') {
+        return (
+            <View testID={`${testID}-loading`} aria-busy className="flex-col gap-3.5 py-1">
+                {[0, 1, 2].map((index) => (
+                    <View
+                        key={index}
+                        testID={`${testID}-skeleton-${String(index + 1)}`}
+                        className="flex-row items-center justify-between gap-4"
+                    >
+                        <Skeleton
+                            heightClassName="h-3.5"
+                            widthClassName={index === 1 ? 'w-2/5' : 'w-1/3'}
+                            variant="shimmer"
+                        />
+                        <Skeleton heightClassName="h-3.5" widthClassName="w-14" variant="shimmer" />
+                    </View>
+                ))}
+                <View className="flex-row items-center justify-between gap-4 border-t border-stroke-subtle pt-3.5">
+                    <Skeleton heightClassName="h-4" widthClassName="w-1/4" variant="shimmer" />
+                    <Skeleton heightClassName="h-6" widthClassName="w-20" variant="shimmer" />
+                </View>
+            </View>
+        );
     }
     if (query.isPending) {
         return (

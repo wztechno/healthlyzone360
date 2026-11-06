@@ -948,7 +948,7 @@ function AppShellLayout({
                              * own start (the brand, or where it delivers), the switches and the
                              * basket, and the menu button last.
                              */}
-                            <View className="mx-auto h-14 w-full max-w-[1312px] flex-row items-center gap-1 rounded-full border border-stroke-subtle bg-surface-raised pe-1.5 ps-2 shadow-elevation-3 md:h-[68px] md:gap-4 md:rounded-3xl md:pe-2.5 md:ps-3 lg:gap-[18px] lg:rounded-full">
+                            <View className="mx-auto h-14 w-full max-w-[1312px] flex-row items-center gap-1 rounded-full border border-stroke-subtle bg-surface-raised pe-1.5 ps-2 shadow-elevation-bar md:h-[68px] md:gap-4 md:rounded-3xl md:pe-2.5 md:ps-3 lg:gap-[18px] lg:rounded-full">
                                 {topbarStart}
 
                                 {/*
@@ -1658,7 +1658,7 @@ function MarketplaceNavItems({
                     accessibilityElementsHidden
                     importantForAccessibility="no-hide-descendants"
                     pointerEvents="none"
-                    className="absolute start-0 top-0 rounded-full bg-surface-brand shadow-elevation-2"
+                    className="absolute start-0 top-0 rounded-full bg-surface-brand shadow-elevation-brand-glow"
                     style={{
                         width,
                         height,

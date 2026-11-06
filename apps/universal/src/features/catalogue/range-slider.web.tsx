@@ -1,11 +1,11 @@
 import { cx } from '@healthy360/design-system';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Text as RNText, View } from 'react-native';
 import type { DimensionValue } from 'react-native';
 
 import { TINT_INK_VAR } from './range-slider-shared.ts';
-import type { RangeSliderProps } from './range-slider-shared.ts';
+import type { RangeEnds, RangeSliderProps } from './range-slider-shared.ts';
 import { TINT_INK_FILL } from './shelf-tints.ts';
 
 /**
@@ -21,6 +21,9 @@ import { TINT_INK_FILL } from './shelf-tints.ts';
  * The thumbs can only be styled through pseudo-elements, so one small stylesheet is added to the
  * page the first time a range is drawn; its colours are token variables, never literals.
  */
+/** How long the hand rests before a dragged value becomes the filter. */
+const COMMIT_AFTER_MS = 220;
+
 const STYLE_ID = 'h360-range-slider';
 const STYLES = `
 .h360-range{position:absolute;inset:0;width:100%;height:30px;margin:0;background:transparent;pointer-events:none;-webkit-appearance:none;appearance:none}
@@ -51,14 +54,41 @@ export function RangeSlider({
     step,
     value,
     readout,
+    readoutFor,
     tint,
     lowLabel,
     highLabel,
     onChange,
 }: RangeSliderProps) {
     useRangeStyles();
-    const low = value.min ?? floor;
-    const high = value.max ?? ceiling;
+    /*
+     * Dragging moves the handle and the readout at once, from a draft held here; the filter (the
+     * URL, and the menu's query) only takes the value once the hand rests for a moment. Committing
+     * every step re-read the menu on each one, and the slider felt laggy.
+     */
+    const [draft, setDraft] = useState<RangeEnds | null>(null);
+    const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(
+        () => () => {
+            if (timer.current !== null) clearTimeout(timer.current);
+        },
+        [],
+    );
+    const move = (next: RangeEnds) => {
+        setDraft(next);
+        if (timer.current !== null) clearTimeout(timer.current);
+        timer.current = setTimeout(() => {
+            timer.current = null;
+            onChange(next);
+        }, COMMIT_AFTER_MS);
+    };
+    // Once the committed value has caught up with the draft, the draft has done its job.
+    const pending =
+        draft !== null && (draft.min !== value.min || draft.max !== value.max) ? draft : null;
+    const shown = pending ?? value;
+    const low = shown.min ?? floor;
+    const high = shown.max ?? ceiling;
+    const text = readoutFor === undefined || pending === null ? readout : readoutFor(pending);
     const span = ceiling - floor;
     const start = span <= 0 ? 0 : ((low - floor) / span) * 100;
     const width = span <= 0 ? 0 : ((high - low) / span) * 100;
@@ -74,7 +104,7 @@ export function RangeSlider({
                     testID={`${testID}-readout`}
                     className="text-sm font-semibold tabular-nums text-content-secondary"
                 >
-                    {readout}
+                    {text}
                 </RNText>
             </View>
             <View className="relative mt-1.5 h-[30px]">
@@ -91,7 +121,7 @@ export function RangeSlider({
                     className="h360-range"
                     data-testid={`${testID}-low`}
                     aria-label={lowLabel}
-                    aria-valuetext={readout}
+                    aria-valuetext={text}
                     min={floor}
                     max={ceiling}
                     step={step}
@@ -99,7 +129,7 @@ export function RangeSlider({
                     style={ink}
                     onChange={(event) => {
                         const next = Math.min(Number(event.target.value), high - step);
-                        onChange({ min: next <= floor ? null : next, max: value.max });
+                        move({ min: next <= floor ? null : next, max: shown.max });
                     }}
                 />
                 <input
@@ -107,7 +137,7 @@ export function RangeSlider({
                     className="h360-range"
                     data-testid={`${testID}-high`}
                     aria-label={highLabel}
-                    aria-valuetext={readout}
+                    aria-valuetext={text}
                     min={floor}
                     max={ceiling}
                     step={step}
@@ -115,7 +145,7 @@ export function RangeSlider({
                     style={ink}
                     onChange={(event) => {
                         const next = Math.max(Number(event.target.value), low + step);
-                        onChange({ min: value.min, max: next >= ceiling ? null : next });
+                        move({ min: shown.min, max: next >= ceiling ? null : next });
                     }}
                 />
             </View>

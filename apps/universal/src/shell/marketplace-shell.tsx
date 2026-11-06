@@ -1,8 +1,6 @@
 import {
     AppShell,
-    Button,
     Icon,
-    IconButton,
     Inline,
     OfflineIndicator,
     Text,
@@ -454,11 +452,8 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
      * because it is the same control.
      */
     const themeButton = (
-        <IconButton
+        <HeaderRoundButton
             testID="theme-toggle"
-            size="sm"
-            variant="ghost"
-            className="rounded-full border-stroke"
             icon={<ThemeGlyph key={isDark ? 'dark' : 'light'} dark={isDark} />}
             label={themeLabel}
             onPress={toggleTheme}
@@ -466,11 +461,8 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
     );
 
     const localeButton = (
-        <IconButton
+        <HeaderRoundButton
             testID="locale-toggle"
-            size="sm"
-            variant="ghost"
-            className="rounded-full border-stroke"
             icon={
                 <RNText className="font-display text-base font-bold text-content-primary">
                     {locale.startsWith('ar') ? 'EN' : 'ع'}
@@ -484,15 +476,9 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
     // A ring and its own glyph colour, like the theme switch beside it.
     // "You are here" on the account pages, as the destinations show it with their underline.
     const accountButton = (
-        <IconButton
+        <HeaderRoundButton
             testID="marketplace-account"
-            size="sm"
-            variant="ghost"
-            className={
-                onAccount
-                    ? 'rounded-full border-stroke-strong bg-surface-sunken'
-                    : 'rounded-full border-stroke'
-            }
+            current={onAccount}
             icon={<Icon name="person" size="lg" className="text-content-primary" />}
             label={t('marketplace:nav.account')}
             {...(onAccount ? { 'aria-current': 'page' as const } : {})}
@@ -512,11 +498,8 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
         (option) => option.area !== 'customer',
     );
     const staffProfileButton = isStaff ? (
-        <IconButton
+        <HeaderRoundButton
             testID="marketplace-staff-profile"
-            size="sm"
-            variant="ghost"
-            className="rounded-full border-stroke"
             icon={<Icon name="shield" size="lg" className="text-content-primary" />}
             label={t('common:nav.profile')}
             onPress={() => {
@@ -686,26 +669,41 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
                 ) : (
                     <>
                         <View className="hidden lg:flex">
-                            <Button
+                            <Pressable
                                 testID="marketplace-register"
-                                size="sm"
-                                variant="secondary"
-                                label={t('marketplace:nav.register')}
+                                role="link"
+                                accessibilityRole="link"
                                 onPress={() => {
                                     goToAuth('/register');
                                 }}
-                            />
+                                className="h-11 flex-row items-center justify-center rounded-full border border-stroke-subtle bg-surface-raised px-[18px] transition duration-fast ease-standard hover:bg-surface-brand-subtle active:scale-95"
+                            >
+                                <RNText className="text-sm font-semibold text-content-primary">
+                                    {t('marketplace:nav.register')}
+                                </RNText>
+                            </Pressable>
                         </View>
                         <View className="hidden md:flex">
-                            <Button
+                            {/* The bar's one filled control when signed out, in the chosen tab's green
+                                and its glow, as the basket is the ink one when signed in. */}
+                            <Pressable
                                 testID="marketplace-sign-in"
-                                size="sm"
-                                variant="primary"
-                                label={t('marketplace:nav.signIn')}
+                                role="link"
+                                accessibilityRole="link"
                                 onPress={() => {
                                     goToAuth('/sign-in');
                                 }}
-                            />
+                                className="h-11 flex-row items-center justify-center gap-1.5 rounded-full bg-surface-brand pe-4 ps-[18px] shadow-elevation-brand-glow transition duration-fast ease-standard hover:bg-surface-canopy active:scale-95"
+                            >
+                                <RNText className="text-sm font-bold text-content-on-brand">
+                                    {t('marketplace:nav.signIn')}
+                                </RNText>
+                                <Icon
+                                    name="arrowForward"
+                                    size="sm"
+                                    className="text-content-on-brand"
+                                />
+                            </Pressable>
                         </View>
                     </>
                 )}
@@ -991,5 +989,45 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
             {/* The replayed add's own question, when the basket holds another kitchen's meals. */}
             {replayBasket.dialog}
         </AppShell>
+    );
+}
+
+/**
+ * The bar's round controls, as the accepted board draws them: a 44px white disc on a hairline, the
+ * soft brand tint under the pointer, pressing down a touch. "You are here" is the sunken fill.
+ */
+function HeaderRoundButton({
+    testID,
+    label,
+    icon,
+    current = false,
+    onPress,
+    ...rest
+}: {
+    readonly testID: string;
+    readonly label: string;
+    readonly icon: ReactNode;
+    readonly current?: boolean;
+    readonly onPress: () => void;
+    readonly 'aria-current'?: 'page';
+    readonly 'aria-selected'?: boolean;
+}) {
+    return (
+        <Pressable
+            testID={testID}
+            role="button"
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            onPress={onPress}
+            {...rest}
+            className={cx(
+                'h-11 w-11 items-center justify-center rounded-full border transition duration-fast ease-standard active:scale-95',
+                current
+                    ? 'border-stroke-strong bg-surface-sunken'
+                    : 'border-stroke-subtle bg-surface-raised hover:bg-surface-brand-subtle',
+            )}
+        >
+            {icon}
+        </Pressable>
     );
 }
