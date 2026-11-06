@@ -175,6 +175,7 @@ export function MealDetailScreen({ mealId, returnTo }: MealDetailScreenProps) {
                     // Shop · Meal page, pin 3: a meal that is gone is "not on the marketplace",
                     // not "something went wrong".
                     treatFailuresAsEmpty={['resource.not_found']}
+                    skeleton="rows"
                     skeletonCount={2}
                     testID="meal-detail"
                 >

@@ -3075,7 +3075,10 @@ describe('CheckoutScreen — a basket that crosses the person’s allergies', ()
             fireEvent.press(screen.getByTestId('checkout-review'));
         });
 
-        expect(await screen.findByTestId('checkout-allergen-conflict')).toBeTruthy();
+        // Basket + checkout, pin 4: the clash sits on its dish in the summary, not in a red box.
+        expect(await screen.findByTestId(`checkout-items-${clashing.id}-clash`)).toHaveTextContent(
+            /Not yet checked for allergens/,
+        );
         await waitFor(() => {
             expect(
                 screen.getByTestId('checkout-place-order').props.accessibilityState,

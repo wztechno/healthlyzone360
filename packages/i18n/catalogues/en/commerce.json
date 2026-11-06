@@ -199,7 +199,9 @@
         "deliveringToLabel": "Delivering to",
         "whenLabel": "When",
         "change": "Change",
-        "basket": "Basket"
+        "basket": "Basket",
+        "noWindowTitle": "No delivery window for this address",
+        "basketKept": "Your basket is kept."
     },
     "configurator": {
         "title": "Set up your subscription",
@@ -657,7 +659,9 @@
         "changeMeal": "Change meal",
         "pickedOnMore_one": "{{date}} and {{count}} more day",
         "pickedOnMore_other": "{{date}} and {{count}} more days",
-        "savedNote": "Saved on your account"
+        "savedNote": "Saved on your account",
+        "lineTag": "Contains {{allergens}} · on your allergy list",
+        "unassessedTag": "Not yet checked for allergens"
     },
     "receipt": {
         "printerLabel": "Receipt printer",

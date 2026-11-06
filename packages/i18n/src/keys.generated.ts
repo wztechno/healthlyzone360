@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10312 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10316 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2227,6 +2227,7 @@ export interface NamespaceKeys {
     | 'checkout.areaLabel'
     | 'checkout.back'
     | 'checkout.basket'
+    | 'checkout.basketKept'
     | 'checkout.change'
     | 'checkout.committedSeparator'
     | 'checkout.committedSlot'
@@ -2255,6 +2256,7 @@ export interface NamespaceKeys {
     | 'checkout.noAddressTitle'
     | 'checkout.noNote'
     | 'checkout.noSlotsOffered'
+    | 'checkout.noWindowTitle'
     | 'checkout.noteLabel'
     | 'checkout.payWith'
     | 'checkout.paymentCod'
@@ -2488,6 +2490,7 @@ export interface NamespaceKeys {
     | 'myAllergens.findAnother'
     | 'myAllergens.forMe'
     | 'myAllergens.forSomeoneElse'
+    | 'myAllergens.lineTag'
     | 'myAllergens.listTitle'
     | 'myAllergens.mealWithAllergens'
     | 'myAllergens.onMenu'
@@ -2499,6 +2502,7 @@ export interface NamespaceKeys {
     | 'myAllergens.planTitle'
     | 'myAllergens.planUnchecked'
     | 'myAllergens.savedNote'
+    | 'myAllergens.unassessedTag'
     | 'myAllergens.whoFor'
     | 'myAllergens.yourList'
     | 'myAllergens.yourListEmpty'
@@ -12563,6 +12567,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:checkout.areaLabel',
   'commerce:checkout.back',
   'commerce:checkout.basket',
+  'commerce:checkout.basketKept',
   'commerce:checkout.change',
   'commerce:checkout.committedSeparator',
   'commerce:checkout.committedSlot',
@@ -12591,6 +12596,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:checkout.noAddressTitle',
   'commerce:checkout.noNote',
   'commerce:checkout.noSlotsOffered',
+  'commerce:checkout.noWindowTitle',
   'commerce:checkout.noteLabel',
   'commerce:checkout.payWith',
   'commerce:checkout.paymentCod',
@@ -12824,6 +12830,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:myAllergens.findAnother',
   'commerce:myAllergens.forMe',
   'commerce:myAllergens.forSomeoneElse',
+  'commerce:myAllergens.lineTag',
   'commerce:myAllergens.listTitle',
   'commerce:myAllergens.mealWithAllergens',
   'commerce:myAllergens.onMenu',
@@ -12835,6 +12842,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:myAllergens.planTitle',
   'commerce:myAllergens.planUnchecked',
   'commerce:myAllergens.savedNote',
+  'commerce:myAllergens.unassessedTag',
   'commerce:myAllergens.whoFor',
   'commerce:myAllergens.yourList',
   'commerce:myAllergens.yourListEmpty',

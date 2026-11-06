@@ -652,6 +652,7 @@ export function SubscriptionConfiguratorScreen({
                 emptyIcon="calendar"
                 // A plan that is gone is the board's "We could not find that plan", not an error.
                 treatFailuresAsEmpty={['resource.not_found']}
+                skeleton="rows"
                 skeletonCount={2}
                 testID="configurator"
             >
@@ -819,6 +820,7 @@ export function SubscriptionConfiguratorScreen({
                                         emptyIcon="alert"
                                         emptyTone="warning"
                                         compact
+                                        skeleton="rows"
                                         skeletonCount={2}
                                         testID="configurator-preview"
                                     >

@@ -215,7 +215,9 @@
         "deliveringToLabel": "التوصيل إلى",
         "whenLabel": "الموعد",
         "change": "غيّر",
-        "basket": "السلة"
+        "basket": "السلة",
+        "noWindowTitle": "لا يوجد موعد توصيل لهذا العنوان",
+        "basketKept": "سلتك محفوظة."
     },
     "configurator": {
         "title": "إعداد اشتراكك",
@@ -773,7 +775,9 @@
         "pickedOnMore_few": "{{date}} و{{count}} أيام أخرى",
         "pickedOnMore_many": "{{date}} و{{count}} يومًا آخر",
         "pickedOnMore_other": "{{date}} و{{count}} يوم آخر",
-        "savedNote": "محفوظة في حسابك"
+        "savedNote": "محفوظة في حسابك",
+        "lineTag": "يحتوي على {{allergens}} · ضمن قائمة الحساسية لديك",
+        "unassessedTag": "لم يُفحص بعد لمسببات الحساسية"
     },
     "receipt": {
         "printerLabel": "طابعة الإيصالات",
