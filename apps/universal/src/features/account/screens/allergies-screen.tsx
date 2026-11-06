@@ -47,7 +47,7 @@ export function AllergiesScreen({ returnTo }: AllergiesScreenProps) {
                     guard.intercept(back.up);
                 }}
             />
-            <UnsavedChangesDialog guard={guard} testID={`${TEST_ID}-unsaved`} />
+            <UnsavedChangesDialog look="shop" guard={guard} testID={`${TEST_ID}-unsaved`} />
         </View>
     );
 }

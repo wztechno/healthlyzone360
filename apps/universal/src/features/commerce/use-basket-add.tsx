@@ -1,4 +1,4 @@
-import { Button, Dialog, useToast } from '@healthy360/design-system';
+import { useToast } from '@healthy360/design-system';
 import type { Money } from '@healthy360/domain-types';
 import type {
     ApiFailure,
@@ -12,16 +12,25 @@ import type { UseMutationResult } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
+import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
+import { Text as RNText, View } from 'react-native';
 
 import { toFailure } from '../../data/hooks.ts';
-import { resolveEntityImage } from '../../media/entity-image.tsx';
+import { EntityImage, resolveEntityImage } from '../../media/entity-image.tsx';
 import { queryKeys } from '../../data/query-keys.ts';
 import { useRepositories } from '../../data/repository-provider.tsx';
 import { withReturnTo } from '../../navigation/return-to.ts';
 import { useCurrentHref, useGoToAuth } from '../../navigation/use-return-to.ts';
 import { useFailureMessage } from '../../screens/form-helpers.ts';
 import { useSession } from '../../session/session-provider.tsx';
+import {
+    ShopDialog,
+    ShopDialogButton,
+    ShopDialogSubject,
+    ShopDialogTile,
+} from '../../ui/shop-dialog.tsx';
+import { formatMoney } from '../marketplace/format.ts';
 import { recordResumeIntent } from '../marketplace/resume-intent.ts';
 import { useShopViewOnly } from '../marketplace/shop-view-only.tsx';
 import { AllergenWarningDialog } from './allergen-warning-dialog.tsx';
@@ -248,6 +257,8 @@ interface AllergenAsk extends Asked {
 interface Conflict extends Asked {
     /** The kitchen the basket already holds meals from, when the lines say. */
     readonly kitchenName: string | undefined;
+    /** What would be emptied, for the pop-up's card. */
+    readonly basket: { readonly itemCount: number; readonly subtotal: Money } | undefined;
 }
 
 export function useBasketAdd({
@@ -267,6 +278,7 @@ export function useBasketAdd({
     const addToBasket = useBasketAddMutation();
     const myAllergens = useMyAllergenCodes();
     const allergenNames = useAllergenNames();
+    const formatter = useFormatter();
 
     // The sign-in question, and the "Start a new basket?" one. Each holds the add it is about.
     const [asked, setAsked] = useState<Asked | null>(null);
@@ -398,7 +410,14 @@ export function useBasketAdd({
     const proceed = (choice: Asked) => {
         const cached = queryClient.getQueryData<Cart>(queryKeys.commerce.cart());
         if (holdsAnotherKitchen(cached, choice.meal)) {
-            setConflict({ ...choice, kitchenName: cached?.items[0]?.kitchenName });
+            setConflict({
+                ...choice,
+                kitchenName: cached?.items[0]?.kitchenName,
+                basket:
+                    cached === undefined
+                        ? undefined
+                        : { itemCount: cached.itemCount, subtotal: cached.subtotal },
+            });
             return;
         }
         commit(choice);
@@ -456,18 +475,19 @@ export function useBasketAdd({
                     });
                 }}
             />
-            <Dialog
+            {/* Shop · Menu, pin 8: the dish it is about, then Create account beside Sign in. */}
+            <ShopDialog
                 testID={`${testID}-guest-entry-dialog`}
                 open={asked !== null}
                 onClose={() => {
                     setAsked(null);
                 }}
+                icon="person"
                 title={t('guest:entry.title')}
                 actions={
                     <>
-                        <Button
+                        <ShopDialogButton
                             testID={`${testID}-guest-register`}
-                            variant="secondary"
                             label={t('guest:entry.register')}
                             onPress={() => {
                                 if (asked === null) return;
@@ -475,8 +495,11 @@ export function useBasketAdd({
                                 authenticateFor('/register', asked);
                             }}
                         />
-                        <Button
+                        <ShopDialogButton
                             testID={`${testID}-guest-sign-in`}
+                            kind="brand"
+                            icon="arrowForward"
+                            iconAfter
                             label={t('guest:entry.signIn')}
                             onPress={() => {
                                 if (asked === null) return;
@@ -486,33 +509,38 @@ export function useBasketAdd({
                         />
                     </>
                 }
-            />
-            <Dialog
+            >
+                {asked?.meal.name === undefined ? null : (
+                    <MealSubject meal={asked.meal} testID={`${testID}-guest-entry-meal`} />
+                )}
+            </ShopDialog>
+            {/* Shop · Menu, pin 7: the basket that would be emptied, on a danger head. */}
+            <ShopDialog
                 testID={`${testID}-basket-conflict`}
                 open={conflict !== null}
                 onClose={() => {
                     setConflict(null);
                 }}
+                tone="danger"
+                icon="shoppingBasket"
                 title={t('commerce:basketConflict.title')}
-                {...(conflict?.kitchenName === undefined
-                    ? {}
-                    : {
-                          description: t('commerce:basketConflict.body', {
-                              kitchen: conflict.kitchenName,
-                          }),
-                      })}
+                description={
+                    conflict?.kitchenName === undefined
+                        ? undefined
+                        : t('commerce:basketConflict.body', { kitchen: conflict.kitchenName })
+                }
                 actions={
                     <>
-                        <Button
+                        <ShopDialogButton
                             testID={`${testID}-basket-conflict-keep`}
-                            variant="secondary"
                             label={t('commerce:basketConflict.keep')}
                             onPress={() => {
                                 setConflict(null);
                             }}
                         />
-                        <Button
+                        <ShopDialogButton
                             testID={`${testID}-basket-conflict-replace`}
+                            kind="danger"
                             label={t('commerce:basketConflict.replace')}
                             onPress={() => {
                                 if (conflict === null) return;
@@ -522,7 +550,23 @@ export function useBasketAdd({
                         />
                     </>
                 }
-            />
+            >
+                {conflict === null || conflict.basket === undefined ? null : (
+                    <ShopDialogSubject
+                        testID={`${testID}-basket-conflict-basket`}
+                        lead={<ShopDialogTile icon="shoppingBasket" />}
+                        name={conflict.kitchenName ?? t('commerce:basketConflict.yourBasket')}
+                        meta={t('commerce:basketConflict.basketLine', {
+                            count: conflict.basket.itemCount,
+                        })}
+                        end={
+                            <RNText className="pe-1 font-display text-base font-bold tabular-nums text-content-primary">
+                                {formatMoney(formatter, conflict.basket.subtotal)}
+                            </RNText>
+                        }
+                    />
+                )}
+            </ShopDialog>
         </>
     );
 
@@ -533,4 +577,38 @@ export function useBasketAdd({
         failure: toFailure(addToBasket.error),
         dialog,
     };
+}
+
+/** A dish as a pop-up's card: its photo, its name, its first meal type and its price. */
+function MealSubject({ meal, testID }: { readonly meal: BasketMeal; readonly testID: string }) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const type = meal.mealTypes?.[0];
+    return (
+        <ShopDialogSubject
+            testID={testID}
+            lead={
+                <View className="h-[52px] w-[52px] overflow-hidden rounded-[14px]">
+                    <EntityImage
+                        assetId={meal.imagePlaceholderId}
+                        photoUrl={meal.photoUrl}
+                        seed={meal.id}
+                        label={meal.name ?? ''}
+                        decorative
+                        flush
+                        className="h-full w-full"
+                    />
+                </View>
+            }
+            name={meal.name ?? ''}
+            meta={type === undefined ? undefined : t(`marketplace:mealTypes.${type}`)}
+            end={
+                meal.price === undefined ? undefined : (
+                    <RNText className="pe-1 font-display text-base font-bold tabular-nums text-content-primary">
+                        {formatMoney(formatter, meal.price)}
+                    </RNText>
+                )
+            }
+        />
+    );
 }

@@ -1,5 +1,5 @@
 import type { AccountChecklistItem, ConsentState } from '@healthy360/api-client/contracts';
-import { Button, Callout, Dialog, Icon, Tabs, cx, useBreakpoint } from '@healthy360/design-system';
+import { Button, Callout, Icon, Tabs, cx, useBreakpoint } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -21,6 +21,13 @@ import { useLogoutMutation } from '../../../data/hooks.ts';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useSession } from '../../../session/session-provider.tsx';
+import {
+    ShopDialog,
+    ShopDialogButton,
+    ShopDialogSubject,
+    ShopDialogTag,
+    ShopDialogTile,
+} from '../../../ui/shop-dialog.tsx';
 import { ShopSwitch } from '../../../ui/shop-switch.tsx';
 import { SubpageTrail } from '../../../ui/subpage-trail.tsx';
 import { SubscriptionsScreen } from '../../commerce/screens/subscriptions-screen.tsx';
@@ -403,6 +410,9 @@ function AddressesPanel({ here }: { readonly here: string }) {
     const [pendingRemoval, setPendingRemoval] = useState<{
         readonly id: string;
         readonly label: string;
+        readonly isDefault: boolean;
+        /** The area and the street, as the pop-up's card shows them. */
+        readonly line: string;
     } | null>(null);
 
     const openEditor = (address: string) => {
@@ -554,6 +564,28 @@ function AddressesPanel({ here }: { readonly here: string }) {
                                                     setPendingRemoval({
                                                         id: address.id,
                                                         label: address.label,
+                                                        isDefault: address.isDefault,
+                                                        line: [
+                                                            address.areaName,
+                                                            [
+                                                                address.line1,
+                                                                address.line2,
+                                                                address.building,
+                                                                address.floor,
+                                                            ]
+                                                                .filter(
+                                                                    (part): part is string =>
+                                                                        part !== null &&
+                                                                        part.trim().length > 0,
+                                                                )
+                                                                .join(
+                                                                    t(
+                                                                        'account:addresses.partSeparator',
+                                                                    ),
+                                                                ),
+                                                        ]
+                                                            .filter((part) => part.trim() !== '')
+                                                            .join(' · '),
                                                     });
                                                 }}
                                             />
@@ -566,9 +598,12 @@ function AddressesPanel({ here }: { readonly here: string }) {
                 </View>
             </QueryStates>
 
-            <Dialog
+            {/* Shop · Account, pin 11. */}
+            <ShopDialog
                 testID="account-addresses-remove-dialog"
                 open={pendingRemoval !== null}
+                tone="danger"
+                icon="trash"
                 title={t('account:addresses.removeTitle')}
                 description={t('account:addresses.removeBody', {
                     label: pendingRemoval?.label ?? '',
@@ -577,22 +612,20 @@ function AddressesPanel({ here }: { readonly here: string }) {
                     setPendingRemoval(null);
                 }}
                 actions={
-                    <View className="flex-row flex-wrap gap-2.5">
-                        <Button
+                    <>
+                        <ShopDialogButton
                             testID="account-addresses-remove-cancel"
-                            variant="quiet"
                             label={t('common:action.cancel')}
                             onPress={() => {
                                 setPendingRemoval(null);
                             }}
                         />
-                        <Button
+                        <ShopDialogButton
                             testID="account-addresses-remove-confirm"
-                            // Destructive, so `danger`: the dialog's other option is "keep my
-                            // address", and a destructive action must not wear the primary fill.
-                            variant="danger"
+                            kind="danger"
+                            icon="trash"
                             label={t('account:addresses.remove')}
-                            loading={remove.isPending}
+                            busy={remove.isPending}
                             onPress={() => {
                                 if (pendingRemoval === null) return;
                                 remove.mutate(pendingRemoval.id, {
@@ -602,9 +635,23 @@ function AddressesPanel({ here }: { readonly here: string }) {
                                 });
                             }}
                         />
-                    </View>
+                    </>
                 }
-            />
+            >
+                {pendingRemoval === null ? null : (
+                    <ShopDialogSubject
+                        testID="account-addresses-remove-subject"
+                        lead={<ShopDialogTile icon="mapPin" />}
+                        name={pendingRemoval.label}
+                        tag={
+                            pendingRemoval.isDefault ? (
+                                <ShopDialogTag label={t('account:addresses.default')} />
+                            ) : undefined
+                        }
+                        meta={pendingRemoval.line === '' ? undefined : pendingRemoval.line}
+                    />
+                )}
+            </ShopDialog>
         </View>
     );
 }

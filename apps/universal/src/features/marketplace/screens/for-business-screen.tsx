@@ -1,4 +1,4 @@
-import { Button, Dialog, Icon, cx, useMotion } from '@healthy360/design-system';
+import { Icon, cx, useMotion } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -10,6 +10,7 @@ import type { ImageSourcePropType } from 'react-native';
 import { resolveMarketingImage } from '../../../media/entity-image.tsx';
 import { useGoToAuth } from '../../../navigation/use-return-to.ts';
 import { useSession } from '../../../session/session-provider.tsx';
+import { ShopDialog, ShopDialogButton } from '../../../ui/shop-dialog.tsx';
 import { ShopSwitch } from '../../../ui/shop-switch.tsx';
 
 const APPLY_HREF = '/apply';
@@ -114,27 +115,31 @@ export function ForBusinessScreen() {
                 </View>
             </View>
 
-            <Dialog
+            {/* Shop · Shared looks + other, pin 1. */}
+            <ShopDialog
                 testID="for-business-enquiry"
                 open={enquiryOpen}
                 onClose={() => {
                     setEnquiryOpen(false);
                 }}
+                icon="briefcase"
                 title={t('marketplace:forBusiness.enquiryTitle')}
                 description={t('marketplace:forBusiness.enquiryBody')}
                 actions={
                     <>
-                        <Button
+                        <ShopDialogButton
                             testID="for-business-enquiry-register"
-                            variant="secondary"
                             label={t('marketplace:nav.register')}
                             onPress={() => {
                                 setEnquiryOpen(false);
                                 goToAuth('/register', APPLY_HREF);
                             }}
                         />
-                        <Button
+                        <ShopDialogButton
                             testID="for-business-enquiry-sign-in"
+                            kind="brand"
+                            icon="arrowForward"
+                            iconAfter
                             label={t('marketplace:nav.signIn')}
                             onPress={() => {
                                 setEnquiryOpen(false);

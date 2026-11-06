@@ -765,7 +765,7 @@ export function AddressEditorScreen({ addressId, returnTo }: AddressEditorScreen
                     </View>
                 </QueryStates>
             )}
-            <UnsavedChangesDialog guard={guard} testID={`${TEST_ID}-unsaved`} />
+            <UnsavedChangesDialog look="shop" guard={guard} testID={`${TEST_ID}-unsaved`} />
         </View>
     );
 }

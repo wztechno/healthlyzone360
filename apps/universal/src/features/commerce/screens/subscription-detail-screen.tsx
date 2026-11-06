@@ -1,4 +1,4 @@
-import { Button, Callout, Dialog, EmptyState, Icon, Stack, cx } from '@healthy360/design-system';
+import { Button, EmptyState, Icon, Stack, cx } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import type {
     CustomerAddress,
@@ -36,6 +36,13 @@ import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
+import {
+    ShopDialog,
+    ShopDialogButton,
+    ShopDialogConsequence,
+    ShopDialogDateTile,
+    ShopDialogSubject,
+} from '../../../ui/shop-dialog.tsx';
 import { subscriptionDayPrice } from '../../catalogue/plan-balance.ts';
 import { TINT_FILL, TINT_INK } from '../../catalogue/shelf-tints.ts';
 import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
@@ -64,6 +71,7 @@ import type { LedgerTab } from '../subscription-board.ts';
 import {
     CancelSubscriptionDialog,
     DialogFailure,
+    PauseResumeDialog,
     WeekdayEditor,
     shortWeekday,
 } from '../subscription-editors.tsx';
@@ -340,6 +348,24 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
     const readOnly = subscription !== undefined && isTerminalSubscriptionState(subscription.state);
     const live = subscription !== undefined && !readOnly;
     const canChange = subscription !== undefined && canChangeDelivery(subscription.state);
+
+    /** The pop-ups' card: the kitchen, then the next delivery (pause) or the days left (resume). */
+    const kitchenName = kitchen.data?.name;
+    const remainingDays = balanceQuery.data?.days.remaining;
+    const nextLine =
+        subscription?.nextDeliveryDate == null
+            ? undefined
+            : t('commerce:subscription.dialog.nextOn', {
+                  date: formatter.formatDate(subscription.nextDeliveryDate, {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                  }),
+              });
+    const daysLeftLine =
+        remainingDays === undefined
+            ? undefined
+            : t('commerce:subscription.dialog.daysLeft', { count: remainingDays });
 
     return (
         <View testID="subscription-detail-screen" className="flex-col pb-10">
@@ -1028,86 +1054,52 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                 )}
             </QueryStates>
 
-            {/* ── pause ──────────────────────────────────────────────────────────────────────── */}
-            <Dialog
-                testID="subscription-pause-dialog"
-                open={dialog === 'pause'}
-                onClose={close}
-                title={t('commerce:subscription.pauseDialogTitle')}
-                description={t('commerce:subscription.pauseDialogBody')}
-                actions={
-                    <>
-                        <Button
-                            testID="subscription-pause-cancel"
-                            variant="quiet"
-                            label={t('commerce:common.cancel')}
-                            onPress={close}
-                        />
-                        <Button
-                            testID="subscription-pause-confirm"
-                            label={t('commerce:subscription.pauseConfirm')}
-                            loading={pause.isPending}
-                            onPress={() => {
-                                if (subscription === undefined) return;
-                                pause.mutate(
-                                    { subscriptionId: subscription.id },
-                                    { onSuccess: close },
-                                );
-                            }}
-                        />
-                    </>
-                }
-            >
-                {/* No "resume on" date: the platform has no scheduled resume, and the field that
-                    used to ask for one collected a date nothing acted on. */}
-                <Stack space="sm">
-                    <Callout
-                        testID="subscription-pause-consequence"
-                        role="note"
-                        tone="warning"
-                        icon="info"
-                        title={t('commerce:subscription.pauseConsequenceTitle')}
-                        body={t('commerce:subscription.pauseConsequenceOpen')}
+            {/* ── pause and resume (Shop · Subscription, pins 8 and 9) ──────────────────────── */}
+            {subscription === undefined ? null : (
+                <>
+                    <PauseResumeDialog
+                        kind="pause"
+                        testID="subscription-pause"
+                        open={dialog === 'pause'}
+                        subject={{
+                            planName: subscription.planName,
+                            state: subscription.state,
+                            kitchenName,
+                            line: nextLine,
+                        }}
+                        pending={pause.isPending}
+                        error={pause.error}
+                        onClose={close}
+                        onConfirm={() => {
+                            pause.mutate({ subscriptionId: subscription.id }, { onSuccess: close });
+                        }}
                     />
-                    <DialogFailure error={pause.error} testID="subscription-pause-failure" />
-                </Stack>
-            </Dialog>
+                    <PauseResumeDialog
+                        kind="resume"
+                        testID="subscription-resume"
+                        open={dialog === 'resume'}
+                        subject={{
+                            planName: subscription.planName,
+                            state: subscription.state,
+                            kitchenName,
+                            line: daysLeftLine,
+                        }}
+                        pending={resume.isPending}
+                        error={resume.error}
+                        onClose={close}
+                        onConfirm={() => {
+                            resume.mutate(subscription.id, { onSuccess: close });
+                        }}
+                    />
+                </>
+            )}
 
-            {/* ── resume ─────────────────────────────────────────────────────────────────────── */}
-            <Dialog
-                testID="subscription-resume-dialog"
-                open={dialog === 'resume'}
-                onClose={close}
-                title={t('commerce:subscription.resumeDialogTitle')}
-                description={t('commerce:subscription.resumeDialogBody')}
-                actions={
-                    <>
-                        <Button
-                            testID="subscription-resume-cancel"
-                            variant="quiet"
-                            label={t('commerce:common.cancel')}
-                            onPress={close}
-                        />
-                        <Button
-                            testID="subscription-resume-confirm"
-                            label={t('commerce:subscription.resumeConfirm')}
-                            loading={resume.isPending}
-                            onPress={() => {
-                                if (subscription === undefined) return;
-                                resume.mutate(subscription.id, { onSuccess: close });
-                            }}
-                        />
-                    </>
-                }
-            >
-                <DialogFailure error={resume.error} testID="subscription-resume-failure" />
-            </Dialog>
-
-            {/* ── skip a day ─────────────────────────────────────────────────────────────────── */}
-            <Dialog
+            {/* ── skip a day (pin 10) ────────────────────────────────────────────────────────── */}
+            <ShopDialog
                 testID="subscription-skip-dialog"
                 open={dialog === 'skip'}
                 onClose={close}
+                icon="skipForward"
                 title={t('commerce:subscription.skipDialogTitle')}
                 description={
                     skipDate === null
@@ -1118,16 +1110,17 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                 }
                 actions={
                     <>
-                        <Button
+                        <ShopDialogButton
                             testID="subscription-skip-cancel"
-                            variant="quiet"
                             label={t('commerce:common.cancel')}
                             onPress={close}
                         />
-                        <Button
+                        <ShopDialogButton
                             testID="subscription-skip-confirm"
+                            kind="brand"
+                            icon="skipForward"
                             label={t('commerce:subscription.skipConfirm')}
-                            loading={skipDay.isPending}
+                            busy={skipDay.isPending}
                             onPress={() => {
                                 if (subscription === undefined || skipDate === null) return;
                                 skipDay.mutate(
@@ -1147,24 +1140,43 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                     </>
                 }
             >
-                <Stack space="sm">
-                    <Callout
-                        testID="subscription-skip-consequence"
-                        role="note"
-                        tone="warning"
-                        icon="info"
-                        title={t('commerce:subscription.skipConsequenceTitle')}
-                        body={t('commerce:subscription.skipConsequenceBody')}
+                {skipDate === null || subscription === undefined ? null : (
+                    <ShopDialogSubject
+                        testID="subscription-skip-subject"
+                        lead={
+                            <ShopDialogDateTile
+                                weekday={formatter.formatDate(skipDate, { weekday: 'short' })}
+                                day={formatter.formatDate(skipDate, { day: 'numeric' })}
+                            />
+                        }
+                        name={formatter.formatDate(skipDate, { dateStyle: 'full' })}
+                        meta={[
+                            subscription.planName,
+                            windowLine(slots, subscription.configuration.slotCode, t),
+                            subscription.configuration.address.label.trim() === ''
+                                ? subscription.configuration.address.area
+                                : subscription.configuration.address.label,
+                        ]
+                            .filter((part) => part.trim() !== '')
+                            .join(' · ')}
                     />
-                    <DialogFailure error={skipDay.error} testID="subscription-skip-failure" />
-                </Stack>
-            </Dialog>
+                )}
+                <ShopDialogConsequence
+                    testID="subscription-skip-consequence"
+                    icon="calendar"
+                    title={t('commerce:subscription.skipConsequenceTitle')}
+                    body={t('commerce:subscription.skipConsequenceBody')}
+                />
+                <DialogFailure error={skipDay.error} testID="subscription-skip-failure" />
+            </ShopDialog>
 
-            {/* ── cancel ───────────────────────────────────────────────────────────────────── */}
+            {/* ── cancel (pins 11–12) ──────────────────────────────────────────────────────── */}
             <CancelSubscriptionDialog
                 open={dialog === 'cancel'}
                 balance={balanceQuery.data}
                 cancelled={cancel.data !== undefined}
+                kitchenName={kitchenName}
+                state={subscription?.state}
                 planName={subscription?.planName ?? ''}
                 pending={cancel.isPending}
                 error={cancel.error}

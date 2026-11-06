@@ -227,6 +227,14 @@ export const DRAWN_ICON_FALLBACKS = {
     briefcase: 'device',
     // A step onwards — the basket's Checkout. Lucide's `arrow-right`, turned round in Arabic.
     arrowForward: 'chevronForward',
+    // The shop pop-ups' head tiles. Lucide's `pause`, `play`, `skip-forward` and `trash-2`.
+    pause: 'minus',
+    play: 'chevronForward',
+    skipForward: 'chevronForward',
+    trash: 'close',
+    // The shop's state cards. Lucide's `cloud-alert` and `rotate-cw`.
+    cloudAlert: 'offline',
+    rotateCw: 'refresh',
 } as const satisfies Readonly<Record<string, IconGlyphName>>;
 export type DrawnIconName = keyof typeof DRAWN_ICON_FALLBACKS;
 

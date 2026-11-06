@@ -1,3 +1,4 @@
+import { apiFailure } from '@healthy360/api-client';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Text as RNText, View } from 'react-native';
@@ -6,12 +7,29 @@ import { ExtraNote } from '../features/account/account-extra.tsx';
 import { OtpChallengePanel } from '../features/verification/otp-challenge-panel.tsx';
 import type { OtpChallengeView } from '../features/verification/otp-challenge-panel.tsx';
 import { CodeBoxes } from '../ui/code-boxes.tsx';
+import {
+    ShopDialog,
+    ShopDialogButton,
+    ShopDialogConsequence,
+    ShopDialogDateTile,
+    ShopDialogSubject,
+    ShopDialogTag,
+    ShopDialogTile,
+} from '../ui/shop-dialog.tsx';
+import type { ShopDialogTone } from '../ui/shop-dialog.tsx';
+import {
+    ShopCardSkeletons,
+    ShopErrorCard,
+    ShopStateButton,
+    ShopStateCard,
+} from '../ui/shop-state.tsx';
 import { ShopSwitch } from '../ui/shop-switch.tsx';
 
 /**
  * `/showcase-shop` — the web shop's own parts, on a page of their own: the code boxes every
  * one-time code is typed into, in each state, the code panel as the sign-in frame draws it, the
- * boards' notes, and the shop's switch. Development only.
+ * boards' notes, the shop's switch, its pop-up in each tone, and its empty, error and loading
+ * states. Development only.
  */
 
 /** A challenge as the server would describe one — enough to draw the panel without a backend. */
@@ -51,6 +69,10 @@ export function ShopPartsShowcaseScreen() {
     const [code, setCode] = useState('');
     const [on, setOn] = useState(true);
     const [off, setOff] = useState(false);
+    const [dialog, setDialog] = useState<ShopDialogTone | null>(null);
+    const close = () => {
+        setDialog(null);
+    };
 
     return (
         <View
@@ -100,6 +122,108 @@ export function ShopPartsShowcaseScreen() {
                 <ExtraNote tone="ok" icon="check" title="Saved" body="News in the brand's green." />
                 <ExtraNote tone="amber" icon="clock" title="Wait a moment" body="A caution." />
                 <ExtraNote tone="bad" icon="warning" title="This cannot be undone" body="Danger." />
+            </Section>
+            <Section title="Pop-up — brand, warning, danger (phones get a bottom sheet)">
+                <View className="flex-row flex-wrap gap-2">
+                    {(['brand', 'warning', 'danger'] as const).map((tone) => (
+                        <ShopStateButton
+                            key={tone}
+                            testID={`showcase-dialog-open-${tone}`}
+                            kind="secondary"
+                            label={tone}
+                            onPress={() => {
+                                setDialog(tone);
+                            }}
+                        />
+                    ))}
+                </View>
+                <ShopDialog
+                    testID="showcase-dialog"
+                    open={dialog !== null}
+                    onClose={close}
+                    tone={dialog ?? 'brand'}
+                    icon={
+                        dialog === 'danger'
+                            ? 'trash'
+                            : dialog === 'warning'
+                              ? 'alert'
+                              : 'skipForward'
+                    }
+                    title="Skip this delivery?"
+                    description="The delivery on Saturday 7 November 2026 will not be made."
+                    actions={
+                        <>
+                            <ShopDialogButton label="Cancel" onPress={close} />
+                            <ShopDialogButton
+                                kind={
+                                    dialog === 'danger'
+                                        ? 'danger'
+                                        : dialog === 'warning'
+                                          ? 'ink'
+                                          : 'brand'
+                                }
+                                icon="skipForward"
+                                label="Skip this delivery"
+                                onPress={close}
+                            />
+                        </>
+                    }
+                >
+                    <ShopDialogSubject
+                        lead={<ShopDialogDateTile weekday="Sat" day="7" />}
+                        name="Saturday 7 November 2026"
+                        meta="Weekday Lean · Lunch 12:00–15:00 · Home"
+                    />
+                    <View className="mt-2">
+                        <ShopDialogSubject
+                            lead={<ShopDialogTile icon="leaf" />}
+                            name="Weekday Lean"
+                            tag={<ShopDialogTag label="Paused" tone="warning" />}
+                            meta="HealthZone360 Kitchen · 27 days left"
+                        />
+                    </View>
+                    <ShopDialogConsequence
+                        icon="calendar"
+                        title="What happens next"
+                        body="That day is removed from the schedule."
+                    />
+                </ShopDialog>
+            </Section>
+            <Section title="States — empty, small, error, loading">
+                <ShopStateCard
+                    icon="searchLens"
+                    title="Nothing matches those filters"
+                    body="Try widening the calorie range or clearing a dietary filter."
+                    actions={
+                        <ShopStateButton
+                            kind="secondary"
+                            label="Clear filters"
+                            onPress={() => undefined}
+                        />
+                    }
+                />
+                <ShopStateCard
+                    small
+                    icon="receipt"
+                    title="No orders yet"
+                    body="Orders you place while signed in appear here, newest first."
+                    actions={
+                        <ShopStateButton
+                            icon="arrowForward"
+                            iconAfter
+                            label="Browse the menu"
+                            onPress={() => undefined}
+                        />
+                    }
+                />
+                <ShopErrorCard
+                    failure={apiFailure('server', {
+                        correlationId: 'req_8f2a91c4',
+                        retryable: true,
+                    })}
+                    onRetry={() => undefined}
+                />
+                <ShopCardSkeletons count={4} testID="showcase-skeletons" />
             </Section>
             <Section title="Switch">
                 <View className="flex-row items-center gap-6">

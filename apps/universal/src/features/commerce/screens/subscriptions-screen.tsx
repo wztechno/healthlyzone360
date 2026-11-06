@@ -1,4 +1,4 @@
-import { Button, Callout, Dialog, Icon, Stack, cx } from '@healthy360/design-system';
+import { Button, Icon, cx } from '@healthy360/design-system';
 import type { Subscription, SubscriptionFilter } from '@healthy360/api-client/contracts';
 import type { SubscriptionState } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -29,7 +29,7 @@ import { todayIso } from '../dates.ts';
 import { deliverySlotsForKitchen } from '../delivery.ts';
 import { canPauseOrSkip, canResume, isTerminalSubscriptionState } from '../state-badge.tsx';
 import { estimatedEndDate } from '../subscription-board.ts';
-import { DialogFailure, shortWeekday } from '../subscription-editors.tsx';
+import { PauseResumeDialog, shortWeekday } from '../subscription-editors.tsx';
 
 /**
  * `/customer/subscriptions` — every subscription this person has, drawn as the account page's
@@ -444,73 +444,36 @@ function SubscriptionCard({
                 )}
             </View>
 
-            <Dialog
-                testID={`${id}-pause-dialog`}
-                open={dialog === 'pause'}
-                onClose={close}
-                title={t('commerce:subscription.pauseDialogTitle')}
-                description={t('commerce:subscription.pauseDialogBody')}
-                actions={
-                    <>
-                        <Button
-                            testID={`${id}-pause-cancel`}
-                            variant="quiet"
-                            label={t('commerce:common.cancel')}
-                            onPress={close}
-                        />
-                        <Button
-                            testID={`${id}-pause-confirm`}
-                            label={t('commerce:subscription.pauseConfirm')}
-                            loading={pause.isPending}
-                            onPress={() => {
+            {/* Shop · Subscription, pins 8 and 9: the same pop-ups as the subscription page. */}
+            {(['pause', 'resume'] as const).map((kind) => {
+                const mutation = kind === 'pause' ? pause : resume;
+                return (
+                    <PauseResumeDialog
+                        key={kind}
+                        kind={kind}
+                        testID={`${id}-${kind}`}
+                        open={dialog === kind}
+                        subject={{
+                            planName: subscription.planName,
+                            state: subscription.state,
+                            kitchenName: kitchen.data?.name,
+                        }}
+                        pending={mutation.isPending}
+                        error={mutation.error}
+                        onClose={close}
+                        onConfirm={() => {
+                            if (kind === 'pause') {
                                 pause.mutate(
                                     { subscriptionId: subscription.id },
                                     { onSuccess: close },
                                 );
-                            }}
-                        />
-                    </>
-                }
-            >
-                <Stack space="sm">
-                    <Callout
-                        role="note"
-                        tone="warning"
-                        icon="info"
-                        title={t('commerce:subscription.pauseConsequenceTitle')}
-                        body={t('commerce:subscription.pauseConsequenceOpen')}
-                    />
-                    <DialogFailure error={pause.error} testID={`${id}-pause-failure`} />
-                </Stack>
-            </Dialog>
-
-            <Dialog
-                testID={`${id}-resume-dialog`}
-                open={dialog === 'resume'}
-                onClose={close}
-                title={t('commerce:subscription.resumeDialogTitle')}
-                description={t('commerce:subscription.resumeDialogBody')}
-                actions={
-                    <>
-                        <Button
-                            testID={`${id}-resume-cancel`}
-                            variant="quiet"
-                            label={t('commerce:common.cancel')}
-                            onPress={close}
-                        />
-                        <Button
-                            testID={`${id}-resume-confirm`}
-                            label={t('commerce:subscription.resumeConfirm')}
-                            loading={resume.isPending}
-                            onPress={() => {
+                            } else {
                                 resume.mutate(subscription.id, { onSuccess: close });
-                            }}
-                        />
-                    </>
-                }
-            >
-                <DialogFailure error={resume.error} testID={`${id}-resume-failure`} />
-            </Dialog>
+                            }
+                        }}
+                    />
+                );
+            })}
         </View>
     );
 }

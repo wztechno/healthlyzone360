@@ -577,6 +577,15 @@
                 "free": "مجاني"
             },
             "noDayUsed": "لم يُستخدم أي يوم"
+        },
+        "dialog": {
+            "nextOn": "التالي {{date}}",
+            "daysLeft_zero": "لم يبقَ أي يوم",
+            "daysLeft_one": "يوم واحد متبقٍّ",
+            "daysLeft_two": "يومان متبقيان",
+            "daysLeft_few": "{{count}} أيام متبقية",
+            "daysLeft_many": "{{count}} يومًا متبقيًا",
+            "daysLeft_other": "{{count}} يوم متبقٍّ"
         }
     },
     "balance": {
@@ -674,7 +683,14 @@
         "title": "هل تبدأ سلة جديدة؟",
         "body": "في سلتك وجبات من {{kitchen}}. تضم السلة وجبات مطبخ واحد فقط.",
         "keep": "الإبقاء على سلتي",
-        "replace": "بدء سلة جديدة"
+        "replace": "بدء سلة جديدة",
+        "yourBasket": "سلتك",
+        "basketLine_zero": "سلتك · لا أصناف",
+        "basketLine_one": "سلتك · صنف واحد",
+        "basketLine_two": "سلتك · صنفان",
+        "basketLine_few": "سلتك · {{count}} أصناف",
+        "basketLine_many": "سلتك · {{count}} صنفًا",
+        "basketLine_other": "سلتك · {{count}} صنف"
     },
     "myAllergens": {
         "badge": "في قائمة الحساسية لديك: {{allergens}}",

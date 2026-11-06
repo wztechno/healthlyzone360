@@ -1,7 +1,6 @@
 import {
     Button,
     Callout,
-    Dialog,
     FAILURE_MESSAGE_KEYS,
     Icon,
     Inline,
@@ -41,6 +40,7 @@ import { usePreviousEntry } from '../../../navigation/use-return-to.ts';
 import { usePrototypeAction } from '../../../prototype/index.ts';
 import { EntityImage } from '../../../media/entity-image.tsx';
 import { BackPill } from '../../../ui/back-pill.tsx';
+import { ShopDialog, ShopDialogButton, ShopDialogSubject } from '../../../ui/shop-dialog.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { AccountSetupPanel, stepForRequirement } from '../../account/account-setup-steps.tsx';
 import type { AccountSetupStep } from '../../account/account-setup-steps.tsx';
@@ -865,12 +865,15 @@ export function CheckoutScreen() {
                     </View>
                 )}
 
-                <Dialog
+                {/* Basket + checkout, pin 7: each dish that crosses the list, then Place order anyway. */}
+                <ShopDialog
                     testID="checkout-allergen-confirm"
                     open={allergenConfirmOpen}
                     onClose={() => {
                         setAllergenConfirmOpen(false);
                     }}
+                    tone="warning"
+                    icon="alert"
                     title={t('commerce:myAllergens.confirmTitle')}
                     description={
                         clashingMeals.length === 0
@@ -879,16 +882,16 @@ export function CheckoutScreen() {
                     }
                     actions={
                         <>
-                            <Button
+                            <ShopDialogButton
                                 testID="checkout-allergen-confirm-cancel"
-                                variant="secondary"
                                 label={t('common:action.cancel')}
                                 onPress={() => {
                                     setAllergenConfirmOpen(false);
                                 }}
                             />
-                            <Button
+                            <ShopDialogButton
                                 testID="checkout-allergen-confirm-place"
+                                kind="ink"
                                 label={t('commerce:myAllergens.placeAnyway')}
                                 onPress={() => {
                                     setAllergenConfirmOpen(false);
@@ -897,7 +900,28 @@ export function CheckoutScreen() {
                             />
                         </>
                     }
-                />
+                >
+                    <View className="flex-col gap-2">
+                        {(basket?.items ?? []).flatMap((item) => {
+                            const conflict = allergenConflicts.find(
+                                (candidate) => candidate.mealId === item.mealId,
+                            );
+                            if (conflict === undefined) return [];
+                            return [
+                                <ClashLine
+                                    key={item.id}
+                                    testID={`checkout-allergen-confirm-line-${item.id}`}
+                                    name={item.name}
+                                    mealId={item.mealId}
+                                    meta={`${formatter.formatNumber(item.quantity)} × ${formatMoney(formatter, item.unitPrice)}`}
+                                    allergens={conflict.allergenCodes.map((code) =>
+                                        allergenNames([code]),
+                                    )}
+                                />,
+                            ];
+                        })}
+                    </View>
+                </ShopDialog>
 
                 <PanelActions>
                     <Pressable
@@ -1738,4 +1762,57 @@ function OrderPlaced({ order, kitchenName, arriving, onTrack, onKeepShopping }: 
     );
 
     return <Columns testID="checkout-success-layout" wide={wide} main={main} aside={aside} />;
+}
+
+/** A basket line in the allergen pop-up: its photo, name, quantity × price, and its allergens on amber. */
+function ClashLine({
+    testID,
+    name,
+    mealId,
+    meta,
+    allergens,
+}: {
+    readonly testID: string;
+    readonly name: string;
+    readonly mealId: MealId;
+    readonly meta: string;
+    readonly allergens: readonly string[];
+}) {
+    const meal = useMealQuery(mealId);
+    return (
+        <ShopDialogSubject
+            testID={testID}
+            lead={
+                <View className="h-[52px] w-[52px] overflow-hidden rounded-[14px]">
+                    <EntityImage
+                        assetId={meal.data?.imagePlaceholderId}
+                        photoUrl={meal.data?.photoUrl}
+                        variant="card"
+                        seed={meal.data?.slug ?? name}
+                        label={name}
+                        decorative
+                        flush
+                        className="h-full w-full"
+                    />
+                </View>
+            }
+            name={name}
+            meta={meta}
+            end={
+                <View className="flex-row flex-wrap justify-end gap-1">
+                    {allergens.map((allergen) => (
+                        <View
+                            key={allergen}
+                            className="h-[26px] flex-row items-center gap-1 rounded-full bg-warning-strong px-2.5"
+                        >
+                            <Icon name="alert" size="sm" className="text-warning-on-strong" />
+                            <RNText className="text-xs font-bold text-warning-on-strong">
+                                {allergen}
+                            </RNText>
+                        </View>
+                    ))}
+                </View>
+            }
+        />
+    );
 }

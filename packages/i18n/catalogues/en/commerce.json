@@ -521,6 +521,11 @@
                 "free": "Free"
             },
             "noDayUsed": "No day used"
+        },
+        "dialog": {
+            "nextOn": "next {{date}}",
+            "daysLeft_one": "{{count}} day left",
+            "daysLeft_other": "{{count}} days left"
         }
     },
     "balance": {
@@ -594,7 +599,10 @@
         "title": "Start a new basket?",
         "body": "Your basket has meals from {{kitchen}}. A basket holds one kitchen's meals.",
         "keep": "Keep my basket",
-        "replace": "Start a new basket"
+        "replace": "Start a new basket",
+        "yourBasket": "Your basket",
+        "basketLine_one": "Your basket · {{count}} item",
+        "basketLine_other": "Your basket · {{count}} items"
     },
     "myAllergens": {
         "badge": "On your allergy list: {{allergens}}",

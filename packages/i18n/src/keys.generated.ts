@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10286 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10290 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2157,10 +2157,12 @@ export interface NamespaceKeys {
     | 'balance.remaining'
     | 'balance.skipped'
     | 'balance.used'
+    | 'basketConflict.basketLine'
     | 'basketConflict.body'
     | 'basketConflict.keep'
     | 'basketConflict.replace'
     | 'basketConflict.title'
+    | 'basketConflict.yourBasket'
     | 'cancel.body'
     | 'cancel.confirm'
     | 'cancel.consequenceBody'
@@ -2554,6 +2556,8 @@ export interface NamespaceKeys {
     | 'subscription.choosePlanAgain'
     | 'subscription.crumbAccount'
     | 'subscription.crumbSubscriptions'
+    | 'subscription.dialog.daysLeft'
+    | 'subscription.dialog.nextOn'
     | 'subscription.manageTitle'
     | 'subscription.notFoundBody'
     | 'subscription.notFoundTitle'
@@ -12467,10 +12471,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:balance.remaining',
   'commerce:balance.skipped',
   'commerce:balance.used',
+  'commerce:basketConflict.basketLine',
   'commerce:basketConflict.body',
   'commerce:basketConflict.keep',
   'commerce:basketConflict.replace',
   'commerce:basketConflict.title',
+  'commerce:basketConflict.yourBasket',
   'commerce:cancel.body',
   'commerce:cancel.confirm',
   'commerce:cancel.consequenceBody',
@@ -12864,6 +12870,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:subscription.choosePlanAgain',
   'commerce:subscription.crumbAccount',
   'commerce:subscription.crumbSubscriptions',
+  'commerce:subscription.dialog.daysLeft',
+  'commerce:subscription.dialog.nextOn',
   'commerce:subscription.manageTitle',
   'commerce:subscription.notFoundBody',
   'commerce:subscription.notFoundTitle',
