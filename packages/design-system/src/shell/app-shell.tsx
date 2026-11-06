@@ -26,7 +26,7 @@ import { cx } from '../internal/class-names.ts';
 import { startAfterPaint } from '../motion/start-after-paint.ts';
 import { useMotion } from '../motion/use-motion.ts';
 import { Drawer } from '../overlays/drawer.tsx';
-import { ShellDockHost } from './shell-dock.tsx';
+import { ShellDockHost, ShellTopbarHost } from './shell-dock.tsx';
 
 export const APP_SHELL_VARIANTS = [
     'public',
@@ -202,16 +202,21 @@ export function AppShell(props: AppShellProps) {
      * while the page element it was handed as `children` stays the same one.
      */
     const [dock, setDock] = useState<ReactNode>(null);
+    // A page that draws its own top asks for the bar to go (`HideShellTopbar`). The shop only.
+    const [topbarHidden, setTopbarHidden] = useState(false);
 
     return (
         <ShellDockHost value={setDock}>
-            <AppShellLayout {...props} dock={dock} />
+            <ShellTopbarHost value={setTopbarHidden}>
+                <AppShellLayout {...props} dock={dock} topbarHidden={topbarHidden} />
+            </ShellTopbarHost>
         </ShellDockHost>
     );
 }
 
 function AppShellLayout({
     dock,
+    topbarHidden,
     variant,
     children,
     title,
@@ -236,7 +241,7 @@ function AppShellLayout({
     onContentSizeChange,
     onContentLayout,
     testID,
-}: AppShellProps & { readonly dock: ReactNode }) {
+}: AppShellProps & { readonly dock: ReactNode; readonly topbarHidden: boolean }) {
     const { t } = useTranslation();
     const { atLeast, width: windowWidth } = useBreakpoint();
     const [drawerOpen, setDrawerOpen] = useState(false);
@@ -917,99 +922,101 @@ function AppShellLayout({
             <View testID={testID} className="flex-1 bg-surface-base">
                 {banner}
 
-                <View
-                    testID={testID === undefined ? undefined : `${testID}-topbar`}
-                    role="banner"
-                    /*
-                     * The accepted shop design floats the bar: a raised card with a gap from the
-                     * window's edges and fully rounded ends, rather than a hairline across the top
-                     * of the document. This outer box is only the gap; the card is the row inside.
-                     */
-                    className="z-raised bg-surface-base px-3 pb-2 pt-2.5 md:px-6 md:pt-4 lg:px-8"
-                >
-                    <MarketplaceBarEntrance>
-                        {/*
-                         * The card: exactly 68px tall from `md` (at least 56px on a phone), 1312px at most, its contents
-                         * inset 12px at the start and 10px at the end. `rounded-3xl` below `lg`, where a
-                         * long Arabic row may still wrap onto a second line and a pill would pinch it;
-                         * fully round from `lg`, where it fits.
-                         *
-                         * The gap is 16px from `md` to `lg`: at 768px the destinations and the
-                         * signed-in controls fit on one line only without the wider gap.
-                         */}
-                        {/*
-                         * A phone's bar is the accepted phone boards': a 56px pill, the page's
-                         * own start (the brand, or where it delivers), the switches and the
-                         * basket, and the menu button last.
-                         */}
-                        <View className="mx-auto h-14 w-full max-w-[1312px] flex-row items-center gap-1 rounded-full border border-stroke-subtle bg-surface-raised pe-1.5 ps-2 shadow-elevation-3 md:h-[68px] md:gap-4 md:rounded-3xl md:pe-2.5 md:ps-3 lg:gap-[18px] lg:rounded-full">
-                            {topbarStart}
-
+                {topbarHidden ? null : (
+                    <View
+                        testID={testID === undefined ? undefined : `${testID}-topbar`}
+                        role="banner"
+                        /*
+                         * The accepted shop design floats the bar: a raised card with a gap from the
+                         * window's edges and fully rounded ends, rather than a hairline across the top
+                         * of the document. This outer box is only the gap; the card is the row inside.
+                         */
+                        className="z-raised bg-surface-base px-3 pb-2 pt-2.5 md:px-6 md:pt-4 lg:px-8"
+                    >
+                        <MarketplaceBarEntrance>
                             {/*
-                             * No title in this bar, unlike every other variant.
+                             * The card: exactly 68px tall from `md` (at least 56px on a phone), 1312px at most, its contents
+                             * inset 12px at the start and 10px at the end. `rounded-3xl` below `lg`, where a
+                             * long Arabic row may still wrap onto a second line and a pill would pinch it;
+                             * fully round from `lg`, where it fits.
                              *
-                             * It was rendering a tagline as `aria-level={1}` beside the wordmark — but
-                             * every screen under this shell opens with a `PageHero` that renders its own
-                             * level-1 heading, so each marketplace page shipped *two* h1s, and the first
-                             * one named the product rather than the page. A screen-reader user landing on
-                             * the meals catalogue heard the tagline before the word "Meals".
-                             *
-                             * The brand mark in `topbarStart` is a link to home and carries its own
-                             * accessible name, so nothing is lost by dropping the text: the banner
-                             * landmark is still a banner, and the page's heading is now the page's own.
+                             * The gap is 16px from `md` to `lg`: at 768px the destinations and the
+                             * signed-in controls fit on one line only without the wider gap.
                              */}
-
                             {/*
-                             * The destinations take the middle of the bar, centred between the brand and
-                             * the trailing controls. `web:xl:min-w-max` keeps them on one line from `xl`;
-                             * below that there is not always room, and wrapping is what keeps the bar
-                             * inside the window.
+                             * A phone's bar is the accepted phone boards': a 56px pill, the page's
+                             * own start (the brand, or where it delivers), the switches and the
+                             * basket, and the menu button last.
                              */}
-                            <View className="flex-1 flex-row items-center justify-center web:xl:min-w-max">
-                                {showTopNav ? (
-                                    <View
-                                        testID={
-                                            testID === undefined
-                                                ? undefined
-                                                : `${testID}-navigation`
-                                        }
-                                        role="navigation"
-                                        aria-label={t('designSystem:shell.primaryNavigation')}
-                                        // `shrink` is load-bearing: react-native-web gives every View
-                                        // flex-shrink: 0, so without it the row renders at max-content
-                                        // width and overflows the document at 768-1023px instead of
-                                        // wrapping (flex-wrap only engages once the box can be narrowed).
-                                        //
-                                        // The destinations sit in a sunken track, and the active one is a
-                                        // filled pill inside it — the accepted design's segmented look.
-                                        className="shrink flex-row flex-wrap items-center gap-0.5 rounded-3xl bg-surface-base p-1 lg:rounded-full"
-                                    >
-                                        <MarketplaceNavItems
-                                            navigation={navigation}
-                                            pillTestID={
+                            <View className="mx-auto h-14 w-full max-w-[1312px] flex-row items-center gap-1 rounded-full border border-stroke-subtle bg-surface-raised pe-1.5 ps-2 shadow-elevation-3 md:h-[68px] md:gap-4 md:rounded-3xl md:pe-2.5 md:ps-3 lg:gap-[18px] lg:rounded-full">
+                                {topbarStart}
+
+                                {/*
+                                 * No title in this bar, unlike every other variant.
+                                 *
+                                 * It was rendering a tagline as `aria-level={1}` beside the wordmark — but
+                                 * every screen under this shell opens with a `PageHero` that renders its own
+                                 * level-1 heading, so each marketplace page shipped *two* h1s, and the first
+                                 * one named the product rather than the page. A screen-reader user landing on
+                                 * the meals catalogue heard the tagline before the word "Meals".
+                                 *
+                                 * The brand mark in `topbarStart` is a link to home and carries its own
+                                 * accessible name, so nothing is lost by dropping the text: the banner
+                                 * landmark is still a banner, and the page's heading is now the page's own.
+                                 */}
+
+                                {/*
+                                 * The destinations take the middle of the bar, centred between the brand and
+                                 * the trailing controls. `web:xl:min-w-max` keeps them on one line from `xl`;
+                                 * below that there is not always room, and wrapping is what keeps the bar
+                                 * inside the window.
+                                 */}
+                                <View className="flex-1 flex-row items-center justify-center web:xl:min-w-max">
+                                    {showTopNav ? (
+                                        <View
+                                            testID={
                                                 testID === undefined
                                                     ? undefined
-                                                    : `${testID}-nav-active-bar`
+                                                    : `${testID}-navigation`
                                             }
-                                        />
-                                    </View>
+                                            role="navigation"
+                                            aria-label={t('designSystem:shell.primaryNavigation')}
+                                            // `shrink` is load-bearing: react-native-web gives every View
+                                            // flex-shrink: 0, so without it the row renders at max-content
+                                            // width and overflows the document at 768-1023px instead of
+                                            // wrapping (flex-wrap only engages once the box can be narrowed).
+                                            //
+                                            // The destinations sit in a sunken track, and the active one is a
+                                            // filled pill inside it — the accepted design's segmented look.
+                                            className="shrink flex-row flex-wrap items-center gap-0.5 rounded-3xl bg-surface-base p-1 lg:rounded-full"
+                                        >
+                                            <MarketplaceNavItems
+                                                navigation={navigation}
+                                                pillTestID={
+                                                    testID === undefined
+                                                        ? undefined
+                                                        : `${testID}-nav-active-bar`
+                                                }
+                                            />
+                                        </View>
+                                    ) : null}
+                                </View>
+
+                                {topbarEnd}
+                                {!wideEnoughForTopNav && navigation.length > 0 ? (
+                                    <IconButton
+                                        testID={testID === undefined ? undefined : `${testID}-menu`}
+                                        label={t('designSystem:shell.openNavigation')}
+                                        icon={<Icon name="menu" />}
+                                        onPress={() => {
+                                            setDrawerOpen(true);
+                                        }}
+                                    />
                                 ) : null}
                             </View>
-
-                            {topbarEnd}
-                            {!wideEnoughForTopNav && navigation.length > 0 ? (
-                                <IconButton
-                                    testID={testID === undefined ? undefined : `${testID}-menu`}
-                                    label={t('designSystem:shell.openNavigation')}
-                                    icon={<Icon name="menu" />}
-                                    onPress={() => {
-                                        setDrawerOpen(true);
-                                    }}
-                                />
-                            ) : null}
-                        </View>
-                    </MarketplaceBarEntrance>
-                </View>
+                        </MarketplaceBarEntrance>
+                    </View>
+                )}
 
                 <ScrollView
                     {...contentPort}
@@ -1057,6 +1064,7 @@ function AppShellLayout({
                         </View>
                     )}
                 </ScrollView>
+                {dockBar}
 
                 {!wideEnoughForTopNav && navigation.length > 0 ? navigationDrawer : null}
             </View>

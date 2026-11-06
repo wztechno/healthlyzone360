@@ -55,6 +55,7 @@ export function DeliverToMenu({
     framed = false,
     bar = false,
     header = false,
+    row = false,
     kitchenId = null,
 }: {
     readonly testID: string;
@@ -65,6 +66,11 @@ export function DeliverToMenu({
      * pin in a soft tile, the address's name and area over the day and window, no chevron.
      */
     readonly header?: boolean | undefined;
+    /**
+     * The phone meal page's row (Shop · Meal page, phone board): full width, dashed, the place and
+     * the day on one line and "Change" at its end.
+     */
+    readonly row?: boolean | undefined;
     /** The kitchen of the food on screen, whose own delivery windows the When row offers. */
     readonly kitchenId?: KitchenId | null | undefined;
 }) {
@@ -214,7 +220,10 @@ export function DeliverToMenu({
     return (
         <View
             ref={root}
-            className={cx('relative z-raised', header ? 'min-w-0 shrink' : 'shrink-0')}
+            className={cx(
+                'relative z-raised',
+                header ? 'min-w-0 shrink' : row ? 'w-full' : 'shrink-0',
+            )}
         >
             <Pressable
                 testID={`${testID}-deliver-to`}
@@ -239,35 +248,60 @@ export function DeliverToMenu({
                     setOpen((current) => !current);
                 }}
                 className={
-                    header
+                    row
                         ? cx(
-                              'h-12 min-w-0 flex-row items-center gap-2.5 rounded-[14px] px-1.5 transition duration-normal ease-standard hover:bg-surface-base',
-                              open ? 'bg-surface-base' : null,
+                              'h-[52px] w-full flex-row items-center gap-2.5 rounded-2xl border border-dashed px-3.5',
+                              open ? 'border-surface-brand' : 'border-stroke-strong',
                           )
-                        : bar
-                        ? cx(
-                              'h-14 flex-row items-center gap-2.5 rounded-2xl px-3.5 transition duration-normal ease-standard hover:bg-surface-brand-subtle',
-                              open ? 'bg-surface-brand-subtle' : 'bg-surface-base',
-                          )
-                        : framed
-                          ? [
-                                'h-[52px] flex-row items-center gap-2.5 rounded-2xl border bg-surface-raised pe-3.5 ps-3 transition duration-normal ease-standard hover:border-surface-brand',
-                                open ? 'border-surface-brand' : 'border-stroke',
-                            ].join(' ')
-                          : [
-                                'h-12 flex-row items-center gap-2.5 rounded-full pe-4 ps-3 transition duration-normal ease-standard hover:bg-surface-brand-subtle',
-                                open ? 'bg-surface-brand-subtle' : '',
-                            ].join(' ')
+                        : header
+                          ? cx(
+                                'h-12 min-w-0 flex-row items-center gap-2.5 rounded-[14px] px-1.5 transition duration-normal ease-standard hover:bg-surface-base',
+                                open ? 'bg-surface-base' : null,
+                            )
+                          : bar
+                            ? cx(
+                                  'h-14 flex-row items-center gap-2.5 rounded-2xl px-3.5 transition duration-normal ease-standard hover:bg-surface-brand-subtle',
+                                  open ? 'bg-surface-brand-subtle' : 'bg-surface-base',
+                              )
+                            : framed
+                              ? [
+                                    'h-[52px] flex-row items-center gap-2.5 rounded-2xl border bg-surface-raised pe-3.5 ps-3 transition duration-normal ease-standard hover:border-surface-brand',
+                                    open ? 'border-surface-brand' : 'border-stroke',
+                                ].join(' ')
+                              : [
+                                    'h-12 flex-row items-center gap-2.5 rounded-full pe-4 ps-3 transition duration-normal ease-standard hover:bg-surface-brand-subtle',
+                                    open ? 'bg-surface-brand-subtle' : '',
+                                ].join(' ')
                 }
             >
-                {header ? (
+                {row ? (
+                    <>
+                        <Icon name="mapPin" size="sm" className="text-content-on-brand-subtle" />
+                        <RNText
+                            testID={`${testID}-area`}
+                            numberOfLines={1}
+                            className="min-w-0 shrink text-sm font-semibold text-content-primary text-start"
+                        >
+                            {home === undefined
+                                ? t('marketplace:discover.chooseArea')
+                                : t('marketplace:discover.headerPlace', {
+                                      label: home.label,
+                                      area: whenShort(when.date, when.slot),
+                                  })}
+                        </RNText>
+                        <RNText className="ms-auto text-xs font-medium text-content-secondary">
+                            {t('common:action.change')}
+                        </RNText>
+                    </>
+                ) : null}
+                {row ? null : header ? (
                     <View className="h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-brand-subtle">
                         <Icon name="mapPin" size="sm" className="text-content-on-brand-subtle" />
                     </View>
                 ) : (
                     <Icon name="mapPin" className="text-content-on-brand-subtle" />
                 )}
-                {header ? (
+                {row ? null : header ? (
                     <View className="min-w-0 shrink flex-col items-start">
                         <RNText
                             testID={`${testID}-area`}
@@ -334,7 +368,7 @@ export function DeliverToMenu({
                         </RNText>
                     </View>
                 )}
-                {bar || header ? null : (
+                {bar || header || row ? null : (
                     <View className={open ? 'hidden rotate-180 md:flex' : 'hidden md:flex'}>
                         <Icon name="chevronDown" size="sm" className="text-content-secondary" />
                     </View>

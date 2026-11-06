@@ -413,6 +413,7 @@ export type {
 } from './overlays/toast.tsx';
 
 export { APP_SHELL_VARIANTS, AppShell } from './shell/app-shell.tsx';
+export { HideShellTopbar, ShellDock } from './shell/shell-dock.tsx';
 export type { AppShellProps, AppShellVariant, NavigationItem } from './shell/app-shell.tsx';
 
 export { MAX_STAGGERED_ITEMS, STAGGER_STEP_MS, useMotion } from './motion/use-motion.ts';

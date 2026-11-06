@@ -11,11 +11,16 @@ export interface StageRingProps {
     readonly ink: StageInkName;
     /** What a screen reader hears for the whole cell. */
     readonly accessibilityLabel: string;
+    /** The phone stage's ring: 52px with a 6px band, four to a row. */
+    readonly small?: boolean | undefined;
 }
 
 /** The ring's outer size and stroke, the design's 64px with a 7px band. */
 export const RING_SIZE = 64;
 export const RING_BAND = 7;
+/** The phone stage's (Shop · Meal page, phone board): 52px with a 6px band. */
+export const SMALL_RING_SIZE = 52;
+export const SMALL_RING_BAND = 6;
 
 /** The CSS variable each stage ink lives in. */
 export const STAGE_INK_VAR: Readonly<Record<StageInkName, string>> = {

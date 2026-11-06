@@ -6,6 +6,27 @@ import { DensityProvider, useDensity } from '../hooks/use-density.tsx';
 type SetDock = (node: ReactNode) => void;
 
 const ShellDockContext = createContext<SetDock | null>(null);
+const ShellTopbarContext = createContext<((hidden: boolean) => void) | null>(null);
+
+/** Provided by `AppShell`: the setter that takes its top bar away while a page asks it to. */
+export const ShellTopbarHost = ShellTopbarContext.Provider;
+
+/**
+ * Takes the shell's top bar away while it is mounted — a page that draws its own top, as the shop's
+ * phone meal page does over its full-width stage. Unmounting puts the bar back. Nothing to do with
+ * no shell around.
+ */
+export function HideShellTopbar() {
+    const setHidden = useContext(ShellTopbarContext);
+    useEffect(() => {
+        if (setHidden === null) return undefined;
+        setHidden(true);
+        return () => {
+            setHidden(false);
+        };
+    }, [setHidden]);
+    return null;
+}
 
 /** Provided by `AppShell`: the setter for the bar it draws on its content column's bottom edge. */
 export const ShellDockHost = ShellDockContext.Provider;

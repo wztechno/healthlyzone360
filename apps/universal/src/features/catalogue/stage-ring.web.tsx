@@ -1,6 +1,13 @@
+import { cx } from '@healthy360/design-system';
 import { Text as RNText, View } from 'react-native';
 
-import { RING_BAND, RING_SIZE, STAGE_INK_VAR } from './stage-ring-shared.ts';
+import {
+    RING_BAND,
+    RING_SIZE,
+    SMALL_RING_BAND,
+    SMALL_RING_SIZE,
+    STAGE_INK_VAR,
+} from './stage-ring-shared.ts';
 import type { StageRingProps } from './stage-ring-shared.ts';
 
 /**
@@ -15,40 +22,55 @@ export function StageRing({
     share,
     ink,
     accessibilityLabel,
+    small = false,
 }: StageRingProps) {
+    const size = small ? SMALL_RING_SIZE : RING_SIZE;
+    const band = small ? SMALL_RING_BAND : RING_BAND;
     const degrees = Math.max(0, Math.min(1, share)) * 360;
     const colour = `rgb(var(${STAGE_INK_VAR[ink]}))`;
     const track = 'rgb(var(--h360-color-on-canopy) / 0.16)';
-    const mask = `radial-gradient(farthest-side, transparent calc(100% - ${String(RING_BAND)}px), black calc(100% - ${String(RING_BAND)}px))`;
+    const mask = `radial-gradient(farthest-side, transparent calc(100% - ${String(band)}px), black calc(100% - ${String(band)}px))`;
 
     return (
         <View
             testID={testID}
             role="img"
             aria-label={accessibilityLabel}
-            className="flex-col items-center gap-1 rounded-[18px] bg-content-on-canopy/10 px-1 pb-2 pt-2.5"
+            className={cx(
+                'flex-col items-center bg-content-on-canopy/10',
+                small
+                    ? 'gap-0.5 rounded-2xl px-0.5 pb-[7px] pt-2'
+                    : 'gap-1 rounded-[18px] px-1 pb-2 pt-2.5',
+            )}
         >
-            <View
-                className="items-center justify-center"
-                style={{ width: RING_SIZE, height: RING_SIZE }}
-            >
+            <View className="items-center justify-center" style={{ width: size, height: size }}>
                 <div
                     aria-hidden
                     style={{
                         position: 'absolute',
-                        width: RING_SIZE,
-                        height: RING_SIZE,
+                        width: size,
+                        height: size,
                         borderRadius: 999,
                         background: `conic-gradient(${colour} ${String(degrees)}deg, ${track} ${String(degrees)}deg)`,
                         WebkitMask: mask,
                         mask,
                     }}
                 />
-                <RNText className="font-display text-lg font-bold tabular-nums text-content-on-canopy">
+                <RNText
+                    className={cx(
+                        'font-display font-bold tabular-nums text-content-on-canopy',
+                        small ? 'text-base' : 'text-lg',
+                    )}
+                >
                     {value}
                 </RNText>
             </View>
-            <RNText className="text-xs font-semibold uppercase tracking-wider text-content-on-canopy-muted">
+            <RNText
+                className={cx(
+                    'text-xs font-semibold uppercase text-content-on-canopy-muted',
+                    small ? 'tracking-wide' : 'tracking-wider',
+                )}
+            >
                 {label}
             </RNText>
         </View>
