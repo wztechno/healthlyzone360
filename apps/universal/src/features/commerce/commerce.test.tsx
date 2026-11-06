@@ -60,6 +60,7 @@ import type {
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import { pathnameOf, queryOf, withReturnTo } from '../../navigation/return-to.ts';
 import { clearAllSessionDrafts } from '../../navigation/session-draft.ts';
 import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
@@ -4121,18 +4122,21 @@ describe('SubscriptionConfiguratorScreen — its place survives leaving it', () 
     });
 
     it('moves a review whose days have no meals yet back to the meals step', async () => {
-        // An address and a delivery step that is answered — and not one meal chosen.
-        await renderConfigurator(
-            { planId: PLAN_PARAM },
-            { addresses: [HOME_ADDRESS], params: { step: 'review' } },
-        );
+        // The desk stepper: a phone draws a progress line with no step buttons.
+        await withDeskWidth(async () => {
+            // An address and a delivery step that is answered — and not one meal chosen.
+            await renderConfigurator(
+                { planId: PLAN_PARAM },
+                { addresses: [HOME_ADDRESS], params: { step: 'review' } },
+            );
 
-        expect(await screen.findByTestId('configurator-step-meals')).toBeTruthy();
-        expect(routerMock.__router.setParams).toHaveBeenCalledWith({ step: 'meals' });
-        expect(screen.queryByTestId('configurator-step-review')).toBeNull();
-        expect(
-            screen.getByTestId('configurator-progress-review').props.accessibilityState,
-        ).toMatchObject({ disabled: true });
+            expect(await screen.findByTestId('configurator-step-meals')).toBeTruthy();
+            expect(routerMock.__router.setParams).toHaveBeenCalledWith({ step: 'meals' });
+            expect(screen.queryByTestId('configurator-step-review')).toBeNull();
+            expect(
+                screen.getByTestId('configurator-progress-review').props.accessibilityState,
+            ).toMatchObject({ disabled: true });
+        });
     });
 
     it.each([

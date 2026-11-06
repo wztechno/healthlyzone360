@@ -446,7 +446,8 @@
             "percent": "{{percent}}٪",
             "perDay": "لكل يوم توصيل",
             "perDayAfter": "لكل يوم توصيل، بعد الخصم"
-        }
+        },
+        "stepOf": "الخطوة {{step}} من {{total}}"
     },
     "subscriptions": {
         "title": "الاشتراكات",

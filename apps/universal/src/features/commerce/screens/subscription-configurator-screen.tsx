@@ -1,4 +1,4 @@
-import { Icon, Stack, cx, useBreakpoint } from '@healthy360/design-system';
+import { HideShellTopbar, Icon, Stack, cx, useBreakpoint } from '@healthy360/design-system';
 import type {
     CustomerAddress,
     MarketplaceMeal,
@@ -588,6 +588,7 @@ export function SubscriptionConfiguratorScreen({
 
     const current = stepPosition(step) - 1;
     const wide = atLeast('lg');
+    const phone = !atLeast('md');
     const dash = '—';
 
     // What the band, the stepper and the summary say about the set-up so far.
@@ -658,65 +659,155 @@ export function SubscriptionConfiguratorScreen({
             >
                 {item === undefined || state === null ? null : (
                     <View className="flex-col">
-                        <SetupBand
-                            testID="configurator-header"
-                            back={{
-                                label: t('marketplace:nav.weeklyPlans'),
-                                // Up to the listing as the person left it (browse-05). The draft
-                                // keeps the set-up.
-                                onPress: () => {
-                                    navigateUp('/plans');
-                                },
-                            }}
-                            title={t('commerce:configurator.titleFor', { plan: item.name })}
-                            chips={[
-                                ...(variant === null
-                                    ? []
-                                    : [
-                                          t('commerce:configurator.aDay', {
-                                              value: formatMoney(formatter, listDayPrice(variant)),
-                                          }),
-                                          t('commerce:configurator.aDay', {
-                                              value: bandLabel(variant, formatter.formatNumber, t),
-                                          }),
-                                          mealsLine(variant, formatter.formatNumber, t),
-                                      ]),
-                                ...(option === undefined
-                                    ? []
-                                    : [
-                                          t('catalogue:plans.finderDaysValue', {
-                                              count: option.days,
-                                          }),
-                                      ]),
-                            ]}
-                        />
+                        {phone ? (
+                            /*
+                             * Shop · Plan setup, phone board: the page's own bar — Back, "Step 1 of
+                             * 4" over the step's name, the plan as a chip — and a four-part progress
+                             * line under it, in place of the canopy band and the stepper card.
+                             */
+                            <>
+                                <HideShellTopbar />
+                                <View
+                                    testID="configurator-header"
+                                    className="h-14 flex-row items-center gap-2.5 rounded-full border border-stroke-subtle bg-surface-raised pe-2 ps-1.5 shadow-elevation-3"
+                                >
+                                    <Pressable
+                                        testID="configurator-header-back"
+                                        role="link"
+                                        accessibilityRole="link"
+                                        accessibilityLabel={t('marketplace:nav.weeklyPlans')}
+                                        onPress={() => {
+                                            navigateUp('/plans');
+                                        }}
+                                        className="h-11 w-11 items-center justify-center rounded-full bg-surface-base"
+                                    >
+                                        <Icon
+                                            name="chevronBackward"
+                                            className="text-content-primary"
+                                        />
+                                    </Pressable>
+                                    <View className="min-w-0 flex-1 flex-col">
+                                        <RNText className="text-xs font-semibold uppercase tracking-wide text-content-secondary">
+                                            {t('commerce:configurator.stepOf', {
+                                                step: current + 1,
+                                                total: CONFIGURATOR_STEPS.length,
+                                            })}
+                                        </RNText>
+                                        <RNText
+                                            role="heading"
+                                            aria-level={1}
+                                            numberOfLines={1}
+                                            className="font-display text-base font-bold text-content-primary text-start"
+                                        >
+                                            {t(`commerce:configurator.steps.${step}`)}
+                                        </RNText>
+                                    </View>
+                                    <View className="h-7 max-w-[140px] justify-center rounded-full bg-surface-brand-subtle px-2.5">
+                                        <RNText
+                                            numberOfLines={1}
+                                            className="text-xs font-semibold text-content-on-brand-subtle"
+                                        >
+                                            {item.name}
+                                        </RNText>
+                                    </View>
+                                </View>
+                                <View
+                                    testID="configurator-stepper"
+                                    role="progressbar"
+                                    aria-label={t('commerce:configurator.progressLabel')}
+                                    className="mt-3 flex-row gap-1"
+                                >
+                                    {CONFIGURATOR_STEPS.map((key, index) => (
+                                        <View
+                                            key={key}
+                                            testID={`configurator-progress-${key}`}
+                                            className={cx(
+                                                'h-1 flex-1 rounded-full',
+                                                booked !== null || index <= current
+                                                    ? 'bg-surface-brand'
+                                                    : 'bg-surface-brand-subtle',
+                                            )}
+                                        />
+                                    ))}
+                                </View>
+                            </>
+                        ) : (
+                            <>
+                                <SetupBand
+                                    testID="configurator-header"
+                                    back={{
+                                        label: t('marketplace:nav.weeklyPlans'),
+                                        // Up to the listing as the person left it (browse-05). The draft
+                                        // keeps the set-up.
+                                        onPress: () => {
+                                            navigateUp('/plans');
+                                        },
+                                    }}
+                                    title={t('commerce:configurator.titleFor', { plan: item.name })}
+                                    chips={[
+                                        ...(variant === null
+                                            ? []
+                                            : [
+                                                  t('commerce:configurator.aDay', {
+                                                      value: formatMoney(
+                                                          formatter,
+                                                          listDayPrice(variant),
+                                                      ),
+                                                  }),
+                                                  t('commerce:configurator.aDay', {
+                                                      value: bandLabel(
+                                                          variant,
+                                                          formatter.formatNumber,
+                                                          t,
+                                                      ),
+                                                  }),
+                                                  mealsLine(variant, formatter.formatNumber, t),
+                                              ]),
+                                        ...(option === undefined
+                                            ? []
+                                            : [
+                                                  t('catalogue:plans.finderDaysValue', {
+                                                      count: option.days,
+                                                  }),
+                                              ]),
+                                    ]}
+                                />
 
-                        <SetupStepper
-                            testID="configurator-stepper"
-                            label={t('commerce:configurator.progressLabel')}
-                            steps={CONFIGURATOR_STEPS.map((key, index) => ({
-                                key,
-                                label: t(`commerce:configurator.steps.${key}`),
-                                sub: stepSub[key],
-                                state:
-                                    booked !== null || index < current
-                                        ? 'done'
-                                        : index === current
-                                          ? 'current'
-                                          : 'todo',
-                                locked:
-                                    booked !== null ||
-                                    context === null ||
-                                    !isStepReachable(key, state, context),
-                                testID: `configurator-progress-${key}`,
-                            }))}
-                            onSelect={(key) => {
-                                const target = CONFIGURATOR_STEPS.find((each) => each === key);
-                                if (target !== undefined && target !== step) goTo(target);
-                            }}
-                        />
+                                <SetupStepper
+                                    testID="configurator-stepper"
+                                    label={t('commerce:configurator.progressLabel')}
+                                    steps={CONFIGURATOR_STEPS.map((key, index) => ({
+                                        key,
+                                        label: t(`commerce:configurator.steps.${key}`),
+                                        sub: stepSub[key],
+                                        state:
+                                            booked !== null || index < current
+                                                ? 'done'
+                                                : index === current
+                                                  ? 'current'
+                                                  : 'todo',
+                                        locked:
+                                            booked !== null ||
+                                            context === null ||
+                                            !isStepReachable(key, state, context),
+                                        testID: `configurator-progress-${key}`,
+                                    }))}
+                                    onSelect={(key) => {
+                                        const target = CONFIGURATOR_STEPS.find(
+                                            (each) => each === key,
+                                        );
+                                        if (target !== undefined && target !== step) goTo(target);
+                                    }}
+                                />
+                            </>
+                        )}
 
-                        <View className="mt-[22px] flex-col gap-6 lg:flex-row lg:items-start">
+                        <View
+                            className={cx(
+                                'flex-col gap-6 lg:flex-row lg:items-start',
+                                phone ? 'mt-4' : 'mt-[22px]',
+                            )}
+                        >
                             <View className="min-w-0 flex-col lg:flex-1">
                                 {setupSteps.length === 0 || booked !== null ? null : (
                                     <View className="mb-6">

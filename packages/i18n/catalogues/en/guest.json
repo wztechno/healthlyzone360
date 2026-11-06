@@ -156,7 +156,8 @@
         "cancelledStep": "Cancelled",
         "cancelledStepDetail": "Nothing will be cooked or delivered.",
         "copy": "Copy",
-        "copied": "Reference copied."
+        "copied": "Reference copied.",
+        "yourOrder": "Your order"
     },
     "convert": {
         "title": "Keep this order in an account?",

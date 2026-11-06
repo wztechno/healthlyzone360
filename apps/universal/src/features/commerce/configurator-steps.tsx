@@ -92,7 +92,8 @@ export function PlanStep({
                 <View className="h-12 w-12 items-center justify-center rounded-[14px] bg-surface-raised">
                     <Icon name="calendar" size="lg" className={TINT_INK.green} />
                 </View>
-                <View className="min-w-0 flex-1 flex-col gap-1.5">
+                {/* Wide enough for the name: the price wraps under it on a phone, not the name. */}
+                <View className="min-w-[150px] flex-1 flex-col gap-1.5">
                     <RNText
                         className={cx(
                             'font-display text-2xl font-bold tracking-display text-start',

@@ -1,4 +1,4 @@
-import { Icon, Stack, cx } from '@healthy360/design-system';
+import { Icon, Stack, cx, useBreakpoint } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import type {
     CustomerAddress,
@@ -36,6 +36,7 @@ import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
+import { ShopPhoneTopBar } from '../../../ui/shop-phone-bar.tsx';
 import { ShopStateButton, ShopStateCard } from '../../../ui/shop-state.tsx';
 import {
     ShopDialog,
@@ -151,6 +152,7 @@ function stateDot(state: SubscriptionState): string {
 
 export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailScreenProps) {
     const { t } = useTranslation();
+    const phone = !useBreakpoint().atLeast('md');
     const router = useRouter();
     const here = useCurrentHref();
     const formatter = useFormatter();
@@ -371,17 +373,30 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
 
     return (
         <View testID="subscription-detail-screen" className="flex-col pb-10">
-            <View className="items-start pt-1">
-                {/* Up to the account's Subscriptions by name — popping to it when it is
-                    underneath, never stacking a copy. */}
-                <BackPill
-                    testID="subscription-detail-crumb-subscriptions"
-                    label={t('commerce:subscription.board.back')}
-                    onPress={() => {
+            {phone ? (
+                // Shop · Subscription, phone board: "‹ Weekday Lean" as the page's own bar.
+                <ShopPhoneTopBar
+                    backTestID="subscription-detail-crumb-subscriptions"
+                    backLabel={t('commerce:subscription.board.back')}
+                    onBack={() => {
                         router.dismissTo(SUBSCRIPTIONS_HREF as never);
                     }}
+                    titleTestID="subscription-detail-bar-title"
+                    title={subscription?.planName ?? t('commerce:subscription.board.back')}
                 />
-            </View>
+            ) : (
+                <View className="items-start pt-1">
+                    {/* Up to the account's Subscriptions by name — popping to it when it is
+                    underneath, never stacking a copy. */}
+                    <BackPill
+                        testID="subscription-detail-crumb-subscriptions"
+                        label={t('commerce:subscription.board.back')}
+                        onPress={() => {
+                            router.dismissTo(SUBSCRIPTIONS_HREF as never);
+                        }}
+                    />
+                </View>
+            )}
             <QueryStates
                 query={query}
                 isEmpty={subscription === undefined}

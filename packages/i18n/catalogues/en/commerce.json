@@ -394,7 +394,8 @@
             "percent": "{{percent}} %",
             "perDay": "per delivery day",
             "perDayAfter": "per delivery day, after the discount"
-        }
+        },
+        "stepOf": "Step {{step}} of {{total}}"
     },
     "subscriptions": {
         "title": "Subscriptions",

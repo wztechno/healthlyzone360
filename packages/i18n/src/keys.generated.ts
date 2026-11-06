@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10330 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10332 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2425,6 +2425,7 @@ export interface NamespaceKeys {
     | 'configurator.setupBody'
     | 'configurator.setupTitle'
     | 'configurator.startOver'
+    | 'configurator.stepOf'
     | 'configurator.steps.delivery'
     | 'configurator.steps.meals'
     | 'configurator.steps.plan'
@@ -3264,6 +3265,7 @@ export interface NamespaceKeys {
     | 'order.total'
     | 'order.totalToPay'
     | 'order.windowPending'
+    | 'order.yourOrder'
     | 'pay.title'
     | 'review.cashOnDelivery'
     | 'review.finePrint'
@@ -12779,6 +12781,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.setupBody',
   'commerce:configurator.setupTitle',
   'commerce:configurator.startOver',
+  'commerce:configurator.stepOf',
   'commerce:configurator.steps.delivery',
   'commerce:configurator.steps.meals',
   'commerce:configurator.steps.plan',
@@ -13614,6 +13617,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:order.total',
   'guest:order.totalToPay',
   'guest:order.windowPending',
+  'guest:order.yourOrder',
   'guest:pay.title',
   'guest:review.cashOnDelivery',
   'guest:review.finePrint',

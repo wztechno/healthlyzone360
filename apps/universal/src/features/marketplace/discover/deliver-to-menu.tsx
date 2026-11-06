@@ -255,7 +255,7 @@ export function DeliverToMenu({
                           )
                         : header
                           ? cx(
-                                'h-12 min-w-0 flex-row items-center gap-2.5 rounded-[14px] px-1.5 transition duration-normal ease-standard hover:bg-surface-base',
+                                'h-12 min-w-0 flex-row items-center gap-2.5 rounded-[14px] pe-2.5 ps-1.5 transition duration-normal ease-standard hover:bg-surface-base',
                                 open ? 'bg-surface-base' : null,
                             )
                           : bar

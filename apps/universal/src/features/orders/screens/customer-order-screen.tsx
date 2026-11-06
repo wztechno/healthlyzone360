@@ -1,3 +1,4 @@
+import { useBreakpoint } from '@healthy360/design-system';
 import { OrderId } from '@healthy360/domain-types';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -6,6 +7,7 @@ import { useMyOrderQuery } from '../../../data/commerce-hooks.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useOnlineStatus } from '../../../online/online-status.tsx';
 import { BackPill } from '../../../ui/back-pill.tsx';
+import { ShopPhoneTopBar } from '../../../ui/shop-phone-bar.tsx';
 import { ShopStateCard } from '../../../ui/shop-state.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { OrderTracking } from '../order-tracking.tsx';
@@ -63,7 +65,19 @@ export function CustomerOrderScreen({ orderId }: CustomerOrderScreenProps) {
 
     // Shop · Orders, pin 6: the way back to the history is the page's Back pill, kept above the
     // card whether or not there is an order to show.
-    const trail = (
+    // Shop · Orders, phone board: "‹ Your order" as the page's own bar.
+    const phone = !useBreakpoint().atLeast('md');
+    const trail = phone ? (
+        <View testID={`${TEST_ID}-trail`}>
+            <ShopPhoneTopBar
+                backTestID={`${TEST_ID}-trail-up`}
+                backLabel={t('account:orders.title')}
+                onBack={history.up}
+                titleTestID={`${TEST_ID}-bar-title`}
+                title={t('guest:order.yourOrder')}
+            />
+        </View>
+    ) : (
         <View testID={`${TEST_ID}-trail`} className="items-start pt-1">
             <BackPill
                 testID={`${TEST_ID}-trail-up`}
