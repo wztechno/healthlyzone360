@@ -132,7 +132,8 @@
         "window": "Delivery window",
         "slotTime": "{{start}} – {{end}}",
         "slotSummary": "{{day}}, {{slot}} {{time}}",
-        "slotShort": "{{day}}, {{slot}}"
+        "slotShort": "{{day}}, {{slot}}",
+        "seeAll": "See all"
     },
     "kitchens": {
         "title": "Kitchens",

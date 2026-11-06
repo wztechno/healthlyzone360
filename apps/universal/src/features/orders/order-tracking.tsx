@@ -664,7 +664,7 @@ function Road({ progress, moving }: { readonly progress: number; readonly moving
                 <Icon name="store" size="md" className="text-content-on-canopy" />
             </View>
             <View className="absolute end-0 top-1.5 h-11 w-11 items-center justify-center rounded-full bg-content-on-canopy/15">
-                <Icon name="home" size="md" className="text-content-on-canopy" />
+                <Icon name="house" size="md" className="text-content-on-canopy" />
             </View>
             {/* The rider, where the fill ends. */}
             <View className="absolute end-[22px] start-[22px] top-0.5 h-[52px] flex-row">

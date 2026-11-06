@@ -57,10 +57,10 @@ const SCALE_HIGH = 2200;
 const HEAD_TINTS: readonly ShelfTint[] = ['orange', 'green', 'blue'];
 const MAX_COMPARED = 3;
 const SLOT_LOOK: Readonly<
-    Record<MealSlot, { tint: ShelfTint; icon: 'sun' | 'plate' | 'moon' | 'leaf' }>
+    Record<MealSlot, { tint: ShelfTint; icon: 'sun' | 'utensils' | 'moon' | 'leaf' }>
 > = {
     breakfast: { tint: 'yellow', icon: 'sun' },
-    lunch: { tint: 'green', icon: 'plate' },
+    lunch: { tint: 'green', icon: 'utensils' },
     dinner: { tint: 'blue', icon: 'moon' },
     snack: { tint: 'orange', icon: 'leaf' },
 };
@@ -87,7 +87,7 @@ interface ComparisonRow {
 interface ComparisonGroup {
     readonly key: string;
     readonly label: string;
-    readonly icon: 'plate' | 'basket' | 'refresh';
+    readonly icon: 'utensils' | 'shoppingBasket' | 'refresh';
     readonly rows: readonly ComparisonRow[];
 }
 
@@ -165,7 +165,7 @@ export function PlanComparisonScreen() {
         {
             key: 'food',
             label: t('catalogue:compare.group.food'),
-            icon: 'plate',
+            icon: 'utensils',
             rows: [
                 {
                     key: 'energy',
@@ -236,7 +236,7 @@ export function PlanComparisonScreen() {
         {
             key: 'price',
             label: t('catalogue:compare.group.price'),
-            icon: 'basket',
+            icon: 'shoppingBasket',
             rows: [
                 {
                     key: 'day',

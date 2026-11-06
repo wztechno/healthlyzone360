@@ -503,7 +503,7 @@ export function CheckoutScreen() {
             >
                 <ChoiceTile
                     testID="checkout-mode-delivery"
-                    icon="home"
+                    icon="truck"
                     title={t('commerce:checkout.modeDelivery')}
                     sub={
                         quotation?.deliveryFee === null || quotation === undefined
@@ -516,7 +516,7 @@ export function CheckoutScreen() {
                 />
                 <ChoiceTile
                     testID="checkout-mode-pickup"
-                    icon="basket"
+                    icon="store"
                     title={t('commerce:checkout.modePickup')}
                     sub={
                         kitchenOffersPickup
@@ -577,7 +577,7 @@ export function CheckoutScreen() {
                                 <ChoiceTile
                                     key={entry.id}
                                     testID={`checkout-address-${entry.id}`}
-                                    icon="home"
+                                    icon="mapPin"
                                     title={entry.label.trim() === '' ? entry.areaName : entry.label}
                                     badge={
                                         entry.isDefault
@@ -799,7 +799,7 @@ export function CheckoutScreen() {
                     >
                         <View className="h-11 w-11 items-center justify-center rounded-[14px] bg-surface-raised">
                             <Icon
-                                name="basket"
+                                name="store"
                                 size="md"
                                 className="text-content-on-brand-subtle"
                             />
@@ -1453,7 +1453,7 @@ function ChoiceTile({
     onPress,
 }: {
     readonly testID: string;
-    readonly icon: 'home' | 'basket';
+    readonly icon: 'truck' | 'store' | 'mapPin';
     readonly title: string;
     readonly sub: string;
     readonly badge?: string | undefined;
@@ -1739,11 +1739,11 @@ function DeliveryFacts({
 }) {
     const { t } = useTranslation();
     const facts = [
-        { key: 'address', icon: 'home' as const, text: address },
+        { key: 'address', icon: 'mapPin' as const, text: address },
         { key: 'when', icon: 'calendar' as const, text: when },
-        { key: 'pay', icon: 'basket' as const, text: t('commerce:checkout.paymentCod') },
+        { key: 'pay', icon: 'banknote' as const, text: t('commerce:checkout.paymentCod') },
     ].filter(
-        (fact): fact is { key: string; icon: 'home' | 'calendar' | 'basket'; text: string } =>
+        (fact): fact is { key: string; icon: 'mapPin' | 'calendar' | 'banknote'; text: string } =>
             fact.text !== null,
     );
     return (

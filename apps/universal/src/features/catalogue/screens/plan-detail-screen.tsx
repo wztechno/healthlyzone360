@@ -353,10 +353,10 @@ const SCALE_HIGH = 2200;
 
 /** A sitting's colour and glyph, as the board's "Each day" tiles wear them. */
 const SITTING_LOOK: Readonly<
-    Record<MealSlot, { tint: ShelfTint; icon: 'sun' | 'plate' | 'moon' | 'leaf' }>
+    Record<MealSlot, { tint: ShelfTint; icon: 'sun' | 'utensils' | 'moon' | 'leaf' }>
 > = {
     breakfast: { tint: 'yellow', icon: 'sun' },
-    lunch: { tint: 'green', icon: 'plate' },
+    lunch: { tint: 'green', icon: 'utensils' },
     dinner: { tint: 'blue', icon: 'moon' },
     snack: { tint: 'orange', icon: 'leaf' },
 };
@@ -469,7 +469,7 @@ function PlanOverview({
                     </Pressable>
                 )}
                 <View testID="plan-detail-combination" className="mt-4 flex-row flex-wrap gap-2">
-                    <Fact icon="plate" label={mealsFact(variant, t)} />
+                    <Fact icon="utensils" label={mealsFact(variant, t)} />
                     <Fact
                         icon="leaf"
                         label={t('catalogue:plan.kcalBand', {
@@ -510,7 +510,7 @@ function Fact({
     icon,
     label,
 }: {
-    readonly icon: 'plate' | 'leaf' | 'star' | 'check' | 'calendar';
+    readonly icon: 'utensils' | 'leaf' | 'star' | 'check' | 'calendar';
     readonly label: string;
 }) {
     return (

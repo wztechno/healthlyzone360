@@ -811,7 +811,7 @@ export function ReviewStep({
             />
             <ReviewRow
                 testID="configurator-review-delivery"
-                icon="home"
+                icon="mapPin"
                 title={t('commerce:configurator.review.deliveryLine', { address, date: start })}
                 sub={t('commerce:configurator.review.deliverySub', {
                     window:
@@ -826,7 +826,7 @@ export function ReviewStep({
             />
             <ReviewRow
                 testID="configurator-review-meals"
-                icon="plate"
+                icon="utensils"
                 title={t('commerce:configurator.review.mealsLine', {
                     done: formatter.formatNumber(picked),
                     total: formatter.formatNumber(total),
@@ -936,7 +936,7 @@ function ReviewRow({
     onEdit,
 }: {
     readonly testID: string;
-    readonly icon: 'calendar' | 'home' | 'plate';
+    readonly icon: 'calendar' | 'mapPin' | 'utensils';
     readonly title: string;
     readonly sub: string;
     readonly onEdit: () => void;

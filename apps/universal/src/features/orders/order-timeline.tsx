@@ -40,7 +40,7 @@ const STEP_ICON: Readonly<Record<OrderProgressStep, IconName>> = {
     preparing: 'chefHat',
     ready_for_pickup: 'package',
     out_for_delivery: 'bike',
-    delivered: 'home',
+    delivered: 'house',
 };
 
 const DOT: Readonly<Record<OrderStepPosition, string>> = {

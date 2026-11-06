@@ -403,7 +403,7 @@ function SubscriptionCard({
                         <CardAction
                             testID={`${id}-meals`}
                             label={t('commerce:subscriptions.changeMeals')}
-                            icon="plate"
+                            icon="utensils"
                             tone="primary"
                             onPress={() => {
                                 router.push(withQuery(href, { meals: '1' }) as never);
@@ -597,7 +597,7 @@ function CardAction({
 }: {
     readonly testID: string;
     readonly label: string;
-    readonly icon?: 'plate' | undefined;
+    readonly icon?: 'utensils' | undefined;
     readonly tone?: 'primary' | 'neutral';
     readonly disabled?: boolean;
     readonly onPress: () => void;

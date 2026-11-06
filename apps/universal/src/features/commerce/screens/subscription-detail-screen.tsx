@@ -671,7 +671,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                     <View className="flex-col gap-2.5 sm:flex-row">
                                         <PlanTile
                                             testID="subscription-detail-row-address"
-                                            icon="home"
+                                            icon="mapPin"
                                             label={t('commerce:subscription.board.address')}
                                             change={
                                                 canChange
@@ -946,7 +946,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
 
                                         <PlanTile
                                             testID="subscription-detail-row-meals"
-                                            icon="plate"
+                                            icon="utensils"
                                             label={t('commerce:subscription.board.meals')}
                                             change={{
                                                 testID: 'subscription-pick-meals',

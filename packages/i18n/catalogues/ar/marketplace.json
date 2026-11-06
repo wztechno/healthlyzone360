@@ -148,7 +148,8 @@
         "window": "موعد التوصيل",
         "slotTime": "{{start}} – {{end}}",
         "slotSummary": "{{day}}، {{slot}} {{time}}",
-        "slotShort": "{{day}}، {{slot}}"
+        "slotShort": "{{day}}، {{slot}}",
+        "seeAll": "عرض الكل"
     },
     "kitchens": {
         "title": "المطابخ",

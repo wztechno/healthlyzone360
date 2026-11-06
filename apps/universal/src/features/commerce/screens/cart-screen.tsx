@@ -592,7 +592,7 @@ export function CartScreen() {
                         >
                             <View className="h-[104px] w-[104px] items-center justify-center rounded-full bg-surface-brand-subtle">
                                 <Icon
-                                    name="basket"
+                                    name="shoppingBasket"
                                     size="lg"
                                     className="text-content-on-brand-subtle"
                                 />

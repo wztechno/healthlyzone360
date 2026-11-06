@@ -283,7 +283,7 @@ function ArrowButton({
     );
 }
 
-const CUTOFF_ICONS = { lock: 'lock', order: 'basket', delivered: 'check' } as const;
+const CUTOFF_ICONS = { lock: 'lock', order: 'shoppingBasket', delivered: 'check' } as const;
 const STATE_DOTS: Readonly<Record<string, string>> = {
     active: 'bg-success-on-subtle',
     paused: 'bg-warning-on-subtle',
