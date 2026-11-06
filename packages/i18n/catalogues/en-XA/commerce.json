@@ -656,7 +656,8 @@
     "onMenu": "[[Óñ ţĥíš þłáñ’š ɱéñú āēīōūāēī]]",
     "changeMeal": "[[Çĥáñĝé ɱéáł āēīōū]]",
     "pickedOnMore_one": "[[{{date}} áñð {{count}} ɱóŕé ðáý āēīōūāēīōūāēī]]",
-    "pickedOnMore_other": "[[{{date}} áñð {{count}} ɱóŕé ðáýš āēīōūāēīōūāēī]]"
+    "pickedOnMore_other": "[[{{date}} áñð {{count}} ɱóŕé ðáýš āēīōūāēīōūāēī]]",
+    "savedNote": "[[Šáṽéð óñ ýóúŕ áççóúñţ āēīōūāēīō]]"
   },
   "receipt": {
     "printerLabel": "[[Ŕéçéíþţ þŕíñţéŕ āēīōūā]]",

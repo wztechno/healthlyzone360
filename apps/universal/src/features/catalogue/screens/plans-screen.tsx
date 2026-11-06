@@ -1,4 +1,3 @@
-import { Button } from '@healthy360/design-system';
 import type { Subscription, SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -14,6 +13,7 @@ import { PillChip } from '../../../ui/pill-chip.tsx';
 import { useMarketplaceFilters } from '../../marketplace/filter-bar.tsx';
 import { configuratorHref } from '../../commerce/configurator-draft.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
+import { ShopStateButton } from '../../../ui/shop-state.tsx';
 import { distinctKitchenIds, toPlanFilter } from '../plan-catalogue.ts';
 import { PlanCard } from '../plan-card.tsx';
 import { PlanComparisonTray } from '../plan-comparison-tray.tsx';
@@ -266,14 +266,16 @@ export function PlansScreen() {
                     emptyBody={t('catalogue:plans.emptyBody')}
                     emptyActions={
                         filters.isFiltered ? (
-                            <Button
+                            <ShopStateButton
                                 testID="plans-empty-clear"
-                                variant="secondary"
+                                kind="secondary"
                                 label={t('catalogue:plans.allKitchens')}
                                 onPress={filters.clear}
                             />
                         ) : undefined
                     }
+                    // Weekly plans, pin 2.
+                    emptyIcon="calendarDays"
                     testID="plans"
                 >
                     <PlanGrid testID="plans-grid">

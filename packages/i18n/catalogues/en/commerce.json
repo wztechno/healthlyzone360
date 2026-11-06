@@ -656,7 +656,8 @@
         "onMenu": "On this plan’s menu",
         "changeMeal": "Change meal",
         "pickedOnMore_one": "{{date}} and {{count}} more day",
-        "pickedOnMore_other": "{{date}} and {{count}} more days"
+        "pickedOnMore_other": "{{date}} and {{count}} more days",
+        "savedNote": "Saved on your account"
     },
     "receipt": {
         "printerLabel": "Receipt printer",

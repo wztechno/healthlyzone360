@@ -772,7 +772,8 @@
         "pickedOnMore_two": "{{date}} ويومان آخران",
         "pickedOnMore_few": "{{date}} و{{count}} أيام أخرى",
         "pickedOnMore_many": "{{date}} و{{count}} يومًا آخر",
-        "pickedOnMore_other": "{{date}} و{{count}} يوم آخر"
+        "pickedOnMore_other": "{{date}} و{{count}} يوم آخر",
+        "savedNote": "محفوظة في حسابك"
     },
     "receipt": {
         "printerLabel": "طابعة الإيصالات",

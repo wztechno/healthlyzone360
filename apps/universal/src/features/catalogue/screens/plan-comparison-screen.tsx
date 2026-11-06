@@ -1,4 +1,4 @@
-import { Button, EmptyState, Icon, cx, useBreakpoint } from '@healthy360/design-system';
+import { Button, Icon, cx, useBreakpoint } from '@healthy360/design-system';
 import type { MealSlot, SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { SubscriptionPlanId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -21,6 +21,7 @@ import { estimatedTotal } from '../../commerce/configurator.ts';
 import { configuratorHref } from '../../commerce/configurator-draft.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
+import { ShopStateButton, ShopStateCard } from '../../../ui/shop-state.tsx';
 import { listDayPrice } from '../plan-balance.ts';
 import { cheapestVariant } from '../plan-catalogue.ts';
 import { TINT_FILL, TINT_INK } from '../shelf-tints.ts';
@@ -412,11 +413,21 @@ export function PlanComparisonScreen() {
                     `QueryStates` would show a skeleton for ever. "Nothing was selected" is not a
                     pending request — it is the answer, and it is rendered as one. */}
                 {planIds.length === 0 ? (
-                    <EmptyState
+                    // Weekly plans, pin 4: and the way to the plans.
+                    <ShopStateCard
                         testID="plan-comparison-empty"
+                        icon="layoutGrid"
                         title={t('catalogue:compare.emptyTitle')}
                         body={t('catalogue:compare.emptyBody')}
-                        actions={back}
+                        actions={
+                            <ShopStateButton
+                                testID="plan-comparison-back"
+                                icon="arrowForward"
+                                iconAfter
+                                label={t('catalogue:compare.backToPlans')}
+                                onPress={backToPlans}
+                            />
+                        }
                     />
                 ) : (
                     <QueryStates

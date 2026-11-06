@@ -97,6 +97,8 @@ export interface PlanAllergyNoticeProps {
     readonly whenOf?: ((meal: MarketplaceMeal) => string | undefined) | undefined;
     /** "Change meal" on each clashing dish: back to the step where it was picked. */
     readonly onChangeMeal?: ((meal: MarketplaceMeal) => void) | undefined;
+    /** The line under the title. "We check every dish against it" unless the page says otherwise. */
+    readonly note?: string | undefined;
     readonly testID: string;
 }
 
@@ -122,6 +124,7 @@ export function PlanAllergyNotice({
     returnTo,
     whenOf,
     onChangeMeal,
+    note,
     testID,
 }: PlanAllergyNoticeProps) {
     const { t } = useTranslation();
@@ -150,7 +153,7 @@ export function PlanAllergyNotice({
                             {t('commerce:myAllergens.listTitle')}
                         </RNText>
                         <RNText className="mt-0.5 text-sm text-content-secondary text-start">
-                            {t('commerce:myAllergens.checkNote')}
+                            {note ?? t('commerce:myAllergens.checkNote')}
                         </RNText>
                     </View>
                     <Pressable

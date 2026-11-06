@@ -1,4 +1,4 @@
-import { Button, EmptyState, Icon, MeterBar, cx } from '@healthy360/design-system';
+import { Icon, MeterBar, cx } from '@healthy360/design-system';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
 import type {
@@ -21,6 +21,7 @@ import { StaffReturnButton } from '../../marketplace/staff-return-button.tsx';
 import { usePlanQuery } from '../../../data/catalogue-hooks.ts';
 import { usePlanAvailabilityQuery } from '../../../data/commerce-hooks.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
+import { ShopStateButton, ShopStateCard } from '../../../ui/shop-state.tsx';
 import { toDeliveryAddress } from '../../commerce/address.ts';
 import {
     estimatedTotal,
@@ -181,9 +182,10 @@ export function PlanDetailScreen({ planId, returnTo }: PlanDetailScreenProps) {
               item.variants[Math.floor(item.variants.length / 2)]);
 
     const browseAction = (
-        <Button
+        <ShopStateButton
             testID="plan-detail-browse"
-            variant="secondary"
+            icon="arrowForward"
+            iconAfter
             label={t('catalogue:plan.browseAll')}
             onPress={() => {
                 router.push('/plans');
@@ -225,8 +227,9 @@ export function PlanDetailScreen({ planId, returnTo }: PlanDetailScreenProps) {
     };
 
     const notFound = (
-        <EmptyState
+        <ShopStateCard
             testID="plan-detail-empty"
+            icon="calendarDays"
             title={t('catalogue:plan.notFoundTitle')}
             body={t('catalogue:plan.notFoundBody')}
             actions={browseAction}
@@ -260,6 +263,9 @@ export function PlanDetailScreen({ planId, returnTo }: PlanDetailScreenProps) {
                         emptyTitle={t('catalogue:plan.notFoundTitle')}
                         emptyBody={t('catalogue:plan.notFoundBody')}
                         emptyActions={browseAction}
+                        emptyIcon="calendarDays"
+                        // Weekly plans, pin 3: a plan that is gone is "not on the marketplace".
+                        treatFailuresAsEmpty={['resource.not_found']}
                         skeletonCount={2}
                         testID="plan-detail"
                     >
@@ -292,20 +298,18 @@ export function PlanDetailScreen({ planId, returnTo }: PlanDetailScreenProps) {
                                     {/* A signed-in reader's allergy list. The dishes are chosen at
                                         set-up, where each pick names its clash, so there is nothing
                                         to check against here yet. */}
+                                    {/* Weekly plans, pin 1: the card itself, saying the list
+                                        is saved on the account and each pick will be checked. */}
                                     {signedIn ? (
-                                        <Section
-                                            testID="plan-detail-allergies"
-                                            title={t(
-                                                'commerce:configurator.delivery.allergensTitle',
-                                            )}
-                                        >
+                                        <View testID="plan-detail-allergies">
                                             <PlanAllergyNotice
                                                 testID="plan-detail-allergy-notice"
                                                 meals={[]}
                                                 checked
+                                                note={t('commerce:myAllergens.savedNote')}
                                                 returnTo={here}
                                             />
-                                        </Section>
+                                        </View>
                                     ) : null}
                                 </View>
 

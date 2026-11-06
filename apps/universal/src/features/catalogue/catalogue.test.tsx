@@ -2227,15 +2227,19 @@ describe('PlanDetailScreen', () => {
         expect(String(href)).toContain('&variant=');
     });
 
-    it('reports a failure rather than an empty page when the plan is unknown', async () => {
+    it('says a plan that is gone is not on the marketplace, with the way to the plans', async () => {
         await renderStubScreen(<PlanDetailScreen planId={UNKNOWN_ID} />, {
             repositories: CATALOGUE_REPOSITORIES,
         });
 
         expect(screen.getByTestId('plan-detail-loading')).toBeTruthy();
+        // Weekly plans, pin 3: not "something went wrong".
         await waitFor(() => {
-            expect(screen.getByTestId('plan-detail-error')).toBeTruthy();
+            expect(screen.getByTestId('plan-detail-empty')).toHaveTextContent(
+                /That plan is not on the marketplace/,
+            );
         });
+        expect(screen.queryByTestId('plan-detail-error')).toBeNull();
     });
 
     it('answers a malformed identifier with the not-found state rather than a stuck skeleton', async () => {
