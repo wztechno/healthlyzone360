@@ -133,6 +133,8 @@ export function CategoryTabs({
 }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    // Shop · Menu, phone: 60px chips with a 46px face that scroll from the edge.
+    const phone = !useBreakpoint().atLeast('md');
     // A hidden shelf (`shown-shelves.ts`) is not drawn even when a link selected it.
     const selected = (filters.selected['category'] ?? []).filter(isShownShelf)[0] ?? ALL_SHELVES;
 
@@ -155,12 +157,12 @@ export function CategoryTabs({
             horizontal
             showsHorizontalScrollIndicator={false}
             testID="meals-filter-category"
-            contentContainerClassName="grow pb-1 pt-1"
+            contentContainerClassName={phone ? 'pb-1 pt-1' : 'grow pb-1 pt-1'}
         >
             <View
                 role="radiogroup"
                 aria-label={t('catalogue:filters.category')}
-                className="grow flex-row items-stretch gap-3.5"
+                className={cx('flex-row items-stretch', phone ? 'gap-2' : 'grow gap-3.5')}
             >
                 {tabs.map((tab) => {
                     const on = tab.value === selected;
@@ -191,12 +193,20 @@ export function CategoryTabs({
                                 );
                             }}
                             className={cx(
-                                'h-[84px] min-w-[180px] flex-1 flex-row items-center gap-3 rounded-[20px] border-2 pe-3.5 ps-2.5 transition duration-normal ease-standard hover:-translate-y-0.5',
+                                'flex-row items-center border-2 transition duration-normal ease-standard hover:-translate-y-0.5',
+                                phone
+                                    ? 'h-[60px] gap-2 rounded-[18px] pe-3.5 ps-1.5'
+                                    : 'h-[84px] min-w-[180px] flex-1 gap-3 rounded-[20px] pe-3.5 ps-2.5',
                                 TINT_FILL[tint],
                                 on ? TINT_BORDER[tint] : 'border-transparent',
                             )}
                         >
-                            <View className="h-[60px] w-[60px] items-center justify-center overflow-hidden rounded-2xl">
+                            <View
+                                className={cx(
+                                    'items-center justify-center overflow-hidden',
+                                    phone ? 'h-[46px] w-[46px] rounded-xl' : 'h-[60px] w-[60px] rounded-2xl',
+                                )}
+                            >
                                 {meal === undefined ? (
                                     <Icon name="layoutGrid" className={TINT_INK[tint]} />
                                 ) : (
@@ -207,15 +217,16 @@ export function CategoryTabs({
                                         label={tab.label}
                                         decorative
                                         flush
-                                        className="h-[60px] w-[60px]"
+                                        className={phone ? 'h-[46px] w-[46px]' : 'h-[60px] w-[60px]'}
                                     />
                                 )}
                             </View>
-                            <View className="min-w-0 flex-1 flex-col">
+                            <View className={cx('min-w-0 flex-col', phone ? null : 'flex-1')}>
                                 <RNText
                                     numberOfLines={1}
                                     className={cx(
-                                        'font-display text-lg font-bold text-start',
+                                        'font-display font-bold text-start',
+                                        phone ? 'text-base' : 'text-lg',
                                         TINT_INK[tint],
                                     )}
                                 >
@@ -228,11 +239,12 @@ export function CategoryTabs({
                                         accessibilityElementsHidden
                                         importantForAccessibility="no"
                                         className={cx(
-                                            'text-sm font-medium tabular-nums opacity-85 text-start',
+                                            'font-medium tabular-nums opacity-85 text-start',
+                                            phone ? 'text-xs' : 'text-sm',
                                             TINT_INK[tint],
                                         )}
                                     >
-                                        {t('catalogue:filters.shelfCount', {
+                                        {phone ? countText : t('catalogue:filters.shelfCount', {
                                             count: tab.count ?? 0,
                                             n: countText,
                                         })}
@@ -526,6 +538,8 @@ export function MealFilterBar({
     const { t } = useTranslation();
     const { formatNumber } = useFormatter();
     const wide = useBreakpoint().atLeast('lg');
+    // Shop · Menu, phone: the search sits on its own row above, so the bar is one row of menus.
+    const phone = !useBreakpoint().atLeast('md');
     const selectedDiets = filters.selected['diet'] ?? [];
     const selectedExclusions = filters.selected['exclude'] ?? [];
     const selectedKitchens = filters.selected['kitchen'] ?? [];
@@ -798,6 +812,7 @@ export function MealFilterBar({
                 (option) => option !== 'rating' || hasRatings || sort === 'rating',
             ).map((option) => ({ value: option, label: t(`catalogue:meals.sort.${option}`) }))}
             onChange={onSort}
+            compact={phone}
         />
     );
 
@@ -807,8 +822,12 @@ export function MealFilterBar({
             role="toolbar"
             aria-label={t('catalogue:filters.barLabel')}
             className={cx(
-                'z-auto rounded-3xl border border-stroke-subtle bg-surface-raised p-2 shadow-elevation-2',
-                wide ? 'flex-row items-center gap-1' : 'flex-col gap-2',
+                'z-auto border border-stroke-subtle bg-surface-raised shadow-elevation-2',
+                wide
+                    ? 'flex-row items-center gap-1 rounded-3xl p-2'
+                    : phone
+                      ? 'flex-row items-center gap-1 rounded-[20px] p-1.5'
+                      : 'flex-col gap-2 rounded-3xl p-2',
             )}
         >
             {search === undefined ? null : (
@@ -830,12 +849,12 @@ export function MealFilterBar({
                     <ScrollView
                         horizontal
                         showsHorizontalScrollIndicator={false}
-                        className="w-full"
+                        className={phone ? 'min-w-0 flex-1' : 'w-full'}
                         contentContainerClassName="flex-row items-center gap-1"
                     >
                         {menus}
                     </ScrollView>
-                    <View className="z-auto self-start">{sortMenu}</View>
+                    <View className={cx('z-auto', phone ? 'ms-1' : 'self-start')}>{sortMenu}</View>
                 </>
             )}
         </View>

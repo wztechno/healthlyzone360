@@ -1,4 +1,4 @@
-import { Icon, cx } from '@healthy360/design-system';
+import { Icon, cx, useBreakpoint } from '@healthy360/design-system';
 import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { neutral } from '@healthy360/design-tokens';
 import type {
@@ -136,6 +136,9 @@ export function MealsScreen() {
     const formatter = useFormatter();
     const search = useSearchDraft(filters);
     const [searchFocused, setSearchFocused] = useState(false);
+    // Shop · Menu, phone board: the count beside the title, the search on its own row, two cards
+    // to a row.
+    const phone = !useBreakpoint().atLeast('md');
     useRememberQuery();
 
     // The header's search button asks for the cursor here. The field is a DOM input on the web;
@@ -229,6 +232,18 @@ export function MealsScreen() {
         }
         return t('catalogue:meals.countSoFar', { count: items.length });
     })();
+    // The phone board's short form: "99 items" beside the title, from the same best number.
+    const countNumber = !meals.hasNextPage
+        ? items.length
+        : total !== null && rangeCount === 0
+          ? total
+          : activeCount === 0 && searchTerm === '' && shelves.total !== null
+            ? shelves.total
+            : items.length;
+    const countShort = t('catalogue:filters.shelfCount', {
+        count: countNumber,
+        n: formatter.formatNumber(countNumber),
+    });
 
     /** Everything applied, as removable chips — the term first, then the chip groups, then ranges. */
     const activeChips = useMemo(() => {
@@ -288,8 +303,49 @@ export function MealsScreen() {
         ];
     }, [searchTerm, selected, kitchenItems, shelves.shelves, filters, ranges, formatter, t]);
 
+    const searchField = (
+        <View
+            className={cx(
+                'flex-row items-center gap-2 px-4',
+                phone
+                    ? cx(
+                          'h-12 rounded-full border bg-surface-raised',
+                          searchFocused ? 'border-surface-brand' : 'border-stroke-strong',
+                      )
+                    : cx(
+                          'h-[52px] rounded-2xl border-2 bg-surface-base',
+                          searchFocused ? 'border-surface-brand-subtle' : 'border-transparent',
+                      ),
+            )}
+        >
+            <Icon name="search" size="sm" className="text-content-secondary" />
+            <TextInput
+                testID={`${SEARCH_TEST_ID}-input`}
+                accessibilityLabel={t('marketplace:nav.searchLabel')}
+                placeholder={t('catalogue:meals.searchPlaceholder')}
+                value={search.draft}
+                onChangeText={search.setDraft}
+                onSubmitEditing={search.submit}
+                onFocus={() => {
+                    setSearchFocused(true);
+                }}
+                onBlur={() => {
+                    setSearchFocused(false);
+                }}
+                returnKeyType="search"
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholderTextColor={neutral[600]}
+                className="h-full min-w-0 flex-1 text-sm text-content-primary text-start web:outline-none"
+            />
+        </View>
+    );
+
     return (
-        <View testID="meals-screen" className="relative flex-col gap-6 pb-11">
+        <View
+            testID="meals-screen"
+            className={cx('relative flex-col pb-11', phone ? 'gap-3' : 'gap-6')}
+        >
             {/* The design's soft shapes behind the page. */}
             <View
                 aria-hidden
@@ -305,19 +361,30 @@ export function MealsScreen() {
             {/* The title and its count, with where the food goes at the end of the row. `z-20`
                 lifts its address dropdown over the pinned filter bar (`z-10`) that follows it. */}
             <View className="z-20 flex-row flex-wrap items-end gap-4 pt-1">
-                <View className="me-auto min-w-0 flex-col">
+                <View
+                    className={cx(
+                        'me-auto min-w-0',
+                        phone ? 'flex-row items-baseline gap-2' : 'flex-col',
+                    )}
+                >
                     <RNText
                         role="heading"
                         aria-level={1}
-                        className="font-display text-3xl font-bold tracking-display text-content-primary text-start"
+                        className={cx(
+                            'font-display font-bold tracking-display text-content-primary text-start',
+                            phone ? 'text-2xl' : 'text-3xl',
+                        )}
                     >
                         {t('marketplace:nav.meals')}
                     </RNText>
                     <RNText
                         testID="meals-count"
-                        className="mt-0.5 text-sm text-content-secondary text-start"
+                        className={cx(
+                            'text-content-secondary text-start',
+                            phone ? 'text-sm' : 'mt-0.5 text-sm',
+                        )}
                     >
-                        {countLine}
+                        {phone ? countShort : countLine}
                     </RNText>
                 </View>
                 {/* On a phone the bar carries it (the accepted phone boards). */}
@@ -329,6 +396,8 @@ export function MealsScreen() {
                     />
                 </View>
             </View>
+
+            {phone ? searchField : null}
 
             <CategoryTabs filters={filters} shelves={shelves} photoOf={photoOf} />
 
@@ -354,37 +423,7 @@ export function MealsScreen() {
                     onSort={(next) => {
                         filters.select('sort', next === 'relevance' ? null : next);
                     }}
-                    search={
-                        <View
-                            className={cx(
-                                'h-[52px] flex-row items-center gap-2 rounded-2xl border-2 bg-surface-base px-4',
-                                searchFocused
-                                    ? 'border-surface-brand-subtle'
-                                    : 'border-transparent',
-                            )}
-                        >
-                            <Icon name="search" size="sm" className="text-content-secondary" />
-                            <TextInput
-                                testID={`${SEARCH_TEST_ID}-input`}
-                                accessibilityLabel={t('marketplace:nav.searchLabel')}
-                                placeholder={t('catalogue:meals.searchPlaceholder')}
-                                value={search.draft}
-                                onChangeText={search.setDraft}
-                                onSubmitEditing={search.submit}
-                                onFocus={() => {
-                                    setSearchFocused(true);
-                                }}
-                                onBlur={() => {
-                                    setSearchFocused(false);
-                                }}
-                                returnKeyType="search"
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                                placeholderTextColor={neutral[600]}
-                                className="h-full min-w-0 flex-1 text-sm text-content-primary text-start web:outline-none"
-                            />
-                        </View>
-                    }
+                    search={phone ? undefined : searchField}
                 />
                 {activeChips.length === 0 ? null : (
                     <View
@@ -472,11 +511,17 @@ export function MealsScreen() {
                     testID="meals"
                 >
                     <View className="flex-col gap-8">
-                        <MenuGrid testID="meals-grid" gap={20} entranceKey={JSON.stringify(filter)}>
+                        <MenuGrid
+                            testID="meals-grid"
+                            gap={phone ? 10 : 20}
+                            minCell={phone ? 140 : undefined}
+                            entranceKey={JSON.stringify(filter)}
+                        >
                             {items.map((meal) => (
                                 <MenuMealCard
                                     key={meal.id}
                                     meal={meal}
+                                    phone={phone}
                                     onOpen={() => {
                                         router.push(`/meals/${String(meal.id)}` as never);
                                     }}

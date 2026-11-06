@@ -52,10 +52,24 @@ export interface MenuMealCardProps {
      * the kitchen's — and a tighter strip.
      */
     readonly compact?: boolean | undefined;
+    /**
+     * The Menu's phone card (Shop · Menu, phone board): two to a row — a 112px photograph with its
+     * tag, a two-line name, the compact strip, and Add as a 34px disc in a 44px target.
+     */
+    readonly phone?: boolean | undefined;
     readonly testID?: string | undefined;
 }
 
-export function MenuMealCard({ meal, onOpen, onAdd, compact = false, testID }: MenuMealCardProps) {
+export function MenuMealCard({
+    meal,
+    onOpen,
+    onAdd,
+    compact: compactProp = false,
+    phone = false,
+    testID,
+}: MenuMealCardProps) {
+    // The phone card takes the compact strip and drops the kitchen line, but keeps its tag.
+    const compact = compactProp || phone;
     const viewOnly = useShopViewOnly();
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -91,7 +105,12 @@ export function MenuMealCard({ meal, onOpen, onAdd, compact = false, testID }: M
         >
             {/* The photograph opens the meal but is hidden from assistive technology; the tag
                 sits over it as a sibling so it is still read, before the name. */}
-            <View className={cx('relative overflow-hidden', compact ? 'h-[160px]' : 'h-[190px]')}>
+            <View
+                className={cx(
+                    'relative overflow-hidden',
+                    phone ? 'h-[112px]' : compact ? 'h-[160px]' : 'h-[190px]',
+                )}
+            >
                 <Pressable
                     testID={`${id}-media`}
                     onPress={onOpen}
@@ -130,11 +149,14 @@ export function MenuMealCard({ meal, onOpen, onAdd, compact = false, testID }: M
                         variant="badge"
                     />
                 </View>
-                {tag === null || compact || clashes ? null : (
+                {tag === null || (compact && !phone) || clashes ? null : (
                     <View
                         pointerEvents="none"
                         className={cx(
-                            'absolute start-2.5 top-2.5 h-[26px] justify-center rounded-full px-2.5',
+                            'absolute justify-center rounded-full',
+                            phone
+                                ? 'start-2 top-2 h-[22px] px-2'
+                                : 'start-2.5 top-2.5 h-[26px] px-2.5',
                             TINT_FILL[tint],
                         )}
                     >
@@ -149,7 +171,12 @@ export function MenuMealCard({ meal, onOpen, onAdd, compact = false, testID }: M
                 )}
             </View>
 
-            <View className={cx('flex-1 flex-col', compact ? 'px-3.5 pb-3.5 pt-3' : 'px-4 py-3.5')}>
+            <View
+                className={cx(
+                    'flex-1 flex-col',
+                    phone ? 'p-2.5' : compact ? 'px-3.5 pb-3.5 pt-3' : 'px-4 py-3.5',
+                )}
+            >
                 <View className="flex-row items-start justify-between gap-2">
                     <Pressable
                         testID={`${id}-open`}
@@ -165,14 +192,17 @@ export function MenuMealCard({ meal, onOpen, onAdd, compact = false, testID }: M
                     >
                         <RNText
                             numberOfLines={2}
-                            className="text-base font-semibold leading-snug text-content-primary text-start"
+                            className={cx(
+                                'font-semibold text-content-primary text-start',
+                                phone ? 'h-9 text-sm leading-[18px]' : 'text-base leading-snug',
+                            )}
                         >
                             {meal.name}
                         </RNText>
                     </Pressable>
                     {/* A rating only where there is one: "Not rated yet" on most of a new menu
                         is a line of nothing repeated down the grid. */}
-                    {meal.rating === null ? null : (
+                    {meal.rating === null || phone ? null : (
                         <RNText
                             testID={`${id}-rating`}
                             className="shrink-0 pt-0.5 text-sm font-semibold tabular-nums text-content-primary"
@@ -198,11 +228,19 @@ export function MenuMealCard({ meal, onOpen, onAdd, compact = false, testID }: M
                 <CardNutrients id={id} meal={meal} compact={compact} />
 
                 {/* `mt-auto` keeps the price and Add on the bottom edge in every card of a row. */}
-                <View className="mt-auto flex-row items-center justify-between gap-3 pt-3">
+                <View
+                    className={cx(
+                        'mt-auto flex-row items-center justify-between',
+                        phone ? 'gap-1 pt-1.5' : 'gap-3 pt-3',
+                    )}
+                >
                     <RNText
                         testID={`${id}-price`}
                         numberOfLines={1}
-                        className="shrink font-display text-lg font-bold tabular-nums text-content-primary text-start"
+                        className={cx(
+                            'shrink font-display font-bold tabular-nums text-content-primary text-start',
+                            phone ? 'text-base' : 'text-lg',
+                        )}
                     >
                         {formatMoney(formatter, meal.price)}
                         <PackSuffix pack={meal.pack} testID={`${id}-pack`} />
@@ -221,13 +259,19 @@ export function MenuMealCard({ meal, onOpen, onAdd, compact = false, testID }: M
                                 'h-11 shrink-0 flex-row items-center justify-center rounded-full',
                                 soldOut
                                     ? 'bg-surface-sunken px-3.5'
-                                    : 'w-11 bg-surface-brand transition duration-fast ease-standard active:scale-90',
+                                    : phone
+                                      ? '-me-1.5 w-11 active:scale-90'
+                                      : 'w-11 bg-surface-brand transition duration-fast ease-standard active:scale-90',
                             )}
                         >
                             {soldOut ? (
                                 <RNText className="text-sm font-semibold text-content-secondary">
                                     {addLabel}
                                 </RNText>
+                            ) : phone ? (
+                                <View className="h-[34px] w-[34px] items-center justify-center rounded-full bg-surface-brand">
+                                    <Icon name="plus" size="sm" className="text-content-on-brand" />
+                                </View>
                             ) : (
                                 <Icon name="plus" className="text-content-on-brand" />
                             )}

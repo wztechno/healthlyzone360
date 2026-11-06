@@ -26,6 +26,7 @@ import type { NutritionFacts } from '@healthy360/nutrition';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
 import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { clearPendingAdd, readPendingAdd } from '../commerce/pending-add.ts';
@@ -843,43 +844,49 @@ describe('menu readings', () => {
 
 describe('MealsScreen', () => {
     it('shows the loading skeleton, then the grid and the result count', async () => {
-        await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
+        // The desk layout: the long count line, the rating, "25 items" on each shelf.
+        await withDeskWidth(async () => {
+            await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
 
-        expect(screen.getByTestId('meals-loading')).toBeTruthy();
+            expect(screen.getByTestId('meals-loading')).toBeTruthy();
 
-        await waitFor(() => {
-            expect(screen.getByTestId('meals-grid')).toBeTruthy();
-        });
-        expect(mealCardCount()).toBe(PAGE_SIZE);
-        // More pages to come, so the count is the whole menu the shelf walk read.
-        await waitFor(() => {
-            expect(screen.getByTestId('meals-count')).toHaveTextContent(
-                new RegExp(`${String(CATALOGUE_SIZE)} meals available`),
-            );
+            await waitFor(() => {
+                expect(screen.getByTestId('meals-grid')).toBeTruthy();
+            });
+            expect(mealCardCount()).toBe(PAGE_SIZE);
+            // More pages to come, so the count is the whole menu the shelf walk read.
+            await waitFor(() => {
+                expect(screen.getByTestId('meals-count')).toHaveTextContent(
+                    new RegExp(`${String(CATALOGUE_SIZE)} meals available`),
+                );
+            });
         });
     });
 
     it('draws the card: tag, name, the four-figure strip, price and Add', async () => {
-        await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
+        // The desk layout: the long count line, the rating, "25 items" on each shelf.
+        await withDeskWidth(async () => {
+            await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
 
-        await waitFor(() => screen.getByTestId('meals-grid'));
-        const card = screen.getByTestId(`meal-card-${MILK_MEAL_SLUG}`);
-        // An omnivore dish wears its shelf, not "Omnivore".
-        expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-tag`)).toHaveTextContent(
-            'Bowls',
-        );
-        // Calories, then protein, carbohydrate and fat, each with its unit and name.
-        expect(
-            within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-nutrient-energy`),
-        ).toHaveTextContent(/520.*kcal/);
-        expect(
-            within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-nutrient-protein`),
-        ).toHaveTextContent(/30.*g.*Protein/);
-        expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-rating`)).toHaveTextContent(
-            /4\.4/,
-        );
-        expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-open`)).toBeTruthy();
-        expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-add`)).toBeTruthy();
+            await waitFor(() => screen.getByTestId('meals-grid'));
+            const card = screen.getByTestId(`meal-card-${MILK_MEAL_SLUG}`);
+            // An omnivore dish wears its shelf, not "Omnivore".
+            expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-tag`)).toHaveTextContent(
+                'Bowls',
+            );
+            // Calories, then protein, carbohydrate and fat, each with its unit and name.
+            expect(
+                within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-nutrient-energy`),
+            ).toHaveTextContent(/520.*kcal/);
+            expect(
+                within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-nutrient-protein`),
+            ).toHaveTextContent(/30.*g.*Protein/);
+            expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-rating`)).toHaveTextContent(
+                /4\.4/,
+            );
+            expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-open`)).toBeTruthy();
+            expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-add`)).toBeTruthy();
+        });
     });
 
     it("says why a card's Add was refused instead of doing nothing (BUG-12)", async () => {
@@ -986,35 +993,50 @@ describe('MealsScreen', () => {
         expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ diet: 'vegan' });
     });
 
-    it('counts each shelf tab over the whole menu', async () => {
+    it('on a phone, puts the short count beside the title and the search on its own row', async () => {
         await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
-
         await waitFor(() => screen.getByTestId('meals-grid'));
         await waitFor(() => {
+            expect(screen.getByTestId('meals-count')).toHaveTextContent(
+                new RegExp(`^${String(CATALOGUE_SIZE)} items$`),
+            );
+        });
+        expect(screen.queryByTestId('meals-filter-search')).toBeNull();
+        expect(screen.getByTestId('meals-search-input')).toBeTruthy();
+    });
+
+    it('counts each shelf tab over the whole menu', async () => {
+        // The desk layout: the long count line, the rating, "25 items" on each shelf.
+        await withDeskWidth(async () => {
+            await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
+
+            await waitFor(() => screen.getByTestId('meals-grid'));
+            await waitFor(() => {
+                expect(
+                    screen.getByTestId('meals-filter-category-all-count', {
+                        includeHiddenElements: true,
+                    }),
+                ).toHaveTextContent(`${String(CATALOGUE_SIZE)} items`);
+            });
             expect(
-                screen.getByTestId('meals-filter-category-all-count', {
+                screen.getByTestId('meals-filter-category-bowls-count', {
                     includeHiddenElements: true,
                 }),
-            ).toHaveTextContent(`${String(CATALOGUE_SIZE)} items`);
+            ).toHaveTextContent(`${String(BOWL_COUNT)} items`);
+            expect(
+                screen.getByTestId('meals-filter-category-salads-count', {
+                    includeHiddenElements: true,
+                }),
+            ).toHaveTextContent(`${String(CATALOGUE_SIZE - BOWL_COUNT)} items`);
+            // The figure is part of the tab's name, not a stray number read out on its own.
+            expect(
+                screen.getByTestId('meals-filter-category-bowls').props.accessibilityLabel,
+            ).toContain(String(BOWL_COUNT));
+            // "All" is lit while no shelf is chosen.
+            expect(
+                screen.getByTestId('meals-filter-category-all').props.accessibilityState,
+            ).toMatchObject({ checked: true });
         });
-        expect(
-            screen.getByTestId('meals-filter-category-bowls-count', {
-                includeHiddenElements: true,
-            }),
-        ).toHaveTextContent(`${String(BOWL_COUNT)} items`);
-        expect(
-            screen.getByTestId('meals-filter-category-salads-count', {
-                includeHiddenElements: true,
-            }),
-        ).toHaveTextContent(`${String(CATALOGUE_SIZE - BOWL_COUNT)} items`);
-        // The figure is part of the tab's name, not a stray number read out on its own.
-        expect(
-            screen.getByTestId('meals-filter-category-bowls').props.accessibilityLabel,
-        ).toContain(String(BOWL_COUNT));
-        // "All" is lit while no shelf is chosen.
-        expect(
-            screen.getByTestId('meals-filter-category-all').props.accessibilityState,
-        ).toMatchObject({ checked: true });
     });
 
     it('picks one shelf at a time, filters on it server-side, and "All" lifts it', async () => {
@@ -1097,29 +1119,32 @@ describe('MealsScreen', () => {
     });
 
     it('offers another page while the cursor has one, then simply ends', async () => {
-        await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
+        // The desk layout: the long count line, the rating, "25 items" on each shelf.
+        await withDeskWidth(async () => {
+            await renderStubScreen(<MealsScreen />, { repositories: CATALOGUE_REPOSITORIES });
 
-        await waitFor(() => screen.getByTestId('meals-grid'));
-        const firstPage = mealCardCount();
-        expect(firstPage).toBe(PAGE_SIZE);
+            await waitFor(() => screen.getByTestId('meals-grid'));
+            const firstPage = mealCardCount();
+            expect(firstPage).toBe(PAGE_SIZE);
 
-        // Page to the end rather than assuming how many pages there are: what is worth asserting
-        // is that every press adds meals and that the cursor eventually runs out.
-        let loaded = firstPage;
-        while (screen.queryByTestId('meals-load-more') !== null) {
-            const previous = loaded;
-            await fireEvent.press(screen.getByTestId('meals-load-more'));
-            await waitFor(() => {
-                expect(mealCardCount()).toBeGreaterThan(previous);
-            });
-            loaded = mealCardCount();
-        }
+            // Page to the end rather than assuming how many pages there are: what is worth asserting
+            // is that every press adds meals and that the cursor eventually runs out.
+            let loaded = firstPage;
+            while (screen.queryByTestId('meals-load-more') !== null) {
+                const previous = loaded;
+                await fireEvent.press(screen.getByTestId('meals-load-more'));
+                await waitFor(() => {
+                    expect(mealCardCount()).toBeGreaterThan(previous);
+                });
+                loaded = mealCardCount();
+            }
 
-        expect(loaded).toBe(CATALOGUE_SIZE);
-        // Every page in, so the count line is the number on screen.
-        expect(screen.getByTestId('meals-count')).toHaveTextContent(
-            new RegExp(`${String(CATALOGUE_SIZE)} meals available`),
-        );
+            expect(loaded).toBe(CATALOGUE_SIZE);
+            // Every page in, so the count line is the number on screen.
+            expect(screen.getByTestId('meals-count')).toHaveTextContent(
+                new RegExp(`${String(CATALOGUE_SIZE)} meals available`),
+            );
+        });
     });
 
     /*
