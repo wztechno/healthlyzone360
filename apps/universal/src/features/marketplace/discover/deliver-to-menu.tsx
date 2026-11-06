@@ -56,6 +56,7 @@ export function DeliverToMenu({
     bar = false,
     header = false,
     row = false,
+    chips = false,
     kitchenId = null,
 }: {
     readonly testID: string;
@@ -71,6 +72,11 @@ export function DeliverToMenu({
      * the day on one line and "Change" at its end.
      */
     readonly row?: boolean | undefined;
+    /**
+     * The basket's line (Shop · Basket board): where and when as two quiet chips, then "Change",
+     * on one line under the title.
+     */
+    readonly chips?: boolean | undefined;
     /** The kitchen of the food on screen, whose own delivery windows the When row offers. */
     readonly kitchenId?: KitchenId | null | undefined;
 }) {
@@ -222,7 +228,7 @@ export function DeliverToMenu({
             ref={root}
             className={cx(
                 'relative z-raised',
-                header ? 'min-w-0 shrink' : row ? 'w-full' : 'shrink-0',
+                header ? 'min-w-0 shrink' : row ? 'w-full' : chips ? 'min-w-0' : 'shrink-0',
             )}
         >
             <Pressable
@@ -248,33 +254,73 @@ export function DeliverToMenu({
                     setOpen((current) => !current);
                 }}
                 className={
-                    row
-                        ? cx(
-                              'h-[52px] w-full flex-row items-center gap-2.5 rounded-2xl border border-dashed px-3.5',
-                              open ? 'border-surface-brand' : 'border-stroke-strong',
-                          )
-                        : header
+                    chips
+                        ? 'min-h-touch flex-row flex-wrap items-center gap-2'
+                        : row
                           ? cx(
-                                'h-12 min-w-0 flex-row items-center gap-2.5 rounded-[14px] pe-2.5 ps-1.5 transition duration-normal ease-standard hover:bg-surface-base',
-                                open ? 'bg-surface-base' : null,
+                                'h-[52px] w-full flex-row items-center gap-2.5 rounded-2xl border border-dashed px-3.5',
+                                open ? 'border-surface-brand' : 'border-stroke-strong',
                             )
-                          : bar
+                          : header
                             ? cx(
-                                  'h-14 flex-row items-center gap-2.5 rounded-2xl px-3.5 transition duration-normal ease-standard hover:bg-surface-brand-subtle',
-                                  open ? 'bg-surface-brand-subtle' : 'bg-surface-base',
+                                  'h-12 min-w-0 flex-row items-center gap-2.5 rounded-[14px] pe-2.5 ps-1.5 transition duration-normal ease-standard hover:bg-surface-base',
+                                  open ? 'bg-surface-base' : null,
                               )
-                            : framed
-                              ? [
-                                    'h-[52px] flex-row items-center gap-2.5 rounded-2xl border bg-surface-raised pe-3.5 ps-3 transition duration-normal ease-standard hover:border-surface-brand',
-                                    open ? 'border-surface-brand' : 'border-stroke',
-                                ].join(' ')
-                              : [
-                                    'h-12 flex-row items-center gap-2.5 rounded-full pe-4 ps-3 transition duration-normal ease-standard hover:bg-surface-brand-subtle',
-                                    open ? 'bg-surface-brand-subtle' : '',
-                                ].join(' ')
+                            : bar
+                              ? cx(
+                                    'h-14 flex-row items-center gap-2.5 rounded-2xl px-3.5 transition duration-normal ease-standard hover:bg-surface-brand-subtle',
+                                    open ? 'bg-surface-brand-subtle' : 'bg-surface-base',
+                                )
+                              : framed
+                                ? [
+                                      'h-[52px] flex-row items-center gap-2.5 rounded-2xl border bg-surface-raised pe-3.5 ps-3 transition duration-normal ease-standard hover:border-surface-brand',
+                                      open ? 'border-surface-brand' : 'border-stroke',
+                                  ].join(' ')
+                                : [
+                                      'h-12 flex-row items-center gap-2.5 rounded-full pe-4 ps-3 transition duration-normal ease-standard hover:bg-surface-brand-subtle',
+                                      open ? 'bg-surface-brand-subtle' : '',
+                                  ].join(' ')
                 }
             >
-                {row ? (
+                {chips ? (
+                    <>
+                        <View className="h-8 flex-row items-center gap-1.5 rounded-full border border-stroke-subtle bg-surface-raised px-3">
+                            <Icon
+                                name="mapPin"
+                                size="sm"
+                                className="text-content-on-brand-subtle"
+                            />
+                            <RNText
+                                testID={`${testID}-area`}
+                                numberOfLines={1}
+                                className="text-sm font-semibold text-content-primary"
+                            >
+                                {home === undefined
+                                    ? t('marketplace:discover.chooseArea')
+                                    : t('marketplace:discover.headerPlace', {
+                                          label: home.label,
+                                          area: home.areaName,
+                                      })}
+                            </RNText>
+                        </View>
+                        {home === undefined ? null : (
+                            <View className="h-8 flex-row items-center gap-1.5 rounded-full border border-stroke-subtle bg-surface-raised px-3">
+                                <Icon
+                                    name="clock"
+                                    size="sm"
+                                    className="text-content-on-brand-subtle"
+                                />
+                                <RNText numberOfLines={1} className="text-sm text-content-primary">
+                                    {whenText(when.date, when.slot)}
+                                </RNText>
+                            </View>
+                        )}
+                        <RNText className="px-1 text-sm font-semibold text-content-on-brand-subtle">
+                            {t('common:action.change')}
+                        </RNText>
+                    </>
+                ) : null}
+                {chips ? null : row ? (
                     <>
                         <Icon name="mapPin" size="sm" className="text-content-on-brand-subtle" />
                         <RNText
@@ -294,14 +340,14 @@ export function DeliverToMenu({
                         </RNText>
                     </>
                 ) : null}
-                {row ? null : header ? (
+                {row || chips ? null : header ? (
                     <View className="h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-brand-subtle">
                         <Icon name="mapPin" size="sm" className="text-content-on-brand-subtle" />
                     </View>
                 ) : (
                     <Icon name="mapPin" className="text-content-on-brand-subtle" />
                 )}
-                {row ? null : header ? (
+                {row || chips ? null : header ? (
                     <View className="min-w-0 shrink flex-col items-start">
                         <RNText
                             testID={`${testID}-area`}
@@ -368,7 +414,7 @@ export function DeliverToMenu({
                         </RNText>
                     </View>
                 )}
-                {bar || header || row ? null : (
+                {bar || header || row || chips ? null : (
                     <View className={open ? 'hidden rotate-180 md:flex' : 'hidden md:flex'}>
                         <Icon name="chevronDown" size="sm" className="text-content-secondary" />
                     </View>

@@ -574,6 +574,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                             <View className="flex-row gap-2 pt-3.5">
                                                 <CanopyButton
                                                     testID="subscription-skip"
+                                                    icon="skipForward"
                                                     label={t('commerce:subscription.board.skipDay')}
                                                     on={skipOpen}
                                                     disabled={busy || upcoming.length === 0}
@@ -583,6 +584,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                                 />
                                                 <CanopyButton
                                                     testID="subscription-pause"
+                                                    icon="pause"
                                                     label={t('commerce:subscription.pause')}
                                                     disabled={busy}
                                                     onPress={() => {
@@ -628,6 +630,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                             <View className="flex-row gap-2 pt-3.5">
                                                 <CanopyButton
                                                     testID="subscription-resume"
+                                                    icon="play"
                                                     label={t('commerce:subscription.board.resume')}
                                                     tone="go"
                                                     disabled={busy}
@@ -1349,6 +1352,7 @@ function BalanceLine({
 function CanopyButton({
     testID,
     label,
+    icon,
     on = false,
     tone = 'plain',
     disabled = false,
@@ -1356,6 +1360,8 @@ function CanopyButton({
 }: {
     readonly testID: string;
     readonly label: string;
+    /** The board's glyph before the label: skip a day, pause, resume. */
+    readonly icon?: 'skipForward' | 'pause' | 'play' | undefined;
     readonly on?: boolean;
     readonly tone?: 'plain' | 'go';
     readonly disabled?: boolean;
@@ -1372,7 +1378,7 @@ function CanopyButton({
             accessibilityState={{ disabled }}
             onPress={onPress}
             className={cx(
-                'h-[46px] flex-1 items-center justify-center rounded-[14px] border',
+                'h-[46px] flex-1 flex-row items-center justify-center gap-2 rounded-[14px] border',
                 tone === 'go'
                     ? 'border-surface-brand bg-surface-brand hover:opacity-90'
                     : on
@@ -1381,6 +1387,19 @@ function CanopyButton({
                 disabled ? 'opacity-50' : '',
             )}
         >
+            {icon === undefined ? null : (
+                <Icon
+                    name={icon}
+                    size="sm"
+                    className={
+                        tone === 'go'
+                            ? 'text-content-on-brand'
+                            : on
+                              ? 'text-content-primary'
+                              : 'text-content-on-canopy'
+                    }
+                />
+            )}
             <RNText
                 className={cx(
                     'text-sm font-semibold',

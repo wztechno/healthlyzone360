@@ -614,7 +614,7 @@ export function CartScreen() {
             ) : null}
             {isEmpty ? null : (
                 <View testID="cart-deliver" className="z-20 mt-3.5 items-start">
-                    <DeliverToMenu testID="cart" framed kitchenId={kitchenId} />
+                    <DeliverToMenu testID="cart" chips kitchenId={kitchenId} />
                 </View>
             )}
 

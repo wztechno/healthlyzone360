@@ -201,6 +201,7 @@ export function PhoneScreen({ returnTo, challengeId: challengeParam }: PhoneScre
             query={contacts}
             isEmpty={false}
             emptyTitle={t('account:phone.title')}
+            skeleton="rows"
             skeletonCount={1}
             testID={`${TEST_ID}-contacts`}
         >
