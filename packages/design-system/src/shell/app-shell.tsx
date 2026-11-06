@@ -933,7 +933,7 @@ function AppShellLayout({
                          */
                         className="z-raised bg-surface-base px-3 pb-2 pt-2.5 md:px-6 md:pt-4 lg:px-8"
                     >
-                        <MarketplaceBarEntrance>
+                        <MarketplaceBarEntrance replayKey={activeKey}>
                             {/*
                              * The card: exactly 68px tall from `md` (at least 56px on a phone), 1312px at most, its contents
                              * inset 12px at the start and 10px at the end. `rounded-3xl` below `lg`, where a
@@ -1486,15 +1486,21 @@ const POP_EASING = Easing.bezier(0.34, 1.4, 0.64, 1);
 const POP_MS = 600;
 const POP_DELAY_MS = 200;
 const DROP_MS = 600;
-/** The pill's slide between destinations: the board's 350ms on its settle-in curve. */
-const SLIDE_MS = 380;
-const SLIDE_EASING = Easing.bezier(0.22, 1, 0.36, 1);
 
 /**
- * The marketplace bar's entrance: it drops 14px into place and grows from 98% as it fades in, once,
- * when the shell mounts. Under reduced motion the final style is rendered directly.
+ * The marketplace bar's entrance: it drops 14px into place and grows from 98% as it fades in. The
+ * design opens every page with it (`navdrop`), so it plays when the shell mounts and again each
+ * time the destination changes — the shop's tabs share one shell, which would otherwise play it
+ * only on the first page. Under reduced motion the final style is rendered directly.
  */
-function MarketplaceBarEntrance({ children }: { readonly children: ReactNode }) {
+function MarketplaceBarEntrance({
+    replayKey,
+    children,
+}: {
+    /** The active destination: a change replays the drop. */
+    readonly replayKey: string | undefined;
+    readonly children: ReactNode;
+}) {
     const { enabled, easing } = useMotion();
     const progress = useRef(new Animated.Value(enabled ? 0 : 1)).current;
 
@@ -1512,7 +1518,7 @@ function MarketplaceBarEntrance({ children }: { readonly children: ReactNode }) 
                 useNativeDriver: true,
             }),
         );
-    }, [enabled, progress, easing]);
+    }, [enabled, progress, easing, replayKey]);
 
     const style = enabled
         ? {
@@ -1544,17 +1550,10 @@ interface PillPlace {
 }
 
 /**
- * Where the pill last stood, kept across mounts. The shop's pages sit in more than one route
- * group, each with its own shell, so going from Discover to the account mounts a new bar — and
- * without this the pill could only pop in there instead of sliding over from the tab left behind.
- */
-let lastPillPlace: PillPlace | null = null;
-
-/**
- * The shop's destinations, and one filled pill behind the active one that **slides** to the next
- * destination when the page changes — the accepted design's segmented bar. Each item reports where
- * it sits; the pill moves from where it was to there on the design's easing, and pops in only when
- * there is nowhere to slide from (the first page of a visit). Reduced motion moves it at once.
+ * The shop's destinations, and one filled pill behind the active one — the accepted design's
+ * segmented bar. Each item reports where it sits; when the page changes the pill **pops in** on
+ * the new destination as the board opens every page: it fades in from 60% and grows a little past
+ * full size before settling (`pillin`, 600ms after a 200ms beat). Reduced motion places it at once.
  */
 function MarketplaceNavItems({
     navigation,
@@ -1581,13 +1580,11 @@ function MarketplaceNavItems({
     // In Arabic a positive offset from the start runs leftwards.
     const sign = isRtl ? -1 : 1;
 
-    const [from] = useState(() => lastPillPlace);
-    const x = useRef(new Animated.Value(from?.x ?? 0)).current;
-    const y = useRef(new Animated.Value(from?.y ?? 0)).current;
-    const width = useRef(new Animated.Value(from?.width ?? 0)).current;
-    const height = useRef(new Animated.Value(from?.height ?? 0)).current;
-    const pop = useRef(new Animated.Value(from === null && enabled ? 0 : 1)).current;
-    const placed = useRef(from !== null);
+    const x = useRef(new Animated.Value(0)).current;
+    const y = useRef(new Animated.Value(0)).current;
+    const width = useRef(new Animated.Value(0)).current;
+    const height = useRef(new Animated.Value(0)).current;
+    const pop = useRef(new Animated.Value(enabled ? 0 : 1)).current;
 
     // Plain numbers for the effect, so a re-render with the same place does not slide it again.
     const tx = target?.x;
@@ -1599,51 +1596,24 @@ function MarketplaceNavItems({
         if (tx === undefined || ty === undefined || tw === undefined || th === undefined) {
             return undefined;
         }
-        const target = { x: tx, y: ty, width: tw, height: th };
-        const previous = lastPillPlace;
-        lastPillPlace = target;
+        x.setValue(tx);
+        y.setValue(ty);
+        width.setValue(tw);
+        height.setValue(th);
         if (!enabled) {
-            x.setValue(target.x);
-            y.setValue(target.y);
-            width.setValue(target.width);
-            height.setValue(target.height);
             pop.setValue(1);
-            placed.current = true;
             return undefined;
         }
-        if (!placed.current || previous === null) {
-            // Nowhere to slide from: stand in place and pop in, as the design opens the bar.
-            x.setValue(target.x);
-            y.setValue(target.y);
-            width.setValue(target.width);
-            height.setValue(target.height);
-            placed.current = true;
-            pop.setValue(0);
-            return startAfterPaint(
-                Animated.timing(pop, {
-                    toValue: 1,
-                    duration: POP_MS,
-                    delay: POP_DELAY_MS,
-                    easing: POP_EASING,
-                    useNativeDriver: false,
-                }),
-            );
-        }
-        const slide = (value: Animated.Value, to: number) =>
-            Animated.timing(value, {
-                toValue: to,
-                duration: SLIDE_MS,
-                easing: SLIDE_EASING,
-                useNativeDriver: false,
-            });
-        pop.setValue(1);
+        // Stand on the new destination and pop in there, as the design opens each page.
+        pop.setValue(0);
         return startAfterPaint(
-            Animated.parallel([
-                slide(x, target.x),
-                slide(y, target.y),
-                slide(width, target.width),
-                slide(height, target.height),
-            ]),
+            Animated.timing(pop, {
+                toValue: 1,
+                duration: POP_MS,
+                delay: POP_DELAY_MS,
+                easing: POP_EASING,
+                useNativeDriver: false,
+            }),
         );
     }, [enabled, height, pop, th, tw, tx, ty, width, x, y]);
 
