@@ -1,4 +1,4 @@
-import { Button, Callout, EmptyState, Icon, cx } from '@healthy360/design-system';
+import { Icon, cx } from '@healthy360/design-system';
 import type { ApiFailure, MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { neutral } from '@healthy360/design-tokens';
 import type { StageInkName } from '@healthy360/design-tokens';
@@ -22,7 +22,8 @@ import { useNavigateUp, usePreviousEntry } from '../../../navigation/use-return-
 import { useFailureMessage } from '../../../screens/form-helpers.ts';
 import { DishChoiceFields, NO_DISH_CHOICES } from '../../../ui/dish-choices.tsx';
 import type { DishChoiceValue } from '../../../ui/dish-choices.tsx';
-import { YourAllergens } from '../../commerce/my-allergens.tsx';
+import { useMyAllergenCodes } from '../../commerce/my-allergens.tsx';
+import { ShopStateButton, ShopStateCard } from '../../../ui/shop-state.tsx';
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { DeliverToMenu } from '../../marketplace/discover/deliver-to-menu.tsx';
 import { formatMoney, formatPackSize } from '../../marketplace/format.ts';
@@ -137,9 +138,10 @@ export function MealDetailScreen({ mealId, returnTo }: MealDetailScreenProps) {
     const back = useMealBack(item);
 
     const browseAction = (
-        <Button
+        <ShopStateButton
             testID="meal-detail-browse"
-            variant="secondary"
+            icon="arrowForward"
+            iconAfter
             label={t('catalogue:meal.browseAll')}
             onPress={() => {
                 navigateUp(MENU_PATH);
@@ -155,8 +157,9 @@ export function MealDetailScreen({ mealId, returnTo }: MealDetailScreenProps) {
                 disabled, and a disabled query never settles — so the not-found answer is rendered
                 directly rather than behind a skeleton that would spin for ever. */}
             {parsed === null ? (
-                <EmptyState
+                <ShopStateCard
                     testID="meal-detail-empty"
+                    icon="utensils"
                     title={t('catalogue:meal.notFoundTitle')}
                     body={t('catalogue:meal.notFoundBody')}
                     actions={browseAction}
@@ -168,6 +171,10 @@ export function MealDetailScreen({ mealId, returnTo }: MealDetailScreenProps) {
                     emptyTitle={t('catalogue:meal.notFoundTitle')}
                     emptyBody={t('catalogue:meal.notFoundBody')}
                     emptyActions={browseAction}
+                    emptyIcon="utensils"
+                    // Shop · Meal page, pin 3: a meal that is gone is "not on the marketplace",
+                    // not "something went wrong".
+                    treatFailuresAsEmpty={['resource.not_found']}
                     skeletonCount={2}
                     testID="meal-detail"
                 >
@@ -763,17 +770,26 @@ function OrderBar({
             )}
 
             {failure !== null ? (
-                <Callout
+                // Shop · Meal page, pin 4: a red card with its own tile, beside the button that failed.
+                <View
                     testID="meal-detail-action-error"
                     role="alert"
-                    tone="danger"
-                    title={t('catalogue:meal.actionErrorTitle')}
-                    body={
-                        failure.code === 'server'
-                            ? t('catalogue:meal.actionErrorBody')
-                            : (failureMessage(failure) ?? t('catalogue:meal.actionErrorBody'))
-                    }
-                />
+                    className="flex-row gap-3 rounded-[18px] border border-danger-border bg-danger-subtle px-4 py-3.5 shadow-elevation-2"
+                >
+                    <View className="h-[34px] w-[34px] items-center justify-center rounded-[11px] bg-danger-strong">
+                        <Icon name="close" size="sm" className="text-danger-on-strong" />
+                    </View>
+                    <View className="min-w-0 flex-1">
+                        <RNText className="text-base font-bold leading-[21px] text-danger-on-subtle text-start">
+                            {t('catalogue:meal.actionErrorTitle')}
+                        </RNText>
+                        <RNText className="text-sm leading-5 text-danger-on-subtle text-start">
+                            {failure.code === 'server'
+                                ? t('catalogue:meal.actionErrorBody')
+                                : (failureMessage(failure) ?? t('catalogue:meal.actionErrorBody'))}
+                        </RNText>
+                    </View>
+                </View>
             ) : null}
         </View>
     );
@@ -957,12 +973,19 @@ function FactCards({ item }: { readonly item: MarketplaceMeal }) {
     const { t } = useTranslation();
     const router = useRouter();
     const kitchen = useKitchenQuery(item.kitchenId);
+    const mine = useMyAllergenCodes();
 
     return (
         <View className="mt-5 flex-col gap-4 lg:flex-row">
+            {/*
+             * Shop · Meal page, pin 1: the allergens the person declared are marked on their own
+             * chip — red, with "On your allergy list" — instead of a red-dot line repeating the
+             * chips. The ingredients card that only ever said "not published" folds into the foot
+             * of this one; it comes back as a card when kitchens publish ingredients.
+             */}
             <View
                 testID="meal-detail-allergens"
-                className="flex-col rounded-3xl bg-warning-subtle p-5 lg:flex-[1.2]"
+                className="flex-col gap-3.5 rounded-3xl bg-warning-subtle p-5 lg:flex-[2]"
             >
                 <View className="flex-row items-center gap-2.5">
                     <View className="h-9 w-9 items-center justify-center rounded-xl bg-surface-raised">
@@ -974,7 +997,7 @@ function FactCards({ item }: { readonly item: MarketplaceMeal }) {
                 </View>
                 <View
                     testID="meal-detail-allergen-list"
-                    className="mt-3.5 flex-row flex-wrap items-center gap-2"
+                    className="flex-row flex-wrap items-center gap-2"
                 >
                     {item.allergens.length === 0 ? (
                         <RNText className="text-sm text-warning-on-subtle text-start">
@@ -982,44 +1005,61 @@ function FactCards({ item }: { readonly item: MarketplaceMeal }) {
                         </RNText>
                     ) : (
                         <>
-                            <RNText className="text-sm font-semibold text-warning-on-subtle">
+                            <RNText className="min-w-[92px] text-xs font-bold text-warning-on-subtle">
                                 {t('catalogue:meal.contains')}
                             </RNText>
-                            {item.allergens.map((code) => (
-                                <View
-                                    key={code}
-                                    className="h-[30px] justify-center rounded-[9px] bg-surface-raised px-3"
-                                >
-                                    <RNText className="text-sm font-bold text-warning-on-subtle">
-                                        {t(`marketplace:allergens.${code}`)}
-                                    </RNText>
-                                </View>
-                            ))}
+                            {item.allergens.map((code) => {
+                                const yours = mine.includes(code);
+                                return (
+                                    <View
+                                        key={code}
+                                        testID={
+                                            yours ? `meal-detail-your-allergen-${code}` : undefined
+                                        }
+                                        className={cx(
+                                            'h-[34px] flex-row items-center gap-1.5 rounded-[11px] px-3',
+                                            yours
+                                                ? 'bg-danger-strong shadow-elevation-2'
+                                                : 'bg-surface-raised',
+                                        )}
+                                    >
+                                        {yours ? (
+                                            <Icon
+                                                name="shield"
+                                                size="sm"
+                                                className="text-danger-on-strong"
+                                            />
+                                        ) : null}
+                                        <RNText
+                                            className={cx(
+                                                'text-sm font-bold',
+                                                yours
+                                                    ? 'text-danger-on-strong'
+                                                    : 'text-warning-on-subtle',
+                                            )}
+                                        >
+                                            {t(`marketplace:allergens.${code}`)}
+                                        </RNText>
+                                        {yours ? (
+                                            <RNText className="ms-0.5 border-s border-danger-on-strong/40 ps-1.5 text-xs font-semibold text-danger-on-strong opacity-90">
+                                                {t('commerce:myAllergens.dialogTitle')}
+                                            </RNText>
+                                        ) : null}
+                                    </View>
+                                );
+                            })}
                         </>
                     )}
                 </View>
-                <YourAllergens
-                    allergens={item.allergens}
-                    testID="meal-detail-your-allergens"
-                    className="mt-3"
-                />
-            </View>
-
-            <View
-                testID="meal-detail-ingredients"
-                className="flex-col rounded-3xl border border-stroke-subtle bg-surface-raised p-5 lg:flex-1"
-            >
-                <View className="flex-row items-center gap-2.5">
-                    <View className="h-9 w-9 items-center justify-center rounded-xl bg-surface-brand-subtle">
-                        <Icon name="leaf" size="sm" className="text-content-on-brand-subtle" />
-                    </View>
-                    <RNText className="font-display text-base font-bold text-content-primary">
-                        {t('catalogue:meal.ingredientsLabel')}
+                <View
+                    testID="meal-detail-ingredients"
+                    className="flex-row items-center gap-2 border-t border-warning-border pt-3"
+                >
+                    <Icon name="leaf" size="sm" className="text-warning-on-subtle" />
+                    <RNText className="shrink text-sm text-warning-on-subtle text-start">
+                        {t('catalogue:meal.ingredientsBody')}
                     </RNText>
                 </View>
-                <RNText className="mt-3 text-sm leading-relaxed text-content-secondary text-start">
-                    {t('catalogue:meal.ingredientsBody')}
-                </RNText>
             </View>
 
             <Pressable

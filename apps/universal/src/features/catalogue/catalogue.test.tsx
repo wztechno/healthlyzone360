@@ -1842,15 +1842,20 @@ describe('MealDetailScreen', () => {
         });
     });
 
-    it('reports a failure rather than an empty page when the meal is unknown', async () => {
+    it('says a meal that is gone is not on the marketplace, with the way to the menu', async () => {
         await renderStubScreen(<MealDetailScreen mealId={UNKNOWN_ID} />, {
             repositories: CATALOGUE_REPOSITORIES,
         });
 
         expect(screen.getByTestId('meal-detail-loading')).toBeTruthy();
+        // Shop · Meal page, pin 3: not a blank page and not "something went wrong".
         await waitFor(() => {
-            expect(screen.getByTestId('meal-detail-error')).toBeTruthy();
+            expect(screen.getByTestId('meal-detail-empty')).toHaveTextContent(
+                /That meal is not on the marketplace/,
+            );
         });
+        expect(screen.getByTestId('meal-detail-browse')).toBeTruthy();
+        expect(screen.queryByTestId('meal-detail-error')).toBeNull();
     });
 
     it('answers a malformed identifier with the not-found state rather than a stuck skeleton', async () => {
