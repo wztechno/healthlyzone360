@@ -134,7 +134,8 @@
         "allergenGate_few": "{{count}} أصناف تحتوي على مسببات حساسيتك",
         "allergenGate_many": "{{count}} صنفًا يحتوي على مسببات حساسيتك",
         "allergenGate_other": "{{count}} صنف يحتوي على مسببات حساسيتك",
-        "allergenAck": "أعلم ذلك، أضفها على أي حال"
+        "allergenAck": "أعلم ذلك، أضفها على أي حال",
+        "totalWithCount": "الإجمالي · {{count}}"
     },
     "checkout": {
         "title": "إتمام الطلب",

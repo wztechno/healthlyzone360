@@ -126,7 +126,8 @@
         "addNamed": "Add {{meal}}",
         "allergenGate_one": "{{count}} item contains your allergens",
         "allergenGate_other": "{{count}} items contain your allergens",
-        "allergenAck": "I know, add them anyway"
+        "allergenAck": "I know, add them anyway",
+        "totalWithCount": "Total · {{count}}"
     },
     "checkout": {
         "title": "Checkout",

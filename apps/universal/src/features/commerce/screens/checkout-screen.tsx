@@ -31,6 +31,7 @@ import { usePreviousEntry } from '../../../navigation/use-return-to.ts';
 import { usePrototypeAction } from '../../../prototype/index.ts';
 import { EntityImage } from '../../../media/entity-image.tsx';
 import { BackPill } from '../../../ui/back-pill.tsx';
+import { ShopPhoneTopBar } from '../../../ui/shop-phone-bar.tsx';
 import { ShopStateButton } from '../../../ui/shop-state.tsx';
 import { ShopDialog, ShopDialogButton, ShopDialogSubject } from '../../../ui/shop-dialog.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
@@ -798,11 +799,7 @@ export function CheckoutScreen() {
                         className="flex-row items-center gap-3.5 rounded-[18px] border-[1.5px] border-surface-brand bg-surface-brand-subtle p-4"
                     >
                         <View className="h-11 w-11 items-center justify-center rounded-[14px] bg-surface-raised">
-                            <Icon
-                                name="store"
-                                size="md"
-                                className="text-content-on-brand-subtle"
-                            />
+                            <Icon name="store" size="md" className="text-content-on-brand-subtle" />
                         </View>
                         <View className="min-w-0 flex-1">
                             <RNText className="text-base font-bold text-content-on-brand-subtle text-start">
@@ -1258,6 +1255,8 @@ function CheckoutTop({
     readonly onBasket?: (() => void) | undefined;
 }) {
     const { t } = useTranslation();
+    // Shop · Checkout, phone board: "‹ Checkout" as the page's own bar, the steps under it.
+    const phone = !useBreakpoint().atLeast('md');
     const steps = [
         t('commerce:checkout.steps.delivery'),
         t('commerce:checkout.steps.payment'),
@@ -1265,22 +1264,36 @@ function CheckoutTop({
     ];
     return (
         <View className="flex-row flex-wrap items-center gap-3.5 pt-1">
-            {onBasket === undefined ? null : (
-                <BackPill
-                    testID="checkout-back-basket"
-                    label={t('commerce:checkout.basket')}
-                    onPress={onBasket}
-                    className="me-1.5"
-                />
+            {phone && onBasket !== undefined ? (
+                <View className="w-full">
+                    <ShopPhoneTopBar
+                        backTestID="checkout-back-basket"
+                        backLabel={t('commerce:checkout.basket')}
+                        onBack={onBasket}
+                        titleTestID="checkout-title"
+                        title={t('commerce:checkout.title')}
+                    />
+                </View>
+            ) : (
+                <>
+                    {onBasket === undefined ? null : (
+                        <BackPill
+                            testID="checkout-back-basket"
+                            label={t('commerce:checkout.basket')}
+                            onPress={onBasket}
+                            className="me-1.5"
+                        />
+                    )}
+                    <RNText
+                        testID="checkout-title"
+                        role="heading"
+                        aria-level={1}
+                        className="font-display text-4xl font-bold tracking-display text-content-primary text-start"
+                    >
+                        {t('commerce:checkout.title')}
+                    </RNText>
+                </>
             )}
-            <RNText
-                testID="checkout-title"
-                role="heading"
-                aria-level={1}
-                className="font-display text-4xl font-bold tracking-display text-content-primary text-start"
-            >
-                {t('commerce:checkout.title')}
-            </RNText>
             <View
                 testID="checkout-stepper"
                 role="list"
