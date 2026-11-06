@@ -718,7 +718,8 @@
             "countCutOff_one": "{{formattedCount}} dish · order by {{time}}",
             "countCutOff_other": "{{formattedCount}} dishes · order by {{time}}",
             "emptyTitle": "Nothing on the menu yet",
-            "emptyBody": "This kitchen has not published anything to order. Browse the directory to find another."
+            "emptyBody": "This kitchen has not published anything to order. Browse the directory to find another.",
+            "chipShort": "{{label}} · {{count}}"
         },
         "row": {
             "energy": "{{value}} cal",
@@ -841,7 +842,8 @@
         "pausedBody": "You can browse the menu now and order again from {{time}}.",
         "allKitchens": "All kitchens",
         "seePlans": "See weekly plans",
-        "pausedPill": "New orders paused · back at {{time}}"
+        "pausedPill": "New orders paused · back at {{time}}",
+        "viewOrder": "View order"
     },
     "imageCredits": {
         "title": "Image credits",

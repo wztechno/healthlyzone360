@@ -1,4 +1,4 @@
-import { useBreakpoint } from '@healthy360/design-system';
+import { HideShellTopbar, cx, useBreakpoint } from '@healthy360/design-system';
 import type { Kitchen, MarketplaceMeal, SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { KitchenId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -151,6 +151,8 @@ function Storefront({
     const formatter = useFormatter();
     const { atLeast } = useBreakpoint();
     const wide = atLeast('lg');
+    // Shop · Kitchens, phone board: the cover to the screen's edges, no shop bar, a docked order bar.
+    const phone = !atLeast('md');
     const params = useLocalSearchParams<{ tab?: string; shelf?: string }>();
     const basket = useBasketAdd({ labelKey: 'marketplace:nav.kitchens', testID: 'kitchen' });
 
@@ -234,7 +236,13 @@ function Storefront({
     };
 
     const orderPanel = (
-        <StorefrontOrderPanel kitchen={kitchen} meals={meals} cutOff={cutOff} clock={clock} />
+        <StorefrontOrderPanel
+            kitchen={kitchen}
+            meals={meals}
+            cutOff={cutOff}
+            clock={clock}
+            phone={phone}
+        />
     );
 
     const panels: Record<StorefrontTab, ReactNode> = {
@@ -294,6 +302,7 @@ function Storefront({
 
     return (
         <View className="flex-col">
+            {phone ? <HideShellTopbar /> : null}
             <StorefrontCanopy
                 kitchen={kitchen}
                 onBack={onBack}
@@ -302,14 +311,19 @@ function Storefront({
                 }}
             />
 
-            {wide ? null : <View className="mt-5">{orderPanel}</View>}
+            {wide ? null : phone ? orderPanel : <View className="mt-5">{orderPanel}</View>}
 
             {/*
              * Sticky on the web, under the shell's top bar: `top-0` resolves against the shell's
              * scroll port, not the document. The page surface behind it so the dishes scrolling
              * underneath do not show through the row.
              */}
-            <View className="z-sticky mt-5 bg-surface-base pb-1 web:sticky web:top-0">
+            <View
+                className={cx(
+                    'z-sticky bg-surface-base web:sticky web:top-0',
+                    phone ? '-mx-4 mt-3 px-4' : 'mt-5 pb-1',
+                )}
+            >
                 <StorefrontTabs<StorefrontTab>
                     testID="kitchen-tabs"
                     label={t('marketplace:storefront.tabs.label')}
@@ -327,7 +341,12 @@ function Storefront({
                 />
             </View>
 
-            <View className="mt-[22px] flex-col gap-6 lg:flex-row lg:items-start">
+            <View
+                className={cx(
+                    'flex-col gap-6 lg:flex-row lg:items-start',
+                    phone ? 'mt-3.5' : 'mt-[22px]',
+                )}
+            >
                 <View
                     testID={`kitchen-panel-${tab}`}
                     role="tabpanel"

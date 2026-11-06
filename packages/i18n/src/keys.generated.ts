@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10327 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10329 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -8637,6 +8637,7 @@ export interface NamespaceKeys {
     | 'storefront.facts.ratingValue'
     | 'storefront.menu.all'
     | 'storefront.menu.chip'
+    | 'storefront.menu.chipShort'
     | 'storefront.menu.count'
     | 'storefront.menu.countCutOff'
     | 'storefront.menu.emptyBody'
@@ -8750,6 +8751,7 @@ export interface NamespaceKeys {
     | 'storefront.today.title'
     | 'storefront.today.week'
     | 'storefront.verified'
+    | 'storefront.viewOrder'
     | 'storefront.ways.delivery'
     | 'storefront.ways.pickup'
     | 'storefront.ways.plans'
@@ -18981,6 +18983,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:storefront.facts.ratingValue',
   'marketplace:storefront.menu.all',
   'marketplace:storefront.menu.chip',
+  'marketplace:storefront.menu.chipShort',
   'marketplace:storefront.menu.count',
   'marketplace:storefront.menu.countCutOff',
   'marketplace:storefront.menu.emptyBody',
@@ -19094,6 +19097,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:storefront.today.title',
   'marketplace:storefront.today.week',
   'marketplace:storefront.verified',
+  'marketplace:storefront.viewOrder',
   'marketplace:storefront.ways.delivery',
   'marketplace:storefront.ways.pickup',
   'marketplace:storefront.ways.plans',

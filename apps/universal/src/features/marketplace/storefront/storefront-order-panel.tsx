@@ -1,4 +1,4 @@
-import { Icon, cx } from '@healthy360/design-system';
+import { Icon, ShellDock, cx } from '@healthy360/design-system';
 import type { CartItem, Kitchen, MarketplaceMeal } from '@healthy360/api-client/contracts';
 import type { Money } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -45,9 +45,17 @@ export interface StorefrontOrderPanelProps {
     /** Today's same-day cut-off, `HH:mm`. */
     readonly cutOff: string | null;
     readonly clock: KitchenClock | null;
+    /** The phone board's docked "View order" bar in place of the panel. */
+    readonly phone?: boolean | undefined;
 }
 
-export function StorefrontOrderPanel({ kitchen, meals, cutOff, clock }: StorefrontOrderPanelProps) {
+export function StorefrontOrderPanel({
+    kitchen,
+    meals,
+    cutOff,
+    clock,
+    phone = false,
+}: StorefrontOrderPanelProps) {
     const viewOnly = useShopViewOnly();
     const { t } = useTranslation();
     const formatter: Formatter = useFormatter();
@@ -70,6 +78,42 @@ export function StorefrontOrderPanel({ kitchen, meals, cutOff, clock }: Storefro
                   currency: first.lineTotal.currency,
               });
 
+    /*
+     * Shop · Kitchens, phone board: no panel beside the menu — once this kitchen's dishes are in
+     * the basket, a green bar docked to the screen's foot: how many, "View order", and the total.
+     */
+    if (phone) {
+        if (viewOnly || count === 0 || total === null) return null;
+        return (
+            <ShellDock>
+                <View className="bg-surface-base px-3 pb-3.5 pt-1">
+                    <Pressable
+                        testID="kitchen-view-order"
+                        role="link"
+                        accessibilityRole="link"
+                        onPress={() => {
+                            router.push('/customer/cart' as never);
+                        }}
+                        className="h-[60px] flex-row items-center gap-3 rounded-[20px] bg-surface-brand pe-2.5 ps-4 shadow-elevation-3"
+                    >
+                        <View className="h-7 min-w-[28px] items-center justify-center rounded-[9px] bg-content-on-brand/20 px-1">
+                            <RNText className="text-sm font-bold tabular-nums text-content-on-brand">
+                                {formatter.formatNumber(count)}
+                            </RNText>
+                        </View>
+                        <RNText className="text-base font-bold text-content-on-brand">
+                            {t('marketplace:storefront.viewOrder')}
+                        </RNText>
+                        <View className="ms-auto h-10 justify-center rounded-xl bg-content-on-brand/15 px-3">
+                            <RNText className="font-display text-base font-bold tabular-nums text-content-on-brand">
+                                {total}
+                            </RNText>
+                        </View>
+                    </Pressable>
+                </View>
+            </ShellDock>
+        );
+    }
     return (
         <View
             testID="kitchen-order-panel"

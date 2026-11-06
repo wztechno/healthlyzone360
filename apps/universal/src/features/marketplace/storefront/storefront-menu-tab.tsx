@@ -1,9 +1,10 @@
-import { Icon, cx } from '@healthy360/design-system';
+import { Icon, cx, useBreakpoint } from '@healthy360/design-system';
 import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, Text as RNText, View } from 'react-native';
+import { Pressable, Text as RNText, ScrollView, View } from 'react-native';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
 import { MenuMealCard } from '../../catalogue/menu-meal-card.tsx';
@@ -60,6 +61,8 @@ export function StorefrontMenuTab({
 }: StorefrontMenuTabProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    // Shop · Kitchens, phone board: one-line shelf chips that scroll, two cards to a row.
+    const phone = !useBreakpoint().atLeast('md');
 
     const shelves = useMemo(() => menuShelves(meals), [meals]);
     const shelf =
@@ -92,12 +95,20 @@ export function StorefrontMenuTab({
                     onShelfChange(key === ALL ? null : key);
                 }}
                 className={cx(
-                    'h-[68px] min-w-[150px] flex-1 basis-[22%] flex-row items-center gap-2.5 rounded-[18px] border-2 pe-3 ps-2 transition duration-normal ease-standard hover:-translate-y-0.5',
+                    'flex-row items-center border-2 transition duration-normal ease-standard hover:-translate-y-0.5',
+                    phone
+                        ? 'h-[52px] gap-2 rounded-2xl pe-3 ps-[5px]'
+                        : 'h-[68px] min-w-[150px] flex-1 basis-[22%] gap-2.5 rounded-[18px] pe-3 ps-2',
                     TINT_FILL[tint],
                     on ? TINT_BORDER[tint] : 'border-transparent',
                 )}
             >
-                <View className="h-[50px] w-[50px] items-center justify-center overflow-hidden rounded-xl">
+                <View
+                    className={cx(
+                        'items-center justify-center overflow-hidden',
+                        phone ? 'h-10 w-10 rounded-[11px]' : 'h-[50px] w-[50px] rounded-xl',
+                    )}
+                >
                     {photo === undefined ? (
                         <Icon name="layoutGrid" className={TINT_INK[tint]} />
                     ) : (
@@ -108,29 +119,38 @@ export function StorefrontMenuTab({
                             label={label}
                             decorative
                             flush
-                            className="h-[50px] w-[50px]"
+                            className={phone ? 'h-10 w-10' : 'h-[50px] w-[50px]'}
                         />
                     )}
                 </View>
-                <View className="min-w-0 flex-1 flex-col">
+                {phone ? (
                     <RNText
                         numberOfLines={1}
-                        className={cx(
-                            'font-display text-base font-bold text-start',
-                            TINT_INK[tint],
-                        )}
+                        className={cx('font-display text-sm font-bold text-start', TINT_INK[tint])}
                     >
-                        {label}
+                        {t('marketplace:storefront.menu.chipShort', { label, count: countText })}
                     </RNText>
-                    <RNText
-                        className={cx(
-                            'text-xs font-medium tabular-nums opacity-85 text-start',
-                            TINT_INK[tint],
-                        )}
-                    >
-                        {t('catalogue:filters.shelfCount', { count, n: countText })}
-                    </RNText>
-                </View>
+                ) : (
+                    <View className="min-w-0 flex-1 flex-col">
+                        <RNText
+                            numberOfLines={1}
+                            className={cx(
+                                'font-display text-base font-bold text-start',
+                                TINT_INK[tint],
+                            )}
+                        >
+                            {label}
+                        </RNText>
+                        <RNText
+                            className={cx(
+                                'text-xs font-medium tabular-nums opacity-85 text-start',
+                                TINT_INK[tint],
+                            )}
+                        >
+                            {t('catalogue:filters.shelfCount', { count, n: countText })}
+                        </RNText>
+                    </View>
+                )}
             </Pressable>
         );
     };
@@ -139,23 +159,25 @@ export function StorefrontMenuTab({
 
     return (
         <View className="flex-col gap-4" testID="kitchen-menu-tab">
-            <View
-                testID="kitchen-shelves"
-                role="radiogroup"
-                aria-label={t('marketplace:storefront.menu.shelvesLabel')}
-                className="flex-row flex-wrap gap-2.5"
-            >
-                {tile(ALL, t('marketplace:storefront.menu.all'), meals.length)}
-                {shelves.map((entry) =>
-                    tile(
-                        entry.key,
-                        entry.key === OTHER_SHELF || entry.name === null
-                            ? t('marketplace:storefront.menu.other')
-                            : entry.name,
-                        entry.count,
-                    ),
-                )}
-            </View>
+            <ShelvesFrame phone={phone}>
+                <View
+                    testID="kitchen-shelves"
+                    role="radiogroup"
+                    aria-label={t('marketplace:storefront.menu.shelvesLabel')}
+                    className={cx('flex-row gap-2.5', phone ? null : 'grow flex-wrap')}
+                >
+                    {tile(ALL, t('marketplace:storefront.menu.all'), meals.length)}
+                    {shelves.map((entry) =>
+                        tile(
+                            entry.key,
+                            entry.key === OTHER_SHELF || entry.name === null
+                                ? t('marketplace:storefront.menu.other')
+                                : entry.name,
+                            entry.count,
+                        ),
+                    )}
+                </View>
+            </ShelvesFrame>
 
             <View className="flex-row flex-wrap items-center justify-between gap-3">
                 <RNText
@@ -191,11 +213,22 @@ export function StorefrontMenuTab({
                 </Pressable>
             </View>
 
-            <View testID="kitchen-menu-rows" className="flex-row flex-wrap gap-4">
+            <View
+                testID="kitchen-menu-rows"
+                className={cx('flex-row flex-wrap', phone ? 'gap-2.5' : 'gap-4')}
+            >
                 {visible.map((meal) => (
-                    <View key={meal.id} className="min-w-[220px] flex-1 grow basis-[30%] flex-col">
+                    <View
+                        key={meal.id}
+                        className={
+                            phone
+                                ? 'w-[48%] grow flex-col'
+                                : 'min-w-[220px] flex-1 grow basis-[30%] flex-col'
+                        }
+                    >
                         <MenuMealCard
                             compact
+                            phone={phone}
                             testID={`storefront-menu-${meal.slug}`}
                             meal={meal}
                             onOpen={() => {
@@ -209,5 +242,27 @@ export function StorefrontMenuTab({
                 ))}
             </View>
         </View>
+    );
+}
+
+/** A phone's shelves scroll sideways from the screen's edge; a desk's wrap into rows. */
+function ShelvesFrame({
+    phone,
+    children,
+}: {
+    readonly phone: boolean;
+    readonly children: ReactNode;
+}) {
+    return phone ? (
+        <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="-mx-4"
+            contentContainerClassName="px-4"
+        >
+            {children}
+        </ScrollView>
+    ) : (
+        <>{children}</>
     );
 }

@@ -1,7 +1,7 @@
 import { useBreakpoint } from '@healthy360/design-system';
 import { Children } from 'react';
 import type { ReactNode } from 'react';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 /**
  * The design's `repeat(3, minmax(0, 1fr))` card row, over however many plans the catalogue holds:
@@ -22,6 +22,26 @@ export function PlanGrid({
     const { atLeast } = useBreakpoint();
     const columns = atLeast('lg') ? 3 : atLeast('md') ? 2 : 1;
     const cells = Children.toArray(children);
+
+    // Shop · Weekly plans, phone board: the plans as a sideways row of 290px cards, the next
+    // one peeking past the screen's edge.
+    if (!atLeast('md')) {
+        return (
+            <ScrollView
+                testID={testID}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                className="-mx-4"
+                contentContainerClassName="items-stretch gap-3 px-4 pb-1.5 pt-0.5"
+            >
+                {cells.map((cell, index) => (
+                    <View key={index} className="w-[290px] flex-col">
+                        {cell}
+                    </View>
+                ))}
+            </ScrollView>
+        );
+    }
     const rows: ReactNode[][] = [];
     for (let index = 0; index < cells.length; index += columns) {
         rows.push(cells.slice(index, index + columns));

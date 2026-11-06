@@ -32,9 +32,14 @@ import {
 export interface KitchenFinderCardProps {
     readonly kitchen: Kitchen;
     readonly testID?: string | undefined;
+    /**
+     * The phone board's card: a 140px cover with the quick look always shown, then the logo beside
+     * the name, tags and one line of figures, with a round "open" button at the end.
+     */
+    readonly phone?: boolean | undefined;
 }
 
-export function KitchenFinderCard({ kitchen, testID }: KitchenFinderCardProps) {
+export function KitchenFinderCard({ kitchen, testID, phone = false }: KitchenFinderCardProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const id = testID ?? `kitchen-card-${kitchen.slug}`;
@@ -60,7 +65,8 @@ export function KitchenFinderCard({ kitchen, testID }: KitchenFinderCardProps) {
                 setHovered(false);
             }}
             className={cx(
-                'relative flex-1 flex-col overflow-hidden rounded-[26px] border border-stroke-subtle bg-surface-raised transition duration-normal ease-standard',
+                'relative flex-1 flex-col overflow-hidden border border-stroke-subtle bg-surface-raised transition duration-normal ease-standard',
+                phone ? 'rounded-[22px]' : 'rounded-[26px]',
                 hovered ? '-translate-y-1 shadow-elevation-card-hover' : '',
             )}
         >
@@ -72,11 +78,15 @@ export function KitchenFinderCard({ kitchen, testID }: KitchenFinderCardProps) {
                 aria-hidden
                 accessibilityElementsHidden
                 importantForAccessibility="no-hide-descendants"
-                className="h-[170px] overflow-hidden bg-surface-canopy"
+                className={cx(
+                    'overflow-hidden bg-surface-canopy',
+                    phone ? 'h-[140px]' : 'h-[170px]',
+                )}
             >
                 <View
                     className={cx(
-                        'h-[170px] transition duration-slow ease-emphasized',
+                        'transition duration-slow ease-emphasized',
+                        phone ? 'h-[140px]' : 'h-[170px]',
                         hovered ? 'scale-[1.07]' : '',
                     )}
                 >
@@ -88,7 +98,7 @@ export function KitchenFinderCard({ kitchen, testID }: KitchenFinderCardProps) {
                         label={t('marketplace:kitchens.imageLabel', { kitchen: kitchen.name })}
                         decorative
                         flush
-                        className="h-[170px]"
+                        className={phone ? 'h-[140px]' : 'h-[170px]'}
                     />
                 </View>
             </Pressable>
@@ -127,17 +137,24 @@ export function KitchenFinderCard({ kitchen, testID }: KitchenFinderCardProps) {
                     setLooking(true);
                 }}
                 className={cx(
-                    'absolute end-2.5 top-2.5 h-9 flex-row items-center gap-1.5 rounded-full bg-surface-inverse/75 px-3 transition duration-normal ease-standard focus:opacity-100',
-                    hovered ? 'opacity-100' : 'web:opacity-0',
+                    'absolute flex-row items-center rounded-full bg-surface-inverse/75 transition duration-normal ease-standard focus:opacity-100',
+                    phone
+                        ? 'end-2 top-2 h-11 w-11 justify-center'
+                        : cx(
+                              'end-2.5 top-2.5 h-9 gap-1.5 px-3',
+                              hovered ? 'opacity-100' : 'web:opacity-0',
+                          ),
                 )}
             >
                 <Icon name="eye" size="sm" className="text-content-inverse" />
-                <RNText className="text-xs font-semibold text-content-inverse">
-                    {t('marketplace:kitchens.quickLook')}
-                </RNText>
+                {phone ? null : (
+                    <RNText className="text-xs font-semibold text-content-inverse">
+                        {t('marketplace:kitchens.quickLook')}
+                    </RNText>
+                )}
             </Pressable>
 
-            {tallies.dishes.length === 0 ? null : (
+            {tallies.dishes.length === 0 || phone ? null : (
                 <View
                     aria-hidden
                     pointerEvents="none"
@@ -166,114 +183,191 @@ export function KitchenFinderCard({ kitchen, testID }: KitchenFinderCardProps) {
                 </View>
             )}
 
-            <View className="flex-1 flex-col px-[18px] pb-[18px]">
-                <View className="-mt-8 h-16 w-16 overflow-hidden rounded-[20px] border-4 border-surface-raised bg-surface-raised shadow-elevation-2">
-                    <EntityImage
-                        assetId={kitchen.imagePlaceholderId}
-                        seed={`${kitchen.slug}-logo`}
-                        label={kitchen.name}
-                        decorative
-                        flush
-                        className="h-full w-full"
-                    />
-                </View>
-                <RNText
-                    numberOfLines={1}
-                    className="mt-2.5 font-display text-xl font-bold text-content-primary text-start"
-                >
-                    {kitchen.name}
-                </RNText>
-                <RNText
-                    testID={`${id}-where`}
-                    numberOfLines={1}
-                    className="mt-0.5 text-sm text-content-secondary text-start"
-                >
-                    {kitchenWhere(kitchen, t)}
-                </RNText>
-
-                {tags.length === 0 && !kitchen.isVerified ? null : (
-                    <View className="mt-2.5 flex-row flex-wrap gap-1.5">
-                        {kitchen.isVerified ? (
-                            <View
-                                testID={`${id}-verified`}
-                                className="h-6 flex-row items-center gap-1 rounded-full bg-surface-brand-subtle px-2.5"
-                            >
-                                <Icon
-                                    name="badgeCheck"
-                                    size="sm"
-                                    className="text-content-on-brand-subtle"
-                                />
-                                <RNText className="text-xs font-semibold text-content-on-brand-subtle">
-                                    {t('marketplace:kitchens.verified')}
-                                </RNText>
+            {phone ? (
+                <View className="flex-row gap-3 px-3.5 pb-3.5">
+                    <View className="-mt-[26px] h-14 w-14 overflow-hidden rounded-[18px] border-4 border-surface-raised bg-surface-raised shadow-elevation-2">
+                        <EntityImage
+                            assetId={kitchen.imagePlaceholderId}
+                            seed={`${kitchen.slug}-logo`}
+                            label={kitchen.name}
+                            decorative
+                            flush
+                            className="h-full w-full"
+                        />
+                    </View>
+                    <View className="min-w-0 flex-1 flex-col pt-2">
+                        <RNText
+                            numberOfLines={1}
+                            className="font-display text-lg font-bold text-content-primary text-start"
+                        >
+                            {kitchen.name}
+                        </RNText>
+                        {tags.length === 0 ? null : (
+                            <View className="mt-1.5 flex-row flex-wrap gap-1">
+                                {tags.map((tag) => (
+                                    <View
+                                        key={tag.label}
+                                        className={cx(
+                                            'h-[22px] justify-center rounded-full px-2',
+                                            TINT_FILL[tag.tint],
+                                        )}
+                                    >
+                                        <RNText
+                                            className={cx(
+                                                'text-xs font-semibold',
+                                                TINT_INK[tag.tint],
+                                            )}
+                                        >
+                                            {tag.label}
+                                        </RNText>
+                                    </View>
+                                ))}
                             </View>
-                        ) : null}
-                        {tags.map((tag) => (
+                        )}
+                        <View className="mt-2 flex-row flex-wrap gap-3">
+                            {[
+                                { key: 'items', value: tallies.items, label: 'cardItems' },
+                                { key: 'areas', value: tallies.areas, label: 'cardAreas' },
+                                { key: 'plans', value: tallies.plans, label: 'cardPlans' },
+                            ].map((cell) => (
+                                <RNText
+                                    key={cell.key}
+                                    testID={`${id}-${cell.key}`}
+                                    className="text-xs text-content-secondary"
+                                >
+                                    <RNText className="font-display font-bold tabular-nums text-content-primary">
+                                        {cell.value ?? dash}
+                                    </RNText>{' '}
+                                    {t(`marketplace:kitchens.${cell.label}`).toLowerCase()}
+                                </RNText>
+                            ))}
+                        </View>
+                    </View>
+                    <Pressable
+                        testID={`${id}-open`}
+                        role="link"
+                        accessibilityRole="link"
+                        accessibilityLabel={t('marketplace:kitchens.cardLabel', {
+                            kitchen: kitchen.name,
+                        })}
+                        onPress={open}
+                        className="h-11 w-11 items-center justify-center self-center rounded-[14px] bg-surface-brand-subtle"
+                    >
+                        <Icon name="chevronForward" className="text-content-on-brand-subtle" />
+                    </Pressable>
+                </View>
+            ) : (
+                <View className="flex-1 flex-col px-[18px] pb-[18px]">
+                    <View className="-mt-8 h-16 w-16 overflow-hidden rounded-[20px] border-4 border-surface-raised bg-surface-raised shadow-elevation-2">
+                        <EntityImage
+                            assetId={kitchen.imagePlaceholderId}
+                            seed={`${kitchen.slug}-logo`}
+                            label={kitchen.name}
+                            decorative
+                            flush
+                            className="h-full w-full"
+                        />
+                    </View>
+                    <RNText
+                        numberOfLines={1}
+                        className="mt-2.5 font-display text-xl font-bold text-content-primary text-start"
+                    >
+                        {kitchen.name}
+                    </RNText>
+                    <RNText
+                        testID={`${id}-where`}
+                        numberOfLines={1}
+                        className="mt-0.5 text-sm text-content-secondary text-start"
+                    >
+                        {kitchenWhere(kitchen, t)}
+                    </RNText>
+
+                    {tags.length === 0 && !kitchen.isVerified ? null : (
+                        <View className="mt-2.5 flex-row flex-wrap gap-1.5">
+                            {kitchen.isVerified ? (
+                                <View
+                                    testID={`${id}-verified`}
+                                    className="h-6 flex-row items-center gap-1 rounded-full bg-surface-brand-subtle px-2.5"
+                                >
+                                    <Icon
+                                        name="badgeCheck"
+                                        size="sm"
+                                        className="text-content-on-brand-subtle"
+                                    />
+                                    <RNText className="text-xs font-semibold text-content-on-brand-subtle">
+                                        {t('marketplace:kitchens.verified')}
+                                    </RNText>
+                                </View>
+                            ) : null}
+                            {tags.map((tag) => (
+                                <View
+                                    key={tag.label}
+                                    className={cx(
+                                        'h-6 justify-center rounded-full px-2.5',
+                                        TINT_FILL[tag.tint],
+                                    )}
+                                >
+                                    <RNText
+                                        className={cx('text-xs font-semibold', TINT_INK[tag.tint])}
+                                    >
+                                        {tag.label}
+                                    </RNText>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+
+                    <View className="mt-3.5 flex-row gap-1.5 rounded-2xl bg-surface-base p-1">
+                        {[
+                            { key: 'items', value: tallies.items, label: 'cardItems' },
+                            { key: 'areas', value: tallies.areas, label: 'cardAreas' },
+                            { key: 'plans', value: tallies.plans, label: 'cardPlans' },
+                        ].map((cell) => (
                             <View
-                                key={tag.label}
-                                className={cx(
-                                    'h-6 justify-center rounded-full px-2.5',
-                                    TINT_FILL[tag.tint],
-                                )}
+                                key={cell.key}
+                                testID={`${id}-${cell.key}`}
+                                className="flex-1 flex-col items-center rounded-[10px] bg-surface-raised px-0.5 py-1.5"
                             >
-                                <RNText className={cx('text-xs font-semibold', TINT_INK[tag.tint])}>
-                                    {tag.label}
+                                <RNText className="font-display text-base font-bold tabular-nums text-content-primary">
+                                    {cell.value ?? dash}
+                                </RNText>
+                                <RNText className="text-xs font-semibold uppercase tracking-wide text-content-secondary">
+                                    {t(`marketplace:kitchens.${cell.label}`)}
                                 </RNText>
                             </View>
                         ))}
                     </View>
-                )}
 
-                <View className="mt-3.5 flex-row gap-1.5 rounded-2xl bg-surface-base p-1">
-                    {[
-                        { key: 'items', value: tallies.items, label: 'cardItems' },
-                        { key: 'areas', value: tallies.areas, label: 'cardAreas' },
-                        { key: 'plans', value: tallies.plans, label: 'cardPlans' },
-                    ].map((cell) => (
-                        <View
-                            key={cell.key}
-                            testID={`${id}-${cell.key}`}
-                            className="flex-1 flex-col items-center rounded-[10px] bg-surface-raised px-0.5 py-1.5"
+                    <Pressable
+                        testID={`${id}-open`}
+                        role="link"
+                        accessibilityRole="link"
+                        accessibilityLabel={t('marketplace:kitchens.cardLabel', {
+                            kitchen: kitchen.name,
+                        })}
+                        onPress={open}
+                        className="mt-2.5 min-h-touch flex-row items-center justify-between"
+                    >
+                        <RNText
+                            numberOfLines={1}
+                            className="min-w-0 shrink text-sm font-semibold text-content-on-brand-subtle text-start"
                         >
-                            <RNText className="font-display text-base font-bold tabular-nums text-content-primary">
-                                {cell.value ?? dash}
-                            </RNText>
-                            <RNText className="text-xs font-semibold uppercase tracking-wide text-content-secondary">
-                                {t(`marketplace:kitchens.${cell.label}`)}
-                            </RNText>
+                            {t('marketplace:kitchens.openKitchen', { kitchen: kitchen.name })}
+                        </RNText>
+                        {/* The arrow steps 4px onward on hover — rightward, or leftward in Arabic. */}
+                        <View
+                            className="transition duration-normal ease-standard"
+                            style={{ transform: [{ translateX: hovered ? 4 * axisSign : 0 }] }}
+                        >
+                            <Icon
+                                name="chevronForward"
+                                size="sm"
+                                className="text-content-on-brand-subtle"
+                            />
                         </View>
-                    ))}
+                    </Pressable>
                 </View>
-
-                <Pressable
-                    testID={`${id}-open`}
-                    role="link"
-                    accessibilityRole="link"
-                    accessibilityLabel={t('marketplace:kitchens.cardLabel', {
-                        kitchen: kitchen.name,
-                    })}
-                    onPress={open}
-                    className="mt-2.5 min-h-touch flex-row items-center justify-between"
-                >
-                    <RNText
-                        numberOfLines={1}
-                        className="min-w-0 shrink text-sm font-semibold text-content-on-brand-subtle text-start"
-                    >
-                        {t('marketplace:kitchens.openKitchen', { kitchen: kitchen.name })}
-                    </RNText>
-                    {/* The arrow steps 4px onward on hover — rightward, or leftward in Arabic. */}
-                    <View
-                        className="transition duration-normal ease-standard"
-                        style={{ transform: [{ translateX: hovered ? 4 * axisSign : 0 }] }}
-                    >
-                        <Icon
-                            name="chevronForward"
-                            size="sm"
-                            className="text-content-on-brand-subtle"
-                        />
-                    </View>
-                </Pressable>
-            </View>
+            )}
 
             <KitchenQuickLook
                 testID={`${id}-quick`}

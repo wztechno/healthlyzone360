@@ -1,4 +1,4 @@
-import { cx } from '@healthy360/design-system';
+import { cx, useBreakpoint } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
@@ -22,6 +22,8 @@ export function PlanFinder({
 }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    // Shop · Weekly plans, phone board: three rows, a 74px label then the choices.
+    const phone = !useBreakpoint().atLeast('md');
 
     const question = <T extends string | number>(
         key: string,
@@ -34,16 +36,29 @@ export function PlanFinder({
         values.length === 0 ? null : (
             <View
                 key={key}
-                className="grow flex-row items-center gap-2.5 rounded-2xl bg-surface-base py-1.5 pe-1.5 ps-3"
+                className={cx(
+                    'grow flex-row items-center bg-surface-base',
+                    phone
+                        ? 'gap-2 rounded-[14px] py-1 pe-1 ps-2.5'
+                        : 'gap-2.5 rounded-2xl py-1.5 pe-1.5 ps-3',
+                )}
             >
-                <RNText className="text-xs font-bold uppercase tracking-wider text-content-secondary">
+                <RNText
+                    className={cx(
+                        'text-xs font-bold uppercase text-content-secondary',
+                        phone ? 'w-[74px] tracking-wide' : 'tracking-wider',
+                    )}
+                >
                     {label}
                 </RNText>
                 <View
                     testID={`plans-finder-${key}`}
                     role="radiogroup"
                     aria-label={label}
-                    className="grow flex-row gap-1 rounded-[14px] bg-surface-raised p-1"
+                    className={cx(
+                        'grow flex-row bg-surface-raised',
+                        phone ? 'gap-0.5 rounded-xl p-[3px]' : 'gap-1 rounded-[14px] p-1',
+                    )}
                 >
                     {values.map((value) => {
                         const on = value === current;
@@ -58,13 +73,18 @@ export function PlanFinder({
                                     pick(value);
                                 }}
                                 className={cx(
-                                    'h-9 grow items-center justify-center rounded-[10px] px-2.5 transition duration-normal ease-standard',
+                                    'grow items-center justify-center transition duration-normal ease-standard',
+                                    phone
+                                        ? 'h-[38px] rounded-[9px] px-1.5'
+                                        : 'h-9 rounded-[10px] px-2.5',
                                     on ? 'bg-surface-brand' : '',
                                 )}
                             >
                                 <RNText
+                                    numberOfLines={1}
                                     className={cx(
-                                        'font-display text-sm font-bold',
+                                        'font-display font-bold',
+                                        phone ? 'text-xs' : 'text-sm',
                                         on ? 'text-content-on-brand' : 'text-content-secondary',
                                     )}
                                 >
@@ -81,7 +101,12 @@ export function PlanFinder({
         <View
             testID="plans-finder"
             aria-label={t('catalogue:plans.finderLabel')}
-            className="mt-3 flex-row flex-wrap gap-2 rounded-[26px] border border-stroke-subtle bg-surface-raised p-2 shadow-elevation-2"
+            className={cx(
+                'mt-3 border border-stroke-subtle bg-surface-raised p-2 shadow-elevation-2',
+                phone
+                    ? 'flex-col gap-1.5 rounded-[22px]'
+                    : 'flex-row flex-wrap gap-2 rounded-[26px]',
+            )}
         >
             {question(
                 'meals',
@@ -113,21 +138,23 @@ export function PlanFinder({
                     onChange({ ...answers, level: value });
                 },
             )}
-            <View
-                testID="plans-finder-match"
-                role="status"
-                className="min-w-[200px] grow justify-center gap-0.5 rounded-[18px] bg-surface-canopy px-[18px] py-2.5"
-            >
-                <RNText className="text-xs text-content-on-canopy-muted">
-                    {t('catalogue:plans.bestMatch')}
-                </RNText>
-                <RNText
-                    numberOfLines={1}
-                    className="font-display text-lg font-bold text-content-on-canopy"
+            {phone ? null : (
+                <View
+                    testID="plans-finder-match"
+                    role="status"
+                    className="min-w-[200px] grow justify-center gap-0.5 rounded-[18px] bg-surface-canopy px-[18px] py-2.5"
                 >
-                    {matchName ?? t('catalogue:card.noFigure')}
-                </RNText>
-            </View>
+                    <RNText className="text-xs text-content-on-canopy-muted">
+                        {t('catalogue:plans.bestMatch')}
+                    </RNText>
+                    <RNText
+                        numberOfLines={1}
+                        className="font-display text-lg font-bold text-content-on-canopy"
+                    >
+                        {matchName ?? t('catalogue:card.noFigure')}
+                    </RNText>
+                </View>
+            )}
         </View>
     );
 }

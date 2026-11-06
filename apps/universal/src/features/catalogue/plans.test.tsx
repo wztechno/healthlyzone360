@@ -13,6 +13,7 @@ import type {
 } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import { forgetQueries } from '../../navigation/last-query.ts';
 import { withQuery, withReturnTo } from '../../navigation/return-to.ts';
 import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
@@ -302,27 +303,30 @@ describe('PlansScreen — HealthZone structure', () => {
     });
 
     it('finds the best match from the three questions and rings its card', async () => {
-        await renderStubScreen(<PlansScreen />, { repositories: REPOSITORIES });
-        await waitFor(() => screen.getByTestId('plans-grid'));
+        // The desk finder carries the best-match tile.
+        await withDeskWidth(async () => {
+            await renderStubScreen(<PlansScreen />, { repositories: REPOSITORIES });
+            await waitFor(() => screen.getByTestId('plans-grid'));
 
-        // The options are the catalogue's own: 2 or 3 meals, its three balances, two calorie levels.
-        expect(screen.getByTestId('plans-finder-meals-2')).toBeTruthy();
-        expect(screen.getByTestId('plans-finder-meals-3')).toBeTruthy();
-        expect(screen.getByTestId('plans-finder-days-84')).toHaveTextContent('84 days');
-        expect(screen.queryByTestId('plans-finder-level-balanced')).toBeNull();
-        // Tied plans go to the earlier one.
-        expect(screen.getByTestId('plans-finder-match')).toHaveTextContent(/Balanced week/);
-        expect(screen.getByTestId('plan-card-balanced-week-match')).toBeTruthy();
-        expect(screen.queryByTestId('plan-card-lean-days-match')).toBeNull();
+            // The options are the catalogue's own: 2 or 3 meals, its three balances, two calorie levels.
+            expect(screen.getByTestId('plans-finder-meals-2')).toBeTruthy();
+            expect(screen.getByTestId('plans-finder-meals-3')).toBeTruthy();
+            expect(screen.getByTestId('plans-finder-days-84')).toHaveTextContent('84 days');
+            expect(screen.queryByTestId('plans-finder-level-balanced')).toBeNull();
+            // Tied plans go to the earlier one.
+            expect(screen.getByTestId('plans-finder-match')).toHaveTextContent(/Balanced week/);
+            expect(screen.getByTestId('plan-card-balanced-week-match')).toBeTruthy();
+            expect(screen.queryByTestId('plan-card-lean-days-match')).toBeNull();
 
-        // Three meals moves the card onto its three-meal band.
-        await fireEvent.press(screen.getByTestId('plans-finder-meals-3'));
-        expect(screen.getByTestId('plans-finder-meals-3').props.accessibilityState.checked).toBe(
-            true,
-        );
-        expect(screen.getByTestId('plan-card-balanced-week-price-amount')).toHaveTextContent(
-            moneyPattern(4000),
-        );
+            // Three meals moves the card onto its three-meal band.
+            await fireEvent.press(screen.getByTestId('plans-finder-meals-3'));
+            expect(screen.getByTestId('plans-finder-meals-3').props.accessibilityState.checked).toBe(
+                true,
+            );
+            expect(screen.getByTestId('plan-card-balanced-week-price-amount')).toHaveTextContent(
+                moneyPattern(4000),
+            );
+        });
     });
 
     it('sends an anonymous starter through sign-in to the plan’s setup', async () => {

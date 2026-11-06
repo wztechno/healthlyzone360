@@ -778,7 +778,8 @@
             "countCutOff_many": "{{formattedCount}} طبقًا · اطلب قبل {{time}}",
             "countCutOff_other": "{{formattedCount}} طبق · اطلب قبل {{time}}",
             "emptyTitle": "لا شيء في القائمة بعد",
-            "emptyBody": "لم ينشر هذا المطبخ أي شيء للطلب. تصفّح الدليل للعثور على مطبخ آخر."
+            "emptyBody": "لم ينشر هذا المطبخ أي شيء للطلب. تصفّح الدليل للعثور على مطبخ آخر.",
+            "chipShort": "{{label}} · {{count}}"
         },
         "row": {
             "energy": "{{value}} سعرة",
@@ -909,7 +910,8 @@
         "pausedBody": "يمكنك تصفّح القائمة الآن والطلب مجددًا ابتداءً من {{time}}.",
         "allKitchens": "كل المطابخ",
         "seePlans": "عرض الخطط الأسبوعية",
-        "pausedPill": "الطلبات الجديدة متوقفة · تعود عند {{time}}"
+        "pausedPill": "الطلبات الجديدة متوقفة · تعود عند {{time}}",
+        "viewOrder": "عرض الطلب"
     },
     "imageCredits": {
         "title": "اعتمادات الصور",

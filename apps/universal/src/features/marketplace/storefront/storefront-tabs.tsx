@@ -1,4 +1,4 @@
-import { cx } from '@healthy360/design-system';
+import { cx, useBreakpoint } from '@healthy360/design-system';
 import { Pressable, ScrollView, Text as RNText, View } from 'react-native';
 
 /**
@@ -32,8 +32,16 @@ export function StorefrontTabs<T extends string>({
     onChange,
     testID,
 }: StorefrontTabsProps<T>) {
+    // Shop · Kitchens, phone board: separate 42px chips, the chosen one in ink.
+    const phone = !useBreakpoint().atLeast('md');
     return (
-        <View className="rounded-[20px] border border-stroke-subtle bg-surface-raised p-1.5 shadow-elevation-2">
+        <View
+            className={
+                phone
+                    ? 'border-b border-stroke-subtle py-2.5'
+                    : 'rounded-[20px] border border-stroke-subtle bg-surface-raised p-1.5 shadow-elevation-2'
+            }
+        >
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View
                     testID={testID}
@@ -56,8 +64,20 @@ export function StorefrontTabs<T extends string>({
                                     onChange(item.value);
                                 }}
                                 className={cx(
-                                    'h-12 shrink-0 flex-row items-center gap-2 rounded-[14px] px-[18px] transition duration-normal ease-standard',
-                                    selected ? 'bg-content-primary' : 'hover:bg-surface-base',
+                                    'shrink-0 flex-row items-center transition duration-normal ease-standard',
+                                    phone
+                                        ? cx(
+                                              'h-[42px] gap-1.5 rounded-xl border px-3.5',
+                                              selected
+                                                  ? 'border-content-primary bg-content-primary'
+                                                  : 'border-stroke-subtle bg-surface-raised',
+                                          )
+                                        : cx(
+                                              'h-12 gap-2 rounded-[14px] px-[18px]',
+                                              selected
+                                                  ? 'bg-content-primary'
+                                                  : 'hover:bg-surface-base',
+                                          ),
                                 )}
                             >
                                 <RNText

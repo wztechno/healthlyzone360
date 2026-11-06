@@ -86,7 +86,17 @@ export interface MarketplaceShellProps {
  * press expands it in place. On native the whole idea is meaningless — there is no document to
  * skip through — so it renders nothing rather than a control that cannot act.
  */
-const SKIP_LINK_HIDDEN = { position: 'absolute', width: 1, height: 1, overflow: 'hidden' } as const;
+// The touch floor and padding the link wears when focused would otherwise keep a 32 x 44 box on
+// screen; the shop bar used to cover it, but a page that hides the bar (a phone meal page) does not.
+const SKIP_LINK_HIDDEN = {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    minHeight: 1,
+    padding: 0,
+    overflow: 'hidden',
+    opacity: 0,
+} as const;
 
 function SkipToContent() {
     const { t } = useTranslation();
