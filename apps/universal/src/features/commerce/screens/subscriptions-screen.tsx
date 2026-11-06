@@ -1,4 +1,4 @@
-import { Button, Icon, cx } from '@healthy360/design-system';
+import { Button, Icon, Skeleton, cx } from '@healthy360/design-system';
 import type { Subscription, SubscriptionFilter } from '@healthy360/api-client/contracts';
 import type { SubscriptionState } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -216,7 +216,12 @@ export function SubscriptionsScreen(_props: SubscriptionsScreenProps = {}) {
                         />
                     )
                 }
-                skeletonCount={2}
+                loading={
+                    <View className="flex-col gap-4">
+                        <SubscriptionCardSkeleton />
+                        <SubscriptionCardSkeleton />
+                    </View>
+                }
                 testID="subscriptions"
             >
                 <View testID="subscriptions-list" className="flex-col gap-4">
@@ -229,6 +234,75 @@ export function SubscriptionsScreen(_props: SubscriptionsScreenProps = {}) {
                     ))}
                 </View>
             </QueryStates>
+        </View>
+    );
+}
+
+/* ── one subscription, loading: the card's own outline ──────────────────────────────────────── */
+
+function SubscriptionCardSkeleton() {
+    return (
+        <View className="flex-col overflow-hidden rounded-3xl border border-stroke-subtle">
+            <View className={cx('flex-row items-center gap-4 p-5', TINT_FILL.green)}>
+                <Skeleton heightClassName="h-14" widthClassName="w-14" variant="shimmer" />
+                <View className="min-w-0 flex-1 gap-2">
+                    <Skeleton heightClassName="h-6" widthClassName="w-1/2" variant="shimmer" />
+                    <View className="flex-row gap-1.5">
+                        <Skeleton
+                            heightClassName="h-6"
+                            widthClassName="w-24"
+                            rounded="full"
+                            variant="shimmer"
+                        />
+                        <Skeleton
+                            heightClassName="h-6"
+                            widthClassName="w-24"
+                            rounded="full"
+                            variant="shimmer"
+                        />
+                    </View>
+                </View>
+                <View className="items-end gap-1.5">
+                    <Skeleton heightClassName="h-8" widthClassName="w-20" variant="shimmer" />
+                    <Skeleton heightClassName="h-3" widthClassName="w-10" variant="shimmer" />
+                </View>
+            </View>
+            <View className="flex-col gap-[18px] p-5">
+                <View className="flex-row items-center gap-3">
+                    <Skeleton heightClassName="h-4" widthClassName="w-20" variant="shimmer" />
+                    <Skeleton
+                        heightClassName="h-2.5"
+                        rounded="full"
+                        className="flex-1"
+                        variant="shimmer"
+                    />
+                </View>
+                <View className="flex-col gap-2.5 sm:flex-row">
+                    {[0, 1, 2].map((index) => (
+                        <View
+                            key={index}
+                            className="min-w-0 flex-1 gap-2 rounded-2xl bg-surface-base px-3.5 py-3"
+                        >
+                            <Skeleton heightClassName="h-3" widthClassName="w-1/3" variant="shimmer" />
+                            <Skeleton heightClassName="h-4" widthClassName="w-2/3" variant="shimmer" />
+                        </View>
+                    ))}
+                </View>
+                <View className="flex-row gap-2">
+                    <Skeleton
+                        heightClassName="h-10"
+                        widthClassName="w-36"
+                        rounded="full"
+                        variant="shimmer"
+                    />
+                    <Skeleton
+                        heightClassName="h-10"
+                        widthClassName="w-24"
+                        rounded="full"
+                        variant="shimmer"
+                    />
+                </View>
+            </View>
         </View>
     );
 }

@@ -59,6 +59,8 @@ export interface QueryStatesProps {
     readonly emptyTone?: 'brand' | 'warning' | undefined;
     /** A state inside a panel: no card frame, a smaller disc. */
     readonly compact?: boolean | undefined;
+    /** The list's own loading shape, where none of the stock skeletons draws what it loads. */
+    readonly loading?: ReactNode | undefined;
     readonly testID: string;
     readonly children: ReactNode;
 }
@@ -75,9 +77,17 @@ export function QueryStates({
     emptyIcon = 'searchLens',
     emptyTone = 'brand',
     compact = false,
+    loading,
     testID,
     children,
 }: QueryStatesProps) {
+    if (query.isPending && loading !== undefined) {
+        return (
+            <View testID={`${testID}-loading`} aria-busy>
+                {loading}
+            </View>
+        );
+    }
     if (query.isPending && skeleton === 'cards') {
         return <ShopCardSkeletons count={skeletonCount} testID={`${testID}-loading`} />;
     }
