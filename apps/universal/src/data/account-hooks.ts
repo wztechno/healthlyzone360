@@ -9,6 +9,7 @@ import type {
     ContactPoint,
     ContactPointAdded,
     CustomerAddress,
+    DietaryIngredientMatch,
     DietaryProfile,
     IssueOtpRequest,
     OtpChallenge,
@@ -19,7 +20,7 @@ import type {
     SaveDietaryProfileRequest,
     VerifyClosureRequest,
 } from '@healthy360/api-client/contracts';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { QueryClient, UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
 import { queryKeys } from './query-keys.ts';
@@ -227,6 +228,31 @@ export function useSaveDietaryProfileMutation(): UseMutationResult<
         onSuccess: async (profile) => {
             queryClient.setQueryData(queryKeys.account.dietaryProfile(), profile);
             await queryClient.invalidateQueries({ queryKey: queryKeys.account.all() });
+        },
+    });
+}
+
+/** The shortest term the ingredient search answers; one letter matches half the library. */
+export const DIETARY_INGREDIENT_MIN_QUERY = 2;
+
+/**
+ * "Add a food" — ingredients whose name contains `query`. Idle below two characters; the previous
+ * answer stays on screen while the next one loads, so the dropdown does not blank between letters.
+ */
+export function useDietaryIngredientSearch(
+    query: string,
+): UseQueryResult<readonly DietaryIngredientMatch[]> {
+    const { repositories } = useRepositoryContext();
+    const term = query.trim();
+
+    return useQuery({
+        queryKey: queryKeys.account.dietaryIngredients(term.toLocaleLowerCase()),
+        enabled: repositories !== null && term.length >= DIETARY_INGREDIENT_MIN_QUERY,
+        staleTime: 60_000,
+        placeholderData: keepPreviousData,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.account.searchDietaryIngredients({ query: term, limit: 8 });
         },
     });
 }

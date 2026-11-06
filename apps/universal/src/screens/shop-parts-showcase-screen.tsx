@@ -1,9 +1,12 @@
 import { apiFailure } from '@healthy360/api-client';
+import type { FoodExclusion } from '@healthy360/api-client/contracts';
+import { IngredientId } from '@healthy360/domain-types';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Text as RNText, View } from 'react-native';
 
 import { ExtraNote } from '../features/account/account-extra.tsx';
+import { LeaveOutFoods } from '../features/account/leave-out-foods.tsx';
 import { PlanReceipt } from '../features/commerce/price-summary.tsx';
 import { OtpChallengePanel } from '../features/verification/otp-challenge-panel.tsx';
 import type { OtpChallengeView } from '../features/verification/otp-challenge-panel.tsx';
@@ -29,8 +32,8 @@ import { ShopSwitch } from '../ui/shop-switch.tsx';
 /**
  * `/showcase-shop` — the web shop's own parts, on a page of their own: the code boxes every
  * one-time code is typed into, in each state, the code panel as the sign-in frame draws it, the
- * boards' notes, the shop's switch, its pop-up in each tone, and its empty, error and loading
- * states. Development only.
+ * boards' notes, the shop's switch, its pop-up in each tone, its empty, error and loading states,
+ * and Account's "Ingredients to leave out". Development only.
  */
 
 /** A challenge as the server would describe one — enough to draw the panel without a backend. */
@@ -45,6 +48,17 @@ const SAMPLE_CHALLENGE: OtpChallengeView = {
     availableChannels: ['sms', 'whatsapp', 'email'],
     simulatedChannels: ['email'],
 };
+
+/** Account → Allergies' saved foods: one by ingredient, one as written. */
+const SAMPLE_FOODS: readonly FoodExclusion[] = [
+    {
+        subject: 'ingredient',
+        kind: 'dislike',
+        ingredientId: IngredientId.unsafe('00000000-0000-7000-8000-00000000a11c'),
+        name: 'Garlic',
+    },
+    { subject: 'freeText', kind: 'forbidden', text: 'Alcohol' },
+];
 
 function Section({ title, children }: { readonly title: string; readonly children: ReactNode }) {
     return (
@@ -71,6 +85,7 @@ export function ShopPartsShowcaseScreen() {
     const [on, setOn] = useState(true);
     const [off, setOff] = useState(false);
     const [dialog, setDialog] = useState<ShopDialogTone | null>(null);
+    const [foods, setFoods] = useState<readonly FoodExclusion[]>(SAMPLE_FOODS);
     const close = () => {
         setDialog(null);
     };
@@ -243,6 +258,9 @@ export function ShopPartsShowcaseScreen() {
                     <ShopSwitch label="Off" checked={off} onChange={setOff} />
                     <ShopSwitch label="Disabled" checked disabled onChange={() => undefined} />
                 </View>
+            </Section>
+            <Section title="Ingredients to leave out (Account → Allergies; search needs a session)">
+                <LeaveOutFoods testID="showcase-leave-out" exclusions={foods} onChange={setFoods} />
             </Section>
         </View>
     );

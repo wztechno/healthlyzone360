@@ -13,11 +13,12 @@ import type {
 } from '@healthy360/api-client/contracts';
 import { ApiError, conflictFailure } from '@healthy360/api-client/contracts';
 import type { CursorPage, PlacedOrder } from '@healthy360/api-client/contracts';
-import { OrderId } from '@healthy360/domain-types';
+import { IngredientId, OrderId } from '@healthy360/domain-types';
 import type { ServiceAreaId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { pathnameOf, queryOf, withReturnTo } from '../../navigation/return-to.ts';
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
 import { testMeResponse } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
@@ -203,7 +204,7 @@ function dietaryProfile(overrides: Partial<DietaryProfile> = {}): DietaryProfile
     return {
         dietCategoryCode: null,
         allergens: [],
-        excludedIngredientIds: [],
+        exclusions: [],
         updatedAt: null,
         ...overrides,
     };
@@ -303,7 +304,7 @@ describe('the four consent states', () => {
 
     /** "No allergies" is an answer; an empty profile that was never saved is silence. */
     it('distinguishes an unanswered allergy question from a declared absence', () => {
-        const empty = { dietCategoryCode: null, allergens: [], excludedIngredientIds: [] };
+        const empty = { dietCategoryCode: null, allergens: [], exclusions: [] };
         expect(initialAllergyAnswer({ ...empty, updatedAt: null })).toBeNull();
         expect(initialAllergyAnswer({ ...empty, updatedAt: '2026-08-02T10:00:00.000Z' })).toBe(
             false,
@@ -758,7 +759,7 @@ describe('AccountScreen — profile', () => {
             expect(repositories.account.saveDietaryProfile).toHaveBeenCalledWith({
                 dietCategoryCode: 'vegetarian',
                 allergens,
-                excludedIngredientIds: [],
+                exclusions: [],
             });
         });
         expect(await screen.findByTestId('account-profile-saved')).toBeTruthy();
@@ -1502,7 +1503,7 @@ describe('AllergiesScreen', () => {
             expect(repositories.account.saveDietaryProfile).toHaveBeenCalledWith({
                 dietCategoryCode: null,
                 allergens: [],
-                excludedIngredientIds: [],
+                exclusions: [],
             });
         });
 
@@ -1544,7 +1545,7 @@ describe('AllergiesScreen', () => {
                 dietCategoryCode: null,
                 // A tick declares the strictest reading; softening it is a separate decision.
                 allergens: [{ allergenCode: 'peanut', severity: 'allergy', note: null }],
-                excludedIngredientIds: [],
+                exclusions: [],
             });
         });
 
@@ -1597,6 +1598,200 @@ describe('AllergiesScreen', () => {
 
         await fireEvent.press(screen.getByTestId('allergies-screen-unsaved-discard'));
         expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(CHECKOUT_RETURN);
+    });
+});
+
+/* ══ ingredients to leave out ══════════════════════════════════════════════════════════════════ */
+
+describe('AllergiesScreen — ingredients to leave out', () => {
+    const GARLIC = IngredientId.unsafe('0b9c6e9e-0000-7000-8000-0000000000aa');
+    const BALSAMIC = IngredientId.unsafe('0b9c6e9e-0000-7000-8000-0000000000bb');
+    const SAVED = [
+        { subject: 'ingredient', kind: 'dislike', ingredientId: GARLIC, name: 'Garlic' },
+        { subject: 'freeText', kind: 'forbidden', text: 'Alcohol' },
+    ] as const;
+    const base = 'allergies-screen-leave-out';
+
+    it('shows each saved food with its kind, adds one from the search and saves with Save', async () => {
+        await withDeskWidth(async () => {
+            let profile = dietaryProfile({ exclusions: SAVED, updatedAt: NOW });
+            const { repositories } = await renderStubScreen(<AllergiesScreen />, {
+                session: testMeResponse(),
+                repositories: {
+                    account: {
+                        getDietaryProfile: async () => profile,
+                        saveDietaryProfile: async (request) => {
+                            profile = { ...request, updatedAt: '2026-11-06T12:00:00.000Z' };
+                            return profile;
+                        },
+                        searchDietaryIngredients: async () => [
+                            { id: BALSAMIC, name: 'Balsamic Vinegar', category: 'Condiment' },
+                            { id: GARLIC, name: 'Garlic', category: 'Vegetable' },
+                        ],
+                    },
+                },
+            });
+
+            // Resting: the chips, each with its kind; free text is quoted.
+            expect(await screen.findByTestId(`${base}-chip-0-name`)).toHaveTextContent('Garlic');
+            expect(screen.getByTestId(`${base}-chip-0-kind`)).toHaveTextContent(/I don’t like it$/);
+            expect(screen.getByTestId(`${base}-chip-1-name`)).toHaveTextContent('“Alcohol”');
+            expect(screen.getByTestId(`${base}-chip-1-kind`)).toHaveTextContent(/Never$/);
+
+            // Searching: the matches, with the one already listed marked Added and inert.
+            await fireEvent.press(screen.getByTestId(`${base}-add`));
+            expect(screen.queryByTestId(`${base}-add`)).toBeNull();
+            // A dropdown over the page, not a phone sheet.
+            expect(
+                screen.queryByTestId(`${base}-search-backdrop`, { includeHiddenElements: true }),
+            ).toBeNull();
+            await fireEvent.changeText(screen.getByTestId(`${base}-search-input`), 'vine');
+            const balsamic = await screen.findByTestId(`${base}-search-option-${BALSAMIC}`);
+            expect(balsamic).toHaveTextContent(/Balsamic Vinegar/);
+            expect(balsamic).toHaveTextContent(/Condiment/);
+            expect(screen.getByTestId(`${base}-search-added-${GARLIC}`)).toHaveTextContent(
+                /Added$/,
+            );
+            expect(
+                screen.getByTestId(`${base}-search-option-${GARLIC}`).props.accessibilityState
+                    .disabled,
+            ).toBe(true);
+            expect(screen.getByTestId(`${base}-search-as-written`)).toHaveTextContent(
+                /Add “vine” as written$/,
+            );
+            expect(repositories.account.searchDietaryIngredients).toHaveBeenCalledWith({
+                query: 'vine',
+                limit: 8,
+            });
+
+            // Picked: a two-way choice, then Add puts the chip in the list.
+            await fireEvent.press(balsamic);
+            expect(screen.queryByTestId(`${base}-search-input`)).toBeNull();
+            expect(screen.getByTestId(`${base}-ask-chip`)).toHaveTextContent('Balsamic Vinegar');
+            expect(
+                screen.getByTestId(`${base}-ask-kind-dislike`).props.accessibilityState.checked,
+            ).toBe(true);
+            await fireEvent.press(screen.getByTestId(`${base}-ask-kind-forbidden`));
+            await fireEvent.press(screen.getByTestId(`${base}-ask-confirm`));
+            expect(screen.getByTestId(`${base}-chip-2-name`)).toHaveTextContent('Balsamic Vinegar');
+            expect(screen.getByTestId(`${base}-chip-2-kind`)).toHaveTextContent(/Never$/);
+
+            // ✕ takes one off; nothing is written until Save.
+            await fireEvent.press(screen.getByTestId(`${base}-chip-1-remove`));
+            expect(repositories.account.saveDietaryProfile).not.toHaveBeenCalled();
+            await fireEvent.press(screen.getByTestId('allergies-screen-save'));
+
+            await waitFor(() => {
+                expect(repositories.account.saveDietaryProfile).toHaveBeenCalledWith({
+                    dietCategoryCode: null,
+                    allergens: [],
+                    exclusions: [
+                        SAVED[0],
+                        {
+                            subject: 'ingredient',
+                            kind: 'forbidden',
+                            ingredientId: BALSAMIC,
+                            name: 'Balsamic Vinegar',
+                        },
+                    ],
+                });
+            });
+        });
+    });
+
+    it('adds a food no ingredient matches as written, from the phone sheet', async () => {
+        let profile = dietaryProfile({ updatedAt: NOW });
+        const { repositories } = await renderStubScreen(<AllergiesScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getDietaryProfile: async () => profile,
+                    saveDietaryProfile: async (request) => {
+                        profile = { ...request, updatedAt: '2026-11-06T12:00:00.000Z' };
+                        return profile;
+                    },
+                    searchDietaryIngredients: async () => [],
+                },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId(`${base}-add`));
+        // On a phone the search is a sheet with its own backdrop.
+        expect(
+            screen.getByTestId(`${base}-search-backdrop`, { includeHiddenElements: true }),
+        ).toBeTruthy();
+        await fireEvent.changeText(screen.getByTestId(`${base}-search-input`), '  pork ');
+        expect(await screen.findByTestId(`${base}-search-none`)).toHaveTextContent(
+            'No ingredient matches “pork”',
+        );
+        await fireEvent.press(screen.getByTestId(`${base}-search-as-written`));
+        // Cancel drops the pick and puts "Add a food" back.
+        await fireEvent.press(screen.getByTestId(`${base}-ask-cancel`));
+        expect(screen.queryByTestId(`${base}-chip-0`)).toBeNull();
+
+        await fireEvent.press(screen.getByTestId(`${base}-add`));
+        await fireEvent.changeText(screen.getByTestId(`${base}-search-input`), 'pork');
+        await fireEvent.press(await screen.findByTestId(`${base}-search-as-written`));
+        await fireEvent.press(screen.getByTestId(`${base}-ask-confirm`));
+        expect(screen.getByTestId(`${base}-chip-0-name`)).toHaveTextContent('“pork”');
+        expect(screen.getByTestId(`${base}-chip-0-kind`)).toHaveTextContent(/I don’t like it$/);
+
+        await fireEvent.press(screen.getByTestId('allergies-screen-save'));
+        await waitFor(() => {
+            expect(repositories.account.saveDietaryProfile).toHaveBeenCalledWith({
+                dietCategoryCode: null,
+                allergens: [],
+                exclusions: [{ subject: 'freeText', kind: 'dislike', text: 'pork' }],
+            });
+        });
+    });
+
+    it('does not say nothing matches before the search has answered', async () => {
+        await renderStubScreen(<AllergiesScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getDietaryProfile: async () => dietaryProfile({ updatedAt: NOW }),
+                    // The answer never arrives.
+                    searchDietaryIngredients: () => new Promise(() => undefined),
+                },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId(`${base}-add`));
+        await fireEvent.changeText(screen.getByTestId(`${base}-search-input`), 'vine');
+        expect(await screen.findByTestId(`${base}-search-as-written`)).toBeTruthy();
+        // Past the debounce, with the request still out.
+        await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 400));
+        });
+        expect(screen.queryByTestId(`${base}-search-none`)).toBeNull();
+    });
+
+    it('waits for two characters, and does not offer what is already listed as written', async () => {
+        await renderStubScreen(<AllergiesScreen />, {
+            session: testMeResponse(),
+            repositories: {
+                account: {
+                    getDietaryProfile: async () =>
+                        dietaryProfile({ exclusions: SAVED, updatedAt: NOW }),
+                    searchDietaryIngredients: async () => [],
+                },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId(`${base}-add`));
+        await fireEvent.changeText(screen.getByTestId(`${base}-search-input`), 'a');
+        expect(screen.queryByTestId(`${base}-search-results`)).toBeNull();
+
+        await fireEvent.changeText(screen.getByTestId(`${base}-search-input`), 'ALCOHOL');
+        expect(await screen.findByTestId(`${base}-search-added-free`)).toHaveTextContent(/Added$/);
+        expect(
+            screen.getByTestId(`${base}-search-as-written`).props.accessibilityState.disabled,
+        ).toBe(true);
+
+        await fireEvent.press(screen.getByTestId(`${base}-search-close`));
+        expect(screen.getByTestId(`${base}-add`)).toBeTruthy();
     });
 });
 

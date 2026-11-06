@@ -610,7 +610,7 @@ function dietaryProfile(allergenCodes: readonly AllergenCode[] = []): DietaryPro
             severity: 'allergy' as const,
             note: null,
         })),
-        excludedIngredientIds: [],
+        exclusions: [],
         updatedAt: null,
     };
 }

@@ -378,7 +378,7 @@ function DietaryPreferences({
                                 dietCategoryCode: diet,
                                 // Carried through, never re-derived: this pane edits the diet only.
                                 allergens: profile.allergens,
-                                excludedIngredientIds: profile.excludedIngredientIds,
+                                exclusions: profile.exclusions,
                             },
                             {
                                 onSuccess: () => {

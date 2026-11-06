@@ -156,8 +156,8 @@ export interface DietaryProfile {
      */
     readonly dietCategoryCode: string | null;
     readonly allergens: readonly AllergenDeclaration[];
-    /** Ingredients this person will not eat for reasons that are not an allergen class. */
-    readonly excludedIngredientIds: readonly IngredientId[];
+    /** Foods this person will not eat for reasons that are not an allergen class. */
+    readonly exclusions: readonly FoodExclusion[];
     readonly updatedAt: IsoDateTime | null;
 }
 
@@ -165,7 +165,50 @@ export interface SaveDietaryProfileRequest {
     /** The diet's code, or `null` to clear it. */
     readonly dietCategoryCode: string | null;
     readonly allergens: readonly AllergenDeclaration[];
-    readonly excludedIngredientIds: readonly IngredientId[];
+    /** The whole set — the profile is replaced, so an exclusion left out is removed. */
+    readonly exclusions: readonly FoodExclusion[];
+}
+
+/**
+ * How firmly a food is left out.
+ *
+ * `dislike` is "I don't like it" — a kitchen may swap it; `forbidden` is "Never" — never swapped.
+ * Both keep a meal that lists the ingredient off a plan: the meal-safety check treats them alike.
+ */
+export const FOOD_EXCLUSION_KINDS = ['dislike', 'forbidden'] as const;
+export type FoodExclusionKind = (typeof FOOD_EXCLUSION_KINDS)[number];
+
+/**
+ * One food left out, named exactly one way — the wire's one-subject rule as a union.
+ *
+ * - `ingredient` — an ingredient picked from the search; the only form the meal-safety check can
+ *   match mechanically. `name` is what the server calls it in the reader's language, `null` only
+ *   when the row has gone.
+ * - `freeText` — "Add “…” as written", for a food no ingredient matches. Kept for the kitchen to
+ *   read; nothing matches it automatically.
+ * - `dietClassification` — the wire's third form. No screen writes it; it is carried so a save
+ *   from a screen that does not show it does not drop it.
+ */
+export type FoodExclusion =
+    | {
+          readonly subject: 'ingredient';
+          readonly kind: FoodExclusionKind;
+          readonly ingredientId: IngredientId;
+          readonly name: string | null;
+      }
+    | { readonly subject: 'freeText'; readonly kind: FoodExclusionKind; readonly text: string }
+    | {
+          readonly subject: 'dietClassification';
+          readonly kind: FoodExclusionKind;
+          readonly dietClassificationId: string;
+      };
+
+/** One answer from the "Add a food" search: the platform's or a kitchen's ingredient. */
+export interface DietaryIngredientMatch {
+    readonly id: IngredientId;
+    readonly name: string;
+    /** The ingredient's category in the reader's language, when it has one. */
+    readonly category: string | null;
 }
 
 /**
@@ -384,6 +427,14 @@ export interface AccountRepository {
 
     getDietaryProfile(): Promise<DietaryProfile>;
     saveDietaryProfile(request: SaveDietaryProfileRequest): Promise<DietaryProfile>;
+    /**
+     * `GET /api/v1/me/dietary-profile/ingredients` — ingredients whose name contains `query` (two
+     * characters at least), names starting with it first. A page for a dropdown, not a list.
+     */
+    searchDietaryIngredients(request: {
+        readonly query: string;
+        readonly limit?: number;
+    }): Promise<readonly DietaryIngredientMatch[]>;
 
     listConsents(): Promise<readonly ConsentState[]>;
     setConsent(request: SetConsentRequest): Promise<ConsentState>;

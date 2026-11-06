@@ -7,6 +7,8 @@ namespace Healthy360\Customers\Presenters;
 use Healthy360\Customers\Models\CustomerAllergenDeclaration;
 use Healthy360\Customers\Models\CustomerDietaryProfile;
 use Healthy360\Customers\Models\CustomerFoodExclusion;
+use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Kitchens\Presenters\MarketplaceLocale;
 
 /**
  * What a customer has said they eat — served back to them and to nobody else.
@@ -43,13 +45,15 @@ final class DietaryProfilePresenter
      *     religious_requirement: string|null,
      *     notes: string|null,
      *     allergens: list<array{allergen_code: string, severity: string, notes: string|null, declared_at: string|null}>,
-     *     exclusions: list<array{id: string, kind: string, subject_kind: string, ingredient_id: string|null, diet_classification_id: string|null, free_text: string|null}>,
+     *     exclusions: list<array{id: string, kind: string, subject_kind: string, ingredient_id: string|null, ingredient_name: string|null, diet_classification_id: string|null, free_text: string|null}>,
      *     lock_version: int|null,
      *     updated_at: string|null
      * }
      */
-    public function profile(?CustomerDietaryProfile $profile, array $allergens = [], array $exclusions = []): array
+    public function profile(?CustomerDietaryProfile $profile, array $allergens = [], array $exclusions = [], string $locale = 'en'): array
     {
+        $names = $this->ingredientNames($exclusions, $locale);
+
         return [
             'id' => $profile === null ? null : (string) $profile->getKey(),
             'has_declared' => $profile?->hasDeclared() ?? false,
@@ -66,7 +70,10 @@ final class DietaryProfilePresenter
             'religious_requirement' => $profile?->religious_requirement,
             'notes' => $profile?->notes,
             'allergens' => array_map(fn (CustomerAllergenDeclaration $row): array => $this->allergen($row), $allergens),
-            'exclusions' => array_map(fn (CustomerFoodExclusion $row): array => $this->exclusion($row), $exclusions),
+            'exclusions' => array_map(
+                fn (CustomerFoodExclusion $row): array => $this->exclusion($row, $row->ingredient_id === null ? null : ($names[$row->ingredient_id] ?? null)),
+                $exclusions,
+            ),
             'lock_version' => $profile?->lock_version,
             'updated_at' => $profile?->updated_at?->toIso8601String(),
         ];
@@ -98,17 +105,55 @@ final class DietaryProfilePresenter
      * `subject_kind` says which of the three columns is the one to read, so a
      * client can render an exclusion without inspecting all three and guessing.
      *
-     * @return array{id: string, kind: string, subject_kind: string, ingredient_id: string|null, diet_classification_id: string|null, free_text: string|null}
+     * `ingredient_name` is the ingredient's name in the caller's language, so a
+     * saved exclusion can be shown as a word rather than an identifier. `null`
+     * on the other two subject kinds.
+     *
+     * @return array{id: string, kind: string, subject_kind: string, ingredient_id: string|null, ingredient_name: string|null, diet_classification_id: string|null, free_text: string|null}
      */
-    public function exclusion(CustomerFoodExclusion $exclusion): array
+    public function exclusion(CustomerFoodExclusion $exclusion, ?string $ingredientName = null): array
     {
         return [
             'id' => (string) $exclusion->getKey(),
             'kind' => $exclusion->kind->value,
             'subject_kind' => $exclusion->subjectKind(),
             'ingredient_id' => $exclusion->ingredient_id,
+            'ingredient_name' => $ingredientName,
             'diet_classification_id' => $exclusion->diet_classification_id,
             'free_text' => $exclusion->free_text,
         ];
+    }
+
+    /**
+     * The names of the ingredients these exclusions point at, in one query.
+     *
+     * Read past the tenant scope because the account holder has no tenant
+     * context, and the ingredient may be a kitchen's own row — the ones the
+     * customer ingredient search offers when a published meal lists them. The
+     * only identifiers that reach here are ones this person saved, and an
+     * ingredient identifier is a random UUID they could only have had from that
+     * search; reading one name back is not a way into a kitchen's list.
+     *
+     * @param  list<CustomerFoodExclusion>  $exclusions
+     * @return array<string, string>
+     */
+    private function ingredientNames(array $exclusions, string $locale): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map(
+            static fn (CustomerFoodExclusion $row): ?string => $row->ingredient_id,
+            $exclusions,
+        ))));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $names = [];
+
+        foreach (Ingredient::withoutTenancy()->whereIn('id', $ids)->get(['id', 'name_en', 'name_ar']) as $ingredient) {
+            $names[(string) $ingredient->getKey()] = MarketplaceLocale::pick($locale, $ingredient->name_en, $ingredient->name_ar);
+        }
+
+        return $names;
     }
 }

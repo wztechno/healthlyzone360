@@ -153,6 +153,7 @@ use Healthy360\Customers\Http\Controllers\ContactPrimaryController;
 use Healthy360\Customers\Http\Controllers\ContactStoreController;
 use Healthy360\Customers\Http\Controllers\CustomerAccountShowController;
 use Healthy360\Customers\Http\Controllers\CustomerAccountStoreController;
+use Healthy360\Customers\Http\Controllers\DietaryIngredientSearchController;
 use Healthy360\Customers\Http\Controllers\DietaryProfileReplaceController;
 use Healthy360\Customers\Http\Controllers\DietaryProfileShowController;
 use Healthy360\Delivery\Http\Controllers\DeliveryJobAssignController;
@@ -577,6 +578,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             // removal impossible through the ordinary path.
             Route::get('/dietary-profile', DietaryProfileShowController::class)->name('me.dietary-profile.show');
             Route::put('/dietary-profile', DietaryProfileReplaceController::class)->name('me.dietary-profile.replace');
+
+            // The foods a person can name as "leave this out": the platform library
+            // and the kitchens' ingredients a meal on sale lists — nothing else a
+            // kitchen keeps. Read-only, by name, a page for a dropdown.
+            Route::get('/dietary-profile/ingredients', DietaryIngredientSearchController::class)
+                ->name('me.dietary-profile.ingredients');
 
             // Consent is keyed by the definition's own code rather than by a grant id.
             // The person is withdrawing "marketing", not row 4f3a…; and the grant they

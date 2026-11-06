@@ -11854,8 +11854,30 @@ export type CustomerFoodExclusion = {
      */
     subject_kind: 'ingredient' | 'diet_classification' | 'free_text';
     ingredient_id?: Uuid | null;
+    /**
+     * The ingredient's name in the caller's language, so a saved exclusion
+     * can be shown as a word. Null on the other two subject kinds.
+     *
+     */
+    ingredient_name?: string | null;
     diet_classification_id?: Uuid | null;
     free_text?: string | null;
+};
+
+export type DietaryIngredientMatch = {
+    id: Uuid;
+    name: string;
+    /**
+     * The ingredient's category, in the caller's language.
+     */
+    category: string | null;
+};
+
+export type DietaryIngredientMatchesEnvelope = {
+    data: Array<DietaryIngredientMatch>;
+    meta: Meta & {
+        count: number;
+    };
 };
 
 export type CustomerDietaryProfile = {
@@ -39299,6 +39321,58 @@ export type ReplaceMyDietaryProfileResponses = {
 };
 
 export type ReplaceMyDietaryProfileResponse = ReplaceMyDietaryProfileResponses[keyof ReplaceMyDietaryProfileResponses];
+
+export type SearchMyDietaryIngredientsData = {
+    body?: never;
+    headers?: {
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+    };
+    path?: never;
+    query: {
+        q: string;
+        limit?: number;
+    };
+    url: '/me/dietary-profile/ingredients';
+};
+
+export type SearchMyDietaryIngredientsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type SearchMyDietaryIngredientsError = SearchMyDietaryIngredientsErrors[keyof SearchMyDietaryIngredientsErrors];
+
+export type SearchMyDietaryIngredientsResponses = {
+    /**
+     * The matching ingredients, at most `limit`.
+     */
+    200: DietaryIngredientMatchesEnvelope;
+};
+
+export type SearchMyDietaryIngredientsResponse = SearchMyDietaryIngredientsResponses[keyof SearchMyDietaryIngredientsResponses];
 
 export type ListMyConsentsData = {
     body?: never;

@@ -18,7 +18,9 @@ import type {
     ConsentState,
     CustomerAccount,
     CustomerAddress,
+    DietaryIngredientMatch,
     DietaryProfile,
+    FoodExclusion,
     RequestClosureRequest,
     SaveAddressRequest,
     SaveDietaryProfileRequest,
@@ -43,6 +45,8 @@ import type {
     CustomerAllergenDeclaration as WireAllergen,
     CustomerConsent as WireConsent,
     CustomerDietaryProfile as WireDietaryProfile,
+    CustomerFoodExclusion as WireFoodExclusion,
+    DietaryIngredientMatch as WireIngredientMatch,
     LiveClosureRequestEnvelope,
     OpenClosureRequestRequest as WireOpenClosureRequest,
     UpdateCustomerAddressRequest,
@@ -200,12 +204,64 @@ export function mapDietaryProfile(wire: WireDietaryProfile): DietaryProfile {
             severity: mapSeverity(allergen.severity),
             note: allergen.notes ?? null,
         })),
-        excludedIngredientIds: wire.exclusions
-            .filter((exclusion) => exclusion.subject_kind === 'ingredient')
-            .map((exclusion) => exclusion.ingredient_id)
-            .filter((id): id is string => typeof id === 'string' && id !== '')
-            .map((id) => IngredientId.unsafe(id)),
+        exclusions: wire.exclusions
+            .map(mapFoodExclusion)
+            .filter((exclusion): exclusion is FoodExclusion => exclusion !== null),
         updatedAt: wire.updated_at ?? wire.declared_at ?? null,
+    };
+}
+
+/**
+ * One exclusion, by the column `subject_kind` names. A row whose named column is empty — which the
+ * server's one-subject rule should make impossible — is dropped rather than shown as a blank chip.
+ */
+export function mapFoodExclusion(wire: WireFoodExclusion): FoodExclusion | null {
+    switch (wire.subject_kind) {
+        case 'ingredient':
+            return typeof wire.ingredient_id === 'string' && wire.ingredient_id !== ''
+                ? {
+                      subject: 'ingredient',
+                      kind: wire.kind,
+                      ingredientId: IngredientId.unsafe(wire.ingredient_id),
+                      name: wire.ingredient_name ?? null,
+                  }
+                : null;
+        case 'free_text':
+            return typeof wire.free_text === 'string' && wire.free_text.trim() !== ''
+                ? { subject: 'freeText', kind: wire.kind, text: wire.free_text }
+                : null;
+        case 'diet_classification':
+            return typeof wire.diet_classification_id === 'string' &&
+                wire.diet_classification_id !== ''
+                ? {
+                      subject: 'dietClassification',
+                      kind: wire.kind,
+                      dietClassificationId: wire.diet_classification_id,
+                  }
+                : null;
+    }
+}
+
+/** The write shape: exactly one subject column, as the server's one-subject rule asks. */
+function exclusionBody(exclusion: FoodExclusion) {
+    switch (exclusion.subject) {
+        case 'ingredient':
+            return { kind: exclusion.kind, ingredient_id: String(exclusion.ingredientId) };
+        case 'freeText':
+            return { kind: exclusion.kind, free_text: exclusion.text };
+        case 'dietClassification':
+            return {
+                kind: exclusion.kind,
+                diet_classification_id: exclusion.dietClassificationId,
+            };
+    }
+}
+
+export function mapIngredientMatch(wire: WireIngredientMatch): DietaryIngredientMatch {
+    return {
+        id: IngredientId.unsafe(wire.id),
+        name: wire.name,
+        category: wire.category ?? null,
     };
 }
 
@@ -578,8 +634,7 @@ export function createApiAccountRepository(
          *
          * `PUT`, and the contract agrees: the allergy declaration is the store of record, and a
          * partial write would leave a client and a server disagreeing about which allergens were
-         * removed. Ingredient exclusions are sent as `ingredient` exclusions; the free-text and
-         * diet-classification kinds the wire also supports have no screen and are not invented here.
+         * removed. Each exclusion goes with its kind and the one column its subject names.
          */
         async saveDietaryProfile(request: SaveDietaryProfileRequest): Promise<DietaryProfile> {
             const wire = await transport.request<{ dietary_profile: WireDietaryProfile }>({
@@ -591,16 +646,25 @@ export function createApiAccountRepository(
                         severity: allergen.severity,
                         notes: allergen.note,
                     })),
-                    exclusions: request.excludedIngredientIds.map((id) => ({
-                        kind: 'forbidden' as const,
-                        ingredient_id: String(id),
-                    })),
+                    exclusions: request.exclusions.map(exclusionBody),
                     // One classification on the wire; the contract's list is sent as its first
                     // member, and an empty list clears it.
                     diet_classification_code: request.dietCategoryCode,
                 },
             });
             return mapDietaryProfile(wire.dietary_profile);
+        },
+
+        async searchDietaryIngredients(request): Promise<readonly DietaryIngredientMatch[]> {
+            const search = new URLSearchParams({ q: request.query.trim() });
+            if (request.limit !== undefined) {
+                search.set('limit', String(request.limit));
+            }
+            const wire = await transport.request<WireIngredientMatch[]>({
+                method: 'GET',
+                path: `/me/dietary-profile/ingredients?${search.toString()}`,
+            });
+            return wire.map(mapIngredientMatch);
         },
 
         async listConsents(): Promise<readonly ConsentState[]> {

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10318 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10332 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -551,6 +551,20 @@ export interface NamespaceKeys {
     | 'dietary.hasAllergiesLabel'
     | 'dietary.howStrict'
     | 'dietary.howStrictTip'
+    | 'dietary.leaveOut.add'
+    | 'dietary.leaveOut.addAsWritten'
+    | 'dietary.leaveOut.added'
+    | 'dietary.leaveOut.cancel'
+    | 'dietary.leaveOut.close'
+    | 'dietary.leaveOut.confirm'
+    | 'dietary.leaveOut.kind.dislike'
+    | 'dietary.leaveOut.kind.forbidden'
+    | 'dietary.leaveOut.kindFor'
+    | 'dietary.leaveOut.noMatch'
+    | 'dietary.leaveOut.remove'
+    | 'dietary.leaveOut.searchFailed'
+    | 'dietary.leaveOut.searchLabel'
+    | 'dietary.leaveOut.searchPlaceholder'
     | 'dietary.noAllergies'
     | 'dietary.noneBody'
     | 'dietary.noteLabel'
@@ -10898,6 +10912,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:dietary.hasAllergiesLabel',
   'account:dietary.howStrict',
   'account:dietary.howStrictTip',
+  'account:dietary.leaveOut.add',
+  'account:dietary.leaveOut.addAsWritten',
+  'account:dietary.leaveOut.added',
+  'account:dietary.leaveOut.cancel',
+  'account:dietary.leaveOut.close',
+  'account:dietary.leaveOut.confirm',
+  'account:dietary.leaveOut.kind.dislike',
+  'account:dietary.leaveOut.kind.forbidden',
+  'account:dietary.leaveOut.kindFor',
+  'account:dietary.leaveOut.noMatch',
+  'account:dietary.leaveOut.remove',
+  'account:dietary.leaveOut.searchFailed',
+  'account:dietary.leaveOut.searchLabel',
+  'account:dietary.leaveOut.searchPlaceholder',
   'account:dietary.noAllergies',
   'account:dietary.noneBody',
   'account:dietary.noteLabel',
