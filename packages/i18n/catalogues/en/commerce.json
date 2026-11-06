@@ -536,7 +536,8 @@
             "nextOn": "next {{date}}",
             "daysLeft_one": "{{count}} day left",
             "daysLeft_other": "{{count}} days left"
-        }
+        },
+        "notSaved": "That change was not saved."
     },
     "balance": {
         "remaining_one": "1 delivery day left",
@@ -593,7 +594,9 @@
         "chooseOne": "Choose at least one delivery day.",
         "cutOffTitle": "When this takes effect",
         "cutOffBody_one": "Deliveries less than 1 hour away go ahead as planned. The change starts after that.",
-        "cutOffBody_other": "Deliveries less than {{count}} hours away go ahead as planned. The change starts after that."
+        "cutOffBody_other": "Deliveries less than {{count}} hours away go ahead as planned. The change starts after that.",
+        "hint_one": "At least one day · changes close {{count}} hour before a delivery",
+        "hint_other": "At least one day · changes close {{count}} hours before a delivery"
     },
     "choices": {
         "sectionTitle": "Your meals",
@@ -603,7 +606,14 @@
         "confirm": "Save",
         "notChosen": "Not chosen",
         "repeated": "Repeated",
-        "substituted": "Swapped"
+        "substituted": "Swapped",
+        "cutoffNote_one": "You can change any meal up to {{count}} hour before its delivery",
+        "cutoffNote_other": "You can change any meal up to {{count}} hours before its delivery",
+        "locked": "Locked",
+        "stillToChoose_one": "{{count}} meal is still to choose this week.",
+        "stillToChoose_other": "{{count}} meals are still to choose this week.",
+        "saved": "Changes saved.",
+        "chosenCount": "{{done}} of {{total}} meals chosen"
     },
     "basketConflict": {
         "title": "Start a new basket?",

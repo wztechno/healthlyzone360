@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10301 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10308 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2286,11 +2286,16 @@ export interface NamespaceKeys {
     | 'checkout.tomorrowShort'
     | 'checkout.whenLabel'
     | 'choices.change'
+    | 'choices.chosenCount'
     | 'choices.confirm'
+    | 'choices.cutoffNote'
     | 'choices.empty'
+    | 'choices.locked'
     | 'choices.notChosen'
     | 'choices.repeated'
+    | 'choices.saved'
     | 'choices.sectionTitle'
+    | 'choices.stillToChoose'
     | 'choices.substituted'
     | 'choices.title'
     | 'common.cancel'
@@ -2572,6 +2577,7 @@ export interface NamespaceKeys {
     | 'subscription.manageTitle'
     | 'subscription.notFoundBody'
     | 'subscription.notFoundTitle'
+    | 'subscription.notSaved'
     | 'subscription.pause'
     | 'subscription.pauseConfirm'
     | 'subscription.pauseConsequenceOpen'
@@ -2676,6 +2682,7 @@ export interface NamespaceKeys {
     | 'weekdays.confirm'
     | 'weekdays.cutOffBody'
     | 'weekdays.cutOffTitle'
+    | 'weekdays.hint'
     | 'weekdays.loading'
     | 'weekdays.open'
     | 'weekdays.title';
@@ -12611,11 +12618,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:checkout.tomorrowShort',
   'commerce:checkout.whenLabel',
   'commerce:choices.change',
+  'commerce:choices.chosenCount',
   'commerce:choices.confirm',
+  'commerce:choices.cutoffNote',
   'commerce:choices.empty',
+  'commerce:choices.locked',
   'commerce:choices.notChosen',
   'commerce:choices.repeated',
+  'commerce:choices.saved',
   'commerce:choices.sectionTitle',
+  'commerce:choices.stillToChoose',
   'commerce:choices.substituted',
   'commerce:choices.title',
   'commerce:common.cancel',
@@ -12897,6 +12909,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:subscription.manageTitle',
   'commerce:subscription.notFoundBody',
   'commerce:subscription.notFoundTitle',
+  'commerce:subscription.notSaved',
   'commerce:subscription.pause',
   'commerce:subscription.pauseConfirm',
   'commerce:subscription.pauseConsequenceOpen',
@@ -13001,6 +13014,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:weekdays.confirm',
   'commerce:weekdays.cutOffBody',
   'commerce:weekdays.cutOffTitle',
+  'commerce:weekdays.hint',
   'commerce:weekdays.loading',
   'commerce:weekdays.open',
   'commerce:weekdays.title',

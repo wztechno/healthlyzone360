@@ -1,4 +1,4 @@
-import { Callout, cx } from '@healthy360/design-system';
+import { Callout, Icon, cx } from '@healthy360/design-system';
 import type { SubscriptionBalance, SubscriptionQuote } from '@healthy360/api-client/contracts';
 import type { SubscriptionState } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -53,6 +53,49 @@ export function DialogFailure({
             title={t('commerce:subscription.actionFailedTitle')}
             body={failure.message}
         />
+    );
+}
+
+/**
+ * A tile editor's refusal (Shop · Subscription, pin 3): one small red line under the buttons —
+ * "That change was not saved.", the server's reason, and Try again — rather than the full red box a
+ * pop-up uses. The editor stays open with what the person chose.
+ */
+export function InlineFailure({
+    error,
+    onRetry,
+    testID,
+}: {
+    readonly error: unknown;
+    readonly onRetry?: (() => void) | undefined;
+    readonly testID: string;
+}) {
+    const { t } = useTranslation();
+    const failure = toFailure(error);
+    if (failure === null) return null;
+    return (
+        <View
+            testID={testID}
+            role="alert"
+            className="flex-row items-center gap-2 rounded-xl bg-danger-subtle px-2.5 py-2"
+        >
+            <Icon name="alert" size="sm" className="text-danger-on-subtle" />
+            <RNText className="min-w-0 flex-1 text-xs font-semibold leading-4 text-danger-on-subtle text-start">
+                {`${t('commerce:subscription.notSaved')} ${failure.message}`}
+            </RNText>
+            {onRetry === undefined ? null : (
+                <Pressable
+                    testID={`${testID}-retry`}
+                    role="button"
+                    accessibilityRole="button"
+                    onPress={onRetry}
+                >
+                    <RNText className="text-xs font-bold text-danger-on-subtle underline">
+                        {t('errors:generic.retry')}
+                    </RNText>
+                </Pressable>
+            )}
+        </View>
     );
 }
 
@@ -410,11 +453,14 @@ export function WeekdayEditor({
                 </RNText>
             ) : null}
 
-            <RNText testID={`${testID}-cutoff`} className="text-xs text-content-secondary">
-                {t('commerce:weekdays.cutOffBody', {
-                    count: balance?.changeCutoffHours ?? quote?.changeCutoffHours ?? 24,
-                })}
-            </RNText>
+            <View testID={`${testID}-cutoff`} className="flex-row items-center gap-1.5">
+                <Icon name="clock" size="sm" className="text-content-secondary" />
+                <RNText className="shrink text-xs leading-4 text-content-secondary text-start">
+                    {t('commerce:weekdays.hint', {
+                        count: balance?.changeCutoffHours ?? quote?.changeCutoffHours ?? 24,
+                    })}
+                </RNText>
+            </View>
 
             <View className="flex-row gap-1.5">
                 <EditorButton
@@ -432,7 +478,7 @@ export function WeekdayEditor({
                 />
             </View>
 
-            <DialogFailure error={error} testID={`${testID}-failure`} />
+            <InlineFailure error={error} onRetry={onConfirm} testID={`${testID}-failure`} />
         </View>
     );
 }

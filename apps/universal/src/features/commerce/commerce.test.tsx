@@ -4640,7 +4640,7 @@ describe('SubscriptionDetailScreen', () => {
         expect(screen.getByTestId('subscription-detail-empty')).toBeTruthy();
     });
 
-    it('reports a failure for an identifier that is well formed but unknown', async () => {
+    it('says a well-formed but unknown subscription could not be found', async () => {
         await renderDetail(liveWorld(), {
             subscriptionId: UNKNOWN_SUBSCRIPTION_ID,
             latencyMs: 40,
@@ -4650,9 +4650,13 @@ describe('SubscriptionDetailScreen', () => {
             },
         });
         expect(screen.getByTestId('subscription-detail-loading')).toBeTruthy();
+        // Shop · Subscription, pin 13: "could not find", not "something went wrong".
         await waitFor(() => {
-            expect(screen.getByTestId('subscription-detail-error')).toBeTruthy();
+            expect(screen.getByTestId('subscription-detail-empty')).toHaveTextContent(
+                /We could not find that subscription/,
+            );
         });
+        expect(screen.queryByTestId('subscription-detail-error')).toBeNull();
     });
 
     it('renders the record, the plan card with its Change links, and the actions', async () => {
@@ -4737,16 +4741,15 @@ describe('SubscriptionDetailScreen', () => {
         // which can trail the dialog ("Choose a meal" until then).
         await waitFor(() => {
             expect(
-                within(dialog).getByTestId('subscription-meals-dialog-day-lunch-1-value'),
+                within(dialog).getByTestId('subscription-meals-dialog-cell-lunch-1-value'),
             ).toHaveTextContent(harvest.name);
         });
+        // Meals for a day: the dinner cell, then a dish from the list under it.
         await fireEvent.press(
-            within(dialog).getByTestId('subscription-meals-dialog-day-dinner-1-trigger'),
+            within(dialog).getByTestId('subscription-meals-dialog-cell-dinner-1'),
         );
         await fireEvent.press(
-            await screen.findByTestId(
-                `subscription-meals-dialog-day-dinner-1-option-${String(sesame.id)}`,
-            ),
+            within(dialog).getByTestId(`subscription-meals-dialog-dish-${sesame.slug}`),
         );
         await act(async () => {
             fireEvent.press(screen.getByTestId('subscription-meals-save'));

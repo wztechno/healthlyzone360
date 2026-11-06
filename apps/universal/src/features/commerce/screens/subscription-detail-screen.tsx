@@ -1,4 +1,4 @@
-import { Button, EmptyState, Icon, Stack, cx } from '@healthy360/design-system';
+import { Icon, Stack, cx } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import type {
     CustomerAddress,
@@ -36,6 +36,7 @@ import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
+import { ShopStateButton, ShopStateCard } from '../../../ui/shop-state.tsx';
 import {
     ShopDialog,
     ShopDialogButton,
@@ -71,12 +72,12 @@ import type { LedgerTab } from '../subscription-board.ts';
 import {
     CancelSubscriptionDialog,
     DialogFailure,
+    InlineFailure,
     PauseResumeDialog,
     WeekdayEditor,
     shortWeekday,
 } from '../subscription-editors.tsx';
 import { SubscriptionMeals } from '../subscription-meals.tsx';
-import { SummaryCard } from '../summary-card.tsx';
 
 /**
  * `/customer/subscriptions/{subscription}` — one subscription, as the accepted Subscription board
@@ -322,9 +323,9 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
     };
 
     const listAction = (
-        <Button
+        <ShopStateButton
             testID="subscription-detail-list"
-            variant="quiet"
+            kind="secondary"
             label={t('commerce:subscription.backToList')}
             onPress={() => {
                 router.dismissTo(SUBSCRIPTIONS_HREF as never);
@@ -335,8 +336,9 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
     if (parsed === null) {
         return (
             <Stack space="lg" testID="subscription-detail-screen">
-                <EmptyState
+                <ShopStateCard
                     testID="subscription-detail-empty"
+                    icon="leaf"
                     title={t('commerce:subscription.notFoundTitle')}
                     body={t('commerce:subscription.notFoundBody')}
                     actions={listAction}
@@ -386,6 +388,10 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                 emptyTitle={t('commerce:subscription.notFoundTitle')}
                 emptyBody={t('commerce:subscription.notFoundBody')}
                 emptyActions={listAction}
+                emptyIcon="leaf"
+                // Shop · Subscription, pin 13: a subscription that is not there is "could not find",
+                // not "something went wrong".
+                treatFailuresAsEmpty={['resource.not_found']}
                 skeletonCount={2}
                 testID="subscription-detail"
             >
@@ -783,7 +789,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                                             }}
                                                         />
                                                     </View>
-                                                    <DialogFailure
+                                                    <InlineFailure
                                                         error={changeAddress.error}
                                                         testID="subscription-address-failure"
                                                     />
@@ -867,7 +873,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                                             );
                                                         })}
                                                     </View>
-                                                    <DialogFailure
+                                                    <InlineFailure
                                                         error={changeSlot.error}
                                                         testID="subscription-slot-failure"
                                                     />
@@ -1018,6 +1024,8 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                         menu={menu}
                                         menuLoading={!kitchenMeals.isFetched || hasNextPage}
                                         canChange={live}
+                                        planName={subscription.planName}
+                                        cutoffHours={balanceQuery.data?.changeCutoffHours ?? 24}
                                         busy={busy}
                                         pending={setMealChoices.isPending}
                                         error={setMealChoices.error}
@@ -1035,18 +1043,41 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                         }}
                                     />
                                 </View>
-                                <View className="lg:w-[380px]">
-                                    <SummaryCard
-                                        testID="subscription-detail-allergies"
-                                        title={t('commerce:subscription.rows.allergens')}
-                                    >
-                                        <PlanAllergyNotice
-                                            testID="subscription-detail-allergy-notice"
-                                            meals={chosenMeals}
-                                            checked={daysQuery.isFetched && kitchenMeals.isFetched}
-                                            returnTo={here}
-                                        />
-                                    </SummaryCard>
+                                <View
+                                    testID="subscription-detail-allergies"
+                                    className="lg:w-[360px]"
+                                >
+                                    <PlanAllergyNotice
+                                        testID="subscription-detail-allergy-notice"
+                                        meals={chosenMeals}
+                                        checked={daysQuery.isFetched && kitchenMeals.isFetched}
+                                        whenOf={(meal) => {
+                                            const dates = (daysQuery.data?.days ?? [])
+                                                .filter((day) =>
+                                                    day.meals.some(
+                                                        (each) => each.mealId === meal.id,
+                                                    ),
+                                                )
+                                                .map((day) => day.date);
+                                            const [first, ...rest] = dates;
+                                            if (first === undefined) return undefined;
+                                            const date = formatter.formatDate(
+                                                `${first}T12:00:00Z`,
+                                                {
+                                                    weekday: 'short',
+                                                    day: 'numeric',
+                                                    month: 'short',
+                                                },
+                                            );
+                                            return rest.length === 0
+                                                ? date
+                                                : t('commerce:myAllergens.pickedOnMore', {
+                                                      date,
+                                                      count: rest.length,
+                                                  });
+                                        }}
+                                        returnTo={here}
+                                    />
                                 </View>
                             </View>
                         ) : null}
