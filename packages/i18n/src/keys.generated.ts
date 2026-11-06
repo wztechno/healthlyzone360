@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10332 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10347 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1644,6 +1644,12 @@ export interface NamespaceKeys {
     | 'facts.basisLabel'
     | 'facts.calculatedAt'
     | 'facts.caption'
+    | 'facts.compareTitle'
+    | 'facts.dataVersion'
+    | 'facts.energyFrom'
+    | 'facts.high'
+    | 'facts.lastWorkedOut'
+    | 'facts.low'
     | 'facts.method'
     | 'facts.notesTitle'
     | 'facts.nutrient'
@@ -1653,12 +1659,21 @@ export interface NamespaceKeys {
     | 'facts.prototypeFlag'
     | 'facts.recipeVersion'
     | 'facts.rounding'
+    | 'facts.shareLegend'
+    | 'facts.shareLine'
     | 'facts.soldByWeight'
     | 'facts.source'
+    | 'facts.sourceKind.ingredient_derived'
+    | 'facts.sourceKind.laboratory'
+    | 'facts.sourceKind.manufacturer'
+    | 'facts.sourceKind.professional_entry'
     | 'facts.sourceTitle'
     | 'facts.syntheticNote'
+    | 'facts.technical'
     | 'facts.title'
+    | 'facts.usualRange'
     | 'facts.version'
+    | 'facts.workedOutFrom'
     | 'filters.allMeals'
     | 'filters.anyValue'
     | 'filters.atLeast'
@@ -12001,6 +12016,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:facts.basisLabel',
   'catalogue:facts.calculatedAt',
   'catalogue:facts.caption',
+  'catalogue:facts.compareTitle',
+  'catalogue:facts.dataVersion',
+  'catalogue:facts.energyFrom',
+  'catalogue:facts.high',
+  'catalogue:facts.lastWorkedOut',
+  'catalogue:facts.low',
   'catalogue:facts.method',
   'catalogue:facts.notesTitle',
   'catalogue:facts.nutrient',
@@ -12010,12 +12031,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:facts.prototypeFlag',
   'catalogue:facts.recipeVersion',
   'catalogue:facts.rounding',
+  'catalogue:facts.shareLegend',
+  'catalogue:facts.shareLine',
   'catalogue:facts.soldByWeight',
   'catalogue:facts.source',
+  'catalogue:facts.sourceKind.ingredient_derived',
+  'catalogue:facts.sourceKind.laboratory',
+  'catalogue:facts.sourceKind.manufacturer',
+  'catalogue:facts.sourceKind.professional_entry',
   'catalogue:facts.sourceTitle',
   'catalogue:facts.syntheticNote',
+  'catalogue:facts.technical',
   'catalogue:facts.title',
+  'catalogue:facts.usualRange',
   'catalogue:facts.version',
+  'catalogue:facts.workedOutFrom',
   'catalogue:filters.allMeals',
   'catalogue:filters.anyValue',
   'catalogue:filters.atLeast',

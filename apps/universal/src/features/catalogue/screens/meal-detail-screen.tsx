@@ -1401,38 +1401,39 @@ function MealFacts({ item }: { readonly item: MarketplaceMeal }) {
             testID="meal-detail-record"
             className="mt-14 flex-col gap-[18px] border-t border-stroke pt-6"
         >
-            <SectionHeading>{t('catalogue:meal.factsTitle')}</SectionHeading>
-
-            {/*
-             * Nothing at all rather than "One serving is ." — the mapper's `UNSTATED_SERVING`
-             * carries an empty label and a null mass precisely so a screen prints nothing instead of
-             * a phrase the kitchen never wrote; a listing sold by weight is the case that shows it.
-             */}
-            {item.serving.label === '' && item.serving.grams === null ? null : (
-                <View testID="meal-detail-serving" className="flex-row flex-wrap gap-x-2">
-                    {item.serving.label === '' ? null : (
-                        <RNText className="text-sm text-content-secondary text-start">
-                            {t('catalogue:meal.servingLabel', { serving: item.serving.label })}
-                        </RNText>
-                    )}
-                    {item.serving.grams === null ? null : (
-                        <RNText className="text-sm text-content-secondary text-start">
-                            {t('catalogue:meal.servingGrams', {
-                                // Whole grams: a derived serving arrives at three places and the
-                                // copy says "about" — the precision belongs to the arithmetic.
-                                grams: formatter.formatNumber(item.serving.grams, {
-                                    maximumFractionDigits: 0,
-                                }),
-                            })}
-                        </RNText>
-                    )}
-                </View>
-            )}
-
             <MealNutrition
                 testID="meal-detail-facts"
                 facts={item.nutrition}
-                title={t('catalogue:meal.factsPanelTitle')}
+                heading={<SectionHeading>{t('catalogue:meal.factsTitle')}</SectionHeading>}
+                /*
+                 * Nothing at all rather than "One serving is ." — the mapper's `UNSTATED_SERVING`
+                 * carries an empty label and a null mass precisely so a screen prints nothing instead of
+                 * a phrase the kitchen never wrote; a listing sold by weight is the case that shows it.
+                 */
+                serving={
+                    item.serving.label === '' && item.serving.grams === null ? null : (
+                        <View testID="meal-detail-serving" className="flex-row flex-wrap gap-x-2">
+                            {item.serving.label === '' ? null : (
+                                <RNText className="text-sm text-content-secondary text-start">
+                                    {t('catalogue:meal.servingLabel', {
+                                        serving: item.serving.label,
+                                    })}
+                                </RNText>
+                            )}
+                            {item.serving.grams === null ? null : (
+                                <RNText className="text-sm text-content-secondary text-start">
+                                    {t('catalogue:meal.servingGrams', {
+                                        // Whole grams: a derived serving arrives at three places and the
+                                        // copy says "about" — the precision belongs to the arithmetic.
+                                        grams: formatter.formatNumber(item.serving.grams, {
+                                            maximumFractionDigits: 0,
+                                        }),
+                                    })}
+                                </RNText>
+                            )}
+                        </View>
+                    )
+                }
             />
         </View>
     );
