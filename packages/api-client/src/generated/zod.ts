@@ -7792,8 +7792,22 @@ export const zCustomerFoodExclusion = z.object({
         'free_text'
     ]),
     ingredient_id: zUuid.nullish(),
+    ingredient_name: z.string().nullish(),
     diet_classification_id: zUuid.nullish(),
     free_text: z.string().nullish()
+});
+
+export const zDietaryIngredientMatch = z.object({
+    id: zUuid,
+    name: z.string(),
+    category: z.string().nullable()
+});
+
+export const zDietaryIngredientMatchesEnvelope = z.object({
+    data: z.array(zDietaryIngredientMatch),
+    meta: zMeta.and(z.object({
+        count: z.int()
+    }))
 });
 
 export const zCustomerDietaryProfile = z.object({
@@ -16628,6 +16642,21 @@ export const zReplaceMyDietaryProfileHeaders = z.object({
  * The declaration as it now stands.
  */
 export const zReplaceMyDietaryProfileResponse = zCustomerDietaryProfileEnvelope;
+
+export const zSearchMyDietaryIngredientsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional(),
+    'Accept-Language': z.string().optional()
+});
+
+export const zSearchMyDietaryIngredientsQuery = z.object({
+    q: z.string().min(2).max(60),
+    limit: z.int().gte(1).lte(20).optional().default(8)
+});
+
+/**
+ * The matching ingredients, at most `limit`.
+ */
+export const zSearchMyDietaryIngredientsResponse = zDietaryIngredientMatchesEnvelope;
 
 export const zListMyConsentsHeaders = z.object({
     'X-Client-Request-Id': z.string().max(128).optional()

@@ -162,6 +162,11 @@ export const DRAWN_ICON_FALLBACKS = {
     circleHelp: 'info',
     handshake: 'lock',
     ban: 'dotOutline',
+    // Account → "Ingredients to leave out": the kind on each food, and the search's keyboard hint.
+    // Lucide's `thumbs-down`, `corner-down-left` and `type`.
+    thumbsDown: 'minus',
+    cornerDownLeft: 'chevronBackward',
+    typeText: 'pen',
     infoCircle: 'info',
     trendingUp: 'calendar',
     trendingDown: 'warning',

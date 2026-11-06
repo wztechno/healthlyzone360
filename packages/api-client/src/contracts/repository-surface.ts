@@ -68,6 +68,7 @@ export const REPOSITORY_SURFACE = {
         'removeAddress',
         'requestClosure',
         'saveDietaryProfile',
+        'searchDietaryIngredients',
         'setConsent',
         'updateAddress',
         'verifyClosure',

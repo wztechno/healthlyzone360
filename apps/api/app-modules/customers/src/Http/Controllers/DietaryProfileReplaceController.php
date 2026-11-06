@@ -11,6 +11,7 @@ use Healthy360\Customers\Models\CustomerFoodExclusion;
 use Healthy360\Customers\Presenters\DietaryProfilePresenter;
 use Healthy360\Customers\Services\CustomerAccountLifecycle;
 use Healthy360\Customers\Services\DietaryProfileService;
+use Healthy360\Kitchens\Presenters\MarketplaceLocale;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
@@ -81,7 +82,7 @@ final class DietaryProfileReplaceController
         $exclusions = array_values($profile->foodExclusions()->orderBy('created_at')->get()->all());
 
         return ApiResponse::data([
-            'dietary_profile' => $this->presenter->profile($profile, $allergens, $exclusions),
+            'dietary_profile' => $this->presenter->profile($profile, $allergens, $exclusions, MarketplaceLocale::from($request->header('Accept-Language'))),
         ]);
     }
 }

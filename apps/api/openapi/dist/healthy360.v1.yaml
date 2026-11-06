@@ -19296,6 +19296,60 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /me/dietary-profile/ingredients:
+    get:
+      operationId: searchMyDietaryIngredients
+      tags:
+        - Customer account
+      summary: Search the foods a person can leave out
+      description: |
+        The search behind "Ingredients to leave out". A customer has no
+        kitchen context, so this reads past the tenant scope — and reaches only
+        two kinds of row, both already public: the **platform library** and a
+        **kitchen's own ingredient that a meal on sale lists**. The meal-safety
+        check matches an exclusion on the identifier a meal's list carries,
+        which is why a kitchen's own row is offered at all. Nothing else a
+        kitchen keeps is reachable, and only id, name and category leave.
+
+        Active food only, by name in either language. Names that start with
+        the term come first. At least two characters; a small page for a
+        dropdown.
+      parameters:
+        - $ref: '#/components/parameters/XClientRequestId'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 60
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 8
+      responses:
+        '200':
+          description: The matching ingredients, at most `limit`.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DietaryIngredientMatchesEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /me/consents:
     get:
       operationId: listMyConsents
@@ -49326,6 +49380,13 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
             - type: 'null'
+        ingredient_name:
+          type:
+            - string
+            - 'null'
+          description: |
+            The ingredient's name in the caller's language, so a saved exclusion
+            can be shown as a word. Null on the other two subject kinds.
         diet_classification_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
@@ -49334,6 +49395,41 @@ components:
           type:
             - string
             - 'null'
+    DietaryIngredientMatch:
+      type: object
+      required:
+        - id
+        - name
+        - category
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+        category:
+          type:
+            - string
+            - 'null'
+          description: The ingredient's category, in the caller's language.
+    DietaryIngredientMatchesEnvelope:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DietaryIngredientMatch'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required:
+                - count
+              properties:
+                count:
+                  type: integer
     CustomerDietaryProfile:
       type: object
       required:

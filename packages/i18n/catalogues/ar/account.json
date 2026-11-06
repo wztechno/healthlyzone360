@@ -317,7 +317,25 @@
             "sulphites": "الخل والفواكه المجففة والمخللات",
             "lupin": "دقيق الترمس وحبوبه"
         },
-        "howStrictTip": "الحساسية المُعلنة وحدها تستبعد الوجبة تمامًا."
+        "howStrictTip": "الحساسية المُعلنة وحدها تستبعد الوجبة تمامًا.",
+        "leaveOut": {
+            "kind": {
+                "dislike": "لا أحبّه",
+                "forbidden": "أبدًا"
+            },
+            "kindFor": "ما مدى صرامة استبعاد {{name}}",
+            "add": "أضف طعامًا",
+            "searchLabel": "ابحث عن طعام",
+            "searchPlaceholder": "ابحث في المكوّنات",
+            "close": "أغلق البحث",
+            "added": "مُضاف",
+            "addAsWritten": "أضف «{{text}}» كما كُتب",
+            "noMatch": "لا يوجد مكوّن يطابق «{{text}}»",
+            "searchFailed": "لم يستجب البحث",
+            "remove": "أزل {{name}}",
+            "cancel": "إلغاء",
+            "confirm": "أضف"
+        }
     },
     "consents": {
         "title": "الأذونات",

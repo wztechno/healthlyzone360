@@ -289,7 +289,25 @@
             "sulphites": "Vinegar, dried fruit, pickles",
             "lupin": "Lupin flour and beans"
         },
-        "howStrictTip": "Only a declared allergy removes a meal outright."
+        "howStrictTip": "Only a declared allergy removes a meal outright.",
+        "leaveOut": {
+            "kind": {
+                "dislike": "I don’t like it",
+                "forbidden": "Never"
+            },
+            "kindFor": "How strictly to leave out {{name}}",
+            "add": "Add a food",
+            "searchLabel": "Search for a food",
+            "searchPlaceholder": "Search ingredients",
+            "close": "Close the search",
+            "added": "Added",
+            "addAsWritten": "Add “{{text}}” as written",
+            "noMatch": "No ingredient matches “{{text}}”",
+            "searchFailed": "The search did not answer",
+            "remove": "Remove {{name}}",
+            "cancel": "Cancel",
+            "confirm": "Add"
+        }
     },
     "consents": {
         "title": "Permissions",

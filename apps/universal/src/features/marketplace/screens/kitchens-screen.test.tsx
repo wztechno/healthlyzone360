@@ -458,7 +458,7 @@ describe('KitchensScreen — the finder', () => {
             const profile: DietaryProfile = {
                 dietCategoryCode: 'halal_friendly',
                 allergens: [],
-                excludedIngredientIds: [],
+                exclusions: [],
                 updatedAt: '2026-09-01T09:00:00.000Z',
             };
             const home = {
@@ -513,7 +513,7 @@ describe('KitchensScreen — the finder', () => {
                         getDietaryProfile: async (): Promise<DietaryProfile> => ({
                             dietCategoryCode: null,
                             allergens: [],
-                            excludedIngredientIds: [],
+                            exclusions: [],
                             updatedAt: '2026-09-01T09:00:00.000Z',
                         }),
                         listAddresses: async () => [],

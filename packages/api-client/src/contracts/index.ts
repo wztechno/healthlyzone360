@@ -828,6 +828,7 @@ export {
     CLOSURE_REASON_CODES,
     CLOSURE_REQUEST_STATUSES,
     CLOSURE_SCOPES,
+    FOOD_EXCLUSION_KINDS,
 } from './account.ts';
 export type {
     AccountChecklistItem,
@@ -851,7 +852,10 @@ export type {
     ConsentState,
     CustomerAccount,
     CustomerAddress,
+    DietaryIngredientMatch,
     DietaryProfile,
+    FoodExclusion,
+    FoodExclusionKind,
     RequestClosureRequest,
     SaveAddressRequest,
     SaveDietaryProfileRequest,

@@ -2,6 +2,7 @@ import type {
     AllergenDeclaration,
     AllergenSeverity,
     DietaryProfile,
+    FoodExclusion,
 } from '@healthy360/api-client/contracts';
 import { Icon, InfoTip, cx, useBreakpoint, useToast } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
@@ -20,6 +21,7 @@ import { QueryStates } from '../marketplace/query-states.tsx';
 import { ALLERGEN_CODES } from '../onboarding/vocabularies.ts';
 import { ACCOUNT_CARD, PanelHead } from './account-card.tsx';
 import { ALLERGEN_SEVERITIES, declarationsFor, initialAllergyAnswer } from './dietary.ts';
+import { LeaveOutFoods } from './leave-out-foods.tsx';
 
 /**
  * Allergies — the store of record for what a person cannot eat, as the accepted Account board's
@@ -49,12 +51,12 @@ import { ALLERGEN_SEVERITIES, declarationsFor, initialAllergyAnswer } from './di
  *
  * ## What it saves, and what it leaves alone
  *
- * The allergens only. The diet is the Profile pane's and the ingredient exclusions have no control
- * here, so both are carried through as stored rather than sent empty.
+ * The allergens and the ingredients to leave out (`./leave-out-foods.tsx`, under the severity
+ * cards) — saved together by the one Save. The diet is the Profile pane's, so it is carried through
+ * as stored rather than sent empty.
  *
- * The board's "Foods you avoid" row is not drawn: there is no way here to search the kitchens'
- * ingredients to add one, and a row that could only show what something else stored would invite a
- * press that does nothing.
+ * The foods to leave out are not allergies, so they are shown whatever the answer to "Any food
+ * allergies?" is, and a "No" keeps them.
  */
 
 const ANSWERS = ['yes', 'no'] as const;
@@ -64,6 +66,7 @@ type Answer = (typeof ANSWERS)[number];
 interface Edit {
     readonly answer: Answer | null;
     readonly allergens: readonly AllergenDeclaration[];
+    readonly exclusions: readonly FoodExclusion[];
     /** `updatedAt` of the profile this edit was seeded from — `null` before the first save. */
     readonly from: string | null;
 }
@@ -73,6 +76,7 @@ function seed(profile: DietaryProfile): Edit {
     return {
         answer: answered === null ? null : answered ? 'yes' : 'no',
         allergens: profile.allergens,
+        exclusions: profile.exclusions,
         from: profile.updatedAt,
     };
 }
@@ -102,7 +106,7 @@ export function AllergiesPanel({ testID, guard, onSaved, onCancel }: AllergiesPa
     const loaded = profile.data;
     const current: Edit =
         loaded === undefined
-            ? { answer: null, allergens: [], from: null }
+            ? { answer: null, allergens: [], exclusions: [], from: null }
             : edit !== null && edit.from === loaded.updatedAt
               ? edit
               : seed(loaded);
@@ -139,8 +143,7 @@ export function AllergiesPanel({ testID, guard, onSaved, onCancel }: AllergiesPa
                 // Carried through: the diet is the Profile pane's.
                 dietCategoryCode: loaded?.dietCategoryCode ?? null,
                 allergens: declarationsFor(current.answer === 'yes', current.allergens),
-                // No control for exclusions here: what is stored is kept, not silently dropped.
-                excludedIngredientIds: loaded?.excludedIngredientIds ?? [],
+                exclusions: current.exclusions,
             },
             {
                 onSuccess: () => {
@@ -379,6 +382,17 @@ export function AllergiesPanel({ testID, guard, onSaved, onCancel }: AllergiesPa
                         )}
                     </View>
                 ) : null}
+
+                {current.answer === null ? null : (
+                    <LeaveOutFoods
+                        testID={`${testID}-leave-out`}
+                        exclusions={current.exclusions}
+                        disabled={save.isPending}
+                        onChange={(exclusions) => {
+                            set({ exclusions });
+                        }}
+                    />
+                )}
 
                 <View className="mt-[18px]">
                     <MedicalDisclaimer context={t('account:dietary.disclaimerContext')} />
