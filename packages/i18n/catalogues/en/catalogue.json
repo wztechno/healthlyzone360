@@ -688,7 +688,7 @@
         "noFigure": "—",
         "soldOut": "Sold out",
         "unavailable": "Unavailable",
-        "noNutrition": "Nutrition not published",
+        "noNutrition": "Nutrition not published yet",
         "figure": "{{value}} {{unit}}",
         "unit": {
             "kcal": "kcal",

@@ -808,7 +808,7 @@
         "noFigure": "—",
         "soldOut": "نفدت الكمية",
         "unavailable": "غير متاح",
-        "noNutrition": "القيم الغذائية غير منشورة",
+        "noNutrition": "لم تُنشر القيم الغذائية بعد",
         "figure": "{{value}} {{unit}}",
         "unit": {
             "kcal": "سعرة",

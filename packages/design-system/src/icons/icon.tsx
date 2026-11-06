@@ -232,6 +232,8 @@ export const DRAWN_ICON_FALLBACKS = {
     play: 'chevronForward',
     skipForward: 'chevronForward',
     trash: 'close',
+    // The menu card's calories pill. Lucide's `flame`.
+    flame: 'dot',
     // The shop's state cards. Lucide's `cloud-alert` and `rotate-cw`.
     cloudAlert: 'offline',
     rotateCw: 'refresh',

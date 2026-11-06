@@ -1183,7 +1183,7 @@ describe('KitchenMenuScreen', () => {
         expect(cards).toHaveLength(3);
         // The sauce publishes none, and its card says so rather than drawing four dashes.
         expect(screen.getByTestId('meal-card-verdant-chilli-sauce-figures')).toHaveTextContent(
-            'Nutrition not published',
+            /Nutrition not published yet/,
         );
 
         /*
@@ -1224,16 +1224,15 @@ describe('KitchenMenuScreen', () => {
         /*
          * 520 kcal, 32 g protein, 54 g carbohydrate, 18 g fat — the fixture's own numbers.
          *
-         * A tile's two lines aggregate to one string, so each expectation is `figure` then `name`
-         * with nothing between them. The names are capitalised in CSS, not in the catalogue, which
-         * is why they read lower case here.
+         * The calories are a pill ("520 kcal"); each macro is its whole grams over a plain label
+         * ("32 g" over "Protein"), with nothing upper-cased.
          */
         const base = 'meal-card-verdant-harvest-bowl-nutrient';
         for (const [key, content] of [
-            ['energy', '520kcal'],
-            ['protein', '32gProtein'],
-            ['carbohydrate', '54gCarbs'],
-            ['fat', '18gFat'],
+            ['energy', /520\s*kcal/],
+            ['protein', /32 g\s*Protein/],
+            ['carbohydrate', /54 g\s*Carbs/],
+            ['fat', /18 g\s*Fat/],
         ] as const) {
             expect(screen.getByTestId(`${base}-${key}`)).toHaveTextContent(content);
         }

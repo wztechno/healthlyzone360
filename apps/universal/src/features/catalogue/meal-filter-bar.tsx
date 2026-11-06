@@ -13,7 +13,6 @@ import { EntityImage } from '../../media/entity-image.tsx';
 import { InkSortMenu } from '../../ui/ink-sort-menu.tsx';
 import { useOutsideDismiss } from '../../ui/use-outside-dismiss.ts';
 import type { MarketplaceFilterState } from '../marketplace/filter-bar.tsx';
-import { FilterRows } from './filter-rows.tsx';
 import { MealRangeFilters } from './meal-filters.tsx';
 import type { MealRangeKey, MealRangeState } from './meal-filters.tsx';
 import { MENU_SORTS } from './meal-readings.ts';
@@ -491,7 +490,12 @@ export interface MealFilterBarProps {
     readonly filters: MarketplaceFilterState;
     readonly ranges: MealRangeState;
     /** Fetched marketplace kitchens, which is the only thing that knows a kitchen id's name. */
-    readonly kitchens: readonly { readonly id: unknown; readonly name: string }[];
+    readonly kitchens: readonly {
+        readonly id: unknown;
+        readonly name: string;
+        readonly tagline?: string | undefined;
+        readonly imagePlaceholderId?: string | undefined;
+    }[];
     readonly currency: CurrencyCode;
     readonly sort: MenuSort;
     readonly onSort: (sort: MenuSort) => void;
@@ -683,18 +687,77 @@ export function MealFilterBar({
                     wide={wide}
                     summary={summary}
                 >
-                    <FilterRows
-                        testID="meals-filter"
-                        groupKey="kitchen"
-                        options={kitchens.map((kitchen) => ({
-                            value: String(kitchen.id),
-                            label: kitchen.name,
-                        }))}
-                        selected={selectedKitchens}
-                        onToggle={(value, next) => {
-                            filters.toggle('kitchen', value, next);
-                        }}
-                    />
+                    {/* Shop · Menu, pin 3: the board's kitchen rows — photo, name, its line, a tick box. */}
+                    <View className="flex-col gap-2.5">
+                        {kitchens.map((kitchen) => {
+                            const value = String(kitchen.id);
+                            const on = selectedKitchens.includes(value);
+                            const tint = FILTER_LOOKS.kitchen.tint;
+                            return (
+                                <Pressable
+                                    key={value}
+                                    testID={`meals-filter-kitchen-${value}`}
+                                    role="button"
+                                    accessibilityRole="button"
+                                    accessibilityLabel={kitchen.name}
+                                    aria-pressed={on}
+                                    accessibilityState={{ selected: on }}
+                                    onPress={() => {
+                                        filters.toggle('kitchen', value, !on);
+                                    }}
+                                    className={cx(
+                                        'min-w-[260px] flex-row items-center gap-3 rounded-[14px] border bg-surface-raised py-2 pe-2.5 ps-2 transition duration-normal ease-standard',
+                                        on
+                                            ? TINT_BORDER[tint]
+                                            : 'border-stroke-subtle hover:border-stroke',
+                                    )}
+                                >
+                                    <View className="h-11 w-11 overflow-hidden rounded-xl">
+                                        <EntityImage
+                                            assetId={kitchen.imagePlaceholderId}
+                                            variant="card"
+                                            seed={value}
+                                            label={kitchen.name}
+                                            decorative
+                                            flush
+                                            className="h-full w-full"
+                                        />
+                                    </View>
+                                    <View className="min-w-0 flex-1">
+                                        <RNText className="text-sm font-semibold text-content-primary text-start">
+                                            {kitchen.name}
+                                        </RNText>
+                                        {kitchen.tagline === undefined ||
+                                        kitchen.tagline.trim() === '' ? null : (
+                                            <RNText
+                                                numberOfLines={1}
+                                                className="text-xs text-content-secondary text-start"
+                                            >
+                                                {kitchen.tagline}
+                                            </RNText>
+                                        )}
+                                    </View>
+                                    <View
+                                        aria-hidden
+                                        className={cx(
+                                            'h-6 w-6 items-center justify-center rounded-[7px] border-2',
+                                            on
+                                                ? cx(TINT_INK_FILL[tint], 'border-transparent')
+                                                : 'border-stroke',
+                                        )}
+                                    >
+                                        {on ? (
+                                            <Icon
+                                                name="check"
+                                                size="sm"
+                                                className="text-surface-raised"
+                                            />
+                                        ) : null}
+                                    </View>
+                                </Pressable>
+                            );
+                        })}
+                    </View>
                 </FilterMenu>
             )}
             <FilterMenu

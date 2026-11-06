@@ -1,4 +1,4 @@
-import { Button, Icon, cx } from '@healthy360/design-system';
+import { Icon, cx } from '@healthy360/design-system';
 import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { neutral } from '@healthy360/design-tokens';
 import type {
@@ -24,6 +24,7 @@ import {
 } from '../../marketplace/filter-bar.tsx';
 import { DeliverToMenu } from '../../marketplace/discover/deliver-to-menu.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
+import { ShopStateButton } from '../../../ui/shop-state.tsx';
 import { CategoryTabs, FILTER_LOOKS, MealFilterBar, rangeChips } from '../meal-filter-bar.tsx';
 import type { FilterLook } from '../meal-filter-bar.tsx';
 import { MEAL_RANGE_KEYS, toMealFilter, useMealRanges } from '../meal-filters.tsx';
@@ -450,13 +451,17 @@ export function MealsScreen() {
                     emptyBody={t('catalogue:meals.emptyBody')}
                     emptyActions={
                         isFiltered ? (
-                            <Button
+                            <ShopStateButton
                                 testID="meals-empty-clear"
+                                kind="secondary"
                                 label={t('catalogue:filters.clear')}
                                 onPress={clearEverything}
                             />
                         ) : undefined
                     }
+                    // Shop · Menu, pin 9: a funnel when filters left nothing, a lens otherwise.
+                    emptyIcon={isFiltered ? 'funnel' : 'searchLens'}
+                    skeletonCount={8}
                     testID="meals"
                 >
                     <View className="flex-col gap-8">

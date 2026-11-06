@@ -9,7 +9,6 @@ import { EntityImage } from '../../media/entity-image.tsx';
 import { YourAllergens, clashingAllergens, useMyAllergenCodes } from '../commerce/my-allergens.tsx';
 import { formatMoney } from '../marketplace/format.ts';
 import {
-    cardFigureDigits,
     isSoldOut,
     leadTag,
     publishedFigure,
@@ -56,14 +55,6 @@ export interface MenuMealCardProps {
     readonly testID?: string | undefined;
 }
 
-/** The strip's four figures, in the board's order and colours. */
-const STRIP: readonly { readonly nutrientId: string; readonly tint: ShelfTint }[] = [
-    { nutrientId: 'energy', tint: 'orange' },
-    { nutrientId: 'protein', tint: 'green' },
-    { nutrientId: 'carbohydrate', tint: 'blue' },
-    { nutrientId: 'fat', tint: 'yellow' },
-];
-
 export function MenuMealCard({ meal, onOpen, onAdd, compact = false, testID }: MenuMealCardProps) {
     const viewOnly = useShopViewOnly();
     const { t } = useTranslation();
@@ -78,7 +69,6 @@ export function MenuMealCard({ meal, onOpen, onAdd, compact = false, testID }: M
     const protein = publishedFigure(meal, 'protein');
     const soldOut = isSoldOut(meal);
     const dash = t('catalogue:card.noFigure');
-    const nutrients = publishedNutrients(meal);
     const addLabel = !soldOut
         ? t('marketplace:discover.addLabel', { meal: meal.name })
         : unavailableReason(meal) === 'sold-out'
@@ -205,84 +195,7 @@ export function MenuMealCard({ meal, onOpen, onAdd, compact = false, testID }: M
                     </RNText>
                 )}
 
-                {nutrients.length === 0 ? (
-                    <RNText
-                        testID={`${id}-figures`}
-                        className="mt-3 self-start text-sm text-content-secondary text-start"
-                    >
-                        {t('catalogue:card.noNutrition')}
-                    </RNText>
-                ) : (
-                    <View
-                        testID={`${id}-figures`}
-                        aria-label={t('catalogue:card.stripLabel')}
-                        className="mt-3 flex-row gap-1 rounded-2xl bg-surface-base p-1"
-                    >
-                        {STRIP.map((cell) => {
-                            const nutrient = nutrients.find(
-                                (entry) => entry.nutrientId === cell.nutrientId,
-                            );
-                            const isEnergy = cell.nutrientId === 'energy';
-                            const value =
-                                nutrient === undefined
-                                    ? dash
-                                    : formatter.formatNumber(nutrient.value, {
-                                          maximumFractionDigits: cardFigureDigits(nutrient),
-                                          minimumFractionDigits: cardFigureDigits(nutrient),
-                                      });
-                            return (
-                                <View
-                                    key={cell.nutrientId}
-                                    testID={`${id}-nutrient-${cell.nutrientId}`}
-                                    className={cx(
-                                        'relative flex-1 flex-col items-center gap-0.5 overflow-hidden rounded-lg px-0.5 pb-1.5 pt-2',
-                                        isEnergy ? TINT_FILL[cell.tint] : 'bg-surface-raised',
-                                    )}
-                                >
-                                    <View
-                                        aria-hidden
-                                        className={cx(
-                                            'absolute top-0 h-[3px] rounded-b-sm transition-all duration-slow ease-standard',
-                                            hovered
-                                                ? 'end-[10%] start-[10%]'
-                                                : 'end-[22%] start-[22%]',
-                                            TINT_INK_FILL[cell.tint],
-                                        )}
-                                    />
-                                    <RNText
-                                        numberOfLines={1}
-                                        className={cx(
-                                            compact
-                                                ? 'text-sm font-bold tabular-nums'
-                                                : 'text-base font-bold tabular-nums',
-                                            isEnergy ? TINT_INK[cell.tint] : 'text-content-primary',
-                                        )}
-                                    >
-                                        {value}
-                                        {isEnergy || nutrient === undefined ? null : (
-                                            <RNText className="text-xs font-semibold text-content-secondary">
-                                                {t(`catalogue:card.unit.${nutrient.unit}`, {
-                                                    defaultValue: nutrient.unit,
-                                                })}
-                                            </RNText>
-                                        )}
-                                    </RNText>
-                                    <RNText
-                                        numberOfLines={1}
-                                        className={cx(
-                                            'text-xs font-semibold uppercase tracking-wide',
-                                            isEnergy
-                                                ? TINT_INK[cell.tint]
-                                                : 'text-content-secondary',
-                                        )}
-                                    >
-                                        {t(`catalogue:card.strip.${cell.nutrientId}`)}
-                                    </RNText>
-                                </View>
-                            );
-                        })}
-                    </View>
-                )}
+                <CardNutrients id={id} meal={meal} compact={compact} />
 
                 {/* `mt-auto` keeps the price and Add on the bottom edge in every card of a row. */}
                 <View className="mt-auto flex-row items-center justify-between gap-3 pt-3">
@@ -321,6 +234,167 @@ export function MenuMealCard({ meal, onOpen, onAdd, compact = false, testID }: M
                         </Pressable>
                     )}
                 </View>
+            </View>
+        </View>
+    );
+}
+
+/** The three macros under the calories, in the board's order and colours. */
+const MACROS: readonly {
+    readonly nutrientId: string;
+    readonly tint: ShelfTint;
+    readonly kcalPerGram: number;
+}[] = [
+    { nutrientId: 'protein', tint: 'green', kcalPerGram: 4 },
+    { nutrientId: 'carbohydrate', tint: 'blue', kcalPerGram: 4 },
+    { nutrientId: 'fat', tint: 'yellow', kcalPerGram: 9 },
+];
+
+/**
+ * The card's nutrition (Shop · Menu pins 1–2, Kitchens + storefront pin 1): the calories first as
+ * a pill, beside a thin bar split by where those calories come from; then protein, carbs and fat
+ * in three columns, each a colour dot, whole grams and a plain label. Nothing is cut to one line
+ * and nothing is upper case, so it reads the same in a four-column grid and a storefront's compact
+ * card. A figure the kitchen did not publish is a dash, never a zero; a dish with none says so in
+ * one quiet pill.
+ *
+ * The testIDs are the old strip's (`-figures`, `-nutrient-{id}`).
+ */
+function CardNutrients({
+    id,
+    meal,
+    compact,
+}: {
+    readonly id: string;
+    readonly meal: MarketplaceMeal;
+    readonly compact: boolean;
+}) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const nutrients = publishedNutrients(meal);
+    const dash = t('catalogue:card.noFigure');
+
+    if (nutrients.length === 0) {
+        return (
+            <View
+                testID={`${id}-figures`}
+                className="mt-3 h-7 flex-row items-center gap-1.5 self-start rounded-full bg-surface-base px-2.5"
+            >
+                <Icon name="infoCircle" size="sm" className="text-content-secondary" />
+                <RNText className="text-xs text-content-secondary">
+                    {t('catalogue:card.noNutrition')}
+                </RNText>
+            </View>
+        );
+    }
+
+    const find = (nutrientId: string) => nutrients.find((entry) => entry.nutrientId === nutrientId);
+    const energy = find('energy');
+    // Where the calories come from, by the macros' own energy — the bar's three widths.
+    const shares = MACROS.map((macro) => (find(macro.nutrientId)?.value ?? 0) * macro.kcalPerGram);
+    const total = shares.reduce((sum, share) => sum + share, 0);
+    // Whole grams; under one gram keeps its tenth, so a trace is not a zero.
+    const grams = (value: number) =>
+        formatter.formatNumber(value, {
+            maximumFractionDigits: Math.abs(value) < 1 ? 1 : 0,
+            minimumFractionDigits: 0,
+        });
+
+    return (
+        <View
+            testID={`${id}-figures`}
+            aria-label={t('catalogue:card.stripLabel')}
+            className={cx(
+                'mt-3 rounded-[14px] bg-surface-base',
+                compact ? 'px-[9px] pb-[9px] pt-2' : 'px-3 pb-[11px] pt-2.5',
+            )}
+        >
+            <View className="flex-row items-center justify-between gap-2.5">
+                <View
+                    testID={`${id}-nutrient-energy`}
+                    className={cx(
+                        'h-7 flex-row items-center gap-1 rounded-full',
+                        compact ? 'px-2' : 'px-2.5',
+                        TINT_FILL.orange,
+                    )}
+                >
+                    <Icon name="flame" size="sm" className={TINT_INK.orange} />
+                    <RNText
+                        className={cx(
+                            'font-display text-base font-bold tabular-nums',
+                            TINT_INK.orange,
+                        )}
+                    >
+                        {energy === undefined
+                            ? dash
+                            : formatter.formatNumber(Math.round(energy.value))}
+                    </RNText>
+                    <RNText className={cx('text-xs font-semibold', TINT_INK.orange)}>
+                        {t('catalogue:card.unit.kcal')}
+                    </RNText>
+                </View>
+                {total <= 0 ? null : (
+                    <View
+                        aria-hidden
+                        className={cx(
+                            'h-1.5 shrink flex-row gap-0.5 overflow-hidden rounded-full bg-stroke-subtle',
+                            compact ? 'w-10 min-w-[28px]' : 'w-[84px] min-w-[48px]',
+                        )}
+                    >
+                        {MACROS.map((macro, index) => (
+                            <View
+                                key={macro.nutrientId}
+                                className={cx('h-full', TINT_INK_FILL[macro.tint])}
+                                style={{ flex: shares[index] ?? 0 }}
+                            />
+                        ))}
+                    </View>
+                )}
+            </View>
+            <View className={cx('flex-row', compact ? 'mt-2 gap-1' : 'mt-[9px] gap-1.5')}>
+                {MACROS.map((macro) => {
+                    const nutrient = find(macro.nutrientId);
+                    return (
+                        <View
+                            key={macro.nutrientId}
+                            testID={`${id}-nutrient-${macro.nutrientId}`}
+                            className={cx(
+                                'min-w-0 flex-1 flex-row items-start',
+                                compact ? 'gap-1' : 'gap-1.5',
+                            )}
+                        >
+                            <View
+                                className={cx(
+                                    'mt-[5px] rounded-full',
+                                    compact ? 'h-1.5 w-1.5' : 'h-2 w-2',
+                                    TINT_INK_FILL[macro.tint],
+                                )}
+                            />
+                            <View className="min-w-0 shrink">
+                                <RNText
+                                    className={cx(
+                                        'font-bold tabular-nums text-content-primary text-start',
+                                        compact
+                                            ? 'text-sm leading-[18px]'
+                                            : 'text-sm leading-[18px]',
+                                    )}
+                                >
+                                    {nutrient === undefined
+                                        ? dash
+                                        : `${grams(nutrient.value)} ${t(
+                                              `catalogue:card.unit.${nutrient.unit}`,
+                                              {
+                                                  defaultValue: nutrient.unit,
+                                              },
+                                          )}`}
+                                </RNText>
+                                <RNText className="text-xs leading-4 text-content-secondary text-start">
+                                    {t(`catalogue:card.strip.${macro.nutrientId}`)}
+                                </RNText>
+                            </View>
+                        </View>
+                    );
+                })}
             </View>
         </View>
     );

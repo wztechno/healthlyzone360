@@ -926,7 +926,7 @@ describe('MealsScreen', () => {
 
         await waitFor(() => screen.getByTestId('meals-grid'));
         expect(screen.getByTestId(`meal-card-${bare.slug}-figures`)).toHaveTextContent(
-            'Nutrition not published',
+            /Nutrition not published yet/,
         );
     });
 
