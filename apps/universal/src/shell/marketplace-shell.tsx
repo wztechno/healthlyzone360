@@ -913,7 +913,8 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
                         testID={`footer-column-${column.key}`}
                         role="navigation"
                         aria-label={t(column.titleKey)}
-                        className="min-w-[140px] flex-1"
+                        // Two to a row on a phone, as the footer's phone board draws them.
+                        className="min-w-[120px] flex-1"
                     >
                         <RNText className="mb-3 mt-1 text-xs font-bold uppercase tracking-wider text-content-on-canopy-muted">
                             {t(column.titleKey)}
