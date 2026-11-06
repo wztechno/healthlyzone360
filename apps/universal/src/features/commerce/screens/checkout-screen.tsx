@@ -1,4 +1,10 @@
-import { FAILURE_MESSAGE_KEYS, Icon, cx, useBreakpoint } from '@healthy360/design-system';
+import {
+    FAILURE_MESSAGE_KEYS,
+    Icon,
+    ShellDock,
+    cx,
+    useBreakpoint,
+} from '@healthy360/design-system';
 import type {
     Cart,
     CheckoutPreview,
@@ -1431,6 +1437,18 @@ function PanelLabel({
 }
 
 function PanelActions({ children }: { readonly children: ReactNode }) {
+    // Shop · Checkout, phone board: the step's buttons in a bar docked to the screen's foot, so
+    // Payment and Place order are always in reach rather than at the end of the form.
+    const phone = !useBreakpoint().atLeast('md');
+    if (phone) {
+        return (
+            <ShellDock>
+                <View className="flex-row items-center gap-2.5 border-t border-stroke-subtle bg-surface-raised px-4 pb-5 pt-3">
+                    {children}
+                </View>
+            </ShellDock>
+        );
+    }
     return (
         <View className="mt-6 flex-row items-center gap-2.5 border-t border-stroke-subtle pt-[18px]">
             {children}

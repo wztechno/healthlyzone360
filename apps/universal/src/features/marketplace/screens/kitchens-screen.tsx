@@ -424,7 +424,6 @@ export function KitchensScreen() {
                         >
                             {chips}
                         </ScrollView>
-                        <View className="z-auto">{sortMenu}</View>
                     </View>
                 </View>
             ) : (
