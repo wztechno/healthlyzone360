@@ -50,7 +50,6 @@ afterEach(() => {
     Dimensions.set({ window: phoneWindow, screen: phoneScreen });
 });
 
-
 /**
  * The J1 account area, against the stub harness.
  *
@@ -1719,6 +1718,8 @@ describe('AllergiesScreen — ingredients to leave out', () => {
     });
 
     it('adds a food no ingredient matches as written, from the phone sheet', async () => {
+        // The file runs at a tablet's width; the sheet is the phone's.
+        Dimensions.set({ window: phoneWindow, screen: phoneScreen });
         let profile = dietaryProfile({ updatedAt: NOW });
         const { repositories } = await renderStubScreen(<AllergiesScreen />, {
             session: testMeResponse(),
