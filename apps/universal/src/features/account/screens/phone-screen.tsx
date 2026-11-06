@@ -317,6 +317,7 @@ export function PhoneScreen({ returnTo, challengeId: challengeParam }: PhoneScre
             ) : (
                 <ExtraCard testID={`${TEST_ID}-challenge-card`}>
                     <PhoneChallenge
+                        look="auth"
                         testID={`${TEST_ID}-challenge`}
                         challengeId={challengeId}
                         onVerified={onVerified}

@@ -284,7 +284,8 @@
             "celery": "Stalk, leaf, seed, celeriac",
             "sulphites": "Vinegar, dried fruit, pickles",
             "lupin": "Lupin flour and beans"
-        }
+        },
+        "howStrictTip": "Only a declared allergy removes a meal outright."
     },
     "consents": {
         "title": "Permissions",
@@ -452,5 +453,6 @@
         "activePlan": "Active plan",
         "nextDelivery": "Next delivery",
         "orders": "Orders"
-    }
+    },
+    "saveFailed": "That change was not saved."
 }

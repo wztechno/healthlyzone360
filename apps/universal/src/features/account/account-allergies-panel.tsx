@@ -3,18 +3,11 @@ import type {
     AllergenSeverity,
     DietaryProfile,
 } from '@healthy360/api-client/contracts';
-import {
-    Callout,
-    Icon,
-    Select,
-    TextInputField,
-    cx,
-    useBreakpoint,
-    useToast,
-} from '@healthy360/design-system';
+import { Icon, InfoTip, cx, useBreakpoint, useToast } from '@healthy360/design-system';
+import type { IconName } from '@healthy360/design-system';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, Text as RNText, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text as RNText, TextInput, View } from 'react-native';
 
 import {
     toFailure,
@@ -136,7 +129,47 @@ export function AllergiesPanel({ testID, guard, onSaved, onCancel }: AllergiesPa
         });
     };
 
-    const saveFailure = toFailure(save.error);
+    /*
+     * Shop · Account, pin 2: a failed save is the shop's danger toast with Try again, in place of
+     * the full-width red box; the edit stays on screen to try again from.
+     */
+    const submit = () => {
+        save.mutate(
+            {
+                // Carried through: the diet is the Profile pane's.
+                dietCategoryCode: loaded?.dietCategoryCode ?? null,
+                allergens: declarationsFor(current.answer === 'yes', current.allergens),
+                // No control for exclusions here: what is stored is kept, not silently dropped.
+                excludedIngredientIds: loaded?.excludedIngredientIds ?? [],
+            },
+            {
+                onSuccess: () => {
+                    // Drop the local edit so the saved profile becomes the seed.
+                    setEdit(null);
+                    guard?.markClean();
+                    toast.show({
+                        testID: `${testID}-saved-toast`,
+                        tone: 'success',
+                        message: t('account:dietary.savedToast'),
+                    });
+                    onSaved?.();
+                },
+                onError: (error) => {
+                    toast.show({
+                        testID: `${testID}-error`,
+                        tone: 'danger',
+                        message: toFailure(error)?.message ?? t('account:saveFailed'),
+                        title: t('account:saveFailed'),
+                        action: {
+                            label: t('errors:generic.retry'),
+                            testID: `${testID}-error-retry`,
+                            onPress: submit,
+                        },
+                    });
+                },
+            },
+        );
+    };
     const savedCount = loaded === undefined ? 0 : loaded.allergens.length;
     const columns = atLeast('lg') ? 3 : atLeast('md') ? 2 : 1;
     const rows: string[][] = [];
@@ -160,16 +193,6 @@ export function AllergiesPanel({ testID, guard, onSaved, onCancel }: AllergiesPa
                 skeletonCount={2}
                 testID={`${testID}-profile`}
             >
-                {saveFailure === null ? null : (
-                    <Callout
-                        testID={`${testID}-error`}
-                        role="alert"
-                        tone="danger"
-                        title={saveFailure.message}
-                        className="mb-4"
-                    />
-                )}
-
                 <View className="flex-row flex-wrap items-center gap-4 rounded-[20px] bg-surface-base px-[18px] py-4">
                     <Icon name="alert" size="md" className="text-warning-on-subtle" />
                     <RNText className="min-w-0 flex-1 text-base font-bold text-content-primary text-start">
@@ -321,55 +344,35 @@ export function AllergiesPanel({ testID, guard, onSaved, onCancel }: AllergiesPa
                             ))}
                         </View>
 
+                        {/*
+                         * Plan meals & allergies, pin 5 (Shop · Account): how strictly to avoid each,
+                         * one card per declared allergen — what it is and covers, then three answers
+                         * side by side, then the note. "I am allergic" is the strictest and the only
+                         * one that takes a meal out outright, which the (i) says.
+                         */}
                         {current.allergens.length === 0 ? null : (
-                            <View className="mt-5 flex-col gap-3">
-                                <RNText className="text-xs font-bold uppercase tracking-wider text-content-secondary text-start">
-                                    {t('account:dietary.howStrict')}
-                                </RNText>
+                            <View className="mt-[22px] flex-col gap-2.5">
+                                <View className="flex-row items-center gap-1.5">
+                                    <RNText className="text-xs font-bold uppercase tracking-wider text-content-secondary text-start">
+                                        {t('account:dietary.howStrict')}
+                                    </RNText>
+                                    <InfoTip
+                                        testID={`${testID}-allergens-how-strict-tip`}
+                                        label={t('account:dietary.howStrict')}
+                                        text={t('account:dietary.howStrictTip')}
+                                    />
+                                </View>
                                 {current.allergens.map((entry) => (
-                                    <View
+                                    <SeverityCard
                                         key={entry.allergenCode}
-                                        testID={`${testID}-allergens-row-${entry.allergenCode}`}
-                                        className="flex-col gap-2 rounded-2xl bg-surface-base p-3.5 md:flex-row md:items-end"
-                                    >
-                                        <View className="min-w-0 md:flex-1">
-                                            <Select<AllergenSeverity>
-                                                testID={`${testID}-allergens-severity-${entry.allergenCode}`}
-                                                label={t('account:dietary.severityFor', {
-                                                    allergen: t(
-                                                        `onboarding:allergens.${entry.allergenCode}`,
-                                                    ),
-                                                })}
-                                                value={entry.severity}
-                                                disabled={save.isPending}
-                                                options={ALLERGEN_SEVERITIES.map((severity) => ({
-                                                    value: severity,
-                                                    label: t(
-                                                        `account:dietary.severity.${severity}`,
-                                                    ),
-                                                }))}
-                                                onChange={(severity) => {
-                                                    amend(entry.allergenCode, { severity });
-                                                }}
-                                            />
-                                        </View>
-                                        <View className="min-w-0 md:flex-1">
-                                            <TextInputField
-                                                testID={`${testID}-allergens-note-${entry.allergenCode}`}
-                                                label={t('account:dietary.noteLabel')}
-                                                placeholder={t('account:dietary.notePlaceholder')}
-                                                value={entry.note ?? ''}
-                                                disabled={save.isPending}
-                                                onChangeText={(note: string) => {
-                                                    // Empty is `null`, not `''`: the contract's note is
-                                                    // "there is a note or there is not".
-                                                    amend(entry.allergenCode, {
-                                                        note: note.trim() === '' ? null : note,
-                                                    });
-                                                }}
-                                            />
-                                        </View>
-                                    </View>
+                                        testID={`${testID}-allergens`}
+                                        entry={entry}
+                                        wide={atLeast('md')}
+                                        disabled={save.isPending}
+                                        onChange={(patch) => {
+                                            amend(entry.allergenCode, patch);
+                                        }}
+                                    />
                                 ))}
                             </View>
                         )}
@@ -390,34 +393,7 @@ export function AllergiesPanel({ testID, guard, onSaved, onCancel }: AllergiesPa
                             busy: save.isPending,
                         }}
                         disabled={current.answer === null || save.isPending}
-                        onPress={() => {
-                            save.mutate(
-                                {
-                                    // Carried through: the diet is the Profile pane's.
-                                    dietCategoryCode: loaded?.dietCategoryCode ?? null,
-                                    allergens: declarationsFor(
-                                        current.answer === 'yes',
-                                        current.allergens,
-                                    ),
-                                    // No control for exclusions here: what is stored is kept, not
-                                    // silently dropped.
-                                    excludedIngredientIds: loaded?.excludedIngredientIds ?? [],
-                                },
-                                {
-                                    onSuccess: () => {
-                                        // Drop the local edit so the saved profile becomes the seed.
-                                        setEdit(null);
-                                        guard?.markClean();
-                                        toast.show({
-                                            testID: `${testID}-saved-toast`,
-                                            tone: 'success',
-                                            message: t('account:dietary.savedToast'),
-                                        });
-                                        onSaved?.();
-                                    },
-                                },
-                            );
-                        }}
+                        onPress={submit}
                         className={cx(
                             'h-12 flex-row items-center gap-2 rounded-[14px] px-5',
                             current.answer === null
@@ -462,6 +438,155 @@ export function AllergiesPanel({ testID, guard, onSaved, onCancel }: AllergiesPa
                     ) : null}
                 </View>
             </QueryStates>
+        </View>
+    );
+}
+
+const SEVERITY_ICONS: Readonly<Record<AllergenSeverity, IconName>> = {
+    avoidance: 'leaf',
+    intolerance: 'circleHelp',
+    allergy: 'shield',
+};
+
+/** One declared allergen: what it is, how strictly to avoid it, and anything to know. */
+function SeverityCard({
+    testID,
+    entry,
+    wide,
+    disabled,
+    onChange,
+}: {
+    readonly testID: string;
+    readonly entry: AllergenDeclaration;
+    readonly wide: boolean;
+    readonly disabled: boolean;
+    readonly onChange: (patch: Partial<AllergenDeclaration>) => void;
+}) {
+    const { t } = useTranslation();
+    const code = entry.allergenCode;
+    const name = t(`onboarding:allergens.${code}`);
+    const strict = entry.severity === 'allergy';
+    return (
+        <View
+            testID={`${testID}-row-${code}`}
+            className={cx(
+                'gap-x-4 gap-y-2.5 rounded-[20px] border p-3.5',
+                wide ? 'flex-row flex-wrap items-center' : 'flex-col',
+                strict
+                    ? 'border-danger-border bg-danger-subtle'
+                    : 'border-stroke-subtle bg-surface-raised',
+            )}
+        >
+            <View className={cx('flex-row items-center gap-3', wide ? 'w-[230px]' : null)}>
+                <View
+                    className={cx(
+                        'h-11 w-11 items-center justify-center rounded-[14px]',
+                        strict ? 'bg-danger-strong' : 'bg-warning-subtle',
+                    )}
+                >
+                    <Icon
+                        name="alert"
+                        size="md"
+                        className={strict ? 'text-danger-on-strong' : 'text-warning-on-subtle'}
+                    />
+                </View>
+                <View className="min-w-0 flex-1">
+                    <RNText className="text-base font-bold leading-5 text-content-primary text-start">
+                        {name}
+                    </RNText>
+                    <RNText className="text-xs leading-4 text-content-secondary text-start">
+                        {t(`account:dietary.covers.${code}`)}
+                    </RNText>
+                </View>
+            </View>
+            <View
+                testID={`${testID}-severity-${code}`}
+                role="radiogroup"
+                aria-label={t('account:dietary.severityFor', { allergen: name })}
+                className={cx(
+                    'min-w-0 gap-1 rounded-2xl bg-surface-base p-1',
+                    wide ? 'flex-1 flex-row' : 'flex-col',
+                )}
+            >
+                {ALLERGEN_SEVERITIES.map((severity) => {
+                    const on = entry.severity === severity;
+                    return (
+                        <Pressable
+                            key={severity}
+                            testID={`${testID}-severity-${code}-${severity}`}
+                            role="radio"
+                            aria-checked={on}
+                            accessibilityState={{ checked: on, disabled }}
+                            disabled={disabled}
+                            onPress={() => {
+                                onChange({ severity });
+                            }}
+                            className={cx(
+                                'h-11 flex-row items-center gap-2 rounded-xl px-3',
+                                wide ? 'flex-1 justify-center' : 'justify-start',
+                                on
+                                    ? severity === 'allergy'
+                                        ? 'bg-danger-strong shadow-elevation-2'
+                                        : severity === 'intolerance'
+                                          ? 'bg-warning-subtle'
+                                          : 'bg-surface-raised shadow-elevation-1'
+                                    : 'hover:bg-surface-raised',
+                            )}
+                        >
+                            <Icon
+                                name={SEVERITY_ICONS[severity]}
+                                size="md"
+                                className={
+                                    on
+                                        ? severity === 'allergy'
+                                            ? 'text-danger-on-strong'
+                                            : severity === 'intolerance'
+                                              ? 'text-warning-on-subtle'
+                                              : 'text-content-on-brand-subtle'
+                                        : 'text-content-secondary'
+                                }
+                            />
+                            <RNText
+                                numberOfLines={1}
+                                className={cx(
+                                    'shrink text-sm',
+                                    on
+                                        ? severity === 'allergy'
+                                            ? 'font-bold text-danger-on-strong'
+                                            : severity === 'intolerance'
+                                              ? 'font-bold text-warning-on-subtle'
+                                              : 'font-bold text-content-primary'
+                                        : 'font-semibold text-content-secondary',
+                                )}
+                            >
+                                {t(`account:dietary.severity.${severity}`)}
+                            </RNText>
+                        </Pressable>
+                    );
+                })}
+            </View>
+            <View
+                className={cx('flex-row items-center gap-2.5', wide ? 'w-full ps-[246px]' : null)}
+            >
+                <RNText className="text-sm font-semibold text-content-primary">
+                    {t('account:dietary.noteLabel')}
+                </RNText>
+                <View className="h-11 min-w-0 flex-1 justify-center rounded-xl border border-stroke bg-surface-raised px-3.5">
+                    <TextInput
+                        testID={`${testID}-note-${code}`}
+                        accessibilityLabel={t('account:dietary.noteLabel')}
+                        placeholder={t('account:dietary.notePlaceholder')}
+                        value={entry.note ?? ''}
+                        editable={!disabled}
+                        onChangeText={(note: string) => {
+                            // Empty is `null`, not `''`: the contract's note is "there is a note or
+                            // there is not".
+                            onChange({ note: note.trim() === '' ? null : note });
+                        }}
+                        className="h-full w-full text-sm text-content-primary"
+                    />
+                </View>
+            </View>
         </View>
     );
 }

@@ -1,5 +1,13 @@
 import type { AccountChecklistItem, ConsentState } from '@healthy360/api-client/contracts';
-import { Button, Callout, Icon, Tabs, cx, useBreakpoint } from '@healthy360/design-system';
+import {
+    Button,
+    Callout,
+    Icon,
+    Skeleton,
+    Tabs,
+    cx,
+    useBreakpoint,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -29,7 +37,7 @@ import {
     ShopDialogTile,
 } from '../../../ui/shop-dialog.tsx';
 import { ShopSwitch } from '../../../ui/shop-switch.tsx';
-import { SubpageTrail } from '../../../ui/subpage-trail.tsx';
+import { BackPill } from '../../../ui/back-pill.tsx';
 import { SubscriptionsScreen } from '../../commerce/screens/subscriptions-screen.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { AccountSetupPanel } from '../account-setup-steps.tsx';
@@ -456,6 +464,8 @@ function AddressesPanel({ here }: { readonly here: string }) {
                 isEmpty={items.length === 0}
                 emptyTitle={t('account:addresses.empty')}
                 emptyBody={t('account:addresses.emptyBody')}
+                emptyIcon="mapPin"
+                compact
                 emptyActions={addButton}
                 skeletonCount={2}
                 testID="account-addresses-states"
@@ -746,12 +756,43 @@ function NotificationsPanel() {
                 />
             )}
             {consents.isPending ? (
-                <RNText
+                // Shop · Account, pin 1: rows shaped like the switches, not a bare "Loading…".
+                <View
                     testID="account-marketing-loading"
-                    className="text-sm text-content-secondary text-start"
+                    aria-busy
+                    accessibilityLabel={t('common:state.loading')}
+                    className="flex-col"
                 >
-                    {t('common:state.loading')}
-                </RNText>
+                    {[0, 1, 2].map((index) => (
+                        <View
+                            key={index}
+                            aria-hidden
+                            className={cx(
+                                'flex-row items-center gap-3.5 px-1 py-4',
+                                index === 0 ? null : 'border-t border-stroke-subtle',
+                            )}
+                        >
+                            <View className="min-w-0 flex-1 flex-col gap-2">
+                                <Skeleton
+                                    heightClassName="h-3"
+                                    widthClassName="w-2/5"
+                                    variant="shimmer"
+                                />
+                                <Skeleton
+                                    heightClassName="h-3"
+                                    widthClassName="w-3/4"
+                                    variant="shimmer"
+                                />
+                            </View>
+                            <Skeleton
+                                heightClassName="h-[30px]"
+                                widthClassName="w-[52px]"
+                                rounded="full"
+                                variant="shimmer"
+                            />
+                        </View>
+                    ))}
+                </View>
             ) : (
                 marketing.map((consent, index) => (
                     <View
@@ -1021,11 +1062,11 @@ export function AccountScreen({ returnTo, section: within, children }: AccountSc
     return (
         <View testID="account-screen" className="w-full flex-col pb-10">
             {back.returnTo === null ? null : (
-                <View className="mb-3">
-                    <SubpageTrail
-                        back={back}
-                        current={t('account:title')}
-                        testID="account-return"
+                <View className="mb-3 items-start">
+                    <BackPill
+                        testID="account-return-up"
+                        label={t(`common:destination.${back.destination}`)}
+                        onPress={back.up}
                     />
                 </View>
             )}

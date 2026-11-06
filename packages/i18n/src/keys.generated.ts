@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10316 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10318 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -550,6 +550,7 @@ export interface NamespaceKeys {
     | 'dietary.hasAllergies.yes'
     | 'dietary.hasAllergiesLabel'
     | 'dietary.howStrict'
+    | 'dietary.howStrictTip'
     | 'dietary.noAllergies'
     | 'dietary.noneBody'
     | 'dietary.noteLabel'
@@ -670,6 +671,7 @@ export interface NamespaceKeys {
     | 'profile.slotUnset'
     | 'profile.title'
     | 'profile.yourDiet'
+    | 'saveFailed'
     | 'title';
   readonly "auth":
     | 'aside.headline'
@@ -10895,6 +10897,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:dietary.hasAllergies.yes',
   'account:dietary.hasAllergiesLabel',
   'account:dietary.howStrict',
+  'account:dietary.howStrictTip',
   'account:dietary.noAllergies',
   'account:dietary.noneBody',
   'account:dietary.noteLabel',
@@ -11015,6 +11018,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:profile.slotUnset',
   'account:profile.title',
   'account:profile.yourDiet',
+  'account:saveFailed',
   'account:title',
   'auth:aside.headline',
   'auth:aside.points.marketplace',
