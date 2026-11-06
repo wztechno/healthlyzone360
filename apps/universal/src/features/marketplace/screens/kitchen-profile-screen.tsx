@@ -1,4 +1,4 @@
-import { Callout, useBreakpoint } from '@healthy360/design-system';
+import { useBreakpoint } from '@healthy360/design-system';
 import type { Kitchen, MarketplaceMeal, SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { KitchenId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -13,6 +13,7 @@ import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { useNavigateUp, useRememberQuery } from '../../../navigation/use-return-to.ts';
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { QueryStates } from '../query-states.tsx';
+import { ShopStateButton } from '../../../ui/shop-state.tsx';
 import { isoWeekdayToday } from '../storefront-facts.ts';
 import { StorefrontCanopy } from '../storefront/storefront-canopy.tsx';
 import { latestCutOffToday } from '../storefront/storefront-menu.ts';
@@ -94,6 +95,21 @@ export function KitchenProfileScreen({ kitchenId }: KitchenProfileScreenProps) {
                 isEmpty={query.data === undefined && !query.isPending}
                 emptyTitle={t('marketplace:kitchen.notFoundTitle')}
                 emptyBody={t('marketplace:kitchen.notFoundBody')}
+                emptyIcon="store"
+                emptyActions={
+                    <ShopStateButton
+                        testID="kitchen-browse"
+                        icon="arrowForward"
+                        iconAfter
+                        label={t('marketplace:kitchen.browseKitchens')}
+                        onPress={() => {
+                            navigateUp('/kitchens');
+                        }}
+                    />
+                }
+                // Shop · Kitchens + storefront, pin 6: a kitchen that is gone is "not on the
+                // marketplace", not "something went wrong".
+                treatFailuresAsEmpty={['resource.not_found']}
                 skeletonCount={2}
                 testID="kitchen"
             >
@@ -227,6 +243,18 @@ function Storefront({
                 isEmpty={meals.length === 0}
                 emptyTitle={t('marketplace:storefront.menu.emptyTitle')}
                 emptyBody={t('marketplace:storefront.menu.emptyBody')}
+                emptyIcon="store"
+                emptyActions={
+                    <ShopStateButton
+                        testID="kitchen-menu-browse"
+                        icon="arrowForward"
+                        iconAfter
+                        label={t('marketplace:kitchen.browseKitchens')}
+                        onPress={() => {
+                            onBack();
+                        }}
+                    />
+                }
                 testID="kitchen-menu"
             >
                 <StorefrontMenuTab
@@ -272,22 +300,6 @@ function Storefront({
                     openTab('plans');
                 }}
             />
-
-            {kitchen.pausedUntil === null || kitchen.pausedUntil === undefined ? null : (
-                <View className="mt-5">
-                    <Callout
-                        testID="kitchen-paused"
-                        tone="warning"
-                        role="status"
-                        title={t('marketplace:storefront.pausedTitle')}
-                        body={t('marketplace:storefront.pausedBody', {
-                            time: formatter.formatDate(kitchen.pausedUntil, {
-                                timeStyle: 'short',
-                            }),
-                        })}
-                    />
-                </View>
-            )}
 
             {wide ? null : <View className="mt-5">{orderPanel}</View>}
 

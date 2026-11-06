@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10308 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10311 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -8411,6 +8411,7 @@ export interface NamespaceKeys {
     | 'itemTypes.sauce'
     | 'kitchen.branchArea'
     | 'kitchen.branchesTitle'
+    | 'kitchen.browseKitchens'
     | 'kitchen.closedOn'
     | 'kitchen.deliveryZones'
     | 'kitchen.loading'
@@ -8654,6 +8655,7 @@ export interface NamespaceKeys {
     | 'storefront.order.start'
     | 'storefront.order.title'
     | 'storefront.pausedBody'
+    | 'storefront.pausedPill'
     | 'storefront.pausedTitle'
     | 'storefront.plans.choose'
     | 'storefront.plans.chooseLabel'
@@ -8676,6 +8678,7 @@ export interface NamespaceKeys {
     | 'storefront.safety.allergensBody'
     | 'storefront.safety.allergensTitle'
     | 'storefront.safety.dietsEyebrow'
+    | 'storefront.safety.eachEyebrow'
     | 'storefront.safety.noAllergens'
     | 'storefront.safety.noDiets'
     | 'storefront.safety.noteJoin'
@@ -18736,6 +18739,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:itemTypes.sauce',
   'marketplace:kitchen.branchArea',
   'marketplace:kitchen.branchesTitle',
+  'marketplace:kitchen.browseKitchens',
   'marketplace:kitchen.closedOn',
   'marketplace:kitchen.deliveryZones',
   'marketplace:kitchen.loading',
@@ -18979,6 +18983,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:storefront.order.start',
   'marketplace:storefront.order.title',
   'marketplace:storefront.pausedBody',
+  'marketplace:storefront.pausedPill',
   'marketplace:storefront.pausedTitle',
   'marketplace:storefront.plans.choose',
   'marketplace:storefront.plans.chooseLabel',
@@ -19001,6 +19006,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:storefront.safety.allergensBody',
   'marketplace:storefront.safety.allergensTitle',
   'marketplace:storefront.safety.dietsEyebrow',
+  'marketplace:storefront.safety.eachEyebrow',
   'marketplace:storefront.safety.noAllergens',
   'marketplace:storefront.safety.noDiets',
   'marketplace:storefront.safety.noteJoin',

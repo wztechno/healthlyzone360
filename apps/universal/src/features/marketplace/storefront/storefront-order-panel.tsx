@@ -56,6 +56,7 @@ export function StorefrontOrderPanel({ kitchen, meals, cutOff, clock }: Storefro
     const cart = useCartQuery(me !== null && !viewOnly);
     const setQuantity = useSetCartItemQuantityMutation();
     const removeItem = useRemoveCartItemMutation();
+    const paused = kitchen.pausedUntil !== null && kitchen.pausedUntil !== undefined;
 
     const basket = cart.data;
     const lines = (basket?.items ?? []).filter((item) => item.kitchenId === kitchen.id);
@@ -136,18 +137,45 @@ export function StorefrontOrderPanel({ kitchen, meals, cutOff, clock }: Storefro
                         </View>
                     )}
 
+                    {/* Shop · Kitchens + storefront, pin 5: the panel says why it cannot check out. */}
+                    {paused ? (
+                        <View
+                            testID="kitchen-paused"
+                            role="status"
+                            className="mt-3 flex-row items-start gap-2.5 rounded-2xl bg-warning-subtle p-3"
+                        >
+                            <Icon
+                                name="pause"
+                                size="md"
+                                className="mt-0.5 text-warning-on-subtle"
+                            />
+                            <View className="min-w-0 flex-1">
+                                <RNText className="text-sm font-bold leading-[18px] text-warning-on-subtle text-start">
+                                    {t('marketplace:storefront.pausedTitle')}
+                                </RNText>
+                                <RNText className="text-sm leading-[18px] text-warning-on-subtle text-start">
+                                    {t('marketplace:storefront.pausedBody', {
+                                        time: formatter.formatDate(kitchen.pausedUntil ?? '', {
+                                            timeStyle: 'short',
+                                        }),
+                                    })}
+                                </RNText>
+                            </View>
+                        </View>
+                    ) : null}
+
                     <Pressable
                         testID="kitchen-checkout"
                         role="button"
                         accessibilityRole="button"
-                        disabled={lines.length === 0}
-                        accessibilityState={{ disabled: lines.length === 0 }}
+                        disabled={lines.length === 0 || paused}
+                        accessibilityState={{ disabled: lines.length === 0 || paused }}
                         onPress={() => {
                             router.push('/customer/checkout' as never);
                         }}
                         className={cx(
                             'mt-3.5 h-[52px] flex-row items-center justify-between rounded-2xl px-[18px]',
-                            lines.length === 0
+                            lines.length === 0 || paused
                                 ? 'bg-surface-base'
                                 : 'bg-surface-brand hover:bg-surface-canopy',
                         )}
@@ -155,7 +183,7 @@ export function StorefrontOrderPanel({ kitchen, meals, cutOff, clock }: Storefro
                         <RNText
                             className={cx(
                                 'text-base font-bold',
-                                lines.length === 0
+                                lines.length === 0 || paused
                                     ? 'text-content-secondary'
                                     : 'text-content-on-brand',
                             )}

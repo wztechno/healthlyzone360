@@ -47,6 +47,7 @@ export function StorefrontCanopy({
     const today = hoursToday(kitchen);
     // Add stays live on a closed day, because a basket can name another: so the pill says which.
     const nextOpen = today === null ? nextOpenWeekday(kitchen) : null;
+    const paused = kitchen.pausedUntil !== null && kitchen.pausedUntil !== undefined;
     const where = kitchenWhere(kitchen, t);
     const areas = kitchenAreas(kitchen);
     const dash = t('marketplace:kitchens.noCount');
@@ -157,25 +158,44 @@ export function StorefrontCanopy({
                 <View className="min-w-0 flex-1 flex-col items-start">
                     <View
                         testID="kitchen-hours-today"
-                        className="h-[30px] flex-row items-center gap-2 rounded-full bg-stage-green/20 px-3"
+                        className={cx(
+                            'h-[30px] flex-row items-center gap-2 rounded-full px-3',
+                            paused ? 'bg-warning-subtle' : 'bg-stage-green/20',
+                        )}
                     >
                         <View
                             className={cx(
                                 'h-2 w-2 rounded-full',
-                                today === null ? 'bg-content-on-canopy-muted' : 'bg-stage-green',
+                                paused
+                                    ? 'bg-warning-strong'
+                                    : today === null
+                                      ? 'bg-content-on-canopy-muted'
+                                      : 'bg-stage-green',
                             )}
                         />
-                        <RNText className="text-xs font-bold uppercase tracking-wider tabular-nums text-content-on-canopy">
-                            {today === null
-                                ? nextOpen === null
-                                    ? t('marketplace:storefront.closedToday')
-                                    : t('marketplace:storefront.nextOpen', {
-                                          day: t(weekdayKey(nextOpen)),
-                                      })
-                                : t('marketplace:storefront.openToday', {
-                                      opensAt: today.opensAt,
-                                      closesAt: today.closesAt,
-                                  })}
+                        <RNText
+                            className={cx(
+                                'text-xs font-bold uppercase tracking-wider tabular-nums',
+                                paused ? 'text-warning-on-subtle' : 'text-content-on-canopy',
+                            )}
+                        >
+                            {/* Shop · Kitchens + storefront, pin 4: paused shows on the cover. */}
+                            {paused
+                                ? t('marketplace:storefront.pausedPill', {
+                                      time: formatter.formatDate(kitchen.pausedUntil ?? '', {
+                                          timeStyle: 'short',
+                                      }),
+                                  })
+                                : today === null
+                                  ? nextOpen === null
+                                      ? t('marketplace:storefront.closedToday')
+                                      : t('marketplace:storefront.nextOpen', {
+                                            day: t(weekdayKey(nextOpen)),
+                                        })
+                                  : t('marketplace:storefront.openToday', {
+                                        opensAt: today.opensAt,
+                                        closesAt: today.closesAt,
+                                    })}
                         </RNText>
                     </View>
 

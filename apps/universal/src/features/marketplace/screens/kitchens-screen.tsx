@@ -1,4 +1,4 @@
-import { Button, Icon, cx, useBreakpoint } from '@healthy360/design-system';
+import { Icon, cx, useBreakpoint } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import type { CustomerAddress, Kitchen, KitchenFilter } from '@healthy360/api-client/contracts';
 import { neutral } from '@healthy360/design-tokens';
@@ -36,6 +36,7 @@ import {
 } from '../kitchen-finder.ts';
 import type { KitchenSort } from '../kitchen-finder.ts';
 import { QueryStates } from '../query-states.tsx';
+import { ShopStateButton } from '../../../ui/shop-state.tsx';
 
 /**
  * `/kitchens` — the kitchen finder (the header's "Kitchens").
@@ -408,13 +409,16 @@ export function KitchensScreen() {
                     emptyBody={t('marketplace:kitchens.finder.emptyBody')}
                     emptyActions={
                         filters.isFiltered ? (
-                            <Button
+                            <ShopStateButton
                                 testID="kitchens-empty-clear"
+                                kind="secondary"
                                 label={t('marketplace:filters.clear')}
                                 onPress={filters.clear}
                             />
                         ) : undefined
                     }
+                    // Shop · Kitchens + storefront, pin 7.
+                    emptyIcon="store"
                     testID="kitchens"
                 >
                     <TrackGrid

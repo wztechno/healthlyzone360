@@ -1027,12 +1027,13 @@ describe('KitchenProfileScreen', () => {
         await fireEvent.press(screen.getByTestId('kitchen-tab-safety'));
 
         await waitFor(() => screen.getByTestId('kitchen-safety-tab'));
-        expect(screen.getByTestId('kitchen-safety-allergens')).toHaveTextContent(/^2/);
-        // The card's body names each allergen with the number of dishes declaring it.
-        const body = screen.getByTestId('kitchen-safety-allergens-body');
-        expect(body).toHaveTextContent(/Milk \(2\)/);
-        expect(body).toHaveTextContent(/gluten \(1\)/);
-        expect(screen.getByTestId('kitchen-safety-verified')).toHaveTextContent(/^Verified/);
+        // Shop · Kitchens + storefront, pin 2: the figure and what it counts; the allergen tiles
+        // below name each allergen with the number of dishes declaring it.
+        expect(screen.getByTestId('kitchen-safety-allergens')).toHaveTextContent(
+            /2\s*Allergens declared/,
+        );
+        expect(screen.getByTestId('kitchen-safety-grid')).toHaveTextContent(/2\s*Milk/);
+        expect(screen.getByTestId('kitchen-safety-verified')).toHaveTextContent(/Verified/);
         expect(screen.getAllByTestId('medical-disclaimer').length).toBeGreaterThan(0);
     });
 
@@ -1148,14 +1149,19 @@ describe('KitchenProfileScreen', () => {
         expect(screen.getByTestId('kitchen-reviews-empty')).toHaveTextContent(/No reviews yet/);
     });
 
-    it('reports a failure rather than an empty page when the kitchen is unknown', async () => {
+    it('says a kitchen that is gone is not on the marketplace, with the way to the directory', async () => {
         await renderStubScreen(<KitchenProfileScreen kitchenId={UNKNOWN_ID} />, {
             repositories: { marketplace: { getKitchen } },
         });
 
+        // Shop · Kitchens + storefront, pin 6: not "something went wrong".
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-error')).toBeTruthy();
+            expect(screen.getByTestId('kitchen-empty')).toHaveTextContent(
+                /That kitchen is not on the marketplace/,
+            );
         });
+        expect(screen.getByTestId('kitchen-browse')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-error')).toBeNull();
     });
 
     it('shows the loading state before anything has arrived', async () => {
@@ -1163,7 +1169,7 @@ describe('KitchenProfileScreen', () => {
             repositories: { marketplace: { getKitchen } },
         });
         expect(screen.getByTestId('kitchen-loading')).toBeTruthy();
-        await waitFor(() => screen.getByTestId('kitchen-error'));
+        await waitFor(() => screen.getByTestId('kitchen-empty'));
     });
 });
 
