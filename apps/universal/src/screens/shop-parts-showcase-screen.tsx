@@ -5,6 +5,8 @@ import { Text as RNText, View } from 'react-native';
 
 import { ExtraNote } from '../features/account/account-extra.tsx';
 import { PlanReceipt } from '../features/commerce/price-summary.tsx';
+import { OrderTracking } from '../features/orders/order-tracking.tsx';
+import type { TrackableOrder } from '../features/orders/order-tracking.tsx';
 import { OtpChallengePanel } from '../features/verification/otp-challenge-panel.tsx';
 import type { OtpChallengeView } from '../features/verification/otp-challenge-panel.tsx';
 import { CodeBoxes } from '../ui/code-boxes.tsx';
@@ -32,6 +34,33 @@ import { ShopSwitch } from '../ui/shop-switch.tsx';
  * boards' notes, the shop's switch, its pop-up in each tone, and its empty, error and loading
  * states. Development only.
  */
+
+/** A cancelled guest order — the Orders boards' pins 1–3 without a backend. */
+const SAMPLE_ORDER: TrackableOrder = {
+    reference: 'ORD-K7Q2M9XD4P',
+    state: 'cancelled',
+    lines: [
+        {
+            id: 'showcase-line',
+            name: 'Grilled halloumi bowl',
+            quantity: 1,
+            lineTotal: { amount: 2300, currency: 'USD' },
+        },
+    ],
+    total: { amount: 2300, currency: 'USD' },
+    address: {
+        label: 'Home',
+        line1: 'Hamra street',
+        line2: null,
+        area: 'Aatchaneh',
+        city: 'Beirut',
+        countryCode: 'LB',
+        instructions: null,
+    },
+    slotCode: '',
+    deliveryDate: '',
+    placedAt: new Date().toISOString(),
+};
 
 /** A challenge as the server would describe one — enough to draw the panel without a backend. */
 const SAMPLE_CHALLENGE: OtpChallengeView = {
@@ -235,6 +264,14 @@ export function ShopPartsShowcaseScreen() {
                     discount={{ percent: 5, amount: { amount: -2000, currency: 'USD' } }}
                     total={{ amount: 38000, currency: 'USD' }}
                     perDelivery={{ amount: 1900, currency: 'USD' }}
+                />
+            </Section>
+            <Section title="Order page — guest reference chip, cancelled card and stopped timeline">
+                <OrderTracking
+                    testID="showcase-order"
+                    order={SAMPLE_ORDER}
+                    paymentLabel="Cash on delivery"
+                    showReference
                 />
             </Section>
             <Section title="Switch">

@@ -791,6 +791,13 @@ const GRID_24_DRAWINGS: Partial<Record<IconName, ReactElement>> = {
             <path d="M17 18h.5a1 1 0 0 0 0-9h-1.79A7 7 0 1 0 7 17.708" />
         </>
     ),
+    // The guest order page's reference chip. Lucide.
+    copy: (
+        <>
+            <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+            <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+        </>
+    ),
     rotateCw: (
         <>
             <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />

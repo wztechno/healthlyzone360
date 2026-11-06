@@ -300,8 +300,8 @@ describe('CustomerOrderScreen', () => {
         expect(await screen.findByTestId('customer-order-states-empty')).toBeTruthy();
         expect(repositories.commerce.getMyOrder).not.toHaveBeenCalled();
 
-        // Nothing to show, so the one action is the history — by name, as from the trail.
-        await fireEvent.press(screen.getByTestId('customer-order-history'));
+        // Nothing to show, and the Back pill still leads to the history — by name.
+        await fireEvent.press(screen.getByTestId('customer-order-trail-up'));
         expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(ORDER_HISTORY_HREF);
     });
 

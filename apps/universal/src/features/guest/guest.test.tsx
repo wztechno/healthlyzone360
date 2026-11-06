@@ -876,9 +876,8 @@ describe('the guest checkout', () => {
 });
 
 describe('the confirmation', () => {
-    it('leads with the reference and offers a refusable conversion prompt', async () => {
-        // Only offered to somebody who still holds the session that placed the order. The token is
-        // written here because the hooks read the application's store, not the repository bundle.
+    it('leads with the reference as a chip, and offers no sign-up card', async () => {
+        // Even for the session that placed it: guests must sign in to order now (Shop · Orders 3).
         appGuestTokenStore.set('gst_live-token');
 
         const order = testOrder();
@@ -894,14 +893,13 @@ describe('the confirmation', () => {
 
         await waitFor(() => screen.getByTestId('guest-order-reference'));
         expect(screen.getByTestId('guest-order-reference').props.children).toBe(order.reference);
+        expect(screen.getByTestId('guest-order-reference-chip')).toHaveTextContent(
+            new RegExp(`Order reference${order.reference}`),
+        );
         expect(screen.getByTestId('guest-order-timeline-placed-detail')).toHaveTextContent(
             /^Cash on delivery · /,
         );
-
-        // The refusal is a visible button, not an X in a corner.
-        await waitFor(() => screen.getByTestId('guest-order-conversion-decline'));
-        await fireEvent.press(screen.getByTestId('guest-order-conversion-decline'));
-        await waitFor(() => screen.getByTestId('guest-order-conversion-declined'));
+        expect(screen.queryByTestId('guest-order-conversion')).toBeNull();
     });
 
     it('heads the page with the server’s state and walks the timeline up to it', async () => {
@@ -943,7 +941,7 @@ describe('the confirmation', () => {
         // The window the guest chose, on the canopy panel.
         expect(screen.getByTestId('guest-order-slot')).toHaveTextContent(/Midday/);
 
-        // The reference is repeated where a guest is told to keep it.
+        // The reference is repeated on the chip where a guest is told to keep it.
         expect(screen.getByTestId('guest-order-reference-keep').props.children).toBe(
             order.reference,
         );
@@ -956,9 +954,22 @@ describe('the confirmation', () => {
             repositories: { guest: { getOrder: async () => order } },
         });
 
-        expect(await screen.findByTestId('guest-order-cancelled')).toBeTruthy();
+        // Shop · Orders 1–2: a red card in place of the arrival band, and the timeline stops.
+        expect(await screen.findByTestId('guest-order-cancelled')).toHaveTextContent(
+            /This order was cancelled/,
+        );
         expect(screen.getByTestId('guest-order-title')).toHaveTextContent('Order cancelled');
-        expect(screen.queryByTestId('guest-order-timeline')).toBeNull();
+        expect(screen.queryByTestId('guest-order-window')).toBeNull();
+        expect(screen.getByTestId('guest-order-timeline-placed').props.accessibilityLabel).toBe(
+            'Order placed, done',
+        );
+        expect(screen.getByTestId('guest-order-timeline-cancelled')).toHaveTextContent(/Cancelled/);
+        expect(
+            screen.getByTestId('guest-order-timeline-delivered').props.accessibilityLabel,
+        ).toBe('Delivered, will not happen');
+        // Its ways on are in the card, so the timeline's buttons are gone.
+        expect(screen.queryByTestId('guest-order-refresh')).toBeNull();
+        expect(screen.getByTestId('guest-order-cancelled-browse')).toBeTruthy();
     });
 });
 

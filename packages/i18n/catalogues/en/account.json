@@ -33,7 +33,11 @@
             "all": "All",
             "active": "Active",
             "delivered": "Delivered"
-        }
+        },
+        "showing_one": "Showing {{count}} order",
+        "showing_other": "Showing {{count}} orders",
+        "showingOf_one": "Showing {{shown}} of {{count}} order",
+        "showingOf_other": "Showing {{shown}} of {{count}} orders"
     },
     "checklist": {
         "cannotActivate": "A few required steps are still outstanding.",

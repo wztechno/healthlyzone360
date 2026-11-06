@@ -237,6 +237,8 @@ export const DRAWN_ICON_FALLBACKS = {
     // The shop's state cards. Lucide's `cloud-alert` and `rotate-cw`.
     cloudAlert: 'offline',
     rotateCw: 'refresh',
+    // The guest order page's reference chip. Lucide's `copy`.
+    copy: 'archive',
 } as const satisfies Readonly<Record<string, IconGlyphName>>;
 export type DrawnIconName = keyof typeof DRAWN_ICON_FALLBACKS;
 

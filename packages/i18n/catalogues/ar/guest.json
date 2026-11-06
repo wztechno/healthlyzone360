@@ -126,7 +126,8 @@
         "position": {
             "done": "مكتملة",
             "current": "جارية",
-            "upcoming": "لم تبدأ بعد"
+            "upcoming": "لم تبدأ بعد",
+            "skipped": "لن يحدث"
         },
         "states": {
             "placed": "مُسجَّل",
@@ -151,7 +152,11 @@
         "noteOnFile": "ملاحظة محفوظة:",
         "delivered": "تم التوصيل",
         "progressTitle": "تقدّم الطلب",
-        "totalToPay": "المجموع — {{payment}}"
+        "totalToPay": "المجموع — {{payment}}",
+        "cancelledStep": "أُلغي",
+        "cancelledStepDetail": "لن يُطهى شيء ولن يُوصَّل.",
+        "copy": "نسخ",
+        "copied": "نُسخ الرقم المرجعي."
     },
     "convert": {
         "title": "هل تريد الاحتفاظ بهذا الطلب في حساب؟",

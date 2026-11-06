@@ -1,4 +1,3 @@
-import { Button, EmptyState } from '@healthy360/design-system';
 import { OrderId } from '@healthy360/domain-types';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -7,6 +6,7 @@ import { useMyOrderQuery } from '../../../data/commerce-hooks.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useOnlineStatus } from '../../../online/online-status.tsx';
 import { BackPill } from '../../../ui/back-pill.tsx';
+import { ShopStateCard } from '../../../ui/shop-state.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { OrderTracking } from '../order-tracking.tsx';
 
@@ -61,25 +61,28 @@ export function CustomerOrderScreen({ orderId }: CustomerOrderScreenProps) {
     const { online } = useOnlineStatus();
     const order = useMyOrderQuery(parsed, { pollMs: online ? ORDER_TRACKING_POLL_MS : false });
 
-    // The empty states' one action: there is no order to show, and the history is where they are.
-    const backToOrders = (
-        <Button
-            testID={`${TEST_ID}-history`}
-            variant="secondary"
-            label={t('account:orders.backToHistory')}
-            onPress={history.up}
-        />
+    // Shop · Orders, pin 6: the way back to the history is the page's Back pill, kept above the
+    // card whether or not there is an order to show.
+    const trail = (
+        <View testID={`${TEST_ID}-trail`} className="items-start pt-1">
+            <BackPill
+                testID={`${TEST_ID}-trail-up`}
+                label={t('account:orders.title')}
+                onPress={history.up}
+            />
+        </View>
     );
 
     return (
         // The design's measure: a 1000px section less its 28px gutters, centred in the shell.
         <View testID={TEST_ID} className="w-full max-w-[944px] flex-col gap-6 self-center">
+            {trail}
             {parsed === null ? (
-                <EmptyState
+                <ShopStateCard
                     testID={`${TEST_ID}-states-empty`}
+                    icon="receipt"
                     title={t('account:orders.notFoundTitle')}
                     body={t('account:orders.notFoundBody')}
-                    actions={backToOrders}
                 />
             ) : (
                 <QueryStates
@@ -88,26 +91,17 @@ export function CustomerOrderScreen({ orderId }: CustomerOrderScreenProps) {
                     treatFailuresAsEmpty={['resource.not_found']}
                     emptyTitle={t('account:orders.notFoundTitle')}
                     emptyBody={t('account:orders.notFoundBody')}
-                    emptyActions={backToOrders}
+                    emptyIcon="receipt"
+                    skeleton="rows"
                     skeletonCount={2}
                     testID={`${TEST_ID}-states`}
                 >
                     {order.data === undefined ? null : (
-                        <View className="flex-col">
-                            {/* The board's back pill: up to the account's order history, by name. */}
-                            <View testID={`${TEST_ID}-trail`} className="items-start pt-1">
-                                <BackPill
-                                    testID={`${TEST_ID}-trail-up`}
-                                    label={t('account:orders.title')}
-                                    onPress={history.up}
-                                />
-                            </View>
-                            <OrderTracking
-                                testID={TEST_ID}
-                                order={order.data}
-                                paymentLabel={t('guest:review.cashOnDelivery')}
-                            />
-                        </View>
+                        <OrderTracking
+                            testID={TEST_ID}
+                            order={order.data}
+                            paymentLabel={t('guest:review.cashOnDelivery')}
+                        />
                     )}
                 </QueryStates>
             )}

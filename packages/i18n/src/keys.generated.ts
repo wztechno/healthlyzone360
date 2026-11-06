@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10318 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10325 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -599,6 +599,8 @@ export interface NamespaceKeys {
     | 'orders.progress'
     | 'orders.reorder'
     | 'orders.showLabel'
+    | 'orders.showing'
+    | 'orders.showingOf'
     | 'orders.title'
     | 'orders.track'
     | 'orders.view'
@@ -3195,7 +3197,11 @@ export interface NamespaceKeys {
     | 'eyebrow'
     | 'order.arriving'
     | 'order.cancelledBody'
+    | 'order.cancelledStep'
+    | 'order.cancelledStepDetail'
     | 'order.cancelledTitle'
+    | 'order.copied'
+    | 'order.copy'
     | 'order.courierDetail'
     | 'order.courierName'
     | 'order.courierTitle'
@@ -3228,6 +3234,7 @@ export interface NamespaceKeys {
     | 'order.placedAt'
     | 'order.position.current'
     | 'order.position.done'
+    | 'order.position.skipped'
     | 'order.position.upcoming'
     | 'order.progressTitle'
     | 'order.reference'
@@ -10946,6 +10953,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:orders.progress',
   'account:orders.reorder',
   'account:orders.showLabel',
+  'account:orders.showing',
+  'account:orders.showingOf',
   'account:orders.title',
   'account:orders.track',
   'account:orders.view',
@@ -13533,7 +13542,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:eyebrow',
   'guest:order.arriving',
   'guest:order.cancelledBody',
+  'guest:order.cancelledStep',
+  'guest:order.cancelledStepDetail',
   'guest:order.cancelledTitle',
+  'guest:order.copied',
+  'guest:order.copy',
   'guest:order.courierDetail',
   'guest:order.courierName',
   'guest:order.courierTitle',
@@ -13566,6 +13579,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:order.placedAt',
   'guest:order.position.current',
   'guest:order.position.done',
+  'guest:order.position.skipped',
   'guest:order.position.upcoming',
   'guest:order.progressTitle',
   'guest:order.reference',

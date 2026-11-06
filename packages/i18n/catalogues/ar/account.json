@@ -33,7 +33,19 @@
             "all": "الكل",
             "active": "النشطة",
             "delivered": "المُسلّمة"
-        }
+        },
+        "showing_zero": "لا طلبات معروضة",
+        "showing_one": "عرض طلب واحد",
+        "showing_two": "عرض طلبين",
+        "showing_few": "عرض {{count}} طلبات",
+        "showing_many": "عرض {{count}} طلبًا",
+        "showing_other": "عرض {{count}} طلب",
+        "showingOf_zero": "عرض {{shown}} من {{count}} طلب",
+        "showingOf_one": "عرض {{shown}} من طلب واحد",
+        "showingOf_two": "عرض {{shown}} من طلبين",
+        "showingOf_few": "عرض {{shown}} من {{count}} طلبات",
+        "showingOf_many": "عرض {{shown}} من {{count}} طلبًا",
+        "showingOf_other": "عرض {{shown}} من {{count}} طلب"
     },
     "checklist": {
         "cannotActivate": "ما زالت هناك خطوات مطلوبة لم تكتمل.",

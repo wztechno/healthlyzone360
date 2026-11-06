@@ -1,16 +1,17 @@
 import type { PlacedOrder } from '@healthy360/api-client/contracts';
-import { Button, Icon, Inline, cx, useBreakpoint } from '@healthy360/design-system';
+import { Icon, cx, useBreakpoint } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, Text as RNText, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text as RNText, View } from 'react-native';
 
 import { useMyOrdersQuery } from '../../data/commerce-hooks.ts';
 import { TINT_FILL, TINT_INK, TINT_INK_FILL } from '../catalogue/shelf-tints.ts';
 import type { ShelfTint } from '../catalogue/shelf-tints.ts';
 import { formatMoney } from '../marketplace/format.ts';
 import { QueryStates } from '../marketplace/query-states.tsx';
+import { ShopStateButton } from '../../ui/shop-state.tsx';
 import { OrderLineThumb } from '../orders/order-line-thumb.tsx';
 import { ACCOUNT_CARD, PanelHead } from './account-card.tsx';
 
@@ -296,6 +297,7 @@ export function AccountOrdersPanel() {
     const formatter = useFormatter();
     const orders = useMyOrdersQuery({ limit: PAGE_SIZE });
     const items = (orders.data?.pages ?? []).flatMap((page) => page.items);
+    const total = orders.data?.pages[0]?.totalCount ?? null;
     const [filter, setFilter] = useState<Filter>('all');
     const shown = items.filter((order) => matches(order, filter));
     const live = items.find((order) => !isDone(order));
@@ -364,15 +366,21 @@ export function AccountOrdersPanel() {
                 isEmpty={items.length === 0}
                 emptyTitle={t('account:orders.empty')}
                 emptyBody={t('account:orders.emptyBody')}
+                // Shop · Orders, pin 7: the shop's small empty card, with the way to the menu.
+                emptyIcon="receipt"
+                compact
                 emptyActions={
-                    <Button
+                    <ShopStateButton
                         testID={`${TEST_ID}-browse`}
+                        icon="arrowForward"
+                        iconAfter
                         label={t('account:orders.browse')}
                         onPress={() => {
                             router.push('/meals');
                         }}
                     />
                 }
+                skeleton="rows"
                 skeletonCount={3}
                 testID={`${TEST_ID}-states`}
             >
@@ -383,18 +391,57 @@ export function AccountOrdersPanel() {
                     ))}
                 </View>
                 {orders.hasNextPage ? (
-                    <View className="border-t border-stroke-subtle pt-4">
-                        <Inline space="sm" justify="center">
-                            <Button
-                                testID={`${TEST_ID}-more`}
-                                variant="secondary"
-                                label={t('account:orders.more')}
-                                loading={orders.isFetchingNextPage}
-                                onPress={() => {
-                                    void orders.fetchNextPage();
-                                }}
-                            />
-                        </Inline>
+                    // Shop · Orders, pin 4: how many are showing, how far through, and one ink
+                    // pill — the Menu's Load more look, not a plain secondary button. The bar
+                    // only when the server counted the history.
+                    <View className="flex-col items-center gap-2.5 pb-1 pt-[18px]">
+                        <RNText
+                            testID={`${TEST_ID}-more-count`}
+                            className="text-sm font-medium tabular-nums text-content-secondary"
+                        >
+                            {total === null
+                                ? t('account:orders.showing', { count: items.length })
+                                : t('account:orders.showingOf', {
+                                      shown: formatter.formatNumber(items.length),
+                                      count: total,
+                                  })}
+                        </RNText>
+                        {total === null || total === 0 ? null : (
+                            <View
+                                aria-hidden
+                                className="h-1 w-[180px] flex-row overflow-hidden rounded-full bg-stroke"
+                            >
+                                <View
+                                    className="h-1 rounded-full bg-surface-brand"
+                                    style={{ flex: Math.min(1, items.length / total) }}
+                                />
+                                <View style={{ flex: Math.max(0, 1 - items.length / total) }} />
+                            </View>
+                        )}
+                        <Pressable
+                            testID={`${TEST_ID}-more`}
+                            role="button"
+                            accessibilityRole="button"
+                            disabled={orders.isFetchingNextPage}
+                            aria-busy={orders.isFetchingNextPage}
+                            accessibilityState={{
+                                disabled: orders.isFetchingNextPage,
+                                busy: orders.isFetchingNextPage,
+                            }}
+                            onPress={() => {
+                                void orders.fetchNextPage();
+                            }}
+                            className="h-[46px] flex-row items-center gap-2 rounded-full bg-content-primary px-6 hover:opacity-90"
+                        >
+                            {orders.isFetchingNextPage ? (
+                                <ActivityIndicator size="small" />
+                            ) : (
+                                <Icon name="chevronDown" size="sm" className="text-surface-base" />
+                            )}
+                            <RNText className="text-sm font-bold text-surface-base">
+                                {t('account:orders.more')}
+                            </RNText>
+                        </Pressable>
                     </View>
                 ) : null}
             </QueryStates>
