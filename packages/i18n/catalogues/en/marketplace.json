@@ -133,7 +133,8 @@
         "slotTime": "{{start}} – {{end}}",
         "slotSummary": "{{day}}, {{slot}} {{time}}",
         "slotShort": "{{day}}, {{slot}}",
-        "seeAll": "See all"
+        "seeAll": "See all",
+        "headerPlace": "{{label}} · {{area}}"
     },
     "kitchens": {
         "title": "Kitchens",

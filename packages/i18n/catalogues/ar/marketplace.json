@@ -149,7 +149,8 @@
         "slotTime": "{{start}} – {{end}}",
         "slotSummary": "{{day}}، {{slot}} {{time}}",
         "slotShort": "{{day}}، {{slot}}",
-        "seeAll": "عرض الكل"
+        "seeAll": "عرض الكل",
+        "headerPlace": "{{label}} · {{area}}"
     },
     "kitchens": {
         "title": "المطابخ",

@@ -39,6 +39,7 @@ import { consumerNavigation, marketplaceNavigation } from '../../navigation/cons
 import { forgetQueries, lastQuery, rememberQuery } from '../../navigation/last-query.ts';
 import { withReturnTo } from '../../navigation/return-to.ts';
 import { ConsumerShell } from '../../shell/consumer-shell.tsx';
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
 import {
     kitchenManagerSession,
@@ -1769,7 +1770,6 @@ describe('ConsumerShell', () => {
         expect(routerMock.__push).toHaveBeenCalledWith('/workspace');
         expect(screen.getByTestId('marketplace-sign-out')).toBeTruthy();
         expect(screen.queryByTestId('marketplace-basket')).toBeNull();
-        expect(screen.queryByTestId('marketplace-account')).toBeNull();
     });
 
     it('gives staff a view-only shop: Workspaces and Sign out, no basket or account', async () => {
@@ -1927,11 +1927,21 @@ describe('MarketplaceShell — header destinations', () => {
     );
 
     it('takes the brand to the marketplace home, not to the launch resolver', async () => {
-        await renderStubScreen(shell, { session: CONSUMER_SESSION });
+        await withDeskWidth(async () => {
+            await renderStubScreen(shell, { session: CONSUMER_SESSION });
 
-        await fireEvent.press(screen.getByTestId('brand-mark'));
-        expect(routerMock.__router.navigate).toHaveBeenCalledWith('/discover');
-        expect(routerMock.__push).not.toHaveBeenCalledWith('/');
+            await fireEvent.press(screen.getByTestId('brand-mark'));
+            expect(routerMock.__router.navigate).toHaveBeenCalledWith('/discover');
+            expect(routerMock.__push).not.toHaveBeenCalledWith('/');
+        });
+    });
+
+    it('starts a phone bar with where it delivers, and keeps the brand for Discover', async () => {
+        // The accepted phone boards: every shop page but Discover opens on the deliver-to pill.
+        await renderStubScreen(shell, { session: CONSUMER_SESSION });
+        expect(screen.getByTestId('marketplace-header-deliver-to')).toBeTruthy();
+        expect(screen.queryByTestId('brand-mark')).toBeNull();
+        expect(screen.queryByTestId('marketplace-account')).toBeNull();
     });
 
     it('does nothing for the destination the person is already on, and says it is current', async () => {

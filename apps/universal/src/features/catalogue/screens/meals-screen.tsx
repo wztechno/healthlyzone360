@@ -320,7 +320,14 @@ export function MealsScreen() {
                         {countLine}
                     </RNText>
                 </View>
-                <DeliverToMenu testID="meals" framed kitchenId={fetched[0]?.kitchenId ?? null} />
+                {/* On a phone the bar carries it (the accepted phone boards). */}
+                <View className="hidden md:flex">
+                    <DeliverToMenu
+                        testID="meals"
+                        framed
+                        kitchenId={fetched[0]?.kitchenId ?? null}
+                    />
+                </View>
             </View>
 
             <CategoryTabs filters={filters} shelves={shelves} photoOf={photoOf} />

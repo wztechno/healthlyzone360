@@ -133,7 +133,8 @@
         "slotTime": "[[{{start}} – {{end}} āēīōūāēī]]",
         "slotSummary": "[[{{day}}, {{slot}} {{time}} āēīōūāēīōūā]]",
         "slotShort": "[[{{day}}, {{slot}} āēīōūāē]]",
-        "seeAll": "[[Šéé áłł āēī]]"
+        "seeAll": "[[Šéé áłł āēī]]",
+        "headerPlace": "[[{{label}} · {{area}} āēīōūāēī]]"
     },
     "kitchens": {
         "title": "[[Ķíţçĥéñš āēīō]]",

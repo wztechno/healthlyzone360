@@ -937,17 +937,12 @@ function AppShellLayout({
                          * The gap is 16px from `md` to `lg`: at 768px the destinations and the
                          * signed-in controls fit on one line only without the wider gap.
                          */}
-                        <View className="mx-auto min-h-[56px] w-full max-w-[1312px] flex-row items-center gap-3 rounded-3xl border border-stroke-subtle bg-surface-raised py-1.5 pe-2.5 ps-3 shadow-elevation-3 md:h-[68px] md:gap-4 md:py-0 lg:gap-[18px] lg:rounded-full">
-                            {!wideEnoughForTopNav && navigation.length > 0 ? (
-                                <IconButton
-                                    testID={testID === undefined ? undefined : `${testID}-menu`}
-                                    label={t('designSystem:shell.openNavigation')}
-                                    icon={<Icon name="menu" />}
-                                    onPress={() => {
-                                        setDrawerOpen(true);
-                                    }}
-                                />
-                            ) : null}
+                        {/*
+                         * A phone's bar is the accepted phone boards': a 56px pill, the page's
+                         * own start (the brand, or where it delivers), the switches and the
+                         * basket, and the menu button last.
+                         */}
+                        <View className="mx-auto h-14 w-full max-w-[1312px] flex-row items-center gap-1 rounded-full border border-stroke-subtle bg-surface-raised pe-1.5 ps-2 shadow-elevation-3 md:h-[68px] md:gap-4 md:rounded-3xl md:pe-2.5 md:ps-3 lg:gap-[18px] lg:rounded-full">
                             {topbarStart}
 
                             {/*
@@ -1002,6 +997,16 @@ function AppShellLayout({
                             </View>
 
                             {topbarEnd}
+                            {!wideEnoughForTopNav && navigation.length > 0 ? (
+                                <IconButton
+                                    testID={testID === undefined ? undefined : `${testID}-menu`}
+                                    label={t('designSystem:shell.openNavigation')}
+                                    icon={<Icon name="menu" />}
+                                    onPress={() => {
+                                        setDrawerOpen(true);
+                                    }}
+                                />
+                            ) : null}
                         </View>
                     </MarketplaceBarEntrance>
                 </View>
