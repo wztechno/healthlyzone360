@@ -1,4 +1,4 @@
-import { Icon } from '@healthy360/design-system';
+import { HideShellTopbar, Icon, useBreakpoint } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
@@ -26,9 +26,12 @@ const TEST_ID = 'account-closed';
 export function AccountClosedScreen() {
     const { t } = useTranslation();
     const router = useRouter();
+    // The phone board: no shop bar over a closed account — the page's own way back is enough.
+    const phone = !useBreakpoint().atLeast('md');
 
     return (
         <View testID={TEST_ID} className="w-full max-w-[1000px] self-center pb-12 pt-10">
+            {phone ? <HideShellTopbar /> : null}
             <View className="relative items-center overflow-hidden rounded-[32px] bg-surface-canopy px-8 py-14">
                 <View
                     aria-hidden

@@ -13,6 +13,7 @@ export function ShopPhoneTopBar({
     titleTestID,
     title,
     count,
+    heading = true,
 }: {
     readonly backTestID: string;
     readonly backLabel: string;
@@ -20,6 +21,8 @@ export function ShopPhoneTopBar({
     readonly titleTestID: string;
     readonly title: string;
     readonly count?: string | undefined;
+    /** `false` where the page below carries its own level-1 heading. */
+    readonly heading?: boolean;
 }) {
     return (
         <>
@@ -37,8 +40,7 @@ export function ShopPhoneTopBar({
                 </Pressable>
                 <RNText
                     testID={titleTestID}
-                    role="heading"
-                    aria-level={1}
+                    {...(heading ? { role: 'heading' as const, 'aria-level': 1 } : {})}
                     numberOfLines={1}
                     className="min-w-0 shrink font-display text-xl font-bold text-content-primary text-start"
                 >

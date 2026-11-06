@@ -1,3 +1,4 @@
+import { Dimensions } from 'react-native';
 import type {
     AccountChecklistItem,
     AccountOverview,
@@ -30,6 +31,24 @@ import { ADDRESSES_HOME, AddressEditorScreen } from './screens/address-editor-sc
 import { AllergiesScreen } from './screens/allergies-screen.tsx';
 import { ConsentsScreen } from './screens/consents-screen.tsx';
 import { PhoneScreen } from './screens/phone-screen.tsx';
+
+/*
+ * These suites were written for the tabbed account and the order page's Back pill, which a
+ * tablet still draws; a phone draws the boards' menu of sections and its own top bar instead
+ * (see the phone cases in the shell and screen suites). So they run at a tablet's width.
+ */
+const phoneWindow = Dimensions.get('window');
+const phoneScreen = Dimensions.get('screen');
+beforeEach(() => {
+    Dimensions.set({
+        window: { ...phoneWindow, width: 820, height: 1180 },
+        screen: { ...phoneScreen, width: 820, height: 1180 },
+    });
+});
+afterEach(() => {
+    Dimensions.set({ window: phoneWindow, screen: phoneScreen });
+});
+
 
 /**
  * The J1 account area, against the stub harness.

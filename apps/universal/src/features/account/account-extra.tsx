@@ -1,9 +1,10 @@
-import { Icon, cx } from '@healthy360/design-system';
+import { Icon, cx, useBreakpoint } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, Text as RNText, View } from 'react-native';
 
 import { BackPill } from '../../ui/back-pill.tsx';
+import { ShopPhoneTopBar } from '../../ui/shop-phone-bar.tsx';
 
 /**
  * The accepted boards' account extras — "Your mobile number", "Permissions", "Close your account" —
@@ -43,12 +44,16 @@ export function ExtraPage({
     readonly headless?: boolean;
     readonly children: ReactNode;
 }) {
+    const phone = !useBreakpoint().atLeast('md');
     const heading = (
         <RNText
             testID={titleTestID}
             accessibilityRole="header"
             aria-level={1}
-            className="min-w-0 font-display text-3xl font-bold leading-[38px] text-content-primary text-start"
+            className={cx(
+                'min-w-0 font-display font-bold text-content-primary text-start',
+                phone ? 'text-2xl leading-8' : 'text-3xl leading-[38px]',
+            )}
         >
             {title}
         </RNText>
@@ -61,9 +66,21 @@ export function ExtraPage({
                 wide ? 'max-w-[1120px]' : 'max-w-[880px]',
             )}
         >
-            <View className="items-start pt-1">
-                <BackPill testID={backTestID} label={backLabel} onPress={onBack} />
-            </View>
+            {phone ? (
+                // The account pages' phone boards: "‹ Mobile number" as the page's own bar.
+                <ShopPhoneTopBar
+                    backTestID={backTestID}
+                    backLabel={backLabel}
+                    onBack={onBack}
+                    titleTestID={`${testID}-bar-title`}
+                    title={title}
+                    heading={false}
+                />
+            ) : (
+                <View className="items-start pt-1">
+                    <BackPill testID={backTestID} label={backLabel} onPress={onBack} />
+                </View>
+            )}
             {headless ? null : (
                 <View
                     className={cx(

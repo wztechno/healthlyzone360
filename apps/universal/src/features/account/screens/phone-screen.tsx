@@ -1,5 +1,5 @@
 import type { ContactPoint } from '@healthy360/api-client/contracts';
-import { Icon, Select, useToast } from '@healthy360/design-system';
+import { Icon, Select, useBreakpoint, useToast } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -338,6 +338,8 @@ function NumberRow({
     readonly note?: string | undefined;
     readonly chip: ReactNode;
 }) {
+    // On a phone the state chip sits under the note, so the number and note keep the width.
+    const phone = !useBreakpoint().atLeast('md');
     return (
         <View className="flex-row items-center gap-3.5 rounded-[18px] bg-surface-base p-4">
             <View className="h-11 w-11 items-center justify-center rounded-[14px] bg-surface-brand-subtle">
@@ -352,8 +354,9 @@ function NumberRow({
                         {note}
                     </RNText>
                 )}
+                {phone ? <View className="mt-2 items-start">{chip}</View> : null}
             </View>
-            {chip}
+            {phone ? null : chip}
         </View>
     );
 }
