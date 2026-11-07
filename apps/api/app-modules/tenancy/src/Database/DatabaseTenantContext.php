@@ -85,7 +85,13 @@ final class DatabaseTenantContext
         try {
             return $callback();
         } finally {
-            $this->write($previous);
+            // Restored only when something moved it. A `during()` nested inside
+            // one for the same kitchen applied nothing and has nothing to undo —
+            // and the marketplace listing nests four per meal, which was two
+            // statements each, every time, for a page of twenty.
+            if ($this->applied !== $previous) {
+                $this->write($previous);
+            }
         }
     }
 

@@ -17,6 +17,7 @@ use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Pricing\Services\ResolvedPrice;
 use Healthy360\ReferenceData\Models\DeliveryArea;
+use Healthy360\Tenancy\Database\DatabaseTenantContext;
 
 /**
  * Turns rows into the wire shapes, and reads each kitchen's shared context
@@ -50,6 +51,18 @@ final class MarketplaceProjector
      */
     private array $context = [];
 
+    /**
+     * Prices and diet codes read ahead for a batch of listed meals, by item id —
+     * see {@see primeMeals()}. A meal with no entry is read on its own, so a
+     * caller that never primes gets exactly the old path.
+     *
+     * @var array<string, array{price: ResolvedPrice, pack: array{size: string, unit: string}|null}|null>
+     */
+    private array $primedPrices = [];
+
+    /** @var array<string, list<string>> */
+    private array $primedDiets = [];
+
     public function __construct(
         private readonly MarketplaceKitchens $kitchens,
         private readonly MarketplaceMeals $meals,
@@ -59,6 +72,7 @@ final class MarketplaceProjector
         private readonly MarketplaceMealPresenter $mealPresenter,
         private readonly MarketplacePlanPresenter $planPresenter,
         private readonly DishOptions $dishOptions,
+        private readonly DatabaseTenantContext $tenantContext,
     ) {}
 
     /**
@@ -106,6 +120,46 @@ final class MarketplaceProjector
     }
 
     /**
+     * Read the prices, pack sizes and diet codes of a batch of meals ahead of
+     * projecting them, one kitchen at a time, so a listing page pays a handful
+     * of queries per kitchen for them rather than about eight per meal.
+     *
+     * Each answer is the one {@see meal()} would have read for itself —
+     * `MarketplaceMeals::pricesOf()` documents why — so priming changes the cost
+     * of a page and nothing in it.
+     *
+     * @param  list<CatalogueItem>  $meals
+     */
+    public function primeMeals(array $meals): void
+    {
+        $byKitchen = [];
+
+        foreach ($meals as $meal) {
+            if (! array_key_exists((string) $meal->getKey(), $this->primedPrices)) {
+                $byKitchen[(string) $meal->organisation_id][] = $meal;
+            }
+        }
+
+        foreach ($byKitchen as $kitchenId => $kitchenMeals) {
+            $context = $this->contextFor($kitchenId);
+
+            // A kitchen that is not visible projects nothing; leave its meals to
+            // the per-meal path, which rejects them before reading a price.
+            if ($context['kitchen'] === null) {
+                continue;
+            }
+
+            $prices = $this->meals->pricesOf($kitchenMeals, $context['listing_channels']);
+
+            foreach ($kitchenMeals as $meal) {
+                $this->primedPrices[(string) $meal->getKey()] = $prices[(string) $meal->getKey()] ?? null;
+            }
+
+            $this->primedDiets += $this->meals->dietClassificationCodesOfMany($kitchenMeals);
+        }
+    }
+
+    /**
      * The detail page's meal: {@see meal()} and what the customer can choose. Not
      * on the listing, which would pay for a dozen price reads nobody looks at.
      *
@@ -131,13 +185,37 @@ final class MarketplaceProjector
      */
     private function projectMeal(CatalogueItem $meal, string $locale, array $excludeAllergens, ?string $availableOn): ?array
     {
+        // One kitchen context for the whole projection. The price, pack size,
+        // allergen and nutrition reads each enter it themselves; inside this
+        // they find it already applied and switch nothing.
+        return $this->tenantContext->during(
+            null,
+            $meal->organisation_id,
+            null,
+            fn (): ?array => $this->projectMealInContext($meal, $locale, $excludeAllergens, $availableOn),
+        );
+    }
+
+    /**
+     * @param  list<string>  $excludeAllergens
+     * @return array<string, mixed>|null
+     */
+    private function projectMealInContext(CatalogueItem $meal, string $locale, array $excludeAllergens, ?string $availableOn): ?array
+    {
         $context = $this->contextFor($meal->organisation_id);
 
         if ($context['kitchen'] === null) {
             return null;
         }
 
-        $price = $this->meals->priceOf($meal, $context['listing_channels']);
+        $id = (string) $meal->getKey();
+        $primed = array_key_exists($id, $this->primedPrices);
+
+        if ($primed) {
+            $price = $this->primedPrices[$id]['price'] ?? null;
+        } else {
+            $price = $this->meals->priceOf($meal, $context['listing_channels']);
+        }
 
         if (! $price instanceof ResolvedPrice) {
             return null;
@@ -158,10 +236,10 @@ final class MarketplaceProjector
             $context['kitchen']->name,
             $locale,
             $price,
-            $this->meals->packSizeOf($meal, $price),
+            $primed ? ($this->primedPrices[$id]['pack'] ?? null) : $this->meals->packSizeOf($meal, $price),
             $allergens,
             $this->meals->nutritionOf($meal),
-            $this->meals->dietClassificationCodesOf($meal),
+            $this->primedDiets[$id] ?? $this->meals->dietClassificationCodesOf($meal),
 
             // What the kitchen ticked on the item (HA-35); never guessed from
             // the name.

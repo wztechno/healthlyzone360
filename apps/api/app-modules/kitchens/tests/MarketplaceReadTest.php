@@ -8,6 +8,7 @@ use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Kitchens\Models\KitchenServiceSettings;
 use Healthy360\Organisations\Enums\OrganisationStatus;
 use Healthy360\Organisations\Models\Organisation;
+use Illuminate\Support\Facades\DB;
 use Tests\SeedDatabaseOnce;
 
 /*
@@ -206,6 +207,34 @@ it('lists the published menu with prices, derived allergens and preview nutritio
         ->and($serving['grams'])->toBe(340)
         ->and($serving['millilitres'])->toBeNull()
         ->and($serving['household_measure'])->toBeNull();
+});
+
+it('prices a listing page in a batch and agrees, meal by meal, with the one-meal read', function (): void {
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+
+    $listed = collect($this->getJson('/api/v1/marketplace/meals?limit=100')->assertOk()->json('data'));
+
+    $log = collect(DB::getQueryLog())->pluck('query');
+    DB::disableQueryLog();
+
+    // The batch reads each list's rows once per channel and round, never once
+    // per meal (2026-11-07: twenty meals cost 387 queries, ~1.5 s on dev).
+    $priceRowReads = $log->filter(static fn (string $sql): bool => str_contains($sql, 'from "price_list_items"'))->count();
+    $tenantSwitches = $log->filter(static fn (string $sql): bool => str_contains($sql, "set_config('app.user_id'"))->count();
+
+    expect($listed->count())->toBeGreaterThan(3)
+        ->and($priceRowReads)->toBeLessThan($listed->count())
+        ->and($tenantSwitches)->toBeLessThanOrEqual(2 * $listed->count() + 4);
+
+    // The detail read still prices one meal on its own, so it is the oracle
+    // the batch must match: price, pack and diet tags, for every meal listed.
+    foreach ($listed as $meal) {
+        $one = $this->getJson('/api/v1/marketplace/meals/'.$meal['slug'])->assertOk()->json('data');
+
+        expect([$meal['price'], $meal['pack'], $meal['diet_classifications']])
+            ->toBe([$one['price'], $one['pack'], $one['diet_classifications']], $meal['slug']);
+    }
 });
 
 it('reads one meal and localises its name', function (): void {
