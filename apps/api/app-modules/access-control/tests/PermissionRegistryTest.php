@@ -333,7 +333,9 @@ it('grants each template role the expected number of codes', function (string $r
     // is the job; what the line cost is the commercial side's, which is the same
     // line `inventory.view_costs_organisation` already draws through this role.
     'chef edits recipes and their costs, runs inventory, batches and the wall, but never publishes and never sees a price or a cost outside a recipe' => ['kitchen_chef', 10],
-    'cook reads the catalogue, recipes and stock quantities, works the wall, and sees no money at all' => ['kitchen_staff', 4],
+    // Five since 8 Nov 2026: `production.view_organisation`, so the cook opens
+    // the batch on the line and records its core temperature.
+    'cook reads the catalogue, recipes, stock quantities and batches, works the wall, and sees no money at all' => ['kitchen_staff', 5],
     'commercial manager reads the catalogue and its costs, decides the range, writes the tariff, owns the plans, prices delivery, reads the subscription book, reads inventory and its costs and sees who is buying' => ['commercial_manager', 16],
     // Eight, not seven: the role gained `catalogue.view_organisation` with the
     // sale wizard's item picker, which reads the kitchen's own catalogue to

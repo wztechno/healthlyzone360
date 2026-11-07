@@ -827,6 +827,11 @@ final class PermissionRegistry
                     // serves it with the money taken off, so this role still reads
                     // no price, which is what the comment above promises.
                     'order.prepare_organisation',
+
+                    // Owner, 8 Nov 2026. A cook opens the batch they are
+                    // cooking and records its core temperature. The view code
+                    // only: money on a batch needs `production.view_costs_organisation`.
+                    'production.view_organisation',
                 ],
             ],
 
