@@ -146,6 +146,46 @@ describe('production — the redaction model', () => {
         expect(detail.order.estimatedCostAmount).toBeUndefined();
     });
 
+    it('reads a batch without core temperatures as none taken', async () => {
+        const { repository } = harness([
+            { data: { production_order: wireOrder(false), lines: [] }, meta: {} },
+        ]);
+
+        expect((await repository.getProductionOrder(ORDER_ID)).coreTemperatures).toEqual([]);
+    });
+
+    it('carries the core temperatures the batch page shows', async () => {
+        const { repository } = harness([
+            {
+                data: {
+                    production_order: wireOrder(false),
+                    lines: [],
+                    cooking_temperatures: [
+                        {
+                            id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e7601',
+                            production_order_id: String(ORDER_ID),
+                            batch_label: '2609180013',
+                            recipe: 'Caesar dressing',
+                            celsius: '76.0',
+                            note: null,
+                            recorded_by_name: 'Sara Khoury',
+                            recorded_at: '2026-09-18T11:32:00+00:00',
+                        },
+                    ],
+                },
+                meta: {},
+            },
+        ]);
+
+        const [reading] = (await repository.getProductionOrder(ORDER_ID)).coreTemperatures;
+
+        expect(reading).toMatchObject({
+            celsius: '76.0',
+            recordedByName: 'Sara Khoury',
+            recordedAt: '2026-09-18T11:32:00+00:00',
+        });
+    });
+
     it('keeps every quantity a string, including the ones that look like numbers', async () => {
         const { repository } = harness([
             { data: { production_order: wireOrder(true), lines: [] }, meta: {} },

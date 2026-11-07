@@ -13,12 +13,16 @@ import {
     UserId,
 } from '@healthy360/domain-types';
 import type {
+    CookingTemperature,
     RecordCookingTemperatureRequest,
     RecordTemperatureRequest,
     TemperatureLog,
     TemperatureUnitDraft,
 } from '../contracts/temperature-logs.ts';
-import type { TemperatureLog as WireTemperatureLog } from '../generated/types.ts';
+import type {
+    CookingTemperature as WireCookingTemperature,
+    TemperatureLog as WireTemperatureLog,
+} from '../generated/types.ts';
 import type { CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
 
 import type { CursorPage } from '../contracts/pagination.ts';
@@ -1205,16 +1209,30 @@ function batchReportBody(request: CompleteProductionOrderRequest): Record<string
     };
 }
 
+function mapCookingTemperature(row: WireCookingTemperature): CookingTemperature {
+    return {
+        id: row.id,
+        batchLabel: row.batch_label,
+        recipe: row.recipe,
+        celsius: row.celsius,
+        note: row.note,
+        recordedByName: row.recorded_by_name,
+        recordedAt: row.recorded_at as IsoDateTime,
+    };
+}
+
 function mapProductionOrderDetail(data: {
     readonly production_order: WireProductionOrder;
     readonly lines?: readonly WireProductionOrderLine[];
     readonly plan?: WireProductionPlan;
+    readonly cooking_temperatures?: readonly WireCookingTemperature[];
     readonly costs_visible?: boolean;
 }): ProductionOrderDetail {
     return {
         order: mapProductionOrder(data.production_order),
         lines: (data.lines ?? []).map(mapProductionOrderLine),
         plan: data.plan === undefined ? null : mapProductionPlan(data.plan),
+        coreTemperatures: (data.cooking_temperatures ?? []).map(mapCookingTemperature),
         costsVisible: 'estimated_cost_amount' in data.production_order,
     };
 }
@@ -2552,15 +2570,7 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                     note: row.note,
                     recordedByName: row.recorded_by_name,
                 })),
-                cooking: log.cooking.map((row) => ({
-                    id: row.id,
-                    batchLabel: row.batch_label,
-                    recipe: row.recipe,
-                    celsius: row.celsius,
-                    note: row.note,
-                    recordedByName: row.recorded_by_name,
-                    recordedAt: row.recorded_at as TemperatureLog['cooking'][number]['recordedAt'],
-                })),
+                cooking: log.cooking.map(mapCookingTemperature),
             };
         },
 

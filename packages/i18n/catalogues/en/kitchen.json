@@ -1338,6 +1338,7 @@
             "expiredNotice": "This batch is past its use-by date.",
             "abandon": "Abandon",
             "cancelBatch": "Call it off",
+            "recordCoreTemperature": "Record core temperature",
             "completeTitle": "Report what came out",
             "completeSubtitle": "Three figures and only one is free: rejected is counted inside produced, and waste is what went in the bin instead of the pot.",
             "completeSubmit": "Complete batch",

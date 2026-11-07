@@ -5746,7 +5746,8 @@ export const zProductionOrderDetailEnvelope = z.object({
     data: z.object({
         production_order: zProductionOrder,
         lines: z.array(zProductionOrderLine),
-        plan: zProductionPlan.optional()
+        plan: zProductionPlan.optional(),
+        cooking_temperatures: z.array(zCookingTemperature).optional()
     }),
     meta: zMeta.and(z.object({
         costs_visible: z.boolean().optional()

@@ -43925,6 +43925,11 @@ components:
                 $ref: '#/components/schemas/ProductionOrderLine'
             plan:
               $ref: '#/components/schemas/ProductionPlan'
+            cooking_temperatures:
+              type: array
+              description: The batch's core-temperature readings, newest first. Detail only; the desk list never carries them.
+              items:
+                $ref: '#/components/schemas/CookingTemperature'
         meta:
           allOf:
             - $ref: '#/components/schemas/Meta'

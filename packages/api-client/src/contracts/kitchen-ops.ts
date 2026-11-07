@@ -22,6 +22,7 @@ import type {
 } from '@healthy360/domain-types';
 
 import type { LocalisedText } from './kitchen-admin.ts';
+import type { CookingTemperature } from './temperature-logs.ts';
 import type { CursorPage, CursorPageRequest, OffsetPageRequest } from './pagination.ts';
 
 /**
@@ -2198,6 +2199,8 @@ export interface ProductionOrderDetail {
     readonly order: ProductionOrder;
     readonly lines: readonly ProductionOrderLine[];
     readonly plan: ProductionPlan | null;
+    /** Its core-temperature readings, newest first. Empty when none were taken. */
+    readonly coreTemperatures: readonly CookingTemperature[];
     /** Whether this reader holds `production.view_costs_organisation`. */
     readonly costsVisible: boolean;
 }

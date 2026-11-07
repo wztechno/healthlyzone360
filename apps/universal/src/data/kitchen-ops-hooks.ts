@@ -1751,12 +1751,19 @@ export function useRecordCookingTemperatureMutation(): UseMutationResult<
     RecordCookingTemperatureRequest
 > {
     const repositories = useRepositories();
+    const queryClient = useQueryClient();
     const onWritten = useTemperatureLogWritten();
 
     return useMutation({
         retry: false,
         mutationFn: (request) => repositories.kitchenOps.recordCookingTemperature(request),
-        onSuccess: onWritten,
+        onSuccess: (_result, request) => {
+            onWritten();
+            // The batch page shows its readings too.
+            void queryClient.invalidateQueries({
+                queryKey: queryKeys.kitchenOps.productionOrder(request.productionOrderId),
+            });
+        },
     });
 }
 

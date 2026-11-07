@@ -174,7 +174,14 @@ function page(orders: readonly ProductionOrder[], hasMore = false): ProductionOr
 }
 
 function detail(overrides: Partial<ProductionOrderDetail> = {}): ProductionOrderDetail {
-    return { order: batch(), lines: [], plan: plan(), costsVisible: true, ...overrides };
+    return {
+        order: batch(),
+        lines: [],
+        plan: plan(),
+        coreTemperatures: [],
+        costsVisible: true,
+        ...overrides,
+    };
 }
 
 /** The manager, minus the one code that decides whether money is in the payload at all. */
@@ -589,6 +596,123 @@ describe('one batch', () => {
         expect(routerMock.__push).toHaveBeenCalledWith(
             `/kitchen/production-desk/${BATCH_ID}/label`,
         );
+    });
+
+    describe('core temperature', () => {
+        const cooking = () =>
+            batch({
+                status: 'in_production',
+                confirmedAt: '2026-09-25T08:00:00Z',
+                startedAt: '2026-09-25T09:00:00Z',
+            });
+
+        it('shows the last reading and records a new one on the batch', async () => {
+            const recordCookingTemperature = jest.fn(async () => undefined);
+
+            await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
+                session: chefSession(),
+                repositories: {
+                    kitchenOps: {
+                        getProductionOrder: async () =>
+                            detail({
+                                order: cooking(),
+                                lines: [line()],
+                                plan: null,
+                                coreTemperatures: [
+                                    {
+                                        id: 'reading-1',
+                                        batchLabel: 'PB-7K3MQ9ZV',
+                                        recipe: 'Caesar dressing',
+                                        celsius: '76.0',
+                                        note: null,
+                                        recordedByName: 'Sara',
+                                        recordedAt: '2026-09-25T11:32:00Z' as never,
+                                    },
+                                ],
+                            }),
+                        recordCookingTemperature,
+                    },
+                },
+            });
+
+            await waitFor(() => {
+                expect(
+                    screen.getByTestId('kitchen-production-batch-core-temperature-value'),
+                ).toHaveTextContent(/76\.0°C · .+ · Sara/);
+            });
+
+            fireEvent.press(screen.getByTestId('kitchen-production-batch-temperature'));
+            fireEvent.changeText(
+                await screen.findByTestId('kitchen-production-batch-temperature-celsius-input'),
+                '78.5',
+            );
+            await waitFor(() => {
+                expect(
+                    screen.getByTestId('kitchen-production-batch-temperature-save').props
+                        .accessibilityState?.disabled,
+                ).toBe(false);
+            });
+            fireEvent.press(screen.getByTestId('kitchen-production-batch-temperature-save'));
+
+            await waitFor(() => {
+                expect(recordCookingTemperature).toHaveBeenCalledWith({
+                    productionOrderId: BATCH_ID,
+                    celsius: '78.5',
+                });
+            });
+        });
+
+        it('offers no recording to somebody who may only read the batch', async () => {
+            await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
+                session: kitchenManagerSession({
+                    activeContext: testActiveContext({
+                        permissions: KITCHEN_MANAGER_PERMISSIONS.filter(
+                            (code) =>
+                                code !== 'order.prepare_organisation' &&
+                                code !== 'inventory.manage_organisation' &&
+                                code !== 'production.manage_organisation',
+                        ),
+                    }),
+                }),
+                repositories: {
+                    kitchenOps: {
+                        getProductionOrder: async () =>
+                            detail({ order: cooking(), lines: [line()], plan: null }),
+                    },
+                },
+            });
+
+            await waitFor(() => {
+                expect(
+                    screen.getByTestId('kitchen-production-batch-core-temperature-value'),
+                ).toHaveTextContent('—');
+            });
+            expect(screen.queryByTestId('kitchen-production-batch-temperature')).toBeNull();
+        });
+
+        it('offers no recording before the batch has started', async () => {
+            await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenOps: {
+                        getProductionOrder: async () =>
+                            detail({
+                                order: batch({
+                                    status: 'confirmed',
+                                    confirmedAt: '2026-09-25T08:00:00Z',
+                                }),
+                                lines: [line()],
+                                plan: null,
+                            }),
+                    },
+                },
+            });
+
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchen-production-batch-start')).toBeTruthy();
+            });
+            expect(screen.queryByTestId('kitchen-production-batch-temperature')).toBeNull();
+        });
     });
 
     it('offers no label for a batch that has no lot yet', async () => {

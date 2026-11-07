@@ -8654,6 +8654,10 @@ export type ProductionOrderDetailEnvelope = {
         production_order: ProductionOrder;
         lines: Array<ProductionOrderLine>;
         plan?: ProductionPlan;
+        /**
+         * The batch's core-temperature readings, newest first. Detail only; the desk list never carries them.
+         */
+        cooking_temperatures?: Array<CookingTemperature>;
     };
     meta: Meta & {
         costs_visible?: boolean;
