@@ -91,10 +91,13 @@
         "groups": {
             "workspace": "Workspace",
             "orderDesk": "Order desk",
-            "workbench": "Workbench",
+            "workbench": "To do",
             "catalogue": "Catalogue",
             "commercial": "Commercial",
             "operations": "Operations",
+            "buying": "Buying",
+            "foodSafety": "Food safety",
+            "reports": "Reports",
             "access": "Access"
         }
     },

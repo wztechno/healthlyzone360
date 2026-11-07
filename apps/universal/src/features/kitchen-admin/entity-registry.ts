@@ -231,9 +231,11 @@ export type EntityKind = (typeof ENTITY_KINDS)[number];
 /**
  * Hub and kitchen-rail sectioning. Order here is display order for grouped nav and the hub grid.
  *
- * `orderDesk` is the counter — live customer work; `workbench` is the "what now?" queue over this
- * workspace's own records; `catalogue` is what goes into a dish; `commercial` is what a customer is
- * charged and where it is delivered; `operations` is stock through QC (ops panels).
+ * `orderDesk` is the counter — live customer work; `workbench` ("To do") is the "what now?" queue
+ * over this workspace's own records; `catalogue` is what goes into a dish; `commercial` is what a
+ * customer is charged and where it is delivered; `operations` is orders, stock and the cook line;
+ * `buying` is suppliers and what is owed them; `foodSafety` is temperatures and QC; `reports` reads
+ * figures back and writes nothing. Within a group, `ENTITY_FAMILIES` order is display order.
  *
  * ## Why the desk is first, above the workbench
  *
@@ -251,6 +253,9 @@ export const ENTITY_GROUPS = [
     'catalogue',
     'commercial',
     'operations',
+    'buying',
+    'foodSafety',
+    'reports',
     // AA1. Last, because this list is ordered by how immediate a thing is and nobody is waiting on
     // access administration. Adding the member forces a `GROUP_LABEL_KEYS` entry at compile time,
     // which is the point of typing that map over this union.
@@ -413,73 +418,6 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: null,
     },
     {
-        key: 'analytics',
-        kind: 'workbench',
-        group: 'workbench',
-        nameKey: 'kitchen:families.analytics.name',
-        descriptionKey: 'kitchen:families.analytics.description',
-        // `▤`, the ruled sheet — closest glyph for a dashboard of figures until a chart icon lands.
-        icon: 'chartColumn',
-        href: '/kitchen/analytics',
-        // Order counts and units read from the order book — no money — so the book's own read code.
-        permission: ORDER_VIEW_PERMISSION,
-        managePermission: null,
-    },
-    {
-        key: 'dish-margins',
-        kind: 'workbench',
-        group: 'workbench',
-        nameKey: 'kitchen:families.dishMargins.name',
-        descriptionKey: 'kitchen:families.dishMargins.description',
-        icon: 'calculator',
-        href: '/kitchen/dish-margins',
-        // What a dish costs, so the code that opens a recipe's money. Nothing is written here.
-        permission: RECIPE_VIEW_COSTS_PERMISSION,
-        managePermission: null,
-    },
-    {
-        key: 'cost-report',
-        kind: 'workbench',
-        group: 'workbench',
-        nameKey: 'kitchen:families.costReport.name',
-        descriptionKey: 'kitchen:families.costReport.description',
-        // `☰`, three stacked rules — a ledger of monthly figures, the same reading the purchases and
-        // price-list cards give the glyph. A real icon set retires the compromise the whole
-        // workspace records.
-        icon: 'calculator',
-        href: '/kitchen/cost-report',
-        // The second card gated on the cost permission (INV1.1), and for the same reason as the
-        // purchases ledger: this report exposes spend, COGS and the margin reconstructable from
-        // cost and revenue, so a person without `inventory.view_costs_organisation` never sees it.
-        // Unlike analytics — counts behind the order book's read code — this is real money, so it
-        // takes the money code. Nothing is written from a report.
-        permission: INVENTORY_VIEW_COSTS_PERMISSION,
-        managePermission: null,
-    },
-    {
-        key: 'setup',
-        kind: 'workbench',
-        group: 'workbench',
-        nameKey: 'kitchen:families.setup.name',
-        descriptionKey: 'kitchen:families.setup.description',
-        icon: 'circleCheck',
-        href: '/kitchen/setup',
-        permission: KITCHEN_SETUP_PERMISSION,
-        managePermission: GO_LIVE_PERMISSION,
-    },
-    {
-        // What the duplicate-stock merge could not settle alone. Reads only.
-        key: 'stock-duplicates',
-        kind: 'workbench',
-        group: 'workbench',
-        nameKey: 'kitchen:families.stockDuplicates.name',
-        descriptionKey: 'kitchen:families.stockDuplicates.description',
-        icon: 'alert',
-        href: '/kitchen/stock-duplicates',
-        permission: INVENTORY_VIEW_PERMISSION,
-        managePermission: null,
-    },
-    {
         key: 'consumption-exceptions',
         kind: 'workbench',
         group: 'workbench',
@@ -495,6 +433,29 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // only which sale on which line could not be deducted and why.
         permission: INVENTORY_VIEW_PERMISSION,
         managePermission: INVENTORY_MANAGE_PERMISSION,
+    },
+    {
+        // What the duplicate-stock merge could not settle alone. Reads only.
+        key: 'stock-duplicates',
+        kind: 'workbench',
+        group: 'workbench',
+        nameKey: 'kitchen:families.stockDuplicates.name',
+        descriptionKey: 'kitchen:families.stockDuplicates.description',
+        icon: 'alert',
+        href: '/kitchen/stock-duplicates',
+        permission: INVENTORY_VIEW_PERMISSION,
+        managePermission: null,
+    },
+    {
+        key: 'setup',
+        kind: 'workbench',
+        group: 'workbench',
+        nameKey: 'kitchen:families.setup.name',
+        descriptionKey: 'kitchen:families.setup.description',
+        icon: 'circleCheck',
+        href: '/kitchen/setup',
+        permission: KITCHEN_SETUP_PERMISSION,
+        managePermission: GO_LIVE_PERMISSION,
     },
     {
         key: 'ingredients',
@@ -697,18 +658,6 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: ORDER_MANAGE_PERMISSION,
     },
     {
-        key: 'activity',
-        kind: 'workbench',
-        group: 'operations',
-        nameKey: 'kitchen:families.activity.name',
-        descriptionKey: 'kitchen:families.activity.description',
-        icon: 'scrollText',
-        href: '/kitchen/activity',
-        permission: AUDIT_VIEW_PERMISSION,
-        // Read-only: nothing here writes, by design.
-        managePermission: null,
-    },
-    {
         key: 'stock',
         kind: 'managed',
         group: 'operations',
@@ -722,113 +671,6 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         // moves stock under `inventory.*`, not because they may edit the menu.
         permission: INVENTORY_VIEW_PERMISSION,
         managePermission: INVENTORY_MANAGE_PERMISSION,
-    },
-    {
-        key: 'supplyOrders',
-        kind: 'managed',
-        group: 'operations',
-        nameKey: 'kitchen:families.supplyOrders.name',
-        descriptionKey: 'kitchen:families.supplyOrders.description',
-        // `▣`, a filled container — a basket, which is what this family is: the things the kitchen
-        // is about to buy, gathered before anybody commits to buying them. The same compromise the
-        // supplier card below records applies to the character.
-        icon: 'shoppingCart',
-        href: '/kitchen/supply-orders',
-        // Between stock and suppliers, and the order is the sentence the operations group reads as:
-        // orders come in, stock runs down, so the kitchen orders supplies — from the suppliers it
-        // keeps a book of, against whom it posts receipts, which the purchases ledger prices.
-        // Ordering sits next to the shortage that provokes it rather than next to the paperwork.
-        //
-        // The same code twice, unlike every other family here. An order book has no view-only
-        // reader: whoever may see what the kitchen is about to buy is the person trusted to decide
-        // it, which is exactly why the code exists apart from `inventory.view_organisation`.
-        permission: INVENTORY_ORDER_SUPPLIES_PERMISSION,
-        managePermission: INVENTORY_ORDER_SUPPLIES_PERMISSION,
-    },
-    {
-        key: 'suppliers',
-        kind: 'managed',
-        group: 'operations',
-        nameKey: 'kitchen:families.suppliers.name',
-        descriptionKey: 'kitchen:families.suppliers.description',
-        // `◍`, a figure in outline — a person, which is what a supplier record is mostly *about*
-        // once it has named contacts on it. The compromise every card in this workspace records
-        // applies: the icon set is a table of typographic characters with no van, warehouse or
-        // handshake in it, and the character is registered as `user` because a person was wanted
-        // first. A real icon set retires it.
-        icon: 'truck',
-        href: '/kitchen/suppliers',
-        // Immediately before procurement, and deliberately: a receipt is posted *against* a
-        // supplier, so the book of who this kitchen buys from is the thing procurement points at.
-        // Reading the book is `inventory.view_organisation` — a kitchen hand looking up who to
-        // phone about a late delivery should not need the code that opens the ledger — and every
-        // write to it is `inventory.manage_organisation`, matching the receipt post beside it.
-        permission: INVENTORY_VIEW_PERMISSION,
-        managePermission: INVENTORY_MANAGE_PERMISSION,
-    },
-    {
-        key: 'procurement',
-        kind: 'managed',
-        group: 'operations',
-        nameKey: 'kitchen:families.procurement.name',
-        descriptionKey: 'kitchen:families.procurement.description',
-        icon: 'packageOpen',
-        href: '/kitchen/procurement',
-        permission: INVENTORY_VIEW_PERMISSION,
-        managePermission: INVENTORY_MANAGE_PERMISSION,
-    },
-    {
-        key: 'purchases',
-        kind: 'managed',
-        group: 'operations',
-        nameKey: 'kitchen:families.purchases.name',
-        descriptionKey: 'kitchen:families.purchases.description',
-        // `☰`, three stacked rules — a schedule of priced rows, the same reading the price-list and
-        // order cards give it. The purchases ledger is a ledger of lines with a total, so the glyph
-        // is honest; the label beside the card separates it, and a real icon set retires the
-        // compromise the whole workspace records.
-        icon: 'notebookText',
-        href: '/kitchen/purchases-ledger',
-        // The one card in the workspace gated on the cost permission (INV1.1): the ledger *is* the
-        // valuation, so a person without `inventory.view_costs_organisation` never sees the card and
-        // the screen behind it refuses. There is nothing to write from a ledger.
-        permission: INVENTORY_VIEW_COSTS_PERMISSION,
-        managePermission: null,
-    },
-    {
-        key: 'payables',
-        kind: 'workbench',
-        group: 'operations',
-        nameKey: 'kitchen:families.payables.name',
-        descriptionKey: 'kitchen:families.payables.description',
-        icon: 'banknote',
-        href: '/kitchen/payables',
-        // Rows of money, so the cost code reads them. Its acts ask their own code on the page.
-        permission: INVENTORY_VIEW_COSTS_PERMISSION,
-        managePermission: null,
-    },
-    {
-        key: 'batch',
-        // A reading of one recipe version, not a family of records: nothing is created, nothing has
-        // a lifecycle and nothing is written. The production order this page's arithmetic would
-        // feed belongs to the family below it, which is why the two sit together.
-        kind: 'workbench',
-        group: 'operations',
-        nameKey: 'kitchen:families.batch.name',
-        descriptionKey: 'kitchen:families.batch.description',
-        // `◯`, the plain round — a plate, and the closest honest reading the glyph table has for
-        // "how much food this makes". The workspace-wide compromise applies unchanged: the icon set
-        // is a table of typographic characters, and a real icon set retires it.
-        icon: 'layers',
-        // Top-level, not nested under `/kitchen/recipes`: `isKitchenNavActive` matches on
-        // `startsWith(href + '/')`, so a nested path would light the recipe book's nav row.
-        href: '/kitchen/batch',
-        // The recipe code, because a batch sheet is a reading of a recipe. The screen's own `<Gate>`
-        // asks for `catalogue.view_organisation` as well — the ingredient endpoint behind every name
-        // on the page demands it — and a slot holds one code.
-        permission: RECIPE_VIEW_PERMISSION,
-        // A plan, not an order. Everything this page suggests is committed on the production screen.
-        managePermission: null,
     },
     {
         key: 'production',
@@ -872,15 +714,27 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: null,
     },
     {
-        key: 'temperatureLogs',
-        kind: 'managed',
+        key: 'batch',
+        // A reading of one recipe version, not a family of records: nothing is created, nothing has
+        // a lifecycle and nothing is written. The production order this page's arithmetic would
+        // feed belongs to the family below it, which is why the two sit together.
+        kind: 'workbench',
         group: 'operations',
-        nameKey: 'kitchen:families.temperatureLogs.name',
-        descriptionKey: 'kitchen:families.temperatureLogs.description',
-        icon: 'badgeCheck',
-        href: '/kitchen/temperature-logs',
-        permission: INVENTORY_VIEW_PERMISSION,
-        managePermission: INVENTORY_MANAGE_PERMISSION,
+        nameKey: 'kitchen:families.batch.name',
+        descriptionKey: 'kitchen:families.batch.description',
+        // `◯`, the plain round — a plate, and the closest honest reading the glyph table has for
+        // "how much food this makes". The workspace-wide compromise applies unchanged: the icon set
+        // is a table of typographic characters, and a real icon set retires it.
+        icon: 'layers',
+        // Top-level, not nested under `/kitchen/recipes`: `isKitchenNavActive` matches on
+        // `startsWith(href + '/')`, so a nested path would light the recipe book's nav row.
+        href: '/kitchen/batch',
+        // The recipe code, because a batch sheet is a reading of a recipe. The screen's own `<Gate>`
+        // asks for `catalogue.view_organisation` as well — the ingredient endpoint behind every name
+        // on the page demands it — and a slot holds one code.
+        permission: RECIPE_VIEW_PERMISSION,
+        // A plan, not an order. Everything this page suggests is committed on the production screen.
+        managePermission: null,
     },
     {
         key: 'complaints',
@@ -894,15 +748,166 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: ORDER_SUPERVISE_PERMISSION,
     },
     {
+        key: 'supplyOrders',
+        kind: 'managed',
+        group: 'buying',
+        nameKey: 'kitchen:families.supplyOrders.name',
+        descriptionKey: 'kitchen:families.supplyOrders.description',
+        // `▣`, a filled container — a basket, which is what this family is: the things the kitchen
+        // is about to buy, gathered before anybody commits to buying them. The same compromise the
+        // supplier card below records applies to the character.
+        icon: 'shoppingCart',
+        href: '/kitchen/supply-orders',
+        // Between stock and suppliers, and the order is the sentence the operations group reads as:
+        // orders come in, stock runs down, so the kitchen orders supplies — from the suppliers it
+        // keeps a book of, against whom it posts receipts, which the purchases ledger prices.
+        // Ordering sits next to the shortage that provokes it rather than next to the paperwork.
+        //
+        // The same code twice, unlike every other family here. An order book has no view-only
+        // reader: whoever may see what the kitchen is about to buy is the person trusted to decide
+        // it, which is exactly why the code exists apart from `inventory.view_organisation`.
+        permission: INVENTORY_ORDER_SUPPLIES_PERMISSION,
+        managePermission: INVENTORY_ORDER_SUPPLIES_PERMISSION,
+    },
+    {
+        key: 'suppliers',
+        kind: 'managed',
+        group: 'buying',
+        nameKey: 'kitchen:families.suppliers.name',
+        descriptionKey: 'kitchen:families.suppliers.description',
+        // `◍`, a figure in outline — a person, which is what a supplier record is mostly *about*
+        // once it has named contacts on it. The compromise every card in this workspace records
+        // applies: the icon set is a table of typographic characters with no van, warehouse or
+        // handshake in it, and the character is registered as `user` because a person was wanted
+        // first. A real icon set retires it.
+        icon: 'truck',
+        href: '/kitchen/suppliers',
+        // Immediately before procurement, and deliberately: a receipt is posted *against* a
+        // supplier, so the book of who this kitchen buys from is the thing procurement points at.
+        // Reading the book is `inventory.view_organisation` — a kitchen hand looking up who to
+        // phone about a late delivery should not need the code that opens the ledger — and every
+        // write to it is `inventory.manage_organisation`, matching the receipt post beside it.
+        permission: INVENTORY_VIEW_PERMISSION,
+        managePermission: INVENTORY_MANAGE_PERMISSION,
+    },
+    {
+        key: 'procurement',
+        kind: 'managed',
+        group: 'buying',
+        nameKey: 'kitchen:families.procurement.name',
+        descriptionKey: 'kitchen:families.procurement.description',
+        icon: 'packageOpen',
+        href: '/kitchen/procurement',
+        permission: INVENTORY_VIEW_PERMISSION,
+        managePermission: INVENTORY_MANAGE_PERMISSION,
+    },
+    {
+        key: 'payables',
+        kind: 'workbench',
+        group: 'buying',
+        nameKey: 'kitchen:families.payables.name',
+        descriptionKey: 'kitchen:families.payables.description',
+        icon: 'banknote',
+        href: '/kitchen/payables',
+        // Rows of money, so the cost code reads them. Its acts ask their own code on the page.
+        permission: INVENTORY_VIEW_COSTS_PERMISSION,
+        managePermission: null,
+    },
+    {
+        key: 'purchases',
+        kind: 'managed',
+        group: 'buying',
+        nameKey: 'kitchen:families.purchases.name',
+        descriptionKey: 'kitchen:families.purchases.description',
+        // `☰`, three stacked rules — a schedule of priced rows, the same reading the price-list and
+        // order cards give it. The purchases ledger is a ledger of lines with a total, so the glyph
+        // is honest; the label beside the card separates it, and a real icon set retires the
+        // compromise the whole workspace records.
+        icon: 'notebookText',
+        href: '/kitchen/purchases-ledger',
+        // The one card in the workspace gated on the cost permission (INV1.1): the ledger *is* the
+        // valuation, so a person without `inventory.view_costs_organisation` never sees the card and
+        // the screen behind it refuses. There is nothing to write from a ledger.
+        permission: INVENTORY_VIEW_COSTS_PERMISSION,
+        managePermission: null,
+    },
+    {
+        key: 'temperatureLogs',
+        kind: 'managed',
+        group: 'foodSafety',
+        nameKey: 'kitchen:families.temperatureLogs.name',
+        descriptionKey: 'kitchen:families.temperatureLogs.description',
+        icon: 'badgeCheck',
+        href: '/kitchen/temperature-logs',
+        permission: INVENTORY_VIEW_PERMISSION,
+        managePermission: INVENTORY_MANAGE_PERMISSION,
+    },
+    {
         key: 'qc',
         kind: 'managed',
-        group: 'operations',
+        group: 'foodSafety',
         nameKey: 'kitchen:families.qc.name',
         descriptionKey: 'kitchen:families.qc.description',
         icon: 'badgeCheck',
         href: '/kitchen/qc',
         permission: INVENTORY_VIEW_PERMISSION,
         managePermission: INVENTORY_MANAGE_PERMISSION,
+    },
+    {
+        key: 'analytics',
+        kind: 'workbench',
+        group: 'reports',
+        nameKey: 'kitchen:families.analytics.name',
+        descriptionKey: 'kitchen:families.analytics.description',
+        // `▤`, the ruled sheet — closest glyph for a dashboard of figures until a chart icon lands.
+        icon: 'chartColumn',
+        href: '/kitchen/analytics',
+        // Order counts and units read from the order book — no money — so the book's own read code.
+        permission: ORDER_VIEW_PERMISSION,
+        managePermission: null,
+    },
+    {
+        key: 'cost-report',
+        kind: 'workbench',
+        group: 'reports',
+        nameKey: 'kitchen:families.costReport.name',
+        descriptionKey: 'kitchen:families.costReport.description',
+        // `☰`, three stacked rules — a ledger of monthly figures, the same reading the purchases and
+        // price-list cards give the glyph. A real icon set retires the compromise the whole
+        // workspace records.
+        icon: 'calculator',
+        href: '/kitchen/cost-report',
+        // The second card gated on the cost permission (INV1.1), and for the same reason as the
+        // purchases ledger: this report exposes spend, COGS and the margin reconstructable from
+        // cost and revenue, so a person without `inventory.view_costs_organisation` never sees it.
+        // Unlike analytics — counts behind the order book's read code — this is real money, so it
+        // takes the money code. Nothing is written from a report.
+        permission: INVENTORY_VIEW_COSTS_PERMISSION,
+        managePermission: null,
+    },
+    {
+        key: 'dish-margins',
+        kind: 'workbench',
+        group: 'reports',
+        nameKey: 'kitchen:families.dishMargins.name',
+        descriptionKey: 'kitchen:families.dishMargins.description',
+        icon: 'calculator',
+        href: '/kitchen/dish-margins',
+        // What a dish costs, so the code that opens a recipe's money. Nothing is written here.
+        permission: RECIPE_VIEW_COSTS_PERMISSION,
+        managePermission: null,
+    },
+    {
+        key: 'activity',
+        kind: 'workbench',
+        group: 'reports',
+        nameKey: 'kitchen:families.activity.name',
+        descriptionKey: 'kitchen:families.activity.description',
+        icon: 'scrollText',
+        href: '/kitchen/activity',
+        permission: AUDIT_VIEW_PERMISSION,
+        // Read-only: nothing here writes, by design.
+        managePermission: null,
     },
 
     // ── access (AA1) ────────────────────────────────────────────────────────────────────────────

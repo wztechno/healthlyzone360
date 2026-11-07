@@ -50,7 +50,8 @@ import {
     WORKSPACE_PERMISSIONS,
     permittedFamilies,
 } from '../entity-registry.ts';
-import type { EntityFamily, EntityGroup } from '../entity-registry.ts';
+import type { EntityFamily } from '../entity-registry.ts';
+import { GROUP_LABEL_KEYS } from '../kitchen-nav.ts';
 import { buildReviewQueue } from '../review-queue.ts';
 import { TodayCard } from '../today-card.tsx';
 
@@ -83,15 +84,6 @@ const COUNT_CLASS: Readonly<Record<Tone, { readonly box: string; readonly ink: s
     warning: { box: 'bg-warning-subtle', ink: 'text-warning-on-subtle' },
     ok: { box: 'bg-surface-brand-subtle', ink: 'text-content-on-brand-subtle' },
     neutral: { box: 'bg-surface-sunken', ink: 'text-content-secondary' },
-};
-
-const GROUP_LABEL_KEYS: Readonly<Record<EntityGroup, string>> = {
-    orderDesk: 'kitchen:nav.groups.orderDesk',
-    workbench: 'kitchen:nav.groups.workbench',
-    catalogue: 'kitchen:nav.groups.catalogue',
-    commercial: 'kitchen:nav.groups.commercial',
-    operations: 'kitchen:nav.groups.operations',
-    access: 'kitchen:nav.groups.access',
 };
 
 /** A small count box — amber when it is waiting on someone. */
@@ -809,8 +801,14 @@ export function KitchenHomeScreen() {
                             <Heading level={2}>{t('kitchen:hub.goTo')}</Heading>
                             <View testID="kitchen-home-grid" className={`grid gap-3 ${groupGrid}`}>
                                 {ENTITY_GROUPS.map((group) => {
+                                    // Setup is done once the kitchen is live; the rail drops it too.
                                     const groupFamilies = families.filter(
-                                        (family) => family.group === group,
+                                        (family) =>
+                                            family.group === group &&
+                                            !(
+                                                family.key === 'setup' &&
+                                                setup.data?.isLive === true
+                                            ),
                                     );
                                     const first = groupFamilies[0];
                                     if (first === undefined) return null;

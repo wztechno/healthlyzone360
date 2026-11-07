@@ -570,6 +570,9 @@ describe('entity registry', () => {
                 'catalogue',
                 'commercial',
                 'operations',
+                'buying',
+                'foodSafety',
+                'reports',
                 // AA1. Added deliberately, which is what this restated list is for.
                 'access',
             ]).toContain(family.group);

@@ -28,6 +28,9 @@ describe('kitchen nav', () => {
             'catalogue',
             'commercial',
             'operations',
+            'buying',
+            'foodSafety',
+            'reports',
             // AA1. A kitchen manager reads the staff list — the registry has always granted
             // `membership.view_organisation` to the role, and the fixture had simply never said so.
             // Last, because the group order is "how immediate is this" and nobody is waiting on

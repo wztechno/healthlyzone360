@@ -111,10 +111,13 @@
         "groups": {
             "workspace": "مساحة العمل",
             "orderDesk": "مكتب الطلبات",
-            "workbench": "منصة العمل",
+            "workbench": "مهام للإنجاز",
             "catalogue": "الكتالوج",
             "commercial": "التجاري",
             "operations": "العمليات",
+            "buying": "المشتريات",
+            "foodSafety": "سلامة الغذاء",
+            "reports": "التقارير",
             "access": "الصلاحيات"
         }
     },

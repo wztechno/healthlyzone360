@@ -5,7 +5,10 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useReviewQueueQuery } from '../../data/kitchen-admin-hooks.ts';
-import { useConsumptionExceptionCountQuery } from '../../data/kitchen-ops-hooks.ts';
+import {
+    useConsumptionExceptionCountQuery,
+    useKitchenSetupQuery,
+} from '../../data/kitchen-ops-hooks.ts';
 import { guardNavigation } from '../../navigation/use-unsaved-guard.ts';
 import { AreaBrandBlock, AreaRailTop, DESK_SIDEBAR_WIDTH } from '../../shell/area-brand-block.tsx';
 import { useAccessState } from '../../session/session-provider.tsx';
@@ -37,6 +40,9 @@ const GROUP_ICONS: Readonly<Record<EntityGroup, IconName>> = {
     catalogue: 'chefHat',
     commercial: 'tag',
     operations: 'package',
+    buying: 'shoppingCart',
+    foodSafety: 'badgeCheck',
+    reports: 'chartColumn',
     access: 'shield',
 };
 
@@ -74,10 +80,25 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
     const pathname = usePathname();
     const state = useAccessState();
 
-    const sections = useMemo(() => kitchenNavSections(state), [state]);
+    const allSections = useMemo(() => kitchenNavSections(state), [state]);
     const permitted = useMemo(
-        () => new Set(sections.flatMap((section) => section.items.map((item) => item.key))),
-        [sections],
+        () => new Set(allSections.flatMap((section) => section.items.map((item) => item.key))),
+        [allSections],
+    );
+    const setup = useKitchenSetupQuery(permitted.has('setup'));
+    const isLive = setup.data?.isLive === true;
+    // Setup is done once the kitchen is live: drop it, and the section if it empties.
+    const sections = useMemo(
+        () =>
+            isLive
+                ? allSections
+                      .map((section) => ({
+                          ...section,
+                          items: section.items.filter((item) => item.key !== 'setup'),
+                      }))
+                      .filter((section) => section.items.length > 0)
+                : allSections,
+        [allSections, isLive],
     );
 
     const reviewSources = useReviewQueueQuery(permitted.has('review'));
