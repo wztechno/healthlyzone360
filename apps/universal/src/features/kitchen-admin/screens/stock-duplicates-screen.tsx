@@ -113,61 +113,59 @@ function StockDuplicatesList() {
         );
     };
 
-    /** Merge into either side of a pair that both have history; the one that goes must hold nothing. */
+    /**
+     * Merge into either side of a pair that both have history; the one that goes must hold nothing.
+     * A shelf still holding stock gets one Count item, after the merges, however many pairs it is in.
+     */
     const rowActions = (row: DuplicateStockGroup): readonly MenuItem[] => {
         const testID = `kitchen-stock-duplicates-row-${row.shelves[0]?.id ?? row.name}`;
-        const merges: readonly MenuItem[] =
-            row.reason === 'both_have_history'
-                ? row.shelves.flatMap((keep) =>
-                      row.shelves
-                          .filter((drop) => drop.id !== keep.id)
-                          .flatMap((drop): MenuItem[] => {
-                              const held = Number(drop.quantity) !== 0;
-                              const mergeItem: MenuItem = {
-                                  key: `merge-${keep.id}`,
-                                  label: held
-                                      ? t('kitchen:stockDuplicates.mergeBlocked', {
-                                            code: drop.code,
-                                        })
-                                      : t('kitchen:stockDuplicates.mergeInto', {
-                                            code: keep.code,
-                                        }),
-                                  icon: 'layers',
-                                  disabled: held,
-                                  testID: `${testID}-merge-into-${keep.id}`,
-                                  onSelect: () => {
-                                      setMerging({ keep, drop });
-                                  },
-                              };
-                              if (!held) return [mergeItem];
-                              return [
-                                  mergeItem,
-                                  {
-                                      key: `count-${drop.id}`,
-                                      label: t('kitchen:stockDuplicates.countToZero', {
-                                          code: drop.code,
-                                      }),
-                                      icon: CATALOGUE_ROW_ICONS.edit,
-                                      testID: `${testID}-count-${drop.id}`,
-                                      onSelect: () => {
-                                          router.push(
-                                              withReturnTo(
-                                                  withQuery('/kitchen/stock', {
-                                                      shelf: drop.id,
-                                                      direction: 'count',
-                                                  }),
-                                                  '/kitchen/stock-duplicates',
-                                              ) as never,
-                                          );
-                                      },
-                                  },
-                              ];
-                          }),
-                  )
-                : [];
+        const isHeld = (shelf: Shelf) => Number(shelf.quantity) !== 0;
+        const pairs = row.reason === 'both_have_history';
+        const merges: readonly MenuItem[] = pairs
+            ? row.shelves.flatMap((keep) =>
+                  row.shelves
+                      .filter((drop) => drop.id !== keep.id)
+                      .map((drop): MenuItem => {
+                          const held = isHeld(drop);
+                          return {
+                              key: `merge-${keep.id}-${drop.id}`,
+                              label: held
+                                  ? t('kitchen:stockDuplicates.mergeBlocked', { code: drop.code })
+                                  : t('kitchen:stockDuplicates.mergeInto', { code: keep.code }),
+                              icon: 'layers',
+                              disabled: held,
+                              testID: `${testID}-merge-${keep.id}-${drop.id}`,
+                              onSelect: () => {
+                                  setMerging({ keep, drop });
+                              },
+                          };
+                      }),
+              )
+            : [];
+        // Shelves are distinct rows, so one item per held shelf is already deduplicated by id.
+        const counts: readonly MenuItem[] = pairs
+            ? row.shelves.filter(isHeld).map((shelf): MenuItem => ({
+                  key: `count-${shelf.id}`,
+                  label: t('kitchen:stockDuplicates.countToZero', { code: shelf.code }),
+                  icon: CATALOGUE_ROW_ICONS.edit,
+                  testID: `${testID}-count-${shelf.id}`,
+                  onSelect: () => {
+                      router.push(
+                          withReturnTo(
+                              withQuery('/kitchen/stock', {
+                                  shelf: shelf.id,
+                                  direction: 'count',
+                              }),
+                              '/kitchen/stock-duplicates',
+                          ) as never,
+                      );
+                  },
+              }))
+            : [];
 
         return [
             ...merges,
+            ...counts,
             {
                 key: 'keep-both',
                 label: t('kitchen:stockDuplicates.keepBoth'),

@@ -288,7 +288,10 @@ export function KitchenHomeScreen() {
     const exceptionsCount = useConsumptionExceptionCountQuery(
         permitted.has('consumption-exceptions'),
     );
-    const duplicates = useDuplicateStockQuery(permitted.has('stock-duplicates'));
+    // ponytail: the home reads this list only to count it, and every read is a heavy scan over each
+    // shelf; five minutes keeps the home from re-running it on every visit. Add
+    // `GET /inventory/duplicates/count` if the scan ever shows up as slow.
+    const duplicates = useDuplicateStockQuery(permitted.has('stock-duplicates'), 5 * 60_000);
     // Asked with the workspace's active branch, which may be null — the endpoint answers with
     // `count: null` for a manager who holds no branch rather than refusing.
     const shortfalls = useOrderDeskShortfallCountQuery(

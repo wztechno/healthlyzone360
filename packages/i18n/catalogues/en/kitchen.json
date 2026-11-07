@@ -5203,7 +5203,7 @@
         "keepBoth": "Keep both",
         "mergeInto": "Merge into {{code}}",
         "mergeBlocked": "Count {{code}} to zero to merge it",
-        "countToZero": "Count {{code}} to zero",
+        "countToZero": "Count {{code}} to zero in every branch",
         "mergeTitle": "Merge {{drop}} into {{keep}}?",
         "mergeBody": "{{drop}} leaves the stock lists and its history stays on its own row. Anything that used it draws on {{keep}} from now on.",
         "mergeConfirm": "Merge",

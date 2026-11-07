@@ -5910,7 +5910,7 @@
         "keepBoth": "أبقِ الاثنين",
         "mergeInto": "ادمج في {{code}}",
         "mergeBlocked": "اجعل كمية {{code}} صفراً بالجرد لدمجه",
-        "countToZero": "اجعل كمية {{code}} صفراً بالجرد",
+        "countToZero": "اجعل كمية {{code}} صفراً بالجرد في كل الفروع",
         "mergeTitle": "دمج {{drop}} في {{keep}}؟",
         "mergeBody": "يخرج {{drop}} من قوائم المخزون ويبقى سجله في صفه. كل ما كان يستخدمه يسحب من {{keep}} من الآن.",
         "mergeConfirm": "ادمج",

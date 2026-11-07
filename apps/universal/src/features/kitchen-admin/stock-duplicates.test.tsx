@@ -46,9 +46,13 @@ describe('the duplicate stock list', () => {
 
         const row = 'kitchen-stock-duplicates-row-shelf-1';
         // Keeping RICE-1 needs RICE-2 counted out first: the merge says so and cannot be chosen.
-        expect(screen.getByTestId(`${row}-merge-into-shelf-1`)).toBeDisabled();
-        expect(screen.getByTestId(`${row}-merge-into-shelf-1`)).toHaveTextContent(
+        expect(screen.getByTestId(`${row}-merge-shelf-1-shelf-2`)).toBeDisabled();
+        expect(screen.getByTestId(`${row}-merge-shelf-1-shelf-2`)).toHaveTextContent(
             /Count RICE-2 to zero to merge it/,
+        );
+        // The count is on every branch, because the merge needs every branch at zero.
+        expect(screen.getByTestId(`${row}-count-shelf-2`)).toHaveTextContent(
+            /Count RICE-2 to zero in every branch/,
         );
 
         await act(async () => {
@@ -57,5 +61,42 @@ describe('the duplicate stock list', () => {
         expect(routerMock.__push).toHaveBeenCalledWith(
             '/kitchen/stock?shelf=shelf-2&direction=count&returnTo=%252Fkitchen%252Fstock-duplicates',
         );
+    });
+
+    it('offers one Count per held shelf in a group of three, whatever the pairs', async () => {
+        const three: DuplicateStockGroup = {
+            ...BLOCKED,
+            shelves: [
+                ...BLOCKED.shelves,
+                {
+                    id: 'shelf-3',
+                    code: 'RICE-3',
+                    unitCode: 'kg',
+                    quantity: '0.0000',
+                    hasHistory: true,
+                },
+            ],
+        };
+        await renderStubScreen(<StockDuplicatesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenOps: { listDuplicateStock: async () => [three] } },
+        });
+
+        const trigger = 'kitchen-stock-duplicates-table-row-Basmati rice-actions-trigger';
+        await waitFor(() => {
+            expect(screen.getByTestId(trigger)).toBeTruthy();
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(trigger));
+        });
+
+        const row = 'kitchen-stock-duplicates-row-shelf-1';
+        // Six ordered pairs, each its own item: dropping the empty RICE-3 is offered, the rest wait.
+        expect(screen.getByTestId(`${row}-merge-shelf-1-shelf-3`)).not.toBeDisabled();
+        expect(screen.getByTestId(`${row}-merge-shelf-3-shelf-2`)).toBeDisabled();
+        // RICE-2 is a drop under both RICE-1 and RICE-3, yet it gets one Count; RICE-3 holds nothing.
+        expect(screen.getAllByTestId(`${row}-count-shelf-2`)).toHaveLength(1);
+        expect(screen.getAllByTestId(`${row}-count-shelf-1`)).toHaveLength(1);
+        expect(screen.queryByTestId(`${row}-count-shelf-3`)).toBeNull();
     });
 });

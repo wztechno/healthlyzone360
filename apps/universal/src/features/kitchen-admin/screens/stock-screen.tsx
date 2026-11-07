@@ -731,7 +731,12 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
         return (
             <StockMovementEditor
                 row={{ item: editing.item, level, state: levelState(level) }}
-                initialDirection={direction === 'count' ? 'count' : undefined}
+                // Only the shelf the link sent opens on Count; any other row opened later does not.
+                initialDirection={
+                    direction === 'count' && String(editing.item.id) === shelfId
+                        ? 'count'
+                        : undefined
+                }
                 onDone={() => {
                     if (back.returnTo === null) setEditing(null);
                     else back.leave();

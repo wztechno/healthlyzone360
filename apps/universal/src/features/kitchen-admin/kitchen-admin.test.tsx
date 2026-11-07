@@ -696,6 +696,25 @@ describe('the kitchen hub', () => {
         expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/stock-duplicates');
     });
 
+    it('never runs the duplicate scan for a reader who may not see stock', async () => {
+        const { repositories } = await renderStubScreen(<KitchenHomeScreen />, {
+            session: kitchenManagerSession({
+                activeContext: testActiveContext({
+                    permissions: KITCHEN_MANAGER_PERMISSIONS.filter(
+                        (permission) => !permission.startsWith('inventory.'),
+                    ),
+                }),
+            }),
+            repositories: hubRepositories([]),
+        });
+
+        await untilVisible('kitchen-home-screen');
+        await untilVisible('kitchen-family-ingredients-total');
+        expect(screen.queryByTestId('kitchen-home-attention-stock-duplicates')).toBeNull();
+        expect(screen.queryByTestId('kitchen-family-stock-duplicates')).toBeNull();
+        expect(repositories.kitchenOps.listDuplicateStock).not.toHaveBeenCalled();
+    });
+
     it('drops the Setup pill once the kitchen is live', async () => {
         const base = hubRepositories([]);
         await renderStubScreen(<KitchenHomeScreen />, {

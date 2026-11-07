@@ -1267,16 +1267,15 @@ export function useCreateBranchMutation(): UseMutationResult<void, unknown, Crea
 /** The shelves repeating a name that need a person. */
 export function useDuplicateStockQuery(
     enabled = true,
+    staleTime?: number,
 ): UseQueryResult<readonly DuplicateStockGroup[]> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.kitchenOps.duplicateStock(),
         enabled: enabled && repositories !== null,
-        // ponytail: the kitchen home reads this list only to count it, and every read is a heavy
-        // scan over each shelf; five minutes keeps the home from re-running it on every visit. Add
-        // `GET /inventory/duplicates/count` if the scan ever shows up as slow.
-        staleTime: 5 * 60_000,
+        // The home passes its own longer staleTime; the duplicates page keeps the client default.
+        ...(staleTime === undefined ? {} : { staleTime }),
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOps.listDuplicateStock();
