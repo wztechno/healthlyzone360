@@ -615,6 +615,24 @@ function HowItWorks() {
     );
 }
 
+/*
+ * On the web a running bar fills with CSS keyframes. React Native Web has no native driver, and a
+ * `width` driven by `Animated` wrote the bar's style from JavaScript on every frame of every step,
+ * for as long as the page was open. A scale is also cheaper for the browser than a width.
+ */
+const WEB_FILL = StyleSheet.create({
+    bar: { willChange: 'transform' },
+    running: {
+        // @ts-expect-error -- web-only style keys, absent from React Native's style types.
+        animationKeyframes: [
+            { '0%': { transform: 'scaleX(0)' }, '100%': { transform: 'scaleX(1)' } },
+        ],
+        animationDuration: `${String(STEP_MS)}ms`,
+        animationTimingFunction: 'linear',
+        animationFillMode: 'both',
+    },
+});
+
 /** The bar along a step's foot: empty ahead, full behind, running on the current one. */
 function StepBar({
     state,
@@ -623,8 +641,11 @@ function StepBar({
     readonly state: 'empty' | 'full' | 'running';
     readonly runKey: number;
 }) {
+    const { axisSign } = useMotion();
+    const web = Platform.OS === 'web';
     const [fill] = useState(() => new Animated.Value(0));
     useEffect(() => {
+        if (web) return undefined;
         if (state !== 'running') {
             fill.setValue(state === 'full' ? 1 : 0);
             return undefined;
@@ -640,7 +661,28 @@ function StepBar({
         return () => {
             run.stop();
         };
-    }, [fill, runKey, state]);
+    }, [fill, runKey, state, web]);
+    if (web) {
+        // The fill is a CSS scale on the web, keyed so each new run replays it (see `WEB_FILL`).
+        return (
+            <View aria-hidden className="absolute bottom-0 end-0 start-0 h-1 bg-surface-base">
+                <View
+                    key={runKey}
+                    className="h-full w-full bg-surface-brand"
+                    style={
+                        // react-native-web keys, outside React Native's style types.
+                        [
+                            WEB_FILL.bar,
+                            { transformOrigin: axisSign === 1 ? 'left' : 'right' },
+                            state === 'running'
+                                ? WEB_FILL.running
+                                : { transform: `scaleX(${state === 'full' ? '1' : '0'})` },
+                        ] as unknown as StyleProp<ViewStyle>
+                    }
+                />
+            </View>
+        );
+    }
     return (
         <View aria-hidden className="absolute bottom-0 end-0 start-0 h-1 bg-surface-base">
             <Animated.View

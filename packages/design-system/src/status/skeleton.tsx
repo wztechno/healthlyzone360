@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, View } from 'react-native';
+import { Animated, Easing, Platform, StyleSheet, View } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 
 import { useReducedMotion } from '../hooks/use-reduced-motion.ts';
 import { AnimatedView } from '../internal/animated-view.ts';
@@ -38,6 +39,24 @@ const ROUNDED_CLASS = {
 } as const;
 const TONE_CLASS = { sunken: 'bg-surface-sunken', line: 'bg-stroke-subtle' } as const;
 
+/*
+ * On the web the pulse is a CSS animation: React Native Web has no native driver, so an `Animated`
+ * loop would write every block's opacity from JavaScript on every frame, for as long as a page is
+ * loading. Same curve and beat as the native loop below.
+ */
+const WEB_PULSE = StyleSheet.create({
+    pulse: {
+        // @ts-expect-error -- web-only style keys, absent from React Native's style types.
+        animationKeyframes: [
+            { '0%': { opacity: 0.4 }, '50%': { opacity: 0.9 }, '100%': { opacity: 0.4 } },
+        ],
+        animationDuration: '1400ms',
+        animationTimingFunction: 'ease-in-out',
+        animationIterationCount: 'infinite',
+    },
+}).pulse as StyleProp<ViewStyle>;
+const WEB = Platform.OS === 'web';
+
 /**
  * Skeleton placeholder.
  *
@@ -66,6 +85,8 @@ export function Skeleton({
             pulse.setValue(0.6);
             return;
         }
+        // The shimmer carries its own motion, and the web pulses in CSS: no loop to run.
+        if (variant === 'shimmer' || WEB) return;
 
         const loop = Animated.loop(
             Animated.sequence([
@@ -87,7 +108,7 @@ export function Skeleton({
         return () => {
             loop.stop();
         };
-    }, [pulse, reducedMotion]);
+    }, [pulse, reducedMotion, variant]);
 
     const classes = cx(
         TONE_CLASS[tone],
@@ -133,7 +154,7 @@ export function Skeleton({
             importantForAccessibility="no-hide-descendants"
             aria-hidden
             className={classes}
-            style={{ opacity: pulse }}
+            style={WEB ? WEB_PULSE : { opacity: pulse }}
         />
     );
 }
