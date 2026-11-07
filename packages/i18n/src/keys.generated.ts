@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10459 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10461 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -5269,6 +5269,7 @@ export interface NamespaceKeys {
     | 'ops.dailyClose.totalNote'
     | 'ops.dishMargins.asOf'
     | 'ops.dishMargins.belowTarget'
+    | 'ops.dishMargins.changePrice'
     | 'ops.dishMargins.channel.b2b'
     | 'ops.dishMargins.channel.b2c'
     | 'ops.dishMargins.columnChannel'
@@ -5283,6 +5284,7 @@ export interface NamespaceKeys {
     | 'ops.dishMargins.marginValue'
     | 'ops.dishMargins.noTarget'
     | 'ops.dishMargins.onTarget'
+    | 'ops.dishMargins.openRecipe'
     | 'ops.dishMargins.targetNote'
     | 'ops.dishMargins.withheld.cost_incomplete'
     | 'ops.dishMargins.withheld.currency_mismatch'
@@ -15746,6 +15748,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.dailyClose.totalNote',
   'kitchen:ops.dishMargins.asOf',
   'kitchen:ops.dishMargins.belowTarget',
+  'kitchen:ops.dishMargins.changePrice',
   'kitchen:ops.dishMargins.channel.b2b',
   'kitchen:ops.dishMargins.channel.b2c',
   'kitchen:ops.dishMargins.columnChannel',
@@ -15760,6 +15763,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.dishMargins.marginValue',
   'kitchen:ops.dishMargins.noTarget',
   'kitchen:ops.dishMargins.onTarget',
+  'kitchen:ops.dishMargins.openRecipe',
   'kitchen:ops.dishMargins.targetNote',
   'kitchen:ops.dishMargins.withheld.cost_incomplete',
   'kitchen:ops.dishMargins.withheld.currency_mismatch',

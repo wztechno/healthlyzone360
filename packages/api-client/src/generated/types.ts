@@ -10638,6 +10638,10 @@ export type DishMargin = {
     catalogue_item_id: Uuid;
     name_en: string;
     name_ar: string | null;
+    /**
+     * The recipe kind the dish is sold as. Products and plans are never priced here.
+     */
+    item_type: 'meal' | 'sauce' | 'dressing' | 'frozen_meal';
     channel: 'b2c' | 'b2b';
     price_amount: string | null;
     cost_amount: string | null;

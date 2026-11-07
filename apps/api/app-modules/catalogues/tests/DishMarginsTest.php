@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
+use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Jobs\RefreshDishMargins;
 use Healthy360\Catalogues\Models\Catalogue;
 use Healthy360\Catalogues\Models\CatalogueItem;
@@ -235,6 +236,17 @@ it('serves the list, lowest first, with the flag read against the target as it s
         ->assertJsonPath('data.target_percent', 30)
         ->assertJsonPath('data.dishes.0.margin_percent', '20.00')
         ->assertJsonPath('data.dishes.0.is_below_target', true);
+});
+
+it('names the kind each dish is sold as, so its row opens the right recipe', function (): void {
+    $this->item->forceFill(['item_type' => CatalogueItemType::Sauce])->save();
+    costedAt($this, '8.000000');
+    refreshMargins($this);
+
+    $this->getJson('/api/v1/catalogue/reports/dish-margins', PricingWorld::headers($this->tenant))
+        ->assertOk()
+        ->assertJsonPath('data.dishes.0.catalogue_item_id', (string) $this->item->getKey())
+        ->assertJsonPath('data.dishes.0.item_type', 'sauce');
 });
 
 it('is closed to a member without the cost code', function (): void {

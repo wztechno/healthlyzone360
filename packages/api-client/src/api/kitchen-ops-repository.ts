@@ -2075,6 +2075,7 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                     id: dish.id,
                     catalogueItemId: dish.catalogue_item_id,
                     name: { en: dish.name_en, ar: dish.name_ar ?? '' },
+                    itemType: dish.item_type,
                     channel: dish.channel,
                     priceAmount: dish.price_amount,
                     costAmount: dish.cost_amount,

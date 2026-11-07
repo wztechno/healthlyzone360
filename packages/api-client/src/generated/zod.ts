@@ -6762,6 +6762,12 @@ export const zDishMargin = z.object({
     catalogue_item_id: zUuid,
     name_en: z.string(),
     name_ar: z.string().nullable(),
+    item_type: z.enum([
+        'meal',
+        'sauce',
+        'dressing',
+        'frozen_meal'
+    ]),
     channel: z.enum(['b2c', 'b2b']),
     price_amount: z.string().nullable(),
     cost_amount: z.string().nullable(),

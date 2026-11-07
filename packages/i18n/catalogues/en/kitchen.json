@@ -2090,7 +2090,9 @@
                 "no_price": "Withheld: no list price",
                 "cost_incomplete": "Withheld: cost incomplete",
                 "currency_mismatch": "Withheld: two currencies"
-            }
+            },
+            "openRecipe": "Open recipe",
+            "changePrice": "Change price"
         }
     },
     "kds": {

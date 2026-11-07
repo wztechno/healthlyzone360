@@ -21,7 +21,7 @@ import type {
     UserId,
 } from '@healthy360/domain-types';
 
-import type { LocalisedText } from './kitchen-admin.ts';
+import type { LocalisedText, RecipeSellerKind } from './kitchen-admin.ts';
 import type { CookingTemperature } from './temperature-logs.ts';
 import type { CursorPage, CursorPageRequest, OffsetPageRequest } from './pagination.ts';
 
@@ -933,6 +933,8 @@ export interface DishMargin {
     readonly id: string;
     readonly catalogueItemId: string;
     readonly name: LocalisedText;
+    /** The kind the dish is sold as — the `?kind=` its recipe opens under. */
+    readonly itemType: RecipeSellerKind;
     readonly channel: 'b2c' | 'b2b';
     readonly priceAmount: string | null;
     readonly costAmount: string | null;

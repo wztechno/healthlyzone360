@@ -17,7 +17,8 @@ use Illuminate\Http\JsonResponse;
  * Behind `recipe.view_costs_organisation`, the code the technical sheet's money
  * takes. `is_below_target` reads the target as it stands now, so moving the target
  * moves the flag at once; the figures are as of the last overnight run, and
- * `computed_at` says when.
+ * `computed_at` says when. `item_type` is the recipe kind the page's row links open the
+ * recipe under.
  */
 final class DishMarginIndexController
 {
@@ -40,6 +41,8 @@ final class DishMarginIndexController
                 'catalogue_item_id' => $row->catalogue_item_id,
                 'name_en' => (string) $row->catalogueItem?->name_en,
                 'name_ar' => $row->catalogueItem?->name_ar,
+                // meal, sauce, dressing or frozen_meal: refresh() never prices a product or a plan.
+                'item_type' => $row->catalogueItem?->item_type->value,
                 'channel' => $row->channel,
                 'price_amount' => $row->price_amount === null ? null : (string) $row->price_amount,
                 'cost_amount' => $row->cost_amount === null ? null : (string) $row->cost_amount,

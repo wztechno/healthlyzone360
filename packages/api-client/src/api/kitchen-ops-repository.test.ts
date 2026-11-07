@@ -158,3 +158,48 @@ describe('getKitchenAnalytics', () => {
         });
     });
 });
+
+describe('getDishMargins', () => {
+    it('carries the kind each dish is sold as, so its row opens the right recipe', async () => {
+        const transport = createTransport({
+            baseUrl: 'https://api.example',
+            tokenStore: createMemoryTokenStore('token'),
+            fetch: async () =>
+                new Response(
+                    JSON.stringify({
+                        data: {
+                            target_percent: 30,
+                            computed_at: '2026-11-03T02:00:00Z',
+                            dishes: [
+                                {
+                                    id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e9002',
+                                    catalogue_item_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e9001',
+                                    name_en: 'Tahini sauce',
+                                    name_ar: null,
+                                    item_type: 'sauce',
+                                    channel: 'b2b',
+                                    price_amount: '10.000000',
+                                    cost_amount: '8.000000',
+                                    currency_code: 'USD',
+                                    margin_percent: '20.00',
+                                    withheld_reason: null,
+                                    is_below_target: true,
+                                },
+                            ],
+                        },
+                        meta: {},
+                    }),
+                    { status: 200 },
+                ),
+        });
+
+        const report = await createApiKitchenOpsRepository(transport).getDishMargins();
+
+        expect(report.dishes[0]).toMatchObject({
+            catalogueItemId: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e9001',
+            name: { en: 'Tahini sauce', ar: '' },
+            itemType: 'sauce',
+            channel: 'b2b',
+        });
+    });
+});

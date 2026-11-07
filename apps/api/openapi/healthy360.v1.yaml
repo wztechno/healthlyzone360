@@ -43366,7 +43366,7 @@ components:
 
     DishMargin:
       type: object
-      required: [id, catalogue_item_id, name_en, name_ar, channel, price_amount, cost_amount, currency_code, margin_percent, withheld_reason, is_below_target]
+      required: [id, catalogue_item_id, name_en, name_ar, item_type, channel, price_amount, cost_amount, currency_code, margin_percent, withheld_reason, is_below_target]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -43376,6 +43376,10 @@ components:
           type: string
         name_ar:
           type: [string, 'null']
+        item_type:
+          type: string
+          enum: [meal, sauce, dressing, frozen_meal]
+          description: The recipe kind the dish is sold as. Products and plans are never priced here.
         channel:
           type: string
           enum: [b2c, b2b]

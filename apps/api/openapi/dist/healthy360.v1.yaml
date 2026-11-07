@@ -47292,6 +47292,7 @@ components:
         - catalogue_item_id
         - name_en
         - name_ar
+        - item_type
         - channel
         - price_amount
         - cost_amount
@@ -47310,6 +47311,14 @@ components:
           type:
             - string
             - 'null'
+        item_type:
+          type: string
+          enum:
+            - meal
+            - sauce
+            - dressing
+            - frozen_meal
+          description: The recipe kind the dish is sold as. Products and plans are never priced here.
         channel:
           type: string
           enum:

@@ -2361,7 +2361,9 @@
                 "no_price": "محجوب: لا سعر معلن",
                 "cost_incomplete": "محجوب: التكلفة غير مكتملة",
                 "currency_mismatch": "محجوب: عملتان مختلفتان"
-            }
+            },
+            "openRecipe": "فتح الوصفة",
+            "changePrice": "تغيير السعر"
         }
     },
     "kds": {
