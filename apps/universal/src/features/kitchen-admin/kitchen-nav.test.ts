@@ -46,6 +46,18 @@ describe('kitchen nav', () => {
         expect(kitchenNavSections(cook).map((section) => section.group)).not.toContain('access');
     });
 
+    it('shows a cashier who may only settle cash the Cash page', () => {
+        const cashier: AccessState = {
+            ...managerState,
+            permissions: new Set(['order.settle_cash_organisation']),
+        };
+
+        const sections = kitchenNavSections(cashier);
+
+        expect(sections.map((section) => section.group)).toEqual(['orderDesk']);
+        expect(sections[0]?.items.map((item) => item.key)).toEqual(['cash']);
+    });
+
     it('shows a permissions administrator the access group and nothing else', () => {
         const administrator: AccessState = {
             ...managerState,

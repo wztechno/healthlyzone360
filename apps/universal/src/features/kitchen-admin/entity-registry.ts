@@ -1069,5 +1069,11 @@ export function permittedFamilies(
     state: AccessState,
     families: readonly EntityFamily[] = ENTITY_FAMILIES,
 ): readonly EntityFamily[] {
-    return families.filter((family) => can(state, family.permission));
+    // A family is also open to whoever holds an extra on its own page: the Cash page serves
+    // settle-cash holders under the cash report's code.
+    return families.filter(
+        (family) =>
+            can(state, family.permission) ||
+            PAGE_EXTRAS.some((extra) => extra.href === family.href && can(state, extra.permission)),
+    );
 }
