@@ -621,7 +621,8 @@ function HowItWorks() {
  * for as long as the page was open. A scale is also cheaper for the browser than a width.
  */
 const WEB_FILL = StyleSheet.create({
-    bar: { willChange: 'transform' },
+    // `willChange` is react-native-web's; not every React Native type version declares it.
+    bar: { willChange: 'transform' } as unknown as ViewStyle,
     running: {
         // @ts-expect-error -- web-only style keys, absent from React Native's style types.
         animationKeyframes: [
