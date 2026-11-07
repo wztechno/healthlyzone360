@@ -100,14 +100,14 @@ final class EscalateUnacceptedOrders implements ShouldQueue
      */
     private function tradingKitchensWithPlacedOrders(): array
     {
-        return Organisation::query()
+        return array_values(Organisation::query()
             ->whereIn('id', Order::query()->where('status', OrderStatus::Placed->value)->select('organisation_id'))
             ->orderBy('id')
             ->get(['id', 'status'])
             ->filter(static fn (Organisation $organisation): bool => $organisation->status->isTrading())
             ->map(static fn (Organisation $organisation): string => (string) $organisation->getKey())
             ->values()
-            ->all();
+            ->all());
     }
 
     /**

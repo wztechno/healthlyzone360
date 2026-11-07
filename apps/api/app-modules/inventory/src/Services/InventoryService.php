@@ -172,12 +172,14 @@ final readonly class InventoryService
      * month's waste has a figure and the basis comes down with the shelf. Left
      * unvalued, never free, when no cost is held.
      *
-     * @param  numeric-string  $quantity  positive; the ledger records it negative
+     * @param  string  $quantity  positive; the ledger records it negative. Narrowed here, as
+     *                            {@see recordMovement()} narrows its delta.
      *
      * @throws InsufficientStock when it would take more than is on hand
      */
     public function recordWaste(string $organisationId, string $branchId, string $stockItemId, string $quantity, string $notes): StockMovement
     {
+        $quantity = $this->numeric($quantity);
         $item = StockItem::withoutTenancy()->where('organisation_id', $organisationId)->whereKey($stockItemId)->first();
         $unit = $item?->unit_id === null ? null : MeasurementUnit::query()->find($item->unit_id);
 

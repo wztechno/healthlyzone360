@@ -20,6 +20,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use RuntimeException;
 
 /**
  * The temperature log: one read of a month, and the writes that fill it.
@@ -232,8 +233,16 @@ final class TemperatureLogController
 
         $unit->name = $validated['name'];
         $unit->kind = $validated['kind'];
-        $unit->min_c = (string) $validated['min_c'];
-        $unit->max_c = (string) $validated['max_c'];
+        // `numeric` above has checked both; this narrows them for the decimal columns.
+        $min = (string) $validated['min_c'];
+        $max = (string) $validated['max_c'];
+
+        if (! is_numeric($min) || ! is_numeric($max)) {
+            throw new RuntimeException('A temperature limit passed validation without being a number.');
+        }
+
+        $unit->min_c = $min;
+        $unit->max_c = $max;
         $unit->active = $validated['active'] ?? true;
         $unit->save();
     }

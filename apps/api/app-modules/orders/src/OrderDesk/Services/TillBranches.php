@@ -26,6 +26,9 @@ final readonly class TillBranches
 {
     /**
      * The till branch of an order aliased `$orders`. Binds the first branch.
+     *
+     * @param  literal-string  $orders
+     * @return literal-string
      */
     public static function ofOrder(string $orders = 'orders'): string
     {
@@ -35,6 +38,9 @@ final readonly class TillBranches
     /**
      * Whether the order behind `$orderIdColumn` belongs to a till. Binds the first
      * branch, then the till's branch.
+     *
+     * @param  literal-string  $orderIdColumn
+     * @return literal-string
      */
     public static function orderIn(string $orderIdColumn): string
     {
@@ -44,6 +50,9 @@ final readonly class TillBranches
     /**
      * Whether a row with its own nullable `branch_id` belongs to a till. Binds the
      * first branch, then the till's branch.
+     *
+     * @param  literal-string  $branchColumn
+     * @return literal-string
      */
     public static function rowIn(string $branchColumn): string
     {
@@ -66,13 +75,13 @@ final readonly class TillBranches
      */
     public function all(string $organisationId): array
     {
-        return OrganisationBranch::withoutTenancy()
+        return array_values(OrganisationBranch::withoutTenancy()
             ->where('organisation_id', $organisationId)
             ->orderBy('created_at')
             ->orderBy('id')
             ->get(['id', 'name'])
             ->map(static fn (OrganisationBranch $branch): array => ['id' => (string) $branch->getKey(), 'name' => $branch->name])
             ->values()
-            ->all();
+            ->all());
     }
 }

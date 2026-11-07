@@ -156,7 +156,17 @@ final readonly class DuplicateStockShelves
                 actorUserId: $actorUserId,
                 subjectType: 'stock_item',
                 subjectId: (string) $keep->getKey(),
-                metadata: ['merged_stock_item_id' => $dropId, 'merged_code' => $drop->code, 'quantities_by_branch' => $moved],
+                // Flat, as the audit contract asks, and no key containing "code", which its
+                // redaction drops: the merged shelf's handle is its reference.
+                metadata: [
+                    'merged_stock_item_id' => $dropId,
+                    'merged_reference' => $drop->code,
+                    'quantities_by_branch' => array_map(
+                        static fn (string $branch, string $quantity): string => $branch.': '.$quantity,
+                        array_keys($moved),
+                        array_values($moved),
+                    ),
+                ],
             );
         });
     }
@@ -206,7 +216,7 @@ final readonly class DuplicateStockShelves
             return 'different_units';
         }
 
-        if ($shelves->count() !== 2 || ! $this->isCopyPair($shelves->values()->all(), $ingredients)) {
+        if ($shelves->count() !== 2 || ! $this->isCopyPair(array_values($shelves->all()), $ingredients)) {
             return 'not_a_copy';
         }
 

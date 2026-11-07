@@ -68,13 +68,13 @@ final readonly class ServingBranches
      */
     private function activeBranches(string $organisationId): array
     {
-        return OrganisationBranch::withoutTenancy()
+        return array_values(OrganisationBranch::withoutTenancy()
             ->where('organisation_id', $organisationId)
             ->where('status', BranchStatus::Active->value)
             ->orderBy('created_at')
             ->orderBy('id')
             ->pluck('id')
             ->map(static fn (mixed $id): string => (string) $id)
-            ->all();
+            ->all());
     }
 }

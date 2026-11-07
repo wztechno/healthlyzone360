@@ -76,7 +76,7 @@ final readonly class BuyerAllergenCheckAdapter implements BuyerAllergenCheck
             return [];
         }
 
-        return CustomerAllergenDeclaration::query()
+        return array_values(CustomerAllergenDeclaration::query()
             ->where('customer_dietary_profile_id', $profileId)
             ->orderBy('allergen_code')
             ->get()
@@ -86,6 +86,6 @@ final readonly class BuyerAllergenCheckAdapter implements BuyerAllergenCheck
                 'notes' => $declaration->notes,
             ])
             ->values()
-            ->all();
+            ->all());
     }
 }

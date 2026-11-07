@@ -117,7 +117,7 @@ final class StockActivityIndexController
      */
     private function waste(string $organisationId, CarbonImmutable $from, CarbonImmutable $to): array
     {
-        return $this->movements($organisationId, $from, $to)
+        return array_values($this->movements($organisationId, $from, $to)
             ->whereNotNull('m.cost_amount')
             ->where(static function (Builder $query): void {
                 $query->where('m.reason', 'waste')
@@ -142,6 +142,6 @@ final class StockActivityIndexController
                 'amount_minor' => (int) $row->amount_minor,
             ])
             ->values()
-            ->all();
+            ->all());
     }
 }

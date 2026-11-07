@@ -10,6 +10,7 @@ use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Models\StockMovement;
 use Healthy360\Inventory\Models\StockReservation;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 /**
  * What a quality hold does to the shelf: the stock a held delivery or batch
@@ -71,7 +72,7 @@ final readonly class StockQuarantine
                     ->lockForUpdate()
                     ->value('quantity');
 
-                $onHand = (string) ($onHand ?? '0');
+                $onHand = $this->numeric((string) ($onHand ?? '0'));
                 $quantity = bccomp($onHand, $shelf['quantity'], self::SCALE) < 0 ? $onHand : $shelf['quantity'];
 
                 if (bccomp($quantity, '0', self::SCALE) <= 0) {
@@ -201,21 +202,21 @@ final readonly class StockQuarantine
     /**
      * Held, on hand and free (on hand less held), summed across branches.
      *
-     * @return array{0: string, 1: string, 2: string}
+     * @return array{0: numeric-string, 1: numeric-string, 2: numeric-string}
      */
     private function shelf(string $organisationId, string $stockItemId): array
     {
-        $held = number_format((float) StockReservation::withoutTenancy()
+        $held = $this->numeric(number_format((float) StockReservation::withoutTenancy()
             ->where('organisation_id', $organisationId)
             ->where('stock_item_id', $stockItemId)
             ->where('holder_type', StockReservation::HOLDER_QUALITY_HOLD)
             ->where('status', ReservationStatus::Open->value)
-            ->sum('quantity'), self::SCALE, '.', '');
+            ->sum('quantity'), self::SCALE, '.', ''));
 
-        $onHand = number_format((float) StockLevel::withoutTenancy()
+        $onHand = $this->numeric(number_format((float) StockLevel::withoutTenancy()
             ->where('organisation_id', $organisationId)
             ->where('stock_item_id', $stockItemId)
-            ->sum('quantity'), self::SCALE, '.', '');
+            ->sum('quantity'), self::SCALE, '.', ''));
 
         return [$held, $onHand, bcsub($onHand, $held, self::SCALE)];
     }
@@ -260,5 +261,21 @@ final readonly class StockQuarantine
         }
 
         return array_values($shelves);
+    }
+
+    /**
+     * bcmath handed a non-numeric string returns zero rather than erroring,
+     * which would read a malformed quantity as an empty shelf. This guard makes
+     * that a loud failure instead, as `InventoryService::numeric()` does.
+     *
+     * @return numeric-string
+     */
+    private function numeric(string $value): string
+    {
+        if (! is_numeric($value)) {
+            throw new RuntimeException("Stock quarantine read a non-numeric quantity [{$value}].");
+        }
+
+        return $value;
     }
 }

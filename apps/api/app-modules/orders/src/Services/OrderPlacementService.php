@@ -1232,7 +1232,7 @@ final readonly class OrderPlacementService
         // A line the order already holds for this day keeps its place. The
         // calendar is about what can still be sold, and a kitchen that sold out
         // after taking this order has not un-taken it.
-        $heldItemIds = $dateChanged ? [] : $stored->pluck('catalogue_item_id')->all();
+        $heldItemIds = $dateChanged ? [] : array_values($stored->pluck('catalogue_item_id')->map(static fn (mixed $id): string => (string) $id)->all());
 
         [$snapshots, $lineReasons] = $this->composedSnapshots($placement, $effectiveDate, $heldItemIds);
         $reasons = [...$reasons, ...$lineReasons];
@@ -1352,7 +1352,7 @@ final readonly class OrderPlacementService
         $this->snapshotAllergy(
             $locked,
             $account,
-            $locked->lines()->get()->all(),
+            array_values($locked->lines()->get()->all()),
             $draft->allergenConflictsAcknowledged,
             $this->context->userId(),
             $now,

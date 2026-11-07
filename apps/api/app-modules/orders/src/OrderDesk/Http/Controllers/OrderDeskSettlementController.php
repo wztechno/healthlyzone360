@@ -108,7 +108,7 @@ final class OrderDeskSettlementController
             ->whereIn('id', $settlements->pluck('branch_id')->filter()->unique()->values())
             ->pluck('name', 'id');
 
-        return $settlements->map(fn (CashSettlement $settlement): array => [
+        return array_values($settlements->map(fn (CashSettlement $settlement): array => [
             'id' => (string) $settlement->getKey(),
             'kind' => $settlement->kind,
             'party_name' => $settlement->courier_name ?? $names[$settlement->driver_user_id] ?? null,
@@ -125,6 +125,6 @@ final class OrderDeskSettlementController
             'recorded_at' => $settlement->recorded_at->toIso8601String(),
             'signed_off_by_name' => $settlement->signed_off_by === null ? null : ($names[$settlement->signed_off_by] ?? null),
             'signed_off_at' => $settlement->signed_off_at?->toIso8601String(),
-        ])->values()->all();
+        ])->values()->all());
     }
 }

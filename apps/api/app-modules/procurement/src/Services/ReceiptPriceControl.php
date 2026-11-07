@@ -56,7 +56,7 @@ final readonly class ReceiptPriceControl
         }
 
         $organisationId = $receipt->organisation_id;
-        $stockItemIds = $lines->pluck('stock_item_id')->unique()->values()->all();
+        $stockItemIds = array_values($lines->pluck('stock_item_id')->map(static fn (mixed $id): string => (string) $id)->unique()->all());
         $last = $this->lastPrices->perItem($organisationId, $stockItemIds, $receipt->received_at);
         $stockUnits = StockItem::query()->whereKey($stockItemIds)->pluck('unit_id', 'id');
         $limit = $this->settings->for($organisationId)->price_approval_above_percent;
@@ -95,7 +95,7 @@ final readonly class ReceiptPriceControl
             $receipt->price_approval_status = 'pending';
 
             $this->alerts->send(StaffAlertType::PriceApproval, $organisationId, (string) $receipt->getKey(), [
-                'order_number' => $receipt->supplier?->name_en ?? (string) $receipt->received_on?->toDateString(),
+                'order_number' => $receipt->supplier->name_en ?? (string) $receipt->received_on?->toDateString(),
             ]);
         }
     }
