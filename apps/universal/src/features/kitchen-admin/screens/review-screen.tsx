@@ -213,8 +213,8 @@ function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
         value: t(SCOPE_LABELS[scope]),
     });
 
-    if (viewingItem !== null) {
-        return (
+    const viewPopup =
+        viewingItem === null ? null : (
             <ReviewWindow
                 item={viewingItem}
                 onBack={() => {
@@ -223,7 +223,6 @@ function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
                 onOpen={open}
             />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-review-screen">
@@ -370,6 +369,8 @@ function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
                     )}
                 </Stack>
             )}
+
+            {viewPopup}
         </Cascade>
     );
 }

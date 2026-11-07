@@ -367,8 +367,8 @@ function QualityCheckList({
 
     const viewingAction = viewing === null ? null : lifecycleAction(viewing);
 
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-qc-view"
                 onBack={() => {
@@ -419,7 +419,6 @@ function QualityCheckList({
                       })}
             />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-qc-screen">
@@ -540,6 +539,8 @@ function QualityCheckList({
                     />
                 </Stack>
             )}
+
+            {viewPopup}
         </Cascade>
     );
 }

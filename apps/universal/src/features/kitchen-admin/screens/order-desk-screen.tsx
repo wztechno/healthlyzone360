@@ -27,7 +27,6 @@ import {
     FilterChip,
     Icon,
     Inline,
-    IssueTrayFrame,
     SegmentedControl,
     Select,
     Skeleton,
@@ -35,10 +34,9 @@ import {
     TableSkeleton,
     Text,
     TextInputField,
-    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type { IssueCardItem, IssueTrayContent, MenuItem } from '@healthy360/design-system';
+import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -71,6 +69,7 @@ import {
 } from '../entity-registry.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
+import type { RecordAction } from '../catalogue/record-popup.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import { KitchenPauseBanner, KitchenPauseButton } from '../order-desk/kitchen-pause.tsx';
@@ -104,7 +103,6 @@ import { DeskAmount, DeskFact } from '../order-desk/desk-parts.tsx';
 import { DueBadge, PaymentCell } from '../order-desk/queue-cells.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
-import { useNudgeOnRefusal } from '../tray-nudge.ts';
 
 /**
  * `/kitchen/order-desk` — the open order book in the order somebody at a desk has to work it.
@@ -1082,11 +1080,6 @@ function OrderDeskQueueList() {
     const actionFailure = toFailure(confirmOrder.error) ?? toFailure(fulfilOrder.error);
     const isConflict = actionFailure?.code === 'resource.conflict';
 
-    // The record page's issue tray; a refused confirm or fulfil opens it.
-    const issueTray = useIssueTrayController();
-    const { nudge: nudgeTray } = issueTray;
-    useNudgeOnRefusal(confirmOrder.error ?? fulfilOrder.error, nudgeTray);
-
     function toggleStatus(status: OrderDeskQueueStatus, selected: boolean) {
         setStatuses((current) =>
             selected ? [...current, status] : current.filter((entry) => entry !== status),
@@ -1584,7 +1577,8 @@ function OrderDeskQueueList() {
      * `KitchenOrder` — and everything that needs the re-read order (the lines, the money, the run and
      * the lifecycle action with the version it sends) arrives with the detail.
      */
-    if (selectedRow !== null) {
+    const viewPopup = (() => {
+        if (selectedRow === null) return null;
         const shown = order ?? selectedRow;
         const lifecycle =
             order === null || !canManage
@@ -1599,54 +1593,138 @@ function OrderDeskQueueList() {
                     : undefined;
 
         /*
-         * A confirm or fulfil the server turned down, in the record page's issue tray rather than
-         * above the status card's button. Somebody else moving the order is its own card, whose way
-         * out is to re-read and show what actually happened — never a silent retry, which would
-         * resolve the race in favour of whoever clicked last. Anything else keeps the server's words.
+         * A confirm or fulfil the server turned down, at the head of the pop-up — a tray beside the
+         * page would sit behind its backdrop. Somebody else moving the order is its own banner,
+         * whose way out is to re-read and show what actually happened — never a silent retry, which
+         * would resolve the race in favour of whoever clicked last. Anything else keeps the server's
+         * words.
          */
-        const failedCards: IssueCardItem[] =
-            actionFailure === null
+        const failureBanner =
+            actionFailure === null ? undefined : isConflict ? (
+                <Callout
+                    testID="kitchen-order-desk-detail-conflict"
+                    tone="warning"
+                    role="alert"
+                    title={t('kitchen:ops.orders.conflictTitle')}
+                    actions={
+                        <Button
+                            testID="kitchen-order-desk-detail-conflict-refresh"
+                            variant="secondary"
+                            size="sm"
+                            label={t('kitchen:ops.orders.conflictRefresh')}
+                            loading={detail.isFetching}
+                            onPress={() => {
+                                clearActionState();
+                                void detail.refetch();
+                                void queue.refetch();
+                            }}
+                        />
+                    }
+                />
+            ) : (
+                <Callout
+                    testID="kitchen-order-desk-detail-action-error"
+                    tone="danger"
+                    role="alert"
+                    title={t('kitchen:ops.orders.saveFailed')}
+                    {...(actionFailure.message === undefined || actionFailure.message === null
+                        ? {}
+                        : { body: actionFailure.message })}
+                />
+            );
+
+        /*
+         * Every action the order has left, behind the pop-up's ⋯ after its lifecycle step: take the
+         * money, name the driver, hand it to a courier, then — apart — edit it on the sale page.
+         */
+        const job = selectedRow.deliveryJob;
+        const deskActions: RecordAction[] = [
+            /*
+             * Offered while there is still something to collect: a settled order needs nothing
+             * written down, a cancelled one is refused with a `409`, and recording money is managing
+             * the order. A counter sale arrives settled, so it is never in the open queue.
+             */
+            ...(order === null ||
+            selectedRow.payment.receipted ||
+            order.status === 'cancelled' ||
+            !canManage
                 ? []
-                : isConflict
-                  ? [
-                        {
-                            key: 'conflict',
-                            tone: 'warning',
-                            label: t('kitchen:ops.orders.conflictTitle'),
-                            action: {
-                                label: t('kitchen:ops.orders.conflictRefresh'),
-                                loading: detail.isFetching,
-                                onPress: () => {
-                                    clearActionState();
-                                    void detail.refetch();
-                                    void queue.refetch();
-                                },
-                                testID: 'kitchen-order-desk-detail-conflict-refresh',
-                            },
-                            testID: 'kitchen-order-desk-detail-conflict',
-                        },
-                    ]
-                  : [
-                        {
-                            key: 'action',
-                            tone: 'danger',
-                            label: t('kitchen:ops.orders.saveFailed'),
-                            detail: actionFailure.message,
-                            testID: 'kitchen-order-desk-detail-action-error',
-                        },
-                    ];
-        const trayContent: IssueTrayContent = {
-            title: t('kitchen:tray.title'),
-            testID: 'kitchen-order-desk-view-tray',
-            // A list page has no "done" to show: the tray appears only while it has something.
-            hideWhenClear: true,
-            groups: [{ key: 'failed', title: t('kitchen:tray.groupFailed'), items: failedCards }],
-        };
+                : [
+                      {
+                          key: 'record-payment',
+                          label: t('kitchen:desk.recordPayment.open'),
+                          icon: 'banknote' as const,
+                          testID: 'kitchen-order-desk-detail-record-payment',
+                          onSelect: () => {
+                              setRecordingPayment(true);
+                          },
+                      },
+                  ]),
+            // Choosing whose evening this is, is managing the order. A courier's run has left.
+            ...(order === null ||
+            job === null ||
+            !canManage ||
+            (order.deliveryRun?.courierName ?? null) !== null ||
+            !canAssignDeliveryJob(job.status)
+                ? []
+                : [
+                      {
+                          key: 'assign',
+                          label: t(
+                              job.driverUserId === null
+                                  ? 'kitchen:desk.assign.open'
+                                  : 'kitchen:desk.assign.reopen',
+                          ),
+                          icon: 'bike' as const,
+                          testID: 'kitchen-order-desk-detail-assign',
+                          onSelect: () => {
+                              openAssign();
+                          },
+                      },
+                  ]),
+            // Ready and not yet on the road, the driver's own rule.
+            ...(order === null ||
+            job === null ||
+            !canManage ||
+            (order.readyAt ?? null) === null ||
+            (job.status !== 'pending' && job.status !== 'assigned')
+                ? []
+                : [
+                      {
+                          key: 'courier',
+                          label: t('kitchen:desk.courier.open'),
+                          icon: 'truck' as const,
+                          testID: 'kitchen-order-desk-detail-courier',
+                          onSelect: () => {
+                              setHandingToCourier(true);
+                          },
+                      },
+                  ]),
+            // The server's `amendable` decides; the sale page edits it.
+            ...(order === null || !order.amendable || !canSell
+                ? []
+                : [
+                      {
+                          key: 'edit',
+                          label: t('kitchen:desk.edit.open'),
+                          icon: 'pen' as const,
+                          testID: 'kitchen-order-desk-detail-edit',
+                          separated: true,
+                          onSelect: () => {
+                              router.push(
+                                  `/kitchen/order-desk/sale?order=${encodeURIComponent(String(order.id))}`,
+                              );
+                          },
+                      },
+                  ]),
+        ];
 
         return (
-            <IssueTrayFrame tray={trayContent} controller={issueTray}>
+            <>
                 <RecordViewPage
                     testID="kitchen-order-desk-view"
+                    banner={failureBanner}
+                    actions={deskActions}
                     onBack={closeDetail}
                     title={t('kitchen:ops.orders.detailTitle', { number: selectedRow.orderNumber })}
                     kind={t('kitchen:desk.drawerKind', {
@@ -1957,44 +2035,6 @@ function OrderDeskQueueList() {
                                                           />
                                                       </>
                                                   )}
-                                                  <View className="flex-row pt-tight">
-                                                      {
-                                                          /*
-                                                           * Offered while there is still something to collect, and not
-                                                           * otherwise. Three conditions, each ruling out a different
-                                                           * order:
-                                                           *
-                                                           * - `receipted` — a settled order needs nothing written down,
-                                                           *   and an over-payment is not corrected by a second receipt
-                                                           *   (giving money back is a refund, which is not this ledger).
-                                                           * - `cancelled` — the server refuses it with a `409` that
-                                                           *   carries no version, so offering the button would be
-                                                           *   offering a wall to walk into.
-                                                           * - `canManage` — recording money is managing the order, on the
-                                                           *   same code the lifecycle buttons and the driver assignment
-                                                           *   take.
-                                                           *
-                                                           * A counter sale never reaches this record page: it arrives already
-                                                           * fulfilled and settled, so it is not in the open queue at all.
-                                                           */
-                                                          selectedRow === null ||
-                                                          selectedRow.payment.receipted ||
-                                                          order.status === 'cancelled' ||
-                                                          !canManage ? undefined : (
-                                                              <Button
-                                                                  testID="kitchen-order-desk-detail-record-payment"
-                                                                  size="sm"
-                                                                  variant="ghost"
-                                                                  label={t(
-                                                                      'kitchen:desk.recordPayment.open',
-                                                                  )}
-                                                                  onPress={() => {
-                                                                      setRecordingPayment(true);
-                                                                  }}
-                                                              />
-                                                          )
-                                                      }
-                                                  </View>
                                               </View>
                                           ),
                                       },
@@ -2078,70 +2118,6 @@ function OrderDeskQueueList() {
                                                                     />
                                                                 </>
                                                             )}
-                                                            <View className="flex-row gap-snug pt-tight">
-                                                                {
-                                                                    /*
-                                                                     * `canManage` gates it on the same code the lifecycle
-                                                                     * buttons take: choosing whose evening this is, is managing
-                                                                     * the order rather than reading it. A courier's run has
-                                                                     * left, so there is nobody left to name.
-                                                                     */
-                                                                    selectedRow.deliveryJob ===
-                                                                        null ||
-                                                                    !canManage ||
-                                                                    (order?.deliveryRun
-                                                                        ?.courierName ?? null) !==
-                                                                        null ||
-                                                                    !canAssignDeliveryJob(
-                                                                        selectedRow.deliveryJob
-                                                                            .status,
-                                                                    ) ? undefined : (
-                                                                        <Button
-                                                                            testID="kitchen-order-desk-detail-assign"
-                                                                            size="sm"
-                                                                            variant="ghost"
-                                                                            label={t(
-                                                                                selectedRow
-                                                                                    .deliveryJob
-                                                                                    .driverUserId ===
-                                                                                    null
-                                                                                    ? 'kitchen:desk.assign.open'
-                                                                                    : 'kitchen:desk.assign.reopen',
-                                                                            )}
-                                                                            onPress={() => {
-                                                                                openAssign();
-                                                                            }}
-                                                                        />
-                                                                    )
-                                                                }
-                                                                {
-                                                                    // Ready and not yet on the road, the driver's own rule.
-                                                                    selectedRow.deliveryJob ===
-                                                                        null ||
-                                                                    !canManage ||
-                                                                    (order?.readyAt ?? null) ===
-                                                                        null ||
-                                                                    (selectedRow.deliveryJob
-                                                                        .status !== 'pending' &&
-                                                                        selectedRow.deliveryJob
-                                                                            .status !==
-                                                                            'assigned') ? undefined : (
-                                                                        <Button
-                                                                            testID="kitchen-order-desk-detail-courier"
-                                                                            size="sm"
-                                                                            variant="ghost"
-                                                                            label={t(
-                                                                                'kitchen:desk.courier.open',
-                                                                            )}
-                                                                            onPress={() => {
-                                                                                setHandingToCourier(
-                                                                                    true,
-                                                                                );
-                                                                            }}
-                                                                        />
-                                                                    )
-                                                                }
-                                                            </View>
                                                         </View>
                                                     ),
                                                 },
@@ -2149,50 +2125,31 @@ function OrderDeskQueueList() {
                                   ]
                     }
                     statusContent={
-                        order === null ? undefined : (
-                            <>
-                                {/* The server's `amendable` decides; the sale page edits it. */}
-                                {!order.amendable || !canSell ? null : (
-                                    <View className="flex-row">
-                                        <Button
-                                            testID="kitchen-order-desk-detail-edit"
-                                            size="sm"
-                                            variant="secondary"
-                                            label={t('kitchen:desk.edit.open')}
-                                            onPress={() => {
-                                                router.push(
-                                                    `/kitchen/order-desk/sale?order=${encodeURIComponent(String(order.id))}`,
-                                                );
-                                            }}
-                                        />
-                                    </View>
-                                )}
-                                {/*
-                                 * The driver's own axis, above the button that closes the order
-                                 * rather than instead of it. The desk is not blocked on a delivery
-                                 * stamp — see the file header — so this is what makes the close an
-                                 * informed one.
-                                 */}
-                                {lifecycle !== 'fulfil' ||
-                                selectedRow.deliveryJob === null ? null : (
-                                    <View className="flex-row flex-wrap items-baseline gap-hair">
-                                        <Text variant="caption" tone="secondary">
-                                            {t('kitchen:desk.driverSays')}
-                                        </Text>
-                                        <Text
-                                            variant="caption"
-                                            tone="primary"
-                                            testID="kitchen-order-desk-detail-fulfil-tracking"
-                                        >
-                                            {t(
-                                                deliveryJobTrackingKey(
-                                                    selectedRow.deliveryJob.trackingStatus,
-                                                ),
-                                            )}
-                                        </Text>
-                                    </View>
-                                )}
-                            </>
+                        /*
+                         * The driver's own axis, beside the Fulfil in ⋯ rather than instead of it.
+                         * The desk is not blocked on a delivery stamp — see the file header — so
+                         * this is what makes the close an informed one. No tile when there is
+                         * nothing to say.
+                         */
+                        order === null ||
+                        lifecycle !== 'fulfil' ||
+                        selectedRow.deliveryJob === null ? undefined : (
+                            <View className="flex-row flex-wrap items-baseline gap-hair">
+                                <Text variant="caption" tone="secondary">
+                                    {t('kitchen:desk.driverSays')}
+                                </Text>
+                                <Text
+                                    variant="caption"
+                                    tone="primary"
+                                    testID="kitchen-order-desk-detail-fulfil-tracking"
+                                >
+                                    {t(
+                                        deliveryJobTrackingKey(
+                                            selectedRow.deliveryJob.trackingStatus,
+                                        ),
+                                    )}
+                                </Text>
+                            </View>
                         )
                     }
                     primaryAction={
@@ -2218,9 +2175,9 @@ function OrderDeskQueueList() {
                     }
                 />
                 {dialogs}
-            </IssueTrayFrame>
+            </>
         );
-    }
+    })();
 
     return (
         <Cascade space="md" testID="kitchen-order-desk-screen">
@@ -2498,6 +2455,8 @@ function OrderDeskQueueList() {
                     />
                 </Stack>
             )}
+
+            {viewPopup}
         </Cascade>
     );
 }

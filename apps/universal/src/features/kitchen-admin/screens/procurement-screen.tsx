@@ -51,7 +51,7 @@ import {
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { AwaitingDeliveries } from '../awaiting-deliveries.tsx';
-import { ReceiptOpenOrder, ReceiptOrderRef } from '../receipt-order-ref.tsx';
+import { ReceiptOrderRef, useReceiptOpenOrderActions } from '../receipt-order-ref.tsx';
 import { useViewedRecord } from '../use-viewed-record.ts';
 
 /**
@@ -377,8 +377,12 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                   },
               ];
 
-    if (viewing !== null) {
-        return (
+    const openOrderActions = useReceiptOpenOrderActions(
+        viewing?.purchaseOrderId ?? null,
+        'kitchen-procurement-view-open-order',
+    );
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-procurement-view"
                 onBack={() => {
@@ -447,12 +451,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                     </Stack>
                 }
                 footNote={t('kitchen:ops.procurement.listFoot')}
-                statusContent={
-                    <ReceiptOpenOrder
-                        orderId={viewing.purchaseOrderId}
-                        testID="kitchen-procurement-view-open-order"
-                    />
-                }
+                actions={openOrderActions}
                 {...(canViewCosts && viewing.costStatus !== 'complete'
                     ? {
                           primaryAction: {
@@ -467,7 +466,6 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                     : {})}
             />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-procurement-screen">
@@ -679,6 +677,8 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                     />
                 </Stack>
             )}
+
+            {viewPopup}
         </Cascade>
     );
 }

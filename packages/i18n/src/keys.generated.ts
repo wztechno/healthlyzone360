@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10361 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10366 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2727,6 +2727,7 @@ export interface NamespaceKeys {
     | 'weekdays.open'
     | 'weekdays.title';
   readonly "common":
+    | 'action.actions'
     | 'action.back'
     | 'action.cancel'
     | 'action.change'
@@ -2777,8 +2778,10 @@ export interface NamespaceKeys {
     | 'keptWork.new.recipe'
     | 'keptWork.title'
     | 'locale.arabic'
+    | 'locale.arabicShort'
     | 'locale.changed'
     | 'locale.english'
+    | 'locale.englishShort'
     | 'locale.label'
     | 'locale.reloadLater'
     | 'locale.reloadNow'
@@ -2890,6 +2893,8 @@ export interface NamespaceKeys {
     | 'select.searchLabel'
     | 'select.searchPlaceholder'
     | 'select.searchResults'
+    | 'shell.account'
+    | 'shell.accountFor'
     | 'shell.emptyPanelBody'
     | 'shell.emptyPanelTitle'
     | 'shell.hideNavigation'
@@ -13111,6 +13116,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:weekdays.loading',
   'commerce:weekdays.open',
   'commerce:weekdays.title',
+  'common:action.actions',
   'common:action.back',
   'common:action.cancel',
   'common:action.change',
@@ -13161,8 +13167,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:keptWork.new.recipe',
   'common:keptWork.title',
   'common:locale.arabic',
+  'common:locale.arabicShort',
   'common:locale.changed',
   'common:locale.english',
+  'common:locale.englishShort',
   'common:locale.label',
   'common:locale.reloadLater',
   'common:locale.reloadNow',
@@ -13273,6 +13281,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:select.searchLabel',
   'designSystem:select.searchPlaceholder',
   'designSystem:select.searchResults',
+  'designSystem:shell.account',
+  'designSystem:shell.accountFor',
   'designSystem:shell.emptyPanelBody',
   'designSystem:shell.emptyPanelTitle',
   'designSystem:shell.hideNavigation',

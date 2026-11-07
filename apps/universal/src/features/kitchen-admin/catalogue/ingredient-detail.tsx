@@ -1,5 +1,5 @@
 import type { IngredientAdmin } from '@healthy360/api-client/contracts';
-import { Badge, Button, Cascade, Icon, InfoTip, MeterBar, Text } from '@healthy360/design-system';
+import { Badge, Cascade, InfoTip, MeterBar, Text } from '@healthy360/design-system';
 import type { BadgeTone } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { coreNutrientDefinition, findAmount } from '@healthy360/nutrition';
@@ -9,10 +9,10 @@ import { View } from 'react-native';
 import { EntityImage } from '../../../media/entity-image.tsx';
 import { PhotoCredit } from '../../../media/photo-credit.tsx';
 import { displayName, statusShortKey, statusTone, unitShortKey } from '../format.ts';
-import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { AllergenBoard, AllergenBoardKey } from './allergen-board.tsx';
 import { ingredientStockPhotoId } from './ingredient-photo.ts';
 import { RecordCanopy } from './record-canopy.tsx';
+import { RecordPopup } from './record-popup.tsx';
 import type { RecordCanopyTone } from './record-canopy.tsx';
 import { RecordTile, RecordTileRow, TileEmpty, TileFacts } from './record-tiles.tsx';
 import { SegmentBar, SegmentKey } from './segment-bar.tsx';
@@ -105,9 +105,6 @@ export function IngredientDetail({
     const unit = t(unitShortKey(ingredient.measurementUnit));
     const name = displayName(ingredient.name, locale);
     const separator = t('kitchen:recordView.metaSeparator');
-
-    // The trail's list crumb closes the record, as it did on the record page this replaced.
-    useKitchenTrailLeaf(name.value, onBack);
 
     const money = (amount: { readonly amount: number; readonly currency: string } | null) =>
         amount === null ? dash : formatter.formatCurrency(amount.amount, amount.currency);
@@ -271,308 +268,302 @@ export function IngredientDetail({
     const nutritionTitle = t('kitchen:nutritionFacts.title');
 
     return (
-        <Cascade space="md" testID={testID}>
-            <RecordCanopy
-                testID={`${testID}-canopy`}
-                title={name.value}
-                titleAside={otherName}
-                titleAsideLang={locale === 'ar' ? 'en' : 'ar'}
-                status={{
-                    label: t(statusShortKey(ingredient.meta.status)),
-                    tone: canopyTone(statusTone(ingredient.meta.status)),
-                }}
-                captions={[
-                    [ingredient.reference, t('kitchen:list.viewKind'), categoryPath]
-                        .filter((part): part is string => part !== null && part !== '')
-                        .join(separator),
-                    [
-                        updatedLine,
-                        t('kitchen:recordView.version', {
-                            version: formatter.formatNumber(ingredient.meta.lockVersion),
-                        }),
-                    ].join(separator),
-                ]}
-                media={
-                    <View className="w-16 overflow-hidden rounded-lg">
-                        <EntityImage
-                            assetId={assetId}
-                            photoUrl={ingredient.photoUrl}
-                            seed={String(ingredient.id)}
-                            label={name.value}
-                            aspect="square"
-                            variant="card"
-                            decorative
-                            testID={`${testID}-photo`}
-                        />
-                    </View>
-                }
-                facts={[
-                    {
-                        key: 'cost-per-100g',
-                        label: t('kitchen:list.columnCostPer100g'),
-                        value: money(ingredient.costPer100g),
-                    },
-                    {
-                        key: 'margin',
-                        label: t('kitchen:ingredientDetail.kpiMarginOnCost'),
-                        value: marginPercent === null ? dash : `${oneDecimal(marginPercent)} %`,
-                    },
-                ]}
-                back={
-                    <Button
-                        testID={`${testID}-back`}
-                        variant="secondary"
-                        size="sm"
-                        label={t('kitchen:common.back')}
-                        iconStart={<Icon name="chevronStart" size="sm" />}
-                        onPress={onBack}
-                    />
-                }
-                {...(onEdit === undefined
-                    ? {}
-                    : {
-                          actions: (
-                              <Button
-                                  testID={`${testID}-primary`}
-                                  variant="secondary"
-                                  size="sm"
-                                  label={t('kitchen:editor.editTitle')}
-                                  iconStart={<Icon name="pen" size="sm" />}
-                                  onPress={onEdit}
-                              />
-                          ),
-                      })}
-                noValue={dash}
-            />
-
-            <RecordTileRow testID={`${testID}-row-safety`}>
-                <RecordTile
-                    testID={`${testID}-allergens`}
-                    icon="shield"
-                    title={t('kitchen:ingredientDetail.allergensDietsTitle')}
-                    trailing={<AllergenBoardKey />}
-                    weight={7}
-                >
-                    <AllergenBoard
-                        testID={`${testID}-allergen-board`}
-                        mappings={ingredient.allergens}
-                        assessedClear={ingredient.allergensAssessedClear === true}
-                        diets={ingredient.dietClassifications.map((diet) =>
-                            t(`marketplace:diets.${diet}`),
-                        )}
-                        noValue={dash}
-                    />
-                </RecordTile>
-
-                <RecordTile
-                    testID={`${testID}-prices`}
-                    icon="tag"
-                    title={t('kitchen:ingredientDetail.pricesTitle')}
-                    trailing={
-                        <Text variant="label" tone="secondary">
-                            {t('kitchen:ingredientDetail.perUnitCaption', { unit })}
-                        </Text>
+        <RecordPopup
+            title={name.value}
+            kind={t('kitchen:list.viewKind')}
+            onClose={onBack}
+            {...(onEdit === undefined
+                ? {}
+                : { primaryAction: { label: t('kitchen:editor.editTitle'), onPress: onEdit } })}
+            testID={testID}
+        >
+            <Cascade space="md" testID={testID}>
+                <RecordCanopy
+                    testID={`${testID}-canopy`}
+                    title={name.value}
+                    titleAside={otherName}
+                    titleAsideLang={locale === 'ar' ? 'en' : 'ar'}
+                    status={{
+                        label: t(statusShortKey(ingredient.meta.status)),
+                        tone: canopyTone(statusTone(ingredient.meta.status)),
+                    }}
+                    captions={[
+                        [ingredient.reference, t('kitchen:list.viewKind'), categoryPath]
+                            .filter((part): part is string => part !== null && part !== '')
+                            .join(separator),
+                        [
+                            updatedLine,
+                            t('kitchen:recordView.version', {
+                                version: formatter.formatNumber(ingredient.meta.lockVersion),
+                            }),
+                        ].join(separator),
+                    ]}
+                    media={
+                        <View className="w-16 overflow-hidden rounded-lg">
+                            <EntityImage
+                                assetId={assetId}
+                                photoUrl={ingredient.photoUrl}
+                                seed={String(ingredient.id)}
+                                label={name.value}
+                                aspect="square"
+                                variant="card"
+                                decorative
+                                testID={`${testID}-photo`}
+                            />
+                        </View>
                     }
-                    weight={5}
-                >
-                    {ladder === null ? null : (
-                        <SegmentBar
-                            testID={`${testID}-price-ladder`}
-                            label={t('kitchen:ingredientDetail.priceLadderLabel', {
-                                unit: money(ingredient.unitPrice),
-                                b2b: money(ingredient.b2bPrice),
-                                b2c: money(ingredient.b2cPrice),
-                            })}
-                            segments={ladder}
+                    facts={[
+                        {
+                            key: 'cost-per-100g',
+                            label: t('kitchen:list.columnCostPer100g'),
+                            value: money(ingredient.costPer100g),
+                        },
+                        {
+                            key: 'margin',
+                            label: t('kitchen:ingredientDetail.kpiMarginOnCost'),
+                            value: marginPercent === null ? dash : `${oneDecimal(marginPercent)} %`,
+                        },
+                    ]}
+                    noValue={dash}
+                />
+
+                <RecordTileRow testID={`${testID}-row-safety`}>
+                    <RecordTile
+                        testID={`${testID}-allergens`}
+                        icon="shield"
+                        title={t('kitchen:ingredientDetail.allergensDietsTitle')}
+                        trailing={<AllergenBoardKey />}
+                        weight={7}
+                    >
+                        <AllergenBoard
+                            testID={`${testID}-allergen-board`}
+                            mappings={ingredient.allergens}
+                            assessedClear={ingredient.allergensAssessedClear === true}
+                            diets={ingredient.dietClassifications.map((diet) =>
+                                t(`marketplace:diets.${diet}`),
+                            )}
+                            noValue={dash}
                         />
-                    )}
-                    <View className="flex-row flex-wrap gap-snug">
-                        {prices.map((price) => (
-                            <View
-                                key={price.key}
-                                // eslint-disable-next-line no-restricted-syntax -- one of three equal figure columns: the column *is* the row's third.
-                                className="min-w-[96px] flex-1 flex-col gap-0.5"
-                            >
-                                <SegmentKey tone={price.tone} label={price.label} />
-                                <Text
-                                    testID={`${testID}-price-${price.key}`}
-                                    variant="strong"
-                                    tone={price.value === dash ? 'secondary' : 'primary'}
-                                    className="tabular-nums"
+                    </RecordTile>
+
+                    <RecordTile
+                        testID={`${testID}-prices`}
+                        icon="tag"
+                        title={t('kitchen:ingredientDetail.pricesTitle')}
+                        trailing={
+                            <Text variant="label" tone="secondary">
+                                {t('kitchen:ingredientDetail.perUnitCaption', { unit })}
+                            </Text>
+                        }
+                        weight={5}
+                    >
+                        {ladder === null ? null : (
+                            <SegmentBar
+                                testID={`${testID}-price-ladder`}
+                                label={t('kitchen:ingredientDetail.priceLadderLabel', {
+                                    unit: money(ingredient.unitPrice),
+                                    b2b: money(ingredient.b2bPrice),
+                                    b2c: money(ingredient.b2cPrice),
+                                })}
+                                segments={ladder}
+                            />
+                        )}
+                        <View className="flex-row flex-wrap gap-snug">
+                            {prices.map((price) => (
+                                <View
+                                    key={price.key}
+                                    // eslint-disable-next-line no-restricted-syntax -- one of three equal figure columns: the column *is* the row's third.
+                                    className="min-w-[96px] flex-1 flex-col gap-0.5"
                                 >
-                                    {price.value}
-                                </Text>
-                            </View>
-                        ))}
-                    </View>
-                    <View className="mt-auto border-t border-stroke-subtle pt-snug">
+                                    <SegmentKey tone={price.tone} label={price.label} />
+                                    <Text
+                                        testID={`${testID}-price-${price.key}`}
+                                        variant="strong"
+                                        tone={price.value === dash ? 'secondary' : 'primary'}
+                                        className="tabular-nums"
+                                    >
+                                        {price.value}
+                                    </Text>
+                                </View>
+                            ))}
+                        </View>
+                        <View className="mt-auto border-t border-stroke-subtle pt-snug">
+                            <TileFacts
+                                testID={`${testID}-sale`}
+                                facts={[
+                                    {
+                                        key: 'sellable',
+                                        label: t('kitchen:ingredientDetail.fieldSellable'),
+                                        value: t(
+                                            ingredient.isSellable
+                                                ? 'kitchen:ingredientDetail.sellableYes'
+                                                : 'kitchen:ingredientDetail.sellableNo',
+                                        ),
+                                    },
+                                ]}
+                            />
+                        </View>
+                    </RecordTile>
+                </RecordTileRow>
+
+                <RecordTileRow testID={`${testID}-row-make-up`}>
+                    <RecordTile
+                        testID={`${testID}-nutrition`}
+                        icon="leaf"
+                        title={nutritionTitle}
+                        aside={nutritionBadges.length === 0 ? undefined : nutritionBadges}
+                        trailing={
+                            <InfoTip
+                                label={nutritionTitle}
+                                text={t('kitchen:ingredientDetail.nutritionSubtitle')}
+                            />
+                        }
+                        weight={7}
+                    >
+                        {meters.length === 0 ? (
+                            <TileEmpty
+                                testID={`${testID}-nutrition-empty`}
+                                text={t('kitchen:ingredientDetail.nutritionEmpty')}
+                            />
+                        ) : (
+                            <>
+                                {splitShares === null ? null : (
+                                    <View className="flex-col gap-tight">
+                                        <SegmentBar
+                                            testID={`${testID}-energy-split`}
+                                            label={t('kitchen:ingredientDetail.energySplitLabel', {
+                                                fat: shareOf('fat'),
+                                                carbohydrate: shareOf('carbohydrate'),
+                                                protein: shareOf('protein'),
+                                            })}
+                                            segments={splitShares.map((part) => ({
+                                                key: part.id,
+                                                share: part.kcal ?? 0,
+                                                tone: part.tone,
+                                            }))}
+                                        />
+                                        <View className="flex-row flex-wrap items-center gap-x-base gap-y-hair">
+                                            <Text variant="label" tone="secondary">
+                                                {t('kitchen:ingredientDetail.energyFrom')}
+                                            </Text>
+                                            {splitShares.map((part) => (
+                                                <SegmentKey
+                                                    key={part.id}
+                                                    tone={part.tone}
+                                                    label={t(
+                                                        'kitchen:ingredientDetail.energyShare',
+                                                        {
+                                                            nutrient: t(part.labelKey),
+                                                            percent: part.percent,
+                                                        },
+                                                    )}
+                                                />
+                                            ))}
+                                        </View>
+                                    </View>
+                                )}
+                                <View className="flex-row flex-wrap gap-x-loose gap-y-snug">
+                                    {meters}
+                                </View>
+                                {ingredient.nutritionNote === null ? null : (
+                                    <View className="flex-row flex-wrap gap-tight">
+                                        <Text variant="label">
+                                            {t('kitchen:nutritionFacts.noteLabel')}
+                                        </Text>
+                                        <Text
+                                            testID={`${testID}-nutrition-note`}
+                                            variant="label"
+                                            tone="secondary"
+                                        >
+                                            {ingredient.nutritionNote}
+                                        </Text>
+                                    </View>
+                                )}
+                            </>
+                        )}
+                    </RecordTile>
+
+                    <RecordTile
+                        testID={`${testID}-names`}
+                        icon="languages"
+                        title={t('kitchen:ingredientDetail.namesTitle')}
+                        weight={5}
+                    >
                         <TileFacts
-                            testID={`${testID}-sale`}
+                            testID={`${testID}-field`}
                             facts={[
                                 {
-                                    key: 'sellable',
-                                    label: t('kitchen:ingredientDetail.fieldSellable'),
-                                    value: t(
-                                        ingredient.isSellable
-                                            ? 'kitchen:ingredientDetail.sellableYes'
-                                            : 'kitchen:ingredientDetail.sellableNo',
-                                    ),
+                                    key: 'name-en',
+                                    label: t('kitchen:bilingual.englishShort', {
+                                        field: t('kitchen:list.columnItem'),
+                                    }),
+                                    value: ingredient.name.en === '' ? dash : ingredient.name.en,
+                                    empty: ingredient.name.en === '',
+                                },
+                                {
+                                    key: 'name-ar',
+                                    label: t('kitchen:bilingual.arabicShort', {
+                                        field: t('kitchen:list.columnItem'),
+                                    }),
+                                    value:
+                                        ingredient.name.ar === ''
+                                            ? t('kitchen:bilingual.missingArabic')
+                                            : ingredient.name.ar,
+                                    empty: ingredient.name.ar === '',
+                                },
+                                {
+                                    key: 'aliases',
+                                    label: t('kitchen:ingredientDetail.aliasesLabel'),
+                                    value:
+                                        ingredient.aliases.length === 0 ? (
+                                            dash
+                                        ) : (
+                                            <View className="flex-row flex-wrap gap-1.5">
+                                                {ingredient.aliases.map((alias) => (
+                                                    <Badge
+                                                        key={alias}
+                                                        tone="neutral"
+                                                        label={alias}
+                                                    />
+                                                ))}
+                                            </View>
+                                        ),
+                                    empty: ingredient.aliases.length === 0,
+                                },
+                                { key: 'unit', label: t('kitchen:list.columnUnit'), value: unit },
+                                {
+                                    key: 'composition',
+                                    label: t('kitchen:fields.composition'),
+                                    value:
+                                        ingredient.composition === null ||
+                                        ingredient.composition.trim() === ''
+                                            ? dash
+                                            : ingredient.composition,
+                                    empty:
+                                        ingredient.composition === null ||
+                                        ingredient.composition.trim() === '',
+                                },
+                                {
+                                    key: 'notes',
+                                    label: t('kitchen:fields.notes'),
+                                    value:
+                                        ingredient.notes === null || ingredient.notes.trim() === ''
+                                            ? dash
+                                            : ingredient.notes,
+                                    empty:
+                                        ingredient.notes === null || ingredient.notes.trim() === '',
                                 },
                             ]}
                         />
-                    </View>
-                </RecordTile>
-            </RecordTileRow>
-
-            <RecordTileRow testID={`${testID}-row-make-up`}>
-                <RecordTile
-                    testID={`${testID}-nutrition`}
-                    icon="leaf"
-                    title={nutritionTitle}
-                    aside={nutritionBadges.length === 0 ? undefined : nutritionBadges}
-                    trailing={
-                        <InfoTip
-                            label={nutritionTitle}
-                            text={t('kitchen:ingredientDetail.nutritionSubtitle')}
-                        />
-                    }
-                    weight={7}
-                >
-                    {meters.length === 0 ? (
-                        <TileEmpty
-                            testID={`${testID}-nutrition-empty`}
-                            text={t('kitchen:ingredientDetail.nutritionEmpty')}
-                        />
-                    ) : (
-                        <>
-                            {splitShares === null ? null : (
-                                <View className="flex-col gap-tight">
-                                    <SegmentBar
-                                        testID={`${testID}-energy-split`}
-                                        label={t('kitchen:ingredientDetail.energySplitLabel', {
-                                            fat: shareOf('fat'),
-                                            carbohydrate: shareOf('carbohydrate'),
-                                            protein: shareOf('protein'),
-                                        })}
-                                        segments={splitShares.map((part) => ({
-                                            key: part.id,
-                                            share: part.kcal ?? 0,
-                                            tone: part.tone,
-                                        }))}
-                                    />
-                                    <View className="flex-row flex-wrap items-center gap-x-base gap-y-hair">
-                                        <Text variant="label" tone="secondary">
-                                            {t('kitchen:ingredientDetail.energyFrom')}
-                                        </Text>
-                                        {splitShares.map((part) => (
-                                            <SegmentKey
-                                                key={part.id}
-                                                tone={part.tone}
-                                                label={t('kitchen:ingredientDetail.energyShare', {
-                                                    nutrient: t(part.labelKey),
-                                                    percent: part.percent,
-                                                })}
-                                            />
-                                        ))}
-                                    </View>
-                                </View>
-                            )}
-                            <View className="flex-row flex-wrap gap-x-loose gap-y-snug">
-                                {meters}
+                        {/* The stock picture's licence travels with the record that shows it. */}
+                        {uploaded || assetId === undefined ? null : (
+                            <View className="mt-auto">
+                                <PhotoCredit assetId={assetId} testID={`${testID}-photo-credit`} />
                             </View>
-                            {ingredient.nutritionNote === null ? null : (
-                                <View className="flex-row flex-wrap gap-tight">
-                                    <Text variant="label">
-                                        {t('kitchen:nutritionFacts.noteLabel')}
-                                    </Text>
-                                    <Text
-                                        testID={`${testID}-nutrition-note`}
-                                        variant="label"
-                                        tone="secondary"
-                                    >
-                                        {ingredient.nutritionNote}
-                                    </Text>
-                                </View>
-                            )}
-                        </>
-                    )}
-                </RecordTile>
-
-                <RecordTile
-                    testID={`${testID}-names`}
-                    icon="languages"
-                    title={t('kitchen:ingredientDetail.namesTitle')}
-                    weight={5}
-                >
-                    <TileFacts
-                        testID={`${testID}-field`}
-                        facts={[
-                            {
-                                key: 'name-en',
-                                label: t('kitchen:bilingual.englishShort', {
-                                    field: t('kitchen:list.columnItem'),
-                                }),
-                                value: ingredient.name.en === '' ? dash : ingredient.name.en,
-                                empty: ingredient.name.en === '',
-                            },
-                            {
-                                key: 'name-ar',
-                                label: t('kitchen:bilingual.arabicShort', {
-                                    field: t('kitchen:list.columnItem'),
-                                }),
-                                value:
-                                    ingredient.name.ar === ''
-                                        ? t('kitchen:bilingual.missingArabic')
-                                        : ingredient.name.ar,
-                                empty: ingredient.name.ar === '',
-                            },
-                            {
-                                key: 'aliases',
-                                label: t('kitchen:ingredientDetail.aliasesLabel'),
-                                value:
-                                    ingredient.aliases.length === 0 ? (
-                                        dash
-                                    ) : (
-                                        <View className="flex-row flex-wrap gap-1.5">
-                                            {ingredient.aliases.map((alias) => (
-                                                <Badge key={alias} tone="neutral" label={alias} />
-                                            ))}
-                                        </View>
-                                    ),
-                                empty: ingredient.aliases.length === 0,
-                            },
-                            { key: 'unit', label: t('kitchen:list.columnUnit'), value: unit },
-                            {
-                                key: 'composition',
-                                label: t('kitchen:fields.composition'),
-                                value:
-                                    ingredient.composition === null ||
-                                    ingredient.composition.trim() === ''
-                                        ? dash
-                                        : ingredient.composition,
-                                empty:
-                                    ingredient.composition === null ||
-                                    ingredient.composition.trim() === '',
-                            },
-                            {
-                                key: 'notes',
-                                label: t('kitchen:fields.notes'),
-                                value:
-                                    ingredient.notes === null || ingredient.notes.trim() === ''
-                                        ? dash
-                                        : ingredient.notes,
-                                empty: ingredient.notes === null || ingredient.notes.trim() === '',
-                            },
-                        ]}
-                    />
-                    {/* The stock picture's licence travels with the record that shows it. */}
-                    {uploaded || assetId === undefined ? null : (
-                        <View className="mt-auto">
-                            <PhotoCredit assetId={assetId} testID={`${testID}-photo-credit`} />
-                        </View>
-                    )}
-                </RecordTile>
-            </RecordTileRow>
-        </Cascade>
+                        )}
+                    </RecordTile>
+                </RecordTileRow>
+            </Cascade>
+        </RecordPopup>
     );
 }

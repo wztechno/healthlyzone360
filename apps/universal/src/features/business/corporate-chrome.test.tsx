@@ -119,7 +119,11 @@ function RailProbe() {
                     }`}
                 </RNText>
             ))}
-            {navigation.find((item) => item.key === 'corporate-quotations')?.badge}
+            <RNText testID="probe-quotations-count">
+                {String(
+                    navigation.find((item) => item.key === 'corporate-quotations')?.count ?? '',
+                )}
+            </RNText>
         </>
     );
 }
@@ -212,7 +216,7 @@ describe('useCorporateNavigation', () => {
         );
     });
 
-    it('badges Quotations with the count waiting on the buyer, and only that', async () => {
+    it('counts on Quotations what is waiting on the buyer, and only that', async () => {
         await renderStubScreen(<RailProbe />, {
             session: buyerSession(),
             repositories: overrides,
@@ -221,7 +225,7 @@ describe('useCorporateNavigation', () => {
         // Two `quoted` of four: the submitted one waits on the account manager, the accepted one
         // on nobody.
         await waitFor(() => {
-            expect(screen.getByTestId('nav-corporate-quotations-badge')).toHaveTextContent('2');
+            expect(screen.getByTestId('probe-quotations-count')).toHaveTextContent('2');
         });
     });
 });

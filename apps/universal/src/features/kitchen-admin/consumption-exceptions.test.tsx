@@ -12,6 +12,7 @@ import {
 import { endProcess, readActiveProcess, startProcess } from '../../navigation/active-process.ts';
 import { withReturnTo } from '../../navigation/return-to.ts';
 import { todayIso } from '../commerce/dates.ts';
+import { getRecordAction } from '../../testing/record-actions.ts';
 
 /** An ingredient id, as a gap reads it out of its detail line. */
 const LENTILS_ID = '0f9a6c1e-2b3d-4e5f-8a9b-0c1d2e3f4a5b';
@@ -519,7 +520,12 @@ describe('consumption exceptions at desk width', () => {
             });
 
             await untilVisible('kitchen-consumption-exceptions-window');
-            expect(screen.getByTestId('kitchen-consumption-exceptions-window-fix')).toBeTruthy();
+            expect(
+                await getRecordAction(
+                    'kitchen-consumption-exceptions-window',
+                    'kitchen-consumption-exceptions-window-fix',
+                ),
+            ).toBeTruthy();
             expect(screen.queryByTestId('kitchen-consumption-exceptions-window-retry')).toBeNull();
             expect(
                 screen.queryByTestId('kitchen-consumption-exceptions-window-primary'),
@@ -534,8 +540,12 @@ describe('consumption exceptions at desk width', () => {
             // No always-on explanation above the record.
             expect(screen.queryByTestId('kitchen-consumption-exceptions-window-note')).toBeNull();
 
+            const action = await getRecordAction(
+                        'kitchen-consumption-exceptions-window',
+                        'kitchen-consumption-exceptions-window-fix',
+                    );
             await act(async () => {
-                fireEvent.press(screen.getByTestId('kitchen-consumption-exceptions-window-fix'));
+                fireEvent.press(action);
             });
             const href = String(mockRouter.push.mock.calls[0]?.[0]);
             expect(href.startsWith('/kitchen/recipes/recipe-1?')).toBe(true);

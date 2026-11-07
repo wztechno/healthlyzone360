@@ -1,10 +1,10 @@
-import { Icon, Text, useContentWidth } from '@healthy360/design-system';
+import { Icon, Text } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
-import { RECORD_SPLIT_MIN } from '../desk-layout.ts';
+import { useRecordSplit } from './record-popup.tsx';
 
 /**
  * The tiles under a {@link RecordCanopy}: one subject each — allergens, prices, nutrition — with
@@ -17,7 +17,7 @@ import { RECORD_SPLIT_MIN } from '../desk-layout.ts';
  * ```
  *
  * A {@link RecordTileRow} lays its tiles side by side, each taking its `weight` of the row, where
- * the *page* has room for both — the same {@link RECORD_SPLIT_MIN} the record page splits at — and
+ * the *page* has room for both — `RECORD_SPLIT_MIN` on a page, `RECORD_POPUP_SPLIT_MIN` in a pop-up — and
  * stacks them below that. Tiles stretch to the tallest in their row, so a row's floors line up.
  *
  * Tiles and their row are `z-auto`: an (i) inside one must open over the tile drawn after it.
@@ -31,7 +31,7 @@ export interface RecordTileRowProps {
 }
 
 export function RecordTileRow({ children, testID }: RecordTileRowProps) {
-    const split = useContentWidth().atLeast(RECORD_SPLIT_MIN);
+    const split = useRecordSplit();
 
     return (
         <SplitContext.Provider value={split}>

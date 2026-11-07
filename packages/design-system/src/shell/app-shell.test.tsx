@@ -9,6 +9,7 @@ import { OfflineIndicator } from '../status/offline-indicator.tsx';
 import { assertSubtreeIsLogical, renderWithI18n, withI18n } from '../testing/render.tsx';
 import { APP_SHELL_VARIANTS, AppShell, CONTENT_SCROLL_THROTTLE_MS } from './app-shell.tsx';
 import type { NavigationItem } from './app-shell.tsx';
+import { RailAccount } from './rail-account.tsx';
 
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions');
 
@@ -112,33 +113,61 @@ describe('AppShell — workspace', () => {
         expect(screen.queryByTestId('shell-menu')).toBeNull();
     });
 
-    it('slides the page panel shut from the hamburger and open again, keeping the module rail', async () => {
+    it('slides the page panel shut from its « button and open again from the rail', async () => {
         setViewport(1440);
         await renderWithI18n(
-            <AppShell testID="shell" variant="workspace" navigation={navigation}>
+            <AppShell testID="shell" variant="workspace" title="Kitchen" navigation={navigation}>
                 <Text>Body</Text>
             </AppShell>,
         );
 
         expect(screen.getByTestId('shell-rail')).toBeTruthy();
         expect(screen.getByTestId('nav-overview')).toBeTruthy();
-        const toggle = screen.getByTestId('shell-sidebar-toggle');
-        expect(toggle.props.accessibilityLabel).toBe('Close the pages panel');
+        // Nothing grouped: the panel lists every destination under the area's name.
+        expect(screen.getByTestId('shell-panel-title')).toHaveTextContent('Kitchen');
+        // The bar no longer carries a panel toggle.
+        expect(screen.queryByTestId('shell-sidebar-toggle')).toBeNull();
+        const close = screen.getByTestId('shell-panel-close');
+        expect(close.props.accessibilityLabel).toBe('Close the pages panel');
 
-        await fireEvent.press(toggle);
+        await fireEvent.press(close);
         expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 0 });
-        expect(screen.getByTestId('shell-sidebar-toggle').props.accessibilityLabel).toBe(
-            'Open the pages panel',
-        );
         // The rail stays; the shut panel's links leave the tree once the slide has finished.
         expect(screen.getByTestId('nav-overview-rail')).toBeTruthy();
         await waitFor(() => {
             expect(screen.queryByTestId('nav-overview')).toBeNull();
         });
 
-        await fireEvent.press(screen.getByTestId('shell-sidebar-toggle'));
-        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 260 });
+        // With no module icon to open it from, a rail destination brings it back.
+        await fireEvent.press(screen.getByTestId('nav-overview-rail'));
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 272 });
         expect(screen.getByTestId('nav-overview')).toBeTruthy();
+    });
+
+    it('floats the rail and the panel, and pushes the page from 96px to 348px', async () => {
+        setViewport(1440);
+        await renderWithI18n(
+            <AppShell
+                testID="shell"
+                variant="workspace"
+                navigation={navigation}
+                sidebarWidth={240}
+                railEnd={<Text testID="rail-foot">Avatar</Text>}
+            >
+                <WidthProbe />
+            </AppShell>,
+        );
+
+        expect(screen.getByTestId('shell-rail-panel').props.style).toMatchObject({ width: 72 });
+        expect(screen.getByTestId('shell-rail-panel').props.className).toContain('rounded-2xl');
+        expect(within(screen.getByTestId('shell-rail-end')).getByTestId('rail-foot')).toBeTruthy();
+        // 240 and the 12px gutter after it.
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 252 });
+        expect(screen.getByTestId('shell-panel-card').props.style).toMatchObject({ width: 240 });
+        // 1440 − 96 − 252 − 28px padding each side.
+        expect(screen.getByTestId('content-width')).toHaveTextContent('1036');
+        // The bar is a floating pill.
+        expect(screen.getByTestId('shell-topbar-pill').props.className).toContain('rounded-full');
     });
 
     /*
@@ -154,14 +183,16 @@ describe('AppShell — workspace', () => {
         );
 
         expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 0 });
+        // Shut from the start means out of the tree, not an invisible card still in the tab order.
+        expect(screen.queryByTestId('shell-panel-card')).toBeNull();
         expect(screen.getByTestId('shell-rail')).toBeTruthy();
-        // 1280 − the 56px rail − 28px padding each side.
-        expect(screen.getByTestId('content-width')).toHaveTextContent('1168');
+        // 1280 − the rail and its two 12px gutters (96) − 28px padding each side.
+        expect(screen.getByTestId('content-width')).toHaveTextContent('1128');
 
-        await fireEvent.press(screen.getByTestId('shell-sidebar-toggle'));
-        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 232 });
+        await fireEvent.press(screen.getByTestId('nav-overview-rail'));
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 244 });
         // The page re-lays on the press, not after the slide.
-        expect(screen.getByTestId('content-width')).toHaveTextContent('936');
+        expect(screen.getByTestId('content-width')).toHaveTextContent('884');
     });
 
     it('opens on the reader’s remembered choice over the window’s default', async () => {
@@ -175,9 +206,9 @@ describe('AppShell — workspace', () => {
                     <Text>Body</Text>
                 </AppShell>,
             );
-            expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 260 });
+            expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 272 });
 
-            await fireEvent.press(screen.getByTestId('shell-sidebar-toggle'));
+            await fireEvent.press(screen.getByTestId('shell-panel-close'));
             expect(document_.cookie).toContain('h360_panel=shut');
         } finally {
             Reflect.deleteProperty(globalThis, 'document');
@@ -218,7 +249,7 @@ describe('AppShell — workspace', () => {
 
         // A module icon is the reader asking, so it still opens.
         await fireEvent.press(screen.getByTestId('shell-rail-group-Inventory'));
-        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 260 });
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 272 });
     });
 
     it('lists a module’s pages from its rail icon, and shuts the panel on the same icon', async () => {
@@ -292,7 +323,7 @@ describe('AppShell — workspace', () => {
         await fireEvent.press(screen.getByTestId('shell-rail-group-Operations'));
         expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 0 });
         await fireEvent.press(screen.getByTestId('shell-rail-group-Catalogue'));
-        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 260 });
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 272 });
         expect(screen.getByTestId('nav-meals')).toBeTruthy();
     });
 
@@ -407,7 +438,7 @@ describe('AppShell — workspace', () => {
         await fireEvent.press(screen.getByTestId('shell-rail-group-Inventory'));
         expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 0 });
         await rerender(withI18n(shell('meals')));
-        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 260 });
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 272 });
         expect(screen.getByTestId('nav-meals')).toBeTruthy();
     });
 
@@ -501,14 +532,14 @@ describe('AppShell — workspace', () => {
 
         // The first module — the one the panel used to borrow — opens instead of shutting.
         await fireEvent.press(screen.getByTestId('shell-rail-group-Order desk'));
-        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 260 });
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 272 });
         expect(screen.getByTestId('nav-desk')).toBeTruthy();
 
         // Back to Overview: the note again, and the panel reopens if it was shut.
-        await fireEvent.press(screen.getByTestId('shell-sidebar-toggle'));
+        await fireEvent.press(screen.getByTestId('shell-panel-close'));
         await fireEvent.press(screen.getByTestId('nav-overview-rail'));
         expect(overviewPress).toHaveBeenCalled();
-        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 260 });
+        expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 272 });
         expect(screen.getByTestId('shell-sidebar-empty')).toBeTruthy();
     });
 
@@ -661,10 +692,10 @@ describe('AppShell — sidebar navigation', () => {
             /Home has no pages under it/,
         );
         await fireEvent.press(screen.getByTestId('shell-rail-group-Catalogue'));
-        expect(screen.getByTestId('shell-navigation-group-Catalogue')).toHaveTextContent(
-            'Catalogue',
-        );
-        expect(screen.queryByTestId('shell-navigation-group-Operations')).toBeNull();
+        // The panel's header names the module; its list draws no heading of its own.
+        expect(screen.getByTestId('shell-panel-title')).toHaveTextContent('Catalogue');
+        expect(screen.queryByTestId('shell-navigation-group-Catalogue')).toBeNull();
+        expect(screen.queryByTestId('nav-o')).toBeNull();
         for (const id of ['nav-meals', 'nav-plans']) {
             expect(screen.getAllByTestId(id)).toHaveLength(1);
         }
@@ -1102,7 +1133,8 @@ describe('AppShell — sidebar slots', () => {
         );
 
         const sidebar = screen.getByTestId('shell-sidebar');
-        expect(sidebar.props.style).toMatchObject({ width: 232 });
+        // The panel and the gutter after it.
+        expect(sidebar.props.style).toMatchObject({ width: 244 });
         // The class stays: the style wins at runtime, and the suites asserting the default keep
         // meaning something.
         expect(sidebar.props.className).toContain('w-[260px]');
@@ -1206,5 +1238,91 @@ describe('AppShell — the docked bar', () => {
         );
 
         expect(screen.getByTestId('steps').props.className).toContain('web:sticky');
+    });
+});
+
+describe('AppShell — the admin frame', () => {
+    it('adds a module’s page counts into one amber badge on its rail icon', async () => {
+        setViewport(1440);
+        await renderWithI18n(
+            <AppShell
+                testID="shell"
+                variant="workspace"
+                navigation={[
+                    {
+                        key: 'review',
+                        label: 'Review',
+                        group: 'Workbench',
+                        count: 3,
+                        active: true,
+                        onPress: jest.fn(),
+                        testID: 'nav-review',
+                    },
+                    {
+                        key: 'exceptions',
+                        label: 'Exceptions',
+                        group: 'Workbench',
+                        count: 2,
+                        onPress: jest.fn(),
+                        testID: 'nav-exceptions',
+                    },
+                    {
+                        key: 'meals',
+                        label: 'Meals',
+                        group: 'Catalogue',
+                        count: 0,
+                        onPress: jest.fn(),
+                        testID: 'nav-meals',
+                    },
+                ]}
+            >
+                <Text>Body</Text>
+            </AppShell>,
+        );
+
+        expect(screen.getByTestId('shell-rail-group-Workbench-count')).toHaveTextContent('5');
+        expect(screen.queryByTestId('shell-rail-group-Catalogue-count')).toBeNull();
+        // Each page's own count in the panel, named as the callers' badges were.
+        expect(screen.getByTestId('nav-review-badge')).toHaveTextContent('3');
+        expect(screen.getByTestId('nav-exceptions-badge')).toHaveTextContent('2');
+        expect(screen.getByTestId('nav-review-badge').props.className).toContain(
+            'bg-warning-subtle',
+        );
+    });
+});
+
+describe('RailAccount', () => {
+    it('opens a card with the name, role and place, and Sign out — nothing else', async () => {
+        const onSignOut = jest.fn();
+        await renderWithI18n(
+            <RailAccount
+                name="hala"
+                detail="Owner · Main kitchen"
+                label="Hala, account"
+                menuLabel="Account"
+                signOutLabel="Sign out"
+                onSignOut={onSignOut}
+            />,
+        );
+
+        const avatar = screen.getByTestId('account-avatar');
+        expect(avatar).toHaveTextContent('H');
+        expect(avatar.props.accessibilityLabel).toBe('Hala, account');
+        expect(screen.queryByTestId('account-menu')).toBeNull();
+
+        await fireEvent.press(avatar);
+        const menu = screen.getByTestId('account-menu');
+        expect(within(menu).getByTestId('account-name')).toHaveTextContent('hala');
+        expect(within(menu).getByTestId('account-detail')).toHaveTextContent(
+            'Owner · Main kitchen',
+        );
+        expect(within(menu).getAllByRole('menuitem')).toHaveLength(1);
+        assertSubtreeIsLogical(menu);
+
+        await fireEvent.press(within(menu).getByTestId('sign-out'));
+        expect(onSignOut).toHaveBeenCalledTimes(1);
+
+        await fireEvent.press(avatar);
+        expect(screen.queryByTestId('account-menu')).toBeNull();
     });
 });

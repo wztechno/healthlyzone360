@@ -45,6 +45,11 @@ export interface MenuItem {
     /** `danger` for a destructive command. Paired with its own icon, never colour alone. */
     readonly tone?: 'default' | 'danger' | undefined;
     /**
+     * The one primary of a record's ⋯ menu — brand ink, and listed first by its caller. A separate
+     * flag rather than a third `tone`: items are spread into row `IconButton`s, whose tone has none.
+     */
+    readonly primary?: boolean | undefined;
+    /**
      * Overrides the derived `{menu}-item-{key}` id.
      *
      * For the case where a row action *moved into* a menu and the id it carried outside one is a
@@ -81,6 +86,13 @@ export interface MenuProps {
 
 const ITEM_TONE_CLASS = {
     default: 'text-content-primary',
+    brand: 'font-semibold text-content-on-brand-subtle',
+    danger: 'text-danger-strong',
+} as const;
+
+const ICON_TONE_CLASS = {
+    default: 'text-content-secondary',
+    brand: 'text-content-on-brand-subtle',
     danger: 'text-danger-strong',
 } as const;
 
@@ -147,7 +159,7 @@ function MenuRow({
                     name={item.icon}
                     size="sm"
                     className={
-                        item.tone === 'danger' ? 'text-danger-strong' : 'text-content-secondary'
+                        ICON_TONE_CLASS[item.primary === true ? 'brand' : (item.tone ?? 'default')]
                     }
                 />
             )}
@@ -155,7 +167,11 @@ function MenuRow({
             <RNText
                 className={cx(
                     'flex-1 text-role-body text-start',
-                    disabled ? 'text-content-disabled' : ITEM_TONE_CLASS[item.tone ?? 'default'],
+                    disabled
+                        ? 'text-content-disabled'
+                        : ITEM_TONE_CLASS[
+                              item.primary === true ? 'brand' : (item.tone ?? 'default')
+                          ],
                 )}
             >
                 {item.label}

@@ -1,13 +1,4 @@
-import {
-    Button,
-    Cascade,
-    Dialog,
-    Icon,
-    Inline,
-    Stack,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -169,28 +160,22 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
     );
 
     /*
-     * View takes the whole page rather than a 400px drawer beside it.
-     *
-     * The record is opened *instead of* the list, not on a route of its own: `list.viewing` already
-     * holds the full `IngredientAdmin` the row was drawn from, so this costs no second fetch and no
-     * loading state, and Back is a state change rather than a navigation that would drop the list's
-     * page, sort and filters on the way out. It is still an address — `?view=` names it, so the
-     * editor it opens comes back to it (`use-viewed-record.ts`).
+     * View opens as a pop-up over the list (`View as a pop-up`, 2026-11-07). `list.viewing` already
+     * holds the full `IngredientAdmin` the row was drawn from, so this costs no second fetch, and
+     * closing it leaves the list's page, sort and filters as they were. It is still an address —
+     * `?view=` names it, so the editor it opens comes back to it (`use-viewed-record.ts`).
      */
     const viewing = list.viewing;
-    if (viewing !== null) {
-        return (
-            <Stack space="md" testID="kitchen-ingredients-screen">
-                <IngredientDetail
-                    testID="kitchen-ingredients-detail"
-                    ingredient={viewing}
-                    categoryName={categoryName}
-                    onBack={list.closeView}
-                    {...(canManage ? { onEdit: () => list.openEditor(String(viewing.id)) } : {})}
-                />
-            </Stack>
+    const viewPopup =
+        viewing === null ? null : (
+            <IngredientDetail
+                testID="kitchen-ingredients-detail"
+                ingredient={viewing}
+                categoryName={categoryName}
+                onBack={list.closeView}
+                {...(canManage ? { onEdit: () => list.openEditor(String(viewing.id)) } : {})}
+            />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-ingredients-screen">
@@ -431,6 +416,8 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                     </Text>
                 )}
             </Dialog>
+
+            {viewPopup}
         </Cascade>
     );
 }

@@ -311,8 +311,8 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
         );
     }
 
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-quotations-view"
                 onBack={() => {
@@ -335,7 +335,6 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
                 }}
             />
         );
-    }
 
     // A failed read has no figures to state; the bar holds its placeholders over the error.
     const pending = quotations.isPending || listFailure !== null;
@@ -461,6 +460,8 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
                     ]}
                 />
             )}
+
+            {viewPopup}
         </Cascade>
     );
 }

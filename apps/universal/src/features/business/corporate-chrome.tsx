@@ -1,11 +1,9 @@
-import { Badge } from '@healthy360/design-system';
 import type { BreadcrumbItem, NavigationItem } from '@healthy360/design-system';
 import { usePathname, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useCorporateProgrammesQuery, useQuotationsQuery } from '../../data/business-hooks.ts';
-import { AreaBrandBlock } from '../../shell/area-brand-block.tsx';
 import { useTrailLeafState } from '../../shell/area-trail.tsx';
 
 /**
@@ -58,11 +56,6 @@ export function corporateRoute(pathname: string): CorporateRoute {
     if (path === CORPORATE_QUOTATIONS_HREF) return { kind: 'quotations' };
     if (path === CORPORATE_WIND_DOWN_HREF) return { kind: 'wind-down' };
     return { kind: 'other' };
-}
-
-export function CorporateBrandBlock() {
-    const { t } = useTranslation();
-    return <AreaBrandBlock testID="corporate-rail-brand" subtitle={t('business:nav.railTitle')} />;
 }
 
 /**
@@ -122,13 +115,7 @@ export function useCorporateNavigation(): readonly NavigationItem[] {
                 ...(awaiting === 0
                     ? {}
                     : {
-                          badge: (
-                              <Badge
-                                  testID="nav-corporate-quotations-badge"
-                                  tone="warning"
-                                  label={String(awaiting)}
-                              />
-                          ),
+                          count: awaiting,
                       }),
                 onPress: go(CORPORATE_QUOTATIONS_HREF),
             },

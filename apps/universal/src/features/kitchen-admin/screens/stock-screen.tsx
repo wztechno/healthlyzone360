@@ -767,8 +767,8 @@ function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
         resetPage();
     });
 
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-stock-view"
                 media={
@@ -838,7 +838,6 @@ function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
                     : {})}
             />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-stock-screen">
@@ -1012,6 +1011,8 @@ function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
                     />
                 </Stack>
             )}
+
+            {viewPopup}
         </Cascade>
     );
 }

@@ -5,7 +5,6 @@ import {
     Cascade,
     EmptyState,
     ErrorState,
-    Inline,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
@@ -288,8 +287,8 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
             ? decided
             : listed;
 
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID={`quotation-${viewing.reference}`}
                 onBack={() => {
@@ -416,22 +415,25 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
                                 }
                             />
                         ) : null}
-                        {viewing.state === 'quoted' ? (
-                            <Inline space="xs" wrap>
-                                <Button
-                                    testID={`quotation-${viewing.reference}-decline`}
-                                    size="sm"
-                                    variant="secondary"
-                                    label={t('business:quotations.decline')}
-                                    onPress={() => {
-                                        setDeciding({ kind: 'decline', quotation: viewing });
-                                    }}
-                                />
-                            </Inline>
-                        ) : null}
                         {dialog}
                     </>
                 }
+                {...(viewing.state === 'quoted'
+                    ? {
+                          actions: [
+                              {
+                                  key: 'decline',
+                                  label: t('business:quotations.decline'),
+                                  icon: 'circleX' as const,
+                                  tone: 'danger' as const,
+                                  testID: `quotation-${viewing.reference}-decline`,
+                                  onSelect: () => {
+                                      setDeciding({ kind: 'decline', quotation: viewing });
+                                  },
+                              },
+                          ],
+                      }
+                    : {})}
                 primaryAction={
                     viewing.state === 'quoted'
                         ? {
@@ -446,7 +448,6 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
                 }
             />
         );
-    }
 
     const all = everything.data?.items ?? [];
     const count = (key: FilterKey) =>
@@ -617,6 +618,8 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
                 />
             )}
             {dialog}
+
+            {viewPopup}
         </Cascade>
     );
 }

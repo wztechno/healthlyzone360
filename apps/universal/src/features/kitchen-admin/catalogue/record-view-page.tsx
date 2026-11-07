@@ -1,74 +1,59 @@
 import {
     Badge,
-    Button,
     Callout,
     Cascade,
-    Icon,
     InfoTip,
     RecordWindowFieldGrid,
     Stack,
     TagRow,
-    useContentWidth,
 } from '@healthy360/design-system';
 import type { BadgeTone, IconName, RecordWindowField, TagRowItem } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { RECORD_RAIL_MIN, RECORD_SPLIT_MIN } from '../desk-layout.ts';
-import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { RECORD_RAIL_MIN } from '../desk-layout.ts';
 import { RecordCanopy } from './record-canopy.tsx';
+import { RecordPopup, useRecordSplit } from './record-popup.tsx';
+import type { RecordAction, RecordPrimaryAction } from './record-popup.tsx';
 import type { RecordCanopyCaption, RecordCanopyTone } from './record-canopy.tsx';
 import { RecordTile } from './record-tiles.tsx';
 
 /**
- * The read-only record page behind every kitchen-admin row's View — option C of the
- * `Minimal view page` canvas: the record canopy over a column of tiles and a rail beside it.
+ * The read-only record behind every kitchen-admin row's View — the record canopy over a column of
+ * tiles and a rail beside it, opened as a pop-up over the list (`View as a pop-up`, 2026-11-07).
  *
  * ```
- * Kitchen workspace › Ingredients › Tahini paste            <- the shell's trail, and the way back
- * ┌ canopy ─────────────────────────────────────────────────────────────────────────────┐
- * │ [‹ Back] Tahini paste ● Published                                        [✎ Edit]   │
- * │          ING-0142 · Ingredient                                                       │
- * │          Updated … by … · Version 7                                                  │
- * └──────────────────────────────────────────────────────────────────────────────────────┘
- * ┌ [≡] Details ─────────────────────────┐  ┌ [photo] ─────────────┐
- * ┌ [◇] section ─────────────────────────┐  ┌ [◈] Allergens & diets┐
- *              2.1fr                                 1fr
+ * Kitchen workspace › Ingredients › Tahini paste            <- the shell's trail; the list crumb closes
+ * ┌ window ───────────────────────────────────────────────────────── 880 ┐
+ * │ INGREDIENT                                                  [⋯] [✕] │
+ * │ ┌ canopy ─ Tahini paste ● Published · ING-0142 · Ingredient ───────┐ │
+ * │ ┌ [≡] Details ──────────────────┐  ┌ [photo] ─────────────┐         │
+ * │ ┌ [◇] section ──────────────────┐  ┌ [◈] Allergens & diets┐         │
+ * └──────────────────────────────────────────────────────────────────────┘
  * ```
  *
- * The canopy took over the old header and the Record status card: the status, its caption lines
- * and the one Edit are on the band now, so the rail holds only what a record adds — its picture,
- * its chips, its own cards. `statusContent` — a fact the action depends on — is the rail's first
- * tile, under the band that carries the action.
+ * ## The list stays
  *
- * ## It replaces the window, not the list's state
+ * A caller renders its list as always and this beside it while it holds a record. Closing is a
+ * state change — the list's page, sort and filters were never left.
  *
- * Every View used to open a 640px `RecordWindow` over the list. The design draws the record as a
- * page instead: the canopy, a wide column of tiles, and a rail beside it. A caller renders this
- * **in place of** its list while it holds a record,
- * so Back is a state change — the list's page, sort and filters are still in the hook above it —
- * rather than a navigation that would drop them.
+ * ## Every action is behind ⋯
  *
- * ## Back is a button and a crumb, and Edit is drawn once
- *
- * `onBack` is handed to the shell's trail (`useKitchenTrailLeaf`), which draws
- * `… › Ingredients › Tahini paste` with **Ingredients** as the link that closes the record — so the
- * trail means the same thing here as on a record that is a route of its own. Readers missed the
- * crumb, so the canopy opens with a `‹ Back` button that does the same (`-back`). Edit is drawn
- * once, at the canopy's inline end beside the status it depends on.
+ * `primaryAction` (Edit, usually) is the menu's first entry, in brand ink, `-primary` by default;
+ * `actions` follow it. Nothing on the canopy or in a tile is a button any more — what used to sit
+ * in a tile (Record a payment, Assign a driver) is an entry here, and one that opens a dialog of its
+ * own opens it over the window. `statusContent` still says the fact an action depends on.
  *
  * ## One shape for every module
  *
- * The props are `RecordWindow`'s, so a screen moves across by swapping the element and turning
- * `onClose` into `onBack`. The test-id suffixes that suites already name — `-title`, `-kind`,
- * `-status`, `-note`, `-field-{key}`, `-chips`, `-body`, `-primary` — are kept; `-primary` (or the
- * action's own `testID`) names the canopy's Edit, the only one there is. What a module adds
- * beyond the field grid goes into `sections` (main column) and `rail` (beside it); the ingredient
- * page is the reference for both.
+ * The test-id suffixes suites name — `-title`, `-kind`, `-status`, `-note`, `-field-{key}`,
+ * `-chips`, `-body`, `-primary` — are kept; the window adds `-close`, `-actions` (the ⋯),
+ * `-backdrop` and `-eyebrow`. What a module adds beyond the field grid goes into `sections` (main
+ * column) and `rail` (beside it).
  *
- * Below `xl` the rail drops under the main column. The design's rail is `minmax(280px, 1fr)` beside
- * a `2.1fr` column; with the 224px admin sidebar open, `lg` leaves the rail narrower than a field.
+ * The rail drops under the main column where the window is narrower than two columns need
+ * (`useRecordSplit`).
  */
 
 /** One read-only pair in the field grid. The Catalogue's name for `RecordWindowField`. */
@@ -96,10 +81,15 @@ export interface RecordViewPageProps {
     readonly status?: { readonly label: string; readonly tone: BadgeTone } | undefined;
     /** A status the caller already renders as a node — a list's own badge. Beside `status`. */
     readonly titleAside?: ReactNode | undefined;
-    /** Closes the record. Handed to the shell's trail, whose list crumb is the way back. */
+    /** Closes the record — ✕, the backdrop, Escape, and the shell trail's list crumb. */
     readonly onBack: () => void;
     /** One info banner above the columns, saying what this page cannot do or why it matters. */
     readonly note?: string | undefined;
+    /**
+     * A refusal the reader must see — a write the server turned down — above the note. A page's
+     * issue tray would sit behind the pop-up's backdrop, so a record's own failures are drawn here.
+     */
+    readonly banner?: ReactNode | undefined;
     /** Translated heading over the field grid. Defaults to "Details". */
     readonly fieldsTitle?: string | undefined;
     readonly fieldsSubtitle?: string | undefined;
@@ -136,20 +126,13 @@ export interface RecordViewPageProps {
      * drops under the main column, it leads that.
      */
     readonly media?: ReactNode | undefined;
-    /** The page's one way into the editor. Omit on a record nobody may change here. */
-    readonly primaryAction?:
-        | {
-              readonly label: string;
-              readonly onPress: () => void;
-              /** `pen` by default — the design's Edit. `null` for an action that is not an edit. */
-              readonly icon?: IconName | null | undefined;
-              /** Overrides `{testID}-primary`, for a caller whose suite already names the action. */
-              readonly testID?: string | undefined;
-              /** For an action that writes: both copies spin and neither can be pressed twice. */
-              readonly loading?: boolean | undefined;
-              readonly disabled?: boolean | undefined;
-          }
-        | undefined;
+    /**
+     * The record's primary — Edit, usually — listed first in the ⋯ menu, in brand ink. `-primary`
+     * (or its own `testID`) names it. Omit on a record nobody may change here.
+     */
+    readonly primaryAction?: RecordPrimaryAction | undefined;
+    /** Every other action the record has, behind ⋯ after the primary, in order. */
+    readonly actions?: readonly RecordAction[] | undefined;
     readonly testID: string;
 }
 
@@ -167,6 +150,7 @@ export function RecordViewPage({
     titleAside,
     onBack,
     note,
+    banner,
     fieldsTitle,
     fieldsSubtitle,
     fields,
@@ -184,18 +168,16 @@ export function RecordViewPage({
     rail = [],
     media,
     primaryAction,
+    actions,
     testID,
 }: RecordViewPageProps) {
     const { t } = useTranslation();
-
-    useKitchenTrailLeaf(title, onBack);
 
     const separator = t('kitchen:recordView.metaSeparator');
     const hasChips =
         chipsLabel !== undefined && (chips !== undefined || chipsContent !== undefined);
     const hasRail =
         media !== undefined || statusContent !== undefined || hasChips || rail.length > 0;
-    const split = useContentWidth().atLeast(RECORD_SPLIT_MIN);
     const detailsTitle = fieldsTitle ?? t('kitchen:recordView.details');
 
     const captions: RecordCanopyCaption[] = [
@@ -223,153 +205,173 @@ export function RecordViewPage({
     ];
 
     return (
-        <Cascade space="md" testID={testID}>
-            <RecordCanopy
-                testID={`${testID}-header`}
-                titleTestID={`${testID}-title`}
-                statusTestID={`${testID}-status`}
-                title={title}
-                {...(status === undefined
-                    ? {}
-                    : { status: { label: status.label, tone: canopyTone(status.tone) } })}
-                titleBadges={titleAside}
-                captions={captions}
-                back={
-                    <Button
-                        testID={`${testID}-back`}
-                        variant="secondary"
-                        size="sm"
-                        label={t('kitchen:common.back')}
-                        iconStart={<Icon name="chevronStart" size="sm" />}
-                        onPress={onBack}
-                    />
-                }
-                {...(primaryAction === undefined
-                    ? {}
-                    : {
-                          actions: (
-                              <Button
-                                  testID={primaryAction.testID ?? `${testID}-primary`}
-                                  variant="secondary"
-                                  size="sm"
-                                  label={primaryAction.label}
-                                  {...(primaryAction.icon === null
-                                      ? {}
-                                      : {
-                                            iconStart: (
-                                                <Icon
-                                                    name={primaryAction.icon ?? 'pen'}
-                                                    size="sm"
-                                                />
-                                            ),
-                                        })}
-                                  loading={primaryAction.loading}
-                                  disabled={primaryAction.disabled}
-                                  onPress={primaryAction.onPress}
-                              />
-                          ),
-                      })}
-                noValue={t('kitchen:list.noValue')}
-            />
+        <RecordPopup
+            title={title}
+            kind={kind}
+            onClose={onBack}
+            primaryAction={primaryAction}
+            actions={actions}
+            testID={testID}
+        >
+            <Cascade space="md" testID={testID}>
+                <RecordCanopy
+                    testID={`${testID}-header`}
+                    titleTestID={`${testID}-title`}
+                    statusTestID={`${testID}-status`}
+                    title={title}
+                    {...(status === undefined
+                        ? {}
+                        : { status: { label: status.label, tone: canopyTone(status.tone) } })}
+                    titleBadges={titleAside}
+                    captions={captions}
+                    noValue={t('kitchen:list.noValue')}
+                />
 
-            {note === undefined ? null : (
-                <Callout testID={`${testID}-note`} tone="info" role="note" title={note} />
-            )}
+                {banner}
 
-            {/*
-             * Two columns where the *page* has room for both, not where the window is wide: on a
-             * laptop the window clears `xl` while the content column is ~920px. One column below
-             * that, the rail under the main column — the action lives on the canopy above both.
-             */}
-            <View
-                testID={`${testID}-body`}
-                className={
-                    split ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
-                }
-            >
-                <View
-                    testID={`${testID}-main`}
-                    className="z-auto min-w-0 flex-col gap-base"
-                    style={split ? { flex: hasRail ? 21 : 1 } : undefined}
-                >
-                    <RecordTile
-                        testID={`${testID}-details`}
-                        icon="list"
-                        title={detailsTitle}
-                        trailing={
-                            fieldsSubtitle === undefined ? undefined : (
-                                <InfoTip label={detailsTitle} text={fieldsSubtitle} />
-                            )
-                        }
-                    >
-                        <RecordWindowFieldGrid fields={fields} testID={`${testID}-field`} />
-                    </RecordTile>
+                {note === undefined ? null : (
+                    <Callout testID={`${testID}-note`} tone="info" role="note" title={note} />
+                )}
 
-                    {sections.map((section) => (
-                        <SectionTile key={section.key} section={section} testID={testID} />
-                    ))}
-
-                    {lines === undefined ? null : (
-                        <RecordTile testID={`${testID}-lines`} icon="layers" title={linesTitle}>
-                            {lines}
-                        </RecordTile>
-                    )}
-                </View>
-
-                {hasRail ? (
-                    <View
-                        testID={`${testID}-rail`}
-                        className="z-auto min-w-0 flex-col gap-base"
-                        style={split ? { flex: 10, minWidth: RECORD_RAIL_MIN } : undefined}
-                    >
-                        {media}
-
-                        {statusContent === undefined ? null : (
-                            <RecordTile
-                                testID={`${testID}-record-status`}
-                                icon="infoCircle"
-                                title={t('kitchen:recordView.statusTitle')}
+                {/*
+                 * Two columns where the *window* has room for both, the rail under the main column
+                 * below that. Read inside the window (`SplitBody`), where the width is its own.
+                 */}
+                <SplitBody testID={`${testID}-body`}>
+                    {(split) => (
+                        <>
+                            <View
+                                testID={`${testID}-main`}
+                                className="z-auto min-w-0 flex-col gap-base"
+                                style={split ? { flex: hasRail ? 21 : 1 } : undefined}
                             >
-                                {statusContent}
-                            </RecordTile>
-                        )}
+                                <RecordTile
+                                    testID={`${testID}-details`}
+                                    icon="list"
+                                    title={detailsTitle}
+                                    trailing={
+                                        fieldsSubtitle === undefined ? undefined : (
+                                            <InfoTip label={detailsTitle} text={fieldsSubtitle} />
+                                        )
+                                    }
+                                >
+                                    <RecordWindowFieldGrid
+                                        fields={fields}
+                                        testID={`${testID}-field`}
+                                    />
+                                </RecordTile>
 
-                        {hasChips ? (
-                            <RecordTile
-                                testID={`${testID}-chips`}
-                                icon="tag"
-                                title={chipsLabel}
-                                aside={
-                                    chipsSourceBadge === undefined ? undefined : (
-                                        <Badge
-                                            tone="neutral"
-                                            label={chipsSourceBadge}
-                                            testID={`${testID}-chips-source`}
+                                {sections.map((section) => (
+                                    <SectionTile
+                                        key={section.key}
+                                        section={section}
+                                        testID={testID}
+                                    />
+                                ))}
+
+                                {lines === undefined ? null : (
+                                    <RecordTile
+                                        testID={`${testID}-lines`}
+                                        icon="layers"
+                                        title={linesTitle}
+                                    >
+                                        {lines}
+                                    </RecordTile>
+                                )}
+                            </View>
+
+                            {hasRail ? (
+                                <View
+                                    testID={`${testID}-rail`}
+                                    className="z-auto min-w-0 flex-col gap-base"
+                                    style={
+                                        split ? { flex: 10, minWidth: RECORD_RAIL_MIN } : undefined
+                                    }
+                                >
+                                    {media}
+
+                                    {statusContent === undefined ? null : (
+                                        <RecordTile
+                                            testID={`${testID}-record-status`}
+                                            icon="infoCircle"
+                                            title={t('kitchen:recordView.statusTitle')}
+                                        >
+                                            {statusContent}
+                                        </RecordTile>
+                                    )}
+
+                                    {hasChips ? (
+                                        <RecordTile
+                                            testID={`${testID}-chips`}
+                                            icon="tag"
+                                            title={chipsLabel}
+                                            aside={
+                                                chipsSourceBadge === undefined ? undefined : (
+                                                    <Badge
+                                                        tone="neutral"
+                                                        label={chipsSourceBadge}
+                                                        testID={`${testID}-chips-source`}
+                                                    />
+                                                )
+                                            }
+                                            trailing={
+                                                chipsCaption === undefined ? undefined : (
+                                                    <InfoTip
+                                                        label={chipsLabel}
+                                                        text={chipsCaption}
+                                                    />
+                                                )
+                                            }
+                                        >
+                                            <Stack space="sm">
+                                                {chipsContent ??
+                                                    (chips === undefined ||
+                                                    chips.length === 0 ? null : (
+                                                        <TagRow
+                                                            items={chips}
+                                                            testID={`${testID}-chip-row`}
+                                                        />
+                                                    ))}
+                                            </Stack>
+                                        </RecordTile>
+                                    ) : null}
+
+                                    {rail.map((section) => (
+                                        <SectionTile
+                                            key={section.key}
+                                            section={section}
+                                            testID={testID}
                                         />
-                                    )
-                                }
-                                trailing={
-                                    chipsCaption === undefined ? undefined : (
-                                        <InfoTip label={chipsLabel} text={chipsCaption} />
-                                    )
-                                }
-                            >
-                                <Stack space="sm">
-                                    {chipsContent ??
-                                        (chips === undefined || chips.length === 0 ? null : (
-                                            <TagRow items={chips} testID={`${testID}-chip-row`} />
-                                        ))}
-                                </Stack>
-                            </RecordTile>
-                        ) : null}
+                                    ))}
+                                </View>
+                            ) : null}
+                        </>
+                    )}
+                </SplitBody>
+            </Cascade>
+        </RecordPopup>
+    );
+}
 
-                        {rail.map((section) => (
-                            <SectionTile key={section.key} section={section} testID={testID} />
-                        ))}
-                    </View>
-                ) : null}
-            </View>
-        </Cascade>
+/**
+ * The body's row or column. A component of its own so `useRecordSplit` is read under the pop-up's
+ * providers — called in `RecordViewPage` itself, it would measure the page behind the window.
+ */
+function SplitBody({
+    testID,
+    children,
+}: {
+    readonly testID: string;
+    readonly children: (split: boolean) => ReactNode;
+}) {
+    const split = useRecordSplit();
+    return (
+        <View
+            testID={testID}
+            className={split ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'}
+        >
+            {children(split)}
+        </View>
     );
 }
 

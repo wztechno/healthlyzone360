@@ -346,8 +346,8 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
         },
     ];
 
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-suppliers-view"
                 onBack={() => {
@@ -402,7 +402,6 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
                 }}
             />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-suppliers-screen">
@@ -533,6 +532,8 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
                     ]}
                 />
             )}
+
+            {viewPopup}
         </Cascade>
     );
 }

@@ -2,10 +2,7 @@ import { DensityProvider } from '@healthy360/design-system';
 import { Slot } from 'expo-router';
 import { View } from 'react-native';
 
-import {
-    PlatformAdminBrandBlock,
-    usePlatformAdminNavigation,
-} from '../../src/features/platform-admin/platform-admin-chrome.tsx';
+import { usePlatformAdminNavigation } from '../../src/features/platform-admin/platform-admin-chrome.tsx';
 import { AreaRailTop, DESK_SIDEBAR_WIDTH } from '../../src/shell/area-brand-block.tsx';
 import { AreaShell } from '../../src/shell/area-shell.tsx';
 
@@ -34,7 +31,6 @@ export default function PlatformAdminLayout() {
             testID="platform-admin-shell"
             navigation={navigation}
             sidebarWidth={DESK_SIDEBAR_WIDTH}
-            sidebarStart={<PlatformAdminBrandBlock />}
             sidebarStartCollapsed={<AreaRailTop testID="platform-admin-rail-top" />}
         >
             <DensityProvider value="compact">

@@ -607,8 +607,8 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
         );
     }
 
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-supply-orders-view"
                 onBack={() => {
@@ -631,7 +631,6 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                 }}
             />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-supply-orders-screen">
@@ -899,6 +898,8 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                     </Stack>
                 )}
             </FormSection>
+
+            {viewPopup}
         </Cascade>
     );
 }

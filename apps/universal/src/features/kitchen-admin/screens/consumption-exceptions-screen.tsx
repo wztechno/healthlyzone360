@@ -7,7 +7,6 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
-    Icon,
     TableSkeleton,
     Text,
     useToast,
@@ -619,10 +618,10 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
         retry.mutate(autoRetry.id, retryCallbacks(autoRetry));
     });
 
-    if (viewing !== null) {
-        // The fix until it is made; after that the system retries, and nothing is left to press.
-        const viewingFix = fixFor(viewing);
-        return (
+    // The fix until it is made; after that the system retries, and nothing is left to press.
+    const viewingFix = viewing === null ? null : fixFor(viewing);
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-consumption-exceptions-window"
                 onBack={closeRecord}
@@ -688,23 +687,19 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                         value: t('kitchen:ops.exceptions.window.moneyValue'),
                     },
                 ]}
-                statusContent={
-                    viewingFix === null ? undefined : (
-                        <Button
-                            testID="kitchen-consumption-exceptions-window-fix"
-                            size="sm"
-                            block
-                            label={t(viewingFix.labelKey)}
-                            iconStart={<Icon name="pen" size="sm" />}
-                            onPress={() => {
-                                openFix(viewingFix, viewing);
-                            }}
-                        />
-                    )
-                }
+                {...(viewingFix === null
+                    ? {}
+                    : {
+                          primaryAction: {
+                              label: t(viewingFix.labelKey),
+                              testID: 'kitchen-consumption-exceptions-window-fix',
+                              onPress: () => {
+                                  openFix(viewingFix, viewing);
+                              },
+                          },
+                      })}
             />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-consumption-exceptions-screen">
@@ -875,6 +870,8 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                     </>
                 }
             />
+
+            {viewPopup}
         </Cascade>
     );
 }

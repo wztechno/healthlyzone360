@@ -244,6 +244,10 @@ export const DRAWN_ICON_FALLBACKS = {
     rotateCw: 'refresh',
     // The guest order page's reference chip. Lucide's `copy`.
     copy: 'archive',
+    // The workspace frame's Workspaces control and page-panel close. Lucide's `grip` and
+    // `chevrons-left`.
+    gridDots: 'menu',
+    chevronsBackward: 'chevronBackward',
 } as const satisfies Readonly<Record<string, IconGlyphName>>;
 export type DrawnIconName = keyof typeof DRAWN_ICON_FALLBACKS;
 

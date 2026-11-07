@@ -1,4 +1,3 @@
-import { Badge } from '@healthy360/design-system';
 import type { IconName, NavigationItem } from '@healthy360/design-system';
 import { usePathname, useRouter } from 'expo-router';
 import { useMemo } from 'react';
@@ -7,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useReviewQueueQuery } from '../../data/kitchen-admin-hooks.ts';
 import { useConsumptionExceptionCountQuery } from '../../data/kitchen-ops-hooks.ts';
 import { guardNavigation } from '../../navigation/use-unsaved-guard.ts';
-import { AreaBrandBlock, AreaRailTop, DESK_SIDEBAR_WIDTH } from '../../shell/area-brand-block.tsx';
+import { AreaRailTop, DESK_SIDEBAR_WIDTH } from '../../shell/area-brand-block.tsx';
 import { useAccessState } from '../../session/session-provider.tsx';
 import {
     OVERVIEW_HREF,
@@ -40,21 +39,12 @@ const GROUP_ICONS: Readonly<Record<EntityGroup, IconName>> = {
     access: 'shield',
 };
 
-/** KITCHEN.md sidebar spec: the family rail is 232px. */
+/** The admin frame's page panel width, shared by every desk area. */
 export const KITCHEN_SIDEBAR_WIDTH = DESK_SIDEBAR_WIDTH;
 
-/** The top of the green module rail: empty — see `AreaRailTop`. */
+/** The top of the green module rail: the brand's leaf — see `AreaRailTop`. */
 export function KitchenRailTop() {
     return <AreaRailTop testID="kitchen-rail-top" />;
-}
-
-/**
- * Brand block at the top of the rail. No branch name — the access state carries only branch ids,
- * and a made-up label would be worse than none.
- */
-export function KitchenBrandBlock() {
-    const { t } = useTranslation();
-    return <AreaBrandBlock testID="kitchen-rail-brand" subtitle={t('kitchen:nav.railTitle')} />;
 }
 
 /**
@@ -123,17 +113,7 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
                 icon: item.icon,
                 active: item.href === activeHref,
                 testID: `nav-${item.key}`,
-                ...(count === null || count === 0
-                    ? {}
-                    : {
-                          badge: (
-                              <Badge
-                                  testID={`nav-${item.key}-badge`}
-                                  tone="warning"
-                                  label={String(count)}
-                              />
-                          ),
-                      }),
+                ...(count === null ? {} : { count }),
                 onPress: () => {
                     guardNavigation(() => {
                         router.push(item.href as never);
