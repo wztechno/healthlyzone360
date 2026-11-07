@@ -640,6 +640,10 @@ describe('one batch', () => {
                     screen.getByTestId('kitchen-production-batch-core-temperature-value'),
                 ).toHaveTextContent(/76\.0°C · .+ · Sara/);
             });
+            // Not today's, so the day is said as well as the time.
+            expect(
+                screen.getByTestId('kitchen-production-batch-core-temperature-value'),
+            ).toHaveTextContent(/\d{1,2}\/\d{1,2}\/\d{2}/);
 
             fireEvent.press(screen.getByTestId('kitchen-production-batch-temperature'));
             fireEvent.changeText(
@@ -660,6 +664,68 @@ describe('one batch', () => {
                     celsius: '78.5',
                 });
             });
+        });
+
+        it('says only the time of a reading taken today', async () => {
+            await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
+                session: chefSession(),
+                repositories: {
+                    kitchenOps: {
+                        getProductionOrder: async () =>
+                            detail({
+                                order: cooking(),
+                                lines: [line()],
+                                plan: null,
+                                coreTemperatures: [
+                                    {
+                                        id: 'reading-1',
+                                        batchLabel: 'PB-7K3MQ9ZV',
+                                        recipe: 'Caesar dressing',
+                                        celsius: '76.0',
+                                        note: null,
+                                        recordedByName: 'Sara',
+                                        recordedAt: new Date().toISOString() as never,
+                                    },
+                                ],
+                            }),
+                    },
+                },
+            });
+
+            await waitFor(() => {
+                expect(
+                    screen.getByTestId('kitchen-production-batch-core-temperature-value'),
+                ).toHaveTextContent(/76\.0°C · .+ · Sara/);
+            });
+            expect(
+                screen.getByTestId('kitchen-production-batch-core-temperature-value'),
+            ).not.toHaveTextContent(/\d{1,2}\/\d{1,2}\/\d{2}/);
+        });
+
+        it.each([
+            ['abandoned', { abandonedAt: '2026-09-25T10:00:00Z' }],
+            ['cancelled', { cancelledAt: '2026-09-25T10:00:00Z' }],
+        ] as const)('offers no recording on a started batch that was %s', async (status, stamp) => {
+            await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
+                session: chefSession(),
+                repositories: {
+                    kitchenOps: {
+                        getProductionOrder: async () =>
+                            detail({
+                                order: { ...cooking(), status, ...stamp },
+                                lines: [line()],
+                                plan: null,
+                            }),
+                    },
+                },
+            });
+
+            await waitFor(() => {
+                expect(
+                    screen.getByTestId('kitchen-production-batch-core-temperature-value'),
+                ).toBeTruthy();
+            });
+            expect(screen.queryByTestId('kitchen-production-batch-temperature')).toBeNull();
         });
 
         it('offers no recording to somebody who may only read the batch', async () => {

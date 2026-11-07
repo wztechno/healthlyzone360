@@ -740,7 +740,13 @@ function coreTemperatureFact(
                 ? noValue
                 : [
                       t('kitchen:temperature.celsius', { value: latest.celsius }),
-                      formatter.formatDate(latest.recordedAt, { timeStyle: 'short' }),
+                      // Today's reading by its time alone; an older one says which day too.
+                      formatter.formatDate(
+                          latest.recordedAt,
+                          todayIso(new Date(latest.recordedAt)) === todayIso()
+                              ? { timeStyle: 'short' }
+                              : { dateStyle: 'short', timeStyle: 'short' },
+                      ),
                       latest.recordedByName,
                   ]
                       .filter(Boolean)

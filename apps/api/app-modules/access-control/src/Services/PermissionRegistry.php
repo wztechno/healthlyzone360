@@ -810,8 +810,8 @@ final class PermissionRegistry
             'kitchen_staff' => [
                 'name_en' => 'Cook',
                 'name_ar' => 'الطاهي',
-                'description_en' => 'Reads recipes and stock, and starts and finishes orders on the kitchen display. Sees no money.',
-                'description_ar' => 'يقرأ الوصفات والمخزون، ويبدأ الطلبات وينهيها على شاشة المطبخ. لا يرى أي مبالغ.',
+                'description_en' => 'Reads recipes, stock and production batches, and starts and finishes orders on the kitchen display. Sees no money.',
+                'description_ar' => 'يقرأ الوصفات والمخزون ودفعات الإنتاج، ويبدأ الطلبات وينهيها على شاشة المطبخ. لا يرى أي مبالغ.',
                 'permissions' => [
                     'catalogue.view_organisation',
                     'recipe.view_organisation',
