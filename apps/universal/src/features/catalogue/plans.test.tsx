@@ -320,9 +320,9 @@ describe('PlansScreen — HealthZone structure', () => {
 
             // Three meals moves the card onto its three-meal band.
             await fireEvent.press(screen.getByTestId('plans-finder-meals-3'));
-            expect(screen.getByTestId('plans-finder-meals-3').props.accessibilityState.checked).toBe(
-                true,
-            );
+            expect(
+                screen.getByTestId('plans-finder-meals-3').props.accessibilityState.checked,
+            ).toBe(true);
             expect(screen.getByTestId('plan-card-balanced-week-price-amount')).toHaveTextContent(
                 moneyPattern(4000),
             );

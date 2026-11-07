@@ -32,7 +32,6 @@ afterEach(() => {
     Dimensions.set({ window: phoneWindow, screen: phoneScreen });
 });
 
-
 /**
  * The signed-in order page, over the same tracking body the guest page draws.
  *

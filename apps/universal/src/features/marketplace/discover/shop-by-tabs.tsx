@@ -161,12 +161,17 @@ const ShopByTile = memo(function ShopByTile({
             onHoverOut={() => {
                 setHovered(false);
             }}
-            className={cx('flex-col items-center', compact ? 'w-[72px] gap-2' : 'w-[100px] gap-2.5')}
+            className={cx(
+                'flex-col items-center',
+                compact ? 'w-[72px] gap-2' : 'w-[100px] gap-2.5',
+            )}
         >
             <View
                 className={[
                     'items-center justify-center overflow-hidden border-2 transition duration-normal ease-standard',
-                    compact ? 'h-[72px] w-[72px] rounded-[18px]' : 'h-[100px] w-[100px] rounded-[20px]',
+                    compact
+                        ? 'h-[72px] w-[72px] rounded-[18px]'
+                        : 'h-[100px] w-[100px] rounded-[20px]',
                     on ? 'border-surface-brand' : 'border-transparent',
                     hovered ? '-translate-y-0.5 bg-surface-brand-subtle' : 'bg-surface-sunken',
                 ].join(' ')}

@@ -247,7 +247,13 @@ export function CancelledTimeline({
                         testID={`${testID}-${step}`}
                         label={`${title}, ${t('guest:order.position.done')}`}
                         dot="border-surface-brand bg-surface-brand"
-                        icon={<Icon name={STEP_ICON[step]} size="sm" className="text-content-on-brand" />}
+                        icon={
+                            <Icon
+                                name={STEP_ICON[step]}
+                                size="sm"
+                                className="text-content-on-brand"
+                            />
+                        }
                         title={title}
                         detail={index === 0 ? placedDetail : t(`guest:order.steps.${step}.detail`)}
                         time={index === 0 ? placedAt : times?.[step]}

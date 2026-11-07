@@ -633,7 +633,10 @@ describe('KitchenProfileScreen', () => {
             await renderStubScreen(<KitchenProfileScreen kitchenId={String(VERDANT.id)} />, {
                 repositories: {
                     marketplace: {
-                        getKitchen: async () => ({ ...VERDANT, pausedUntil: '2026-11-03T15:00:00Z' }),
+                        getKitchen: async () => ({
+                            ...VERDANT,
+                            pausedUntil: '2026-11-03T15:00:00Z',
+                        }),
                         listMeals,
                     },
                 },
@@ -653,7 +656,9 @@ describe('KitchenProfileScreen', () => {
             });
 
             await waitFor(() => {
-                expect(screen.getByTestId('kitchen-hero-title')).toHaveTextContent('Verdant Kitchen');
+                expect(screen.getByTestId('kitchen-hero-title')).toHaveTextContent(
+                    'Verdant Kitchen',
+                );
             });
             expect(screen.getByTestId('kitchen-hero-panel')).toBeTruthy();
             expect(screen.getByTestId('kitchen-hero-media')).toBeTruthy();
@@ -668,8 +673,12 @@ describe('KitchenProfileScreen', () => {
 
             // The facts, each bound to the contract: where it cooks, its areas, its rating.
             expect(screen.getByTestId('kitchen-fact-where')).toBeTruthy();
-            expect(screen.getByTestId('kitchen-fact-areas')).toHaveTextContent(/Delivers to \d+ area/);
-            expect(screen.getByTestId('kitchen-fact-rating')).toHaveTextContent(/4\.6 · 24 ratings$/);
+            expect(screen.getByTestId('kitchen-fact-areas')).toHaveTextContent(
+                /Delivers to \d+ area/,
+            );
+            expect(screen.getByTestId('kitchen-fact-rating')).toHaveTextContent(
+                /4\.6 · 24 ratings$/,
+            );
             // The delivery estimate is in the order panel's terms.
             expect(screen.getByTestId('kitchen-order-eta')).toHaveTextContent(/45 min$/);
         });

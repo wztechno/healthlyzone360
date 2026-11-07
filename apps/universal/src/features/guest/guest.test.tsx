@@ -964,9 +964,9 @@ describe('the confirmation', () => {
             'Order placed, done',
         );
         expect(screen.getByTestId('guest-order-timeline-cancelled')).toHaveTextContent(/Cancelled/);
-        expect(
-            screen.getByTestId('guest-order-timeline-delivered').props.accessibilityLabel,
-        ).toBe('Delivered, will not happen');
+        expect(screen.getByTestId('guest-order-timeline-delivered').props.accessibilityLabel).toBe(
+            'Delivered, will not happen',
+        );
         // Its ways on are in the card, so the timeline's buttons are gone.
         expect(screen.queryByTestId('guest-order-refresh')).toBeNull();
         expect(screen.getByTestId('guest-order-cancelled-browse')).toBeTruthy();

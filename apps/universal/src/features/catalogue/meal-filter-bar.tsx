@@ -204,7 +204,9 @@ export function CategoryTabs({
                             <View
                                 className={cx(
                                     'items-center justify-center overflow-hidden',
-                                    phone ? 'h-[46px] w-[46px] rounded-xl' : 'h-[60px] w-[60px] rounded-2xl',
+                                    phone
+                                        ? 'h-[46px] w-[46px] rounded-xl'
+                                        : 'h-[60px] w-[60px] rounded-2xl',
                                 )}
                             >
                                 {meal === undefined ? (
@@ -217,7 +219,9 @@ export function CategoryTabs({
                                         label={tab.label}
                                         decorative
                                         flush
-                                        className={phone ? 'h-[46px] w-[46px]' : 'h-[60px] w-[60px]'}
+                                        className={
+                                            phone ? 'h-[46px] w-[46px]' : 'h-[60px] w-[60px]'
+                                        }
                                     />
                                 )}
                             </View>
@@ -244,10 +248,12 @@ export function CategoryTabs({
                                             TINT_INK[tint],
                                         )}
                                     >
-                                        {phone ? countText : t('catalogue:filters.shelfCount', {
-                                            count: tab.count ?? 0,
-                                            n: countText,
-                                        })}
+                                        {phone
+                                            ? countText
+                                            : t('catalogue:filters.shelfCount', {
+                                                  count: tab.count ?? 0,
+                                                  n: countText,
+                                              })}
                                     </RNText>
                                 )}
                             </View>

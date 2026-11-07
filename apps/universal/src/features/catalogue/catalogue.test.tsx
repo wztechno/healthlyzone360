@@ -881,9 +881,9 @@ describe('MealsScreen', () => {
             expect(
                 within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-nutrient-protein`),
             ).toHaveTextContent(/30.*g.*Protein/);
-            expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-rating`)).toHaveTextContent(
-                /4\.4/,
-            );
+            expect(
+                within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-rating`),
+            ).toHaveTextContent(/4\.4/);
             expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-open`)).toBeTruthy();
             expect(within(card).getByTestId(`meal-card-${MILK_MEAL_SLUG}-add`)).toBeTruthy();
         });
@@ -1324,7 +1324,9 @@ describe('MealDetailScreen', () => {
 
             // An omnivore dish wears its shelf, and the rating carries its review count.
             expect(screen.getByTestId('meal-detail-lead-diet')).toHaveTextContent('Bowls');
-            expect(screen.getByTestId('meal-detail-rating')).toHaveTextContent('★ 4.4 (11 reviews)');
+            expect(screen.getByTestId('meal-detail-rating')).toHaveTextContent(
+                '★ 4.4 (11 reviews)',
+            );
             // All four rings, figure over name.
             for (const nutrient of ['energy', 'protein', 'carbohydrate', 'fat']) {
                 expect(screen.getByTestId(`meal-detail-strip-${nutrient}`)).toBeTruthy();
@@ -1339,7 +1341,9 @@ describe('MealDetailScreen', () => {
             expect(screen.getByTestId('meal-detail-instructions-input')).toBeTruthy();
             expect(screen.getByTestId('meal-detail-quantity')).toBeTruthy();
             // One noun for the one place (browse-14): the toast, the header and the page say basket.
-            expect(screen.getByTestId('meal-detail-add-to-basket')).toHaveTextContent(/Add to basket/);
+            expect(screen.getByTestId('meal-detail-add-to-basket')).toHaveTextContent(
+                /Add to basket/,
+            );
         });
     });
 

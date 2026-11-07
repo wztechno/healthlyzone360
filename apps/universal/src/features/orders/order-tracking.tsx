@@ -211,9 +211,7 @@ export function OrderTracking({
                 </RNText>
             </View>
 
-            {showReference ? (
-                <ReferenceChip testID={testID} reference={order.reference} />
-            ) : null}
+            {showReference ? <ReferenceChip testID={testID} reference={order.reference} /> : null}
 
             {/* ── the journey: when it arrives, and the road from the kitchen to the door ── */}
             {current === null ? (
@@ -253,44 +251,44 @@ export function OrderTracking({
                     </View>
                 </View>
             ) : (
-            <View
-                testID={`${testID}-window`}
-                className="relative mt-[22px] overflow-hidden rounded-[26px] bg-surface-canopy px-7 pb-[22px] pt-6"
-            >
                 <View
-                    aria-hidden
-                    className="absolute -end-[100px] -top-[160px] h-[420px] w-[420px] rounded-full bg-stage-green opacity-15"
-                />
-                <View className="flex-row flex-wrap items-end justify-between gap-4">
-                    <View className="min-w-0">
-                        <RNText className="text-xs font-bold uppercase tracking-wider text-stage-green text-start">
-                            {deliveredAt === null
-                                ? t('guest:order.arriving')
-                                : t('guest:order.delivered')}
-                        </RNText>
-                        <RNText
-                            testID={`${testID}-slot`}
-                            className="mt-1 font-display text-2xl font-bold tracking-display text-content-on-canopy text-start"
-                        >
-                            {deliveredAt === null
-                                ? arriving
-                                : formatter.formatDate(deliveredAt, {
-                                      weekday: 'short',
-                                      hour: 'numeric',
-                                      minute: '2-digit',
-                                  })}
-                        </RNText>
+                    testID={`${testID}-window`}
+                    className="relative mt-[22px] overflow-hidden rounded-[26px] bg-surface-canopy px-7 pb-[22px] pt-6"
+                >
+                    <View
+                        aria-hidden
+                        className="absolute -end-[100px] -top-[160px] h-[420px] w-[420px] rounded-full bg-stage-green opacity-15"
+                    />
+                    <View className="flex-row flex-wrap items-end justify-between gap-4">
+                        <View className="min-w-0">
+                            <RNText className="text-xs font-bold uppercase tracking-wider text-stage-green text-start">
+                                {deliveredAt === null
+                                    ? t('guest:order.arriving')
+                                    : t('guest:order.delivered')}
+                            </RNText>
+                            <RNText
+                                testID={`${testID}-slot`}
+                                className="mt-1 font-display text-2xl font-bold tracking-display text-content-on-canopy text-start"
+                            >
+                                {deliveredAt === null
+                                    ? arriving
+                                    : formatter.formatDate(deliveredAt, {
+                                          weekday: 'short',
+                                          hour: 'numeric',
+                                          minute: '2-digit',
+                                      })}
+                            </RNText>
+                        </View>
+                        {currentStep === null || currentStep === undefined ? null : (
+                            <RNText className="text-sm font-medium text-content-on-canopy-muted">
+                                {t(`guest:order.steps.${currentStep}.title`)}
+                            </RNText>
+                        )}
                     </View>
-                    {currentStep === null || currentStep === undefined ? null : (
-                        <RNText className="text-sm font-medium text-content-on-canopy-muted">
-                            {t(`guest:order.steps.${currentStep}.title`)}
-                        </RNText>
+                    {current === null ? null : (
+                        <Road progress={progress} moving={order.state === 'out_for_delivery'} />
                     )}
                 </View>
-                {current === null ? null : (
-                    <Road progress={progress} moving={order.state === 'out_for_delivery'} />
-                )}
-            </View>
             )}
 
             {/* ── the timeline beside what is in it and who is bringing it ── */}
@@ -328,38 +326,39 @@ export function OrderTracking({
                     )}
                     {/* A cancelled order's ways on are in its red card; nothing to refresh or ask. */}
                     {current === null ? null : (
-                    <View className="flex-row flex-wrap gap-2 border-t border-stroke-subtle pt-3.5">
-                        {onRefresh === undefined ? null : (
+                        <View className="flex-row flex-wrap gap-2 border-t border-stroke-subtle pt-3.5">
+                            {onRefresh === undefined ? null : (
+                                <SoftButton
+                                    testID={`${testID}-refresh`}
+                                    label={t('guest:order.refresh')}
+                                    icon="refresh"
+                                    primary
+                                    busy={refreshing ?? false}
+                                    onPress={onRefresh}
+                                />
+                            )}
                             <SoftButton
-                                testID={`${testID}-refresh`}
-                                label={t('guest:order.refresh')}
-                                icon="refresh"
-                                primary
-                                busy={refreshing ?? false}
-                                onPress={onRefresh}
-                            />
-                        )}
-                        <SoftButton
-                            testID={`${testID}-help`}
-                            label={t('guest:order.getHelp')}
-                            icon="circleHelp"
-                            hint={t('marketplace:prototype.hint')}
-                            onPress={askForHelp}
-                        />
-                        {order.state === 'out_for_delivery' ? (
-                            <SoftButton
-                                testID={`${testID}-message`}
-                                label={t('guest:order.messageCourier')}
-                                icon="send"
+                                testID={`${testID}-help`}
+                                label={t('guest:order.getHelp')}
+                                icon="circleHelp"
                                 hint={t('marketplace:prototype.hint')}
-                                onPress={() => {
-                                    prototype({
-                                        contract: 'POST /api/v1/orders/{order}/courier-messages',
-                                    });
-                                }}
+                                onPress={askForHelp}
                             />
-                        ) : null}
-                    </View>
+                            {order.state === 'out_for_delivery' ? (
+                                <SoftButton
+                                    testID={`${testID}-message`}
+                                    label={t('guest:order.messageCourier')}
+                                    icon="send"
+                                    hint={t('marketplace:prototype.hint')}
+                                    onPress={() => {
+                                        prototype({
+                                            contract:
+                                                'POST /api/v1/orders/{order}/courier-messages',
+                                        });
+                                    }}
+                                />
+                            ) : null}
+                        </View>
                     )}
                     {footer === undefined ? null : <View className="pt-4">{footer}</View>}
                 </View>
@@ -499,8 +498,9 @@ function PillButton({
 /** What the web can copy to: the async clipboard, where the page is allowed it. */
 function webClipboard(): { writeText: (text: string) => Promise<void> } | null {
     if (Platform.OS !== 'web') return null;
-    const nav = (globalThis as { navigator?: { clipboard?: { writeText: (text: string) => Promise<void> } } })
-        .navigator;
+    const nav = (
+        globalThis as { navigator?: { clipboard?: { writeText: (text: string) => Promise<void> } } }
+    ).navigator;
     return nav?.clipboard ?? null;
 }
 
@@ -508,7 +508,13 @@ function webClipboard(): { writeText: (text: string) => Promise<void> } | null {
  * The reference as a chip: its label, the number in the display face, and Copy where the page
  * can copy (on native the number is selectable instead). The keep-it line sits under it.
  */
-function ReferenceChip({ testID, reference }: { readonly testID: string; readonly reference: string }) {
+function ReferenceChip({
+    testID,
+    reference,
+}: {
+    readonly testID: string;
+    readonly reference: string;
+}) {
     const { t } = useTranslation();
     const toast = useToast();
     const clipboard = webClipboard();

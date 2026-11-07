@@ -147,24 +147,24 @@ export function PopularCarousel({
                     </Pressable>
                 ) : (
                     <>
-                <ArrowButton
-                    testID={`${testID}-previous`}
-                    disabled={atStart}
-                    label={t('marketplace:discover.previous')}
-                    icon="chevronBackward"
-                    onPress={() => {
-                        step(-1);
-                    }}
-                />
-                <ArrowButton
-                    testID={`${testID}-next`}
-                    disabled={atEnd}
-                    label={t('marketplace:discover.next')}
-                    icon="chevronForward"
-                    onPress={() => {
-                        step(1);
-                    }}
-                />
+                        <ArrowButton
+                            testID={`${testID}-previous`}
+                            disabled={atStart}
+                            label={t('marketplace:discover.previous')}
+                            icon="chevronBackward"
+                            onPress={() => {
+                                step(-1);
+                            }}
+                        />
+                        <ArrowButton
+                            testID={`${testID}-next`}
+                            disabled={atEnd}
+                            label={t('marketplace:discover.next')}
+                            icon="chevronForward"
+                            onPress={() => {
+                                step(1);
+                            }}
+                        />
                     </>
                 )}
             </View>
@@ -357,12 +357,12 @@ function PopularCard({
                         </RNText>
                     )
                 ) : (
-                <RNText
-                    numberOfLines={1}
-                    className="mt-0.5 text-xs text-content-secondary text-start"
-                >
-                    {meal.kitchenName}
-                </RNText>
+                    <RNText
+                        numberOfLines={1}
+                        className="mt-0.5 text-xs text-content-secondary text-start"
+                    >
+                        {meal.kitchenName}
+                    </RNText>
                 )}
                 {compact || figures.length === 0 ? null : (
                     <View className="mt-2.5 flex-row gap-1.5">
