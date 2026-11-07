@@ -1,4 +1,8 @@
-import type { KitchenServiceSettings, StaffAlertList } from '@healthy360/api-client/contracts';
+import type {
+    KitchenServiceSettings,
+    StaffAlertList,
+    StorefrontProfile,
+} from '@healthy360/api-client/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
@@ -116,6 +120,37 @@ export function useSaveKitchenServiceSettingsMutation(): UseMutationResult<
             repositories.staffAlerts.saveServiceSettings(settings),
         onSuccess: (saved) => {
             queryClient.setQueryData(queryKeys.staffAlerts.serviceSettings(), saved);
+        },
+    });
+}
+
+/** The kitchen's marketplace copy. Read and written on the catalogue permission. */
+export function useStorefrontProfileQuery(): UseQueryResult<StorefrontProfile> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.staffAlerts.storefrontProfile(),
+        enabled: repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.staffAlerts.getStorefrontProfile();
+        },
+    });
+}
+
+export function useSaveStorefrontProfileMutation(): UseMutationResult<
+    StorefrontProfile,
+    unknown,
+    StorefrontProfile
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (profile: StorefrontProfile) =>
+            repositories.staffAlerts.saveStorefrontProfile(profile),
+        onSuccess: (saved) => {
+            queryClient.setQueryData(queryKeys.staffAlerts.storefrontProfile(), saved);
         },
     });
 }

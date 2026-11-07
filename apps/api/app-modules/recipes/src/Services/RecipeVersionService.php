@@ -6,6 +6,7 @@ namespace Healthy360\Recipes\Services;
 
 use Closure;
 use Healthy360\Audit\Services\AuditRecorder;
+use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Recipes\Contracts\RecipeUsageRegistry;
@@ -19,6 +20,7 @@ use Healthy360\Recipes\Exceptions\AllergenUnmapped;
 use Healthy360\Recipes\Exceptions\PublishBlocked;
 use Healthy360\Recipes\Exceptions\RecipeVersionInUse;
 use Healthy360\Recipes\Exceptions\VersionImmutable;
+use Healthy360\Recipes\Jobs\RecomputeRecipeDerivations;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionAllergen;
@@ -71,6 +73,7 @@ final readonly class RecipeVersionService
         private RecipeLabelWriter $labels,
         private RecipeNutritionService $nutrition,
         private RecipeOutputNutritionWriter $outputNutrition,
+        private RecipeOutputAllergenWriter $outputAllergens,
         private UnitConversionService $conversion,
         private WeeklyRecipeCostingService $paidPrices,
     ) {}
@@ -967,6 +970,17 @@ final readonly class RecipeVersionService
         // it. Neither belongs inside the transaction that demotes the
         // incumbent, and a job dispatched from inside one can be picked up by a
         // worker before the commit it depends on has landed.
+        //
+        // The allergens first (T3): a dish built on this output whose label
+        // now moves goes to review. Then each output a superseded version
+        // made is re-derived from the producers left — an output this
+        // formulation no longer makes loses what only the old one stated.
+        $this->outputAllergens->write($version);
+
+        foreach (RecipeVersion::withoutTenancy()->whereKey($demoted)->get() as $retired) {
+            $this->outputAllergens->clear($retired);
+        }
+
         $this->outputNutrition->write($version, $nutrition);
 
         return $version;
@@ -1028,10 +1042,166 @@ final readonly class RecipeVersionService
         // A withdrawn child withholds the parent. Whatever this version derived
         // onto the ingredients it produces was true of a formulation that is no
         // longer published, and a parent recipe must not go on totalling
-        // against it — see {@see RecipeOutputNutritionWriter::clear()}.
+        // against it — see {@see RecipeOutputNutritionWriter::clear()}. The
+        // same for the allergens it carried onto them (T3).
+        $this->outputAllergens->clear($version);
         $this->outputNutrition->clear($version);
 
         return $version;
+    }
+
+    /**
+     * Release a quarantined version: a manager has compared the label it was
+     * published with (`previous_label`) against the recomputed one, and accepts
+     * the new one. The new label goes live on the same version, and the
+     * listings the quarantine took off sale go back on.
+     *
+     * - **Only `review_required` releases**, `409 resource.conflict` otherwise.
+     * - **Never a stale label** (`reason: derivation_stale`). A mapping edit
+     *   since the quarantine has marked the version stale and queued its
+     *   recompute; releasing before that lands would publish a label nobody
+     *   compared. Checked on the row locked for the write, so a stale marking
+     *   cannot slip in between the check and the update.
+     * - **Superseded becomes retired.** When another version is published, or
+     *   a newer one is also in review, the released one is history rather than
+     *   live — the partial unique index allows one published version a recipe.
+     *
+     * The listings are released only when no version of the recipe is left in
+     * review, the rule `CatalogueItemReadiness` applies to publishing them.
+     *
+     * @throws ApiException
+     */
+    public function release(RecipeVersion $version, int $expectedLockVersion): RecipeVersion
+    {
+        $previousLabel = $version->previous_label;
+        $reviewReason = $version->review_reason;
+
+        /** @var array<string, string> $released */
+        $released = DB::transaction(function () use ($version, $expectedLockVersion): array {
+            $locked = RecipeVersion::withoutTenancy()->whereKey($version->getKey())->lockForUpdate()->sole();
+
+            if ($locked->status !== RecipeVersionStatus::ReviewRequired) {
+                throw new ApiException(
+                    ErrorCode::ResourceConflict,
+                    'Only a quarantined version can be released.',
+                    ['status' => $locked->status->value, 'current_lock_version' => $locked->lock_version],
+                );
+            }
+
+            // `Current` only: a stale label is still being recomputed, and a
+            // failed recompute left one nobody derived.
+            if ($locked->derivation_state !== DerivationState::Current) {
+                throw new ApiException(
+                    ErrorCode::ResourceConflict,
+                    'The allergen label is being recomputed after an ingredient change. Reload and compare it again.',
+                    ['reason' => 'derivation_stale', 'current_lock_version' => $locked->lock_version],
+                );
+            }
+
+            // Publish's determination gate, which release must not skip: a
+            // sub-recipe retired under this dish leaves its output unassessed,
+            // and the recomputed label then reads "none" where it means
+            // "nobody knows".
+            $ingredientIds = $this->readiness->linesOf($locked)->pluck('ingredient_id')->map(static fn (mixed $id): string => (string) $id)->all();
+            $undetermined = $this->readiness->undeterminedIngredientIds(
+                $ingredientIds,
+                $this->rollup->effectiveFor(array_values(array_unique($ingredientIds)), $locked->organisation_id),
+            );
+
+            if ($undetermined !== []) {
+                throw new ApiException(
+                    ErrorCode::ResourceConflict,
+                    'At least one ingredient carries no allergen determination. Assess it before releasing this label.',
+                    ['reason' => 'allergen_unmapped', 'ingredient_ids' => $undetermined, 'current_lock_version' => $locked->lock_version],
+                );
+            }
+
+            $superseded = RecipeVersion::withoutTenancy()
+                ->where('recipe_id', $locked->recipe_id)
+                ->whereKeyNot($locked->getKey())
+                ->where(static function ($query) use ($locked): void {
+                    $query->where('status', RecipeVersionStatus::Published->value)
+                        ->orWhere(static function ($newer) use ($locked): void {
+                            $newer->where('status', RecipeVersionStatus::ReviewRequired->value)
+                                ->where('version_number', '>', $locked->version_number);
+                        });
+                })
+                ->exists();
+
+            $this->compareAndSwap($version, [
+                'status' => ($superseded ? RecipeVersionStatus::Retired : RecipeVersionStatus::Published)->value,
+                'review_reason' => null,
+                'previous_label' => null,
+                'updated_by' => $this->context->userId(),
+            ], $expectedLockVersion);
+
+            // Read under the row lock, so the audit names the label released
+            // rather than whatever a recompute wrote after the commit.
+            return array_map(
+                static fn (AllergenContainment $containment): string => $containment->value,
+                $this->labels->snapshot($version),
+            );
+        });
+
+        $recipe = Recipe::withoutTenancy()->whereKey($version->recipe_id)->first();
+
+        $stillInReview = RecipeVersion::withoutTenancy()
+            ->where('recipe_id', $version->recipe_id)
+            ->where('status', RecipeVersionStatus::ReviewRequired->value)
+            ->exists();
+
+        $releasedItems = $recipe instanceof Recipe && ! $stillInReview
+            ? $this->usage->releaseQuarantinedItems($recipe)
+            : [];
+
+        $this->audit->record(
+            'catalogue.allergen_release',
+            actorUserId: $this->context->userId(),
+            subjectType: 'recipe_version',
+            subjectId: (string) $version->getKey(),
+            metadata: [
+                'recipe_id' => $version->recipe_id,
+                'version_number' => $version->version_number,
+                'outcome' => $version->status->value,
+
+                // Each label as two class lists, by containment: audit metadata
+                // is scalars and lists. Never a key containing `code`: the
+                // redactor matches it as a substring (OQ-036). The previous
+                // label is null on a quarantine older than the column, which
+                // recorded only its reason.
+                'previous_contains_classes' => $previousLabel === null ? null : self::classesWith($previousLabel, AllergenContainment::Contains),
+                'previous_may_contain_classes' => $previousLabel === null ? null : self::classesWith($previousLabel, AllergenContainment::MayContain),
+                'released_contains_classes' => self::classesWith($released, AllergenContainment::Contains),
+                'released_may_contain_classes' => self::classesWith($released, AllergenContainment::MayContain),
+                'review_reason' => $reviewReason,
+                'released_item_ids' => $releasedItems,
+                'lock_version' => $version->lock_version,
+            ],
+        );
+
+        // Live again, so what it produces carries its figures again, as after a
+        // publication: a recompute while it sat in review skipped the outputs.
+        // The allergens too (T3): the label released is what the outputs
+        // carry. Released as history instead, it gives back what it claimed.
+        if ($version->status === RecipeVersionStatus::Published) {
+            $this->outputAllergens->write($version);
+            $this->outputNutrition->write($version, $this->nutrition->forVersion($version, $this->readiness->linesOf($version)));
+        } else {
+            $this->outputAllergens->clear($version);
+        }
+
+        return $version;
+    }
+
+    /**
+     * The classes a `{class: containment}` label holds at one containment.
+     *
+     * @param  array<string, string>  $label
+     * @return list<string>
+     */
+    private static function classesWith(array $label, AllergenContainment $containment): array
+    {
+        return array_keys(array_filter($label, static fn (string $value): bool => $value === $containment->value));
     }
 
     /**
@@ -1114,6 +1284,10 @@ final readonly class RecipeVersionService
      * the caller held the current validator and the whole set changed, or
      * nothing did.
      *
+     * A quarantined version is editable, and an edit leaves its label stale;
+     * `release()` refuses a stale label, so the recompute is queued here or the
+     * version could never be released. A draft's label is derived at publish.
+     *
      * @param  Closure(): void  $work
      *
      * @throws ApiException
@@ -1128,6 +1302,15 @@ final readonly class RecipeVersionService
 
             $work();
         });
+
+        if ($version->status === RecipeVersionStatus::ReviewRequired) {
+            $versionId = (string) $version->getKey();
+            $organisationId = $version->organisation_id;
+
+            DB::afterCommit(static function () use ($versionId, $organisationId): void {
+                RecomputeRecipeDerivations::dispatch($versionId, $organisationId);
+            });
+        }
     }
 
     /**

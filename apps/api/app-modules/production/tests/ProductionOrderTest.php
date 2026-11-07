@@ -20,9 +20,11 @@ use Healthy360\Production\Enums\ProductionOrderStatus;
 use Healthy360\Production\Exceptions\ProductionConsumptionRecorded;
 use Healthy360\Production\Exceptions\ProductionPlanRefused;
 use Healthy360\Production\Exceptions\ProductionStateInvalid;
+use Healthy360\Production\Jobs\AlertStuckBatches;
 use Healthy360\Production\Models\ProductionOrder;
 use Healthy360\Production\Models\ProductionOrderLine;
 use Healthy360\Production\Services\BatchReport;
+use Healthy360\Production\Services\ProductionOrderNumbers;
 use Healthy360\Production\Services\ProductionOrderService;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
@@ -30,10 +32,13 @@ use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\Recipes\Models\RecipeVersionOutput;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
+use Healthy360\Support\Alerts\StaffAlertType;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Support\Models\StaffNotification;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Mail;
 
 /*
 |--------------------------------------------------------------------------
@@ -53,7 +58,8 @@ use Illuminate\Database\Eloquent\Collection;
 beforeEach(function (): void {
     $this->seed([ReferenceDataSeeder::class, OrganisationTypeSeeder::class, AccessControlSeeder::class]);
 
-    $this->tenant = PricingWorld::kitchen('batches@kitchen.test');
+    // The manager's code, so the stuck-batch alert has somebody to tell.
+    $this->tenant = PricingWorld::kitchen('batches@kitchen.test', [...PricingWorld::FULL_PERMISSIONS, 'order.supervise_organisation']);
     $this->organisation = $this->tenant->organisation;
     $this->branch = OrganisationBranch::factory()->create([
         'organisation_id' => $this->organisation->getKey(),
@@ -204,6 +210,15 @@ function batchRecipe(
     }
 
     return $version;
+}
+
+/**
+ * A use-by a few days out. A recipe with no shelf life must be given one
+ * whenever usable units reach a shelf.
+ */
+function batchUseBy(): string
+{
+    return CarbonImmutable::now()->addDays(5)->toDateString();
 }
 
 function shelfOf(StockItem $item): string
@@ -370,7 +385,7 @@ function startedBatch(object $test, ?string $flourCost = '2.000000'): array
 it('values a batch at what went into it, divided over what came out', function (): void {
     [$order, $flour, $dressing] = startedBatch($this);
 
-    $completed = $this->orders->complete($order, new BatchReport(producedQuantity: '38'));
+    $completed = $this->orders->complete($order, new BatchReport(producedQuantity: '38', expiryDate: batchUseBy()));
 
     // Ten kilos at two dollars is twenty; thirty-eight litres came out, so a
     // litre cost 20 ÷ 38. The two litres that evaporated have no money of their
@@ -393,6 +408,7 @@ it('yields the whole batch and then wastes the rejected part, netting to what is
 
     $completed = $this->orders->complete($order, new BatchReport(
         producedQuantity: '38',
+        expiryDate: batchUseBy(),
         rejectedQuantity: '3',
     ));
 
@@ -414,6 +430,7 @@ it('takes input waste off the shelf beside consumption, and keeps it out of the 
 
     $completed = $this->orders->complete($order, new BatchReport(
         producedQuantity: '38',
+        expiryDate: batchUseBy(),
         consumed: [(string) $flour->getKey() => '9'],
         waste: [(string) $flour->getKey() => '1'],
     ));
@@ -436,7 +453,7 @@ it('takes input waste off the shelf beside consumption, and keeps it out of the 
 it('deducts once when a completion is delivered twice', function (): void {
     [$order, $flour, $dressing] = startedBatch($this);
 
-    $report = new BatchReport(producedQuantity: '38');
+    $report = new BatchReport(producedQuantity: '38', expiryDate: batchUseBy());
 
     $first = $this->orders->complete($order, $report);
     $second = $this->orders->complete($first, $report);
@@ -486,7 +503,7 @@ it('takes the dropped input off the shelf too when the batch produced nothing', 
 it('blends the finished batch into the produced ingredient’s average', function (): void {
     [$order, $flour, $dressing] = startedBatch($this);
 
-    $this->orders->complete($order, new BatchReport(producedQuantity: '40'));
+    $this->orders->complete($order, new BatchReport(producedQuantity: '40', expiryDate: batchUseBy()));
 
     $cost = IngredientStockCost::withoutTenancy()
         ->where('ingredient_id', $dressing->ingredient_id)
@@ -503,7 +520,7 @@ it('blends the finished batch into the produced ingredient’s average', functio
 it('withholds the unit cost and leaves the average alone when an input is unvalued', function (): void {
     [$order, $flour, $dressing] = startedBatch($this, flourCost: null);
 
-    $completed = $this->orders->complete($order, new BatchReport(producedQuantity: '40'));
+    $completed = $this->orders->complete($order, new BatchReport(producedQuantity: '40', expiryDate: batchUseBy()));
 
     // The stock moved — a kitchen that cooked is never blocked on arithmetic —
     // and the valuation says so rather than publishing a total that is real and
@@ -522,7 +539,7 @@ it('withholds the unit cost and leaves the average alone when an input is unvalu
 it('closes the claims as consumed when the batch finishes', function (): void {
     [$order] = startedBatch($this);
 
-    $this->orders->complete($order, new BatchReport(producedQuantity: '40'));
+    $this->orders->complete($order, new BatchReport(producedQuantity: '40', expiryDate: batchUseBy()));
 
     expect(StockReservation::withoutTenancy()->where('status', ReservationStatus::Open->value)->count())->toBe(0)
         ->and(StockReservation::withoutTenancy()->where('status', ReservationStatus::Consumed->value)->count())->toBe(1);
@@ -580,7 +597,7 @@ it('abandons a started batch, recording what was used and what came out', functi
 
     $abandoned = $this->orders->abandon(
         $order,
-        new BatchReport(producedQuantity: '5', consumed: [(string) $flour->getKey() => '10']),
+        new BatchReport(producedQuantity: '5', expiryDate: batchUseBy(), consumed: [(string) $flour->getKey() => '10']),
         'The mixer failed halfway through.',
     );
 
@@ -630,41 +647,92 @@ it('mints the day’s lots in sequence, each with its check digit', function ():
     [$second] = startedBatch($this);
 
     // 260925, then 001 and 002, then the GS1 check digit of each.
-    expect($this->orders->complete($first, new BatchReport(producedQuantity: '38'))->lot_number)->toBe('2609250015')
-        ->and($this->orders->complete($second, new BatchReport(producedQuantity: '20'))->lot_number)->toBe('2609250022');
+    expect($this->orders->complete($first, new BatchReport(producedQuantity: '38', expiryDate: batchUseBy()))->lot_number)->toBe('2609250015')
+        ->and($this->orders->complete($second, new BatchReport(producedQuantity: '20', expiryDate: batchUseBy()))->lot_number)->toBe('2609250022');
 });
 
-it('mints no lot and computes no expiry when nothing usable reaches a shelf', function (string $produced, string $rejected): void {
+it('keeps the start’s lot and computes no expiry when nothing usable reaches a shelf', function (string $produced, string $rejected): void {
     [$order] = startedBatch($this);
     batchShelfLife($order, 5);
 
     $completed = $this->orders->complete($order, new BatchReport(producedQuantity: $produced, rejectedQuantity: $rejected));
 
-    // Nothing to label and nothing to date: a lot here would print a label for a
-    // tray that does not exist.
-    expect($completed->lot_number)->toBeNull()
+    // Nothing to date, so no use-by is asked for either, and with no use-by
+    // there is no label to print for a tray that does not exist.
+    expect($order->lot_number)->not->toBeNull()
+        ->and($completed->lot_number)->toBe($order->lot_number)
         ->and($completed->expiry_date)->toBeNull();
 })->with([
     'a batch that made nothing' => ['0', '0'],
     'a batch that rejected everything it made' => ['5', '5'],
 ]);
 
-it('mints a lot for an abandoned batch that still put units on a shelf', function (): void {
+it('gives the batch its lot at start, and completion keeps it', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-09-25 10:00:00', 'UTC'));
+
+    [$order] = startedBatch($this);
+
+    // The tray carries its number while it cooks.
+    expect($order->lot_number)->toBe('2609250015');
+
+    // A day later, with a later production date: the lot is not re-dated.
+    $this->travelTo(CarbonImmutable::parse('2026-09-26 10:00:00', 'UTC'));
+    $completed = $this->orders->complete($order, new BatchReport(producedQuantity: '38', expiryDate: '2026-10-01'));
+
+    expect($completed->lot_number)->toBe('2609250015')
+        ->and($completed->production_date?->toDateString())->toBe('2026-09-26')
+        ->and(ProductionOrder::withoutTenancy()->whereNotNull('lot_number')->count())->toBe(1);
+});
+
+it('keeps the lot on an abandoned batch, whatever came out of it', function (string $produced): void {
     [$order, $flour] = startedBatch($this);
 
     $abandoned = $this->orders->abandon(
         $order,
-        new BatchReport(producedQuantity: '5', consumed: [(string) $flour->getKey() => '10']),
+        new BatchReport(producedQuantity: $produced, expiryDate: $produced === '0' ? null : batchUseBy(), consumed: [(string) $flour->getKey() => '10']),
         'The mixer failed halfway through.',
     );
 
-    // Five litres are on a shelf and need a label as much as a finished batch’s.
-    expect($abandoned->lot_number)->toMatch('/^[0-9]{10}$/');
+    expect($abandoned->lot_number)->toMatch('/^[0-9]{10}$/')
+        ->and($abandoned->lot_number)->toBe($order->lot_number);
+})->with([
+    'five litres on a shelf' => ['5'],
+    'nothing at all' => ['0'],
+]);
+
+it('refuses to finish a batch without a use-by when the recipe has no shelf life', function (): void {
+    [$order, $flour] = startedBatch($this);
+
+    try {
+        $this->orders->complete($order, new BatchReport(producedQuantity: '38'));
+        $this->fail('Expected a missing use-by date to be refused.');
+    } catch (ApiException $e) {
+        expect($e->errorCode)->toBe(ErrorCode::ValidationFailed)
+            ->and($e->details['parameter'])->toBe('expiry_date');
+    }
+
+    // Refused before anything moved.
+    expect($order->refresh()->status)->toBe(ProductionOrderStatus::InProduction)
+        ->and(shelfOf($flour))->toBe('100.0000')
+        ->and(batchMovements($order))->toHaveCount(0);
+});
+
+it('finishes without a typed use-by when the recipe’s shelf life fills it', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-09-25 10:00:00', 'UTC'));
+
+    [$order] = startedBatch($this);
+    batchShelfLife($order, 3);
+
+    $completed = $this->orders->complete($order, new BatchReport(producedQuantity: '38'));
+
+    expect($completed->status)->toBe(ProductionOrderStatus::Completed)
+        ->and($completed->expiry_date?->toDateString())->toBe('2026-09-28')
+        ->and($completed->lot_number)->toBe($order->lot_number);
 });
 
 it('keeps the lot when a completion is delivered twice', function (): void {
     [$order] = startedBatch($this);
-    $report = new BatchReport(producedQuantity: '38');
+    $report = new BatchReport(producedQuantity: '38', expiryDate: batchUseBy());
 
     $first = $this->orders->complete($order, $report);
     $second = $this->orders->complete($first, $report);
@@ -680,7 +748,7 @@ it('dates the batch by the branch’s calendar, not the server’s', function ()
 
     [$order] = startedBatch($this);
 
-    $completed = $this->orders->complete($order, new BatchReport(producedQuantity: '38'));
+    $completed = $this->orders->complete($order, new BatchReport(producedQuantity: '38', expiryDate: batchUseBy()));
 
     expect($completed->production_date?->toDateString())->toBe('2026-09-26')
         ->and($completed->lot_number)->toBe('2609260014');
@@ -760,4 +828,36 @@ it('refuses a use-by date before the day the batch was made', function (): void 
     } catch (ApiException $e) {
         expect($e->details['parameter'])->toBe('expiry_date');
     }
+});
+
+/* ── the stuck-batch alert ───────────────────────────────────────────────── */
+
+it('tells the managers once about a batch in production for two days, and not before', function (): void {
+    Mail::fake();
+    $this->withoutDefer();
+    $this->travelTo(CarbonImmutable::parse('2026-09-25 10:00:00', 'UTC'));
+
+    [$stuck] = startedBatch($this);
+    [$finished] = startedBatch($this);
+    $this->orders->complete($finished, new BatchReport(producedQuantity: '38', expiryDate: batchUseBy()));
+
+    // The job sets its own tenant, per kitchen.
+    app(TenantContext::class)->clear();
+
+    $this->travelTo(CarbonImmutable::parse('2026-09-27 09:00:00', 'UTC'));
+    app()->call([new AlertStuckBatches, 'handle']);
+
+    expect(StaffNotification::withoutTenancy()->where('type', StaffAlertType::BatchStuck->value)->count())->toBe(0);
+
+    $this->travelTo(CarbonImmutable::parse('2026-09-27 11:00:00', 'UTC'));
+    app()->call([new AlertStuckBatches, 'handle']);
+    app()->call([new AlertStuckBatches, 'handle']);
+
+    $rows = StaffNotification::withoutTenancy()->where('type', StaffAlertType::BatchStuck->value)->get();
+
+    // One manager, one batch, once, and never the finished one.
+    expect($rows)->toHaveCount(1)
+        ->and($rows->first()->subject_id)->toBe((string) $stuck->getKey())
+        ->and($rows->first()->subject_type)->toBe('production_order')
+        ->and($rows->first()->data['order_number'])->toBe(ProductionOrderNumbers::displayLot((string) $stuck->lot_number));
 });

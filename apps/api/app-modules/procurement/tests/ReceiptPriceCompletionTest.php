@@ -10,6 +10,7 @@ use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Models\StockMovement;
 use Healthy360\Inventory\Services\InventoryService;
+use Healthy360\Kitchens\Services\KitchenServiceSettingsLookup;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
@@ -356,4 +357,138 @@ it('forbids the queue and the completion to a manager without the cost permissio
         ['lines' => []],
         $headers,
     )->assertForbidden();
+});
+
+/* ── the variance across units ───────────────────────────────────────────── */
+
+it('compares a price per gram with the last price per kilo, and serves it on the ledger', function (): void {
+    $world = completionWorld('variance-units@kitchen.test');
+
+    // The last delivery: 2.00 USD per kilo.
+    completePrices($world, [[
+        'goods_receipt_line_id' => completionLineId($world),
+        'unit_price_amount' => '2.00',
+        'cost_currency_code' => 'USD',
+    ]]);
+
+    $this->travel(1)->hours();
+
+    app(TenantContext::class)->setOrganisation((string) $world->tenant->user->getKey(), $world->organisationId);
+
+    // This one is invoiced per gram: 0.0025 a gram is 2.50 a kilo, 25% up.
+    $receipt = app(GoodsReceiptService::class)->post(
+        $world->organisationId,
+        (string) $world->branch->getKey(),
+        null,
+        'DN-9003',
+        null,
+        [[
+            'stock_item_id' => $world->itemId,
+            'quantity' => '500',
+            'unit_id' => (string) MeasurementUnit::query()->where('code', 'g')->value('id'),
+            'unit_price_amount' => '0.0025',
+            'cost_currency_code' => 'USD',
+        ]],
+    );
+
+    app(TenantContext::class)->clear();
+
+    $line = $receipt->lines()->sole();
+
+    expect((string) $line->last_unit_price_amount)->toBe('0.002000')
+        ->and((string) $line->price_variance_percent)->toBe('25.00');
+
+    $this->actingAs($world->tenant->user);
+
+    $this->getJson("/api/v1/catalogue/procurement/purchases-ledger?stock_item_id={$world->itemId}", $world->headers)
+        ->assertOk()
+        ->assertJsonPath('data.purchases.0.id', (string) $line->getKey())
+        ->assertJsonPath('data.purchases.0.last_unit_price_amount', '0.002000')
+        ->assertJsonPath('data.purchases.0.price_variance_percent', '25.00')
+        ->assertJsonPath('data.purchases.1.price_variance_percent', null);
+});
+
+it('holds a rise too large for its column, or against a last price that rounds to nothing, for approval and still posts the receipt', function (string $lastPerKilo, string $lastPerMilligram): void {
+    $world = completionWorld('variance-overflow@kitchen.test');
+    $settings = app(KitchenServiceSettingsLookup::class)->for($world->organisationId);
+    $settings->price_approval_above_percent = 10;
+    $settings->save();
+
+    // The last delivery, priced per kilo.
+    completePrices($world, [[
+        'goods_receipt_line_id' => completionLineId($world),
+        'unit_price_amount' => $lastPerKilo,
+        'cost_currency_code' => 'USD',
+    ]]);
+
+    $this->travel(1)->hours();
+
+    app(TenantContext::class)->setOrganisation((string) $world->tenant->user->getKey(), $world->organisationId);
+
+    // 5.00 a milligram against that is past decimal(10,2), or has nothing to divide by:
+    // a unit slip, held as the largest rise the column stores.
+    $receipt = app(GoodsReceiptService::class)->post(
+        $world->organisationId,
+        (string) $world->branch->getKey(),
+        null,
+        'DN-9004',
+        null,
+        [[
+            'stock_item_id' => $world->itemId,
+            'quantity' => '3',
+            'unit_id' => (string) MeasurementUnit::query()->where('code', 'mg')->value('id'),
+            'unit_price_amount' => '5.00',
+            'cost_currency_code' => 'USD',
+        ]],
+    );
+
+    app(TenantContext::class)->clear();
+
+    $line = $receipt->lines()->sole();
+
+    expect($line->price_variance_percent)->toBe('99999999.99')
+        ->and($line->last_unit_price_amount)->toBe($lastPerMilligram)
+        ->and($receipt->fresh()->price_approval_status)->toBe('pending')
+        ->and(StockMovement::withoutTenancy()->where('reference_id', $receipt->getKey())->exists())->toBeTrue();
+})->with([
+    'overflowing rise' => ['2.00', '0.000002'],
+    'last price rounds to zero' => ['0.40', '0.000000'],
+]);
+
+it('leaves the variance empty between units that do not convert', function (): void {
+    $world = completionWorld('variance-count@kitchen.test');
+
+    app(TenantContext::class)->setOrganisation((string) $world->tenant->user->getKey(), $world->organisationId);
+
+    // A shelf with no unit of its own, bought by the piece and then by the pack.
+    $item = StockItem::query()->create([
+        'organisation_id' => $world->organisationId,
+        'code' => 'LMN-1',
+        'name_en' => 'Lemons',
+        'unit_code' => 'piece',
+    ]);
+
+    $buy = fn (string $unit, string $price): GoodsReceipt => app(GoodsReceiptService::class)->post(
+        $world->organisationId,
+        (string) $world->branch->getKey(),
+        null,
+        null,
+        null,
+        [[
+            'stock_item_id' => (string) $item->getKey(),
+            'quantity' => '10',
+            'unit_id' => (string) MeasurementUnit::query()->where('code', $unit)->value('id'),
+            'unit_price_amount' => $price,
+            'cost_currency_code' => 'USD',
+        ]],
+    );
+
+    $buy('piece', '0.20');
+    $this->travel(1)->hours();
+    $line = $buy('pack', '1.50')->lines()->sole();
+
+    app(TenantContext::class)->clear();
+
+    expect($line->last_unit_price_amount)->toBeNull()
+        ->and($line->price_variance_percent)->toBeNull();
 });

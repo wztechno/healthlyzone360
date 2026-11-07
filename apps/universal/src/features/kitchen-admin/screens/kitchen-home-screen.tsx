@@ -52,6 +52,7 @@ import {
 } from '../entity-registry.ts';
 import type { EntityFamily, EntityGroup } from '../entity-registry.ts';
 import { buildReviewQueue } from '../review-queue.ts';
+import { TodayCard } from '../today-card.tsx';
 
 /**
  * `/kitchen` — the overview: what needs someone today, then every module one press away.
@@ -642,6 +643,8 @@ export function KitchenHomeScreen() {
                                 <StatTile key={key} {...tile} />
                             ))}
                         </View>
+
+                        <TodayCard branchId={branchId} />
 
                         <View testID="kitchen-home-panels" className={`grid gap-3 ${groupGrid}`}>
                             {checks.length === 0 ? null : (

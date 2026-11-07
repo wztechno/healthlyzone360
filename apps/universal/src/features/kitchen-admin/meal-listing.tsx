@@ -30,7 +30,7 @@ import {
 } from '@healthy360/design-system';
 import type { IssueCardItem, IssuePassedItem, SelectOption } from '@healthy360/design-system';
 import { MEAL_TYPES } from '@healthy360/domain-types';
-import type { MealId, MealType } from '@healthy360/domain-types';
+import type { DietClassification, MealId, MealType } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -40,6 +40,7 @@ import { View } from 'react-native';
 import { Gate, useCan } from '../../access/gate.tsx';
 import { DishOptionsSection } from './dish-options-section.tsx';
 import { toFailure } from '../../data/hooks.ts';
+import { useDishOptionsQuery } from '../../data/order-desk-hooks.ts';
 import {
     ingredientsFromPages,
     useAdminMealQuery,
@@ -82,6 +83,7 @@ import {
 } from './format.ts';
 import { AllergenAssessmentCallout, AssessmentBadges } from './catalogue/allergen-assessment.tsx';
 import { stockBlockersSentence } from './catalogue/recipe-columns.tsx';
+import { allergenLabel } from './ops-format.ts';
 import { serverFieldErrors } from './server-field-errors.ts';
 import { useNudgeOnRefusal } from './tray-nudge.ts';
 import { useOptimisticConcurrency } from './use-optimistic-concurrency.ts';
@@ -136,6 +138,38 @@ const NO_INGREDIENT = '__none__';
 
 /** The "not stated" answer of the production-mode picker. `production_mode` is nullable. */
 const NO_MODE = '__unset__';
+
+/**
+ * The free-from tags and the allergen classes that contradict each one, any containment — a copy of
+ * `CatalogueItemService::FREE_FROM`. The server refuses to save or publish a contradicting tag and
+ * the marketplace drops one already stored; this copy only draws the warning.
+ */
+const FREE_FROM: Partial<Record<DietClassification, readonly string[]>> = {
+    gluten_free: ['gluten'],
+    dairy_free: ['milk'],
+    nut_free: ['tree_nut', 'peanut'],
+};
+
+/**
+ * The meal's free-from tags its current label, or a choice it offers, contradicts, with the classes
+ * that do — the server's `CatalogueItemService::labelAllergenCodes()`.
+ */
+function freeFromClashes(meal: MealAdmin, choiceAllergens: readonly string[]) {
+    const label = [...meal.allergens.map(String), ...choiceAllergens];
+    return meal.dietClassifications.flatMap((tag) => {
+        const codes = (FREE_FROM[tag] ?? []).filter((code) => label.includes(code));
+        return codes.length === 0 ? [] : [{ tag, codes }];
+    });
+}
+
+/** The meal's diet tags less the ones its label contradicts, which the server would refuse. */
+function tagsTheLabelAllows(
+    meal: MealAdmin,
+    choiceAllergens: readonly string[],
+): readonly DietClassification[] {
+    const clashing = freeFromClashes(meal, choiceAllergens).map((clash) => clash.tag);
+    return meal.dietClassifications.filter((tag) => !clashing.includes(tag));
+}
 
 /**
  * The catalogue string each production mode is named by.
@@ -310,6 +344,12 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
     const [showRetire, setShowRetire] = useState(false);
 
     const data = record.data;
+    // What the dish's choices add to the plate: a free-from tag they contradict is refused too.
+    const dishOptions = useDishOptionsQuery(String(meal));
+    const choiceAllergens = useMemo(
+        () => (dishOptions.data ?? []).flatMap((option) => (option.allergens ?? []).map(({ code }) => code)),
+        [dishOptions.data],
+    );
     const serverKey =
         data === undefined ? null : `${String(data.id)}:${String(data.meta.lockVersion)}`;
 
@@ -595,9 +635,9 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
         // No recipe: the page is the recipe, and the writer sends only what it is given.
         portionFactor,
         mealTypes: details.mealTypes,
-        // Echoed back untouched so a save here cannot clear a classification set elsewhere — see
-        // the note on DetailsDraft.
-        dietClassifications: saved.dietClassifications,
+        // Echoed back so a save here cannot clear a classification set elsewhere — see the note on
+        // DetailsDraft — less a free-from tag the label contradicts, which the server refuses.
+        dietClassifications: tagsTheLabelAllows(saved, choiceAllergens),
         ...finishedStockRequest,
     });
 
@@ -787,10 +827,64 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                       key: 'quarantine',
                       tone: 'warning' as const,
                       label: t('kitchen:publish.quarantineTitle'),
+                      // The release is the recipe's: its old and new labels are compared there.
+                      action:
+                          data?.recipeId == null
+                              ? undefined
+                              : {
+                                    label: t('kitchen:products.openRecipe'),
+                                    onPress: () => {
+                                        const target = data.recipeId;
+                                        if (target === null) return;
+                                        guard.intercept(() => {
+                                            router.push(
+                                                `/kitchen/recipes/${String(target)}` as never,
+                                            );
+                                        });
+                                    },
+                                    testID: 'kitchen-meal-quarantine-open-recipe',
+                                },
                       testID: 'kitchen-meal-quarantine',
                   },
               ]
             : []),
+        // A free-from tag the label contradicts: hidden from customers, and refused on save and
+        // publish. The fix drops every such tag at once, or the server refuses the one left.
+        ...(data === undefined ? [] : freeFromClashes(data, choiceAllergens)).map((clash) => ({
+            key: `diet-clash-${clash.tag}`,
+            tone: 'warning' as const,
+            label: t('kitchen:meals.dietTagClash', {
+                tag: t(`marketplace:diets.${clash.tag}`),
+                allergens: clash.codes
+                    .map((code) => allergenLabel(code, t))
+                    .join(t('kitchen:common.listSeparator')),
+            }),
+            detail: t('kitchen:meals.dietTagClashDetail'),
+            action:
+                data === undefined || !canManage
+                    ? undefined
+                    : {
+                          label: t('kitchen:meals.dietTagClashRemove'),
+                          onPress: () => {
+                              update.mutate(
+                                  {
+                                      mealId: data.id,
+                                      request: {
+                                          lockVersion: data.meta.lockVersion,
+                                          dietClassifications: tagsTheLabelAllows(data, choiceAllergens),
+                                      },
+                                  },
+                                  {
+                                      onError: (error) => {
+                                          concurrency.capture(error);
+                                      },
+                                  },
+                              );
+                          },
+                          testID: `kitchen-meal-diet-clash-${clash.tag}-remove`,
+                      },
+            testID: `kitchen-meal-diet-clash-${clash.tag}`,
+        })),
         ...(!gateShown
             ? []
             : gateChecks

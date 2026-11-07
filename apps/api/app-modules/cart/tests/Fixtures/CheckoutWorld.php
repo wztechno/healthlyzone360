@@ -89,7 +89,8 @@ final class CheckoutWorld
      *
      * Phone verification is not arranged, deliberately — gate A-011 is off by
      * default, and a fixture that satisfied a requirement nobody makes would
-     * hide the day somebody turned it on.
+     * hide the day somebody turned it on. A phone is, unproven and not primary,
+     * because a delivery the driver cannot ring is refused `phone_required`.
      */
     public static function readyCustomer(DeliveryArea $area, string $label = 'Home'): object
     {
@@ -100,6 +101,8 @@ final class CheckoutWorld
             'is_login_identity' => true,
             'is_primary' => true,
         ]);
+
+        ContactPoint::factory()->phone()->forCustomerAccount((string) $account->getKey())->create();
 
         CustomerDietaryProfile::factory()->declaresNoAllergens()->create([
             'customer_account_id' => $account->getKey(),

@@ -1,5 +1,6 @@
 import type { OrderDeskRequirement } from '@healthy360/api-client/contracts';
 import {
+    Button,
     Callout,
     Cascade,
     DatePickerButton,
@@ -12,12 +13,14 @@ import {
 import type { IssueTrayContent } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
+import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { Gate } from '../../../access/gate.tsx';
+import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useOrderDeskRequirementsQuery } from '../../../data/order-desk-hooks.ts';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { addDays, todayIso } from '../../commerce/dates.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
@@ -28,7 +31,10 @@ import {
     compareText,
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
-import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
+import {
+    INVENTORY_ORDER_SUPPLIES_PERMISSION,
+    INVENTORY_VIEW_PERMISSION,
+} from '../entity-registry.ts';
 import { WeeklyStockCheckBanner } from '../weekly-stock-check.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
@@ -115,6 +121,8 @@ function OrderDeskRequirements() {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const access = useAccessState();
+    const router = useRouter();
+    const canOrder = useCan(INVENTORY_ORDER_SUPPLIES_PERMISSION);
 
     const branchId = access.branch?.id ?? null;
 
@@ -142,7 +150,23 @@ function OrderDeskRequirements() {
 
     const notComputable = requirements.data?.notComputable ?? null;
 
-    const shortCount = (requirements.data?.requirements ?? []).filter((row) => isShort(row)).length;
+    const shortIds = (requirements.data?.requirements ?? [])
+        .filter((row) => isShort(row))
+        .map((row) => row.stockItemId);
+    const shortCount = shortIds.length;
+
+    /**
+     * The shortfall, handed to the supply-order builder as the items it proposes. The proposal
+     * endpoint takes at most 100 ids, so a longer list hands over its first 100.
+     */
+    const createOrder = () => {
+        router.push(
+            withReturnTo(
+                withQuery('/kitchen/supply-orders/new', { items: shortIds.slice(0, 100).join(',') }),
+                '/kitchen/order-desk/requirements',
+            ) as never,
+        );
+    };
 
     const columns: readonly ControlledColumn<
         OrderDeskRequirement,
@@ -415,6 +439,17 @@ function OrderDeskRequirements() {
                     clearLabel={t('kitchen:lens.clear')}
                     {...(controls.filtered ? { onClear: controls.clearFilters } : {})}
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                    {...(canOrder && shortCount > 0
+                        ? {
+                              actions: (
+                                  <Button
+                                      testID="kitchen-order-desk-requirements-create-order"
+                                      label={t('kitchen:ops.requirements.createOrder')}
+                                      onPress={createOrder}
+                                  />
+                              ),
+                          }
+                        : {})}
                 />
 
                 {/*

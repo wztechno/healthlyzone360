@@ -41,11 +41,13 @@ import { todayIso } from '../commerce/dates.ts';
  * use, and local for the same reason: a kitchen in Dubai at 01:00 is on today's board, not
  * yesterday's, whatever UTC thinks.
  *
- * ## Oldest first
+ * ## Soonest due first
  *
- * The ticket that has waited longest is the one that needs starting, so Incoming and In preparation
- * run oldest first, as the display endpoint answers. Ready is newest first — the thing just bumped is
- * the thing being looked for.
+ * The ticket that has to leave first is the one that needs starting, so open work runs by `dueAt` —
+ * the desk queue's instant: the requested day at its window's start in the branch's zone, else when
+ * it was placed — and by `placedAt` between two due at the same moment. A scheduled order that
+ * arrived first no longer queues ahead of a lunch due in twenty minutes. Ready is newest first — the
+ * thing just bumped is the thing being looked for.
  *
  * ## Which branch's tickets — and why the answer is not the endpoint's `branch_id` filter
  *
@@ -114,6 +116,12 @@ function byPlacedAscending(left: KitchenOrder, right: KitchenOrder): number {
     return (instantOf(left.placedAt) ?? 0) - (instantOf(right.placedAt) ?? 0);
 }
 
+/** Soonest due first, then oldest. Without `dueAt` a ticket is due when placed, as on the server. */
+function byDueAscending(left: KitchenOrder, right: KitchenOrder): number {
+    const due = (order: KitchenOrder) => instantOf(order.dueAt ?? order.placedAt) ?? 0;
+    return due(left) - due(right) || byPlacedAscending(left, right);
+}
+
 function byFulfilledDescending(left: KitchenOrder, right: KitchenOrder): number {
     return (instantOf(right.fulfilledAt) ?? 0) - (instantOf(left.fulfilledAt) ?? 0);
 }
@@ -180,15 +188,15 @@ export function bucketTickets(
     return {
         incoming: mine
             .filter((order) => isAwaitingStart(order) && !isUpcoming(order, now))
-            .sort(byPlacedAscending),
+            .sort(byDueAscending),
         preparing: mine
             .filter(
                 (order) =>
                     order.status === 'confirmed' && !isReady(order) && !isAwaitingStart(order),
             )
-            .sort(byPlacedAscending),
+            .sort(byDueAscending),
         done: [
-            ...mine.filter(isReady).sort(byPlacedAscending),
+            ...mine.filter(isReady).sort(byDueAscending),
             ...mine
                 .filter(
                     (order) =>
@@ -202,7 +210,7 @@ export function bucketTickets(
     };
 }
 
-/** Upcoming tickets grouped by their requested day, earliest first, oldest order first within. */
+/** Upcoming tickets grouped by their requested day, earliest first, soonest due first within. */
 function byDay(orders: readonly KitchenOrder[]): readonly KdsUpcomingDay[] {
     const days = new Map<string, KitchenOrder[]>();
     for (const order of orders) {
@@ -212,7 +220,7 @@ function byDay(orders: readonly KitchenOrder[]): readonly KdsUpcomingDay[] {
     }
     return [...days.keys()]
         .sort((left, right) => left.localeCompare(right))
-        .map((day) => ({ day, tickets: [...(days.get(day) ?? [])].sort(byPlacedAscending) }));
+        .map((day) => ({ day, tickets: [...(days.get(day) ?? [])].sort(byDueAscending) }));
 }
 
 /** Whole minutes between an order being placed and `now`; never negative. */

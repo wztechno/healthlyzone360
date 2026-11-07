@@ -264,7 +264,9 @@ export interface IngredientAllergenMapping {
         | 'technical_sheet'
         | 'supplier_declaration'
         | 'kitchen_declared'
-        | 'inferred';
+        | 'inferred'
+        /** Carried from a published sub-recipe onto the ingredient it produces. */
+        | 'recipe_derived';
 }
 
 export interface AllergenReferenceCandidate {
@@ -1057,6 +1059,16 @@ export interface RecipeVersionAdmin {
     /** True when a line or an ingredient changed after the figures were last derived. */
     readonly derivationStale: boolean;
     readonly publishedAt: IsoDateTime | null;
+    /** Why the version is quarantined (`review_required`); `null` outside review. */
+    readonly reviewReason: string | null;
+    /**
+     * The label a quarantined version was published with, keyed by allergen code — what a release
+     * replaces with `allergens`. `{}` when that label carried nothing; `null` outside review and on
+     * a quarantine older than the field, which recorded only its `reviewReason`.
+     */
+    readonly previousLabel: Readonly<Record<string, AllergenContainment>> | null;
+    /** The version's own lock, which a release sends; the recipe's is `meta.lockVersion`. */
+    readonly lockVersion: number;
 }
 
 /**
@@ -1896,6 +1908,21 @@ export interface PriceListAdminFilter extends CursorPageRequest, OffsetPageReque
     readonly withoutEntries?: boolean | undefined;
 }
 
+/** The price-list screen's Lens figures, counted by the index rather than over every list. */
+export interface PriceListFigures {
+    /** Per status over the search, the status filter aside. Archived lists count as `retired`. */
+    readonly statusCounts: Readonly<Record<PublishableStatus, number>>;
+    /** Lists in the filtered set with no confirmed price. */
+    readonly unpricedCount: number;
+    /** Lists in the filtered set on a contract-private channel. */
+    readonly agreementCount: number;
+}
+
+export interface PriceListPage extends CursorPage<PriceListAdmin> {
+    /** Sent by the index with every page; absent from a stub that does not count. */
+    readonly figures?: PriceListFigures | undefined;
+}
+
 export interface SetPriceListEntriesRequest extends LockedRequest {
     readonly entries: readonly PriceListEntry[];
 }
@@ -2488,6 +2515,17 @@ export interface KitchenAdminRepository {
     /** Refused from `review_required` — a quarantined recipe cannot be published (plan §4.7). */
     publishRecipe(recipeId: RecipeId, request: LockedRequest): Promise<RecipeAdmin>;
     retireRecipe(recipeId: RecipeId, request: LockedRequest): Promise<RecipeAdmin>;
+    /**
+     * Release a quarantined version once a manager has compared its old and new allergen labels:
+     * the new label goes live on the same version and its listings go back on sale. Refused with
+     * `details.reason = derivation_stale` while an ingredient change is still being recomputed.
+     * `lockVersion` is the **version's**.
+     */
+    releaseRecipeVersion(
+        recipeId: RecipeId,
+        versionId: RecipeVersionId,
+        lockVersion: number,
+    ): Promise<RecipeAdmin>;
 
     /* ── products ───────────────────────────────────────────────────────────────────────────── */
 
@@ -2524,7 +2562,7 @@ export interface KitchenAdminRepository {
 
     /* ── price lists ────────────────────────────────────────────────────────────────────────── */
 
-    listPriceLists(filter?: PriceListAdminFilter): Promise<CursorPage<PriceListAdmin>>;
+    listPriceLists(filter?: PriceListAdminFilter): Promise<PriceListPage>;
     getPriceList(priceListId: PriceListId): Promise<PriceListAdmin>;
     setPriceListEntries(
         priceListId: PriceListId,

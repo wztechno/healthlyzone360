@@ -328,6 +328,18 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
 
     const itemTitle = (row: PurchaseLedgerLine): string => row.itemNameEn ?? row.stockItemId;
 
+    const varianceText = (percent: string | null): string =>
+        percent === null
+            ? '—'
+            : t(
+                  Number(percent) > 0
+                      ? 'kitchen:ops.ledger.varianceUp'
+                      : Number(percent) < 0
+                        ? 'kitchen:ops.ledger.varianceDown'
+                        : 'kitchen:ops.ledger.varianceFlat',
+                  { percent: formatter.formatNumber(Math.abs(Number(percent))) },
+              );
+
     const columns: readonly ControlledColumn<
         PurchaseLedgerLine,
         CatalogueColumn<PurchaseLedgerLine>
@@ -481,6 +493,31 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                     {money(row.unitPriceAmount, row.costCurrencyCode)}
                 </Text>
             ),
+        },
+        {
+            // This price against the last one paid for the shelf, in this line's unit. A rise wears
+            // the warning badge; nothing to compare reads as a dash. Offered from the column picker:
+            // the first visit keeps the catalogue's six.
+            key: 'variance',
+            label: t('kitchen:ops.ledger.columnVariance'),
+            width: 110,
+            priority: 65,
+            value: (row) => varianceText(row.priceVariancePercent),
+            sort: (left, right, direction) =>
+                compareAmount(left.priceVariancePercent, right.priceVariancePercent, direction),
+            render: (row) =>
+                row.priceVariancePercent !== null && Number(row.priceVariancePercent) > 0 ? (
+                    <Badge
+                        testID={`kitchen-ledger-${row.id}-variance`}
+                        tone="warning"
+                        icon="warning"
+                        label={varianceText(row.priceVariancePercent)}
+                    />
+                ) : (
+                    <Text variant="mono" testID={`kitchen-ledger-${row.id}-variance`}>
+                        {varianceText(row.priceVariancePercent)}
+                    </Text>
+                ),
         },
         {
             key: 'lineTotal',
@@ -725,6 +762,11 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                         label: t('kitchen:ops.ledger.columnUnitPrice'),
                         value: money(viewing.unitPriceAmount, viewing.costCurrencyCode),
                         mono: true,
+                    },
+                    {
+                        key: 'variance',
+                        label: t('kitchen:ops.ledger.columnVariance'),
+                        value: varianceText(viewing.priceVariancePercent),
                     },
                     {
                         key: 'lineTotal',

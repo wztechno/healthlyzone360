@@ -1278,6 +1278,37 @@ export function useDuplicateStockQuery(): UseQueryResult<readonly DuplicateStock
     });
 }
 
+/** Links a counted-out shelf with history into its twin, then re-reads the ops lists. */
+export function useMergeDuplicateStockMutation(): UseMutationResult<
+    void,
+    unknown,
+    { readonly keepId: string; readonly dropId: string }
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ keepId, dropId }) =>
+            repositories.kitchenOps.mergeDuplicateStock(keepId, dropId),
+        onSuccess: onWritten,
+    });
+}
+
+/** Keeps a group of same-named shelves as different things, then re-reads the ops lists. */
+export function useDismissDuplicateStockMutation(): UseMutationResult<
+    void,
+    unknown,
+    readonly string[]
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (stockItemIds) => repositories.kitchenOps.dismissDuplicateStock(stockItemIds),
+        onSuccess: onWritten,
+    });
+}
+
 /**
  * Unresolved and resolved totals for the Stock gaps cards. The list is cursor-paged with no total,
  * so counting its rows counted only the page in hand (25 beside a home tile saying 84).

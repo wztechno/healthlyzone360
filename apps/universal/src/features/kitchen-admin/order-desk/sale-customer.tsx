@@ -170,6 +170,7 @@ export function CustomerSection({
     customerAccountId,
     walkIn,
     walkInOffered,
+    needsPhone = false,
     onChoose,
     onWalkIn,
     onUndoWalkIn,
@@ -180,6 +181,8 @@ export function CustomerSection({
     readonly walkIn: boolean;
     /** Collection and delivery must name somebody, so the card stops offering it. */
     readonly walkInOffered: boolean;
+    /** The quote refused `phone_required`: the driver would have no number to ring. */
+    readonly needsPhone?: boolean;
     readonly onChoose: (customer: OrderDeskCustomer) => void;
     readonly onWalkIn: () => void;
     readonly onUndoWalkIn: () => void;
@@ -329,6 +332,28 @@ export function CustomerSection({
                     body={edited.possibleDuplicates
                         .map(duplicateName)
                         .join(t('kitchen:common.listSeparator'))}
+                />
+            )}
+            {/* A registered customer's number is theirs to add, so only the desk's own get Add. */}
+            {!needsPhone || !folded || editing || chosen === null ? null : (
+                <Callout
+                    testID="kitchen-order-desk-sale-customer-phone-required"
+                    tone="warning"
+                    title={t('kitchen:desk.refusal.phone_required')}
+                    actions={
+                        chosen.origin === 'self_service' ? undefined : (
+                            <Button
+                                testID="kitchen-order-desk-sale-customer-add-phone"
+                                size="sm"
+                                variant="secondary"
+                                label={t('kitchen:desk.sale.customerAddPhone')}
+                                onPress={() => {
+                                    startEditing(chosen);
+                                    focusField('kitchen-order-desk-sale-customer-edit-phone');
+                                }}
+                            />
+                        )
+                    }
                 />
             )}
         </>

@@ -499,7 +499,12 @@ describe('one batch', () => {
                 kitchenOps: {
                     getProductionOrder: async () =>
                         detail({
-                            order: batch({ status: 'in_production', lockVersion: 3 }),
+                            // A shelf life fills Use by, so the form asks for nothing else.
+                            order: batch({
+                                status: 'in_production',
+                                lockVersion: 3,
+                                recipeShelfLifeDays: 5,
+                            }),
                             lines: [
                                 line(),
                                 line({
@@ -604,6 +609,30 @@ describe('one batch', () => {
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-production-batch-lot-value')).toHaveTextContent('—');
         });
+        expect(screen.queryByTestId('kitchen-production-batch-label')).toBeNull();
+    });
+
+    it('shows the lot from start, and offers no label until a use-by exists', async () => {
+        await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    getProductionOrder: async () =>
+                        detail({
+                            order: batch({ status: 'in_production', lotNumber: '2609250077' }),
+                            lines: [line()],
+                            plan: null,
+                        }),
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-production-batch-lot-value')).toHaveTextContent(
+                '260925-007-7',
+            );
+        });
+        // The barcode carries the use-by date, so the server sends none yet.
         expect(screen.queryByTestId('kitchen-production-batch-label')).toBeNull();
     });
 
@@ -890,6 +919,46 @@ describe('the batch label', () => {
 
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-production-label-nothing')).toBeTruthy();
+        });
+        expect(screen.queryByTestId('kitchen-production-label-sheets')).toBeNull();
+    });
+
+    it('says the lot is what is missing when the batch has none', async () => {
+        await renderStubScreen(<ProductionBatchLabelScreen order={BATCH_ID} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    getProductionOrder: async () =>
+                        detail({ order: batch({ status: 'in_production' }), plan: null }),
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-production-label-nothing')).toHaveTextContent(
+                /gets its lot when it starts/,
+            );
+        });
+    });
+
+    it('says the use-by is what is missing when the batch has a lot', async () => {
+        await renderStubScreen(<ProductionBatchLabelScreen order={BATCH_ID} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    getProductionOrder: async () =>
+                        detail({
+                            order: batch({ status: 'in_production', lotNumber: '2609250077' }),
+                            plan: null,
+                        }),
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-production-label-nothing')).toHaveTextContent(
+                /carries the use-by date/,
+            );
         });
         expect(screen.queryByTestId('kitchen-production-label-sheets')).toBeNull();
     });

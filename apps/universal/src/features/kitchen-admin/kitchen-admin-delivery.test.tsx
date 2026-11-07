@@ -1859,6 +1859,63 @@ describe('the kitchen service timings', () => {
     });
 });
 
+describe('the storefront profile', () => {
+    const PROFILE = {
+        tagline: { en: 'Grilled, never fried', ar: '' },
+        description: { en: '', ar: '' },
+        cuisines: { en: ['Lebanese'], ar: [] },
+    };
+
+    it('reads the copy and saves the cuisines typed with either comma as a list', async () => {
+        const { repositories } = await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING },
+                staffAlerts: {
+                    getStorefrontProfile: async () => PROFILE,
+                    saveStorefrontProfile: async (saved) => saved,
+                },
+            },
+        });
+        await untilVisible('kitchen-storefront-profile');
+
+        expect(
+            screen.getByTestId('kitchen-storefront-profile-cuisines-en-input').props.value,
+        ).toBe('Lebanese');
+
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-storefront-profile-cuisines-ar-input'),
+                'لبناني، مشاوي, ',
+            );
+        });
+        await untilVisible('kitchen-branch-hours-screen-dirty');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-storefront-profile-save'));
+        });
+
+        await untilVisible('kitchen-storefront-profile-saved-toast');
+        expect(repositories.staffAlerts.saveStorefrontProfile).toHaveBeenCalledWith({
+            ...PROFILE,
+            cuisines: { en: ['Lebanese'], ar: ['لبناني', 'مشاوي'] },
+        });
+    });
+
+    it('is not drawn for someone who may only read the week', async () => {
+        const { repositories } = await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenManagerSession({
+                memberships: [testMembership({ branches: [testBranch()] })],
+                activeContext: testActiveContext({ permissions: ['catalogue.view_organisation'] }),
+            }),
+            repositories: { kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING } },
+        });
+        await untilVisible('kitchen-branch-hours-screen');
+
+        expect(screen.queryByTestId('kitchen-storefront-profile')).toBeNull();
+        expect(repositories.staffAlerts.getStorefrontProfile).not.toHaveBeenCalled();
+    });
+});
+
 describe('the branch operating week', () => {
     it('renders all seven days for the branch already in context', async () => {
         await renderStubScreen(<BranchOperatingScreen />, {

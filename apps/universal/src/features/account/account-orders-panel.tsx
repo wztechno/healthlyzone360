@@ -62,9 +62,12 @@ const TRACK_POSITION: Readonly<Record<PlacedOrder['state'], number>> = {
 
 function StateBadge({
     state,
+    delivery = false,
     testID,
 }: {
     readonly state: PlacedOrder['state'];
+    /** On a delivery, "ready" means it leaves soon, not that somebody should come for it. */
+    readonly delivery?: boolean;
     readonly testID: string;
 }) {
     const { t } = useTranslation();
@@ -82,7 +85,9 @@ function StateBadge({
                 numberOfLines={1}
                 className={cx('text-xs font-bold', TINT_INK[tint])}
             >
-                {t(`guest:order.states.${state}`)}
+                {state === 'ready_for_pickup' && delivery
+                    ? t('guest:order.readyOutSoon')
+                    : t(`guest:order.states.${state}`)}
             </RNText>
         </View>
     );
@@ -177,7 +182,11 @@ function OrderRow({ order }: { readonly order: PlacedOrder }) {
             </View>
 
             <View className="w-44">
-                <StateBadge state={order.state} testID={`${testID}-state`} />
+                <StateBadge
+                    state={order.state}
+                    delivery={order.fulfilmentType === 'delivery'}
+                    testID={`${testID}-state`}
+                />
             </View>
 
             <RNText
@@ -226,7 +235,11 @@ function LiveOrder({ order }: { readonly order: PlacedOrder }) {
             </View>
             <View className="min-w-[220px] flex-1">
                 <RNText className="text-xs font-semibold uppercase tracking-wider text-content-on-canopy-muted text-start">
-                    {`${t(`guest:order.states.${order.state}`)} · ${order.reference}`}
+                    {`${
+                        order.state === 'ready_for_pickup' && order.fulfilmentType === 'delivery'
+                            ? t('guest:order.readyOutSoon')
+                            : t(`guest:order.states.${order.state}`)
+                    } · ${order.reference}`}
                 </RNText>
                 <RNText
                     numberOfLines={1}

@@ -209,6 +209,7 @@ use Healthy360\Ingredients\Http\Controllers\IngredientUpdateController;
 use Healthy360\Ingredients\Http\Controllers\NutritionReferenceSearchController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionCountController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionIndexController;
+use Healthy360\Inventory\Http\Controllers\DuplicateStockResolveController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionResolveController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionRetryController;
 use Healthy360\Inventory\Http\Controllers\DuplicateStockIndexController;
@@ -239,6 +240,7 @@ use Healthy360\Kitchens\Http\Controllers\PublicMealIndexController;
 use Healthy360\Kitchens\Http\Controllers\PublicMealPlanIndexController;
 use Healthy360\Kitchens\Http\Controllers\PublicMealPlanShowController;
 use Healthy360\Kitchens\Http\Controllers\PublicMealShowController;
+use Healthy360\Kitchens\Http\Controllers\StorefrontProfileController;
 use Healthy360\Orders\Http\Controllers\CheckoutPreviewController;
 use Healthy360\Orders\Http\Controllers\GuestOrderShowController;
 use Healthy360\Orders\Http\Controllers\GuestOrderStoreController;
@@ -252,6 +254,7 @@ use Healthy360\Orders\Http\Controllers\KitchenOrderIndexController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderReadyController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderShowController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderStartController;
+use Healthy360\Orders\Http\Controllers\MyOrderCancelController;
 use Healthy360\Orders\Http\Controllers\MyOrderIndexController;
 use Healthy360\Orders\Http\Controllers\MyOrderShowController;
 use Healthy360\Orders\Http\Controllers\OrderComplaintController;
@@ -277,6 +280,7 @@ use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskPlacementController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQueueController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQuoteController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskSettlementController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskTodayController;
 use Healthy360\Organisations\Http\Controllers\CurrentOrganisationController;
 use Healthy360\Payments\Http\Controllers\PaymentIntentCaptureController;
 use Healthy360\Payments\Http\Controllers\PaymentIntentStoreController;
@@ -363,6 +367,7 @@ use Healthy360\Recipes\Http\Controllers\RecipeVersionAllergenIndexController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionIndexController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionPublishController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionReadinessController;
+use Healthy360\Recipes\Http\Controllers\RecipeVersionReleaseController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionRetireController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionShowController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionStoreController;
@@ -709,6 +714,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         */
         Route::get('/me/orders', MyOrderIndexController::class)->name('me.orders.index');
         Route::get('/me/orders/{order}', MyOrderShowController::class)->name('me.orders.show');
+        Route::post('/me/orders/{order}/cancel', MyOrderCancelController::class)->name('me.orders.cancel');
 
         /*
         |------------------------------------------------------------------
@@ -1073,6 +1079,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             Route::get('/kitchen-service-settings', KitchenServiceSettingsShowController::class)->name('catalogue.kitchen-service-settings.show');
             Route::put('/kitchen-service-settings', KitchenServiceSettingsUpdateController::class)
                 ->middleware('permission:catalogue.manage_organisation')->name('catalogue.kitchen-service-settings.update');
+            // The kitchen's marketplace copy, read by the anonymous marketplace off `organisations`.
+            // A suspended kitchen may still read it; only the write needs `org.trading`.
+            Route::get('/storefront-profile', [StorefrontProfileController::class, 'show'])
+                ->middleware('permission:catalogue.manage_organisation')->name('catalogue.storefront-profile.show');
+            Route::put('/storefront-profile', [StorefrontProfileController::class, 'update'])
+                ->middleware(['org.trading', 'permission:catalogue.manage_organisation'])->name('catalogue.storefront-profile.update');
             Route::post('/kitchen-pause', [KitchenPauseController::class, 'store'])
                 ->middleware('permission:order.supervise_organisation')->name('catalogue.kitchen-pause.store');
             Route::delete('/kitchen-pause', [KitchenPauseController::class, 'destroy'])
@@ -1254,6 +1266,10 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/recipes/{recipe}/versions/{version}/retire', RecipeVersionRetireController::class)
                     ->middleware('precondition')
                     ->name('catalogue.recipes.versions.retire');
+
+                Route::post('/recipes/{recipe}/versions/{version}/release', RecipeVersionReleaseController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.recipes.versions.release');
             });
 
             /*
@@ -1770,6 +1786,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/inventory/adjustments', StockAdjustController::class)->name('catalogue.inventory.adjustments.store');
                 Route::post('/inventory/waste', StockWasteController::class)->name('catalogue.inventory.waste.store');
                 Route::post('/inventory/counts', StockCountController::class)->name('catalogue.inventory.counts.store');
+
+                // The review list's two answers: merge an emptied shelf with history
+                // into its twin, or keep both. Writes, so the manage code, not the
+                // list's view code.
+                Route::post('/inventory/duplicates/merge', [DuplicateStockResolveController::class, 'merge'])->name('catalogue.inventory.duplicates.merge');
+                Route::post('/inventory/duplicates/dismiss', [DuplicateStockResolveController::class, 'dismiss'])->name('catalogue.inventory.duplicates.dismiss');
 
                 // A receiver links a code nobody has linked yet, at the dock (owner,
                 // 2026-10-21): producer's codes only, no removal, audited. `org.trading`
@@ -2514,6 +2536,11 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 */
                 Route::get('/order-desk/cash-report', OrderDeskCashReportController::class)
                     ->name('catalogue.order-desk.cash-report');
+
+                // The kitchen home's Today card: the day's sales, cash, late
+                // orders and cancellations, on the cash report's local day.
+                Route::get('/order-desk/today', OrderDeskTodayController::class)
+                    ->name('catalogue.order-desk.today');
             });
 
             // Cash coming back from the road. The cashier counts it; a short

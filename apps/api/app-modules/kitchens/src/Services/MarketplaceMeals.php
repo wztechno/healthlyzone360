@@ -9,10 +9,12 @@ use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\VariantStatus;
 use Healthy360\Catalogues\Enums\VariantType;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemAvailabilityDay;
 use Healthy360\Catalogues\Models\CatalogueItemDietClassification;
 use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Catalogues\Services\CatalogueItemService;
 use Healthy360\Catalogues\Services\DerivedAllergenService;
 use Healthy360\Catalogues\Services\DerivedNutritionService;
 use Healthy360\Pricing\Services\PriceResolver;
@@ -21,6 +23,7 @@ use Healthy360\ReferenceData\Models\DietClassification;
 use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Healthy360\Tenancy\Scopes\OrganisationScope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 
 /**
  * The published sellable catalogue a customer can see on the marketplace, and
@@ -201,9 +204,13 @@ final readonly class MarketplaceMeals
         }
 
         foreach ($ids as $id) {
-            $query->whereExists(fn ($exists) => $exists->from('catalogue_item_diet_classifications')
-                ->whereColumn('catalogue_item_diet_classifications.catalogue_item_id', 'catalogue_items.id')
-                ->where('catalogue_item_diet_classifications.diet_classification_id', $id));
+            $query->whereExists(function (QueryBuilder $exists) use ($id): void {
+                $exists->from('catalogue_item_diet_classifications')
+                    ->whereColumn('catalogue_item_diet_classifications.catalogue_item_id', 'catalogue_items.id')
+                    ->where('catalogue_item_diet_classifications.diet_classification_id', $id);
+
+                self::withoutContradictedFreeFrom($exists);
+            });
         }
     }
 
@@ -396,8 +403,13 @@ final readonly class MarketplaceMeals
         }
 
         $links = CatalogueItemDietClassification::withoutTenancy()
-            ->whereIn('catalogue_item_id', $ids)
-            ->get(['catalogue_item_id', 'diet_classification_id']);
+            ->whereIn('catalogue_item_id', $ids);
+
+        // The same filter the one-meal read applies, so a primed listing never
+        // shows a free-from tag the dish's label contradicts.
+        self::withoutContradictedFreeFrom($links);
+
+        $links = $links->get(['catalogue_item_id', 'diet_classification_id']);
 
         if ($links->isEmpty()) {
             return $byItem;
@@ -604,16 +616,62 @@ final readonly class MarketplaceMeals
     }
 
     /**
+     * Each meal's own calendar days, for a page of meals in one query.
+     *
+     * The rows `LineProbe::calendarRefusal()` refuses on, read the same way: a
+     * day with `is_available` off is a day off, and a counted day with fewer
+     * than one portion left is sold out (a listing asks about one portion, the
+     * least anyone can order). A date with no row says nothing, so it is absent
+     * here and the kitchen's calendar stands. `remaining` is the counted figure,
+     * or null when nobody is counting; `order_cut_off_at` is the meal's own
+     * clock-face cut-off, which the projector applies on the branch's clock.
+     *
+     * No tenant context: the table has no row-level policy, only the Eloquent
+     * scope `withoutTenancy()` lifts, so the anonymous marketplace reads it as
+     * placement does.
+     *
+     * @param  list<string>  $itemIds
+     * @return array<string, array<string, array{available: bool, remaining: int|null, order_cut_off_at: string|null}>>
+     */
+    public function availabilityByMeal(array $itemIds, CarbonImmutable $from, int $days = MarketplaceAvailability::WINDOW_DAYS): array
+    {
+        if ($itemIds === []) {
+            return [];
+        }
+
+        $byMeal = [];
+
+        $rows = CatalogueItemAvailabilityDay::withoutTenancy()
+            ->whereIn('catalogue_item_id', $itemIds)
+            ->whereBetween('date', [$from->toDateString(), $from->addDays($days - 1)->toDateString()])
+            ->get(['catalogue_item_id', 'date', 'is_available', 'remaining_portions', 'order_cut_off_at']);
+
+        foreach ($rows as $row) {
+            $remaining = $row->remaining_portions === null ? null : max(0, $row->remaining_portions);
+
+            $byMeal[$row->catalogue_item_id][$row->date->toDateString()] = [
+                'available' => $row->is_available && ($remaining === null || $remaining >= 1),
+                'remaining' => $remaining,
+                'order_cut_off_at' => $row->order_cut_off_at,
+            ];
+        }
+
+        return $byMeal;
+    }
+
+    /**
      * The meal's diet classification codes.
      *
      * @return list<string>
      */
     public function dietClassificationCodesOf(CatalogueItem $meal): array
     {
-        return $this->codesFor(array_values(CatalogueItemDietClassification::withoutTenancy()
-            ->where('catalogue_item_id', $meal->getKey())
-            ->pluck('diet_classification_id')
-            ->all()));
+        $tags = CatalogueItemDietClassification::withoutTenancy()
+            ->where('catalogue_item_id', $meal->getKey());
+
+        self::withoutContradictedFreeFrom($tags);
+
+        return $this->codesFor(array_values($tags->pluck('diet_classification_id')->all()));
     }
 
     /**
@@ -628,13 +686,87 @@ final readonly class MarketplaceMeals
      */
     public function dietClassificationCodesOfKitchen(string $organisationId): array
     {
-        $ids = CatalogueItemDietClassification::withoutTenancy()
+        $tags = CatalogueItemDietClassification::withoutTenancy()
             ->where('organisation_id', $organisationId)
-            ->whereIn('catalogue_item_id', $this->visible()->where('organisation_id', $organisationId)->select('catalogue_items.id'))
-            ->pluck('diet_classification_id')
-            ->all();
+            ->whereIn('catalogue_item_id', $this->visible()->where('organisation_id', $organisationId)->select('catalogue_items.id'));
 
-        return $this->codesFor(array_values($ids));
+        self::withoutContradictedFreeFrom($tags);
+
+        return $this->codesFor(array_values($tags->pluck('diet_classification_id')->all()));
+    }
+
+    /**
+     * Drop every free-from tag its dish's allergen label contradicts, on a query
+     * over `catalogue_item_diet_classifications`.
+     *
+     * Owner, 3 Nov 2026: a dish already on sale loses the tag on the customer
+     * side (the kitchen is warned, and can no longer save or publish one). A
+     * correlated `NOT EXISTS` inside the query that reads the tags, so the meal
+     * list pays no extra round trip for it.
+     *
+     * The label is {@see allergenCodesOf()}'s, spelt in SQL: the published recipe
+     * version's frozen rows when there is a version, else the item's listed
+     * ingredients, else the one ingredient it is, each from both mapping layers.
+     * Any containment contradicts, and so does the published label of any choice
+     * the dish offers (a `nut_free` bowl with a peanut-sauce choice is not nut
+     * free). The version is read through
+     * `recipe_published_label_has()` because the anonymous marketplace
+     * cannot see `recipe_versions`, and a plain join would keep the tag.
+     *
+     * @param  Builder<CatalogueItemDietClassification>|QueryBuilder  $tags
+     */
+    private static function withoutContradictedFreeFrom(Builder|QueryBuilder $tags): void
+    {
+        $pairs = [];
+        $bindings = [];
+
+        foreach (CatalogueItemService::FREE_FROM as $tag => $allergenCodes) {
+            foreach ($allergenCodes as $allergenCode) {
+                $pairs[] = '(?::text, ?::text)';
+                $bindings[] = $tag;
+                $bindings[] = $allergenCode;
+            }
+        }
+
+        $values = implode(', ', $pairs);
+
+        $tags->whereRaw(<<<SQL
+            NOT EXISTS (
+                SELECT 1
+                FROM diet_classifications free_from_tag
+                JOIN (VALUES {$values}) AS free_from (tag, allergen_code) ON free_from.tag = free_from_tag.code
+                JOIN catalogue_items tagged ON tagged.id = catalogue_item_diet_classifications.catalogue_item_id
+                WHERE free_from_tag.id = catalogue_item_diet_classifications.diet_classification_id
+                  AND (COALESCE(
+                      recipe_published_label_has(tagged.recipe_id, tagged.organisation_id, ARRAY[free_from.allergen_code]),
+                      CASE
+                          WHEN EXISTS (SELECT 1 FROM catalogue_item_ingredients listed WHERE listed.catalogue_item_id = tagged.id)
+                          THEN EXISTS (
+                              SELECT 1
+                              FROM catalogue_item_ingredients listed
+                              JOIN ingredient_allergens mapped ON mapped.ingredient_id = listed.ingredient_id
+                              WHERE listed.catalogue_item_id = tagged.id
+                                AND (mapped.organisation_id IS NULL OR mapped.organisation_id = tagged.organisation_id)
+                                AND mapped.allergen_code = free_from.allergen_code
+                          )
+                          ELSE EXISTS (
+                              SELECT 1
+                              FROM ingredient_allergens mapped
+                              WHERE mapped.ingredient_id = tagged.ingredient_id
+                                AND (mapped.organisation_id IS NULL OR mapped.organisation_id = tagged.organisation_id)
+                                AND mapped.allergen_code = free_from.allergen_code
+                          )
+                      END
+                  ) OR EXISTS (
+                      SELECT 1
+                      FROM catalogue_item_options offered
+                      WHERE offered.catalogue_item_id = tagged.id
+                        AND offered.kind = 'choice'
+                        AND offered.recipe_id IS NOT NULL
+                        AND recipe_published_label_has(offered.recipe_id, tagged.organisation_id, ARRAY[free_from.allergen_code])
+                  ))
+            )
+            SQL, $bindings);
     }
 
     /**

@@ -10,6 +10,7 @@ use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Enums\VariantStatus;
 use Healthy360\Catalogues\Enums\VariantType;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemDietClassification;
 use Healthy360\Catalogues\Models\CatalogueItemIngredient;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\PlanVariantDuration;
@@ -17,6 +18,7 @@ use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionOutput;
+use Healthy360\ReferenceData\Models\DietClassification;
 
 /**
  * Why a catalogue item is not ready to be published — as a list, computed, and
@@ -74,6 +76,7 @@ final readonly class CatalogueItemReadiness
         private DerivedAllergenService $allergens,
         private ConfirmedPriceRegistry $prices,
         private StockDeductionReadiness $stock,
+        private CatalogueItemService $items,
     ) {}
 
     /**
@@ -169,11 +172,43 @@ final readonly class CatalogueItemReadiness
             ];
         }
 
+        foreach ($this->freeFromClashes($item) as $clash) {
+            $reasons[] = [
+                'code' => 'diet_tag_contradicts_allergens',
+                'detail' => 'A free-from tag contradicts the allergen label. Remove the tag, or change what the label says, before this listing goes on sale.',
+                'context' => $clash,
+            ];
+        }
+
         if ($item->item_type === CatalogueItemType::SubscriptionPlan) {
             $reasons = [...$reasons, ...$this->planReasons($item)];
         }
 
         return [...$reasons, ...$this->stock->reasons($item)];
+    }
+
+    /**
+     * The item's stored free-from tags its current label, or a choice it offers, contradicts. The label is
+     * read only when a free-from tag is there to contradict.
+     *
+     * @return list<array{tag: string, allergen_codes: list<string>}>
+     */
+    private function freeFromClashes(CatalogueItem $item): array
+    {
+        /** @var list<string> $tags */
+        $tags = DietClassification::query()
+            ->whereIn('code', array_keys(CatalogueItemService::FREE_FROM))
+            ->whereIn('id', CatalogueItemDietClassification::withoutTenancy()
+                ->where('catalogue_item_id', $item->getKey())
+                ->select('diet_classification_id'))
+            ->pluck('code')
+            ->all();
+
+        if ($tags === []) {
+            return [];
+        }
+
+        return CatalogueItemService::freeFromClashes($tags, $this->items->labelAllergenCodes($item));
     }
 
     /**

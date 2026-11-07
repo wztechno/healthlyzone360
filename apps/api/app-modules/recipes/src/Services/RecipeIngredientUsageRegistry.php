@@ -104,7 +104,10 @@ final readonly class RecipeIngredientUsageRegistry implements IngredientUsageReg
 
         /** @var list<string> $versionIds */
         $versionIds = RecipeVersion::query()
-            ->where('status', RecipeVersionStatus::Published->value)
+            // A quarantined version too: its label is what a release would put
+            // back on sale, so a mapping edit while it waits must mark it stale
+            // and the release must refuse until the recompute has landed.
+            ->whereIn('status', [RecipeVersionStatus::Published->value, RecipeVersionStatus::ReviewRequired->value])
             ->whereIn('id', RecipeVersionLine::query()
                 ->where('ingredient_id', $ingredient->getKey())
                 ->select('recipe_version_id'))

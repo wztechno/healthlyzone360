@@ -95,6 +95,18 @@ interface RecipeUsageRegistry
     public function quarantinePublishedItems(Recipe $recipe, string $reason): array;
 
     /**
+     * Put every quarantined listing of this recipe back on sale, returning what
+     * was moved — the release half of {@see quarantinePublishedItems()}.
+     *
+     * Called once a manager has compared the old and new allergen labels and
+     * released the version, and only when no version of the recipe is still in
+     * review. The implementation records `catalogue.item_released` per item.
+     *
+     * @return list<string> the items moved; empty when none was quarantined
+     */
+    public function releaseQuarantinedItems(Recipe $recipe): array;
+
+    /**
      * What sells each of these recipes, keyed by recipe id: the items of the
      * four {@see KINDS} whose `recipe_id` names it, in **every** status and in
      * slug order. A recipe nothing sells is absent from the map.

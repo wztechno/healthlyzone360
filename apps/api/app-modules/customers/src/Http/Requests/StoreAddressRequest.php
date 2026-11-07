@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Customers\Http\Requests;
 
 use Healthy360\Customers\Enums\CustomerAddressType;
+use Healthy360\Customers\Http\Concerns\ResolvesCustomerAccount;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Enum;
 
@@ -32,6 +33,8 @@ use Illuminate\Validation\Rules\Enum;
  */
 class StoreAddressRequest extends FormRequest
 {
+    use ResolvesCustomerAccount;
+
     /**
      * Authorisation is the route's `permission` middleware; a form request
      * that also guessed would give two answers to one question.
@@ -57,7 +60,7 @@ class StoreAddressRequest extends FormRequest
             'apartment' => ['nullable', 'string', 'max:40'],
             'directions' => ['nullable', 'string', 'max:1000'],
             'postal_code' => ['nullable', 'string', 'max:20'],
-            'contact_point_id' => ['nullable', 'uuid'],
+            'contact_point_id' => ['nullable', 'uuid', $this->addressContactRule($this)],
             'is_default' => ['nullable', 'boolean'],
         ];
     }

@@ -63,7 +63,19 @@
         "buyingTitle": "Stock and buying",
         "itemsToOrder": "Items to order",
         "openingDays": "Opening days",
-        "goTo": "Go to"
+        "goTo": "Go to",
+        "today": {
+            "title": "Today",
+            "sales": "Sales",
+            "orders": "Orders: {{value}}",
+            "cash": "Cash to collect",
+            "counted": "Last till count today: {{amount}}",
+            "late": "Late orders",
+            "pastDue": "Past due: {{value}}",
+            "openPastDue": "Late orders, open the past-due orders on the desk",
+            "cancelled": "Cancelled",
+            "cancelledSplit": "Returned {{returned}} · wasted {{wasted}} · other {{other}}"
+        }
     },
     "nav": {
         "railTitle": "Kitchen",
@@ -200,6 +212,8 @@
             "confirmedAt": "Confirmed",
             "fulfilledAt": "Fulfilled",
             "cancelledAt": "Cancelled",
+            "cancelledBy": "Cancelled by",
+            "remakeOf": "Remake of {{number}}",
             "cancellationHeading": "Cancellation",
             "cancellationReason": "Reason",
             "confirm": "Confirm",
@@ -504,7 +518,16 @@
             "exceedsShelf": "Only {{amount}} is on the shelf. If there is really more, post a Count first, then try again.",
             "parNotAboveThreshold": "The restock level must be above the reorder threshold.",
             "notStocked": "Not stocked",
-            "fieldNotesRequired": "Why"
+            "fieldNotesRequired": "Why",
+            "fieldWasteReason": "Reason for waste",
+            "wasteReason": {
+                "expired": "Expired",
+                "spoiled": "Spoiled",
+                "damaged": "Damaged",
+                "overproduced": "Overproduced",
+                "customer_return": "Customer return",
+                "other": "Other"
+            }
         },
         "supplyOrders": {
             "title": "Supply orders",
@@ -1128,6 +1151,10 @@
             "columnItem": "Item",
             "columnUnitPrice": "Unit price",
             "columnLineTotal": "Line total",
+            "columnVariance": "Price change",
+            "varianceUp": "Up {{percent}}%",
+            "varianceDown": "Down {{percent}}%",
+            "varianceFlat": "No change",
             "filterFrom": "From",
             "filterTo": "To",
             "fromPlaceholder": "From",
@@ -1321,6 +1348,7 @@
             "producedHint": "Everything that came out, including anything thrown away afterwards.",
             "producedPlaceholder": "For example 40",
             "producedRequired": "Enter what came out. Zero is a real answer — it means the batch was lost.",
+            "expiryRequired": "Enter a use-by date. This recipe has no shelf life to set one.",
             "rejectedLabel": "Rejected",
             "rejectedHint": "Of what came out, how much was thrown away. Counted inside produced, never beside it.",
             "rejectedTooHigh": "More was rejected than produced.",
@@ -1419,6 +1447,9 @@
             "printLabel": "Print label",
             "labelCopies": "Copies",
             "labelBatchOf": "Batch of {{quantity}} {{unit}}",
+            "labelNothingTitle": "No label yet",
+            "labelNoLotBody": "A batch gets its lot when it starts. Start it, and the label prints once it has a use-by date.",
+            "labelNoUseByBody": "The label carries the use-by date, and this batch has none.",
             "expiryFromRecipe": "Made on plus {{days}}, from the recipe's shelf life.",
             "scanLabel": "Scan or type a lot",
             "scanNoMatch": "No batch carries that code",
@@ -1582,7 +1613,8 @@
             "columnProductionYield": "Batch yield",
             "columnEstimatedMargin": "Est. margin",
             "marginWithheld": "Margin withheld",
-            "columnRefunds": "Refunds (already off revenue)"
+            "columnRefunds": "Refunds (already off revenue)",
+            "columnCourierExpense": "Courier expenses (outside COGS)"
         },
         "exceptions": {
             "title": "Stock gaps",
@@ -1686,6 +1718,7 @@
             },
             "columnIngredient": "Ingredient",
             "columnRequired": "Required",
+            "createOrder": "Create order",
             "columnAvailable": "Available",
             "columnShort": "Short",
             "columnSuggestedBuy": "Suggested buy",
@@ -1786,6 +1819,7 @@
                 "refund": "Refund",
                 "receipt_correction": "Receipt correction",
                 "courier_fee": "Courier fee",
+                "courier_expense": "Courier fee paid by the kitchen",
                 "short": "Short hand-in"
             }
         },
@@ -2052,7 +2086,7 @@
     },
     "kds": {
         "title": "Kitchen display",
-        "subtitle": "Every open ticket for this kitchen, longest wait first. The board refreshes itself while it is on screen.",
+        "subtitle": "Every open ticket for this kitchen, soonest due first. The board refreshes itself while it is on screen.",
         "lastUpdated": "Updated {{time}}",
         "column": {
             "incoming": "Incoming",
@@ -2093,7 +2127,15 @@
         "truncatedTitle": "Not every ticket fits on this board",
         "truncatedBody": "More orders are waiting than the board can carry, and the newest are the ones missing. Open the order book to see them.",
         "alarmTitle": "Not accepted yet",
-        "alarmBody": "Waited {{minutes}} min while open. Accept or start it now."
+        "alarmBody": "Waited {{minutes}} min while open. Accept or start it now.",
+        "lanes": "Board lanes",
+        "held": "Sending in a few seconds. You can still undo it.",
+        "readyHeld": "{{number}} marked ready.",
+        "handedOverHeld": "{{number}} handed over.",
+        "print": "Print ticket",
+        "printTitle": "Kitchen ticket",
+        "printDue": "Due {{time}}",
+        "printMissing": "This ticket is not on the board any more."
     },
     "driver": {
         "title": "Your deliveries",
@@ -2109,6 +2151,7 @@
         "claim": "Claim this run",
         "claimTaken": "Someone else took that run first.",
         "noAddress": "No address was recorded on this order. Ring the kitchen before you set off.",
+        "openMap": "Opens this address in maps",
         "directions": "Directions: {{directions}}",
         "customer": "Customer: {{name}}",
         "phone": "Ring {{phone}}",
@@ -2328,6 +2371,7 @@
             "customerCreate": "Save customer",
             "customerCancelCreate": "Cancel",
             "customerEdit": "Edit",
+            "customerAddPhone": "Add a phone",
             "customerEditSave": "Save changes",
             "customerEditDuplicatesTitle": "Somebody else also has this number",
             "customerDuplicatesTitle": "Somebody already has that number",
@@ -2412,6 +2456,8 @@
             },
             "zoneNoSlots": "The delivery zone for this address offers none of the kitchen’s slots. Tick one on the zone’s Delivery windows step.",
             "heldStock": "On quality hold: {{names}}",
+            "runningLowTitle": "Running low",
+            "runningLowBody": "Not enough free stock for: {{names}}. You can still sell it.",
             "allergyNoteLabel": "Allergy note",
             "allergyNoteHint": "Anything the customer said about allergies. The kitchen will see it.",
             "allergyConflictTitle": "This food conflicts with the customer’s allergies",
@@ -2431,6 +2477,7 @@
             "backOnToday": "Back on today"
         },
         "refusal": {
+            "phone_required": "Nobody can be rung for this delivery. Add a phone number to the customer before it goes out.",
             "customer_required": "This kind of sale needs a customer. Go back and choose or add one.",
             "address_required": "A delivery needs somewhere to go. Go back and add an address.",
             "address_not_applicable": "A counter sale and a collection have no delivery address.",
@@ -3637,7 +3684,7 @@
         "allergenRowsNone": "No allergens.",
         "allergenRow": "{{code}} — {{containment}}, from {{names}}",
         "quarantineTitle": "Quarantined for review",
-        "quarantineBody": "Its allergens conflict with an ingredient. Fix the ingredient first.",
+        "quarantineBody": "Its allergen label changed after it was published. A manager can compare the old and new labels on the recipe and release it, or fix the ingredient.",
         "blockedTitle": "Fix these first",
         "blockNoLines": "Add at least one ingredient.",
         "blockNoPieces": "Enter the pieces produced — a meal sold without them takes no stock off the shelf.",
@@ -3662,7 +3709,19 @@
         "publishedToast": "Version {{number}} is published.",
         "titleVersion": "Publish version {{number}}?",
         "allergenTag": "{{code}} · {{containment}}",
-        "fixIt": "Fix it"
+        "fixIt": "Fix it",
+        "releaseAction": "Review and release",
+        "releaseTitle": "Release version {{number}}?",
+        "releaseBody": "Compare the label it was published with against the new one. Releasing puts the new label live on this version and its dishes back on sale.",
+        "releaseOldLabel": "Label it was published with",
+        "releaseNewLabel": "New label",
+        "releaseReasonTitle": "Why it was quarantined",
+        "releaseCheck": "I have compared the two labels and the new one is right.",
+        "releaseConfirm": "Release",
+        "releasedToast": "Version {{number}} is released and back on sale.",
+        "releaseStale": "An ingredient changed and the label is being worked out again. Wait a moment, then open the release and compare the labels again.",
+        "releaseChanged": "This version changed since you opened it. Open the release again and compare the new labels.",
+        "releaseAllergenUnmapped": "An ingredient in this recipe has not had its allergens assessed, so the new label cannot go live. Assess that ingredient in the catalogue, then release again."
     },
     "rollup": {
         "title": "What this draft declares",
@@ -3951,6 +4010,9 @@
         "netContentUnitsForbidden": "Stating the net content needs the inventory permission, because the unit it is measured in comes from the stock reference. Ask someone with inventory access to fill it in, or the sale will be refused.",
         "portionHint": "Servings of the recipe in one meal.",
         "portionPlaceholder": "For example 1 or 0.5",
+        "dietTagClash": "“{{tag}}” is hidden from customers: the allergen label lists {{allergens}}",
+        "dietTagClashDetail": "A free-from tag cannot contradict the label, so the meal cannot be saved with it or published.",
+        "dietTagClashRemove": "Remove the tag",
         "retiredTitle": "This meal is withdrawn",
         "retiredBody": "It is on no consumer surface. It is still here because past orders and prices point at it."
     },
@@ -5129,10 +5191,19 @@
         "shelf": "{{code}}: {{quantity}} {{unit}}",
         "emptyTitle": "Nothing to review",
         "emptyBody": "Every stock row with a repeated name has been merged or dealt with.",
+        "keepBoth": "Keep both",
+        "mergeInto": "Merge into {{code}}",
+        "mergeBlocked": "Count {{code}} to zero to merge it",
+        "mergeTitle": "Merge {{drop}} into {{keep}}?",
+        "mergeBody": "{{drop}} leaves the stock lists and its history stays on its own row. Anything that used it draws on {{keep}} from now on.",
+        "mergeConfirm": "Merge",
+        "mergedToast": "{{drop}} merged into {{keep}}",
+        "keptToast": "{{name}}: kept as separate rows",
+        "actionFailedToast": "That did not save. Try again.",
         "reason": {
             "different_units": "Counted in different units, so the quantities cannot be added",
             "not_a_copy": "Same name, but neither is a copy of the other",
-            "both_have_history": "Both have stock history, so neither can be dropped",
+            "both_have_history": "Both have stock history: count one to zero to merge it, or keep both",
             "both_sold_as_products": "Both are sold as products",
             "open_work": "An open order, receipt or stock figure still uses the row"
         }
@@ -5143,6 +5214,7 @@
         "allRecipes": "All recipes",
         "allAction": "Show every status",
         "publishedAction": "Show only published records",
+        "uncostedAction": "Show only ingredients with no unit price",
         "result": "{{shown}} of {{total}}",
         "clear": "Clear",
         "mix": "{{published}} published, {{draft}} draft, {{review}} awaiting review",
@@ -5284,7 +5356,9 @@
             "price_approval": "A delivery from {{number}} needs its price approved",
             "dish_below_target": "{{number}} has fallen below your margin target",
             "delivery_moved_closed": "Order {{number}} was moved off a closed day",
-            "delivery_closed_unmoved": "A delivery on {{number}} falls on a closed day"
+            "delivery_closed_unmoved": "A delivery on {{number}} falls on a closed day",
+            "batch_stuck": "Batch {{number}} has been in production for two days",
+            "customer_cancelled": "Order {{number}} was cancelled by the customer"
         }
     },
     "dishOptions": {
@@ -5412,6 +5486,19 @@
             "am": "Morning",
             "pm": "Evening"
         }
+    },
+    "storefrontProfile": {
+        "title": "Storefront profile",
+        "description": "What customers read on your kitchen's marketplace page. It applies to the whole kitchen. Separate cuisines with commas.",
+        "taglineLabel": "Tagline",
+        "descriptionLabel": "Description",
+        "cuisinesLabel": "Cuisines",
+        "cuisinesPlaceholderEn": "Lebanese, Grills",
+        "cuisinesPlaceholderAr": "لبناني، مشاوي",
+        "save": "Save profile",
+        "savedToast": "Storefront profile saved.",
+        "saveError": "The storefront profile was not saved.",
+        "loadErrorTitle": "The storefront profile could not be loaded."
     },
     "serviceTimings": {
         "title": "Service timings",

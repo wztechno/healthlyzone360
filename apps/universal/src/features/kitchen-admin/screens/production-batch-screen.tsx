@@ -380,7 +380,8 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                                 }}
                             />
                         )}
-                        {batch.lotNumber === null ? null : (
+                        {/* The lot shows from start; the label waits for a use-by, its barcode's. */}
+                        {batch.barcode === null ? null : (
                             <Button
                                 testID="kitchen-production-batch-label"
                                 variant="secondary"

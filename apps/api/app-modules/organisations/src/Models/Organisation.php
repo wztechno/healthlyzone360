@@ -36,6 +36,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $suspended_by
  * @property string|null $created_by
  * @property int $lock_version
+ * @property string|null $tagline_en storefront copy, public on the marketplace
+ * @property string|null $tagline_ar
+ * @property string|null $description_en
+ * @property string|null $description_ar
+ * @property list<string>|null $cuisines_en free text
+ * @property list<string>|null $cuisines_ar
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
@@ -52,6 +58,8 @@ class Organisation extends BaseModel
         return [
             'status' => OrganisationStatus::class,
             'suspended_at' => 'immutable_datetime',
+            'cuisines_en' => 'array',
+            'cuisines_ar' => 'array',
         ];
     }
 

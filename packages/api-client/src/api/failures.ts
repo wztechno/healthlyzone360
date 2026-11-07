@@ -328,9 +328,11 @@ export function mapErrorEnvelope(body: unknown, context: ErrorEnvelopeContext): 
     if (code === 'resource.conflict') {
         const currentLockVersion = readCurrentLockVersion(details);
         const membershipCount = readMembershipCount(details);
+        const reason = readDetailString(details, 'reason');
         return conflictFailure({
             ...(currentLockVersion === undefined ? {} : { currentLockVersion }),
             ...(membershipCount === undefined ? {} : { membershipCount }),
+            ...(reason === '' ? {} : { reason }),
             message,
             correlationId,
         });

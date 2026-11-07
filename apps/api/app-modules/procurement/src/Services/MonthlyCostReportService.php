@@ -45,6 +45,11 @@ use RuntimeException;
  *   unit-scale note). Published **net of refunds**: see below.
  * - **Refunds** = Σ `order_refunds.amount_minor` for completed entries of kind
  *   `refund`, bucketed by the month the money went back. See below.
+ * - **Courier expenses** = Σ `cash_settlements.expense_minor`, the couriers'
+ *   fees on prepaid runs that the kitchen paid, bucketed by the hand-in's
+ *   `recorded_at` and grouped by `currency_code`. Minor units, converted to
+ *   major. An operating line: it is **not** part of COGS, and the gross margin
+ *   does not deduct it.
  * - **Waste value** = Σ `stock_movements.cost_amount` for `reason = waste` when a
  *   cost is present; the total wasted *quantity* is reported alongside as the
  *   honest note for the (current) common case where waste carries no cost.
@@ -183,6 +188,7 @@ final readonly class MonthlyCostReportService
      *     waste_quantity: numeric-string|null,
      *     revenue_amount: numeric-string,
      *     refunds_amount: numeric-string,
+     *     courier_expense_amount: numeric-string,
      *     gross_margin_amount: numeric-string|null,
      *     gross_margin_percent: numeric-string|null,
      *     is_margin_withheld: bool,
@@ -223,6 +229,7 @@ final readonly class MonthlyCostReportService
         $wasteQuantity = $this->wasteQuantityByMonth($organisationId, $from, $to);
         $revenue = $this->revenueByMonthCurrency($organisationId, $from, $to);
         $refunds = $this->refundsByMonthCurrency($organisationId, $from, $to);
+        $courierExpense = $this->courierExpenseByMonthCurrency($organisationId, $from, $to);
         $revenueSplit = $this->revenueSplitByMonthCurrency($organisationId, $from, $to);
         $exceptions = $this->exceptionCountByMonth($organisationId, $from, $to);
         $productionConsumption = $this->productionMovementByMonthCurrency($organisationId, 'consume', $from, $to);
@@ -236,7 +243,7 @@ final readonly class MonthlyCostReportService
         // Union every (month, currency) key any source produced — a month may
         // have spend without a sale, or a sale without a receipt that month.
         $keys = [];
-        foreach ([$spend, $cogs, $waste, $revenue, $refunds, $productionConsumption, $productionWaste, $productionYield, $estimates] as $source) {
+        foreach ([$spend, $cogs, $waste, $revenue, $refunds, $courierExpense, $productionConsumption, $productionWaste, $productionYield, $estimates] as $source) {
             foreach ($source as $month => $byCurrency) {
                 foreach (array_keys($byCurrency) as $currency) {
                     $keys[$month.'|'.$currency] = ['month' => $month, 'currency' => $currency];
@@ -337,6 +344,8 @@ final readonly class MonthlyCostReportService
                 'waste_quantity' => $wasteQuantity[$month] ?? null,
                 'revenue_amount' => $revenueAmount,
                 'refunds_amount' => $this->minorToMajor($refundsMinor, $currency, $minorUnits),
+                // An operating cost beside the margin, never inside COGS or it.
+                'courier_expense_amount' => $this->minorToMajor($courierExpense[$month][$currency] ?? '0', $currency, $minorUnits),
                 'gross_margin_amount' => $margin,
                 'gross_margin_percent' => $marginPercent,
                 'is_margin_withheld' => $marginWithheld,
@@ -854,6 +863,42 @@ final readonly class MonthlyCostReportService
 
         if ($to !== null) {
             $query->where('month', '<=', $to);
+        }
+
+        $out = [];
+
+        foreach ($query->get() as $row) {
+            $out[(string) $row->month][(string) $row->currency] = $this->numeric((string) $row->total);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Couriers' fees on prepaid runs, by the month the hand-in was recorded, in
+     * minor units. See the class docblock: an operating cost, outside COGS.
+     *
+     * @return array<string, array<string, numeric-string>>
+     */
+    private function courierExpenseByMonthCurrency(string $organisationId, ?string $from, ?string $to): array
+    {
+        $month = "to_char(cash_settlements.recorded_at, 'YYYY-MM')";
+
+        $query = DB::table('cash_settlements')
+            ->where('cash_settlements.organisation_id', $organisationId)
+            ->where('cash_settlements.expense_minor', '>', 0)
+            ->selectRaw($month.' as month')
+            ->selectRaw('cash_settlements.currency_code as currency')
+            ->selectRaw('sum(cash_settlements.expense_minor) as total')
+            ->groupByRaw($month)
+            ->groupBy('cash_settlements.currency_code');
+
+        if ($from !== null) {
+            $query->whereRaw($month.' >= ?', [$from]);
+        }
+
+        if ($to !== null) {
+            $query->whereRaw($month.' <= ?', [$to]);
         }
 
         $out = [];

@@ -48,6 +48,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonImmutable|null $reviewed_at
  * @property string|null $review_evidence
  * @property array<string, mixed>|null $lookup_source
+ * @property string|null $derived_from_version_id the published recipe version this row was carried from; set exactly when source is recipe_derived
  */
 #[Classified(DataClassification::Internal, 'evidence', 'lookup_source')]
 #[Classified(DataClassification::Public, 'allergen_code', 'containment', 'market_scope')]

@@ -1,4 +1,4 @@
-import type { DishOption, DishPortion } from '@healthy360/api-client/contracts';
+import type { DishOption, DishOptionAllergen, DishPortion } from '@healthy360/api-client/contracts';
 import { Badge, Checkbox, Inline, Select, Stack, Text } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -125,7 +125,7 @@ export function DishChoiceFields({
                                 },
                                 ...inGroup.map((option) => ({
                                     value: option.id,
-                                    label: named(option),
+                                    label: choiceLabel(option, named(option), t),
                                 })),
                             ]}
                             onChange={(id) => {
@@ -164,9 +164,38 @@ export function DishChoiceFields({
 }
 
 /**
+ * A sauce or side as the picker lists it, so its allergens are read before it is picked: the name,
+ * then what it contains and, worded apart, what it may contain, or that nobody has assessed it. A
+ * choice that declares nothing is just its name; the badges below say so once it is chosen.
+ */
+function choiceLabel(option: DishOption, name: string, t: TFunction): string {
+    const separator = t('catalogue:dishOptions.separator');
+    const allergens = option.allergens;
+    if (allergens === null || allergens === undefined) {
+        return [name, t('catalogue:dishOptions.allergensUnassessed')].join(separator);
+    }
+    const names = (containment: DishOptionAllergen['containment']) =>
+        allergens
+            .filter((allergen) => allergen.containment === containment)
+            .map((allergen) => t(`marketplace:allergens.${allergen.code}`))
+            .join(t('marketplace:common.listSeparator'));
+    const contains = names('contains');
+    const mayContain = names('may_contain');
+    return [
+        name,
+        ...(contains === ''
+            ? []
+            : [t('marketplace:menu.containsAllergens', { allergens: contains })]),
+        ...(mayContain === ''
+            ? []
+            : [t('catalogue:dishOptions.mayContain', { allergens: mayContain })]),
+    ].join(separator);
+}
+
+/**
  * What the chosen sauce or side adds to the plate, before it is bought: its recipe's allergens as the
- * danger badges the kitchen's editor draws, or a warning when nobody has assessed it. Missing codes
- * read as unassessed, never as "none".
+ * danger badges the kitchen's editor draws, a "may contain" one worded and toned apart, or a warning
+ * when nobody has assessed it. Missing allergens read as unassessed, never as "none".
  */
 function ChoiceAllergens({
     testID,
@@ -177,9 +206,9 @@ function ChoiceAllergens({
     readonly option: DishOption;
     readonly t: TFunction;
 }) {
-    const codes = option.allergenCodes;
+    const allergens = option.allergens;
 
-    if (codes === null || codes === undefined) {
+    if (allergens === null || allergens === undefined) {
         return (
             <Text variant="caption" tone="warning" testID={`${testID}-unassessed`}>
                 {t('catalogue:dishOptions.allergensUnassessed')}
@@ -187,7 +216,7 @@ function ChoiceAllergens({
         );
     }
 
-    if (codes.length === 0) {
+    if (allergens.length === 0) {
         return (
             <Text variant="caption" tone="secondary" testID={`${testID}-none`}>
                 {t('catalogue:dishOptions.allergensNone')}
@@ -197,12 +226,18 @@ function ChoiceAllergens({
 
     return (
         <Inline space="xs" wrap testID={testID}>
-            {codes.map((code) => (
+            {allergens.map(({ code, containment }) => (
                 <Badge
                     key={code}
                     testID={`${testID}-${code}`}
-                    tone="danger"
-                    label={t(`marketplace:allergens.${code}`)}
+                    tone={containment === 'may_contain' ? 'warning' : 'danger'}
+                    label={
+                        containment === 'may_contain'
+                            ? t('catalogue:dishOptions.mayContain', {
+                                  allergens: t(`marketplace:allergens.${code}`),
+                              })
+                            : t(`marketplace:allergens.${code}`)
+                    }
                 />
             ))}
         </Inline>

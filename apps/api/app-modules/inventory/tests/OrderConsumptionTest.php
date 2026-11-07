@@ -18,6 +18,7 @@ use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Models\StockMovement;
 use Healthy360\Inventory\Models\StockReservation;
 use Healthy360\Inventory\Services\ConsumptionExceptionSweep;
+use Healthy360\Inventory\Services\DuplicateStockShelves;
 use Healthy360\Inventory\Services\InventoryService;
 use Healthy360\Inventory\Services\OrderConsumptionService;
 use Healthy360\Inventory\Services\ReservationService;
@@ -34,6 +35,7 @@ use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
+use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Queue;
@@ -1073,4 +1075,90 @@ it('settles the open exceptions of a line an edit released, and opens no second 
     $this->consumption->consume($branchless, $branchless->lines()->get());
 
     expect(OrderConsumptionException::withoutTenancy()->where('order_id', $branchless->getKey())->where('reason_code', 'no_branch')->count())->toBe(1);
+});
+
+/*
+| A shelf merged with its history (T8): an order that consumed from it before
+| the merge is reversed onto the shelf it was merged into, and a merge waits
+| while a retry could still deduct that order again.
+*/
+
+/**
+ * Two shelves of one name in one unit, the first an order's source. Returns
+ * [the shelf the meal consumes from, its twin that stays, the meal].
+ *
+ * @return array{0: StockItem, 1: StockItem, 2: CatalogueItem}
+ */
+function mergeableTwins(object $test): array
+{
+    $dropped = stockedIngredient($test, $test->kg, '2.000000', '100', '100');
+    $kept = stockedIngredient($test, $test->kg, '3.000000', '50', '50');
+
+    foreach ([$dropped, $kept] as $shelf) {
+        $shelf->name_en = 'Rice';
+        $shelf->save();
+    }
+
+    return [$dropped, $kept, publishedMeal($test, 1, '0.00', [[$dropped, '1', $test->kg]])];
+}
+
+it('reverses a pre-merge consume onto the kept shelf, once, at the kept basis', function (): void {
+    [$dropped, $kept, $meal] = mergeableTwins($this);
+    $order = orderFor($this, $meal, '2');
+
+    $this->lifecycle->confirm($order, 0);
+    expect(levelOf($dropped))->toBe('98.0000');
+
+    // Counted out (which values the loss and empties its basis), then merged.
+    $this->inventory->recordCount((string) $this->organisation->getKey(), (string) $this->branch->getKey(), (string) $dropped->getKey(), '0');
+    app(DuplicateStockShelves::class)->mergeWithHistory((string) $this->organisation->getKey(), $kept->refresh(), $dropped->refresh());
+
+    $order = $order->refresh();
+    $this->lifecycle->cancel($order, CancellationReason::KitchenUnableToFulfil, $order->lock_version);
+
+    $reversals = StockMovement::withoutTenancy()
+        ->where('reference_type', 'order_reversal')
+        ->where('reference_id', (string) $order->getKey())
+        ->get();
+    $keptCost = IngredientStockCost::withoutTenancy()->where('ingredient_id', $kept->ingredient_id)->sole();
+
+    expect($reversals)->toHaveCount(1)
+        ->and($reversals->first()->stock_item_id)->toBe((string) $kept->getKey())
+        ->and((string) $reversals->first()->quantity_delta)->toBe('2.0000')
+        ->and(levelOf($kept))->toBe('52.0000')
+        ->and(levelOf($dropped))->toBe('0.0000')
+        // Back on the kept basis, at its own average.
+        ->and((string) $keptCost->quantity_on_hand)->toBe('52.000000')
+        ->and((string) $keptCost->moving_average_cost_amount)->toBe('3.000000');
+
+    // Restoring again is a no-op: the reversal on the kept shelf matches the consume on the merged one.
+    $this->consumption->restore($order->refresh());
+
+    expect(StockMovement::withoutTenancy()->where('reference_type', 'order_reversal')->where('reference_id', (string) $order->getKey())->count())->toBe(1)
+        ->and(levelOf($kept))->toBe('52.0000');
+});
+
+it('refuses a merge while an order that consumed from the shelf has an open exception', function (): void {
+    [$dropped, $kept, $meal] = mergeableTwins($this);
+    $order = orderFor($this, $meal, '2');
+
+    $this->lifecycle->confirm($order, 0);
+    $this->inventory->recordCount((string) $this->organisation->getKey(), (string) $this->branch->getKey(), (string) $dropped->getKey(), '0');
+
+    OrderConsumptionException::query()->create([
+        'organisation_id' => $this->organisation->getKey(),
+        'order_id' => (string) $order->getKey(),
+        'order_line_id' => (string) $order->lines()->sole()->getKey(),
+        'reason_code' => 'no_stock_item',
+    ]);
+
+    try {
+        app(DuplicateStockShelves::class)->mergeWithHistory((string) $this->organisation->getKey(), $kept->refresh(), $dropped->refresh());
+        $reason = null;
+    } catch (ApiException $refused) {
+        $reason = $refused->details['reason'] ?? null;
+    }
+
+    expect($reason)->toBe('open_work')
+        ->and($dropped->refresh()->merged_into_stock_item_id)->toBeNull();
 });

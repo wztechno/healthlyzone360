@@ -41,11 +41,13 @@ afterAll(() => {
 });
 /* `mock`-prefixed so the factory below may close over it — Jest's hoisting rule. */
 const mockPush = jest.fn();
+/** The URL's query, per test; `?lens=past_due` is how the kitchen home's Today card opens the desk. */
+let mockSearchParams: Record<string, string> = {};
 jest.mock('expo-router', () => ({
     __esModule: true,
     useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
     usePathname: () => '/kitchen/order-desk',
-    useLocalSearchParams: () => ({}),
+    useLocalSearchParams: () => mockSearchParams,
     Redirect: () => null,
     Link: ({ children }: { children: React.ReactNode }) => children,
 }));
@@ -468,6 +470,23 @@ describe('order desk queue — past due across all dates', () => {
                 window: 'overdue',
             });
         });
+    });
+
+    it('opens on the lens when the link says ?lens=past_due', async () => {
+        mockSearchParams = { lens: 'past_due' };
+        try {
+            const { repositories } = await renderDesk(async () => queue([]));
+
+            await waitFor(() => {
+                expect(repositories.orderDesk.listQueue).toHaveBeenCalledWith({
+                    window: 'today',
+                    lens: 'past_due',
+                });
+            });
+            expect(repositories.orderDesk.listQueue).not.toHaveBeenCalledWith({ window: 'today' });
+        } finally {
+            mockSearchParams = {};
+        }
     });
 });
 

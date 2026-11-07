@@ -64,6 +64,7 @@ import {
 import { useAllergenNames } from '../my-allergens.tsx';
 import {
     ALLERGEN_CONFLICT_WARNING,
+    CHECKOUT_PHONE_REQUIRED,
     displayableWarnings,
     isCriticalWarning,
     warningMessageKey,
@@ -313,6 +314,8 @@ export function CheckoutScreen() {
     const accountInactive = orderReasons.some(
         (entry) => entry.reason === 'account_not_active' || entry.reason === 'account_not_ready',
     );
+    // No number the driver can ring: the phone page adds one and comes back here.
+    const phoneMissing = orderReasons.some((entry) => entry.reason === 'phone_required');
 
     /*
      * Where a detour comes back to: this page as it stands, with the defaults the screen derived
@@ -910,6 +913,26 @@ export function CheckoutScreen() {
                                         />
                                     </Pressable>
                                 ) : null}
+                                {phoneMissing ? (
+                                    <Pressable
+                                        testID="checkout-add-phone"
+                                        role="button"
+                                        accessibilityRole="button"
+                                        onPress={() => {
+                                            openDetour('/customer/account/phone');
+                                        }}
+                                        className="h-[38px] flex-row items-center gap-1.5 rounded-full bg-surface-inverse px-3.5 hover:opacity-90"
+                                    >
+                                        <RNText className="text-sm font-bold text-content-inverse">
+                                            {t('commerce:checkout.addPhone')}
+                                        </RNText>
+                                        <Icon
+                                            name="chevronEnd"
+                                            size="sm"
+                                            className="text-content-inverse"
+                                        />
+                                    </Pressable>
+                                ) : null}
                                 <RNText className="text-xs text-content-secondary">
                                     {t('commerce:checkout.basketKept')}
                                 </RNText>
@@ -1139,6 +1162,22 @@ export function CheckoutScreen() {
                                                     <RNText className="min-w-0 flex-1 text-sm leading-[18px] text-warning-on-subtle text-start">
                                                         {t(warningMessageKey(code), { code })}
                                                     </RNText>
+                                                    {code === CHECKOUT_PHONE_REQUIRED ? (
+                                                        <Pressable
+                                                            testID="checkout-warning-add-phone"
+                                                            role="link"
+                                                            accessibilityRole="link"
+                                                            onPress={() => {
+                                                                openDetour(
+                                                                    '/customer/account/phone',
+                                                                );
+                                                            }}
+                                                        >
+                                                            <RNText className="text-sm font-bold leading-[18px] text-warning-on-subtle hover:underline">
+                                                                {t('commerce:checkout.addPhone')}
+                                                            </RNText>
+                                                        </Pressable>
+                                                    ) : null}
                                                 </View>
                                             ))}
                                         </View>

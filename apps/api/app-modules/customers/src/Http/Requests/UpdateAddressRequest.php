@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Customers\Http\Requests;
 
+use Healthy360\Customers\Http\Concerns\ResolvesCustomerAccount;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -29,6 +30,8 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class UpdateAddressRequest extends FormRequest
 {
+    use ResolvesCustomerAccount;
+
     /**
      * Authorisation is the route's `permission` middleware; a form request
      * that also guessed would give two answers to one question.
@@ -53,7 +56,7 @@ class UpdateAddressRequest extends FormRequest
             'apartment' => ['sometimes', 'nullable', 'string', 'max:40'],
             'directions' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'postal_code' => ['sometimes', 'nullable', 'string', 'max:20'],
-            'contact_point_id' => ['sometimes', 'nullable', 'uuid'],
+            'contact_point_id' => ['sometimes', 'nullable', 'uuid', $this->addressContactRule($this)],
         ];
     }
 

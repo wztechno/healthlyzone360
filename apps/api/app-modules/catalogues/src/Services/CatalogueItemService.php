@@ -84,11 +84,70 @@ final readonly class CatalogueItemService
         'dressing' => 'DRS-',
     ];
 
+    /**
+     * The free-from tags and the allergen classes that contradict each one.
+     *
+     * Any containment contradicts: `may_contain` as much as `contains`, because a
+     * customer filtering for "nut free" is avoiding the risk, not the recipe line.
+     * The marketplace reads this map too (`MarketplaceMeals`), and the kitchen
+     * editor's warning keeps a copy (`kitchen-admin/meal-listing.tsx`).
+     *
+     * @var array<string, list<string>>
+     */
+    public const array FREE_FROM = [
+        'gluten_free' => ['gluten'],
+        'dairy_free' => ['milk'],
+        'nut_free' => ['tree_nut', 'peanut'],
+    ];
+
     public function __construct(
         private TenantContext $context,
         private AuditRecorder $audit,
         private IngredientCatalogueService $ingredients,
+        private DerivedAllergenService $allergens,
+        private DishOptions $options,
     ) {}
+
+    /**
+     * Each free-from tag among `$tagCodes` that the label's `$allergenCodes` contradict,
+     * with the classes that do.
+     *
+     * @param  list<string>  $tagCodes
+     * @param  list<string>  $allergenCodes
+     * @return list<array{tag: string, allergen_codes: list<string>}>
+     */
+    public static function freeFromClashes(array $tagCodes, array $allergenCodes): array
+    {
+        $clashes = [];
+
+        foreach ($tagCodes as $tag) {
+            $codes = array_values(array_intersect(self::FREE_FROM[$tag] ?? [], $allergenCodes));
+
+            if ($codes !== []) {
+                $clashes[] = ['tag' => $tag, 'allergen_codes' => $codes];
+            }
+        }
+
+        return $clashes;
+    }
+
+    /**
+     * The allergen classes a free-from tag must not contradict: the item's current
+     * label — the same derivation the marketplace shows
+     * (`MarketplaceMeals::allergenCodesOf()`), both containments — and the published
+     * label of every choice it offers, as the marketplace's free-from filter reads them.
+     *
+     * @return list<string>
+     */
+    public function labelAllergenCodes(CatalogueItem $item): array
+    {
+        $choices = array_map(static fn (array $option): array => $option['allergens'] ?? [], $this->options->forItem((string) $item->getKey()));
+
+        return array_values(array_unique(array_map(
+            static fn (array $row): string => $row['allergen_code'],
+            [...$this->allergens->forItem($item)['allergens'], ...array_merge([], ...$choices)],
+        )));
+    }
 
     /**
      * @param  array{
@@ -458,6 +517,20 @@ final readonly class CatalogueItemService
                 ErrorCode::ValidationFailed,
                 'These are not active diet classifications the platform recognises.',
                 ['fields' => ['diet_classifications' => ['These are not active diet classifications the platform recognises.']], 'unknown' => $unknown],
+            );
+        }
+
+        // A free-from tag the label contradicts is refused, not stored: the
+        // marketplace would hide it anyway, and a kitchen should learn why now.
+        $clashes = self::freeFromClashes($wanted, $this->labelAllergenCodes($item));
+
+        if ($clashes !== []) {
+            $message = 'A free-from tag cannot contradict the allergen label.';
+
+            throw new ApiException(
+                ErrorCode::ValidationFailed,
+                $message,
+                ['fields' => ['diet_classifications' => [$message]], 'reason' => 'diet_tag_contradicts_allergens', 'clashes' => $clashes],
             );
         }
 

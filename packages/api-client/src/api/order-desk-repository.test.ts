@@ -1379,6 +1379,7 @@ describe('createApiOrderDeskRepository — getCashReport', () => {
         to: '2026-05-10',
         branch_id: null,
         timezone: 'UTC',
+        branches: [],
         count: 2,
     };
 
@@ -1496,6 +1497,7 @@ describe('createApiOrderDeskRepository — getCashReport', () => {
             to: '2026-05-10',
             branchId: null,
             timezone: 'UTC',
+            branches: [],
             count: 2,
         });
     });

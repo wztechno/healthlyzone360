@@ -223,6 +223,14 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         $reversed = [];
         $legacyReversed = false;
 
+        // A consume taken from a shelf that has since been merged goes back onto
+        // the shelf it was merged into, and is matched against its reversals there.
+        /** @var array<string, string> $shelves */
+        $shelves = [];
+        $shelf = static function (string $stockItemId) use (&$shelves): string {
+            return $shelves[$stockItemId] ??= (string) (StockItem::withoutTenancy()->whereKey($stockItemId)->value('merged_into_stock_item_id') ?? $stockItemId);
+        };
+
         $reversals = StockMovement::withoutTenancy()
             ->where('organisation_id', $order->organisation_id)
             ->where('reference_type', self::REVERSAL_REFERENCE)
@@ -233,14 +241,15 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
             if ($reversal->order_line_id === null) {
                 $legacyReversed = true;
             } else {
-                $reversed[$reversal->order_line_id.'|'.$reversal->stock_item_id] = true;
+                $reversed[$reversal->order_line_id.'|'.$shelf((string) $reversal->stock_item_id)] = true;
             }
         }
 
         foreach ($movements as $movement) {
+            $target = $shelf((string) $movement->stock_item_id);
             $alreadyReversed = $movement->order_line_id === null
                 ? $legacyReversed
-                : isset($reversed[$movement->order_line_id.'|'.$movement->stock_item_id]);
+                : isset($reversed[$movement->order_line_id.'|'.$target]);
 
             if ($alreadyReversed) {
                 continue;
@@ -257,7 +266,7 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
             $this->inventory->recordMovement(
                 (string) $order->organisation_id,
                 (string) $movement->branch_id,
-                (string) $movement->stock_item_id,
+                $target,
                 'adjust',
                 $addBack,
                 self::REVERSAL_REFERENCE,
@@ -266,7 +275,7 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
                 orderLineId: $movement->order_line_id === null ? null : (string) $movement->order_line_id,
             );
 
-            $this->restoreQuantityOnHand($order, $movement, $addBack);
+            $this->restoreQuantityOnHand($order, $target, $addBack);
         }
 
         if ($amending) {
@@ -1017,9 +1026,9 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
      *
      * @param  numeric-string  $addBackInStockUnit
      */
-    private function restoreQuantityOnHand(Order $order, StockMovement $movement, string $addBackInStockUnit): void
+    private function restoreQuantityOnHand(Order $order, string $stockItemId, string $addBackInStockUnit): void
     {
-        $stockItem = StockItem::withoutTenancy()->whereKey($movement->stock_item_id)->first();
+        $stockItem = StockItem::withoutTenancy()->whereKey($stockItemId)->first();
 
         if (! $stockItem instanceof StockItem || $stockItem->ingredient_id === null || $stockItem->unit_id === null) {
             return;

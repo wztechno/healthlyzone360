@@ -28,14 +28,21 @@ beforeAll(() => {
 afterAll(() => {
     Dimensions.set({ window: narrowWindow, screen: narrowScreen });
 });
-jest.mock('expo-router', () => ({
-    __esModule: true,
-    useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
-    usePathname: () => '/kitchen/order-desk/requirements',
-    useLocalSearchParams: () => ({}),
-    Redirect: () => null,
-    Link: ({ children }: { children: React.ReactNode }) => children,
-}));
+jest.mock('expo-router', () => {
+    const push = jest.fn();
+    return {
+        __esModule: true,
+        useRouter: () => ({ push, replace: jest.fn(), back: jest.fn() }),
+        usePathname: () => '/kitchen/order-desk/requirements',
+        useLocalSearchParams: () => ({}),
+        Redirect: () => null,
+        Link: ({ children }: { children: React.ReactNode }) => children,
+        __push: push,
+    };
+});
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const routerMock = require('expo-router') as { __push: jest.Mock };
 
 /**
  * The requirements screen: the buy list, and the three things it must never say.
@@ -116,6 +123,45 @@ function showStockColumns(): void {
 
 afterEach(() => {
     forgetColumnChoice(TABLE);
+    routerMock.__push.mockClear();
+});
+
+describe('order desk requirements — create order', () => {
+    it('hands only the short shelves to the supply-order builder', async () => {
+        await renderRequirements(async () =>
+            answer([
+                requirement(),
+                requirement({
+                    stockItemId: SECOND_SHELF_ID,
+                    code: 'sku-salt',
+                    nameEn: 'Salt',
+                    short: '0.0000',
+                    suggestedBuy: '0.0000',
+                }),
+            ]),
+        );
+        await settled();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-requirements-create-order'));
+        });
+
+        expect(routerMock.__push).toHaveBeenCalledTimes(1);
+        const href = String(routerMock.__push.mock.calls[0]?.[0]);
+        const query = new URLSearchParams(href.slice(href.indexOf('?') + 1));
+        expect(href.startsWith('/kitchen/supply-orders/new?')).toBe(true);
+        expect(query.get('items')).toBe(SHELF_ID);
+        expect(decodeURIComponent(query.get('returnTo') ?? '')).toBe(
+            '/kitchen/order-desk/requirements',
+        );
+    });
+
+    it('offers no order when nothing is short', async () => {
+        await renderRequirements(async () => answer([requirement({ short: '0.0000' })]));
+        await settled();
+
+        expect(screen.queryByTestId('kitchen-order-desk-requirements-create-order')).toBeNull();
+    });
 });
 
 describe('order desk requirements — the ladder', () => {

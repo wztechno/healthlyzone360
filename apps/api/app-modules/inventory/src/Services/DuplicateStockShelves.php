@@ -11,6 +11,8 @@ use Healthy360\Inventory\Models\IngredientStockCost;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Models\StockMovement;
+use Healthy360\Support\Api\ErrorCode;
+use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -33,6 +35,13 @@ use Illuminate\Support\Facades\DB;
  * `MealExplosion::resolveStockItem()` keeps a copy and its original working
  * meanwhile. A row leaves the list when the kitchen deals with it.
  *
+ * **A person's two answers (owner, 3 November 2026).** Merge
+ * ({@see mergeWithHistory()}) links an emptied shelf to the one that stays: no
+ * movement is touched and the row stays, so its history stays readable, but it
+ * leaves every list and `MealExplosion::resolveStockItem()` follows the link. Keep
+ * both ({@see dismiss()}) stamps the group, and a group whose rows are all stamped
+ * is not listed; a new shelf of the same name brings it back.
+ *
  * The list is computed rather than stored: a read of the shelves as they stand, so
  * it cannot go stale. Reads and the merge run inside one kitchen's tenant context.
  */
@@ -41,6 +50,12 @@ final readonly class DuplicateStockShelves
     private const string REFERENCE_TYPE = 'stock_merge';
 
     private const int SCALE = 6;
+
+    /** Order states whose lines still change: they follow a merged shelf, and closed ones keep what they recorded. */
+    private const array OPEN_ORDERS = [
+        'purchase_order_lines' => ['purchase_orders', 'purchase_order_id', ['draft', 'issued', 'partially_received']],
+        'production_order_lines' => ['production_orders', 'production_order_id', ['draft', 'confirmed', 'in_production']],
+    ];
 
     public function __construct(
         private InventoryService $inventory,
@@ -58,6 +73,7 @@ final readonly class DuplicateStockShelves
     {
         $items = StockItem::withoutTenancy()
             ->where('organisation_id', $organisationId)
+            ->whereNull('merged_into_stock_item_id')
             ->orderBy('code')
             ->get();
 
@@ -70,7 +86,7 @@ final readonly class DuplicateStockShelves
         $reviews = [];
 
         foreach ($items->groupBy(static fn (StockItem $item): string => mb_strtolower(trim($item->name_en))) as $shelves) {
-            if ($shelves->count() < 2) {
+            if ($shelves->count() < 2 || $shelves->every(static fn (StockItem $shelf): bool => $shelf->duplicate_dismissed_at !== null)) {
                 continue;
             }
 
@@ -134,15 +150,14 @@ final readonly class DuplicateStockShelves
             DB::table('purchase_order_lines')->where('stock_item_id', $drop->getKey())->update(['stock_item_id' => $keep->getKey()]);
             DB::table('production_order_lines')->where('stock_item_id', $drop->getKey())->update(['stock_item_id' => $keep->getKey()]);
 
-            $linked = DB::table('supplier_stock_items')->where('stock_item_id', $keep->getKey())->pluck('supplier_id');
-            $hasPreferred = DB::table('supplier_stock_items')->where('stock_item_id', $keep->getKey())->where('is_preferred', true)->exists();
-
-            DB::table('supplier_stock_items')->where('stock_item_id', $drop->getKey())->whereNotIn('supplier_id', $linked)->update(
-                ['stock_item_id' => $keep->getKey()] + ($hasPreferred ? ['is_preferred' => false] : []),
-            );
+            $this->moveSupplierLinks($keep, $drop);
 
             $product = $drop->catalogue_item_id;
             $dropId = (string) $drop->getKey();
+
+            // A shelf linked into this one by an earlier merge with history would
+            // be un-merged by the FK's null-on-delete; it follows to the kept shelf.
+            DB::table('stock_items')->where('merged_into_stock_item_id', $dropId)->update(['merged_into_stock_item_id' => $keep->getKey()]);
 
             $drop->delete();
 
@@ -167,6 +182,131 @@ final readonly class DuplicateStockShelves
                         array_values($moved),
                     ),
                 ],
+            );
+        });
+    }
+
+    /**
+     * Merges two shelves that both have history. `$drop` must already stand at
+     * zero in every branch (count it out first, which values the loss). Nothing in
+     * the ledger is updated or deleted, and the row stays so its history does: it
+     * is linked to `$keep`, open order lines and supplier links follow, and lists
+     * stop showing it.
+     *
+     * Refused with `resource.conflict` and a `reason`: `not_duplicates`,
+     * `already_merged`, `different_units`, `both_sold_as_products`,
+     * `stock_remaining` or `open_work`.
+     */
+    public function mergeWithHistory(string $organisationId, StockItem $keep, StockItem $drop, ?string $actorUserId = null): void
+    {
+        DB::transaction(function () use ($organisationId, $keep, $drop, $actorUserId): void {
+            $keepId = (string) $keep->getKey();
+            $dropId = (string) $drop->getKey();
+
+            // Both rows re-read under one lock, in key order, so two merges of the
+            // same pair in opposite directions cannot each link one to the other.
+            $locked = StockItem::withoutTenancy()->whereKey([$keepId, $dropId])->orderBy('id')->lockForUpdate()->get()
+                ->keyBy(static fn (StockItem $item): string => (string) $item->getKey());
+            $keep = $locked[$keepId] ?? $keep;
+            $drop = $locked[$dropId] ?? $drop;
+
+            if ($keepId === $dropId
+                || $keep->organisation_id !== $organisationId
+                || $drop->organisation_id !== $organisationId
+                || mb_strtolower(trim($keep->name_en)) !== mb_strtolower(trim($drop->name_en))) {
+                $this->refuse('not_duplicates', 'Only two different shelves of the same name can be merged.');
+            }
+
+            if ($keep->merged_into_stock_item_id !== null || $drop->merged_into_stock_item_id !== null) {
+                $this->refuse('already_merged', 'One of these shelves has already been merged.');
+            }
+
+            if ($keep->unit_code !== $drop->unit_code) {
+                $this->refuse('different_units', 'These shelves count in different units, so they cannot be merged.');
+            }
+
+            if ($keep->catalogue_item_id !== null && $drop->catalogue_item_id !== null) {
+                $this->refuse('both_sold_as_products', 'Both shelves are sold as products, so they cannot be merged.');
+            }
+
+            // The levels and the row are locked, so a movement in flight either
+            // lands before this read or waits for the link (a first level insert
+            // takes a key-share lock on the row). A write after the link is
+            // refused by InventoryService::recordMovement().
+            $held = StockLevel::withoutTenancy()->where('stock_item_id', $dropId)->lockForUpdate()->get()
+                ->contains(static fn (StockLevel $level): bool => bccomp((string) $level->quantity, '0', self::SCALE) !== 0);
+
+            if ($held) {
+                $this->refuse('stock_remaining', 'Count '.$drop->code.' to zero in every branch before merging it.');
+            }
+
+            if ($this->blocksLink($drop, $keep)) {
+                $this->refuse('open_work', 'Something open still depends on '.$drop->code.': a cost basis, a reservation, or an order holding both shelves.');
+            }
+
+            foreach (self::OPEN_ORDERS as $table => [$orders, $key, $open]) {
+                DB::table($table)
+                    ->where('stock_item_id', $dropId)
+                    ->whereIn($key, DB::table($orders)->whereIn('status', $open)->select('id'))
+                    ->update(['stock_item_id' => $keepId]);
+            }
+
+            $this->moveSupplierLinks($keep, $drop);
+            // What stayed duplicates a supplier the kept shelf already has. These are
+            // configuration, not history, and left here they would offer the hidden
+            // shelf on a purchase order.
+            DB::table('supplier_stock_items')->where('stock_item_id', $dropId)->delete();
+
+            // A shelf merged into this one earlier now points at the one that stays,
+            // so a link is always one step.
+            DB::table('stock_items')->where('merged_into_stock_item_id', $dropId)->update(['merged_into_stock_item_id' => $keepId]);
+
+            $product = $drop->catalogue_item_id;
+            $drop->catalogue_item_id = null;
+            $drop->merged_into_stock_item_id = $keepId;
+            $drop->save();
+
+            if ($product !== null) {
+                $keep->catalogue_item_id = (string) $product;
+                $keep->save();
+            }
+
+            $this->audit->record(
+                'inventory.stock_merged',
+                actorUserId: $actorUserId,
+                subjectType: 'stock_item',
+                subjectId: $keepId,
+                metadata: ['merged_stock_item_id' => $dropId, 'merged_code' => $drop->code, 'origin' => 'with_history'],
+            );
+        });
+    }
+
+    /**
+     * "Keep both": stamps the shelves so their group leaves the review list until
+     * a new shelf of the same name joins it.
+     *
+     * @param  list<string>  $stockItemIds
+     */
+    public function dismiss(string $organisationId, array $stockItemIds, ?string $actorUserId = null): void
+    {
+        DB::transaction(function () use ($organisationId, $stockItemIds, $actorUserId): void {
+            $shelves = StockItem::withoutTenancy()
+                ->where('organisation_id', $organisationId)
+                ->whereKey($stockItemIds)
+                ->get();
+
+            if ($shelves->count() !== count(array_unique($stockItemIds))) {
+                throw new ApiException(ErrorCode::ResourceNotFound);
+            }
+
+            StockItem::withoutTenancy()->whereKey($shelves->modelKeys())->update(['duplicate_dismissed_at' => now()]);
+
+            $this->audit->record(
+                'inventory.duplicate_dismissed',
+                actorUserId: $actorUserId,
+                subjectType: 'stock_item',
+                subjectId: (string) $shelves->first()?->getKey(),
+                metadata: ['stock_item_ids' => $shelves->modelKeys(), 'codes' => $shelves->pluck('code')->all()],
             );
         });
     }
@@ -291,10 +431,66 @@ final readonly class DuplicateStockShelves
     }
 
     /**
+     * What stops a shelf with history being linked rather than dropped: a cost
+     * basis its own ingredient still carries, an open claim on it, an open
+     * order holding both shelves, which the unique lines would refuse, or an
+     * unresolved consumption exception on an order that consumed from it.
+     * Receipts stay where they are, so they block nothing.
+     *
+     * The exception case: a retry asks whether its line already took from the
+     * shelf it now resolves to. After a merge that is the kept shelf, which never
+     * saw the consume, so the retry would deduct a second time.
+     */
+    private function blocksLink(StockItem $drop, StockItem $keep): bool
+    {
+        $costed = $drop->ingredient_id !== null
+            && $drop->ingredient_id !== $keep->ingredient_id
+            && IngredientStockCost::withoutTenancy()
+                ->where('ingredient_id', $drop->ingredient_id)
+                ->where('organisation_id', $drop->organisation_id)
+                ->where('quantity_on_hand', '!=', 0)
+                ->exists();
+
+        return $costed
+            || DB::table('stock_reservations')->where('stock_item_id', $drop->getKey())->where('status', 'open')->exists()
+            || DB::table('order_consumption_exceptions as exception')
+                ->whereNull('exception.resolved_at')
+                ->whereExists(static fn ($consumed) => $consumed->from('stock_movements')
+                    ->whereColumn('stock_movements.reference_id', 'exception.order_id')
+                    ->where('stock_movements.reference_type', 'order')
+                    ->where('stock_movements.reason', 'consume')
+                    ->where('stock_movements.stock_item_id', $drop->getKey()))
+                ->exists()
+            || $this->sharesAnOrder('purchase_order_lines', ['purchase_order_id'], $drop->getKey(), $keep->getKey(), openOnly: true)
+            || $this->sharesAnOrder('production_order_lines', ['production_order_id', 'line_kind'], $drop->getKey(), $keep->getKey(), openOnly: true);
+    }
+
+    /**
+     * Supplier links follow the kept shelf, except to a supplier it already has;
+     * the kept shelf's preferred supplier stays the preferred one.
+     */
+    private function moveSupplierLinks(StockItem $keep, StockItem $drop): void
+    {
+        $linked = DB::table('supplier_stock_items')->where('stock_item_id', $keep->getKey())->pluck('supplier_id');
+        $hasPreferred = DB::table('supplier_stock_items')->where('stock_item_id', $keep->getKey())->where('is_preferred', true)->exists();
+
+        DB::table('supplier_stock_items')->where('stock_item_id', $drop->getKey())->whereNotIn('supplier_id', $linked)->update(
+            ['stock_item_id' => $keep->getKey()] + ($hasPreferred ? ['is_preferred' => false] : []),
+        );
+    }
+
+    private function refuse(string $reason, string $message): never
+    {
+        throw new ApiException(ErrorCode::ResourceConflict, $message, ['reason' => $reason]);
+    }
+
+    /**
      * @param  list<string>  $key
      */
-    private function sharesAnOrder(string $table, array $key, mixed $dropId, mixed $keepId): bool
+    private function sharesAnOrder(string $table, array $key, mixed $dropId, mixed $keepId, bool $openOnly = false): bool
     {
+        [$orders, $orderKey, $open] = self::OPEN_ORDERS[$table];
+
         return DB::table($table.' as dropped')
             ->join($table.' as kept', static function ($join) use ($key): void {
                 foreach ($key as $column) {
@@ -303,6 +499,7 @@ final readonly class DuplicateStockShelves
             })
             ->where('dropped.stock_item_id', $dropId)
             ->where('kept.stock_item_id', $keepId)
+            ->when($openOnly, static fn ($query) => $query->whereIn('dropped.'.$orderKey, DB::table($orders)->whereIn('status', $open)->select('id')))
             ->exists();
     }
 

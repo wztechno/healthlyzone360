@@ -179,7 +179,7 @@ export function DishOptionsSection({
                                     value={row.recipeId}
                                     onChange={(recipeId) => {
                                         // The label is the saved recipe's until this saves.
-                                        edit(index, { recipeId, allergenCodes: null });
+                                        edit(index, { recipeId, allergens: null });
                                     }}
                                 />
                             </View>
@@ -234,7 +234,7 @@ export function DishOptionsSection({
                                         nameEn: '',
                                         nameAr: '',
                                         recipeId: null,
-                                        allergenCodes: null,
+                                        allergens: null,
                                     },
                                 ]);
                             }}
@@ -296,7 +296,7 @@ function ChoiceAllergens({
         );
     }
 
-    if (row.allergenCodes === null) {
+    if (row.allergens === null) {
         return (
             <Text variant="caption" tone="warning" testID={`${testID}-unpublished`}>
                 {t('kitchen:dishOptions.recipeUnpublished')}
@@ -304,7 +304,7 @@ function ChoiceAllergens({
         );
     }
 
-    if (row.allergenCodes.length === 0) {
+    if (row.allergens.length === 0) {
         return (
             <Text variant="caption" tone="secondary" testID={`${testID}-none`}>
                 {t('kitchen:dishOptions.noAllergens')}
@@ -314,7 +314,7 @@ function ChoiceAllergens({
 
     return (
         <Inline space="xs" wrap testID={testID}>
-            {row.allergenCodes.map((code) => (
+            {row.allergens.map(({ code }) => (
                 <Badge
                     key={code}
                     testID={`${testID}-${code}`}

@@ -22,6 +22,7 @@ import type {
     ShowMyOrderResponse,
 } from '../generated/types.ts';
 import { generateRequestId } from './config.ts';
+import { mapDishOption } from './marketplace-mappers.ts';
 import type { Transport } from './transport.ts';
 
 /**
@@ -115,6 +116,8 @@ export function mapOrderLine(wire: WireOrderLine): PlacedOrderLine {
         quantity: Number.parseFloat(wire.quantity) || 1,
         unitPrice: money(wire.unit_price_minor, wire.currency_code),
         lineTotal: money(wire.line_total_minor, wire.currency_code),
+        options: (wire.options ?? []).map(mapDishOption),
+        note: wire.note ?? null,
     };
 }
 
@@ -177,6 +180,7 @@ export function mapPlacedOrder(wire: WireOrder): PlacedOrder {
         deliveryDate: wire.delivery.requested_date ?? '',
         placedAt: wire.placed_at,
         stepTimes: mapOrderStepTimes(wire),
+        fulfilmentType: wire.fulfilment_type,
     };
 }
 
@@ -240,7 +244,8 @@ function myOrdersQuery(filter?: MyOrderFilter): string {
 }
 
 /**
- * The customer's own orders — `GET /me/orders` and `GET /me/orders/{order}`.
+ * The customer's own orders — `GET /me/orders`, `GET /me/orders/{order}`, and the one write, `POST
+ * /me/orders/{order}/cancel`.
  *
  * Both read the projection `POST /orders` answers, so both go through {@link mapPlacedOrder}: a
  * history row, an order page and the confirmation that created the order are one mapping, and
@@ -249,7 +254,7 @@ function myOrdersQuery(filter?: MyOrderFilter): string {
  */
 export function createApiMyOrderReads(
     transport: Transport,
-): Pick<CommerceRepository, 'listMyOrders' | 'getMyOrder'> {
+): Pick<CommerceRepository, 'listMyOrders' | 'getMyOrder' | 'cancelMyOrder'> {
     return {
         async listMyOrders(filter?: MyOrderFilter): Promise<CursorPage<PlacedOrder>> {
             const envelope = await transport.requestEnvelope<ListMyOrdersResponse['data']>({
@@ -271,6 +276,14 @@ export function createApiMyOrderReads(
             const payload = await transport.request<ShowMyOrderResponse['data']>({
                 method: 'GET',
                 path: `/me/orders/${encodeURIComponent(String(orderId))}`,
+            });
+            return mapPlacedOrder(payload.order);
+        },
+
+        async cancelMyOrder(orderId): Promise<PlacedOrder> {
+            const payload = await transport.request<ShowMyOrderResponse['data']>({
+                method: 'POST',
+                path: `/me/orders/${encodeURIComponent(String(orderId))}/cancel`,
             });
             return mapPlacedOrder(payload.order);
         },

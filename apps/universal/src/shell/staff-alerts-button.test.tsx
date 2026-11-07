@@ -166,6 +166,19 @@ describe('the alerts bell', () => {
         expect(screen.queryByTestId('staff-alerts-panel')).toBeNull();
     });
 
+    it('links a stuck batch to its batch rather than to an order', async () => {
+        await renderBell(list(alert('1', { type: 'batch_stuck' })));
+        await screen.findByTestId('staff-alerts-count');
+        fireEvent.press(screen.getByTestId('staff-alerts-button'));
+
+        const target = await screen.findByTestId('staff-alerts-panel-open');
+        await act(async () => {
+            fireEvent.press(target);
+        });
+
+        expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/production-desk/order-1');
+    });
+
     it('leaves an alert unread while an unsaved editor is holding the reader', async () => {
         const { repositories } = await renderBell(list(alert('1')), SUPERVISOR, <DirtyEditor />);
         await screen.findByTestId('staff-alerts-count');

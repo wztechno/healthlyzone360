@@ -1,6 +1,7 @@
 import type { ApiFailure } from '@healthy360/api-client';
 import { PACKAGING_CATEGORY_CODE, isValidationFailure } from '@healthy360/api-client/contracts';
 import type {
+    AllergenContainment,
     CostAmount,
     IngredientAdmin,
     LocalisedText,
@@ -20,6 +21,7 @@ import {
     Card,
     Cascade,
     CascadeItem,
+    Checkbox,
     Dialog,
     ErrorState,
     FormGrid,
@@ -87,6 +89,7 @@ import {
     useRecipeQuery,
     useRecipeRollupQuery,
     useRecipeTechnicalSheetQuery,
+    useReleaseRecipeVersionMutation,
     useRetireRecipeMutation,
     useSaveRecordPhotoMutation,
     useSetRecipeLinesMutation,
@@ -100,6 +103,7 @@ import { DerivedPanel } from '../catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../catalogue/derived-panel.tsx';
 import {
     RECIPE_MANAGE_PERMISSION,
+    RECIPE_PUBLISH_PERMISSION,
     RECIPE_VIEW_COSTS_PERMISSION,
     RECIPE_VIEW_PERMISSION,
 } from '../entity-registry.ts';
@@ -734,6 +738,8 @@ function RecipeEditor({
     const issueTray = useIssueTrayController();
     const { nudge: nudgeTray, explain: explainBlocked } = issueTray;
     const canManage = useCan(RECIPE_MANAGE_PERMISSION);
+    // Publish and release sit behind their own code: a chef may edit a recipe and not put it live.
+    const canPublish = useCan(RECIPE_PUBLISH_PERMISSION);
     const canViewCosts = useCan(RECIPE_VIEW_COSTS_PERMISSION);
 
     const isCreating = recipe === undefined || recipe === 'new';
@@ -757,6 +763,7 @@ function RecipeEditor({
     const setPackagingLines = useSetRecipePackagingMutation();
     const publish = usePublishRecipeMutation();
     const retire = useRetireRecipeMutation();
+    const release = useReleaseRecipeVersionMutation();
     const openDraft = useOpenRecipeDraftMutation();
     const photoSave = useSaveRecordPhotoMutation();
 
@@ -840,6 +847,9 @@ function RecipeEditor({
     const [selectedVersionId, setSelectedVersionId] = useState<RecipeVersionId | null>(null);
     const [showPublish, setShowPublish] = useState(false);
     const [showRetire, setShowRetire] = useState(false);
+    const [showRelease, setShowRelease] = useState(false);
+    /** The release's gate: the manager says they compared the two labels. */
+    const [releaseChecked, setReleaseChecked] = useState(false);
     // The failure itself, not its message: a validation refusal is put back on its fields.
     const [saveError, setSaveError] = useState<{ readonly failure: ApiFailure | null } | null>(
         null,
@@ -2744,6 +2754,7 @@ function RecipeEditor({
               ]),
     ];
 
+    const releaseFailure = toFailure(release.error);
     const publishCards: IssueCardItem[] = [
         ...(quarantined
             ? [
@@ -2751,10 +2762,44 @@ function RecipeEditor({
                       key: 'quarantine',
                       tone: 'warning' as const,
                       label: t('kitchen:publish.quarantineTitle'),
+                      action:
+                          canPublish && currentVersion !== null
+                              ? {
+                                    label: t('kitchen:publish.releaseAction'),
+                                    onPress: () => {
+                                        release.reset();
+                                        setReleaseChecked(false);
+                                        setShowRelease(true);
+                                    },
+                                    testID: 'kitchen-recipe-release-open',
+                                }
+                              : undefined,
                       testID: 'kitchen-recipe-quarantine',
                   },
               ]
             : []),
+        /*
+         * A refused release, after its dialog closed. A 409 has already refetched the version (see
+         * the release's `onError`), so the next opening compares the fresh labels under the fresh
+         * lock; the release has no local edits, so there is no reload-or-keep question to ask.
+         */
+        ...(releaseFailure === null
+            ? []
+            : [
+                  {
+                      key: 'release-error',
+                      tone: 'danger' as const,
+                      label:
+                          releaseFailure.code !== 'resource.conflict'
+                              ? releaseFailure.message
+                              : releaseFailure.reason === 'derivation_stale'
+                                ? t('kitchen:publish.releaseStale')
+                                : releaseFailure.reason === 'allergen_unmapped'
+                                  ? t('kitchen:publish.releaseAllergenUnmapped')
+                                  : t('kitchen:publish.releaseChanged'),
+                      testID: 'kitchen-recipe-release-error',
+                  },
+              ]),
         ...publishItems.map((item) => {
             const reason = item.key.startsWith('ingredient-')
                 ? publishBlockers.find(
@@ -3250,7 +3295,7 @@ function RecipeEditor({
                                     }
                                     onPress={attemptSave}
                                 />
-                                {!publishShown || !isEditable ? null : (
+                                {!publishShown || !isEditable || !canPublish ? null : (
                                     <Button
                                         testID="kitchen-recipe-publish"
                                         // What a stock gap's `no_recipe_version` focuses.
@@ -4095,38 +4140,19 @@ function RecipeEditor({
                             {t('kitchen:publish.consequence')}
                         </Text>
 
-                        <Stack space="xs" testID="kitchen-recipe-publish-allergens">
-                            <Text variant="label">{t('kitchen:publish.allergenRowsTitle')}</Text>
-                            {currentVersion === null || currentVersion.allergens.length === 0 ? (
-                                <Text testID="kitchen-recipe-publish-allergens-none">
-                                    {t('kitchen:publish.allergenRowsNone')}
-                                </Text>
-                            ) : (
-                                <Inline space="xs" wrap>
-                                    {currentVersion.allergens.map((declaration) => (
-                                        <Tag
-                                            key={declaration.allergenCode}
-                                            testID={`kitchen-recipe-publish-allergen-${String(declaration.allergenCode)}`}
-                                            // `contains` and `may contain` are two claims, never one
-                                            // colour — and the words say which, not the colour alone.
-                                            tone={
-                                                declaration.containment === 'contains'
-                                                    ? 'danger'
-                                                    : 'warning'
-                                            }
-                                            label={t('kitchen:publish.allergenTag', {
-                                                code: String(declaration.allergenCode),
-                                                containment: t(
-                                                    declaration.containment === 'contains'
-                                                        ? 'kitchen:containment.contains'
-                                                        : 'kitchen:containment.mayContain',
-                                                ),
-                                            })}
-                                        />
-                                    ))}
-                                </Inline>
-                            )}
-                        </Stack>
+                        {/*
+                         * `contains` and `may contain` are two claims, never one colour — and the
+                         * words say which, not the colour alone.
+                         */}
+                        <AllergenLabelRow
+                            title={t('kitchen:publish.allergenRowsTitle')}
+                            entries={(currentVersion?.allergens ?? []).map((declaration) => ({
+                                code: String(declaration.allergenCode),
+                                containment: declaration.containment,
+                            }))}
+                            testID="kitchen-recipe-publish-allergens"
+                            tagTestID="kitchen-recipe-publish-allergen"
+                        />
 
                         {quarantined ? (
                             <Callout
@@ -4249,6 +4275,129 @@ function RecipeEditor({
                                 </Stack>
                             </Callout>
                         )}
+                    </Stack>
+                </Dialog>
+
+                {/* ── release a quarantine ─────────────────────────────────────────────────────── */}
+                {/*
+                 * The over-receipt confirmation's shape (`receive-delivery-screen.tsx`): what changes,
+                 * then a tick the reader gives before the irreversible button works. Old and new
+                 * labels side by side, as the publish dialog draws a label.
+                 */}
+                <Dialog
+                    testID="kitchen-recipe-release-dialog"
+                    open={showRelease}
+                    onClose={() => {
+                        setShowRelease(false);
+                    }}
+                    title={t('kitchen:publish.releaseTitle', {
+                        number: currentVersion?.versionNumber ?? 1,
+                    })}
+                    actions={
+                        <>
+                            <Button
+                                testID="kitchen-recipe-release-cancel"
+                                variant="quiet"
+                                label={t('kitchen:common.cancel')}
+                                onPress={() => {
+                                    setShowRelease(false);
+                                }}
+                            />
+                            <Button
+                                testID="kitchen-recipe-release-confirm"
+                                label={t('kitchen:publish.releaseConfirm')}
+                                loading={release.isPending}
+                                disabled={
+                                    !releaseChecked ||
+                                    anyDirty ||
+                                    currentVersion?.derivationStale !== false
+                                }
+                                onPress={() => {
+                                    if (data === undefined || currentVersion === null) return;
+                                    release.mutate(
+                                        {
+                                            recipeId: data.id,
+                                            versionId: currentVersion.id,
+                                            lockVersion: currentVersion.lockVersion,
+                                        },
+                                        {
+                                            onSuccess: () => {
+                                                toast.show({
+                                                    testID: 'kitchen-recipe-released-toast',
+                                                    tone: 'success',
+                                                    message: t('kitchen:publish.releasedToast', {
+                                                        number: currentVersion.versionNumber,
+                                                    }),
+                                                });
+                                            },
+                                            onError: (error) => {
+                                                // A recompute moves the version's lock and label:
+                                                // never retry on the lock this dialog was shown.
+                                                if (
+                                                    toFailure(error)?.code === 'resource.conflict'
+                                                ) {
+                                                    void record.refetch();
+                                                }
+                                                nudgeTray();
+                                            },
+                                            onSettled: () => {
+                                                setShowRelease(false);
+                                            },
+                                        },
+                                    );
+                                }}
+                            />
+                        </>
+                    }
+                >
+                    <Stack space="md">
+                        <Text testID="kitchen-recipe-release-consequence">
+                            {t('kitchen:publish.releaseBody')}
+                        </Text>
+                        {currentVersion?.previousLabel == null ? (
+                            <Stack space="xs" testID="kitchen-recipe-release-reason">
+                                <Text variant="label">
+                                    {t('kitchen:publish.releaseReasonTitle')}
+                                </Text>
+                                <Text>{currentVersion?.reviewReason ?? ''}</Text>
+                            </Stack>
+                        ) : (
+                            <AllergenLabelRow
+                                title={t('kitchen:publish.releaseOldLabel')}
+                                entries={Object.entries(currentVersion.previousLabel).map(
+                                    ([code, containment]) => ({ code, containment }),
+                                )}
+                                testID="kitchen-recipe-release-old"
+                            />
+                        )}
+                        <AllergenLabelRow
+                            title={t('kitchen:publish.releaseNewLabel')}
+                            entries={(currentVersion?.allergens ?? []).map((declaration) => ({
+                                code: String(declaration.allergenCode),
+                                containment: declaration.containment,
+                            }))}
+                            testID="kitchen-recipe-release-new"
+                        />
+                        {/*
+                         * A release puts the saved version live: unsaved edits would be refused on
+                         * their next save. A label still being recomputed is one nobody compared.
+                         */}
+                        {anyDirty ? (
+                            <Text testID="kitchen-recipe-release-unsaved" tone="danger">
+                                {t('kitchen:publish.blockUnsaved')}
+                            </Text>
+                        ) : null}
+                        {currentVersion?.derivationStale === true ? (
+                            <Text testID="kitchen-recipe-release-recomputing" tone="danger">
+                                {t('kitchen:publish.releaseStale')}
+                            </Text>
+                        ) : null}
+                        <Checkbox
+                            testID="kitchen-recipe-release-check"
+                            checked={releaseChecked}
+                            label={t('kitchen:publish.releaseCheck')}
+                            onChange={setReleaseChecked}
+                        />
                     </Stack>
                 </Dialog>
 
@@ -4823,4 +4972,49 @@ function nutrientFigures(
             },
         ];
     });
+}
+
+/** One allergen label, as the publish and release dialogs draw it: a tag per allergen, the claim in words. */
+function AllergenLabelRow({
+    title,
+    entries,
+    testID,
+    tagTestID = testID,
+}: {
+    readonly title: string;
+    readonly entries: readonly {
+        readonly code: string;
+        readonly containment: AllergenContainment;
+    }[];
+    readonly testID: string;
+    /** Each tag is `${tagTestID}-${code}`; the row's own id when not given. */
+    readonly tagTestID?: string | undefined;
+}) {
+    const { t } = useTranslation();
+    return (
+        <Stack space="xs" testID={testID}>
+            <Text variant="label">{title}</Text>
+            {entries.length === 0 ? (
+                <Text testID={`${testID}-none`}>{t('kitchen:publish.allergenRowsNone')}</Text>
+            ) : (
+                <Inline space="xs" wrap>
+                    {entries.map((entry) => (
+                        <Tag
+                            key={entry.code}
+                            testID={`${tagTestID}-${entry.code}`}
+                            tone={entry.containment === 'contains' ? 'danger' : 'warning'}
+                            label={t('kitchen:publish.allergenTag', {
+                                code: entry.code,
+                                containment: t(
+                                    entry.containment === 'contains'
+                                        ? 'kitchen:containment.contains'
+                                        : 'kitchen:containment.mayContain',
+                                ),
+                            })}
+                        />
+                    ))}
+                </Inline>
+            )}
+        </Stack>
+    );
 }

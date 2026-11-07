@@ -31,6 +31,8 @@ export interface OrderTimelineProps {
     readonly times?: Readonly<Partial<Record<OrderProgressStep, string>>> | undefined;
     /** The first step's detail line — the payment and the total, composed by the caller. */
     readonly placedDetail: string;
+    /** A delivery: "ready" reads "Ready, out soon", since nobody comes to collect it. */
+    readonly delivery?: boolean | undefined;
     readonly testID: string;
 }
 
@@ -94,6 +96,7 @@ export function OrderTimeline({
     placedAt,
     placedDetail,
     times,
+    delivery = false,
     testID,
 }: OrderTimelineProps) {
     const { t } = useTranslation();
@@ -108,7 +111,10 @@ export function OrderTimeline({
         >
             {ORDER_PROGRESS_STEPS.map((step, index) => {
                 const position = stepPosition(index, current);
-                const title = t(`guest:order.steps.${step}.title`);
+                const title =
+                    delivery && step === 'ready_for_pickup'
+                        ? t('guest:order.readyOutSoon')
+                        : t(`guest:order.steps.${step}.title`);
                 const time = index === 0 ? placedAt : times?.[step];
                 return (
                     <View

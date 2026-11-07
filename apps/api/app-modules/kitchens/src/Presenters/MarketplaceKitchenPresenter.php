@@ -30,8 +30,8 @@ use Healthy360\ReferenceData\Models\DeliveryArea;
  *
  * | field                  | what it carries | why |
  * |------------------------|-----------------|-----|
- * | `tagline`, `description` | `''`          | `organisations` has no marketing copy. An empty string renders as nothing; an invented sentence would render as the kitchen's own words. |
- * | `cuisines`             | `[]`            | Nothing records how a kitchen cooks. |
+ * | `tagline`, `description` | the kitchen's own copy, or `''` | Written by the kitchen on its storefront profile, in the request's language with the other as fallback. Unset stays `''`; an invented sentence would render as the kitchen's own words. |
+ * | `cuisines`             | the kitchen's list, or `[]` | Free text from the same profile, the same fallback. |
  * | `rating`               | `null`          | No reviews exist. `null` is the contract's "too few ratings to average", which is true of zero. |
  * | `rating_count`         | `0`             | |
  * | `is_verified`          | `false`         | There is no verification module (J1 owns it). The platform has verified nobody, so `false` is the fact rather than a placeholder. |
@@ -71,10 +71,10 @@ final class MarketplaceKitchenPresenter
             'id' => (string) $kitchen->getKey(),
             'name' => $kitchen->name,
             'slug' => $kitchen->slug,
-            'tagline' => '',
-            'description' => '',
+            'tagline' => MarketplaceLocale::pick($locale, $kitchen->tagline_en, $kitchen->tagline_ar),
+            'description' => MarketplaceLocale::pick($locale, $kitchen->description_en, $kitchen->description_ar),
             'country_code' => $kitchen->country_code,
-            'cuisines' => [],
+            'cuisines' => self::cuisines($locale, $kitchen),
             'diet_classifications' => $dietClassifications,
             'channels' => $channels,
             'branches' => array_map(
@@ -215,6 +215,18 @@ final class MarketplaceKitchenPresenter
     public static function money(?int $amountMinor, string $currencyCode): ?array
     {
         return $amountMinor === null ? null : ['amount' => $amountMinor, 'currency' => $currencyCode];
+    }
+
+    /**
+     * The list in the locale's language, or the other when that one is empty.
+     *
+     * @return list<string>
+     */
+    private static function cuisines(string $locale, Organisation $kitchen): array
+    {
+        $wanted = ($locale === 'ar' ? $kitchen->cuisines_ar : $kitchen->cuisines_en) ?? [];
+
+        return $wanted !== [] ? $wanted : (($locale === 'ar' ? $kitchen->cuisines_en : $kitchen->cuisines_ar) ?? []);
     }
 
     private static function clock(?string $time): ?string

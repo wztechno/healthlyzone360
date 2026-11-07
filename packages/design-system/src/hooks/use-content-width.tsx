@@ -2,6 +2,8 @@ import { createContext, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useWindowDimensions } from 'react-native';
 
+import { useHydrated } from './use-hydrated.ts';
+
 /**
  * How much room the page actually has — the shell's content column, not the window.
  *
@@ -89,7 +91,9 @@ export function contentWidthFor(windowWidth: number, inset: ContentInset | null)
  * bare — it is the window's, which is what such a render has.
  */
 export function useContentWidth(): ContentWidth {
-    const { width: windowWidth } = useWindowDimensions();
+    const { width: measured } = useWindowDimensions();
+    // Zero while hydrating, as `useBreakpoint` explains.
+    const windowWidth = useHydrated() ? measured : 0;
     const inset = useContext(ContentInsetContext);
     return useMemo(() => {
         const width = contentWidthFor(windowWidth, inset);

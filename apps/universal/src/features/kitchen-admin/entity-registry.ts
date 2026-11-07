@@ -48,6 +48,8 @@ export const CATALOGUE_MANAGE_PERMISSION = 'catalogue.manage_organisation';
 export const CATALOGUE_PUBLISH_PERMISSION = 'catalogue.publish_organisation';
 export const RECIPE_VIEW_PERMISSION = 'recipe.view_organisation';
 export const RECIPE_MANAGE_PERMISSION = 'recipe.manage_organisation';
+/** Publishing and releasing a recipe version — what a chef holding `manage` alone may not do. */
+export const RECIPE_PUBLISH_PERMISSION = 'recipe.publish_organisation';
 /**
  * What a recipe costs. The server withholds every recipe cost figure without it — the technical
  * sheet's money, and the editor's `computedCost` — so a screen asks before drawing a cascade of

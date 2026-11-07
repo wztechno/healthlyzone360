@@ -93,3 +93,4 @@ export { PostReceiptScreen } from './post-receipt-screen.tsx';
 export { UnpricedReceiptScreen } from './unpriced-receipt-screen.tsx';
 export { UnpricedReceiptsScreen } from './unpriced-receipts-screen.tsx';
 export { WholesaleSetupScreen } from './wholesale-setup-screen.tsx';
+export { KitchenTicketPrintScreen } from '../../kds/ticket-print-sheet.tsx';

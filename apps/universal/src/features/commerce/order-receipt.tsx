@@ -1,9 +1,10 @@
 import type { PlacedOrder, SubscriptionPreview } from '@healthy360/api-client/contracts';
-import { useFormatter } from '@healthy360/i18n';
+import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text as RNText, View } from 'react-native';
 
+import { dishOptionsLine } from '../../ui/dish-choices.tsx';
 import { Eyebrow } from '../../ui/eyebrow.tsx';
 import { formatMoney } from '../marketplace/format.ts';
 import { SummaryItems, SummaryRow, SummaryTotal, priceLineLabel } from './checkout-frame.tsx';
@@ -74,6 +75,7 @@ export interface MealReceiptProps {
 export function MealReceipt({ order, kitchenName, arriving, testID }: MealReceiptProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    const { locale } = useLocale();
 
     return (
         <View testID={testID} className="flex-col">
@@ -111,6 +113,9 @@ export function MealReceipt({ order, kitchenName, arriving, testID }: MealReceip
                     name: line.name,
                     quantity: line.quantity,
                     lineTotal: line.lineTotal,
+                    detail: [dishOptionsLine(line.options, locale, t), line.note]
+                        .filter((part) => part != null && part !== '')
+                        .join(t('catalogue:dishOptions.separator')),
                 }))}
             />
             <Perforation />

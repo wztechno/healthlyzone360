@@ -1,5 +1,13 @@
 import type { CurrencyCode } from '@healthy360/domain-types';
 
+import type { AllergenContainment } from './kitchen-admin.ts';
+
+/** One allergen an option adds to the plate, and whether it is in it or may be. */
+export interface DishOptionAllergen {
+    readonly code: string;
+    readonly containment: AllergenContainment;
+}
+
 /**
  * What a customer can change about a dish.
  *
@@ -16,10 +24,10 @@ export interface DishOption {
     readonly nameAr: string;
     /**
      * On an offered option only (the meal page, the desk's choices; never a line's stored options): the
-     * allergen codes it adds to the plate. Empty on a removal; `null` on a choice whose recipe has no
+     * allergens it adds to the plate. Empty on a removal; `null` on a choice whose recipe has no
      * published version, which is unassessed, never "none".
      */
-    readonly allergenCodes?: readonly string[] | null | undefined;
+    readonly allergens?: readonly DishOptionAllergen[] | null | undefined;
 }
 
 export interface DishPortion {
@@ -37,12 +45,12 @@ export interface DishChoices {
 
 /**
  * A dish option as the kitchen edits it. A choice links the sauce or side recipe it is and takes its
- * allergens from that recipe's published version; `allergenCodes` is null when there is no link or
+ * allergens from that recipe's published version; `allergens` is null when there is no link or
  * the recipe has no published version. A choice with no recipe is not offered to anybody.
  */
 export interface KitchenDishOption extends DishOption {
     readonly recipeId: string | null;
-    readonly allergenCodes: readonly string[] | null;
+    readonly allergens: readonly DishOptionAllergen[] | null;
 }
 
 /** A row of the kitchen's editor: no `id` yet on a row just added. */

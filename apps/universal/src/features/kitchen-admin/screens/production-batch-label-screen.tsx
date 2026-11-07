@@ -134,8 +134,8 @@ function ProductionBatchLabel({ order }: ProductionBatchLabelScreenProps) {
         />
     );
 
-    // A lot is minted only when a settlement put usable units on a shelf; before that, and on a
-    // batch that made nothing, there is no label to print.
+    // The lot comes at start, but the barcode carries the use-by date, so the server sends no
+    // barcode until one exists. Either gap means no label, and the copy says which.
     if (lot === null || barcode === null) {
         return (
             <Stack space="lg" testID="kitchen-production-label-screen">
@@ -143,7 +143,12 @@ function ProductionBatchLabel({ order }: ProductionBatchLabelScreenProps) {
                     testID="kitchen-production-label-nothing"
                     tone="warning"
                     role="alert"
-                    title={t('kitchen:ops.supplyOrders.print.nothingToPrintTitle')}
+                    title={t('kitchen:ops.production.labelNothingTitle')}
+                    body={t(
+                        lot === null
+                            ? 'kitchen:ops.production.labelNoLotBody'
+                            : 'kitchen:ops.production.labelNoUseByBody',
+                    )}
                     actions={backButton}
                 />
             </Stack>

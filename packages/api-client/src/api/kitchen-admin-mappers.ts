@@ -1145,6 +1145,9 @@ export function mapRecipeVersionAdmin(
         estimatedCost: null,
         derivationStale: wire.derivation_state === 'stale',
         publishedAt: wire.published_at ?? null,
+        reviewReason: wire.review_reason ?? null,
+        previousLabel: wire.previous_label ?? null,
+        lockVersion: wire.lock_version,
     };
 }
 

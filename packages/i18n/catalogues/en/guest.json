@@ -142,6 +142,7 @@
         "separator": " · ",
         "arriving": "Arriving",
         "noTime": "—",
+        "readyOutSoon": "Ready, out soon",
         "refresh": "Refresh status",
         "messageCourier": "Message the courier",
         "getHelp": "Get help",

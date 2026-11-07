@@ -442,6 +442,21 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                                               timeZone: 'UTC',
                                           }),
                                       })}`}
+                                {/* Only where the server compared it; redacted without the cost code. */}
+                                {line.priceVariancePercent === null
+                                    ? ''
+                                    : ` · ${t(
+                                          Number(line.priceVariancePercent) > 0
+                                              ? 'kitchen:ops.ledger.varianceUp'
+                                              : Number(line.priceVariancePercent) < 0
+                                                ? 'kitchen:ops.ledger.varianceDown'
+                                                : 'kitchen:ops.ledger.varianceFlat',
+                                          {
+                                              percent: formatter.formatNumber(
+                                                  Math.abs(Number(line.priceVariancePercent)),
+                                              ),
+                                          },
+                                      )}`}
                             </Text>
                         ))}
                     </Stack>

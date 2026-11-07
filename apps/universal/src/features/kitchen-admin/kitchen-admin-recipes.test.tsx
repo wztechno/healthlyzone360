@@ -381,6 +381,9 @@ function recipeVersion({
         estimatedCost: { amount: 12, currency: 'AED' },
         derivationStale: false,
         publishedAt: null,
+        reviewReason: null,
+        previousLabel: null,
+        lockVersion: 1,
         ...overrides,
     };
 }
@@ -4177,6 +4180,239 @@ describe('publishing', () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-publish-confirm'));
         });
         expect(repositories.kitchenAdmin.publishRecipe).not.toHaveBeenCalled();
+    });
+
+    /** A quarantined recipe whose label gained gluten and lost sesame since it was published. */
+    function quarantinedRecipe(overrides: Partial<RecipeVersionAdmin> = {}): RecipeAdmin {
+        return recipe({
+            ordinal: 5,
+            name: 'Contested tabbouleh',
+            currentVersion: recipeVersion({
+                recipeOrdinal: 5,
+                overrides: {
+                    status: 'review_required',
+                    reviewReason: 'Gluten was added; sesame was removed.',
+                    previousLabel: { sesame: 'contains' },
+                    lockVersion: 4,
+                    ...overrides,
+                },
+            }),
+            overrides: { meta: meta({ status: 'review_required', lockVersion: 6 }) },
+        });
+    }
+
+    async function openRelease() {
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-recipe-release-open');
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-recipe-release-open'));
+            });
+        });
+        await untilVisible('kitchen-recipe-release-dialog');
+    }
+
+    it('releases a quarantine only once the manager has ticked that the labels were compared', async () => {
+        const stored = quarantinedRecipe();
+        const { repositories } = await renderStubScreen(
+            <RecipeEditScreen recipe={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => stored),
+                        releaseRecipeVersion: async () => stored,
+                    },
+                },
+            },
+        );
+
+        await openRelease();
+        // Both labels, each claim in words as well as tone.
+        expect(screen.getByTestId('kitchen-recipe-release-old-sesame')).toHaveTextContent(
+            /sesame · Contains/,
+        );
+        expect(screen.getByTestId('kitchen-recipe-release-new-gluten')).toHaveTextContent(
+            /gluten · Contains/,
+        );
+
+        const confirm = () => screen.getByTestId('kitchen-recipe-release-confirm');
+        expect(confirm().props.accessibilityState.disabled).toBe(true);
+        await act(async () => {
+            fireEvent.press(confirm());
+        });
+        expect(repositories.kitchenAdmin.releaseRecipeVersion).not.toHaveBeenCalled();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-release-check-control'));
+        });
+        expect(confirm().props.accessibilityState.disabled).toBe(false);
+        await act(async () => {
+            fireEvent.press(confirm());
+        });
+        // The version's own lock, not the recipe's.
+        expect(repositories.kitchenAdmin.releaseRecipeVersion).toHaveBeenCalledWith(
+            stored.id,
+            stored.currentVersion.id,
+            4,
+        );
+    });
+
+    it('offers no release, and no publish, to a chef who may edit the recipe but not publish it', async () => {
+        const stored = quarantinedRecipe();
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession({
+                activeContext: testActiveContext({
+                    permissions: KITCHEN_MANAGER_PERMISSIONS.filter(
+                        (code) => code !== 'recipe.publish_organisation',
+                    ),
+                }),
+            }),
+            repositories: { kitchenAdmin: editorReads(() => stored) },
+        });
+
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-recipe-quarantine');
+        });
+        expect(screen.queryByTestId('kitchen-recipe-release-open')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-publish')).toBeNull();
+    });
+
+    it('holds Release while the new label is still being recomputed', async () => {
+        const stored = quarantinedRecipe({ derivationStale: true });
+        const { repositories } = await renderStubScreen(
+            <RecipeEditScreen recipe={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => stored),
+                        releaseRecipeVersion: async () => stored,
+                    },
+                },
+            },
+        );
+
+        await openRelease();
+        expect(screen.getByTestId('kitchen-recipe-release-recomputing')).toBeTruthy();
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-release-check-control'));
+        });
+        expect(
+            screen.getByTestId('kitchen-recipe-release-confirm').props.accessibilityState.disabled,
+        ).toBe(true);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-release-confirm'));
+        });
+        expect(repositories.kitchenAdmin.releaseRecipeVersion).not.toHaveBeenCalled();
+    });
+
+    it('says a release refused over a label still being recomputed in the tray', async () => {
+        // A quarantine older than the stored label: the reason stands in for the old label.
+        const stored = quarantinedRecipe({ previousLabel: null });
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => stored),
+                    releaseRecipeVersion: async () =>
+                        throwFailure(
+                            conflictFailure({ reason: 'derivation_stale', currentLockVersion: 5 }),
+                        ),
+                },
+            },
+        });
+
+        await openRelease();
+        expect(screen.getByTestId('kitchen-recipe-release-reason')).toHaveTextContent(
+            /Gluten was added; sesame was removed\./,
+        );
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-release-check-control'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-release-confirm'));
+        });
+
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-recipe-release-error');
+        });
+        expect(screen.getByTestId('kitchen-recipe-release-error')).toHaveTextContent(
+            /label is being worked out again/,
+        );
+        // Not a lost race: the reload-or-keep question is not asked.
+        expect(screen.queryByTestId('kitchen-recipe-editor-screen-conflict-dialog')).toBeNull();
+    });
+
+    it('refetches the version after a 409 and makes the manager compare the fresh labels again', async () => {
+        let stored = quarantinedRecipe();
+        let calls = 0;
+        const { repositories } = await renderStubScreen(
+            <RecipeEditScreen recipe={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => stored),
+                        releaseRecipeVersion: async () => {
+                            calls += 1;
+                            if (calls > 1) return stored;
+                            // A recompute landed while the dialog was open: the label moved, and so
+                            // did the version's lock.
+                            stored = quarantinedRecipe({
+                                lockVersion: 6,
+                                allergens: [
+                                    GLUTEN_DECLARATION,
+                                    {
+                                        allergenCode: AllergenCode.parse('sesame'),
+                                        containment: 'may_contain',
+                                        origin: 'derived',
+                                        sourceIngredientIds: [],
+                                    },
+                                ],
+                            });
+                            return throwFailure(conflictFailure({ currentLockVersion: 6 }));
+                        },
+                    },
+                },
+            },
+        );
+
+        await openRelease();
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-release-check-control'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-release-confirm'));
+        });
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-recipe-release-error');
+        });
+        expect(screen.getByTestId('kitchen-recipe-release-error')).toHaveTextContent(
+            /changed since you opened it/,
+        );
+        expect(screen.queryByTestId('kitchen-recipe-editor-screen-conflict-dialog')).toBeNull();
+
+        // Opened again: the refetched label, and the tick asked for afresh.
+        await openRelease();
+        await untilVisible('kitchen-recipe-release-new-sesame');
+        expect(screen.getByTestId('kitchen-recipe-release-new-sesame')).toHaveTextContent(
+            /sesame · May contain/,
+        );
+        expect(
+            screen.getByTestId('kitchen-recipe-release-confirm').props.accessibilityState.disabled,
+        ).toBe(true);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-release-check-control'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-release-confirm'));
+        });
+        // Never the stale lock: the second attempt carries the refetched one.
+        expect(repositories.kitchenAdmin.releaseRecipeVersion).toHaveBeenLastCalledWith(
+            stored.id,
+            stored.currentVersion.id,
+            6,
+        );
     });
 });
 

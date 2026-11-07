@@ -15,6 +15,7 @@ import { Dimensions } from 'react-native';
 import { withDeskWidth } from '../../testing/desk-width.ts';
 import { TEST_BRANCH_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { ORDER_DESK_POLL_MS } from './screens/order-desk-screen.tsx';
 import { OrdersScreen } from './screens/orders-screen.tsx';
 
 /* `mock`-prefixed so the factory below may close over it — Jest's hoisting rule. */
@@ -840,5 +841,129 @@ describe('kitchen orders', () => {
             expect(after?.status).toBe('cancelled');
             expect(after?.cancellationReason).toBe('delivery_unavailable');
         });
+    });
+
+    it('re-reads the book on the desk cadence, so a new order appears without a refresh', async () => {
+        jest.useFakeTimers({ advanceTimers: true });
+        try {
+            const { repositories } = await renderOrders(createOrderBook());
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
+            });
+            const reads = (repositories.kitchenOrders.listOrders as jest.Mock).mock.calls.length;
+
+            await act(async () => {
+                await jest.advanceTimersByTimeAsync(ORDER_DESK_POLL_MS);
+            });
+
+            await waitFor(() => {
+                expect(
+                    (repositories.kitchenOrders.listOrders as jest.Mock).mock.calls.length,
+                ).toBeGreaterThan(reads);
+            });
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('keeps an order opened by address open across a poll, with its cancel form as it was', async () => {
+        jest.useFakeTimers({ advanceTimers: true });
+        try {
+            // A real order id: the screen reads `?view=` only when it parses as one.
+            const book = createOrderBook(
+                seedOrders().map((order) =>
+                    order.status === 'placed'
+                        ? { ...order, id: '01935f6d-0000-7000-8000-0000000000a1' as OrderId }
+                        : order,
+                ),
+            );
+            const placed = book.orders().find((order) => order.status === 'placed');
+            if (placed === undefined) throw new Error('this test authored no placed order');
+            // Not on the loaded page — an older order a link names, like a remake's original.
+            const { repositories } = await renderStubScreen(
+                <OrdersScreen view={String(placed.id)} />,
+                {
+                    session: kitchenManagerSession(),
+                    repositories: {
+                        kitchenOrders: {
+                            listOrders: async (filters) => {
+                                const page = book.listOrders(filters);
+                                return {
+                                    ...page,
+                                    items: page.items.filter((order) => order.id !== placed.id),
+                                };
+                            },
+                            getOrder: async (id) => book.getOrder(id),
+                            cancelOrder: async (request) => book.cancelOrder(request),
+                        },
+                    },
+                },
+            );
+
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchen-orders-cancel')).toBeTruthy();
+            });
+            await fireEvent.press(screen.getByTestId('kitchen-orders-cancel'));
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchen-orders-cancel-reasons')).toBeTruthy();
+            });
+            await fireEvent.press(
+                screen.getByTestId('kitchen-orders-cancel-reason-delivery_unavailable'),
+            );
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchen-orders-cancel-confirm')).not.toBeDisabled();
+            });
+            const reads = (repositories.kitchenOrders.listOrders as jest.Mock).mock.calls.length;
+
+            await act(async () => {
+                await jest.advanceTimersByTimeAsync(ORDER_DESK_POLL_MS);
+            });
+            await waitFor(() => {
+                expect(
+                    (repositories.kitchenOrders.listOrders as jest.Mock).mock.calls.length,
+                ).toBeGreaterThan(reads);
+            });
+
+            // The poll has landed, and the record never left: the chosen reason is still chosen.
+            expect(screen.getByTestId('kitchen-orders-detail-body')).toBeTruthy();
+            expect(screen.getByTestId('kitchen-orders-cancel-confirm')).not.toBeDisabled();
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('names who cancelled a cancelled order', async () => {
+        const book = createOrderBook(
+            seedOrders().map((order) =>
+                order.status === 'cancelled' ? { ...order, cancelledByName: 'Rana Haddad' } : order,
+            ),
+        );
+        const cancelled = book.orders().find((order) => order.status === 'cancelled');
+        if (cancelled === undefined) throw new Error('this test authored no cancelled order');
+        await openOrder(book, cancelled.id);
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-orders-detail-cancelled-by')).toHaveTextContent(
+                'Rana Haddad',
+            );
+        });
+    });
+
+    it('links a remake back to the order it replaces', async () => {
+        mockPush.mockClear();
+        const book = createOrderBook(
+            withConfirmed({ remakeOf: { id: orderIdAt(1), number: 'VK-2026-0148' } }),
+        );
+        await openOrder(book, orderIdAt(3));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-orders-remake-of')).toHaveTextContent(
+                /VK-2026-0148/,
+            );
+        });
+        fireEvent.press(screen.getByTestId('kitchen-orders-remake-of'));
+        expect(mockPush).toHaveBeenCalledWith(
+            `/kitchen/orders?view=${encodeURIComponent(String(orderIdAt(1)))}`,
+        );
     });
 });

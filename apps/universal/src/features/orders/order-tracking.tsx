@@ -1,6 +1,8 @@
 import type {
     DeliveryAddress,
+    DishOption,
     GuestOrderState,
+    KitchenOrderFulfilmentType,
     OrderStepTimes,
 } from '@healthy360/api-client/contracts';
 import { Icon, cx, useBreakpoint, useMotion, useToast } from '@healthy360/design-system';
@@ -22,6 +24,7 @@ import {
 } from 'react-native';
 
 import { usePrototypeAction } from '../../prototype/index.ts';
+import { dishOptionsLine } from '../../ui/dish-choices.tsx';
 import { formatAddress } from '../commerce/address.ts';
 import { formatMoney } from '../marketplace/format.ts';
 import { OrderLineThumb } from './order-line-thumb.tsx';
@@ -76,6 +79,9 @@ export interface TrackableOrder {
         readonly name: string;
         readonly quantity: number;
         readonly lineTotal: Money;
+        /** What the line changed about the dish. An order that carries none leaves them out. */
+        readonly options?: readonly DishOption[] | undefined;
+        readonly note?: string | null | undefined;
     }[];
     readonly total: Money;
     readonly address: DeliveryAddress;
@@ -88,6 +94,8 @@ export interface TrackableOrder {
     readonly placedAt: string;
     /** When it reached each later step. A guest order carries none. */
     readonly stepTimes?: OrderStepTimes | undefined;
+    /** On a delivery, "ready" means it leaves soon, not that somebody should come for it. */
+    readonly fulfilmentType?: KitchenOrderFulfilmentType | undefined;
 }
 
 /** The board's white card: 26px corners on a soft hairline, with its shadow. */
@@ -104,6 +112,11 @@ export interface OrderTrackingProps {
      */
     readonly onRefresh?: (() => void) | undefined;
     readonly refreshing?: boolean | undefined;
+    /**
+     * Opens the page's own cancel confirmation. Drawn only while the order is `placed`: once the
+     * kitchen accepts it, the customer contacts the kitchen instead.
+     */
+    readonly onCancel?: (() => void) | undefined;
     /** Drawn at the foot of the timeline card, under the buttons. */
     readonly footer?: ReactNode;
     /**
@@ -120,6 +133,7 @@ export function OrderTracking({
     paymentLabel,
     onRefresh,
     refreshing,
+    onCancel,
     footer,
     showReference = false,
     testID,
@@ -281,7 +295,10 @@ export function OrderTracking({
                         </View>
                         {currentStep === null || currentStep === undefined ? null : (
                             <RNText className="text-sm font-medium text-content-on-canopy-muted">
-                                {t(`guest:order.steps.${currentStep}.title`)}
+                                {currentStep === 'ready_for_pickup' &&
+                                order.fulfilmentType === 'delivery'
+                                    ? t('guest:order.readyOutSoon')
+                                    : t(`guest:order.steps.${currentStep}.title`)}
                             </RNText>
                         )}
                     </View>
@@ -318,6 +335,7 @@ export function OrderTracking({
                             current={current}
                             placedAt={placedAt}
                             times={times}
+                            delivery={order.fulfilmentType === 'delivery'}
                             placedDetail={t('guest:order.steps.placed.detail', {
                                 payment: paymentLabel,
                                 total: formatMoney(formatter, order.total),
@@ -335,6 +353,14 @@ export function OrderTracking({
                                     primary
                                     busy={refreshing ?? false}
                                     onPress={onRefresh}
+                                />
+                            )}
+                            {onCancel === undefined || order.state !== 'placed' ? null : (
+                                <SoftButton
+                                    testID={`${testID}-cancel`}
+                                    label={t('account:orders.cancelOpen')}
+                                    icon="close"
+                                    onPress={onCancel}
                                 />
                             )}
                             <SoftButton
@@ -382,6 +408,7 @@ export function OrderTracking({
                                             qty: formatter.formatNumber(line.quantity),
                                             name: line.name,
                                         })}
+                                        <LineMods line={line} testID={`${testID}-line-${line.id}`} />
                                     </RNText>
                                     <RNText className="text-sm font-bold tabular-nums text-content-primary text-end">
                                         {formatMoney(formatter, line.lineTotal)}
@@ -440,6 +467,31 @@ export function OrderTracking({
                 </View>
             </View>
         </View>
+    );
+}
+
+/**
+ * What a line changed about the dish and its note, in the cart line's own wording
+ * (`cart-line.tsx`), as a second line nested in the line's label. Nothing when it changed nothing.
+ */
+function LineMods({
+    line,
+    testID,
+}: {
+    readonly line: TrackableOrder['lines'][number];
+    readonly testID: string;
+}) {
+    const { t } = useTranslation();
+    const { locale } = useLocale();
+    const mods = [dishOptionsLine(line.options, locale, t), line.note]
+        .filter((part) => part != null && part !== '')
+        .join(t('catalogue:dishOptions.separator'));
+    if (mods === '') return null;
+    return (
+        <RNText testID={`${testID}-mods`} className="text-xs font-normal text-content-secondary">
+            {'\n'}
+            {mods}
+        </RNText>
     );
 }
 

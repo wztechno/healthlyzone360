@@ -19,7 +19,8 @@ import { useEffect, useState } from 'react';
  * - Read by its id when the list settles without it. A refresh starts the list over — page one, no
  *   search, the default sort — so the record a link names is often on a page nobody has loaded.
  *   Only a record that read refuses (or a list with no such read) counts as gone: the list shows
- *   rather than an empty record, and the address stops naming it.
+ *   rather than an empty record, and the address stops naming it. A record read this way is held
+ *   like a row, so a list that refetches (a poll) never closes it.
  */
 export interface ViewedRecord<Row> {
     readonly viewing: Row | null;
@@ -75,13 +76,18 @@ export function useViewedRecord<Row>(
     const found = viewingId === null ? null : (rows.find((row) => idOf(row) === viewingId) ?? null);
     const [held, setHeld] = useState<Row | null>(seed);
     if (found !== null && found !== held) setHeld(found);
-    const kept = found ?? (held !== null && idOf(held) === viewingId ? held : null);
+    const heldMatch = held !== null && idOf(held) === viewingId ? held : null;
 
-    // Asked only once the list has answered without it, so a record on the page costs no request.
-    const lookup = useLookup(viewingId !== null && kept === null && settled ? viewingId : null);
+    // Asked only once the list has answered without it, so a record on the page costs no request —
+    // and still asked while it is shown, so a refetch of the list (a poll) never drops it.
+    const lookup = useLookup(
+        viewingId !== null && found === null && (settled || heldMatch !== null) ? viewingId : null,
+    );
     const looked =
         lookup.data !== undefined && idOf(lookup.data) === viewingId ? lookup.data : null;
-    const viewing = kept ?? looked;
+    // Held as well, so it is still there for the frame a lookup has nothing to answer.
+    if (looked !== null && looked !== held) setHeld(looked);
+    const viewing = found ?? looked ?? heldMatch;
     if (viewingId !== null && viewing === null && settled && lookup.isError) {
         setViewingId(null);
     }

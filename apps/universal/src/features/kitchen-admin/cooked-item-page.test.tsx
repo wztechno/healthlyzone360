@@ -196,6 +196,9 @@ const VERSION: RecipeVersionAdmin = {
     estimatedCost: null,
     derivationStale: false,
     publishedAt: null,
+    reviewReason: null,
+    previousLabel: null,
+    lockVersion: 1,
 };
 
 /** The recipe at lock version 3, so a write that used it for the listing would be caught. */

@@ -181,6 +181,10 @@ final class GoodsReceiptPresenter
             'unit_price_amount' => $showCosts && $line->unit_price_amount !== null ? (string) $line->unit_price_amount : null,
             'line_total_amount' => $showCosts && $line->line_total_amount !== null ? (string) $line->line_total_amount : null,
             'cost_currency_code' => $showCosts ? $line->cost_currency_code : null,
+            // What the last delivery cost per this line's unit, and this price
+            // against it; null when the two could not be compared.
+            'last_unit_price_amount' => $showCosts && $line->last_unit_price_amount !== null ? (string) $line->last_unit_price_amount : null,
+            'price_variance_percent' => $showCosts && $line->price_variance_percent !== null ? (string) $line->price_variance_percent : null,
             'valuation_pending_fx' => $line->valuation_pending_fx,
             'costs_redacted' => ! $showCosts,
         ] + $this->traceability($line);
@@ -200,6 +204,10 @@ final class GoodsReceiptPresenter
             'unit_price_amount' => $showCosts && $line->unit_price_amount !== null ? (string) $line->unit_price_amount : null,
             'line_total_amount' => $showCosts && $line->line_total_amount !== null ? (string) $line->line_total_amount : null,
             'cost_currency_code' => $showCosts ? $line->cost_currency_code : null,
+            // What the last delivery cost per this line's unit, and this price
+            // against it; null when the two could not be compared.
+            'last_unit_price_amount' => $showCosts && $line->last_unit_price_amount !== null ? (string) $line->last_unit_price_amount : null,
+            'price_variance_percent' => $showCosts && $line->price_variance_percent !== null ? (string) $line->price_variance_percent : null,
             // A work state, not a money value: whether this line still needs
             // somebody's attention is not the same question as what it cost.
             'costed_at' => $line->costed_at?->toIso8601String(),

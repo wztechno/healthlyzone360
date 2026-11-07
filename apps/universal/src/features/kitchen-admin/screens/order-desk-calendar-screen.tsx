@@ -329,7 +329,7 @@ function OrderDeskCalendarWeek() {
     const ceiling = calendar.data?.meta.maxWindowDays ?? null;
     const range = useMemo(() => calendarWeek(anchor, ceiling), [anchor, ceiling]);
 
-    // An answer with nothing in it is still the whole week, drawn in zeroes — never an empty page.
+    // An answer with nothing in it is still the whole week: every day answered, and empty.
     const days = useMemo(
         () => (calendar.data === undefined ? [] : answeredDays(range.dates, calendar.data.days)),
         [calendar.data, range.dates],
@@ -528,9 +528,9 @@ function OrderDeskCalendarWeek() {
                         testID="kitchen-order-desk-calendar-grid"
                         label={t('kitchen:calendar.gridLabel', { range: rangeLabel })}
                         days={calendarDays}
-                        // `undefined` rather than an invented row when no slot carries anything:
-                        // the day headers already say what the week holds, and a row of dashes
-                        // about a bucket nobody used would be furniture.
+                        // `calendarSlots` draws a row only for a slot some day carries. A week with
+                        // nothing booked has none, and `undefined` then leaves the day headers
+                        // alone rather than an empty grid of rows.
                         slots={
                             slots.length === 0
                                 ? undefined

@@ -101,6 +101,9 @@ final class OrderPresenter
     /** @var array<string, list<array{slot: string, sequence: int, catalogue_item_id: string, source: string}>> order id → its plan day's meals, read ahead for a page */
     private array $planDays = [];
 
+    /** @var array<string, array{remake_of: array{id: string, number: string}|null, cancelled_by_name: string|null}> order id → the order it remakes and who cancelled it, read ahead for a page */
+    private array $remakes = [];
+
     public function __construct(
         private readonly OrderWindowNames $windows,
         private readonly OrderAmendability $amendability,
@@ -121,6 +124,47 @@ final class OrderPresenter
 
         foreach ($orderIds as $orderId) {
             $this->planDays[$orderId] = $found[$orderId] ?? [];
+        }
+    }
+
+    /**
+     * Read a whole page's remake links, and who cancelled each order, in one
+     * query, so `kitchen()` for each row asks nothing of its own.
+     *
+     * A remake is the order a complaint placed (`order_complaints.remake_order_id`);
+     * it links back to the order complained about. The name is the profile's,
+     * joined as the cash report joins it: `LEFT`, and `user_profiles.user_id` is
+     * unique, so neither join fans out (`remake_order_id` is unique too).
+     *
+     * @param  list<string>  $orderIds
+     */
+    public function preloadRemakes(array $orderIds): void
+    {
+        if ($orderIds === []) {
+            return;
+        }
+
+        $name = "nullif(trim(coalesce(user_profiles.given_name, '') || ' ' || coalesce(user_profiles.family_name, '')), '')";
+
+        $found = DB::table('orders')
+            ->leftJoin('user_profiles', 'user_profiles.user_id', '=', 'orders.cancelled_by')
+            ->leftJoin('order_complaints', 'order_complaints.remake_order_id', '=', 'orders.id')
+            ->leftJoin('orders as original', 'original.id', '=', 'order_complaints.order_id')
+            ->whereIn('orders.id', $orderIds)
+            ->select(['orders.id', 'original.id as remake_of_id', 'original.order_number as remake_of_number'])
+            ->selectRaw($name.' as cancelled_by_name')
+            ->get()
+            ->keyBy('id');
+
+        foreach ($orderIds as $orderId) {
+            $row = $found->get($orderId);
+
+            $this->remakes[$orderId] = [
+                'remake_of' => $row === null || $row->remake_of_id === null
+                    ? null
+                    : ['id' => (string) $row->remake_of_id, 'number' => (string) $row->remake_of_number],
+                'cancelled_by_name' => $row === null || $row->cancelled_by_name === null ? null : (string) $row->cancelled_by_name,
+            ];
         }
     }
 
@@ -359,6 +403,8 @@ final class OrderPresenter
      *     cancelled_at: string|null,
      *     cancellation_reason: string|null,
      *     cancellation_disposition: string|null,
+     *     cancelled_by_name: string|null,
+     *     remake_of: array{id: string, number: string}|null,
      *     delivery_run: array{status: string, tracking_status: string, driver_name: string|null, assigned_at: string|null, picked_up_at: string|null, delivered_at: string|null, failed_at: string|null, failure_reason: string|null, failure_note: string|null, courier_name: string|null}|null,
      *     created_by: string|null,
      *     placed_on_behalf_by: string|null,
@@ -459,6 +505,10 @@ final class OrderPresenter
             'cancelled_at' => $order->cancelled_at?->toIso8601String(),
             'cancellation_reason' => $order->cancellation_reason?->value,
             'cancellation_disposition' => $order->cancellation_disposition?->value,
+            // Who pressed Cancel, by name; null for a system cancel.
+            'cancelled_by_name' => $this->remakeFacts($order)['cancelled_by_name'],
+            // The order a complaint's remake replaces, so the record links back to it.
+            'remake_of' => $this->remakeFacts($order)['remake_of'],
             // The delivery run, when there is one (HA-19): who drove it and when
             // they were given it, collected it and handed it over. Null for a
             // pickup or counter order, and for a delivery order not yet
@@ -481,6 +531,20 @@ final class OrderPresenter
             'created_at' => $order->created_at?->toIso8601String(),
             'updated_at' => $order->updated_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * @return array{remake_of: array{id: string, number: string}|null, cancelled_by_name: string|null}
+     */
+    private function remakeFacts(Order $order): array
+    {
+        $orderId = (string) $order->getKey();
+
+        if (! array_key_exists($orderId, $this->remakes)) {
+            $this->preloadRemakes([$orderId]);
+        }
+
+        return $this->remakes[$orderId];
     }
 
     /**

@@ -10,11 +10,15 @@ import {
     Inline,
     Skeleton,
     Stack,
+    Tabs,
     Text,
     useBreakpoint,
+    useToast,
 } from '@healthy360/design-system';
 import type { BranchId, OrderId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
+import { useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -36,7 +40,7 @@ import {
     ORDER_PREPARE_PERMISSION,
     ORDER_VIEW_PERMISSION,
 } from '../kitchen-admin/entity-registry.ts';
-import { displayName, humaniseCode } from '../kitchen-admin/format.ts';
+import { displayName } from '../kitchen-admin/format.ts';
 import {
     allergenLabel,
     allergyBanner,
@@ -44,6 +48,7 @@ import {
 } from '../kitchen-admin/ops-format.ts';
 import { playAlertTone } from './alert-tone.ts';
 import {
+    KDS_COLUMN_KEYS,
     bucketTickets,
     isAlarming,
     isAwaitingStart,
@@ -56,6 +61,7 @@ import {
     unseenTickets,
 } from './kds-board.ts';
 import type { KdsColumnKey } from './kds-board.ts';
+import { ticketDeliveryLine } from './ticket-print-sheet.tsx';
 import { useWakeLock } from './use-wake-lock.ts';
 
 /**
@@ -121,6 +127,18 @@ import { useWakeLock } from './use-wake-lock.ts';
  * sounds (`unseenTickets`), so a reload replays nothing. A browser holds audio until a press, hence
  * "Turn on sound". A placed ticket past the kitchen's limit goes red with an icon and words, and the
  * tone repeats until it is accepted. Both figures come from the server, in minutes while open.
+ *
+ * ## Ten seconds to take back Ready and Handed over
+ *
+ * A wall is pressed with wet hands, so Ready and Handed over wait {@link KDS_UNDO_MS} under a toast
+ * with Undo before they are sent, and the ticket says it is waiting. Accept and Start go at once:
+ * Accept deducts stock and closes the customer's cancel window, which is not something to hold in a
+ * browser tab (owner ruling, 3 Nov 2026).
+ *
+ * ## One lane at a time on a phone
+ *
+ * From `md` the three columns stand side by side. Below it they are `Tabs`, one lane on screen, each
+ * tab carrying its count, so a phone is not three screens of scrolling to find the Ready column.
  */
 
 /** Poll cadence for the board and its clock. See the header. */
@@ -128,6 +146,9 @@ export const KDS_POLL_MS = 15_000;
 
 /** How often the tone repeats while a ticket is alarming. */
 export const KDS_ALARM_TONE_MS = 30_000;
+
+/** How long Ready and Handed over are held before they are sent, so a mis-press can be undone. */
+export const KDS_UNDO_MS = 10_000;
 
 /** What a ticket's buttons do: accept it, start it, mark it cooked, or hand it over. */
 type KdsAction = 'accept' | 'start' | 'ready' | 'handOver';
@@ -211,6 +232,70 @@ function useTicketTones(
     };
 }
 
+interface HeldBump {
+    readonly timer: ReturnType<typeof setTimeout>;
+    readonly toastId: string;
+    readonly send: () => void;
+}
+
+/**
+ * Bumps held for {@link KDS_UNDO_MS} under a toast with Undo, keyed by order id.
+ *
+ * `ponytail:` the hold lives in this page, so closing the tab inside the ten seconds loses the bump;
+ * the upgrade is a server-side reverse transition. Leaving the board inside the app sends what is
+ * held rather than dropping it.
+ */
+function useHeldBumps(undoLabel: string) {
+    const { show, dismiss } = useToast();
+    const held = useRef(new Map<string, HeldBump>());
+    const [heldIds, setHeldIds] = useState<ReadonlySet<string>>(() => new Set());
+
+    useEffect(() => {
+        const pending = held.current;
+        return () => {
+            for (const bump of pending.values()) {
+                clearTimeout(bump.timer);
+                dismiss(bump.toastId);
+                bump.send();
+            }
+            pending.clear();
+        };
+    }, [dismiss]);
+
+    function release(id: string): HeldBump | undefined {
+        const bump = held.current.get(id);
+        held.current.delete(id);
+        setHeldIds(new Set(held.current.keys()));
+        return bump;
+    }
+
+    function hold(id: string, message: string, send: () => void) {
+        if (held.current.has(id)) return;
+        const testID = kdsTicketTestId(id);
+        const toastId = show({
+            testID: `${testID}-undo-toast`,
+            message,
+            durationMs: KDS_UNDO_MS,
+            action: {
+                testID: `${testID}-undo`,
+                label: undoLabel,
+                onPress: () => {
+                    const bump = release(id);
+                    if (bump !== undefined) clearTimeout(bump.timer);
+                },
+            },
+        });
+        const timer = setTimeout(() => {
+            release(id);
+            send();
+        }, KDS_UNDO_MS);
+        held.current.set(id, { timer, toastId, send });
+        setHeldIds(new Set(held.current.keys()));
+    }
+
+    return { heldIds, hold };
+}
+
 function KdsTickets() {
     const { t } = useTranslation();
     const { locale } = useLocale();
@@ -233,6 +318,9 @@ function KdsTickets() {
     const startOrder = useStartOrderMutation();
     const markReady = useMarkOrderReadyMutation();
     const fulfilOrder = useFulfilOrderMutation();
+    const { heldIds, hold } = useHeldBumps(t('kitchen:common.undo'));
+    const [lane, setLane] = useState<KdsColumnKey>('incoming');
+    const queryClient = useQueryClient();
 
     const board = useMemo(
         () => bucketTickets(orders ?? [], now, branchId),
@@ -269,13 +357,32 @@ function KdsTickets() {
         fulfilOrder.reset();
     }
 
-    function bump(order: KitchenOrder, action: KdsAction) {
-        clearActionState();
+    /** `keepState` when another write is in flight: a held bump firing must not wipe its result. */
+    function send(order: KitchenOrder, action: KdsAction, keepState = false) {
+        if (!keepState) clearActionState();
         const request = { id: order.id, lockVersion: order.lockVersion };
         if (action === 'accept') acceptOrder.mutate(request);
         else if (action === 'start') startOrder.mutate(request);
         else if (action === 'ready') markReady.mutate(request);
         else fulfilOrder.mutate(request);
+    }
+
+    /** Accept and Start go now; Ready and Handed over are held for the undo. See the header. */
+    function bump(order: KitchenOrder, action: KdsAction) {
+        if (action === 'accept' || action === 'start') {
+            send(order, action);
+            return;
+        }
+        hold(
+            String(order.id),
+            t(action === 'ready' ? 'kitchen:kds.readyHeld' : 'kitchen:kds.handedOverHeld', {
+                number: order.orderNumber,
+            }),
+            () => {
+                // Asked at fire time, ten seconds after the press, not of the render that held it.
+                send(order, action, queryClient.isMutating() > 0);
+            },
+        );
     }
 
     /** The ticket a write is in flight for, so only that one shows a spinner. */
@@ -311,7 +418,8 @@ function KdsTickets() {
                 alarmMinutes={alarmMinutes(order)}
                 canManage={canManage}
                 canPrepare={canPrepare}
-                pending={pendingId === order.id}
+                held={heldIds.has(String(order.id))}
+                pending={pendingId === order.id || heldIds.has(String(order.id))}
                 disabled={actionPending}
                 onBump={bump}
             />
@@ -467,17 +575,37 @@ function KdsTickets() {
             ) : atLeast('md') ? (
                 // Three rails side by side on anything tablet-sized and up — a wall screen reads
                 // left to right (or right to left; `Inline` gaps are direction-neutral). Below that
-                // they stack, because three columns on a phone is three columns nobody can read.
+                // one lane at a time under tabs, because three columns on a phone is three columns
+                // nobody can read.
                 <Inline space="md" align="start" testID="kds-tickets-columns">
                     {renderColumn('incoming', board.incoming)}
                     {renderColumn('preparing', board.preparing)}
                     {renderColumn('done', board.done)}
                 </Inline>
             ) : (
-                <Stack space="lg" testID="kds-tickets-columns">
-                    {renderColumn('incoming', board.incoming)}
-                    {renderColumn('preparing', board.preparing)}
-                    {renderColumn('done', board.done)}
+                <Stack space="md" testID="kds-tickets-columns">
+                    <Tabs
+                        testID="kds-lanes"
+                        label={t('kitchen:kds.lanes')}
+                        variant="segmented"
+                        block
+                        value={lane}
+                        onChange={setLane}
+                        items={KDS_COLUMN_KEYS.map((column) => ({
+                            value: column,
+                            label: t(`kitchen:kds.column.${column}`),
+                            count: board[column].length,
+                            // An alarm lives on an Incoming ticket, so a phone on another lane
+                            // still sees it: heavier and warning-toned, not colour alone.
+                            countTone:
+                                column === 'incoming' &&
+                                board.incoming.some((order) => alarmMinutes(order) !== null)
+                                    ? 'warning'
+                                    : undefined,
+                            testID: `kds-lane-${column}`,
+                        }))}
+                    />
+                    {renderColumn(lane, board[lane])}
                 </Stack>
             )}
 
@@ -535,7 +663,9 @@ interface TicketProps {
     readonly canManage: boolean;
     /** Start and Ready: the line's. */
     readonly canPrepare: boolean;
-    /** A write is in flight for *this* ticket. */
+    /** Ready or Handed over was pressed and is waiting out the undo. */
+    readonly held: boolean;
+    /** A write is in flight, or held, for *this* ticket. */
     readonly pending: boolean;
     /** A write is in flight for some ticket — every bump button waits for it. */
     readonly disabled: boolean;
@@ -556,6 +686,7 @@ function Ticket({
     alarmMinutes,
     canManage,
     canPrepare,
+    held,
     pending,
     disabled,
     onBump,
@@ -563,14 +694,10 @@ function Ticket({
     const { t } = useTranslation();
     const formatter = useFormatter();
 
+    const router = useRouter();
     const testID = kdsTicketTestId(String(order.id));
     const minutes = minutesSincePlaced(order, now);
     const later = isUpcoming(order, now);
-
-    const deliveryDate =
-        order.delivery.requestedDate === null
-            ? null
-            : formatter.formatDate(order.delivery.requestedDate, { dateStyle: 'medium' });
 
     return (
         <Card padding="md" testID={testID}>
@@ -664,98 +791,111 @@ function Ticket({
                 </Stack>
 
                 <Text variant="caption" tone="secondary" testID={`${testID}-delivery`}>
-                    {deliveryDate === null
-                        ? t('kitchen:kds.deliveryUnknown')
-                        : order.delivery.windowCode === null
-                          ? t('kitchen:kds.deliveryOn', { date: deliveryDate })
-                          : t('kitchen:kds.deliveryOnAt', {
-                                date: deliveryDate,
-                                window:
-                                    (locale.toLowerCase().startsWith('ar')
-                                        ? order.delivery.windowNameAr
-                                        : order.delivery.windowNameEn) ??
-                                    order.delivery.windowNameEn ??
-                                    humaniseCode(order.delivery.windowCode),
-                            })}
+                    {ticketDeliveryLine(order, locale, t, formatter)}
                 </Text>
 
-                {!canPrepare ? null : isAwaitingStart(order) ? (
-                    /*
-                     * Accept and Start are two moments (HA-26). Accept tells the customer the order
-                     * was seen — a scheduled order is accepted the day it arrives; Start says it is
-                     * cooking, on the day. A later day's ticket offers only Accept; today's offers
-                     * Start, which accepts a new order too, so a same-day order is still one press.
-                     */
-                    <Stack space="xs">
-                        {order.status === 'confirmed' ? (
-                            <Text variant="caption" tone="secondary" testID={`${testID}-accepted`}>
-                                {t('kitchen:kds.accepted')}
-                            </Text>
-                        ) : null}
-                        {later ? null : (
-                            <Button
-                                testID={`${testID}-start`}
-                                block
-                                label={t('kitchen:kds.start')}
-                                loading={pending}
-                                disabled={disabled}
-                                onPress={() => {
-                                    onBump(order, 'start');
-                                }}
-                            />
-                        )}
-                        {canManage && order.status === 'placed' ? (
-                            <Button
-                                testID={`${testID}-accept`}
-                                block
-                                variant={later ? 'primary' : 'secondary'}
-                                label={t('kitchen:kds.accept')}
-                                loading={later && pending}
-                                disabled={disabled}
-                                onPress={() => {
-                                    onBump(order, 'accept');
-                                }}
-                            />
-                        ) : null}
-                    </Stack>
-                ) : canFulfilKitchenOrder(order.status) && (order.readyAt ?? null) === null ? (
+                {/* The ticket's foot: what is waiting, then what can be pressed. */}
+                <Stack space="xs" testID={`${testID}-footer`}>
+                    {held ? (
+                        <Text variant="caption" tone="secondary" testID={`${testID}-held`}>
+                            {t('kitchen:kds.held')}
+                        </Text>
+                    ) : null}
+                    {!canPrepare ? null : isAwaitingStart(order) ? (
+                        /*
+                         * Accept and Start are two moments (HA-26). Accept tells the customer the order
+                         * was seen — a scheduled order is accepted the day it arrives; Start says it is
+                         * cooking, on the day. A later day's ticket offers only Accept; today's offers
+                         * Start, which accepts a new order too, so a same-day order is still one press.
+                         */
+                        <Stack space="xs">
+                            {order.status === 'confirmed' ? (
+                                <Text
+                                    variant="caption"
+                                    tone="secondary"
+                                    testID={`${testID}-accepted`}
+                                >
+                                    {t('kitchen:kds.accepted')}
+                                </Text>
+                            ) : null}
+                            {later ? null : (
+                                <Button
+                                    testID={`${testID}-start`}
+                                    block
+                                    label={t('kitchen:kds.start')}
+                                    loading={pending}
+                                    disabled={disabled}
+                                    onPress={() => {
+                                        onBump(order, 'start');
+                                    }}
+                                />
+                            )}
+                            {canManage && order.status === 'placed' ? (
+                                <Button
+                                    testID={`${testID}-accept`}
+                                    block
+                                    variant={later ? 'primary' : 'secondary'}
+                                    label={t('kitchen:kds.accept')}
+                                    loading={later && pending}
+                                    disabled={disabled}
+                                    onPress={() => {
+                                        onBump(order, 'accept');
+                                    }}
+                                />
+                            ) : null}
+                        </Stack>
+                    ) : canFulfilKitchenOrder(order.status) && (order.readyAt ?? null) === null ? (
+                        <Button
+                            testID={`${testID}-ready`}
+                            block
+                            label={t('kitchen:kds.ready')}
+                            loading={pending}
+                            disabled={disabled}
+                            onPress={() => {
+                                onBump(order, 'ready');
+                            }}
+                        />
+                    ) : canFulfilKitchenOrder(order.status) &&
+                      order.fulfilmentType === 'delivery' ? (
+                        // A delivery leaves with a driver, and it is the driver's Picked up that puts it
+                        // on the road (HA-19) — so the board shows where the run is rather than offering
+                        // a Handed over that would tell the customer it had arrived.
+                        <Text variant="caption" tone="secondary" testID={`${testID}-driver`}>
+                            {t(
+                                order.deliveryRun?.status === 'failed'
+                                    ? 'kitchen:kds.deliveryFailed'
+                                    : (order.deliveryRun?.pickedUpAt ?? null) === null
+                                      ? 'kitchen:kds.waitingForDriver'
+                                      : 'kitchen:kds.withDriver',
+                            )}
+                        </Text>
+                    ) : canManage && canFulfilKitchenOrder(order.status) ? (
+                        // Cooked and waiting for its customer: handing it over is the step that fulfils it.
+                        <Button
+                            testID={`${testID}-handed-over`}
+                            block
+                            variant="secondary"
+                            label={t('kitchen:kds.handedOver')}
+                            loading={pending}
+                            disabled={disabled}
+                            onPress={() => {
+                                onBump(order, 'handOver');
+                            }}
+                        />
+                    ) : null}
+                    {/* Last, and quiet: paper for the pass, never ahead of the bump. */}
                     <Button
-                        testID={`${testID}-ready`}
-                        block
-                        label={t('kitchen:kds.ready')}
-                        loading={pending}
-                        disabled={disabled}
-                        onPress={() => {
-                            onBump(order, 'ready');
-                        }}
-                    />
-                ) : canFulfilKitchenOrder(order.status) && order.fulfilmentType === 'delivery' ? (
-                    // A delivery leaves with a driver, and it is the driver's Picked up that puts it
-                    // on the road (HA-19) — so the board shows where the run is rather than offering
-                    // a Handed over that would tell the customer it had arrived.
-                    <Text variant="caption" tone="secondary" testID={`${testID}-driver`}>
-                        {t(
-                            order.deliveryRun?.status === 'failed'
-                                ? 'kitchen:kds.deliveryFailed'
-                                : (order.deliveryRun?.pickedUpAt ?? null) === null
-                                  ? 'kitchen:kds.waitingForDriver'
-                                  : 'kitchen:kds.withDriver',
-                        )}
-                    </Text>
-                ) : canManage && canFulfilKitchenOrder(order.status) ? (
-                    // Cooked and waiting for its customer: handing it over is the step that fulfils it.
-                    <Button
-                        testID={`${testID}-handed-over`}
+                        testID={`${testID}-print`}
                         block
                         variant="secondary"
-                        label={t('kitchen:kds.handedOver')}
-                        loading={pending}
-                        disabled={disabled}
+                        label={t('kitchen:kds.print')}
                         onPress={() => {
-                            onBump(order, 'handOver');
+                            router.push(
+                                `/kds/ticket?order=${encodeURIComponent(String(order.id))}` as never,
+                            );
                         }}
                     />
-                ) : null}
+                </Stack>
             </Stack>
         </Card>
     );

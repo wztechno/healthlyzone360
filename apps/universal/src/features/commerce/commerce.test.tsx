@@ -2394,7 +2394,7 @@ describe('CheckoutScreen', () => {
             expect(screen.getByTestId('checkout-success-screen')).toBeTruthy();
         });
         expect(await screen.findByTestId('checkout-success-title')).toHaveTextContent(
-            'Order H360-4821 confirmed',
+            'Order H360-4821 placed, waiting for the kitchen',
         );
         // Cash on delivery, said out loud rather than implied by the absence of a receipt.
         expect(screen.getByTestId('checkout-success-body')).toHaveTextContent(/in cash/);
@@ -2899,7 +2899,7 @@ describe('CheckoutScreen — its choices live in the URL', () => {
         await renderCheckout(basketOf(0), { params: { placed: String(ORDER_ID) } });
 
         expect(await screen.findByTestId('checkout-success-title')).toHaveTextContent(
-            'Order H360-4821 confirmed',
+            'Order H360-4821 placed, waiting for the kitchen',
         );
         // The kitchen's name was a note in the tab that placed it; without it, the words still read.
         expect(screen.getByTestId('checkout-success-body')).toHaveTextContent(/The kitchen/);

@@ -7,6 +7,7 @@ use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Catalogues\Models\Catalogue;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Customers\Database\Factories\CustomerAccountFactory;
+use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Kitchens\Services\KitchenServiceSettingsLookup;
 use Healthy360\Orders\Enums\OrderStatus;
@@ -310,4 +311,65 @@ it('reads the branch hours once however many tickets are on the wall', function 
     $this->getJson(KITCHEN_DISPLAY_URL, $this->headers)->assertOk();
 
     expect($reads)->toBe(1);
+});
+
+it('carries each ticket\'s due instant: its day and window in the branch\'s zone, else when it was placed', function (): void {
+    $branch = displayBranch($this->orgId);
+    DeliveryWindow::factory()->create([
+        'organisation_id' => $this->orgId,
+        'code' => 'lunch',
+        'starts_at' => '12:30:00',
+        'ends_at' => null,
+    ]);
+
+    $lunch = displayOrder($this, [
+        'branch_id' => $branch->getKey(),
+        'delivery_window_code' => 'lunch',
+        'requested_delivery_date' => '2026-05-12',
+    ]);
+    $undated = displayOrder($this, ['placed_at' => now()->subMinutes(5)]);
+
+    $tickets = collect($this->getJson(KITCHEN_DISPLAY_URL, $this->headers)->assertOk()->json('data.orders'))
+        ->keyBy('id');
+
+    // 12:30 in Beirut on 12 May is 09:30 UTC.
+    expect(CarbonImmutable::parse($tickets[(string) $lunch->getKey()]['due_at'])->equalTo(CarbonImmutable::parse('2026-05-12 09:30:00', 'UTC')))->toBeTrue()
+        ->and(CarbonImmutable::parse($tickets[(string) $undated->getKey()]['due_at'])->equalTo($undated->placed_at))->toBeTrue();
+});
+
+it('reads the due instant inside the board\'s own query, so more tickets cost no more queries', function (): void {
+    $branch = displayBranch($this->orgId);
+    DeliveryWindow::factory()->create(['organisation_id' => $this->orgId, 'code' => 'lunch', 'starts_at' => '12:30:00', 'ends_at' => null]);
+
+    /** The second of two identical reads, so a cache warmed by the first is not counted. */
+    $queries = function (): array {
+        $this->getJson(KITCHEN_DISPLAY_URL, $this->headers)->assertOk();
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->getJson(KITCHEN_DISPLAY_URL, $this->headers)->assertOk();
+        $log = DB::getQueryLog();
+        DB::disableQueryLog();
+
+        return array_column($log, 'query');
+    };
+
+    // The same shape as the five below, so the comparison is one ticket against six of one kind.
+    displayOrder($this, [
+        'branch_id' => $branch->getKey(),
+        'delivery_window_code' => 'lunch',
+        'requested_delivery_date' => CarbonImmutable::now()->addDay()->toDateString(),
+    ]);
+    $one = $queries();
+
+    foreach (range(2, 6) as $day) {
+        displayOrder($this, [
+            'branch_id' => $branch->getKey(),
+            'delivery_window_code' => 'lunch',
+            'requested_delivery_date' => CarbonImmutable::now()->addDays($day)->toDateString(),
+        ]);
+    }
+    $six = $queries();
+
+    expect(count($six))->toBe(count($one))
+        ->and(array_filter($six, static fn (string $sql): bool => str_contains($sql, 'as due_at')))->toHaveCount(1);
 });

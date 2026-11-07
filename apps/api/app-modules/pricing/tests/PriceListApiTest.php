@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Audit\Models\AuditLog;
+use Healthy360\Catalogues\Enums\SalesChannelKind;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Pricing\Enums\CustomerScope;
 use Healthy360\Pricing\Enums\PriceListStatus;
@@ -138,6 +139,62 @@ it('serves every list whole from the index when asked, so a screen needs no read
     $this->getJson('/api/v1/catalogue/price-lists?include=everything', $this->headers)
         ->assertStatus(400)
         ->assertJsonPath('error.details.parameter', 'include');
+});
+
+it('counts the confirmed prices per row and the list screen figures in meta', function (): void {
+    $product = PricingWorld::product($this->a);
+    $meal = PricingWorld::meal($this->a);
+
+    // Priced: one confirmed row, one placeholder, one closed confirmed row that no longer counts.
+    $priced = PricingWorld::priceList($this->a->organisation, 'web-usd', active: true);
+    PricingWorld::price($priced, $product->item, $product->variant, 2200);
+    PricingWorld::price($priced, $meal, null, null, null, PriceStatus::Placeholder);
+    PricingWorld::price($priced, $meal, null, 900, null, PriceStatus::Confirmed, now()->subMonth()->toImmutable(), now()->subDay()->toImmutable());
+
+    // Unpriced and on a contract-private channel.
+    $agreement = PricingWorld::priceList($this->a->organisation, 'acme-usd');
+    PricingWorld::price($agreement, $meal, null, null, null, PriceStatus::Placeholder);
+    $wholesale = PricingWorld::channel($this->a->organisation, 'wholesale');
+    $wholesale->forceFill(['channel_kind' => SalesChannelKind::B2b])->save();
+    PricingWorld::assign($wholesale, $agreement);
+
+    // Unpriced and empty, on the public shop.
+    $empty = PricingWorld::priceList($this->a->organisation, 'pos-usd');
+    PricingWorld::assign(PricingWorld::channel($this->a->organisation, 'web-shop'), $empty);
+
+    PriceList::factory()->archived()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'code' => 'old-usd',
+        'currency_code' => 'USD',
+    ]);
+
+    $response = $this->getJson('/api/v1/catalogue/price-lists', $this->headers)->assertOk();
+    $rows = collect($response->json('data'))->keyBy('code');
+
+    expect($rows['web-usd']['confirmed_entries_count'])->toBe(1)
+        ->and($rows['acme-usd']['confirmed_entries_count'])->toBe(0)
+        ->and($rows['pos-usd']['confirmed_entries_count'])->toBe(0)
+        // Counted over every status, the status filter aside; archived included.
+        ->and($response->json('meta.status_counts'))->toBe(['draft' => 2, 'active' => 1, 'archived' => 1])
+        ->and($response->json('meta.unpriced_count'))->toBe(2)
+        ->and($response->json('meta.agreement_count'))->toBe(1);
+
+    // A status filter narrows the rows and the set the last two figures count, never the status counts.
+    $drafts = $this->getJson('/api/v1/catalogue/price-lists?status=draft&per_page=1&page=1', $this->headers)->assertOk();
+
+    expect($drafts->json('meta.total_count'))->toBe(2)
+        ->and($drafts->json('meta.status_counts'))->toBe(['draft' => 2, 'active' => 1, 'archived' => 1])
+        ->and($drafts->json('meta.unpriced_count'))->toBe(2)
+        ->and($drafts->json('meta.agreement_count'))->toBe(1);
+
+    $active = $this->getJson('/api/v1/catalogue/price-lists?status=active', $this->headers)->assertOk();
+
+    expect($active->json('meta.unpriced_count'))->toBe(0)
+        ->and($active->json('meta.agreement_count'))->toBe(0);
+
+    // A search narrows the status counts as it narrows the list.
+    expect($this->getJson('/api/v1/catalogue/price-lists?query=acme', $this->headers)->json('meta.status_counts'))
+        ->toBe(['draft' => 1, 'active' => 0, 'archived' => 0]);
 });
 
 it('addresses a list by its code as well as its identifier', function (): void {

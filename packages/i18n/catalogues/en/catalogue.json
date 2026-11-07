@@ -229,7 +229,8 @@
             "laboratory": "A laboratory analysis",
             "manufacturer": "The maker's label",
             "professional_entry": "A nutrition professional"
-        }
+        },
+        "noSource": "No nutrition figures are recorded for this dish."
     },
     "plans": {
         "energyBand": "{{min}}–{{max}} kcal",
@@ -728,6 +729,7 @@
         "chosen": "{{group}}: {{name}}",
         "separator": " · ",
         "allergensUnassessed": "Allergens not checked yet. Ask the kitchen before choosing it.",
-        "allergensNone": "No allergens declared for this choice."
+        "allergensNone": "No allergens declared for this choice.",
+        "mayContain": "May contain {{allergens}}"
     }
 }

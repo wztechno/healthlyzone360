@@ -9,15 +9,16 @@ use Healthy360\Kitchens\Services\KitchenServiceSettingsLookup;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
+use Healthy360\Orders\OrderDesk\Services\OrderDeskQueue;
 use Healthy360\Orders\Presenters\OrderPresenter;
 use Healthy360\Orders\Services\OrderAmendability;
 use Healthy360\Orders\Services\OrderDeliveryRuns;
 use Healthy360\Orders\Services\OrderLocator;
-use Healthy360\Orders\Services\OrderQuery;
 use Healthy360\Orders\Services\UnacceptedOrderClock;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\JoinClause;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
 
@@ -55,7 +56,6 @@ final class KitchenDisplayController
 
     public function __construct(
         private readonly OrderLocator $locator,
-        private readonly OrderQuery $orders,
         private readonly OrderPresenter $presenter,
         private readonly OrderDeliveryRuns $runs,
         private readonly OrderAmendability $amendability,
@@ -71,17 +71,28 @@ final class KitchenDisplayController
         $organisationId = $this->locator->sellerId();
         $now = CarbonImmutable::now();
 
-        $rows = $this->orders->forSeller($organisationId)
+        // The desk queue's due instant, on the same `dw` and `b` joins, so the wall
+        // sorts by when an order is due rather than when it arrived. Columns are
+        // qualified because both joins bring an `id`, an `organisation_id` and a status.
+        $rows = Order::query()
+            ->select('orders.*')
+            ->selectRaw(OrderDeskQueue::DUE_AT.' as due_at')
+            ->leftJoin('delivery_windows as dw', static function (JoinClause $join): void {
+                $join->on('dw.organisation_id', '=', 'orders.organisation_id')
+                    ->on('dw.code', '=', 'orders.delivery_window_code');
+            })
+            ->leftJoin('organisation_branches as b', 'b.id', '=', 'orders.branch_id')
+            ->where('orders.organisation_id', $organisationId)
             ->where(static function (Builder $board) use ($now): void {
-                $board->whereIn('status', [OrderStatus::Placed->value, OrderStatus::Confirmed->value])
+                $board->whereIn('orders.status', [OrderStatus::Placed->value, OrderStatus::Confirmed->value])
                     ->orWhere(static function (Builder $finished) use ($now): void {
-                        $finished->where('status', OrderStatus::Fulfilled->value)
-                            ->where('fulfilled_at', '>=', $now->subDay());
+                        $finished->where('orders.status', OrderStatus::Fulfilled->value)
+                            ->where('orders.fulfilled_at', '>=', $now->subDay());
                     });
             })
-            ->orderByRaw('status = ? asc', [OrderStatus::Fulfilled->value])
-            ->orderBy('placed_at')
-            ->orderBy('id')
+            ->orderByRaw('orders.status = ? asc', [OrderStatus::Fulfilled->value])
+            ->orderBy('orders.placed_at')
+            ->orderBy('orders.id')
             ->limit(self::MAX_ORDERS + 1)
             ->with('deliveryZone')
             ->get();
@@ -102,6 +113,7 @@ final class KitchenDisplayController
         $runs = $this->runs->forOrders($orderIds);
         $amendable = $this->amendability->reasons($orders, $lines);
         $this->presenter->preloadPlanDays($orderIds);
+        $this->presenter->preloadRemakes($orderIds);
         $readsTheBook = Gate::allows('order.view_organisation');
 
         return ApiResponse::data([
@@ -112,6 +124,13 @@ final class KitchenDisplayController
                     $runs[(string) $order->getKey()] ?? null,
                     ($amendable[(string) $order->getKey()] ?? null) === null,
                 );
+
+                // A `timestamptz` in the session zone; the wire carries UTC, as the desk queue's does.
+                // Empty falls back to when it was placed, as `OrderDeskQueue::instant()` does, never "now".
+                $due = $order->getAttribute('due_at');
+                $ticket['due_at'] = is_string($due) && $due !== ''
+                    ? CarbonImmutable::parse($due)->utc()->toIso8601String()
+                    : $order->placed_at->utc()->toIso8601String();
 
                 return $readsTheBook ? $ticket : $this->presenter->forTheLine($ticket);
             })->all(),
