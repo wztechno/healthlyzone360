@@ -14,7 +14,7 @@ import {
     Text as RNText,
     View,
 } from 'react-native';
-import type { ImageSourcePropType } from 'react-native';
+import type { ImageSourcePropType, StyleProp, ViewStyle } from 'react-native';
 
 import { resolveMarketingImage } from '../../../media/entity-image.tsx';
 import { useGoToAuth } from '../../../navigation/use-return-to.ts';
@@ -359,7 +359,13 @@ function Floating({
             <View
                 className={frame}
                 style={
-                    enabled ? [WEB_BOB.bob, { animationDelay: `${String(delay)}ms` }] : undefined
+                    enabled
+                        ? // `animationDelay` is react-native-web's, outside React Native's style types.
+                          ([
+                              WEB_BOB.bob,
+                              { animationDelay: `${String(delay)}ms` },
+                          ] as unknown as StyleProp<ViewStyle>)
+                        : undefined
                 }
             >
                 {children}
