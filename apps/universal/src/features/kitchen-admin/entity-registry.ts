@@ -370,56 +370,24 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: null,
     },
     {
-        key: 'order-settlement',
+        key: 'cash',
+        // One page for the day's money, with a tab for each way of seeing it: what was taken, what
+        // drivers and couriers handed in, and the till count at the end of a shift. It used to be
+        // three cards; the three screens are unchanged and sit behind `?tab=`.
         kind: 'workbench',
         group: 'orderDesk',
-        nameKey: 'kitchen:families.orderSettlement.name',
-        descriptionKey: 'kitchen:families.orderSettlement.description',
+        nameKey: 'kitchen:families.cash.name',
+        descriptionKey: 'kitchen:families.cash.description',
         icon: 'banknote',
-        href: '/kitchen/order-desk/settlement',
-        permission: ORDER_SETTLE_CASH_PERMISSION,
-        // Its writes are this one code too: a page that only reads it has nothing to show.
-        managePermission: null,
-    },
-    {
-        key: 'order-close',
-        kind: 'workbench',
-        group: 'orderDesk',
-        nameKey: 'kitchen:families.orderClose.name',
-        descriptionKey: 'kitchen:families.orderClose.description',
-        icon: 'banknote',
-        href: '/kitchen/order-desk/close',
-        // The settlement's seat: whoever counts the cash. Sign-off asks the manager code on the page.
-        permission: ORDER_SETTLE_CASH_PERMISSION,
-        managePermission: null,
-    },
-    {
-        key: 'order-cash-report',
-        // A view like its three siblings, and the plainest of them: it reads one append-only ledger
-        // and writes nothing. The receipts it counts are created by the sale wizard and by the
-        // queue's own drawer; this only adds them up.
-        kind: 'workbench',
-        group: 'orderDesk',
-        nameKey: 'kitchen:families.orderCashReport.name',
-        descriptionKey: 'kitchen:families.orderCashReport.description',
-        // `▤` a fourth time, and the group's own argument covers it: these four cards are the same
-        // day's work seen four ways — in due order, by date, by ingredient and by who took the money
-        // — and the labels are what separate them. The workspace-wide note applies unchanged: the
-        // icon set is a table of typographic characters, and a real icon set retires it.
-        icon: 'banknote',
-        // Nested under the desk like the calendar and the buy list, with the same deliberate
-        // consequence: `isKitchenNavActive` matches this against `/kitchen/order-desk` too, so the
-        // breadcrumb reads "Order desk" and leads back to the queue.
-        href: '/kitchen/order-desk/cash-report',
-        // **The manage code, not the view one** — the group's third asymmetry, and the sharpest.
-        // The calendar sits on the order view code, the buy list on the inventory one, and this sits
-        // one step *above* the group's baseline: it is a statement about people (Sara took four
-        // hundred, Omar took ninety), which is a different disclosure from the order book that
-        // everybody working a queue can read. It is the code the endpoint asks for, which is the
-        // rule a one-slot registry follows.
+        // Nested under the desk, so `isKitchenNavActive` matches it against `/kitchen/order-desk`
+        // and the breadcrumb leads back to the queue.
+        href: '/kitchen/order-desk/cash',
+        // **The manage code**, which the Cash taken tab asks for. The other two tabs ask for
+        // `order.settle_cash_organisation`, which every seeded role holding it also holds this one
+        // alongside; a custom role holding settle-cash alone still reaches the page through the
+        // `cash-settle` extra below, the page's `anyOf` gate, and `WORKSPACE_PERMISSIONS`.
         permission: ORDER_MANAGE_PERMISSION,
-        // Nothing is written from a report. Money is recorded where it arrives — the sale wizard and
-        // the queue drawer — which is also where the order's lock version lives.
+        // Writes are the settle-cash code, checked per tab on the page.
         managePermission: null,
     },
     {
@@ -998,7 +966,7 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
  *
  * The registry's promise is that the card, the rail entry and the screen's own guard read one row.
  * Six routes under `/kitchen` are not a family `href` — five of them are nested under one and ask
- * for a code that family already names, so the promise holds. Three do not, and this is where they
+ * for a code that family already names, so the promise holds. Some do not, and this is where they
  * are written down rather than left to be discovered by somebody wondering why a role with Manage
  * on a page still gets a forbidden screen inside it:
  *
@@ -1011,7 +979,9 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
  *  * unpriced receipts is nested under `/kitchen/procurement` and gated on
  *    `inventory.view_costs_organisation`, which belongs to a *different* family (purchases) — so
  *    Procurement→Manage with Purchases→None produces a 403 on a route nested under a page you can
- *    manage, which is the one combination a page grid would otherwise present as impossible.
+ *    manage, which is the one combination a page grid would otherwise present as impossible;
+ *  * the Cash page's Hand-ins and Daily close tabs ask for `order.settle_cash_organisation`, while
+ *    the family carries the manage code its Cash taken tab asks for.
  *
  * The role editor renders these as indented sub-rows under their parent. With this table in place
  * every route under `app/kitchen/**` is a family `href`, a path nested under one, or a declared
@@ -1053,6 +1023,15 @@ export const PAGE_EXTRAS: readonly PageExtra[] = [
         href: '/kitchen/procurement/unpriced-receipts',
         permission: INVENTORY_VIEW_COSTS_PERMISSION,
     },
+    {
+        key: 'cash-settle',
+        familyKey: 'cash',
+        nameKey: 'accessAdmin:extras.cashSettle',
+        // The same page: its Hand-ins and Daily close tabs ask for this code, the family the manage
+        // one. Without this row settle-cash could not be granted from the page grid at all.
+        href: '/kitchen/order-desk/cash',
+        permission: ORDER_SETTLE_CASH_PERMISSION,
+    },
 ];
 
 /** The extras drawn under a family, in registry order. */
@@ -1072,14 +1051,17 @@ export function familiesInGroup(
 }
 
 /**
- * Every distinct permission the workspace's families are gated on.
+ * Every distinct permission the workspace's families and extras are gated on.
+ *
+ * Extras count: a custom role holding only `order.settle_cash_organisation` reaches the Cash page
+ * through its `anyOf` gate, so it must reach the workspace that holds it too.
  *
  * The hub route requires *one* of these rather than all of them, so a role that can only read the
  * allergen reference still gets a workspace rather than a refusal — and the card grid then shows it
  * exactly one card. Holding none of them is what produces the forbidden page.
  */
 export const WORKSPACE_PERMISSIONS: readonly string[] = [
-    ...new Set(ENTITY_FAMILIES.map((family) => family.permission)),
+    ...new Set([...ENTITY_FAMILIES, ...PAGE_EXTRAS].map((page) => page.permission)),
 ];
 
 /** The families this state may actually reach, in display order. */

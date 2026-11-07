@@ -41,6 +41,7 @@ export { PackagingScreen } from './packaging-screen.tsx';
 export { PackagingEditScreen } from './packaging-edit-screen.tsx';
 export { KitchenHomeScreen } from './kitchen-home-screen.tsx';
 export { OrderDeskCalendarScreen } from './order-desk-calendar-screen.tsx';
+export { OrderDeskCashScreen } from './order-desk-cash-screen.tsx';
 export { OrderDeskCashReportScreen } from './order-desk-cash-report-screen.tsx';
 export { OrderDeskSettlementScreen } from './order-desk-settlement-screen.tsx';
 export { OrderDeskCloseScreen } from './order-desk-close-screen.tsx';

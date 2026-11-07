@@ -74,6 +74,16 @@ describe('the kitchen home Today card', () => {
         expect(mockPush).toHaveBeenCalledWith('/kitchen/order-desk?lens=past_due');
     });
 
+    it('opens the Cash page on its Daily close tab from Cash to collect', async () => {
+        await renderStubScreen(<TodayCard branchId={TEST_BRANCH_ID} />, {
+            session: kitchenManagerSession(),
+            repositories: { orderDesk: { getToday: async () => TODAY } },
+        });
+
+        fireEvent.press(await screen.findByTestId('kitchen-home-today-figures-cash'));
+        expect(mockPush).toHaveBeenCalledWith('/kitchen/order-desk/cash?tab=close');
+    });
+
     it('stays hidden, and asks for nothing, without order.manage_organisation', async () => {
         const getToday = jest.fn(async () => TODAY);
         const context = testActiveContext();

@@ -1,13 +1,10 @@
-import { lazyScreen } from '../../../../src/shell/lazy-screen.tsx';
+import { Redirect } from 'expo-router';
 
-/** `/kitchen/order-desk/settlement` — cash handed in by drivers and couriers. */
-const OrderDeskSettlementScreen = lazyScreen(
-    'kitchen-order-desk-settlement-loading',
-    async () =>
-        (await import('../../../../src/features/kitchen-admin/screens/index.ts'))
-            .OrderDeskSettlementScreen,
-);
-
+/**
+ * `/kitchen/order-desk/settlement` — where cash settlement used to be. It is the Settle cash tab
+ * of the Cash page now, and this stays so a bookmark or an old alert link still arrives. A
+ * redirect is not a page: `entity-registry.test.ts` skips it.
+ */
 export default function KitchenOrderDeskSettlement() {
-    return <OrderDeskSettlementScreen />;
+    return <Redirect href={'/kitchen/order-desk/cash?tab=handins' as never} />;
 }

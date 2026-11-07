@@ -73,8 +73,16 @@
             "late": "Late orders",
             "pastDue": "Past due: {{value}}",
             "openPastDue": "Late orders, open the past-due orders on the desk",
+            "openClose": "Cash to collect, open the daily close",
             "cancelled": "Cancelled",
             "cancelledSplit": "Returned {{returned}} · wasted {{wasted}} · other {{other}}"
+        }
+    },
+    "cash": {
+        "tab": {
+            "taken": "Cash taken",
+            "handins": "Settle cash",
+            "close": "Daily close"
         }
     },
     "nav": {
@@ -2751,9 +2759,9 @@
             "name": "Requirements",
             "description": "What this branch must buy to cook the days ahead — every ingredient the window needs, against what is on the shelf."
         },
-        "orderCashReport": {
-            "name": "Cash taken",
-            "description": "What each agent took in a day, and how it arrived — the record behind the till, until there is a shift to close."
+        "cash": {
+            "name": "Cash",
+            "description": "What was taken today, the cash drivers and couriers hand in, and the till count at the end of each shift."
         },
         "packaging": {
             "name": "Packaging",
@@ -2783,17 +2791,9 @@
             "name": "Wholesale setup",
             "description": "What a business customer needs before they can order from this kitchen."
         },
-        "orderSettlement": {
-            "name": "Settle cash",
-            "description": "Cash handed in by drivers and couriers, and any short amount for a manager to sign."
-        },
         "activity": {
             "name": "Activity",
             "description": "Who moved the stock, what the waste cost, and everything the audit trail recorded."
-        },
-        "orderClose": {
-            "name": "Daily close",
-            "description": "Float, cash count and variance for each shift."
         },
         "payables": {
             "name": "Payables",

@@ -113,10 +113,18 @@ describe('the permission vocabulary', () => {
 });
 
 describe('the workspace gate', () => {
-    it('is the deduplicated set of every family permission', () => {
+    it('is the deduplicated set of every family and extra permission', () => {
         expect([...WORKSPACE_PERMISSIONS].sort()).toEqual(
-            [...new Set(ENTITY_FAMILIES.map((family) => family.permission))].sort(),
+            [
+                ...new Set([...ENTITY_FAMILIES, ...PAGE_EXTRAS].map((page) => page.permission)),
+            ].sort(),
         );
+    });
+
+    it('lets a role holding only settle-cash into the workspace', () => {
+        // Ruling 2: the Cash family carries the manage code, so this code reaches the hub only
+        // through its extra row.
+        expect(WORKSPACE_PERMISSIONS).toContain('order.settle_cash_organisation');
     });
 
     it('lets an access administrator into a workspace rather than a forbidden page', () => {

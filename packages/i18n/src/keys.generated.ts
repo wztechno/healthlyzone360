@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10457 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10458 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -163,6 +163,7 @@ export interface NamespaceKeys {
     | 'codes.session.revoke_own.name'
     | 'codes.subscription.view_organisation.name'
     | 'codes.user.manage_organisation.name'
+    | 'extras.cashSettle'
     | 'extras.orderDeskCustomer'
     | 'extras.orderDeskSale'
     | 'extras.unpricedReceipts'
@@ -3752,6 +3753,9 @@ export interface NamespaceKeys {
     | 'calendar.thisWeek'
     | 'calendar.title'
     | 'calendar.today'
+    | 'cash.tab.close'
+    | 'cash.tab.handins'
+    | 'cash.tab.taken'
     | 'catalogue.archive'
     | 'catalogue.clearFilter'
     | 'catalogue.close'
@@ -4390,6 +4394,8 @@ export interface NamespaceKeys {
     | 'families.batch.name'
     | 'families.branchOperating.description'
     | 'families.branchOperating.name'
+    | 'families.cash.description'
+    | 'families.cash.name'
     | 'families.complaints.description'
     | 'families.complaints.name'
     | 'families.consumptionExceptions.description'
@@ -4408,16 +4414,10 @@ export interface NamespaceKeys {
     | 'families.ingredients.name'
     | 'families.orderCalendar.description'
     | 'families.orderCalendar.name'
-    | 'families.orderCashReport.description'
-    | 'families.orderCashReport.name'
-    | 'families.orderClose.description'
-    | 'families.orderClose.name'
     | 'families.orderDesk.description'
     | 'families.orderDesk.name'
     | 'families.orderRequirements.description'
     | 'families.orderRequirements.name'
-    | 'families.orderSettlement.description'
-    | 'families.orderSettlement.name'
     | 'families.orders.description'
     | 'families.orders.name'
     | 'families.packaging.description'
@@ -4592,6 +4592,7 @@ export interface NamespaceKeys {
     | 'hub.today.cash'
     | 'hub.today.counted'
     | 'hub.today.late'
+    | 'hub.today.openClose'
     | 'hub.today.openPastDue'
     | 'hub.today.orders'
     | 'hub.today.pastDue'
@@ -10650,6 +10651,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:codes.session.revoke_own.name',
   'accessAdmin:codes.subscription.view_organisation.name',
   'accessAdmin:codes.user.manage_organisation.name',
+  'accessAdmin:extras.cashSettle',
   'accessAdmin:extras.orderDeskCustomer',
   'accessAdmin:extras.orderDeskSale',
   'accessAdmin:extras.unpricedReceipts',
@@ -14227,6 +14229,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:calendar.thisWeek',
   'kitchen:calendar.title',
   'kitchen:calendar.today',
+  'kitchen:cash.tab.close',
+  'kitchen:cash.tab.handins',
+  'kitchen:cash.tab.taken',
   'kitchen:catalogue.archive',
   'kitchen:catalogue.clearFilter',
   'kitchen:catalogue.close',
@@ -14865,6 +14870,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.batch.name',
   'kitchen:families.branchOperating.description',
   'kitchen:families.branchOperating.name',
+  'kitchen:families.cash.description',
+  'kitchen:families.cash.name',
   'kitchen:families.complaints.description',
   'kitchen:families.complaints.name',
   'kitchen:families.consumptionExceptions.description',
@@ -14883,16 +14890,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.ingredients.name',
   'kitchen:families.orderCalendar.description',
   'kitchen:families.orderCalendar.name',
-  'kitchen:families.orderCashReport.description',
-  'kitchen:families.orderCashReport.name',
-  'kitchen:families.orderClose.description',
-  'kitchen:families.orderClose.name',
   'kitchen:families.orderDesk.description',
   'kitchen:families.orderDesk.name',
   'kitchen:families.orderRequirements.description',
   'kitchen:families.orderRequirements.name',
-  'kitchen:families.orderSettlement.description',
-  'kitchen:families.orderSettlement.name',
   'kitchen:families.orders.description',
   'kitchen:families.orders.name',
   'kitchen:families.packaging.description',
@@ -15067,6 +15068,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.today.cash',
   'kitchen:hub.today.counted',
   'kitchen:hub.today.late',
+  'kitchen:hub.today.openClose',
   'kitchen:hub.today.openPastDue',
   'kitchen:hub.today.orders',
   'kitchen:hub.today.pastDue',

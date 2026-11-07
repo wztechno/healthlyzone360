@@ -53,8 +53,8 @@ const ROW_ICONS: Readonly<Record<StaffAlertType, IconName>> = {
 const PAGES: Partial<Readonly<Record<StaffAlertType, string>>> = {
     stock_expiring: '/kitchen/stock',
     temperature_out_of_range: '/kitchen/temperature-logs',
-    short_hand_in: '/kitchen/order-desk/settlement',
-    short_close: '/kitchen/order-desk/close',
+    short_hand_in: '/kitchen/order-desk/cash?tab=handins',
+    short_close: '/kitchen/order-desk/cash?tab=close',
     price_approval: '/kitchen/payables',
     dish_below_target: '/kitchen/dish-margins',
     delivery_closed_unmoved: '/kitchen/branch-operating',

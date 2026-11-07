@@ -65,6 +65,10 @@ function TodayFigures({ branchId }: { readonly branchId: BranchId | null }) {
             value: money(data?.cashExpected),
             caption: t('kitchen:hub.today.counted', { amount: money(data?.cashCounted) }),
             mark: 'coins',
+            accessibilityLabel: t('kitchen:hub.today.openClose'),
+            onPress: () => {
+                router.push('/kitchen/order-desk/cash?tab=close' as never);
+            },
         },
         {
             key: 'late',

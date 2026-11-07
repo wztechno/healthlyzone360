@@ -40,7 +40,7 @@ import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { PeriodScope } from '../catalogue/period-scope.tsx';
 
 /**
- * `/kitchen/order-desk/cash-report` — who took what, day by day.
+ * `/kitchen/order-desk/cash?tab=taken` — who took what, day by day.
  *
  * ## A window of days, each still its own till-day
  *
