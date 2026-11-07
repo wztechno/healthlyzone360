@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10464 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10467 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4556,6 +4556,8 @@ export interface NamespaceKeys {
     | 'hub.action.review'
     | 'hub.action.set'
     | 'hub.attention.cutOffs'
+    | 'hub.attention.duplicates'
+    | 'hub.attention.duplicatesCount'
     | 'hub.attention.review'
     | 'hub.attention.shortfalls'
     | 'hub.attention.stockGaps'
@@ -7770,6 +7772,7 @@ export interface NamespaceKeys {
     | 'stockDuplicates.columnName'
     | 'stockDuplicates.columnReason'
     | 'stockDuplicates.columnShelves'
+    | 'stockDuplicates.countToZero'
     | 'stockDuplicates.emptyBody'
     | 'stockDuplicates.emptyTitle'
     | 'stockDuplicates.keepBoth'
@@ -15038,6 +15041,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.action.review',
   'kitchen:hub.action.set',
   'kitchen:hub.attention.cutOffs',
+  'kitchen:hub.attention.duplicates',
+  'kitchen:hub.attention.duplicatesCount',
   'kitchen:hub.attention.review',
   'kitchen:hub.attention.shortfalls',
   'kitchen:hub.attention.stockGaps',
@@ -18252,6 +18257,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:stockDuplicates.columnName',
   'kitchen:stockDuplicates.columnReason',
   'kitchen:stockDuplicates.columnShelves',
+  'kitchen:stockDuplicates.countToZero',
   'kitchen:stockDuplicates.emptyBody',
   'kitchen:stockDuplicates.emptyTitle',
   'kitchen:stockDuplicates.keepBoth',

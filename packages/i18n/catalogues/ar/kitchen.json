@@ -71,7 +71,14 @@
             "review": "سجلات بحاجة إلى مراجعة",
             "stockGaps": "نواقص مخزون غير محلولة",
             "shortfalls": "مكوّنات ناقصة خلال الأيام السبعة القادمة",
-            "cutOffs": "أيام لها موعد إغلاق للطلبات"
+            "cutOffs": "أيام لها موعد إغلاق للطلبات",
+            "duplicates": "صفوف مخزون تحمل الاسم نفسه",
+            "duplicatesCount_zero": "لا أسماء مكررة في المخزون",
+            "duplicatesCount_one": "اسم واحد مكرر في المخزون",
+            "duplicatesCount_two": "اسمان مكرران في المخزون",
+            "duplicatesCount_few": "{{count}} أسماء مكررة في المخزون",
+            "duplicatesCount_many": "{{count}} اسمًا مكررًا في المخزون",
+            "duplicatesCount_other": "{{count}} اسم مكرر في المخزون"
         },
         "action": {
             "review": "مراجعة",
@@ -5903,6 +5910,7 @@
         "keepBoth": "أبقِ الاثنين",
         "mergeInto": "ادمج في {{code}}",
         "mergeBlocked": "اجعل كمية {{code}} صفراً بالجرد لدمجه",
+        "countToZero": "اجعل كمية {{code}} صفراً بالجرد",
         "mergeTitle": "دمج {{drop}} في {{keep}}؟",
         "mergeBody": "يخرج {{drop}} من قوائم المخزون ويبقى سجله في صفه. كل ما كان يستخدمه يسحب من {{keep}} من الآن.",
         "mergeConfirm": "ادمج",

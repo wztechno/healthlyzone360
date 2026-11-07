@@ -10,6 +10,7 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -20,6 +21,8 @@ import {
     useDuplicateStockQuery,
     useMergeDuplicateStockMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
+import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
@@ -31,7 +34,8 @@ type Shelf = DuplicateStockGroup['shelves'][number];
  * left for a person, each with its reason. A manager answers from the row's menu (the row-action
  * pattern of `stock-screen.tsx`): **Keep both** for any group, and **Merge into …** for two shelves
  * that both have history, offered once the shelf that goes has been counted to zero; until then
- * the item is disabled and says so. Merge asks first (the confirm dialog of
+ * the item is disabled and says so, and **Count … to zero** beside it opens that shelf's count on
+ * Stock and comes back here. Merge asks first (the confirm dialog of
  * `consumption-exceptions-screen.tsx`), because it cannot be undone here.
  */
 export function StockDuplicatesScreen() {
@@ -48,6 +52,7 @@ export function StockDuplicatesScreen() {
 
 function StockDuplicatesList() {
     const { t } = useTranslation();
+    const router = useRouter();
     const duplicates = useDuplicateStockQuery();
     const failure = toFailure(duplicates.error);
     const rows = duplicates.data ?? [];
@@ -116,9 +121,9 @@ function StockDuplicatesList() {
                 ? row.shelves.flatMap((keep) =>
                       row.shelves
                           .filter((drop) => drop.id !== keep.id)
-                          .map((drop): MenuItem => {
+                          .flatMap((drop): MenuItem[] => {
                               const held = Number(drop.quantity) !== 0;
-                              return {
+                              const mergeItem: MenuItem = {
                                   key: `merge-${keep.id}`,
                                   label: held
                                       ? t('kitchen:stockDuplicates.mergeBlocked', {
@@ -134,6 +139,29 @@ function StockDuplicatesList() {
                                       setMerging({ keep, drop });
                                   },
                               };
+                              if (!held) return [mergeItem];
+                              return [
+                                  mergeItem,
+                                  {
+                                      key: `count-${drop.id}`,
+                                      label: t('kitchen:stockDuplicates.countToZero', {
+                                          code: drop.code,
+                                      }),
+                                      icon: CATALOGUE_ROW_ICONS.edit,
+                                      testID: `${testID}-count-${drop.id}`,
+                                      onSelect: () => {
+                                          router.push(
+                                              withReturnTo(
+                                                  withQuery('/kitchen/stock', {
+                                                      shelf: drop.id,
+                                                      direction: 'count',
+                                                  }),
+                                                  '/kitchen/stock-duplicates',
+                                              ) as never,
+                                          );
+                                      },
+                                  },
+                              ];
                           }),
                   )
                 : [];

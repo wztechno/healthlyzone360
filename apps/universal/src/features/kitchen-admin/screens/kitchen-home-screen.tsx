@@ -36,6 +36,7 @@ import {
 } from '../../../data/kitchen-admin-hooks.ts';
 import {
     useConsumptionExceptionCountQuery,
+    useDuplicateStockQuery,
     useKitchenSetupQuery,
     useLowStockCountQuery,
     useSuppliersQuery,
@@ -287,6 +288,7 @@ export function KitchenHomeScreen() {
     const exceptionsCount = useConsumptionExceptionCountQuery(
         permitted.has('consumption-exceptions'),
     );
+    const duplicates = useDuplicateStockQuery(permitted.has('stock-duplicates'));
     // Asked with the workspace's active branch, which may be null — the endpoint answers with
     // `count: null` for a manager who holds no branch rather than refusing.
     const shortfalls = useOrderDeskShortfallCountQuery(
@@ -363,6 +365,9 @@ export function KitchenHomeScreen() {
         ? exceptionsCount.isPending
             ? null
             : (exceptionsCount.data ?? null)
+        : null;
+    const duplicateCount = permitted.has('stock-duplicates')
+        ? (duplicates.data?.length ?? null)
         : null;
     const supplyNeedCount = supplyNeeds.data?.count ?? null;
 
@@ -484,6 +489,27 @@ export function KitchenHomeScreen() {
             textTestID: 'kitchen-family-consumption-exceptions-total',
         });
     }
+    if (permitted.has('stock-duplicates')) {
+        checks.push({
+            key: 'stock-duplicates',
+            count: duplicateCount,
+            pending: duplicates.isPending,
+            text:
+                duplicateCount === null
+                    ? t('kitchen:hub.countUnavailable')
+                    : duplicateCount === 0
+                      ? t('kitchen:ops.exceptions.clearBadge')
+                      : t('kitchen:hub.attention.duplicates'),
+            spoken:
+                duplicateCount === null
+                    ? undefined
+                    : t('kitchen:hub.attention.duplicatesCount', { count: duplicateCount }),
+            tone: waitingTone(duplicateCount),
+            actionLabel: t('kitchen:hub.action.review'),
+            href: '/kitchen/stock-duplicates',
+            textTestID: 'kitchen-family-stock-duplicates-total',
+        });
+    }
     if (showShortfall) {
         checks.push({
             key: 'requirement-shortfalls',
@@ -594,6 +620,7 @@ export function KitchenHomeScreen() {
     const pillCount = (key: string): number | null => {
         if (key === 'review') return reviewQueue?.total ?? null;
         if (key === 'consumption-exceptions') return exceptionCount;
+        if (key === 'stock-duplicates') return duplicateCount;
         if (key === 'order-requirements') return shortfallCount;
         return null;
     };

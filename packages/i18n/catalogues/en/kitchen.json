@@ -51,7 +51,10 @@
             "review": "Records to review",
             "stockGaps": "Unresolved stock gaps",
             "shortfalls": "Ingredients short in the next 7 days",
-            "cutOffs": "Days with an order cut-off"
+            "cutOffs": "Days with an order cut-off",
+            "duplicates": "Stock rows sharing a name",
+            "duplicatesCount_one": "{{count}} stock name repeated",
+            "duplicatesCount_other": "{{count}} stock names repeated"
         },
         "action": {
             "review": "Review",
@@ -5200,6 +5203,7 @@
         "keepBoth": "Keep both",
         "mergeInto": "Merge into {{code}}",
         "mergeBlocked": "Count {{code}} to zero to merge it",
+        "countToZero": "Count {{code}} to zero",
         "mergeTitle": "Merge {{drop}} into {{keep}}?",
         "mergeBody": "{{drop}} leaves the stock lists and its history stays on its own row. Anything that used it draws on {{keep}} from now on.",
         "mergeConfirm": "Merge",

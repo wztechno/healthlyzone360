@@ -148,6 +148,10 @@ export interface StockScreenProps {
      */
     readonly ingredient?: string | undefined;
     readonly item?: string | undefined;
+    /** `?shelf=` — the same arrival by the stock item's own id (a duplicate pair sends it). */
+    readonly shelf?: string | undefined;
+    /** `?direction=count` — the editor opens on Count rather than Increase. */
+    readonly direction?: string | undefined;
     /** `?returnTo=` — where Cancel, Save and the trail go once the movement is done. */
     readonly returnTo?: string | undefined;
 }
@@ -223,7 +227,7 @@ function compareDecimal(
     return compareNumber(Number(left), Number(right), direction);
 }
 
-function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
+function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: StockScreenProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
@@ -305,7 +309,7 @@ function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
      * page's other arrivals. A gap whose shelf does not exist yet says so where a scan would.
      */
     const [sentFor, setSentFor] = useState(
-        canManage && (ingredient !== undefined || item !== undefined),
+        canManage && (ingredient !== undefined || item !== undefined || shelfId !== undefined),
     );
     if (sentFor && items.isSuccess) {
         setSentFor(false);
@@ -313,7 +317,9 @@ function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
         const shelf =
             ingredientId !== null
                 ? shelfForIngredient(items.data, ingredientId)
-                : items.data.find((candidate) => candidate.catalogueItemId === item);
+                : shelfId !== undefined
+                  ? items.data.find((candidate) => String(candidate.id) === shelfId)
+                  : items.data.find((candidate) => candidate.catalogueItemId === item);
         const row = shelfRows.find((candidate) => candidate.item.id === shelf?.id);
         if (row === undefined) setScanMessage(t('kitchen:barcodes.noShelf'));
         else setEditing(row);
@@ -725,6 +731,7 @@ function Stock({ view, ingredient, item, returnTo }: StockScreenProps) {
         return (
             <StockMovementEditor
                 row={{ item: editing.item, level, state: levelState(level) }}
+                initialDirection={direction === 'count' ? 'count' : undefined}
                 onDone={() => {
                     if (back.returnTo === null) setEditing(null);
                     else back.leave();
@@ -1175,8 +1182,11 @@ function StockMovementEditor({
     onSaved = onDone,
     onReload,
     trail,
+    initialDirection = 'increase',
 }: {
     readonly row: StockRow;
+    /** The movement the editor opens on — `count` when a duplicate pair sent the reader here. */
+    readonly initialDirection?: MovementDirection | undefined;
     /** Cancel. */
     readonly onDone: () => void;
     /** After a write lands. Cancel's way out unless the caller has somewhere better to go. */
@@ -1207,7 +1217,7 @@ function StockMovementEditor({
     const initialPar = toInput(row.level?.parLevel);
     const [thresholdValue, setThresholdValue] = useState(initialThreshold);
     const [parLevelValue, setParLevelValue] = useState(initialPar);
-    const [direction, setDirection] = useState<MovementDirection>('increase');
+    const [direction, setDirection] = useState<MovementDirection>(initialDirection);
     const [wasteReason, setWasteReason] = useState<StockWasteReason | null>(null);
     const [quantity, setQuantity] = useState('');
     const [notes, setNotes] = useState('');
