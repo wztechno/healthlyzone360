@@ -25,7 +25,12 @@ import { useTranslation } from 'react-i18next';
  * that restores "this is a button" without promoting it to the visual weight of a filled one — the
  * language switch beside it is still the louder control, which is the correct order.
  */
-export function ThemeToggle() {
+export function ThemeToggle({
+    onCanopy = false,
+}: {
+    /** On the sign-in frame's green phone panel: a soft light disc and a light glyph. */
+    readonly onCanopy?: boolean;
+} = {}) {
     const { t } = useTranslation();
     const { isDark, toggleTheme } = useTheme();
 
@@ -33,10 +38,18 @@ export function ThemeToggle() {
         <IconButton
             testID="theme-toggle"
             size="sm"
-            variant="ghost"
-            className="rounded-full border-stroke"
+            variant={onCanopy ? 'ghost' : 'quiet'}
+            className={
+                onCanopy
+                    ? 'rounded-full bg-content-on-canopy/15'
+                    : 'rounded-full transition duration-fast ease-standard active:scale-95'
+            }
             icon={
-                <Icon name={isDark ? 'sun' : 'moon'} size="lg" className="text-content-primary" />
+                <Icon
+                    name={isDark ? 'sun' : 'moon'}
+                    size="lg"
+                    className={onCanopy ? 'text-content-on-canopy' : 'text-content-primary'}
+                />
             }
             label={isDark ? t('common:theme.switchToLight') : t('common:theme.switchToDark')}
             onPress={toggleTheme}

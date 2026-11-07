@@ -1,7 +1,7 @@
 import { cx } from '@healthy360/design-system';
 import { Text as RNText, View } from 'react-native';
 
-import { RING_BAND, RING_SIZE } from './stage-ring-shared.ts';
+import { RING_BAND, RING_SIZE, SMALL_RING_BAND, SMALL_RING_SIZE } from './stage-ring-shared.ts';
 import type { StageRingProps } from './stage-ring-shared.ts';
 
 /** The ink as a border, written out whole so Tailwind finds each. */
@@ -23,26 +23,44 @@ export function StageRing({
     share,
     ink,
     accessibilityLabel,
+    small = false,
 }: StageRingProps) {
+    const size = small ? SMALL_RING_SIZE : RING_SIZE;
+    const band = small ? SMALL_RING_BAND : RING_BAND;
     return (
         <View
             testID={testID}
             role="img"
             aria-label={accessibilityLabel}
-            className="flex-col items-center gap-1 rounded-[18px] bg-content-on-canopy/10 px-1 pb-2 pt-2.5"
+            className={cx(
+                'flex-col items-center bg-content-on-canopy/10',
+                small
+                    ? 'gap-0.5 rounded-2xl px-0.5 pb-[7px] pt-2'
+                    : 'gap-1 rounded-[18px] px-1 pb-2 pt-2.5',
+            )}
         >
             <View
                 className={cx(
                     'items-center justify-center rounded-full',
                     share > 0 ? RING_BORDER[ink] : 'border-content-on-canopy/20',
                 )}
-                style={{ width: RING_SIZE, height: RING_SIZE, borderWidth: RING_BAND }}
+                style={{ width: size, height: size, borderWidth: band }}
             >
-                <RNText className="font-display text-lg font-bold tabular-nums text-content-on-canopy">
+                <RNText
+                    className={cx(
+                        'font-display font-bold tabular-nums text-content-on-canopy',
+                        small ? 'text-base' : 'text-lg',
+                    )}
+                >
                     {value}
                 </RNText>
             </View>
-            <RNText className="text-xs font-semibold uppercase tracking-wider text-content-on-canopy-muted">
+            <RNText
+                className={cx(
+                    'text-xs font-semibold uppercase text-content-on-canopy-muted',
+                    small ? 'tracking-wide' : 'tracking-wider',
+                )}
+            >
                 {label}
             </RNText>
         </View>

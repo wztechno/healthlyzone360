@@ -1,4 +1,4 @@
-import { Callout } from '@healthy360/design-system';
+import { Callout, InfoTip } from '@healthy360/design-system';
 import { useTranslation } from 'react-i18next';
 
 /**
@@ -33,6 +33,12 @@ export interface MedicalDisclaimerProps {
     readonly context?: string | undefined;
     readonly testID?: string | undefined;
     readonly className?: string | undefined;
+    /**
+     * `tip` is the same fixed copy behind an (i) beside the thing it qualifies — the plan set-up's
+     * terms row (Shop · Plan setup, pin 5), where a box of its own stacked under the other boxes.
+     * The wording and the test id do not change.
+     */
+    readonly variant?: 'callout' | 'tip' | undefined;
 }
 
 export const MEDICAL_DISCLAIMER_TEST_ID = 'medical-disclaimer';
@@ -41,8 +47,25 @@ export function MedicalDisclaimer({
     context,
     testID = MEDICAL_DISCLAIMER_TEST_ID,
     className,
+    variant = 'callout',
 }: MedicalDisclaimerProps) {
     const { t } = useTranslation();
+
+    if (variant === 'tip') {
+        return (
+            <InfoTip
+                testID={testID}
+                label={t('marketplace:medicalDisclaimer.title')}
+                text={[
+                    t('marketplace:medicalDisclaimer.title'),
+                    t('marketplace:medicalDisclaimer.body'),
+                    context,
+                ]
+                    .filter((part): part is string => part !== undefined)
+                    .join(' ')}
+            />
+        );
+    }
 
     return (
         <Callout

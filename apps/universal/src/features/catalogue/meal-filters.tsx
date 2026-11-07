@@ -261,32 +261,35 @@ export function MealRangeFilters({
             key: 'energy',
             label: t('catalogue:filters.energy'),
             unit: t('catalogue:filters.unitKcal'),
-            step: 50,
+            // Smooth steps, as the person asked: one gram or minute or unit of money at a time,
+            // calories ten at a time (one-calorie steps over two thousand would be finer than a
+            // hand can place).
+            step: 10,
         },
         {
             key: 'protein',
             label: t('catalogue:filters.protein'),
             unit: t('catalogue:filters.unitGrams'),
-            step: 5,
+            step: 1,
         },
         {
             key: 'carbohydrate',
             label: t('catalogue:filters.carbohydrate'),
             unit: t('catalogue:filters.unitGrams'),
-            step: 5,
+            step: 1,
         },
         {
             key: 'fat',
             label: t('catalogue:filters.fat'),
             unit: t('catalogue:filters.unitGrams'),
-            step: 5,
+            step: 1,
         },
-        { key: 'price', label: t('catalogue:filters.price'), unit: currency, step: 5 },
+        { key: 'price', label: t('catalogue:filters.price'), unit: currency, step: 1 },
         {
             key: 'preparationMinutes',
             label: t('catalogue:filters.preparationMinutes'),
             unit: t('catalogue:filters.unitMinutes'),
-            step: 5,
+            step: 1,
         },
     ];
 
@@ -313,24 +316,31 @@ export function MealRangeFilters({
                      * and a sentence split around its number does not survive Arabic. "Under 700
                      * kcal" is one interpolated string, not a word, a figure and a word.
                      */
-                    const readout =
-                        min === null && max === null
+                    const readoutFor = ({
+                        min: lo,
+                        max: hi,
+                    }: {
+                        min: number | null;
+                        max: number | null;
+                    }) =>
+                        lo === null && hi === null
                             ? t('catalogue:filters.anyValue')
-                            : min === null
+                            : lo === null
                               ? t('catalogue:filters.atMost', {
-                                    value: figure(max ?? 0),
+                                    value: figure(hi ?? 0),
                                     unit: row.unit,
                                 })
-                              : max === null
+                              : hi === null
                                 ? t('catalogue:filters.atLeast', {
-                                      value: figure(min),
+                                      value: figure(lo),
                                       unit: row.unit,
                                   })
                                 : t('catalogue:filters.between', {
-                                      min: figure(min),
-                                      max: figure(max),
+                                      min: figure(lo),
+                                      max: figure(hi ?? 0),
                                       unit: row.unit,
                                   });
+                    const readout = readoutFor({ min, max });
 
                     return (
                         <RangeSlider
@@ -342,6 +352,7 @@ export function MealRangeFilters({
                             step={row.step}
                             value={{ min, max }}
                             readout={readout}
+                            readoutFor={readoutFor}
                             tint={tint}
                             lowLabel={t('catalogue:filters.rangeLow', { label: row.label })}
                             highLabel={t('catalogue:filters.rangeHigh', { label: row.label })}

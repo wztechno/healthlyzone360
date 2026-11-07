@@ -1,5 +1,6 @@
 import { Icon, cx, useMotion } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
+import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Animated, Easing, Platform, Text as RNText, View } from 'react-native';
@@ -39,7 +40,7 @@ const STEP_ICON: Readonly<Record<OrderProgressStep, IconName>> = {
     preparing: 'chefHat',
     ready_for_pickup: 'package',
     out_for_delivery: 'bike',
-    delivered: 'home',
+    delivered: 'house',
 };
 
 const DOT: Readonly<Record<OrderStepPosition, string>> = {
@@ -197,6 +198,145 @@ export function OrderTimeline({
                     </View>
                 );
             })}
+        </View>
+    );
+}
+
+export interface CancelledTimelineProps {
+    /** Already formatted by the caller — when it was placed. */
+    readonly placedAt: string;
+    /** When it reached each later step, already formatted. A step left out was never reached. */
+    readonly times?: Readonly<Partial<Record<OrderProgressStep, string>>> | undefined;
+    readonly placedDetail: string;
+    readonly testID: string;
+}
+
+/**
+ * Shop · Orders, pin 2: a cancelled order keeps its timeline, and it stops. The steps it reached
+ * stay done, a red "Cancelled" row follows them, and the steps that will not happen now are faded,
+ * struck through and drawn on a dashed dot — in place of a box that replaced the whole list.
+ */
+export function CancelledTimeline({
+    placedAt,
+    placedDetail,
+    times,
+    testID,
+}: CancelledTimelineProps) {
+    const { t } = useTranslation();
+    // How far it got: the last step the order carries a time for. A guest order carries none.
+    let reached = 0;
+    ORDER_PROGRESS_STEPS.forEach((step, index) => {
+        if (index > 0 && times?.[step] !== undefined) reached = index;
+    });
+    const done = ORDER_PROGRESS_STEPS.slice(0, reached + 1);
+    const skipped = ORDER_PROGRESS_STEPS.slice(reached + 1);
+    const cancelled = t('guest:order.cancelledStep');
+
+    return (
+        <View
+            testID={testID}
+            role="list"
+            accessibilityLabel={t('guest:order.timeline')}
+            className="flex-col"
+        >
+            {done.map((step, index) => {
+                const title = t(`guest:order.steps.${step}.title`);
+                return (
+                    <StoppedRow
+                        key={step}
+                        testID={`${testID}-${step}`}
+                        label={`${title}, ${t('guest:order.position.done')}`}
+                        dot="border-surface-brand bg-surface-brand"
+                        icon={
+                            <Icon
+                                name={STEP_ICON[step]}
+                                size="sm"
+                                className="text-content-on-brand"
+                            />
+                        }
+                        title={title}
+                        detail={index === 0 ? placedDetail : t(`guest:order.steps.${step}.detail`)}
+                        time={index === 0 ? placedAt : times?.[step]}
+                    />
+                );
+            })}
+            <StoppedRow
+                testID={`${testID}-cancelled`}
+                label={cancelled}
+                dot="border-danger-strong bg-danger-strong"
+                icon={<Icon name="close" size="sm" className="text-danger-on-strong" />}
+                title={cancelled}
+                detail={t('guest:order.cancelledStepDetail')}
+            />
+            {skipped.map((step) => {
+                const title = t(`guest:order.steps.${step}.title`);
+                return (
+                    <StoppedRow
+                        key={step}
+                        testID={`${testID}-${step}`}
+                        label={`${title}, ${t('guest:order.position.skipped')}`}
+                        dot="border-dashed border-stroke bg-surface-base"
+                        title={title}
+                        skipped
+                    />
+                );
+            })}
+        </View>
+    );
+}
+
+function StoppedRow({
+    testID,
+    label,
+    dot,
+    icon,
+    title,
+    detail,
+    time,
+    skipped = false,
+}: {
+    readonly testID: string;
+    readonly label: string;
+    readonly dot: string;
+    readonly icon?: ReactNode;
+    readonly title: string;
+    readonly detail?: string | undefined;
+    readonly time?: string | undefined;
+    readonly skipped?: boolean;
+}) {
+    return (
+        <View
+            role="listitem"
+            testID={testID}
+            accessibilityLabel={label}
+            className={cx('flex-row items-center gap-3 py-2.5', skipped ? 'opacity-45' : null)}
+        >
+            <View
+                testID={`${testID}-dot`}
+                className={cx('h-8 w-8 items-center justify-center rounded-full border-2', dot)}
+            >
+                {icon}
+            </View>
+            <View className="min-w-0 flex-1 flex-col">
+                <RNText
+                    className={cx(
+                        'text-sm font-bold text-start',
+                        skipped ? 'text-content-secondary line-through' : 'text-content-primary',
+                    )}
+                >
+                    {title}
+                </RNText>
+                {detail === undefined ? null : (
+                    <RNText className="text-xs font-medium text-content-secondary text-start">
+                        {detail}
+                    </RNText>
+                )}
+            </View>
+            {time === undefined ? null : (
+                <RNText className="text-xs font-semibold tabular-nums text-content-secondary text-end">
+                    {time}
+                </RNText>
+            )}
         </View>
     );
 }

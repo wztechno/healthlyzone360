@@ -3,10 +3,11 @@ import type {
     GuestOrderState,
     OrderStepTimes,
 } from '@healthy360/api-client/contracts';
-import { Callout, Icon, cx, useBreakpoint, useMotion } from '@healthy360/design-system';
+import { Icon, cx, useBreakpoint, useMotion, useToast } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import type { Money } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
+import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -26,7 +27,7 @@ import { formatMoney } from '../marketplace/format.ts';
 import { OrderLineThumb } from './order-line-thumb.tsx';
 import { ORDER_PROGRESS_STEPS, currentStepIndex } from './order-progress.ts';
 import type { OrderProgressStep } from './order-progress.ts';
-import { OrderTimeline } from './order-timeline.tsx';
+import { CancelledTimeline, OrderTimeline } from './order-timeline.tsx';
 
 /**
  * The accepted Track board's body, shared by the guest page (`/orders/{reference}`) and the
@@ -105,6 +106,11 @@ export interface OrderTrackingProps {
     readonly refreshing?: boolean | undefined;
     /** Drawn at the foot of the timeline card, under the buttons. */
     readonly footer?: ReactNode;
+    /**
+     * Shop · Orders, pin 3: the reference as a bold, copyable chip under the lede, with the line
+     * on keeping it — the guest page's, which has no account to find the order from later.
+     */
+    readonly showReference?: boolean | undefined;
     /** Prefix for every test ID — `guest-order`, `customer-order`. */
     readonly testID: string;
 }
@@ -115,6 +121,7 @@ export function OrderTracking({
     onRefresh,
     refreshing,
     footer,
+    showReference = false,
     testID,
 }: OrderTrackingProps) {
     const { t } = useTranslation();
@@ -123,6 +130,11 @@ export function OrderTracking({
     const { atLeast } = useBreakpoint();
     const prototype = usePrototypeAction();
     const wide = atLeast('md');
+    const router = useRouter();
+    // No endpoint yet: the prototype mechanism's "not available yet" toast (Shop · Orders, pin 5).
+    const askForHelp = () => {
+        prototype({ contract: 'POST /api/v1/orders/{order}/support-requests' });
+    };
 
     const current = currentStepIndex(order.state);
     const placedAt = formatter.formatDate(order.placedAt, { timeStyle: 'short' });
@@ -199,45 +211,85 @@ export function OrderTracking({
                 </RNText>
             </View>
 
+            {showReference ? <ReferenceChip testID={testID} reference={order.reference} /> : null}
+
             {/* ── the journey: when it arrives, and the road from the kitchen to the door ── */}
-            <View
-                testID={`${testID}-window`}
-                className="relative mt-[22px] overflow-hidden rounded-[26px] bg-surface-canopy px-7 pb-[22px] pt-6"
-            >
+            {current === null ? (
+                // Shop · Orders, pin 1: a cancelled order has no arrival — a red card with what
+                // that means and two ways on, in place of the canopy band.
                 <View
-                    aria-hidden
-                    className="absolute -end-[100px] -top-[160px] h-[420px] w-[420px] rounded-full bg-stage-green opacity-15"
-                />
-                <View className="flex-row flex-wrap items-end justify-between gap-4">
-                    <View className="min-w-0">
-                        <RNText className="text-xs font-bold uppercase tracking-wider text-stage-green text-start">
-                            {deliveredAt === null
-                                ? t('guest:order.arriving')
-                                : t('guest:order.delivered')}
+                    testID={`${testID}-cancelled`}
+                    role="status"
+                    className="mt-[22px] flex-row flex-wrap items-center gap-[18px] rounded-[26px] border border-danger-border bg-danger-subtle px-6 py-[22px]"
+                >
+                    <View className="h-14 w-14 items-center justify-center rounded-[18px] bg-danger-strong">
+                        <Icon name="close" size="lg" className="text-danger-on-strong" />
+                    </View>
+                    <View className="min-w-[200px] flex-1 flex-col gap-0.5">
+                        <RNText className="font-display text-xl font-bold text-danger-on-subtle text-start">
+                            {t('guest:order.cancelledTitle')}
                         </RNText>
-                        <RNText
-                            testID={`${testID}-slot`}
-                            className="mt-1 font-display text-2xl font-bold tracking-display text-content-on-canopy text-start"
-                        >
-                            {deliveredAt === null
-                                ? arriving
-                                : formatter.formatDate(deliveredAt, {
-                                      weekday: 'short',
-                                      hour: 'numeric',
-                                      minute: '2-digit',
-                                  })}
+                        <RNText className="text-sm font-medium text-danger-on-subtle text-start">
+                            {t('guest:order.cancelledBody')}
                         </RNText>
                     </View>
-                    {currentStep === null || currentStep === undefined ? null : (
-                        <RNText className="text-sm font-medium text-content-on-canopy-muted">
-                            {t(`guest:order.steps.${currentStep}.title`)}
-                        </RNText>
+                    <View className="flex-row flex-wrap gap-2">
+                        <PillButton
+                            testID={`${testID}-cancelled-help`}
+                            label={t('guest:order.getHelp')}
+                            hint={t('marketplace:prototype.hint')}
+                            onPress={askForHelp}
+                        />
+                        <PillButton
+                            testID={`${testID}-cancelled-browse`}
+                            label={t('account:orders.browse')}
+                            ink
+                            onPress={() => {
+                                router.push('/meals');
+                            }}
+                        />
+                    </View>
+                </View>
+            ) : (
+                <View
+                    testID={`${testID}-window`}
+                    className="relative mt-[22px] overflow-hidden rounded-[26px] bg-surface-canopy px-7 pb-[22px] pt-6"
+                >
+                    <View
+                        aria-hidden
+                        className="absolute -end-[100px] -top-[160px] h-[420px] w-[420px] rounded-full bg-stage-green opacity-15"
+                    />
+                    <View className="flex-row flex-wrap items-end justify-between gap-4">
+                        <View className="min-w-0">
+                            <RNText className="text-xs font-bold uppercase tracking-wider text-stage-green text-start">
+                                {deliveredAt === null
+                                    ? t('guest:order.arriving')
+                                    : t('guest:order.delivered')}
+                            </RNText>
+                            <RNText
+                                testID={`${testID}-slot`}
+                                className="mt-1 font-display text-2xl font-bold tracking-display text-content-on-canopy text-start"
+                            >
+                                {deliveredAt === null
+                                    ? arriving
+                                    : formatter.formatDate(deliveredAt, {
+                                          weekday: 'short',
+                                          hour: 'numeric',
+                                          minute: '2-digit',
+                                      })}
+                            </RNText>
+                        </View>
+                        {currentStep === null || currentStep === undefined ? null : (
+                            <RNText className="text-sm font-medium text-content-on-canopy-muted">
+                                {t(`guest:order.steps.${currentStep}.title`)}
+                            </RNText>
+                        )}
+                    </View>
+                    {current === null ? null : (
+                        <Road progress={progress} moving={order.state === 'out_for_delivery'} />
                     )}
                 </View>
-                {current === null ? null : (
-                    <Road progress={progress} moving={order.state === 'out_for_delivery'} />
-                )}
-            </View>
+            )}
 
             {/* ── the timeline beside what is in it and who is bringing it ── */}
             <View
@@ -251,12 +303,14 @@ export function OrderTracking({
                 >
                     <CardTitle>{t('guest:order.progressTitle')}</CardTitle>
                     {current === null ? (
-                        <Callout
-                            testID={`${testID}-cancelled`}
-                            role="status"
-                            tone="info"
-                            title={t('guest:order.cancelledTitle')}
-                            body={t('guest:order.cancelledBody')}
+                        <CancelledTimeline
+                            testID={`${testID}-timeline`}
+                            placedAt={placedAt}
+                            times={times}
+                            placedDetail={t('guest:order.steps.placed.detail', {
+                                payment: paymentLabel,
+                                total: formatMoney(formatter, order.total),
+                            })}
                         />
                     ) : (
                         <OrderTimeline
@@ -270,42 +324,42 @@ export function OrderTracking({
                             })}
                         />
                     )}
-                    <View className="flex-row flex-wrap gap-2 border-t border-stroke-subtle pt-3.5">
-                        {onRefresh === undefined ? null : (
+                    {/* A cancelled order's ways on are in its red card; nothing to refresh or ask. */}
+                    {current === null ? null : (
+                        <View className="flex-row flex-wrap gap-2 border-t border-stroke-subtle pt-3.5">
+                            {onRefresh === undefined ? null : (
+                                <SoftButton
+                                    testID={`${testID}-refresh`}
+                                    label={t('guest:order.refresh')}
+                                    icon="refresh"
+                                    primary
+                                    busy={refreshing ?? false}
+                                    onPress={onRefresh}
+                                />
+                            )}
                             <SoftButton
-                                testID={`${testID}-refresh`}
-                                label={t('guest:order.refresh')}
-                                icon="refresh"
-                                primary
-                                busy={refreshing ?? false}
-                                onPress={onRefresh}
-                            />
-                        )}
-                        <SoftButton
-                            testID={`${testID}-help`}
-                            label={t('guest:order.getHelp')}
-                            icon="circleHelp"
-                            hint={t('marketplace:prototype.hint')}
-                            onPress={() => {
-                                prototype({
-                                    contract: 'POST /api/v1/orders/{order}/support-requests',
-                                });
-                            }}
-                        />
-                        {order.state === 'out_for_delivery' ? (
-                            <SoftButton
-                                testID={`${testID}-message`}
-                                label={t('guest:order.messageCourier')}
-                                icon="send"
+                                testID={`${testID}-help`}
+                                label={t('guest:order.getHelp')}
+                                icon="circleHelp"
                                 hint={t('marketplace:prototype.hint')}
-                                onPress={() => {
-                                    prototype({
-                                        contract: 'POST /api/v1/orders/{order}/courier-messages',
-                                    });
-                                }}
+                                onPress={askForHelp}
                             />
-                        ) : null}
-                    </View>
+                            {order.state === 'out_for_delivery' ? (
+                                <SoftButton
+                                    testID={`${testID}-message`}
+                                    label={t('guest:order.messageCourier')}
+                                    icon="send"
+                                    hint={t('marketplace:prototype.hint')}
+                                    onPress={() => {
+                                        prototype({
+                                            contract:
+                                                'POST /api/v1/orders/{order}/courier-messages',
+                                        });
+                                    }}
+                                />
+                            ) : null}
+                        </View>
+                    )}
                     {footer === undefined ? null : <View className="pt-4">{footer}</View>}
                 </View>
 
@@ -398,6 +452,115 @@ function CardTitle({ children }: { readonly children: string }) {
         >
             {children}
         </RNText>
+    );
+}
+
+/** The cancelled card's two ways on: a white pill, and the ink one. */
+function PillButton({
+    testID,
+    label,
+    ink = false,
+    hint,
+    onPress,
+}: {
+    readonly testID: string;
+    readonly label: string;
+    readonly ink?: boolean;
+    readonly hint?: string | undefined;
+    readonly onPress: () => void;
+}) {
+    return (
+        <Pressable
+            testID={testID}
+            role="button"
+            accessibilityRole="button"
+            accessibilityHint={hint}
+            onPress={onPress}
+            className={cx(
+                'h-11 flex-row items-center rounded-full px-[18px]',
+                ink
+                    ? 'bg-content-primary hover:opacity-90'
+                    : 'border border-stroke bg-surface-raised hover:bg-surface-sunken',
+            )}
+        >
+            <RNText
+                className={cx(
+                    'text-sm font-bold',
+                    ink ? 'text-surface-base' : 'text-content-primary',
+                )}
+            >
+                {label}
+            </RNText>
+        </Pressable>
+    );
+}
+
+/** What the web can copy to: the async clipboard, where the page is allowed it. */
+function webClipboard(): { writeText: (text: string) => Promise<void> } | null {
+    if (Platform.OS !== 'web') return null;
+    const nav = (
+        globalThis as { navigator?: { clipboard?: { writeText: (text: string) => Promise<void> } } }
+    ).navigator;
+    return nav?.clipboard ?? null;
+}
+
+/**
+ * The reference as a chip: its label, the number in the display face, and Copy where the page
+ * can copy (on native the number is selectable instead). The keep-it line sits under it.
+ */
+function ReferenceChip({
+    testID,
+    reference,
+}: {
+    readonly testID: string;
+    readonly reference: string;
+}) {
+    const { t } = useTranslation();
+    const toast = useToast();
+    const clipboard = webClipboard();
+    return (
+        <View className="mt-3 flex-col items-start">
+            <View
+                testID={`${testID}-reference-chip`}
+                className="flex-row items-center gap-2.5 rounded-2xl border border-stroke-subtle bg-surface-raised py-1.5 pe-1.5 ps-3.5 shadow-elevation-1"
+            >
+                <RNText className="text-xs font-semibold text-content-secondary">
+                    {t('guest:order.reference')}
+                </RNText>
+                <RNText
+                    testID={`${testID}-reference-keep`}
+                    selectable
+                    className="font-display text-base font-bold tracking-wide tabular-nums text-content-primary"
+                >
+                    {reference}
+                </RNText>
+                {clipboard === null ? null : (
+                    <Pressable
+                        testID={`${testID}-reference-copy`}
+                        role="button"
+                        accessibilityRole="button"
+                        onPress={() => {
+                            void clipboard.writeText(reference).then(() => {
+                                toast.show({
+                                    testID: `${testID}-reference-copied`,
+                                    tone: 'success',
+                                    message: t('guest:order.copied'),
+                                });
+                            });
+                        }}
+                        className="h-[34px] flex-row items-center gap-1.5 rounded-[11px] bg-surface-brand-subtle px-3 hover:opacity-90"
+                    >
+                        <Icon name="copy" size="sm" className="text-content-on-brand-subtle" />
+                        <RNText className="text-xs font-bold text-content-on-brand-subtle">
+                            {t('guest:order.copy')}
+                        </RNText>
+                    </Pressable>
+                )}
+            </View>
+            <RNText className="mt-1.5 text-sm font-medium text-content-secondary text-start">
+                {t('guest:order.keepReference')}
+            </RNText>
+        </View>
     );
 }
 
@@ -507,7 +670,7 @@ function Road({ progress, moving }: { readonly progress: number; readonly moving
                 <Icon name="store" size="md" className="text-content-on-canopy" />
             </View>
             <View className="absolute end-0 top-1.5 h-11 w-11 items-center justify-center rounded-full bg-content-on-canopy/15">
-                <Icon name="home" size="md" className="text-content-on-canopy" />
+                <Icon name="house" size="md" className="text-content-on-canopy" />
             </View>
             {/* The rider, where the fill ends. */}
             <View className="absolute end-[22px] start-[22px] top-0.5 h-[52px] flex-row">

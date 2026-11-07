@@ -103,7 +103,7 @@ final readonly class DishMargins
     /**
      * Each channel this dish is priced on, and one row if it is priced on neither.
      *
-     * @return array<string, array{price: string|null, cost: string|null, currency: string|null, margin: string|null, reason: string|null}>
+     * @return array<string, array{price: numeric-string|null, cost: numeric-string|null, currency: string|null, margin: numeric-string|null, reason: string|null}>
      */
     private function figures(string $organisationId, CatalogueItem $item): array
     {
@@ -157,7 +157,7 @@ final readonly class DishMargins
     }
 
     /**
-     * @param  array{price: string|null, cost: string|null, currency: string|null, margin: string|null, reason: string|null}  $figures
+     * @param  array{price: numeric-string|null, cost: numeric-string|null, currency: string|null, margin: numeric-string|null, reason: string|null}  $figures
      */
     private function store(CatalogueItem $item, string $channel, array $figures, ?DishMargin $previous, ?int $target, CarbonImmutable $now): void
     {
@@ -182,7 +182,7 @@ final readonly class DishMargins
             $low = $target !== null && bccomp($figures['margin'], (string) $target, 2) < 0;
 
             $fell = $low && $row->below_target_since === null
-                && $lastCost !== null && bccomp((string) $figures['cost'], (string) $lastCost, 6) > 0;
+                && $lastCost !== null && bccomp($figures['cost'] ?? '0', $lastCost, 6) > 0;
 
             $row->below_target_since = $low ? ($row->below_target_since ?? $now) : null;
         }

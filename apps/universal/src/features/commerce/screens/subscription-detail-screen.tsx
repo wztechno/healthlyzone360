@@ -1,4 +1,4 @@
-import { Button, Callout, Dialog, EmptyState, Icon, Stack, cx } from '@healthy360/design-system';
+import { Icon, Stack, cx, useBreakpoint } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import type {
     CustomerAddress,
@@ -36,6 +36,15 @@ import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
+import { ShopPhoneTopBar } from '../../../ui/shop-phone-bar.tsx';
+import { ShopStateButton, ShopStateCard } from '../../../ui/shop-state.tsx';
+import {
+    ShopDialog,
+    ShopDialogButton,
+    ShopDialogConsequence,
+    ShopDialogDateTile,
+    ShopDialogSubject,
+} from '../../../ui/shop-dialog.tsx';
 import { subscriptionDayPrice } from '../../catalogue/plan-balance.ts';
 import { TINT_FILL, TINT_INK } from '../../catalogue/shelf-tints.ts';
 import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
@@ -64,11 +73,12 @@ import type { LedgerTab } from '../subscription-board.ts';
 import {
     CancelSubscriptionDialog,
     DialogFailure,
+    InlineFailure,
+    PauseResumeDialog,
     WeekdayEditor,
     shortWeekday,
 } from '../subscription-editors.tsx';
 import { SubscriptionMeals } from '../subscription-meals.tsx';
-import { SummaryCard } from '../summary-card.tsx';
 
 /**
  * `/customer/subscriptions/{subscription}` — one subscription, as the accepted Subscription board
@@ -142,6 +152,7 @@ function stateDot(state: SubscriptionState): string {
 
 export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailScreenProps) {
     const { t } = useTranslation();
+    const phone = !useBreakpoint().atLeast('md');
     const router = useRouter();
     const here = useCurrentHref();
     const formatter = useFormatter();
@@ -314,9 +325,9 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
     };
 
     const listAction = (
-        <Button
+        <ShopStateButton
             testID="subscription-detail-list"
-            variant="quiet"
+            kind="secondary"
             label={t('commerce:subscription.backToList')}
             onPress={() => {
                 router.dismissTo(SUBSCRIPTIONS_HREF as never);
@@ -327,8 +338,9 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
     if (parsed === null) {
         return (
             <Stack space="lg" testID="subscription-detail-screen">
-                <EmptyState
+                <ShopStateCard
                     testID="subscription-detail-empty"
+                    icon="leaf"
                     title={t('commerce:subscription.notFoundTitle')}
                     body={t('commerce:subscription.notFoundBody')}
                     actions={listAction}
@@ -341,25 +353,61 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
     const live = subscription !== undefined && !readOnly;
     const canChange = subscription !== undefined && canChangeDelivery(subscription.state);
 
+    /** The pop-ups' card: the kitchen, then the next delivery (pause) or the days left (resume). */
+    const kitchenName = kitchen.data?.name;
+    const remainingDays = balanceQuery.data?.days.remaining;
+    const nextLine =
+        subscription?.nextDeliveryDate == null
+            ? undefined
+            : t('commerce:subscription.dialog.nextOn', {
+                  date: formatter.formatDate(subscription.nextDeliveryDate, {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                  }),
+              });
+    const daysLeftLine =
+        remainingDays === undefined
+            ? undefined
+            : t('commerce:subscription.dialog.daysLeft', { count: remainingDays });
+
     return (
         <View testID="subscription-detail-screen" className="flex-col pb-10">
-            <View className="items-start pt-1">
-                {/* Up to the account's Subscriptions by name — popping to it when it is
-                    underneath, never stacking a copy. */}
-                <BackPill
-                    testID="subscription-detail-crumb-subscriptions"
-                    label={t('commerce:subscription.board.back')}
-                    onPress={() => {
+            {phone ? (
+                // Shop · Subscription, phone board: "‹ Weekday Lean" as the page's own bar.
+                <ShopPhoneTopBar
+                    backTestID="subscription-detail-crumb-subscriptions"
+                    backLabel={t('commerce:subscription.board.back')}
+                    onBack={() => {
                         router.dismissTo(SUBSCRIPTIONS_HREF as never);
                     }}
+                    titleTestID="subscription-detail-bar-title"
+                    title={subscription?.planName ?? t('commerce:subscription.board.back')}
                 />
-            </View>
+            ) : (
+                <View className="items-start pt-1">
+                    {/* Up to the account's Subscriptions by name — popping to it when it is
+                    underneath, never stacking a copy. */}
+                    <BackPill
+                        testID="subscription-detail-crumb-subscriptions"
+                        label={t('commerce:subscription.board.back')}
+                        onPress={() => {
+                            router.dismissTo(SUBSCRIPTIONS_HREF as never);
+                        }}
+                    />
+                </View>
+            )}
             <QueryStates
                 query={query}
                 isEmpty={subscription === undefined}
                 emptyTitle={t('commerce:subscription.notFoundTitle')}
                 emptyBody={t('commerce:subscription.notFoundBody')}
                 emptyActions={listAction}
+                emptyIcon="leaf"
+                // Shop · Subscription, pin 13: a subscription that is not there is "could not find",
+                // not "something went wrong".
+                treatFailuresAsEmpty={['resource.not_found']}
+                skeleton="page"
                 skeletonCount={2}
                 testID="subscription-detail"
             >
@@ -526,6 +574,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                             <View className="flex-row gap-2 pt-3.5">
                                                 <CanopyButton
                                                     testID="subscription-skip"
+                                                    icon="skipForward"
                                                     label={t('commerce:subscription.board.skipDay')}
                                                     on={skipOpen}
                                                     disabled={busy || upcoming.length === 0}
@@ -535,6 +584,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                                 />
                                                 <CanopyButton
                                                     testID="subscription-pause"
+                                                    icon="pause"
                                                     label={t('commerce:subscription.pause')}
                                                     disabled={busy}
                                                     onPress={() => {
@@ -580,6 +630,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                             <View className="flex-row gap-2 pt-3.5">
                                                 <CanopyButton
                                                     testID="subscription-resume"
+                                                    icon="play"
                                                     label={t('commerce:subscription.board.resume')}
                                                     tone="go"
                                                     disabled={busy}
@@ -638,7 +689,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                     <View className="flex-col gap-2.5 sm:flex-row">
                                         <PlanTile
                                             testID="subscription-detail-row-address"
-                                            icon="home"
+                                            icon="mapPin"
                                             label={t('commerce:subscription.board.address')}
                                             change={
                                                 canChange
@@ -757,7 +808,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                                             }}
                                                         />
                                                     </View>
-                                                    <DialogFailure
+                                                    <InlineFailure
                                                         error={changeAddress.error}
                                                         testID="subscription-address-failure"
                                                     />
@@ -841,7 +892,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                                             );
                                                         })}
                                                     </View>
-                                                    <DialogFailure
+                                                    <InlineFailure
                                                         error={changeSlot.error}
                                                         testID="subscription-slot-failure"
                                                     />
@@ -913,7 +964,7 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
 
                                         <PlanTile
                                             testID="subscription-detail-row-meals"
-                                            icon="plate"
+                                            icon="utensils"
                                             label={t('commerce:subscription.board.meals')}
                                             change={{
                                                 testID: 'subscription-pick-meals',
@@ -992,6 +1043,8 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                         menu={menu}
                                         menuLoading={!kitchenMeals.isFetched || hasNextPage}
                                         canChange={live}
+                                        planName={subscription.planName}
+                                        cutoffHours={balanceQuery.data?.changeCutoffHours ?? 24}
                                         busy={busy}
                                         pending={setMealChoices.isPending}
                                         error={setMealChoices.error}
@@ -1009,18 +1062,41 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                                         }}
                                     />
                                 </View>
-                                <View className="lg:w-[380px]">
-                                    <SummaryCard
-                                        testID="subscription-detail-allergies"
-                                        title={t('commerce:subscription.rows.allergens')}
-                                    >
-                                        <PlanAllergyNotice
-                                            testID="subscription-detail-allergy-notice"
-                                            meals={chosenMeals}
-                                            checked={daysQuery.isFetched && kitchenMeals.isFetched}
-                                            returnTo={here}
-                                        />
-                                    </SummaryCard>
+                                <View
+                                    testID="subscription-detail-allergies"
+                                    className="lg:w-[360px]"
+                                >
+                                    <PlanAllergyNotice
+                                        testID="subscription-detail-allergy-notice"
+                                        meals={chosenMeals}
+                                        checked={daysQuery.isFetched && kitchenMeals.isFetched}
+                                        whenOf={(meal) => {
+                                            const dates = (daysQuery.data?.days ?? [])
+                                                .filter((day) =>
+                                                    day.meals.some(
+                                                        (each) => each.mealId === meal.id,
+                                                    ),
+                                                )
+                                                .map((day) => day.date);
+                                            const [first, ...rest] = dates;
+                                            if (first === undefined) return undefined;
+                                            const date = formatter.formatDate(
+                                                `${first}T12:00:00Z`,
+                                                {
+                                                    weekday: 'short',
+                                                    day: 'numeric',
+                                                    month: 'short',
+                                                },
+                                            );
+                                            return rest.length === 0
+                                                ? date
+                                                : t('commerce:myAllergens.pickedOnMore', {
+                                                      date,
+                                                      count: rest.length,
+                                                  });
+                                        }}
+                                        returnTo={here}
+                                    />
                                 </View>
                             </View>
                         ) : null}
@@ -1028,86 +1104,52 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                 )}
             </QueryStates>
 
-            {/* ── pause ──────────────────────────────────────────────────────────────────────── */}
-            <Dialog
-                testID="subscription-pause-dialog"
-                open={dialog === 'pause'}
-                onClose={close}
-                title={t('commerce:subscription.pauseDialogTitle')}
-                description={t('commerce:subscription.pauseDialogBody')}
-                actions={
-                    <>
-                        <Button
-                            testID="subscription-pause-cancel"
-                            variant="quiet"
-                            label={t('commerce:common.cancel')}
-                            onPress={close}
-                        />
-                        <Button
-                            testID="subscription-pause-confirm"
-                            label={t('commerce:subscription.pauseConfirm')}
-                            loading={pause.isPending}
-                            onPress={() => {
-                                if (subscription === undefined) return;
-                                pause.mutate(
-                                    { subscriptionId: subscription.id },
-                                    { onSuccess: close },
-                                );
-                            }}
-                        />
-                    </>
-                }
-            >
-                {/* No "resume on" date: the platform has no scheduled resume, and the field that
-                    used to ask for one collected a date nothing acted on. */}
-                <Stack space="sm">
-                    <Callout
-                        testID="subscription-pause-consequence"
-                        role="note"
-                        tone="warning"
-                        icon="info"
-                        title={t('commerce:subscription.pauseConsequenceTitle')}
-                        body={t('commerce:subscription.pauseConsequenceOpen')}
+            {/* ── pause and resume (Shop · Subscription, pins 8 and 9) ──────────────────────── */}
+            {subscription === undefined ? null : (
+                <>
+                    <PauseResumeDialog
+                        kind="pause"
+                        testID="subscription-pause"
+                        open={dialog === 'pause'}
+                        subject={{
+                            planName: subscription.planName,
+                            state: subscription.state,
+                            kitchenName,
+                            line: nextLine,
+                        }}
+                        pending={pause.isPending}
+                        error={pause.error}
+                        onClose={close}
+                        onConfirm={() => {
+                            pause.mutate({ subscriptionId: subscription.id }, { onSuccess: close });
+                        }}
                     />
-                    <DialogFailure error={pause.error} testID="subscription-pause-failure" />
-                </Stack>
-            </Dialog>
+                    <PauseResumeDialog
+                        kind="resume"
+                        testID="subscription-resume"
+                        open={dialog === 'resume'}
+                        subject={{
+                            planName: subscription.planName,
+                            state: subscription.state,
+                            kitchenName,
+                            line: daysLeftLine,
+                        }}
+                        pending={resume.isPending}
+                        error={resume.error}
+                        onClose={close}
+                        onConfirm={() => {
+                            resume.mutate(subscription.id, { onSuccess: close });
+                        }}
+                    />
+                </>
+            )}
 
-            {/* ── resume ─────────────────────────────────────────────────────────────────────── */}
-            <Dialog
-                testID="subscription-resume-dialog"
-                open={dialog === 'resume'}
-                onClose={close}
-                title={t('commerce:subscription.resumeDialogTitle')}
-                description={t('commerce:subscription.resumeDialogBody')}
-                actions={
-                    <>
-                        <Button
-                            testID="subscription-resume-cancel"
-                            variant="quiet"
-                            label={t('commerce:common.cancel')}
-                            onPress={close}
-                        />
-                        <Button
-                            testID="subscription-resume-confirm"
-                            label={t('commerce:subscription.resumeConfirm')}
-                            loading={resume.isPending}
-                            onPress={() => {
-                                if (subscription === undefined) return;
-                                resume.mutate(subscription.id, { onSuccess: close });
-                            }}
-                        />
-                    </>
-                }
-            >
-                <DialogFailure error={resume.error} testID="subscription-resume-failure" />
-            </Dialog>
-
-            {/* ── skip a day ─────────────────────────────────────────────────────────────────── */}
-            <Dialog
+            {/* ── skip a day (pin 10) ────────────────────────────────────────────────────────── */}
+            <ShopDialog
                 testID="subscription-skip-dialog"
                 open={dialog === 'skip'}
                 onClose={close}
+                icon="skipForward"
                 title={t('commerce:subscription.skipDialogTitle')}
                 description={
                     skipDate === null
@@ -1118,16 +1160,17 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                 }
                 actions={
                     <>
-                        <Button
+                        <ShopDialogButton
                             testID="subscription-skip-cancel"
-                            variant="quiet"
                             label={t('commerce:common.cancel')}
                             onPress={close}
                         />
-                        <Button
+                        <ShopDialogButton
                             testID="subscription-skip-confirm"
+                            kind="brand"
+                            icon="skipForward"
                             label={t('commerce:subscription.skipConfirm')}
-                            loading={skipDay.isPending}
+                            busy={skipDay.isPending}
                             onPress={() => {
                                 if (subscription === undefined || skipDate === null) return;
                                 skipDay.mutate(
@@ -1147,24 +1190,43 @@ export function SubscriptionDetailScreen({ subscriptionId }: SubscriptionDetailS
                     </>
                 }
             >
-                <Stack space="sm">
-                    <Callout
-                        testID="subscription-skip-consequence"
-                        role="note"
-                        tone="warning"
-                        icon="info"
-                        title={t('commerce:subscription.skipConsequenceTitle')}
-                        body={t('commerce:subscription.skipConsequenceBody')}
+                {skipDate === null || subscription === undefined ? null : (
+                    <ShopDialogSubject
+                        testID="subscription-skip-subject"
+                        lead={
+                            <ShopDialogDateTile
+                                weekday={formatter.formatDate(skipDate, { weekday: 'short' })}
+                                day={formatter.formatDate(skipDate, { day: 'numeric' })}
+                            />
+                        }
+                        name={formatter.formatDate(skipDate, { dateStyle: 'full' })}
+                        meta={[
+                            subscription.planName,
+                            windowLine(slots, subscription.configuration.slotCode, t),
+                            subscription.configuration.address.label.trim() === ''
+                                ? subscription.configuration.address.area
+                                : subscription.configuration.address.label,
+                        ]
+                            .filter((part) => part.trim() !== '')
+                            .join(' · ')}
                     />
-                    <DialogFailure error={skipDay.error} testID="subscription-skip-failure" />
-                </Stack>
-            </Dialog>
+                )}
+                <ShopDialogConsequence
+                    testID="subscription-skip-consequence"
+                    icon="calendar"
+                    title={t('commerce:subscription.skipConsequenceTitle')}
+                    body={t('commerce:subscription.skipConsequenceBody')}
+                />
+                <DialogFailure error={skipDay.error} testID="subscription-skip-failure" />
+            </ShopDialog>
 
-            {/* ── cancel ───────────────────────────────────────────────────────────────────── */}
+            {/* ── cancel (pins 11–12) ──────────────────────────────────────────────────────── */}
             <CancelSubscriptionDialog
                 open={dialog === 'cancel'}
                 balance={balanceQuery.data}
                 cancelled={cancel.data !== undefined}
+                kitchenName={kitchenName}
+                state={subscription?.state}
                 planName={subscription?.planName ?? ''}
                 pending={cancel.isPending}
                 error={cancel.error}
@@ -1290,6 +1352,7 @@ function BalanceLine({
 function CanopyButton({
     testID,
     label,
+    icon,
     on = false,
     tone = 'plain',
     disabled = false,
@@ -1297,6 +1360,8 @@ function CanopyButton({
 }: {
     readonly testID: string;
     readonly label: string;
+    /** The board's glyph before the label: skip a day, pause, resume. */
+    readonly icon?: 'skipForward' | 'pause' | 'play' | undefined;
     readonly on?: boolean;
     readonly tone?: 'plain' | 'go';
     readonly disabled?: boolean;
@@ -1313,7 +1378,7 @@ function CanopyButton({
             accessibilityState={{ disabled }}
             onPress={onPress}
             className={cx(
-                'h-[46px] flex-1 items-center justify-center rounded-[14px] border',
+                'h-[46px] flex-1 flex-row items-center justify-center gap-2 rounded-[14px] border',
                 tone === 'go'
                     ? 'border-surface-brand bg-surface-brand hover:opacity-90'
                     : on
@@ -1322,6 +1387,19 @@ function CanopyButton({
                 disabled ? 'opacity-50' : '',
             )}
         >
+            {icon === undefined ? null : (
+                <Icon
+                    name={icon}
+                    size="sm"
+                    className={
+                        tone === 'go'
+                            ? 'text-content-on-brand'
+                            : on
+                              ? 'text-content-primary'
+                              : 'text-content-on-canopy'
+                    }
+                />
+            )}
             <RNText
                 className={cx(
                     'text-sm font-semibold',

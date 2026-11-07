@@ -1,4 +1,4 @@
-import { Icon, cx } from '@healthy360/design-system';
+import { Icon, ShellDock, cx } from '@healthy360/design-system';
 import type { CartItem, Kitchen, MarketplaceMeal } from '@healthy360/api-client/contracts';
 import type { Money } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -45,9 +45,17 @@ export interface StorefrontOrderPanelProps {
     /** Today's same-day cut-off, `HH:mm`. */
     readonly cutOff: string | null;
     readonly clock: KitchenClock | null;
+    /** The phone board's docked "View order" bar in place of the panel. */
+    readonly phone?: boolean | undefined;
 }
 
-export function StorefrontOrderPanel({ kitchen, meals, cutOff, clock }: StorefrontOrderPanelProps) {
+export function StorefrontOrderPanel({
+    kitchen,
+    meals,
+    cutOff,
+    clock,
+    phone = false,
+}: StorefrontOrderPanelProps) {
     const viewOnly = useShopViewOnly();
     const { t } = useTranslation();
     const formatter: Formatter = useFormatter();
@@ -56,6 +64,7 @@ export function StorefrontOrderPanel({ kitchen, meals, cutOff, clock }: Storefro
     const cart = useCartQuery(me !== null && !viewOnly);
     const setQuantity = useSetCartItemQuantityMutation();
     const removeItem = useRemoveCartItemMutation();
+    const paused = kitchen.pausedUntil !== null && kitchen.pausedUntil !== undefined;
 
     const basket = cart.data;
     const lines = (basket?.items ?? []).filter((item) => item.kitchenId === kitchen.id);
@@ -69,6 +78,42 @@ export function StorefrontOrderPanel({ kitchen, meals, cutOff, clock }: Storefro
                   currency: first.lineTotal.currency,
               });
 
+    /*
+     * Shop · Kitchens, phone board: no panel beside the menu — once this kitchen's dishes are in
+     * the basket, a green bar docked to the screen's foot: how many, "View order", and the total.
+     */
+    if (phone) {
+        if (viewOnly || count === 0 || total === null) return null;
+        return (
+            <ShellDock>
+                <View className="bg-surface-base px-3 pb-3.5 pt-1">
+                    <Pressable
+                        testID="kitchen-view-order"
+                        role="link"
+                        accessibilityRole="link"
+                        onPress={() => {
+                            router.push('/customer/cart' as never);
+                        }}
+                        className="h-[60px] flex-row items-center gap-3 rounded-[20px] bg-surface-brand pe-2.5 ps-4 shadow-elevation-3"
+                    >
+                        <View className="h-7 min-w-[28px] items-center justify-center rounded-[9px] bg-content-on-brand/20 px-1">
+                            <RNText className="text-sm font-bold tabular-nums text-content-on-brand">
+                                {formatter.formatNumber(count)}
+                            </RNText>
+                        </View>
+                        <RNText className="text-base font-bold text-content-on-brand">
+                            {t('marketplace:storefront.viewOrder')}
+                        </RNText>
+                        <View className="ms-auto h-10 justify-center rounded-xl bg-content-on-brand/15 px-3">
+                            <RNText className="font-display text-base font-bold tabular-nums text-content-on-brand">
+                                {total}
+                            </RNText>
+                        </View>
+                    </Pressable>
+                </View>
+            </ShellDock>
+        );
+    }
     return (
         <View
             testID="kitchen-order-panel"
@@ -136,18 +181,45 @@ export function StorefrontOrderPanel({ kitchen, meals, cutOff, clock }: Storefro
                         </View>
                     )}
 
+                    {/* Shop · Kitchens + storefront, pin 5: the panel says why it cannot check out. */}
+                    {paused ? (
+                        <View
+                            testID="kitchen-paused"
+                            role="status"
+                            className="mt-3 flex-row items-start gap-2.5 rounded-2xl bg-warning-subtle p-3"
+                        >
+                            <Icon
+                                name="pause"
+                                size="md"
+                                className="mt-0.5 text-warning-on-subtle"
+                            />
+                            <View className="min-w-0 flex-1">
+                                <RNText className="text-sm font-bold leading-[18px] text-warning-on-subtle text-start">
+                                    {t('marketplace:storefront.pausedTitle')}
+                                </RNText>
+                                <RNText className="text-sm leading-[18px] text-warning-on-subtle text-start">
+                                    {t('marketplace:storefront.pausedBody', {
+                                        time: formatter.formatDate(kitchen.pausedUntil ?? '', {
+                                            timeStyle: 'short',
+                                        }),
+                                    })}
+                                </RNText>
+                            </View>
+                        </View>
+                    ) : null}
+
                     <Pressable
                         testID="kitchen-checkout"
                         role="button"
                         accessibilityRole="button"
-                        disabled={lines.length === 0}
-                        accessibilityState={{ disabled: lines.length === 0 }}
+                        disabled={lines.length === 0 || paused}
+                        accessibilityState={{ disabled: lines.length === 0 || paused }}
                         onPress={() => {
                             router.push('/customer/checkout' as never);
                         }}
                         className={cx(
                             'mt-3.5 h-[52px] flex-row items-center justify-between rounded-2xl px-[18px]',
-                            lines.length === 0
+                            lines.length === 0 || paused
                                 ? 'bg-surface-base'
                                 : 'bg-surface-brand hover:bg-surface-canopy',
                         )}
@@ -155,7 +227,7 @@ export function StorefrontOrderPanel({ kitchen, meals, cutOff, clock }: Storefro
                         <RNText
                             className={cx(
                                 'text-base font-bold',
-                                lines.length === 0
+                                lines.length === 0 || paused
                                     ? 'text-content-secondary'
                                     : 'text-content-on-brand',
                             )}

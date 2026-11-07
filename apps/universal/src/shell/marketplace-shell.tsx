@@ -1,12 +1,11 @@
 import {
     AppShell,
-    Button,
     Icon,
-    IconButton,
     Inline,
     OfflineIndicator,
     Text,
     ToastLookScope,
+    cx,
     useBreakpoint,
     useMotion,
     useTheme,
@@ -37,6 +36,7 @@ import {
     usePendingAdd,
 } from '../features/commerce/pending-add.ts';
 import { useBasketAdd } from '../features/commerce/use-basket-add.tsx';
+import { DeliverToMenu } from '../features/marketplace/discover/deliver-to-menu.tsx';
 import type { BasketAdd } from '../features/commerce/use-basket-add.tsx';
 import { LEGAL_PAGES } from '../features/legal/legal-pages.tsx';
 import { ShopViewOnlyProvider, isShopViewOnly } from '../features/marketplace/shop-view-only.tsx';
@@ -84,7 +84,17 @@ export interface MarketplaceShellProps {
  * press expands it in place. On native the whole idea is meaningless — there is no document to
  * skip through — so it renders nothing rather than a control that cannot act.
  */
-const SKIP_LINK_HIDDEN = { position: 'absolute', width: 1, height: 1, overflow: 'hidden' } as const;
+// The touch floor and padding the link wears when focused would otherwise keep a 32 x 44 box on
+// screen; the shop bar used to cover it, but a page that hides the bar (a phone meal page) does not.
+const SKIP_LINK_HIDDEN = {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    minHeight: 1,
+    padding: 0,
+    overflow: 'hidden',
+    opacity: 0,
+} as const;
 
 function SkipToContent() {
     const { t } = useTranslation();
@@ -295,9 +305,24 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
         [pathname, router],
     );
 
+    /*
+     * Remember the page the person was on, then send them to authenticate with it as the return.
+     * The return is what brings them back; the resume intent is the fallback for a trip that ends
+     * somewhere the return cannot follow (see `resume-intent.ts`), and it is the whole href, query
+     * included, so the filters come back with the page (AUTH-13).
+     */
+    const goToAuth = useCallback(
+        (href: '/sign-in' | '/register') => {
+            recordResumeIntent({ href: here, labelKey: 'marketplace:resume.thisPage' });
+            goToAuthWith(href);
+        },
+        [goToAuthWith, here],
+    );
+
+    const phoneBar = !useBreakpoint().atLeast('md');
     const navigation = useMemo<readonly NavigationItem[]>(
-        () =>
-            marketplaceNavigation()
+        () => [
+            ...marketplaceNavigation()
                 .filter((item) => item.secondary !== true)
                 .map((item) => ({
                     key: item.key,
@@ -311,21 +336,50 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
                         navigateTo(item.href);
                     },
                 })),
-        [navigateTo, pathname, t],
-    );
-
-    /*
-     * Remember the page the person was on, then send them to authenticate with it as the return.
-     * The return is what brings them back; the resume intent is the fallback for a trip that ends
-     * somewhere the return cannot follow (see `resume-intent.ts`), and it is the whole href, query
-     * included, so the filters come back with the page (AUTH-13).
-     */
-    const goToAuth = useCallback(
-        (href: '/sign-in' | '/register') => {
-            recordResumeIntent({ href: here, labelKey: 'marketplace:resume.thisPage' });
-            goToAuthWith(href);
-        },
-        [goToAuthWith, here],
+            // A phone's bar has no account button (the accepted phone boards), so the drawer
+            // carries it. Never from `md`, where these items are the bar's own destinations.
+            ...(phoneBar && !signedIn
+                ? [
+                      {
+                          key: 'sign-in',
+                          label: t('marketplace:nav.signIn'),
+                          icon: 'person' as const,
+                          active: false,
+                          testID: 'marketplace-nav-sign-in',
+                          onPress: () => {
+                              goToAuth('/sign-in');
+                          },
+                      },
+                      {
+                          key: 'register',
+                          label: t('marketplace:nav.register'),
+                          icon: 'userCircle' as const,
+                          active: false,
+                          testID: 'marketplace-nav-register',
+                          onPress: () => {
+                              goToAuth('/register');
+                          },
+                      },
+                  ]
+                : []),
+            ...(phoneBar && signedIn && !viewOnly
+                ? [
+                      {
+                          key: 'account',
+                          label: t('marketplace:nav.account'),
+                          icon: 'person' as const,
+                          active:
+                              pathname === '/customer/account' ||
+                              pathname.startsWith('/customer/account/'),
+                          testID: 'marketplace-nav-account',
+                          onPress: () => {
+                              navigateTo('/customer/account');
+                          },
+                      },
+                  ]
+                : []),
+        ],
+        [goToAuth, navigateTo, pathname, phoneBar, signedIn, t, viewOnly],
     );
 
     const onAccount = pathname === '/customer/account' || pathname.startsWith('/customer/account/');
@@ -350,15 +404,15 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
                 // blank frame first and sent an unconfirmed account to verification (browse-10).
                 navigateTo('/discover');
             }}
-            className="min-h-touch min-w-0 shrink flex-row items-center gap-2 pe-2 lg:shrink-0"
+            className="min-h-touch min-w-0 shrink flex-row items-center gap-2 ps-1.5 md:pe-2 md:ps-0 lg:shrink-0"
         >
             {/*
              * The accepted design's mark: a round brand disc carrying a leaf, sized to the pill
              * bar's other round controls. Fill and glyph are semantic roles, so a palette change
              * reaches it without reopening the file.
              */}
-            <View className="h-9 w-9 items-center justify-center rounded-full bg-surface-brand md:h-10 md:w-10">
-                <Icon name="leaf" className="text-content-on-brand" />
+            <View className="h-7 w-7 items-center justify-center rounded-full bg-surface-brand md:h-10 md:w-10">
+                <Icon name="leaf" size={phoneBar ? 'sm' : 'md'} className="text-content-on-brand" />
             </View>
             <RNText
                 numberOfLines={1}
@@ -398,11 +452,8 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
      * because it is the same control.
      */
     const themeButton = (
-        <IconButton
+        <HeaderRoundButton
             testID="theme-toggle"
-            size="sm"
-            variant="ghost"
-            className="rounded-full border-stroke"
             icon={<ThemeGlyph key={isDark ? 'dark' : 'light'} dark={isDark} />}
             label={themeLabel}
             onPress={toggleTheme}
@@ -410,11 +461,8 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
     );
 
     const localeButton = (
-        <IconButton
+        <HeaderRoundButton
             testID="locale-toggle"
-            size="sm"
-            variant="ghost"
-            className="rounded-full border-stroke"
             icon={
                 <RNText className="font-display text-base font-bold text-content-primary">
                     {locale.startsWith('ar') ? 'EN' : 'ع'}
@@ -428,15 +476,9 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
     // A ring and its own glyph colour, like the theme switch beside it.
     // "You are here" on the account pages, as the destinations show it with their underline.
     const accountButton = (
-        <IconButton
+        <HeaderRoundButton
             testID="marketplace-account"
-            size="sm"
-            variant="ghost"
-            className={
-                onAccount
-                    ? 'rounded-full border-stroke-strong bg-surface-sunken'
-                    : 'rounded-full border-stroke'
-            }
+            current={onAccount}
             icon={<Icon name="person" size="lg" className="text-content-primary" />}
             label={t('marketplace:nav.account')}
             {...(onAccount ? { 'aria-current': 'page' as const } : {})}
@@ -456,11 +498,8 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
         (option) => option.area !== 'customer',
     );
     const staffProfileButton = isStaff ? (
-        <IconButton
+        <HeaderRoundButton
             testID="marketplace-staff-profile"
-            size="sm"
-            variant="ghost"
-            className="rounded-full border-stroke"
             icon={<Icon name="shield" size="lg" className="text-content-primary" />}
             label={t('common:nav.profile')}
             onPress={() => {
@@ -474,6 +513,39 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
      * chip that appears only once something is added makes the button change width under the
      * pointer at the moment of the first add. The chip is the button's colours inverted.
      */
+    /*
+     * A phone's basket, as the accepted phone boards draw it: a 44px round icon with the count in a
+     * small brand badge on its corner — the ink pill would not leave room for the switches.
+     */
+    const phoneCartButton = (
+        <Pressable
+            testID="marketplace-basket"
+            role="link"
+            accessibilityRole="link"
+            accessibilityLabel={cartButtonLabel}
+            {...(onBasket ? { 'aria-current': 'page' as const } : {})}
+            aria-selected={onBasket}
+            focusable
+            onPress={() => {
+                navigateTo('/customer/cart');
+            }}
+            className={cx(
+                'relative h-11 w-11 items-center justify-center rounded-full',
+                onBasket ? 'bg-surface-sunken' : 'active:opacity-80',
+            )}
+        >
+            <Icon name="shoppingBasket" className="text-content-primary" />
+            <View
+                testID="marketplace-basket-count"
+                className="absolute end-0.5 top-1 h-[18px] min-w-[18px] items-center justify-center rounded-full bg-surface-brand px-1"
+            >
+                <RNText className="text-xs font-bold tabular-nums leading-4 text-content-on-brand">
+                    {String(cartCount)}
+                </RNText>
+            </View>
+        </Pressable>
+    );
+
     const cartButton = (
         <Pressable
             testID="marketplace-basket"
@@ -582,8 +654,8 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
     const topbarEnd = (
         <Inline space="md" justify="end" wrap={!wideBar} className="min-w-0 shrink">
             <Inline space="sm" justify="end">
-                <View className="hidden lg:flex">{localeButton}</View>
-                <View className="hidden lg:flex">{themeButton}</View>
+                <View className="flex md:hidden lg:flex">{localeButton}</View>
+                <View className="flex md:hidden lg:flex">{themeButton}</View>
                 {viewOnly ? (
                     staffControls
                 ) : signedIn ? (
@@ -591,31 +663,48 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
                         {staffProfileButton === null ? null : (
                             <View className="hidden lg:flex">{staffProfileButton}</View>
                         )}
-                        {accountButton}
-                        {cartButton}
+                        <View className="hidden md:flex">{accountButton}</View>
+                        {phoneBar ? phoneCartButton : cartButton}
                     </>
                 ) : (
                     <>
                         <View className="hidden lg:flex">
-                            <Button
+                            <Pressable
                                 testID="marketplace-register"
-                                size="sm"
-                                variant="secondary"
-                                label={t('marketplace:nav.register')}
+                                role="link"
+                                accessibilityRole="link"
                                 onPress={() => {
                                     goToAuth('/register');
                                 }}
-                            />
+                                className="h-11 flex-row items-center justify-center rounded-full border border-stroke-subtle bg-surface-raised px-[18px] transition duration-fast ease-standard hover:bg-surface-brand-subtle active:scale-95"
+                            >
+                                <RNText className="text-sm font-semibold text-content-primary">
+                                    {t('marketplace:nav.register')}
+                                </RNText>
+                            </Pressable>
                         </View>
-                        <Button
-                            testID="marketplace-sign-in"
-                            size="sm"
-                            variant="primary"
-                            label={t('marketplace:nav.signIn')}
-                            onPress={() => {
-                                goToAuth('/sign-in');
-                            }}
-                        />
+                        <View className="hidden md:flex">
+                            {/* The bar's one filled control when signed out, in the chosen tab's green
+                                and its glow, as the basket is the ink one when signed in. */}
+                            <Pressable
+                                testID="marketplace-sign-in"
+                                role="link"
+                                accessibilityRole="link"
+                                onPress={() => {
+                                    goToAuth('/sign-in');
+                                }}
+                                className="h-11 flex-row items-center justify-center gap-1.5 rounded-full bg-surface-brand pe-4 ps-[18px] shadow-elevation-brand-glow transition duration-fast ease-standard hover:bg-surface-canopy active:scale-95"
+                            >
+                                <RNText className="text-sm font-bold text-content-on-brand">
+                                    {t('marketplace:nav.signIn')}
+                                </RNText>
+                                <Icon
+                                    name="arrowForward"
+                                    size="sm"
+                                    className="text-content-on-brand"
+                                />
+                            </Pressable>
+                        </View>
                     </>
                 )}
             </Inline>
@@ -822,7 +911,8 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
                         testID={`footer-column-${column.key}`}
                         role="navigation"
                         aria-label={t(column.titleKey)}
-                        className="min-w-[140px] flex-1"
+                        // Two to a row on a phone, as the footer's phone board draws them.
+                        className="min-w-[120px] flex-1"
                     >
                         <RNText className="mb-3 mt-1 text-xs font-bold uppercase tracking-wider text-content-on-canopy-muted">
                             {t(column.titleKey)}
@@ -878,7 +968,13 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
             variant="marketplace"
             navigation={navigation}
             banner={banner}
-            topbarStart={brand}
+            topbarStart={
+                phoneBar && pathname !== '/discover' && !viewOnly ? (
+                    <DeliverToMenu testID="marketplace-header" header />
+                ) : (
+                    brand
+                )
+            }
             topbarEnd={topbarEnd}
             footer={footer}
             // The menu drawer closes when the page changes under it (CHROME-15), and each page
@@ -893,5 +989,45 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
             {/* The replayed add's own question, when the basket holds another kitchen's meals. */}
             {replayBasket.dialog}
         </AppShell>
+    );
+}
+
+/**
+ * The bar's round controls, as the accepted board draws them: a 44px white disc on a hairline, the
+ * soft brand tint under the pointer, pressing down a touch. "You are here" is the sunken fill.
+ */
+function HeaderRoundButton({
+    testID,
+    label,
+    icon,
+    current = false,
+    onPress,
+    ...rest
+}: {
+    readonly testID: string;
+    readonly label: string;
+    readonly icon: ReactNode;
+    readonly current?: boolean;
+    readonly onPress: () => void;
+    readonly 'aria-current'?: 'page';
+    readonly 'aria-selected'?: boolean;
+}) {
+    return (
+        <Pressable
+            testID={testID}
+            role="button"
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            onPress={onPress}
+            {...rest}
+            className={cx(
+                'h-11 w-11 items-center justify-center rounded-full border transition duration-fast ease-standard active:scale-95',
+                current
+                    ? 'border-stroke-strong bg-surface-sunken'
+                    : 'border-stroke-subtle bg-surface-raised hover:bg-surface-brand-subtle',
+            )}
+        >
+            {icon}
+        </Pressable>
     );
 }

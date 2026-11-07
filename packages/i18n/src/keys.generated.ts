@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10286 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10361 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -550,6 +550,21 @@ export interface NamespaceKeys {
     | 'dietary.hasAllergies.yes'
     | 'dietary.hasAllergiesLabel'
     | 'dietary.howStrict'
+    | 'dietary.howStrictTip'
+    | 'dietary.leaveOut.add'
+    | 'dietary.leaveOut.addAsWritten'
+    | 'dietary.leaveOut.added'
+    | 'dietary.leaveOut.cancel'
+    | 'dietary.leaveOut.close'
+    | 'dietary.leaveOut.confirm'
+    | 'dietary.leaveOut.kind.dislike'
+    | 'dietary.leaveOut.kind.forbidden'
+    | 'dietary.leaveOut.kindFor'
+    | 'dietary.leaveOut.noMatch'
+    | 'dietary.leaveOut.remove'
+    | 'dietary.leaveOut.searchFailed'
+    | 'dietary.leaveOut.searchLabel'
+    | 'dietary.leaveOut.searchPlaceholder'
     | 'dietary.noAllergies'
     | 'dietary.noneBody'
     | 'dietary.noteLabel'
@@ -598,6 +613,8 @@ export interface NamespaceKeys {
     | 'orders.progress'
     | 'orders.reorder'
     | 'orders.showLabel'
+    | 'orders.showing'
+    | 'orders.showingOf'
     | 'orders.title'
     | 'orders.track'
     | 'orders.view'
@@ -670,6 +687,7 @@ export interface NamespaceKeys {
     | 'profile.slotUnset'
     | 'profile.title'
     | 'profile.yourDiet'
+    | 'saveFailed'
     | 'title';
   readonly "auth":
     | 'aside.headline'
@@ -1640,6 +1658,12 @@ export interface NamespaceKeys {
     | 'facts.basisLabel'
     | 'facts.calculatedAt'
     | 'facts.caption'
+    | 'facts.compareTitle'
+    | 'facts.dataVersion'
+    | 'facts.energyFrom'
+    | 'facts.high'
+    | 'facts.lastWorkedOut'
+    | 'facts.low'
     | 'facts.method'
     | 'facts.notesTitle'
     | 'facts.nutrient'
@@ -1649,12 +1673,21 @@ export interface NamespaceKeys {
     | 'facts.prototypeFlag'
     | 'facts.recipeVersion'
     | 'facts.rounding'
+    | 'facts.shareLegend'
+    | 'facts.shareLine'
     | 'facts.soldByWeight'
     | 'facts.source'
+    | 'facts.sourceKind.ingredient_derived'
+    | 'facts.sourceKind.laboratory'
+    | 'facts.sourceKind.manufacturer'
+    | 'facts.sourceKind.professional_entry'
     | 'facts.sourceTitle'
     | 'facts.syntheticNote'
+    | 'facts.technical'
     | 'facts.title'
+    | 'facts.usualRange'
     | 'facts.version'
+    | 'facts.workedOutFrom'
     | 'filters.allMeals'
     | 'filters.anyValue'
     | 'filters.atLeast'
@@ -2157,10 +2190,12 @@ export interface NamespaceKeys {
     | 'balance.remaining'
     | 'balance.skipped'
     | 'balance.used'
+    | 'basketConflict.basketLine'
     | 'basketConflict.body'
     | 'basketConflict.keep'
     | 'basketConflict.replace'
     | 'basketConflict.title'
+    | 'basketConflict.yourBasket'
     | 'cancel.body'
     | 'cancel.confirm'
     | 'cancel.consequenceBody'
@@ -2214,6 +2249,7 @@ export interface NamespaceKeys {
     | 'cart.timesUnit'
     | 'cart.title'
     | 'cart.total'
+    | 'cart.totalWithCount'
     | 'cart.updateFailedTitle'
     | 'cart.viewMeal'
     | 'checkout.addAddress'
@@ -2225,6 +2261,7 @@ export interface NamespaceKeys {
     | 'checkout.areaLabel'
     | 'checkout.back'
     | 'checkout.basket'
+    | 'checkout.basketKept'
     | 'checkout.change'
     | 'checkout.committedSeparator'
     | 'checkout.committedSlot'
@@ -2253,6 +2290,7 @@ export interface NamespaceKeys {
     | 'checkout.noAddressTitle'
     | 'checkout.noNote'
     | 'checkout.noSlotsOffered'
+    | 'checkout.noWindowTitle'
     | 'checkout.noteLabel'
     | 'checkout.payWith'
     | 'checkout.paymentCod'
@@ -2284,11 +2322,16 @@ export interface NamespaceKeys {
     | 'checkout.tomorrowShort'
     | 'checkout.whenLabel'
     | 'choices.change'
+    | 'choices.chosenCount'
     | 'choices.confirm'
+    | 'choices.cutoffNote'
     | 'choices.empty'
+    | 'choices.locked'
     | 'choices.notChosen'
     | 'choices.repeated'
+    | 'choices.saved'
     | 'choices.sectionTitle'
+    | 'choices.stillToChoose'
     | 'choices.substituted'
     | 'choices.title'
     | 'common.cancel'
@@ -2319,6 +2362,7 @@ export interface NamespaceKeys {
     | 'configurator.delivery.addressTitle'
     | 'configurator.delivery.allergensTitle'
     | 'configurator.delivery.cutoffNote'
+    | 'configurator.delivery.cutoffShort'
     | 'configurator.delivery.deliverTo'
     | 'configurator.delivery.slotTitle'
     | 'configurator.delivery.startLabel'
@@ -2391,6 +2435,11 @@ export interface NamespaceKeys {
     | 'configurator.previewEmptyBody'
     | 'configurator.previewEmptyTitle'
     | 'configurator.progressLabel'
+    | 'configurator.receipt.discount'
+    | 'configurator.receipt.perDay'
+    | 'configurator.receipt.perDayAfter'
+    | 'configurator.receipt.percent'
+    | 'configurator.receipt.times'
     | 'configurator.review.change'
     | 'configurator.review.deliveryLine'
     | 'configurator.review.deliverySub'
@@ -2405,6 +2454,7 @@ export interface NamespaceKeys {
     | 'configurator.setupBody'
     | 'configurator.setupTitle'
     | 'configurator.startOver'
+    | 'configurator.stepOf'
     | 'configurator.steps.delivery'
     | 'configurator.steps.meals'
     | 'configurator.steps.plan'
@@ -2460,6 +2510,8 @@ export interface NamespaceKeys {
     | 'durations.4w'
     | 'myAllergens.addAnyway'
     | 'myAllergens.badge'
+    | 'myAllergens.changeMeal'
+    | 'myAllergens.checkNote'
     | 'myAllergens.checkoutBody'
     | 'myAllergens.checkoutTitle'
     | 'myAllergens.confirmTitle'
@@ -2473,13 +2525,19 @@ export interface NamespaceKeys {
     | 'myAllergens.findAnother'
     | 'myAllergens.forMe'
     | 'myAllergens.forSomeoneElse'
+    | 'myAllergens.lineTag'
+    | 'myAllergens.listTitle'
     | 'myAllergens.mealWithAllergens'
+    | 'myAllergens.onMenu'
     | 'myAllergens.option'
+    | 'myAllergens.pickedOnMore'
     | 'myAllergens.placeAnyway'
     | 'myAllergens.planBody'
     | 'myAllergens.planNone'
     | 'myAllergens.planTitle'
     | 'myAllergens.planUnchecked'
+    | 'myAllergens.savedNote'
+    | 'myAllergens.unassessedTag'
     | 'myAllergens.whoFor'
     | 'myAllergens.yourList'
     | 'myAllergens.yourListEmpty'
@@ -2554,9 +2612,12 @@ export interface NamespaceKeys {
     | 'subscription.choosePlanAgain'
     | 'subscription.crumbAccount'
     | 'subscription.crumbSubscriptions'
+    | 'subscription.dialog.daysLeft'
+    | 'subscription.dialog.nextOn'
     | 'subscription.manageTitle'
     | 'subscription.notFoundBody'
     | 'subscription.notFoundTitle'
+    | 'subscription.notSaved'
     | 'subscription.pause'
     | 'subscription.pauseConfirm'
     | 'subscription.pauseConsequenceOpen'
@@ -2661,6 +2722,7 @@ export interface NamespaceKeys {
     | 'weekdays.confirm'
     | 'weekdays.cutOffBody'
     | 'weekdays.cutOffTitle'
+    | 'weekdays.hint'
     | 'weekdays.loading'
     | 'weekdays.open'
     | 'weekdays.title';
@@ -3166,7 +3228,11 @@ export interface NamespaceKeys {
     | 'eyebrow'
     | 'order.arriving'
     | 'order.cancelledBody'
+    | 'order.cancelledStep'
+    | 'order.cancelledStepDetail'
     | 'order.cancelledTitle'
+    | 'order.copied'
+    | 'order.copy'
     | 'order.courierDetail'
     | 'order.courierName'
     | 'order.courierTitle'
@@ -3199,6 +3265,7 @@ export interface NamespaceKeys {
     | 'order.placedAt'
     | 'order.position.current'
     | 'order.position.done'
+    | 'order.position.skipped'
     | 'order.position.upcoming'
     | 'order.progressTitle'
     | 'order.reference'
@@ -3227,6 +3294,7 @@ export interface NamespaceKeys {
     | 'order.total'
     | 'order.totalToPay'
     | 'order.windowPending'
+    | 'order.yourOrder'
     | 'pay.title'
     | 'review.cashOnDelivery'
     | 'review.finePrint'
@@ -8166,6 +8234,7 @@ export interface NamespaceKeys {
     | 'discover.deliverToNamed'
     | 'discover.deliveringTo'
     | 'discover.editAddress'
+    | 'discover.headerPlace'
     | 'discover.heroBody'
     | 'discover.heroBrowseMeals'
     | 'discover.heroEyebrow'
@@ -8209,6 +8278,7 @@ export interface NamespaceKeys {
     | 'discover.railTitleUnrated'
     | 'discover.savedAddresses'
     | 'discover.searchFor'
+    | 'discover.seeAll'
     | 'discover.shopBy'
     | 'discover.slotShort'
     | 'discover.slotSummary'
@@ -8389,6 +8459,7 @@ export interface NamespaceKeys {
     | 'itemTypes.sauce'
     | 'kitchen.branchArea'
     | 'kitchen.branchesTitle'
+    | 'kitchen.browseKitchens'
     | 'kitchen.closedOn'
     | 'kitchen.deliveryZones'
     | 'kitchen.loading'
@@ -8598,6 +8669,7 @@ export interface NamespaceKeys {
     | 'storefront.facts.ratingValue'
     | 'storefront.menu.all'
     | 'storefront.menu.chip'
+    | 'storefront.menu.chipShort'
     | 'storefront.menu.count'
     | 'storefront.menu.countCutOff'
     | 'storefront.menu.emptyBody'
@@ -8632,6 +8704,7 @@ export interface NamespaceKeys {
     | 'storefront.order.start'
     | 'storefront.order.title'
     | 'storefront.pausedBody'
+    | 'storefront.pausedPill'
     | 'storefront.pausedTitle'
     | 'storefront.plans.choose'
     | 'storefront.plans.chooseLabel'
@@ -8654,6 +8727,7 @@ export interface NamespaceKeys {
     | 'storefront.safety.allergensBody'
     | 'storefront.safety.allergensTitle'
     | 'storefront.safety.dietsEyebrow'
+    | 'storefront.safety.eachEyebrow'
     | 'storefront.safety.noAllergens'
     | 'storefront.safety.noDiets'
     | 'storefront.safety.noteJoin'
@@ -8709,6 +8783,7 @@ export interface NamespaceKeys {
     | 'storefront.today.title'
     | 'storefront.today.week'
     | 'storefront.verified'
+    | 'storefront.viewOrder'
     | 'storefront.ways.delivery'
     | 'storefront.ways.pickup'
     | 'storefront.ways.plans'
@@ -10865,6 +10940,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:dietary.hasAllergies.yes',
   'account:dietary.hasAllergiesLabel',
   'account:dietary.howStrict',
+  'account:dietary.howStrictTip',
+  'account:dietary.leaveOut.add',
+  'account:dietary.leaveOut.addAsWritten',
+  'account:dietary.leaveOut.added',
+  'account:dietary.leaveOut.cancel',
+  'account:dietary.leaveOut.close',
+  'account:dietary.leaveOut.confirm',
+  'account:dietary.leaveOut.kind.dislike',
+  'account:dietary.leaveOut.kind.forbidden',
+  'account:dietary.leaveOut.kindFor',
+  'account:dietary.leaveOut.noMatch',
+  'account:dietary.leaveOut.remove',
+  'account:dietary.leaveOut.searchFailed',
+  'account:dietary.leaveOut.searchLabel',
+  'account:dietary.leaveOut.searchPlaceholder',
   'account:dietary.noAllergies',
   'account:dietary.noneBody',
   'account:dietary.noteLabel',
@@ -10913,6 +11003,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:orders.progress',
   'account:orders.reorder',
   'account:orders.showLabel',
+  'account:orders.showing',
+  'account:orders.showingOf',
   'account:orders.title',
   'account:orders.track',
   'account:orders.view',
@@ -10985,6 +11077,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'account:profile.slotUnset',
   'account:profile.title',
   'account:profile.yourDiet',
+  'account:saveFailed',
   'account:title',
   'auth:aside.headline',
   'auth:aside.points.marketplace',
@@ -11951,6 +12044,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:facts.basisLabel',
   'catalogue:facts.calculatedAt',
   'catalogue:facts.caption',
+  'catalogue:facts.compareTitle',
+  'catalogue:facts.dataVersion',
+  'catalogue:facts.energyFrom',
+  'catalogue:facts.high',
+  'catalogue:facts.lastWorkedOut',
+  'catalogue:facts.low',
   'catalogue:facts.method',
   'catalogue:facts.notesTitle',
   'catalogue:facts.nutrient',
@@ -11960,12 +12059,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'catalogue:facts.prototypeFlag',
   'catalogue:facts.recipeVersion',
   'catalogue:facts.rounding',
+  'catalogue:facts.shareLegend',
+  'catalogue:facts.shareLine',
   'catalogue:facts.soldByWeight',
   'catalogue:facts.source',
+  'catalogue:facts.sourceKind.ingredient_derived',
+  'catalogue:facts.sourceKind.laboratory',
+  'catalogue:facts.sourceKind.manufacturer',
+  'catalogue:facts.sourceKind.professional_entry',
   'catalogue:facts.sourceTitle',
   'catalogue:facts.syntheticNote',
+  'catalogue:facts.technical',
   'catalogue:facts.title',
+  'catalogue:facts.usualRange',
   'catalogue:facts.version',
+  'catalogue:facts.workedOutFrom',
   'catalogue:filters.allMeals',
   'catalogue:filters.anyValue',
   'catalogue:filters.atLeast',
@@ -12467,10 +12575,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:balance.remaining',
   'commerce:balance.skipped',
   'commerce:balance.used',
+  'commerce:basketConflict.basketLine',
   'commerce:basketConflict.body',
   'commerce:basketConflict.keep',
   'commerce:basketConflict.replace',
   'commerce:basketConflict.title',
+  'commerce:basketConflict.yourBasket',
   'commerce:cancel.body',
   'commerce:cancel.confirm',
   'commerce:cancel.consequenceBody',
@@ -12524,6 +12634,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:cart.timesUnit',
   'commerce:cart.title',
   'commerce:cart.total',
+  'commerce:cart.totalWithCount',
   'commerce:cart.updateFailedTitle',
   'commerce:cart.viewMeal',
   'commerce:checkout.addAddress',
@@ -12535,6 +12646,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:checkout.areaLabel',
   'commerce:checkout.back',
   'commerce:checkout.basket',
+  'commerce:checkout.basketKept',
   'commerce:checkout.change',
   'commerce:checkout.committedSeparator',
   'commerce:checkout.committedSlot',
@@ -12563,6 +12675,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:checkout.noAddressTitle',
   'commerce:checkout.noNote',
   'commerce:checkout.noSlotsOffered',
+  'commerce:checkout.noWindowTitle',
   'commerce:checkout.noteLabel',
   'commerce:checkout.payWith',
   'commerce:checkout.paymentCod',
@@ -12594,11 +12707,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:checkout.tomorrowShort',
   'commerce:checkout.whenLabel',
   'commerce:choices.change',
+  'commerce:choices.chosenCount',
   'commerce:choices.confirm',
+  'commerce:choices.cutoffNote',
   'commerce:choices.empty',
+  'commerce:choices.locked',
   'commerce:choices.notChosen',
   'commerce:choices.repeated',
+  'commerce:choices.saved',
   'commerce:choices.sectionTitle',
+  'commerce:choices.stillToChoose',
   'commerce:choices.substituted',
   'commerce:choices.title',
   'commerce:common.cancel',
@@ -12629,6 +12747,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.delivery.addressTitle',
   'commerce:configurator.delivery.allergensTitle',
   'commerce:configurator.delivery.cutoffNote',
+  'commerce:configurator.delivery.cutoffShort',
   'commerce:configurator.delivery.deliverTo',
   'commerce:configurator.delivery.slotTitle',
   'commerce:configurator.delivery.startLabel',
@@ -12701,6 +12820,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.previewEmptyBody',
   'commerce:configurator.previewEmptyTitle',
   'commerce:configurator.progressLabel',
+  'commerce:configurator.receipt.discount',
+  'commerce:configurator.receipt.perDay',
+  'commerce:configurator.receipt.perDayAfter',
+  'commerce:configurator.receipt.percent',
+  'commerce:configurator.receipt.times',
   'commerce:configurator.review.change',
   'commerce:configurator.review.deliveryLine',
   'commerce:configurator.review.deliverySub',
@@ -12715,6 +12839,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:configurator.setupBody',
   'commerce:configurator.setupTitle',
   'commerce:configurator.startOver',
+  'commerce:configurator.stepOf',
   'commerce:configurator.steps.delivery',
   'commerce:configurator.steps.meals',
   'commerce:configurator.steps.plan',
@@ -12770,6 +12895,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:durations.4w',
   'commerce:myAllergens.addAnyway',
   'commerce:myAllergens.badge',
+  'commerce:myAllergens.changeMeal',
+  'commerce:myAllergens.checkNote',
   'commerce:myAllergens.checkoutBody',
   'commerce:myAllergens.checkoutTitle',
   'commerce:myAllergens.confirmTitle',
@@ -12783,13 +12910,19 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:myAllergens.findAnother',
   'commerce:myAllergens.forMe',
   'commerce:myAllergens.forSomeoneElse',
+  'commerce:myAllergens.lineTag',
+  'commerce:myAllergens.listTitle',
   'commerce:myAllergens.mealWithAllergens',
+  'commerce:myAllergens.onMenu',
   'commerce:myAllergens.option',
+  'commerce:myAllergens.pickedOnMore',
   'commerce:myAllergens.placeAnyway',
   'commerce:myAllergens.planBody',
   'commerce:myAllergens.planNone',
   'commerce:myAllergens.planTitle',
   'commerce:myAllergens.planUnchecked',
+  'commerce:myAllergens.savedNote',
+  'commerce:myAllergens.unassessedTag',
   'commerce:myAllergens.whoFor',
   'commerce:myAllergens.yourList',
   'commerce:myAllergens.yourListEmpty',
@@ -12864,9 +12997,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:subscription.choosePlanAgain',
   'commerce:subscription.crumbAccount',
   'commerce:subscription.crumbSubscriptions',
+  'commerce:subscription.dialog.daysLeft',
+  'commerce:subscription.dialog.nextOn',
   'commerce:subscription.manageTitle',
   'commerce:subscription.notFoundBody',
   'commerce:subscription.notFoundTitle',
+  'commerce:subscription.notSaved',
   'commerce:subscription.pause',
   'commerce:subscription.pauseConfirm',
   'commerce:subscription.pauseConsequenceOpen',
@@ -12971,6 +13107,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:weekdays.confirm',
   'commerce:weekdays.cutOffBody',
   'commerce:weekdays.cutOffTitle',
+  'commerce:weekdays.hint',
   'commerce:weekdays.loading',
   'commerce:weekdays.open',
   'commerce:weekdays.title',
@@ -13472,7 +13609,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:eyebrow',
   'guest:order.arriving',
   'guest:order.cancelledBody',
+  'guest:order.cancelledStep',
+  'guest:order.cancelledStepDetail',
   'guest:order.cancelledTitle',
+  'guest:order.copied',
+  'guest:order.copy',
   'guest:order.courierDetail',
   'guest:order.courierName',
   'guest:order.courierTitle',
@@ -13505,6 +13646,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:order.placedAt',
   'guest:order.position.current',
   'guest:order.position.done',
+  'guest:order.position.skipped',
   'guest:order.position.upcoming',
   'guest:order.progressTitle',
   'guest:order.reference',
@@ -13533,6 +13675,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'guest:order.total',
   'guest:order.totalToPay',
   'guest:order.windowPending',
+  'guest:order.yourOrder',
   'guest:pay.title',
   'guest:review.cashOnDelivery',
   'guest:review.finePrint',
@@ -18469,6 +18612,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:discover.deliverToNamed',
   'marketplace:discover.deliveringTo',
   'marketplace:discover.editAddress',
+  'marketplace:discover.headerPlace',
   'marketplace:discover.heroBody',
   'marketplace:discover.heroBrowseMeals',
   'marketplace:discover.heroEyebrow',
@@ -18512,6 +18656,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:discover.railTitleUnrated',
   'marketplace:discover.savedAddresses',
   'marketplace:discover.searchFor',
+  'marketplace:discover.seeAll',
   'marketplace:discover.shopBy',
   'marketplace:discover.slotShort',
   'marketplace:discover.slotSummary',
@@ -18692,6 +18837,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:itemTypes.sauce',
   'marketplace:kitchen.branchArea',
   'marketplace:kitchen.branchesTitle',
+  'marketplace:kitchen.browseKitchens',
   'marketplace:kitchen.closedOn',
   'marketplace:kitchen.deliveryZones',
   'marketplace:kitchen.loading',
@@ -18901,6 +19047,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:storefront.facts.ratingValue',
   'marketplace:storefront.menu.all',
   'marketplace:storefront.menu.chip',
+  'marketplace:storefront.menu.chipShort',
   'marketplace:storefront.menu.count',
   'marketplace:storefront.menu.countCutOff',
   'marketplace:storefront.menu.emptyBody',
@@ -18935,6 +19082,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:storefront.order.start',
   'marketplace:storefront.order.title',
   'marketplace:storefront.pausedBody',
+  'marketplace:storefront.pausedPill',
   'marketplace:storefront.pausedTitle',
   'marketplace:storefront.plans.choose',
   'marketplace:storefront.plans.chooseLabel',
@@ -18957,6 +19105,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:storefront.safety.allergensBody',
   'marketplace:storefront.safety.allergensTitle',
   'marketplace:storefront.safety.dietsEyebrow',
+  'marketplace:storefront.safety.eachEyebrow',
   'marketplace:storefront.safety.noAllergens',
   'marketplace:storefront.safety.noDiets',
   'marketplace:storefront.safety.noteJoin',
@@ -19012,6 +19161,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'marketplace:storefront.today.title',
   'marketplace:storefront.today.week',
   'marketplace:storefront.verified',
+  'marketplace:storefront.viewOrder',
   'marketplace:storefront.ways.delivery',
   'marketplace:storefront.ways.pickup',
   'marketplace:storefront.ways.plans',

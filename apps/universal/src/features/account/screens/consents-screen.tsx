@@ -261,6 +261,7 @@ export function ConsentsScreen({ returnTo }: ConsentsScreenProps) {
             )}
 
             <QueryStates
+                skeleton="rows"
                 query={consents}
                 isEmpty={all.length === 0}
                 emptyTitle={t('account:consents.empty')}

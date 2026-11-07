@@ -39,6 +39,7 @@ import { consumerNavigation, marketplaceNavigation } from '../../navigation/cons
 import { forgetQueries, lastQuery, rememberQuery } from '../../navigation/last-query.ts';
 import { withReturnTo } from '../../navigation/return-to.ts';
 import { ConsumerShell } from '../../shell/consumer-shell.tsx';
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
 import {
     kitchenManagerSession,
@@ -627,45 +628,60 @@ describe('KitchenProfileScreen', () => {
     });
 
     it('says when a timed pause ends, and says nothing when there is none', async () => {
-        await renderStubScreen(<KitchenProfileScreen kitchenId={String(VERDANT.id)} />, {
-            repositories: {
-                marketplace: {
-                    getKitchen: async () => ({ ...VERDANT, pausedUntil: '2026-11-03T15:00:00Z' }),
-                    listMeals,
+        // The desk storefront: the cover's buttons and the order panel beside the menu.
+        await withDeskWidth(async () => {
+            await renderStubScreen(<KitchenProfileScreen kitchenId={String(VERDANT.id)} />, {
+                repositories: {
+                    marketplace: {
+                        getKitchen: async () => ({
+                            ...VERDANT,
+                            pausedUntil: '2026-11-03T15:00:00Z',
+                        }),
+                        listMeals,
+                    },
                 },
-            },
-        });
+            });
 
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-paused')).toBeTruthy();
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchen-paused')).toBeTruthy();
+            });
         });
     });
 
     it('opens on the cover, its facts and the order panel', async () => {
-        await renderStubScreen(<KitchenProfileScreen kitchenId={String(VERDANT.id)} />, {
-            repositories: { marketplace: { getKitchen, listMeals } },
+        // The desk storefront: the cover's buttons and the order panel beside the menu.
+        await withDeskWidth(async () => {
+            await renderStubScreen(<KitchenProfileScreen kitchenId={String(VERDANT.id)} />, {
+                repositories: { marketplace: { getKitchen, listMeals } },
+            });
+
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchen-hero-title')).toHaveTextContent(
+                    'Verdant Kitchen',
+                );
+            });
+            expect(screen.getByTestId('kitchen-hero-panel')).toBeTruthy();
+            expect(screen.getByTestId('kitchen-hero-media')).toBeTruthy();
+            expect(screen.getByTestId('kitchen-order-panel')).toBeTruthy();
+            // A visitor has no basket: the panel says how to start one, and Checkout waits.
+            expect(screen.getByTestId('kitchen-basket-empty')).toBeTruthy();
+            expect(screen.getByTestId('kitchen-checkout')).toBeDisabled();
+
+            // Today's published window (never "open now" — see `storefront-facts.ts`) and verified.
+            expect(screen.getByTestId('kitchen-hours-today')).toBeTruthy();
+            expect(screen.getByTestId('kitchen-verified')).toHaveTextContent(/Verified kitchen/);
+
+            // The facts, each bound to the contract: where it cooks, its areas, its rating.
+            expect(screen.getByTestId('kitchen-fact-where')).toBeTruthy();
+            expect(screen.getByTestId('kitchen-fact-areas')).toHaveTextContent(
+                /Delivers to \d+ area/,
+            );
+            expect(screen.getByTestId('kitchen-fact-rating')).toHaveTextContent(
+                /4\.6 · 24 ratings$/,
+            );
+            // The delivery estimate is in the order panel's terms.
+            expect(screen.getByTestId('kitchen-order-eta')).toHaveTextContent(/45 min$/);
         });
-
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-hero-title')).toHaveTextContent('Verdant Kitchen');
-        });
-        expect(screen.getByTestId('kitchen-hero-panel')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-hero-media')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-order-panel')).toBeTruthy();
-        // A visitor has no basket: the panel says how to start one, and Checkout waits.
-        expect(screen.getByTestId('kitchen-basket-empty')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-checkout')).toBeDisabled();
-
-        // Today's published window (never "open now" — see `storefront-facts.ts`) and verified.
-        expect(screen.getByTestId('kitchen-hours-today')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-verified')).toHaveTextContent(/Verified kitchen/);
-
-        // The facts, each bound to the contract: where it cooks, its areas, its rating.
-        expect(screen.getByTestId('kitchen-fact-where')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-fact-areas')).toHaveTextContent(/Delivers to \d+ area/);
-        expect(screen.getByTestId('kitchen-fact-rating')).toHaveTextContent(/4\.6 · 24 ratings$/);
-        // The delivery estimate is in the order panel's terms.
-        expect(screen.getByTestId('kitchen-order-eta')).toHaveTextContent(/45 min$/);
     });
 
     it('keeps the rating fact, reading "Not rated yet", for a kitchen with no rating', async () => {
@@ -702,34 +718,37 @@ describe('KitchenProfileScreen', () => {
     });
 
     it('keeps the Plans tab for a kitchen that sells no plans, and says it has none', async () => {
-        const counter = testKitchen({
-            ordinal: 1,
-            name: 'Verdant Kitchen',
-            slug: 'verdant-kitchen',
-            channels: salesChannels('b2c', 'marketplace', 'delivery'),
-        });
-        const listPlans = jest.fn(async (_filter?: PlanFilter) => Promise.resolve(page([])));
+        // The desk storefront: the cover's buttons and the order panel beside the menu.
+        await withDeskWidth(async () => {
+            const counter = testKitchen({
+                ordinal: 1,
+                name: 'Verdant Kitchen',
+                slug: 'verdant-kitchen',
+                channels: salesChannels('b2c', 'marketplace', 'delivery'),
+            });
+            const listPlans = jest.fn(async (_filter?: PlanFilter) => Promise.resolve(page([])));
 
-        await renderStubScreen(<KitchenProfileScreen kitchenId={String(counter.id)} />, {
-            repositories: {
-                marketplace: {
-                    getKitchen: async () => Promise.resolve(counter),
-                    listMeals,
-                    listPlans,
+            await renderStubScreen(<KitchenProfileScreen kitchenId={String(counter.id)} />, {
+                repositories: {
+                    marketplace: {
+                        getKitchen: async () => Promise.resolve(counter),
+                        listMeals,
+                        listPlans,
+                    },
                 },
-            },
+            });
+
+            await waitFor(() => screen.getByTestId('kitchen-see-plans'));
+            await fireEvent.press(screen.getByTestId('kitchen-see-plans'));
+
+            await waitFor(() => screen.getByTestId('kitchen-plans-empty'));
+            expect(screen.getByTestId('kitchen-tab-plans')).toBeSelected();
+            // A kitchen not configured for plans is not asked for any.
+            expect(listPlans).not.toHaveBeenCalled();
+
+            await fireEvent.press(screen.getByTestId('kitchen-plans-how'));
+            expect(routerMock.__push).toHaveBeenCalledWith('/plans/how-it-works');
         });
-
-        await waitFor(() => screen.getByTestId('kitchen-see-plans'));
-        await fireEvent.press(screen.getByTestId('kitchen-see-plans'));
-
-        await waitFor(() => screen.getByTestId('kitchen-plans-empty'));
-        expect(screen.getByTestId('kitchen-tab-plans')).toBeSelected();
-        // A kitchen not configured for plans is not asked for any.
-        expect(listPlans).not.toHaveBeenCalled();
-
-        await fireEvent.press(screen.getByTestId('kitchen-plans-how'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/plans/how-it-works');
     });
 
     it('lists the menu on the Menu tab, each dish linked by its title', async () => {
@@ -883,18 +902,21 @@ describe('KitchenProfileScreen', () => {
      * shows — whose kitchen crumb pushed the storefront again (browse-12).
      */
     it('opens the Plans tab from the cover', async () => {
-        routerState.params = { tab: 'reviews' };
-        await renderStubScreen(<KitchenProfileScreen kitchenId={String(VERDANT.id)} />, {
-            repositories: { marketplace: { getKitchen, listMeals } },
-        });
+        // The desk storefront: the cover's buttons and the order panel beside the menu.
+        await withDeskWidth(async () => {
+            routerState.params = { tab: 'reviews' };
+            await renderStubScreen(<KitchenProfileScreen kitchenId={String(VERDANT.id)} />, {
+                repositories: { marketplace: { getKitchen, listMeals } },
+            });
 
-        await waitFor(() => screen.getByTestId('kitchen-see-plans'));
-        await fireEvent.press(screen.getByTestId('kitchen-see-plans'));
+            await waitFor(() => screen.getByTestId('kitchen-see-plans'));
+            await fireEvent.press(screen.getByTestId('kitchen-see-plans'));
 
-        expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ tab: 'plans' });
-        expect(routerMock.__push).not.toHaveBeenCalled();
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-tab-plans')).toBeSelected();
+            expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ tab: 'plans' });
+            expect(routerMock.__push).not.toHaveBeenCalled();
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchen-tab-plans')).toBeSelected();
+            });
         });
     });
 
@@ -993,21 +1015,24 @@ describe('KitchenProfileScreen', () => {
     });
 
     it('moves to the Plans tab from the order panel', async () => {
-        await renderStubScreen(<KitchenProfileScreen kitchenId={String(VERDANT.id)} />, {
-            repositories: {
-                marketplace: {
-                    getKitchen,
-                    listMeals,
-                    listPlans: async () => Promise.resolve(page([])),
+        // The desk storefront: the cover's buttons and the order panel beside the menu.
+        await withDeskWidth(async () => {
+            await renderStubScreen(<KitchenProfileScreen kitchenId={String(VERDANT.id)} />, {
+                repositories: {
+                    marketplace: {
+                        getKitchen,
+                        listMeals,
+                        listPlans: async () => Promise.resolve(page([])),
+                    },
                 },
-            },
+            });
+
+            await waitFor(() => screen.getByTestId('kitchen-see-plans'));
+            await fireEvent.press(screen.getByTestId('kitchen-see-plans'));
+
+            await waitFor(() => screen.getByTestId('kitchen-plans-empty'));
+            expect(screen.getByTestId('kitchen-tab-plans')).toBeSelected();
         });
-
-        await waitFor(() => screen.getByTestId('kitchen-see-plans'));
-        await fireEvent.press(screen.getByTestId('kitchen-see-plans'));
-
-        await waitFor(() => screen.getByTestId('kitchen-plans-empty'));
-        expect(screen.getByTestId('kitchen-tab-plans')).toBeSelected();
     });
 
     it('tallies the allergens the whole menu declares on the safety tab', async () => {
@@ -1027,12 +1052,13 @@ describe('KitchenProfileScreen', () => {
         await fireEvent.press(screen.getByTestId('kitchen-tab-safety'));
 
         await waitFor(() => screen.getByTestId('kitchen-safety-tab'));
-        expect(screen.getByTestId('kitchen-safety-allergens')).toHaveTextContent(/^2/);
-        // The card's body names each allergen with the number of dishes declaring it.
-        const body = screen.getByTestId('kitchen-safety-allergens-body');
-        expect(body).toHaveTextContent(/Milk \(2\)/);
-        expect(body).toHaveTextContent(/gluten \(1\)/);
-        expect(screen.getByTestId('kitchen-safety-verified')).toHaveTextContent(/^Verified/);
+        // Shop · Kitchens + storefront, pin 2: the figure and what it counts; the allergen tiles
+        // below name each allergen with the number of dishes declaring it.
+        expect(screen.getByTestId('kitchen-safety-allergens')).toHaveTextContent(
+            /2\s*Allergens declared/,
+        );
+        expect(screen.getByTestId('kitchen-safety-grid')).toHaveTextContent(/2\s*Milk/);
+        expect(screen.getByTestId('kitchen-safety-verified')).toHaveTextContent(/Verified/);
         expect(screen.getAllByTestId('medical-disclaimer').length).toBeGreaterThan(0);
     });
 
@@ -1080,21 +1106,24 @@ describe('KitchenProfileScreen', () => {
     });
 
     it('states the published terms per mode, and "—" where the contract is silent', async () => {
-        await renderStubScreen(<KitchenProfileScreen kitchenId={String(VERDANT.id)} />, {
-            repositories: { marketplace: { getKitchen, listMeals } },
+        // The desk storefront: the cover's buttons and the order panel beside the menu.
+        await withDeskWidth(async () => {
+            await renderStubScreen(<KitchenProfileScreen kitchenId={String(VERDANT.id)} />, {
+                repositories: { marketplace: { getKitchen, listMeals } },
+            });
+
+            await waitFor(() => screen.getByTestId('kitchen-order-panel'));
+            expect(screen.getByTestId('kitchen-order-eta')).toHaveTextContent(/45 min$/);
+            expect(screen.getByTestId('kitchen-order-minimum')).toHaveTextContent(/50/);
+            expect(screen.getByTestId('kitchen-order-fee')).toHaveTextContent(/12/);
+            expect(screen.getByTestId('kitchen-order-cutoff')).toBeTruthy();
+
+            // Pickup: where to collect from is published; a collection lead time and charge are not.
+            await fireEvent.press(screen.getByTestId('kitchen-order-mode-pickup'));
+            expect(screen.getByTestId('kitchen-order-collect')).toHaveTextContent(/Jumeirah 1$/);
+            expect(screen.getByTestId('kitchen-order-ready')).toHaveTextContent(/—$/);
+            expect(screen.getByTestId('kitchen-order-pickup-fee')).toHaveTextContent(/—$/);
         });
-
-        await waitFor(() => screen.getByTestId('kitchen-order-panel'));
-        expect(screen.getByTestId('kitchen-order-eta')).toHaveTextContent(/45 min$/);
-        expect(screen.getByTestId('kitchen-order-minimum')).toHaveTextContent(/50/);
-        expect(screen.getByTestId('kitchen-order-fee')).toHaveTextContent(/12/);
-        expect(screen.getByTestId('kitchen-order-cutoff')).toBeTruthy();
-
-        // Pickup: where to collect from is published; a collection lead time and charge are not.
-        await fireEvent.press(screen.getByTestId('kitchen-order-mode-pickup'));
-        expect(screen.getByTestId('kitchen-order-collect')).toHaveTextContent(/Jumeirah 1$/);
-        expect(screen.getByTestId('kitchen-order-ready')).toHaveTextContent(/—$/);
-        expect(screen.getByTestId('kitchen-order-pickup-fee')).toHaveTextContent(/—$/);
     });
 
     /**
@@ -1148,14 +1177,19 @@ describe('KitchenProfileScreen', () => {
         expect(screen.getByTestId('kitchen-reviews-empty')).toHaveTextContent(/No reviews yet/);
     });
 
-    it('reports a failure rather than an empty page when the kitchen is unknown', async () => {
+    it('says a kitchen that is gone is not on the marketplace, with the way to the directory', async () => {
         await renderStubScreen(<KitchenProfileScreen kitchenId={UNKNOWN_ID} />, {
             repositories: { marketplace: { getKitchen } },
         });
 
+        // Shop · Kitchens + storefront, pin 6: not "something went wrong".
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-error')).toBeTruthy();
+            expect(screen.getByTestId('kitchen-empty')).toHaveTextContent(
+                /That kitchen is not on the marketplace/,
+            );
         });
+        expect(screen.getByTestId('kitchen-browse')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-error')).toBeNull();
     });
 
     it('shows the loading state before anything has arrived', async () => {
@@ -1163,7 +1197,7 @@ describe('KitchenProfileScreen', () => {
             repositories: { marketplace: { getKitchen } },
         });
         expect(screen.getByTestId('kitchen-loading')).toBeTruthy();
-        await waitFor(() => screen.getByTestId('kitchen-error'));
+        await waitFor(() => screen.getByTestId('kitchen-empty'));
     });
 });
 
@@ -1183,7 +1217,7 @@ describe('KitchenMenuScreen', () => {
         expect(cards).toHaveLength(3);
         // The sauce publishes none, and its card says so rather than drawing four dashes.
         expect(screen.getByTestId('meal-card-verdant-chilli-sauce-figures')).toHaveTextContent(
-            'Nutrition not published',
+            /Nutrition not published yet/,
         );
 
         /*
@@ -1224,16 +1258,15 @@ describe('KitchenMenuScreen', () => {
         /*
          * 520 kcal, 32 g protein, 54 g carbohydrate, 18 g fat — the fixture's own numbers.
          *
-         * A tile's two lines aggregate to one string, so each expectation is `figure` then `name`
-         * with nothing between them. The names are capitalised in CSS, not in the catalogue, which
-         * is why they read lower case here.
+         * The calories are a pill ("520 kcal"); each macro is its whole grams over a plain label
+         * ("32 g" over "Protein"), with nothing upper-cased.
          */
         const base = 'meal-card-verdant-harvest-bowl-nutrient';
         for (const [key, content] of [
-            ['energy', '520kcal'],
-            ['protein', '32gProtein'],
-            ['carbohydrate', '54gCarbs'],
-            ['fat', '18gFat'],
+            ['energy', /520\s*kcal/],
+            ['protein', /32 g\s*Protein/],
+            ['carbohydrate', /54 g\s*Carbs/],
+            ['fat', /18 g\s*Fat/],
         ] as const) {
             expect(screen.getByTestId(`${base}-${key}`)).toHaveTextContent(content);
         }
@@ -1764,7 +1797,6 @@ describe('ConsumerShell', () => {
         expect(routerMock.__push).toHaveBeenCalledWith('/workspace');
         expect(screen.getByTestId('marketplace-sign-out')).toBeTruthy();
         expect(screen.queryByTestId('marketplace-basket')).toBeNull();
-        expect(screen.queryByTestId('marketplace-account')).toBeNull();
     });
 
     it('gives staff a view-only shop: Workspaces and Sign out, no basket or account', async () => {
@@ -1922,11 +1954,21 @@ describe('MarketplaceShell — header destinations', () => {
     );
 
     it('takes the brand to the marketplace home, not to the launch resolver', async () => {
-        await renderStubScreen(shell, { session: CONSUMER_SESSION });
+        await withDeskWidth(async () => {
+            await renderStubScreen(shell, { session: CONSUMER_SESSION });
 
-        await fireEvent.press(screen.getByTestId('brand-mark'));
-        expect(routerMock.__router.navigate).toHaveBeenCalledWith('/discover');
-        expect(routerMock.__push).not.toHaveBeenCalledWith('/');
+            await fireEvent.press(screen.getByTestId('brand-mark'));
+            expect(routerMock.__router.navigate).toHaveBeenCalledWith('/discover');
+            expect(routerMock.__push).not.toHaveBeenCalledWith('/');
+        });
+    });
+
+    it('starts a phone bar with where it delivers, and keeps the brand for Discover', async () => {
+        // The accepted phone boards: every shop page but Discover opens on the deliver-to pill.
+        await renderStubScreen(shell, { session: CONSUMER_SESSION });
+        expect(screen.getByTestId('marketplace-header-deliver-to')).toBeTruthy();
+        expect(screen.queryByTestId('brand-mark')).toBeNull();
+        expect(screen.queryByTestId('marketplace-account')).toBeNull();
     });
 
     it('does nothing for the destination the person is already on, and says it is current', async () => {

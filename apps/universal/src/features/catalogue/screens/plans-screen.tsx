@@ -1,4 +1,4 @@
-import { Button } from '@healthy360/design-system';
+import { cx, useBreakpoint } from '@healthy360/design-system';
 import type { Subscription, SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -14,6 +14,7 @@ import { PillChip } from '../../../ui/pill-chip.tsx';
 import { useMarketplaceFilters } from '../../marketplace/filter-bar.tsx';
 import { configuratorHref } from '../../commerce/configurator-draft.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
+import { ShopStateButton } from '../../../ui/shop-state.tsx';
 import { distinctKitchenIds, toPlanFilter } from '../plan-catalogue.ts';
 import { PlanCard } from '../plan-card.tsx';
 import { PlanComparisonTray } from '../plan-comparison-tray.tsx';
@@ -69,6 +70,8 @@ function readParam(raw: string | string[] | undefined): string {
 
 export function PlansScreen() {
     const { t } = useTranslation();
+    // Shop · Weekly plans, phone board: the count beside the title, finder rows, a row of plans.
+    const phone = !useBreakpoint().atLeast('md');
     const router = useRouter();
     const params = useLocalSearchParams();
     const { me } = useSession();
@@ -176,20 +179,40 @@ export function PlansScreen() {
 
     return (
         <View testID="plans-screen" className="flex-col pb-24">
-            <View testID="plans-header" className="flex-row flex-wrap items-center gap-3.5 pt-1">
+            <View
+                testID="plans-header"
+                className={cx(
+                    'flex-row flex-wrap pt-1',
+                    phone ? 'items-end gap-2' : 'items-center gap-3.5',
+                )}
+            >
                 <RNText
                     testID="plans-header-title"
                     role="heading"
                     aria-level={1}
-                    className="font-display text-3xl font-bold tracking-display text-content-primary text-start"
+                    className={cx(
+                        'font-display font-bold tracking-display text-content-primary text-start',
+                        phone ? 'text-2xl' : 'text-3xl',
+                    )}
                 >
                     {t('marketplace:nav.weeklyPlans')}
                 </RNText>
                 {plans.data === undefined ? null : (
-                    <View className="h-[30px] justify-center rounded-full bg-surface-brand-subtle px-3">
+                    <View
+                        className={
+                            phone
+                                ? 'self-end pb-1'
+                                : 'h-[30px] justify-center rounded-full bg-surface-brand-subtle px-3'
+                        }
+                    >
                         <RNText
                             testID="plans-count"
-                            className="text-sm font-medium tabular-nums text-content-on-brand-subtle"
+                            className={cx(
+                                'text-sm tabular-nums',
+                                phone
+                                    ? 'text-content-secondary'
+                                    : 'font-medium text-content-on-brand-subtle',
+                            )}
                         >
                             {t('catalogue:plans.count', { count: items.length })}
                         </RNText>
@@ -260,20 +283,23 @@ export function PlansScreen() {
 
             <View className="mt-3.5">
                 <QueryStates
+                    skeleton="plans"
                     query={plans}
                     isEmpty={items.length === 0}
                     emptyTitle={t('catalogue:plans.emptyTitle')}
                     emptyBody={t('catalogue:plans.emptyBody')}
                     emptyActions={
                         filters.isFiltered ? (
-                            <Button
+                            <ShopStateButton
                                 testID="plans-empty-clear"
-                                variant="secondary"
+                                kind="secondary"
                                 label={t('catalogue:plans.allKitchens')}
                                 onPress={filters.clear}
                             />
                         ) : undefined
                     }
+                    // Weekly plans, pin 2.
+                    emptyIcon="calendarDays"
                     testID="plans"
                 >
                     <PlanGrid testID="plans-grid">

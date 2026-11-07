@@ -1,4 +1,11 @@
-import { Callout, Icon, TextInputField, cx, useBreakpoint } from '@healthy360/design-system';
+import {
+    Callout,
+    Icon,
+    ShellDock,
+    TextInputField,
+    cx,
+    useBreakpoint,
+} from '@healthy360/design-system';
 import type { Cart, CustomerAddress, MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -19,6 +26,7 @@ import {
 } from '../../../data/commerce-hooks.ts';
 import { usePrototypeAction } from '../../../prototype/index.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
+import { ShopPhoneTopBar } from '../../../ui/shop-phone-bar.tsx';
 import { shownItemTypes } from '../../catalogue/shown-shelves.ts';
 import { DeliverToMenu } from '../../marketplace/discover/deliver-to-menu.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
@@ -86,6 +94,8 @@ export function CartScreen() {
     const formatter = useFormatter();
     const runPrototype = usePrototypeAction();
     const { atLeast } = useBreakpoint();
+    // Shop · Basket, phone board: its own top bar, and the total with Checkout docked below.
+    const phone = !atLeast('md');
 
     const cart = useCartQuery();
     const basket: Cart | undefined = cart.data;
@@ -315,6 +325,45 @@ export function CartScreen() {
 
     /* ── the order summary ──────────────────────────────────────────────────────────────────── */
 
+    const checkoutButton = (
+        <Pressable
+            testID="cart-checkout"
+            role="button"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: checkoutOff }}
+            disabled={checkoutOff}
+            onPress={() => {
+                router.push('/customer/checkout' as never);
+            }}
+            className={cx(
+                'group flex-row items-center justify-between rounded-2xl px-5',
+                phone ? 'h-[54px] min-w-0 flex-1' : 'mt-3.5 h-14',
+                checkoutOff ? 'bg-stroke-subtle' : 'bg-surface-brand hover:bg-surface-canopy',
+            )}
+        >
+            <RNText
+                className={cx(
+                    'text-base font-bold',
+                    checkoutOff ? 'text-content-secondary' : 'text-content-on-brand',
+                )}
+            >
+                {t('commerce:cart.checkout')}
+            </RNText>
+            <View
+                className={cx(
+                    'h-9 w-9 items-center justify-center rounded-full transition duration-normal ease-standard',
+                    checkoutOff ? 'bg-surface-raised/60' : 'bg-content-on-brand/20',
+                )}
+            >
+                <Icon
+                    name="arrowForward"
+                    size="md"
+                    className={checkoutOff ? 'text-content-secondary' : 'text-content-on-brand'}
+                />
+            </View>
+        </Pressable>
+    );
+
     const summary = (
         <View
             testID="cart-summary"
@@ -345,6 +394,7 @@ export function CartScreen() {
                     query={preview}
                     isEmpty={false}
                     emptyTitle={t('commerce:cart.summaryEmpty')}
+                    skeleton="lines"
                     skeletonCount={1}
                     testID="cart-preview"
                 >
@@ -501,45 +551,7 @@ export function CartScreen() {
                  * while the price is being worked out or could not be, because checkout would only
                  * meet the same refusal; the error above it says why and offers Retry.
                  */}
-                <Pressable
-                    testID="cart-checkout"
-                    role="button"
-                    accessibilityRole="button"
-                    accessibilityState={{ disabled: checkoutOff }}
-                    disabled={checkoutOff}
-                    onPress={() => {
-                        router.push('/customer/checkout' as never);
-                    }}
-                    className={cx(
-                        'group mt-3.5 h-14 flex-row items-center justify-between rounded-2xl px-5',
-                        checkoutOff
-                            ? 'bg-stroke-subtle'
-                            : 'bg-surface-brand hover:bg-surface-canopy',
-                    )}
-                >
-                    <RNText
-                        className={cx(
-                            'text-base font-bold',
-                            checkoutOff ? 'text-content-secondary' : 'text-content-on-brand',
-                        )}
-                    >
-                        {t('commerce:cart.checkout')}
-                    </RNText>
-                    <View
-                        className={cx(
-                            'h-9 w-9 items-center justify-center rounded-full transition duration-normal ease-standard',
-                            checkoutOff ? 'bg-surface-raised/60' : 'bg-content-on-brand/20',
-                        )}
-                    >
-                        <Icon
-                            name="arrowForward"
-                            size="md"
-                            className={
-                                checkoutOff ? 'text-content-secondary' : 'text-content-on-brand'
-                            }
-                        />
-                    </View>
-                </Pressable>
+                {phone ? null : checkoutButton}
             </View>
         </View>
     );
@@ -548,40 +560,71 @@ export function CartScreen() {
 
     return (
         <View testID="cart-screen" className="flex-col pb-12">
-            <View className="flex-row flex-wrap items-center gap-3.5 pt-1">
-                <BackPill
-                    testID="cart-keep-shopping"
-                    label={t('commerce:cart.keepShopping')}
-                    onPress={goBrowse}
-                    className="me-1.5"
+            {phone ? (
+                <ShopPhoneTopBar
+                    backTestID="cart-keep-shopping"
+                    backLabel={t('commerce:cart.keepShopping')}
+                    onBack={goBrowse}
+                    titleTestID="cart-title"
+                    title={t('commerce:cart.title')}
+                    count={basket === undefined || isEmpty ? undefined : countLabel}
                 />
-                <RNText
-                    testID="cart-title"
-                    role="heading"
-                    aria-level={1}
-                    className="font-display text-4xl font-bold tracking-display text-content-primary text-start"
-                >
-                    {t('commerce:cart.title')}
-                </RNText>
-                {basket === undefined || isEmpty ? null : (
-                    <View className="h-[30px] justify-center rounded-full bg-surface-brand-subtle px-3">
-                        <RNText className="text-sm font-semibold text-content-on-brand-subtle">
-                            {countLabel}
-                        </RNText>
+            ) : (
+                <View className="flex-row flex-wrap items-center gap-3.5 pt-1">
+                    <BackPill
+                        testID="cart-keep-shopping"
+                        label={t('commerce:cart.keepShopping')}
+                        onPress={goBrowse}
+                        className="me-1.5"
+                    />
+                    <RNText
+                        testID="cart-title"
+                        role="heading"
+                        aria-level={1}
+                        className="font-display text-4xl font-bold tracking-display text-content-primary text-start"
+                    >
+                        {t('commerce:cart.title')}
+                    </RNText>
+                    {basket === undefined || isEmpty ? null : (
+                        <View className="h-[30px] justify-center rounded-full bg-surface-brand-subtle px-3">
+                            <RNText className="text-sm font-semibold text-content-on-brand-subtle">
+                                {countLabel}
+                            </RNText>
+                        </View>
+                    )}
+                </View>
+            )}
+            {phone && basket !== undefined && !isEmpty ? (
+                <ShellDock>
+                    <View className="flex-row items-center gap-3 border-t border-stroke-subtle bg-surface-raised px-4 pb-5 pt-3">
+                        <View className="flex-col">
+                            <RNText className="text-xs text-content-secondary">
+                                {t('commerce:cart.totalWithCount', { count: countLabel })}
+                            </RNText>
+                            <RNText className="font-display text-2xl font-bold tabular-nums text-content-primary">
+                                {quotation === undefined
+                                    ? '—'
+                                    : formatMoney(formatter, quotation.total)}
+                            </RNText>
+                        </View>
+                        <View className="ms-auto max-w-[210px] flex-1 flex-row">
+                            {checkoutButton}
+                        </View>
                     </View>
-                )}
-            </View>
+                </ShellDock>
+            ) : null}
             {isEmpty ? null : (
                 <View testID="cart-deliver" className="z-20 mt-3.5 items-start">
-                    <DeliverToMenu testID="cart" framed kitchenId={kitchenId} />
+                    <DeliverToMenu testID="cart" chips kitchenId={kitchenId} />
                 </View>
             )}
 
-            <View className="mt-[22px]">
+            <View className={phone ? 'mt-4' : 'mt-[22px]'}>
                 <QueryStates
                     query={cart}
                     isEmpty={false}
                     emptyTitle={t('commerce:cart.emptyTitle')}
+                    skeleton="rows"
                     skeletonCount={2}
                     testID="cart"
                 >
@@ -592,7 +635,7 @@ export function CartScreen() {
                         >
                             <View className="h-[104px] w-[104px] items-center justify-center rounded-full bg-surface-brand-subtle">
                                 <Icon
-                                    name="basket"
+                                    name="shoppingBasket"
                                     size="lg"
                                     className="text-content-on-brand-subtle"
                                 />

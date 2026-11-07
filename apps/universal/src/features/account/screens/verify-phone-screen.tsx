@@ -1,4 +1,4 @@
-import { ErrorState, Icon, Skeleton, useToast } from '@healthy360/design-system';
+import { ErrorState, Icon, useToast } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,7 @@ import {
 import { AuthBadge, AuthSubmit, AuthText, AuthTick, AuthTitle } from '../../../ui/auth-form.tsx';
 import { ExtraChip, ExtraNote } from '../account-extra.tsx';
 import { PhoneChallenge } from '../phone-challenge.tsx';
+import { Bone } from '../../../ui/shop-skeletons.tsx';
 
 /**
  * `/verify-phone` — confirming a mobile number, on its own page, drawn as the Explorations board in
@@ -144,8 +145,8 @@ export function VerifyPhoneScreen({ challengeId, returnTo }: VerifyPhoneScreenPr
 
             {contacts.isPending ? (
                 <View testID={`${TEST_ID}-contacts-loading`} className="flex-col gap-3">
-                    <Skeleton heightClassName="h-20" />
-                    <Skeleton heightClassName="h-[54px]" />
+                    <Bone heightClassName="h-20" />
+                    <Bone heightClassName="h-[54px]" />
                 </View>
             ) : readFailure !== null ? (
                 <ErrorState

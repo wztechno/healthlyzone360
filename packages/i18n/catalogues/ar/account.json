@@ -33,7 +33,19 @@
             "all": "الكل",
             "active": "النشطة",
             "delivered": "المُسلّمة"
-        }
+        },
+        "showing_zero": "لا طلبات معروضة",
+        "showing_one": "عرض طلب واحد",
+        "showing_two": "عرض طلبين",
+        "showing_few": "عرض {{count}} طلبات",
+        "showing_many": "عرض {{count}} طلبًا",
+        "showing_other": "عرض {{count}} طلب",
+        "showingOf_zero": "عرض {{shown}} من {{count}} طلب",
+        "showingOf_one": "عرض {{shown}} من طلب واحد",
+        "showingOf_two": "عرض {{shown}} من طلبين",
+        "showingOf_few": "عرض {{shown}} من {{count}} طلبات",
+        "showingOf_many": "عرض {{shown}} من {{count}} طلبًا",
+        "showingOf_other": "عرض {{shown}} من {{count}} طلب"
     },
     "checklist": {
         "cannotActivate": "ما زالت هناك خطوات مطلوبة لم تكتمل.",
@@ -304,6 +316,25 @@
             "celery": "الساق والورق والبذور والكرفس الجذري",
             "sulphites": "الخل والفواكه المجففة والمخللات",
             "lupin": "دقيق الترمس وحبوبه"
+        },
+        "howStrictTip": "الحساسية المُعلنة وحدها تستبعد الوجبة تمامًا.",
+        "leaveOut": {
+            "kind": {
+                "dislike": "لا أحبّه",
+                "forbidden": "أبدًا"
+            },
+            "kindFor": "ما مدى صرامة استبعاد {{name}}",
+            "add": "أضف طعامًا",
+            "searchLabel": "ابحث عن طعام",
+            "searchPlaceholder": "ابحث في المكوّنات",
+            "close": "أغلق البحث",
+            "added": "مُضاف",
+            "addAsWritten": "أضف «{{text}}» كما كُتب",
+            "noMatch": "لا يوجد مكوّن يطابق «{{text}}»",
+            "searchFailed": "لم يستجب البحث",
+            "remove": "أزل {{name}}",
+            "cancel": "إلغاء",
+            "confirm": "أضف"
         }
     },
     "consents": {
@@ -512,5 +543,6 @@
         "activePlan": "الخطة النشطة",
         "nextDelivery": "التوصيل التالي",
         "orders": "الطلبات"
-    }
+    },
+    "saveFailed": "لم يُحفظ هذا التغيير."
 }

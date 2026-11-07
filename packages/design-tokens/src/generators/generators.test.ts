@@ -205,7 +205,7 @@ describe('renderTailwindPreset', () => {
         expect(preset.theme.extend.fontFamily.admin).toBeUndefined();
     });
 
-    it('exposes the six ramp elevations plus the two named ones as box shadows', () => {
+    it('exposes the six ramp elevations plus the named ones as box shadows', () => {
         expect(Object.keys(preset.theme.extend.boxShadow)).toEqual([
             'elevation-0',
             'elevation-1',
@@ -215,6 +215,10 @@ describe('renderTailwindPreset', () => {
             'elevation-5',
             'elevation-card',
             'elevation-card-hover',
+            'elevation-bar',
+            'elevation-brand-glow',
+            'elevation-search',
+            'elevation-focus-ring',
         ]);
     });
 

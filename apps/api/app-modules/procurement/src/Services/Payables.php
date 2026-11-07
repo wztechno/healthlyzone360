@@ -13,6 +13,7 @@ use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use RuntimeException;
 
 /**
  * What the kitchen owes its suppliers, one delivery at a time.
@@ -65,8 +66,8 @@ final readonly class Payables
         return [
             'today' => $today,
             'totals' => $this->totals($unpaid),
-            'unpaid' => $unpaid->values()->all(),
-            'paid' => $paid->values()->all(),
+            'unpaid' => array_values($unpaid->all()),
+            'paid' => array_values($paid->all()),
         ];
     }
 
@@ -181,7 +182,8 @@ final readonly class Payables
         $total = '0';
 
         foreach ($lines as $line) {
-            $total = bcadd($total, (string) $line->line_total_amount, self::MONEY_SCALE);
+            // A line not yet priced adds nothing; bcmath refuses the empty string a null casts to.
+            $total = bcadd($total, $line->line_total_amount ?? '0', self::MONEY_SCALE);
         }
 
         return $total;
@@ -203,7 +205,7 @@ final readonly class Payables
             }
 
             $currency = (string) $row['currency_code'];
-            $totals[$currency] = bcadd($totals[$currency] ?? '0', (string) $row['amount'], self::MONEY_SCALE);
+            $totals[$currency] = bcadd($totals[$currency] ?? '0', $this->numeric((string) $row['amount']), self::MONEY_SCALE);
         }
 
         return array_map(
@@ -225,5 +227,20 @@ final readonly class Payables
             subjectId: (string) $receipt->getKey(),
             metadata: ['supplier_id' => $receipt->supplier_id],
         );
+    }
+
+    /**
+     * bcmath handed a non-numeric string fails or reads it as zero; an amount
+     * that is not a number is a fault to report, not a payable to drop.
+     *
+     * @return numeric-string
+     */
+    private function numeric(string $value): string
+    {
+        if (! is_numeric($value)) {
+            throw new RuntimeException("Payables read a non-numeric amount [{$value}].");
+        }
+
+        return $value;
     }
 }

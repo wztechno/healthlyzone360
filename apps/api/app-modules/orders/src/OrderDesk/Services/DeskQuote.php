@@ -320,7 +320,7 @@ final readonly class DeskQuote
 
         // The same exemption the save gives a line the order already holds.
         $heldItemIds = $amending instanceof Order && ! $dateMoved
-            ? $amending->lines()->pluck('catalogue_item_id')->all()
+            ? array_values($amending->lines()->pluck('catalogue_item_id')->map(static fn (mixed $id): string => (string) $id)->all())
             : [];
 
         // A counter sale is for now. Anything else with no day yet has no day

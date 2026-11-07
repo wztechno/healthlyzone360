@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Kitchens\Http\Controllers;
 
+use DateTimeInterface;
 use Healthy360\AccessControl\Enums\AccessDenialReason;
 use Healthy360\AccessControl\Exceptions\PermissionDenied;
 use Healthy360\Audit\Services\AuditRecorder;
@@ -61,10 +62,13 @@ final class KitchenServiceSettingsUpdateController
             }
         }
 
+        // Flat, as the audit contract asks: its redaction reads top-level keys only, so a
+        // nested map could carry a key past it. One `was_`/`now_` pair per changed field.
         $values = [];
 
         foreach ($changed as $field) {
-            $values[$field] = ['old' => $settings->getOriginal($field), 'new' => $settings->getAttribute($field)];
+            $values['was_'.$field] = $this->auditable($settings->getOriginal($field));
+            $values['now_'.$field] = $this->auditable($settings->getAttribute($field));
         }
 
         $settings->save();
@@ -74,9 +78,21 @@ final class KitchenServiceSettingsUpdateController
             actorUserId: $this->context->userId(),
             subjectType: 'organisation',
             subjectId: $organisationId,
-            metadata: ['changed_fields' => $changed, 'values' => $values],
+            metadata: ['changed_fields' => $changed, ...$values],
         );
 
         return ApiResponse::data($this->presenter->settings($settings));
+    }
+
+    /**
+     * A setting's value as the audit log holds it: a date as ISO 8601, anything else as it is.
+     */
+    private function auditable(mixed $value): bool|int|float|string|null
+    {
+        if ($value instanceof DateTimeInterface) {
+            return $value->format(DateTimeInterface::ATOM);
+        }
+
+        return $value === null || is_scalar($value) ? $value : json_encode($value, JSON_THROW_ON_ERROR);
     }
 }

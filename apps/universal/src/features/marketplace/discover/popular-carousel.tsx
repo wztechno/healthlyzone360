@@ -1,4 +1,4 @@
-import { Icon, IconButton, useMotion } from '@healthy360/design-system';
+import { Icon, cx, useBreakpoint, useMotion } from '@healthy360/design-system';
 import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import { findAmount } from '@healthy360/nutrition';
@@ -21,6 +21,9 @@ const CARD_GAP = 16;
 /** The track's own inline padding (`px-2`), which the scroller's width includes. */
 const TRACK_PADDING = 16;
 const AUTOPLAY_MS = 4000;
+/** A phone's card: 160 wide with a 10 gap, so the next one peeks. */
+const PHONE_CARD = 160;
+const PHONE_GAP = 10;
 /** How long the Add button wears its tick after an add. */
 const DONE_MS = 1400;
 
@@ -44,7 +47,10 @@ export function PopularCarousel({
     readonly entranceKey?: string | undefined;
 }) {
     const { t } = useTranslation();
+    const router = useRouter();
     const { enabled } = useMotion();
+    // Shop · Discover — phone: 160px cards that peek past the edge, and "See all" for the arrows.
+    const compact = !useBreakpoint().atLeast('md');
     const port = useRef<ScrollView>(null);
     const [place, setPlace] = useState({ x: 0, width: 0, content: 0 });
     const [paused, setPaused] = useState(false);
@@ -68,9 +74,12 @@ export function PopularCarousel({
     const inner = place.width - TRACK_PADDING;
     const perView =
         place.width > 0 ? Math.max(1, Math.floor((inner + CARD_GAP) / (CARD_MIN + CARD_GAP))) : 0;
-    const cardWidth =
-        perView > 0 ? Math.floor((inner - (perView - 1) * CARD_GAP) / perView) : CARD_MIN;
-    const cardStep = cardWidth + CARD_GAP;
+    const cardWidth = compact
+        ? PHONE_CARD
+        : perView > 0
+          ? Math.floor((inner - (perView - 1) * CARD_GAP) / perView)
+          : CARD_MIN;
+    const cardStep = cardWidth + (compact ? PHONE_GAP : CARD_GAP);
 
     const atStart = place.x <= 2;
     const atEnd = place.content > 0 && place.x + place.width >= place.content - 2;
@@ -80,14 +89,15 @@ export function PopularCarousel({
     }, []);
 
     useEffect(() => {
-        if (!enabled || paused || touched || meals.length === 0) return;
+        // A phone scrolls it by hand, as the board draws it: no arrows, so nothing moves on its own.
+        if (compact || !enabled || paused || touched || meals.length === 0) return;
         const timer = setInterval(() => {
             scrollTo(atEnd ? 0 : place.x + cardStep);
         }, AUTOPLAY_MS);
         return () => {
             clearInterval(timer);
         };
-    }, [atEnd, cardStep, enabled, meals.length, paused, place.x, scrollTo, touched]);
+    }, [atEnd, cardStep, compact, enabled, meals.length, paused, place.x, scrollTo, touched]);
 
     const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
         const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
@@ -105,38 +115,58 @@ export function PopularCarousel({
 
     return (
         <View testID={testID} className="mt-9 flex-col">
-            <View className="mb-5 flex-row items-center gap-3">
+            <View
+                className={cx(
+                    'flex-row items-center gap-3',
+                    compact ? 'mb-2.5 mt-1 items-baseline' : 'mb-5',
+                )}
+            >
                 <RNText
                     role="heading"
                     aria-level={2}
-                    className="me-auto font-display text-2xl font-bold tracking-display text-content-primary text-start"
+                    className={cx(
+                        'me-auto font-display font-bold tracking-display text-content-primary text-start',
+                        compact ? 'text-lg' : 'text-2xl',
+                    )}
                 >
                     {t('marketplace:discover.popularNow')}
                 </RNText>
-                <IconButton
-                    testID={`${testID}-previous`}
-                    size="sm"
-                    variant="ghost"
-                    className="rounded-full border-stroke"
-                    disabled={atStart}
-                    label={t('marketplace:discover.previous')}
-                    icon={<Icon name="chevronBackward" className="text-content-primary" />}
-                    onPress={() => {
-                        step(-1);
-                    }}
-                />
-                <IconButton
-                    testID={`${testID}-next`}
-                    size="sm"
-                    variant="ghost"
-                    className="rounded-full border-stroke"
-                    disabled={atEnd}
-                    label={t('marketplace:discover.next')}
-                    icon={<Icon name="chevronForward" className="text-content-primary" />}
-                    onPress={() => {
-                        step(1);
-                    }}
-                />
+                {compact ? (
+                    <Pressable
+                        testID={`${testID}-see-all`}
+                        role="link"
+                        accessibilityRole="link"
+                        onPress={() => {
+                            router.push('/meals');
+                        }}
+                        className="min-h-touch justify-center"
+                    >
+                        <RNText className="text-sm font-semibold text-content-on-brand-subtle">
+                            {t('marketplace:discover.seeAll')}
+                        </RNText>
+                    </Pressable>
+                ) : (
+                    <>
+                        <ArrowButton
+                            testID={`${testID}-previous`}
+                            disabled={atStart}
+                            label={t('marketplace:discover.previous')}
+                            icon="chevronBackward"
+                            onPress={() => {
+                                step(-1);
+                            }}
+                        />
+                        <ArrowButton
+                            testID={`${testID}-next`}
+                            disabled={atEnd}
+                            label={t('marketplace:discover.next')}
+                            icon="chevronForward"
+                            onPress={() => {
+                                step(1);
+                            }}
+                        />
+                    </>
+                )}
             </View>
             <View
                 onPointerEnter={() => {
@@ -162,7 +192,10 @@ export function PopularCarousel({
                         setPlace((current) => ({ ...current, content }));
                     }}
                     scrollEventThrottle={64}
-                    contentContainerClassName="items-stretch gap-4 px-2 pb-6 pt-2"
+                    contentContainerClassName={cx(
+                        'items-stretch px-2 pb-6 pt-2',
+                        compact ? 'gap-2.5' : 'gap-4',
+                    )}
                     className="-mx-2"
                 >
                     {meals.map((meal, index) => (
@@ -173,6 +206,7 @@ export function PopularCarousel({
                             style={{ width: cardWidth }}
                         >
                             <PopularCard
+                                compact={compact}
                                 testID={`${testID}-${meal.slug}`}
                                 meal={meal}
                                 onAdd={() => {
@@ -198,12 +232,14 @@ export function PopularCarousel({
  * published, the price and a round Add that turns to a tick for a moment after an add.
  */
 function PopularCard({
+    compact,
     testID,
     meal,
     onAdd,
     onFocus,
     onBlur,
 }: {
+    readonly compact: boolean;
     readonly testID: string;
     readonly meal: MarketplaceMeal;
     readonly onAdd: () => void;
@@ -268,14 +304,14 @@ function PopularCard({
                 accessibilityElementsHidden
                 importantForAccessibility="no-hide-descendants"
                 aria-hidden
-                className="h-[174px] overflow-hidden"
+                className={cx('overflow-hidden', compact ? 'h-[110px]' : 'h-[174px]')}
             >
                 <View
-                    className={
-                        hovered
-                            ? 'h-[174px] scale-105 transition duration-slow ease-standard'
-                            : 'h-[174px] transition duration-slow ease-standard'
-                    }
+                    className={cx(
+                        'transition duration-slow ease-standard',
+                        compact ? 'h-[110px]' : 'h-[174px]',
+                        hovered ? 'scale-105' : null,
+                    )}
                 >
                     <EntityImage
                         assetId={meal.imagePlaceholderId}
@@ -284,12 +320,12 @@ function PopularCard({
                         label={t('marketplace:menu.imageLabel', { meal: meal.name })}
                         decorative
                         flush
-                        className="h-[174px]"
+                        className={compact ? 'h-[110px]' : 'h-[174px]'}
                     />
                 </View>
             </Pressable>
             {/* The body grows, so the price and Add sit on the card's bottom edge in every card. */}
-            <View className="flex-1 flex-col px-4 pb-4 pt-3">
+            <View className={cx('flex-1 flex-col', compact ? 'px-3 py-2.5' : 'px-4 pb-4 pt-3')}>
                 <Pressable
                     testID={`${testID}-open`}
                     role="link"
@@ -300,19 +336,35 @@ function PopularCard({
                     onBlur={onBlur}
                 >
                     <RNText
-                        numberOfLines={1}
-                        className="text-base font-semibold leading-snug text-content-primary text-start"
+                        numberOfLines={compact ? 2 : 1}
+                        className={cx(
+                            'font-semibold leading-snug text-content-primary text-start',
+                            compact ? 'h-9 text-sm' : 'text-base',
+                        )}
                     >
                         {meal.name}
                     </RNText>
                 </Pressable>
-                <RNText
-                    numberOfLines={1}
-                    className="mt-0.5 text-xs text-content-secondary text-start"
-                >
-                    {meal.kitchenName}
-                </RNText>
-                {figures.length === 0 ? null : (
+                {/* A phone's card is the board's smaller one: the name, then the figures as one
+                    quiet line — no kitchen line, no pills. */}
+                {compact ? (
+                    figures.length === 0 ? null : (
+                        <RNText
+                            numberOfLines={1}
+                            className="mt-1 text-xs tabular-nums text-content-secondary text-start"
+                        >
+                            {figures.join(t('guest:order.separator'))}
+                        </RNText>
+                    )
+                ) : (
+                    <RNText
+                        numberOfLines={1}
+                        className="mt-0.5 text-xs text-content-secondary text-start"
+                    >
+                        {meal.kitchenName}
+                    </RNText>
+                )}
+                {compact || figures.length === 0 ? null : (
                     <View className="mt-2.5 flex-row gap-1.5">
                         {figures.map((figure) => (
                             <RNText
@@ -325,10 +377,18 @@ function PopularCard({
                     </View>
                 )}
                 <YourAllergens allergens={meal.allergens} testID={`${testID}-your-allergens`} />
-                <View className="mt-auto flex-row items-center justify-between pt-3">
+                <View
+                    className={cx(
+                        'mt-auto flex-row items-center justify-between',
+                        compact ? 'pt-1.5' : 'pt-3',
+                    )}
+                >
                     <RNText
                         testID={`${testID}-price`}
-                        className="font-display text-lg font-bold tabular-nums text-content-primary"
+                        className={cx(
+                            'font-display font-bold tabular-nums text-content-primary',
+                            compact ? 'text-base' : 'text-lg',
+                        )}
                     >
                         {formatMoney(formatter, meal.price)}
                     </RNText>
@@ -348,20 +408,71 @@ function PopularCard({
                             }}
                             onFocus={onFocus}
                             onBlur={onBlur}
-                            className={
-                                done
-                                    ? 'h-11 w-11 items-center justify-center rounded-full bg-content-primary'
-                                    : 'h-11 w-11 items-center justify-center rounded-full bg-surface-brand transition duration-fast ease-standard active:scale-90'
-                            }
+                            className={cx(
+                                'h-11 w-11 items-center justify-center rounded-full',
+                                compact ? '-me-1.5' : null,
+                                compact
+                                    ? null
+                                    : done
+                                      ? 'bg-content-primary'
+                                      : 'bg-surface-brand transition duration-fast ease-standard active:scale-90',
+                            )}
                         >
-                            <Icon
-                                name={done ? 'check' : 'plus'}
-                                className={done ? 'text-surface-base' : 'text-content-on-brand'}
-                            />
+                            {/* A phone keeps the 44px target round a 34px disc. */}
+                            <View
+                                className={cx(
+                                    'items-center justify-center rounded-full',
+                                    compact ? 'h-[34px] w-[34px]' : null,
+                                    compact
+                                        ? done
+                                            ? 'bg-content-primary'
+                                            : 'bg-surface-brand'
+                                        : null,
+                                )}
+                            >
+                                <Icon
+                                    name={done ? 'check' : 'plus'}
+                                    size={compact ? 'sm' : 'md'}
+                                    className={done ? 'text-surface-base' : 'text-content-on-brand'}
+                                />
+                            </View>
                         </Pressable>
                     )}
                 </View>
             </View>
         </View>
+    );
+}
+
+/** The board's 44px round arrow: a hairline, the card's white, the soft tint on hover. */
+function ArrowButton({
+    testID,
+    disabled,
+    label,
+    icon,
+    onPress,
+}: {
+    readonly testID: string;
+    readonly disabled: boolean;
+    readonly label: string;
+    readonly icon: 'chevronBackward' | 'chevronForward';
+    readonly onPress: () => void;
+}) {
+    return (
+        <Pressable
+            testID={testID}
+            role="button"
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            disabled={disabled}
+            accessibilityState={{ disabled }}
+            onPress={onPress}
+            className={cx(
+                'h-11 w-11 items-center justify-center rounded-full border border-stroke bg-surface-raised',
+                disabled ? 'opacity-40' : 'hover:bg-surface-brand-subtle',
+            )}
+        >
+            <Icon name={icon} size="md" className="text-content-primary" />
+        </Pressable>
     );
 }

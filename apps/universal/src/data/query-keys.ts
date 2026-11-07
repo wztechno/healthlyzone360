@@ -781,6 +781,8 @@ export const queryKeys = {
         addresses: () => ['account', 'addresses'] as const,
         address: (addressId: string) => ['account', 'address', addressId] as const,
         dietaryProfile: () => ['account', 'dietary-profile'] as const,
+        /** "Add a food": ingredients matching what the person typed. */
+        dietaryIngredients: (query: string) => ['account', 'dietary-ingredients', query] as const,
         consents: () => ['account', 'consents'] as const,
         /**
          * The closed list of areas an address may point at.

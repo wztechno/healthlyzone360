@@ -179,6 +179,25 @@ const GRID_24_DRAWINGS: Partial<Record<IconName, ReactElement>> = {
             <path d="M4.929 4.929 19.07 19.071" />
         </>
     ),
+    thumbsDown: (
+        <>
+            <path d="M17 14V2" />
+            <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z" />
+        </>
+    ),
+    cornerDownLeft: (
+        <>
+            <path d="M20 4v7a4 4 0 0 1-4 4H4" />
+            <path d="m9 10-5 5 5 5" />
+        </>
+    ),
+    typeText: (
+        <>
+            <path d="M12 4v16" />
+            <path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2" />
+            <path d="M9 20h6" />
+        </>
+    ),
     infoCircle: (
         <>
             <circle cx="12" cy="12" r="10" />
@@ -761,6 +780,56 @@ const GRID_24_DRAWINGS: Partial<Record<IconName, ReactElement>> = {
         <>
             <path d="M5 12h14" />
             <path d="m12 5 7 7-7 7" />
+        </>
+    ),
+    // The shop pop-ups' head tiles: pause, resume, skip a delivery, remove. Lucide.
+    pause: (
+        <>
+            <rect x="14" y="3" width="5" height="18" rx="1" />
+            <rect x="5" y="3" width="5" height="18" rx="1" />
+        </>
+    ),
+    play: (
+        <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
+    ),
+    skipForward: (
+        <>
+            <path d="M21 4v16" />
+            <path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z" />
+        </>
+    ),
+    // The menu card's calories pill. Lucide's `flame`.
+    flame: (
+        <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+    ),
+    // The shop's state cards: a list that failed to load, and its Try again. Lucide.
+    cloudAlert: (
+        <>
+            <path d="M12 12v4" />
+            <path d="M12 20h.01" />
+            <path d="M17 18h.5a1 1 0 0 0 0-9h-1.79A7 7 0 1 0 7 17.708" />
+        </>
+    ),
+    // The guest order page's reference chip. Lucide.
+    copy: (
+        <>
+            <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+            <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+        </>
+    ),
+    rotateCw: (
+        <>
+            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+            <path d="M21 3v5h-5" />
+        </>
+    ),
+    trash: (
+        <>
+            <path d="M10 11v6" />
+            <path d="M14 11v6" />
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+            <path d="M3 6h18" />
+            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
         </>
     ),
 };

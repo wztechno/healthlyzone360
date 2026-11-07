@@ -1,11 +1,7 @@
 import {
-    Button,
-    Callout,
-    Dialog,
     FAILURE_MESSAGE_KEYS,
     Icon,
-    Inline,
-    Text,
+    ShellDock,
     cx,
     useBreakpoint,
 } from '@healthy360/design-system';
@@ -41,6 +37,9 @@ import { usePreviousEntry } from '../../../navigation/use-return-to.ts';
 import { usePrototypeAction } from '../../../prototype/index.ts';
 import { EntityImage } from '../../../media/entity-image.tsx';
 import { BackPill } from '../../../ui/back-pill.tsx';
+import { ShopPhoneTopBar } from '../../../ui/shop-phone-bar.tsx';
+import { ShopStateButton } from '../../../ui/shop-state.tsx';
+import { ShopDialog, ShopDialogButton, ShopDialogSubject } from '../../../ui/shop-dialog.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { AccountSetupPanel, stepForRequirement } from '../../account/account-setup-steps.tsx';
 import type { AccountSetupStep } from '../../account/account-setup-steps.tsx';
@@ -211,6 +210,16 @@ export function CheckoutScreen() {
         ];
     });
     const clashingList = clashingMeals.join(t('marketplace:common.listSeparator'));
+    /** Basket + checkout, pin 4: the tag under a line whose dish crosses the allergy list. */
+    const clashTag = (mealId: MealId): string | undefined => {
+        const conflict = allergenConflicts.find((candidate) => candidate.mealId === mealId);
+        if (conflict === undefined) return undefined;
+        return conflict.allergenCodes.length === 0
+            ? t('commerce:myAllergens.unassessedTag')
+            : t('commerce:myAllergens.lineTag', {
+                  allergens: allergenNames(conflict.allergenCodes),
+              });
+    };
     const [allergenConfirmOpen, setAllergenConfirmOpen] = useState(false);
 
     /*
@@ -370,6 +379,7 @@ export function CheckoutScreen() {
                 <CheckoutTop current={2} />
                 <View className="mt-[22px]">
                     <QueryStates
+                        skeleton="rows"
                         query={placedOrder}
                         isEmpty={false}
                         treatFailuresAsEmpty={['resource.not_found']}
@@ -501,7 +511,7 @@ export function CheckoutScreen() {
             >
                 <ChoiceTile
                     testID="checkout-mode-delivery"
-                    icon="home"
+                    icon="truck"
                     title={t('commerce:checkout.modeDelivery')}
                     sub={
                         quotation?.deliveryFee === null || quotation === undefined
@@ -514,7 +524,7 @@ export function CheckoutScreen() {
                 />
                 <ChoiceTile
                     testID="checkout-mode-pickup"
-                    icon="basket"
+                    icon="store"
                     title={t('commerce:checkout.modePickup')}
                     sub={
                         kitchenOffersPickup
@@ -534,66 +544,87 @@ export function CheckoutScreen() {
             <View testID="checkout-address">
                 <QueryStates
                     query={addresses}
-                    isEmpty={addressList.length === 0}
+                    isEmpty={false}
                     emptyTitle={t('commerce:checkout.noAddressTitle')}
-                    emptyBody={t('commerce:checkout.noAddressBody')}
-                    emptyActions={
-                        <Button
-                            testID="checkout-add-address"
-                            label={t('commerce:checkout.addAddressAction')}
-                            onPress={() => {
-                                openDetour('/customer/account/addresses/new');
-                            }}
-                        />
-                    }
+                    skeleton="rows"
                     skeletonCount={1}
                     testID="checkout-addresses"
                 >
-                    <View
-                        testID="checkout-address-picker"
-                        role="radiogroup"
-                        aria-label={t('commerce:checkout.addressTitle')}
-                        className="flex-row flex-wrap gap-2.5"
-                    >
-                        {addressList.map((entry) => (
-                            <ChoiceTile
-                                key={entry.id}
-                                testID={`checkout-address-${entry.id}`}
-                                icon="home"
-                                title={entry.label.trim() === '' ? entry.areaName : entry.label}
-                                badge={
-                                    entry.isDefault
-                                        ? t('commerce:checkout.defaultAddress')
-                                        : undefined
-                                }
-                                sub={[
-                                    entry.areaName,
-                                    streetOf(entry, t('commerce:common.listSeparator')),
-                                ]
-                                    .filter((part) => part.trim() !== '')
-                                    .join(' · ')}
-                                chosen={entry.id === addressId}
-                                invalid={showErrors && addressId === null}
-                                onPress={() => {
-                                    router.setParams({ address: entry.id } as never);
-                                }}
-                            />
-                        ))}
-                        <Pressable
-                            testID="checkout-manage-addresses"
-                            role="button"
-                            accessibilityRole="button"
-                            onPress={() => {
-                                openDetour('/customer/account/addresses/new');
-                            }}
-                            className="min-h-16 min-w-[220px] flex-1 flex-row items-center justify-center gap-2 rounded-[18px] border-[1.5px] border-dashed border-stroke hover:border-surface-brand hover:bg-surface-brand-subtle"
+                    {/* Basket + checkout, pin 2: one dashed tile with its action. */}
+                    {addressList.length === 0 ? (
+                        <DashedTile
+                            testID="checkout-addresses-empty"
+                            icon="mapPin"
+                            title={t('commerce:checkout.noAddressTitle')}
+                            body={t('commerce:checkout.noAddressBody')}
+                            action={
+                                <Pressable
+                                    testID="checkout-add-address"
+                                    role="button"
+                                    accessibilityRole="button"
+                                    onPress={() => {
+                                        openDetour('/customer/account/addresses/new');
+                                    }}
+                                    className="h-11 flex-row items-center gap-1.5 rounded-full bg-surface-brand px-[18px] hover:opacity-90"
+                                >
+                                    <Icon name="plus" size="sm" className="text-content-on-brand" />
+                                    <RNText className="text-sm font-bold text-content-on-brand">
+                                        {t('commerce:checkout.addAddressAction')}
+                                    </RNText>
+                                </Pressable>
+                            }
+                        />
+                    ) : (
+                        <View
+                            testID="checkout-address-picker"
+                            role="radiogroup"
+                            aria-label={t('commerce:checkout.addressTitle')}
+                            className="flex-row flex-wrap gap-2.5"
                         >
-                            <Icon name="plus" size="sm" className="text-content-on-brand-subtle" />
-                            <RNText className="text-sm font-semibold text-content-on-brand-subtle">
-                                {t('commerce:checkout.addAddressShort')}
-                            </RNText>
-                        </Pressable>
-                    </View>
+                            {addressList.map((entry) => (
+                                <ChoiceTile
+                                    key={entry.id}
+                                    testID={`checkout-address-${entry.id}`}
+                                    icon="mapPin"
+                                    title={entry.label.trim() === '' ? entry.areaName : entry.label}
+                                    badge={
+                                        entry.isDefault
+                                            ? t('commerce:checkout.defaultAddress')
+                                            : undefined
+                                    }
+                                    sub={[
+                                        entry.areaName,
+                                        streetOf(entry, t('commerce:common.listSeparator')),
+                                    ]
+                                        .filter((part) => part.trim() !== '')
+                                        .join(' · ')}
+                                    chosen={entry.id === addressId}
+                                    invalid={showErrors && addressId === null}
+                                    onPress={() => {
+                                        router.setParams({ address: entry.id } as never);
+                                    }}
+                                />
+                            ))}
+                            <Pressable
+                                testID="checkout-manage-addresses"
+                                role="button"
+                                accessibilityRole="button"
+                                onPress={() => {
+                                    openDetour('/customer/account/addresses/new');
+                                }}
+                                className="min-h-16 min-w-[220px] flex-1 flex-row items-center justify-center gap-2 rounded-[18px] border-[1.5px] border-dashed border-stroke hover:border-surface-brand hover:bg-surface-brand-subtle"
+                            >
+                                <Icon
+                                    name="plus"
+                                    size="sm"
+                                    className="text-content-on-brand-subtle"
+                                />
+                                <RNText className="text-sm font-semibold text-content-on-brand-subtle">
+                                    {t('commerce:checkout.addAddressShort')}
+                                </RNText>
+                            </Pressable>
+                        </View>
+                    )}
                 </QueryStates>
             </View>
 
@@ -651,13 +682,28 @@ export function CheckoutScreen() {
 
             <PanelLabel>{t('commerce:checkout.slotTitle')}</PanelLabel>
             <View testID="checkout-slot">
-                {slotCode === null ? (
-                    <Callout
+                {addressId === null ? (
+                    // No address yet: the windows wait for one, drawn as faded empty places.
+                    <View
+                        testID="checkout-slot-waiting"
+                        aria-hidden
+                        className="flex-row gap-2 opacity-45"
+                    >
+                        {[0, 1, 2, 3].map((index) => (
+                            <View
+                                key={index}
+                                className="h-[60px] flex-1 rounded-2xl border-[1.5px] border-dashed border-stroke"
+                            />
+                        ))}
+                    </View>
+                ) : slotCode === null ? (
+                    // Basket + checkout, pin 3: what is wrong and what to do, in the windows' place.
+                    <DashedTile
                         testID="checkout-slot-none"
-                        role="alert"
                         tone="warning"
-                        icon="warning"
-                        title={t('commerce:checkout.slotTitle')}
+                        role="alert"
+                        icon="clock"
+                        title={t('commerce:checkout.noWindowTitle')}
                         body={t('commerce:checkout.noSlotsOffered')}
                     />
                 ) : (
@@ -760,11 +806,7 @@ export function CheckoutScreen() {
                         className="flex-row items-center gap-3.5 rounded-[18px] border-[1.5px] border-surface-brand bg-surface-brand-subtle p-4"
                     >
                         <View className="h-11 w-11 items-center justify-center rounded-[14px] bg-surface-raised">
-                            <Icon
-                                name="basket"
-                                size="md"
-                                className="text-content-on-brand-subtle"
-                            />
+                            <Icon name="store" size="md" className="text-content-on-brand-subtle" />
                         </View>
                         <View className="min-w-0 flex-1">
                             <RNText className="text-base font-bold text-content-on-brand-subtle text-start">
@@ -800,77 +842,91 @@ export function CheckoutScreen() {
                 {placeFailure === null ||
                 (setupSteps.length > 0 && orderReasons.length === 0) ? null : (
                     <View className="mt-5">
-                        <Callout
+                        {/* Basket + checkout, pin 6: the title, each reason as a line, its one action. */}
+                        <View
                             testID="checkout-place-error"
                             role="alert"
-                            tone="danger"
-                            icon="warning"
-                            title={t('commerce:checkout.placeFailedTitle')}
-                            body={t(
-                                FAILURE_MESSAGE_KEYS[placeFailure.code],
-                                // The server's own sentence only when this build has no copy for the
-                                // code — never in preference to it.
-                                { defaultValue: placeFailure.message },
-                            )}
-                            actions={
-                                accountInactive ? (
-                                    <Button
+                            className="overflow-hidden rounded-[18px] border border-danger-border bg-danger-subtle"
+                        >
+                            <View className="flex-row items-center gap-2.5 px-4 pb-1.5 pt-3.5">
+                                <View className="h-8 w-8 items-center justify-center rounded-[10px] bg-danger-strong">
+                                    <Icon
+                                        name="close"
+                                        size="sm"
+                                        className="text-danger-on-strong"
+                                    />
+                                </View>
+                                <RNText className="shrink text-base font-bold text-danger-on-subtle text-start">
+                                    {t('commerce:checkout.placeFailedTitle')}
+                                </RNText>
+                            </View>
+                            <View className="flex-col gap-1.5 pb-3 pe-4 ps-[58px] pt-1">
+                                {orderReasons.length === 0 ? (
+                                    <RNText className="text-sm leading-[18px] text-danger-on-subtle text-start">
+                                        {t(
+                                            FAILURE_MESSAGE_KEYS[placeFailure.code],
+                                            // The server's own sentence only when this build has no
+                                            // copy for the code — never in preference to it.
+                                            { defaultValue: placeFailure.message },
+                                        )}
+                                    </RNText>
+                                ) : (
+                                    <View
+                                        className="flex-col gap-1.5"
+                                        testID="checkout-place-error-reasons"
+                                    >
+                                        {orderReasons.map((entry) => (
+                                            <RNText
+                                                key={entry.reason}
+                                                testID={`checkout-place-error-reason-${entry.reason}`}
+                                                className="text-sm leading-[18px] text-danger-on-subtle text-start"
+                                            >
+                                                {t(`errors:orderRefusal.${entry.reason}`, {
+                                                    defaultValue: entry.reason,
+                                                })}
+                                            </RNText>
+                                        ))}
+                                    </View>
+                                )}
+                            </View>
+                            <View className="flex-row flex-wrap items-center gap-2.5 border-t border-danger-border bg-surface-raised px-4 py-2.5">
+                                {accountInactive ? (
+                                    <Pressable
                                         testID="checkout-finish-setup"
-                                        label={t('commerce:checkout.finishSetup')}
+                                        role="button"
+                                        accessibilityRole="button"
                                         onPress={() => {
                                             openDetour('/customer/account');
                                         }}
-                                    />
-                                ) : undefined
-                            }
-                        >
-                            {orderReasons.length === 0 ? null : (
-                                <View
-                                    className="flex-col gap-1"
-                                    testID="checkout-place-error-reasons"
-                                >
-                                    {orderReasons.map((entry) => (
-                                        <Text
-                                            key={entry.reason}
-                                            variant="caption"
-                                            testID={`checkout-place-error-reason-${entry.reason}`}
-                                        >
-                                            {`• ${t(`errors:orderRefusal.${entry.reason}`, {
-                                                defaultValue: entry.reason,
-                                            })}`}
-                                        </Text>
-                                    ))}
-                                </View>
-                            )}
-                        </Callout>
+                                        className="h-[38px] flex-row items-center gap-1.5 rounded-full bg-surface-inverse px-3.5 hover:opacity-90"
+                                    >
+                                        <RNText className="text-sm font-bold text-content-inverse">
+                                            {t('commerce:checkout.finishSetup')}
+                                        </RNText>
+                                        <Icon
+                                            name="chevronEnd"
+                                            size="sm"
+                                            className="text-content-inverse"
+                                        />
+                                    </Pressable>
+                                ) : null}
+                                <RNText className="text-xs text-content-secondary">
+                                    {t('commerce:checkout.basketKept')}
+                                </RNText>
+                            </View>
+                        </View>
                     </View>
                 )}
 
-                {allergenConflicts.length === 0 ? null : (
-                    <View className="mt-5">
-                        <Callout
-                            testID="checkout-allergen-conflict"
-                            role="alert"
-                            tone="danger"
-                            icon="warning"
-                            title={t('commerce:myAllergens.checkoutTitle')}
-                            body={
-                                clashingMeals.length === 0
-                                    ? t('commerce:warnings.checkout_allergen_conflict')
-                                    : t('commerce:myAllergens.checkoutBody', {
-                                          meals: clashingList,
-                                      })
-                            }
-                        />
-                    </View>
-                )}
-
-                <Dialog
+                {/* Basket + checkout, pin 7: each dish that crosses the list, then Place order anyway. */}
+                <ShopDialog
                     testID="checkout-allergen-confirm"
                     open={allergenConfirmOpen}
                     onClose={() => {
                         setAllergenConfirmOpen(false);
                     }}
+                    tone="warning"
+                    icon="alert"
                     title={t('commerce:myAllergens.confirmTitle')}
                     description={
                         clashingMeals.length === 0
@@ -879,16 +935,16 @@ export function CheckoutScreen() {
                     }
                     actions={
                         <>
-                            <Button
+                            <ShopDialogButton
                                 testID="checkout-allergen-confirm-cancel"
-                                variant="secondary"
                                 label={t('common:action.cancel')}
                                 onPress={() => {
                                     setAllergenConfirmOpen(false);
                                 }}
                             />
-                            <Button
+                            <ShopDialogButton
                                 testID="checkout-allergen-confirm-place"
+                                kind="ink"
                                 label={t('commerce:myAllergens.placeAnyway')}
                                 onPress={() => {
                                     setAllergenConfirmOpen(false);
@@ -897,7 +953,28 @@ export function CheckoutScreen() {
                             />
                         </>
                     }
-                />
+                >
+                    <View className="flex-col gap-2">
+                        {(basket?.items ?? []).flatMap((item) => {
+                            const conflict = allergenConflicts.find(
+                                (candidate) => candidate.mealId === item.mealId,
+                            );
+                            if (conflict === undefined) return [];
+                            return [
+                                <ClashLine
+                                    key={item.id}
+                                    testID={`checkout-allergen-confirm-line-${item.id}`}
+                                    name={item.name}
+                                    mealId={item.mealId}
+                                    meta={`${formatter.formatNumber(item.quantity)} × ${formatMoney(formatter, item.unitPrice)}`}
+                                    allergens={conflict.allergenCodes.map((code) =>
+                                        allergenNames([code]),
+                                    )}
+                                />,
+                            ];
+                        })}
+                    </View>
+                </ShopDialog>
 
                 <PanelActions>
                     <Pressable
@@ -965,6 +1042,7 @@ export function CheckoutScreen() {
                             quantity={item.quantity}
                             unit={formatMoney(formatter, item.unitPrice)}
                             total={formatMoney(formatter, item.lineTotal)}
+                            clash={clashTag(item.mealId)}
                         />
                     ))}
                 </View>
@@ -972,6 +1050,7 @@ export function CheckoutScreen() {
                     query={preview}
                     isEmpty={false}
                     emptyTitle={t('commerce:cart.summaryEmpty')}
+                    skeleton="lines"
                     skeletonCount={1}
                     testID="checkout-preview"
                 >
@@ -1018,20 +1097,54 @@ export function CheckoutScreen() {
                                 </RNText>
                             </View>
                             {/* The allergen one is said beside Place order, which asks about it. */}
-                            {displayableWarnings(quotation.warnings)
-                                .filter((code) => code !== ALLERGEN_CONFLICT_WARNING)
-                                .map((code) => (
-                                    <View key={code} className="mt-3">
-                                        <Callout
-                                            testID={`checkout-warning-${code.replace(/\./g, '-')}`}
-                                            role={isCriticalWarning(code) ? 'alert' : 'note'}
-                                            tone={isCriticalWarning(code) ? 'danger' : 'warning'}
-                                            icon="warning"
-                                            title={t('commerce:warnings.title')}
-                                            body={t(warningMessageKey(code), { code })}
-                                        />
+                            {/* Basket + checkout, pin 5: one title, one line each. The allergen
+                                one is said on its dish and asked about at Place order. */}
+                            {(() => {
+                                const notes = displayableWarnings(quotation.warnings).filter(
+                                    (code) => code !== ALLERGEN_CONFLICT_WARNING,
+                                );
+                                if (notes.length === 0) return null;
+                                const critical = notes.some((code) => isCriticalWarning(code));
+                                return (
+                                    <View
+                                        testID="checkout-warnings"
+                                        role={critical ? 'alert' : 'note'}
+                                        className="mt-3 rounded-2xl bg-warning-subtle px-3.5 py-3"
+                                    >
+                                        <View className="flex-row items-center gap-2">
+                                            <Icon
+                                                name="infoCircle"
+                                                size="sm"
+                                                className="text-warning-on-subtle"
+                                            />
+                                            <RNText className="text-sm font-bold text-warning-on-subtle">
+                                                {t('commerce:warnings.title')}
+                                            </RNText>
+                                        </View>
+                                        <View className="mt-2 flex-col gap-1.5">
+                                            {notes.map((code) => (
+                                                <View
+                                                    key={code}
+                                                    testID={`checkout-warning-${code.replace(/\./g, '-')}`}
+                                                    className="flex-row gap-2"
+                                                >
+                                                    <View
+                                                        className={cx(
+                                                            'mt-1.5 h-1.5 w-1.5 rounded-full',
+                                                            isCriticalWarning(code)
+                                                                ? 'bg-danger-strong'
+                                                                : 'bg-warning-strong',
+                                                        )}
+                                                    />
+                                                    <RNText className="min-w-0 flex-1 text-sm leading-[18px] text-warning-on-subtle text-start">
+                                                        {t(warningMessageKey(code), { code })}
+                                                    </RNText>
+                                                </View>
+                                            ))}
+                                        </View>
                                     </View>
-                                ))}
+                                );
+                            })()}
                         </View>
                     )}
                 </QueryStates>
@@ -1065,12 +1178,14 @@ export function CheckoutScreen() {
                     isEmpty={basket !== undefined && basket.items.length === 0 && !placing}
                     emptyTitle={t('commerce:checkout.emptyTitle')}
                     emptyBody={t('commerce:checkout.emptyBody')}
+                    // Basket + checkout, pin 11: the shop's empty card, with the way to the menu.
+                    emptyIcon="shoppingBasket"
                     emptyActions={
-                        <Inline space="sm">
+                        <>
                             {/* Back from a confirmation lands here, on the now-empty basket's
                                 checkout: the order that emptied it is one press away. */}
                             {latestPlaced === null ? null : (
-                                <Button
+                                <ShopStateButton
                                     testID="checkout-track-latest"
                                     label={t('commerce:checkout.successTrack')}
                                     onPress={() => {
@@ -1080,16 +1195,20 @@ export function CheckoutScreen() {
                                     }}
                                 />
                             )}
-                            <Button
+                            <ShopStateButton
                                 testID="checkout-browse"
-                                variant={latestPlaced === null ? 'primary' : 'secondary'}
+                                kind={latestPlaced === null ? 'brand' : 'secondary'}
+                                icon="arrowForward"
+                                iconAfter
                                 label={t('commerce:cart.browse')}
                                 onPress={() => {
                                     router.push('/meals');
                                 }}
                             />
-                        </Inline>
+                        </>
                     }
+                    // A form page: rows while it loads, not a grid of dish cards.
+                    skeleton="rows"
                     skeletonCount={2}
                     testID="checkout"
                 >
@@ -1144,6 +1263,8 @@ function CheckoutTop({
     readonly onBasket?: (() => void) | undefined;
 }) {
     const { t } = useTranslation();
+    // Shop · Checkout, phone board: "‹ Checkout" as the page's own bar, the steps under it.
+    const phone = !useBreakpoint().atLeast('md');
     const steps = [
         t('commerce:checkout.steps.delivery'),
         t('commerce:checkout.steps.payment'),
@@ -1151,22 +1272,36 @@ function CheckoutTop({
     ];
     return (
         <View className="flex-row flex-wrap items-center gap-3.5 pt-1">
-            {onBasket === undefined ? null : (
-                <BackPill
-                    testID="checkout-back-basket"
-                    label={t('commerce:checkout.basket')}
-                    onPress={onBasket}
-                    className="me-1.5"
-                />
+            {phone && onBasket !== undefined ? (
+                <View className="w-full">
+                    <ShopPhoneTopBar
+                        backTestID="checkout-back-basket"
+                        backLabel={t('commerce:checkout.basket')}
+                        onBack={onBasket}
+                        titleTestID="checkout-title"
+                        title={t('commerce:checkout.title')}
+                    />
+                </View>
+            ) : (
+                <>
+                    {onBasket === undefined ? null : (
+                        <BackPill
+                            testID="checkout-back-basket"
+                            label={t('commerce:checkout.basket')}
+                            onPress={onBasket}
+                            className="me-1.5"
+                        />
+                    )}
+                    <RNText
+                        testID="checkout-title"
+                        role="heading"
+                        aria-level={1}
+                        className="font-display text-4xl font-bold tracking-display text-content-primary text-start"
+                    >
+                        {t('commerce:checkout.title')}
+                    </RNText>
+                </>
             )}
-            <RNText
-                testID="checkout-title"
-                role="heading"
-                aria-level={1}
-                className="font-display text-4xl font-bold tracking-display text-content-primary text-start"
-            >
-                {t('commerce:checkout.title')}
-            </RNText>
             <View
                 testID="checkout-stepper"
                 role="list"
@@ -1304,6 +1439,18 @@ function PanelLabel({
 }
 
 function PanelActions({ children }: { readonly children: ReactNode }) {
+    // Shop · Checkout, phone board: the step's buttons in a bar docked to the screen's foot, so
+    // Payment and Place order are always in reach rather than at the end of the form.
+    const phone = !useBreakpoint().atLeast('md');
+    if (phone) {
+        return (
+            <ShellDock>
+                <View className="flex-row items-center gap-2.5 border-t border-stroke-subtle bg-surface-raised px-4 pb-5 pt-3">
+                    {children}
+                </View>
+            </ShellDock>
+        );
+    }
     return (
         <View className="mt-6 flex-row items-center gap-2.5 border-t border-stroke-subtle pt-[18px]">
             {children}
@@ -1339,7 +1486,7 @@ function ChoiceTile({
     onPress,
 }: {
     readonly testID: string;
-    readonly icon: 'home' | 'basket';
+    readonly icon: 'truck' | 'store' | 'mapPin';
     readonly title: string;
     readonly sub: string;
     readonly badge?: string | undefined;
@@ -1558,6 +1705,7 @@ function MiniLine({
     quantity,
     unit,
     total,
+    clash,
 }: {
     readonly testID: string;
     readonly name: string;
@@ -1565,35 +1713,51 @@ function MiniLine({
     readonly quantity: number;
     readonly unit: string;
     readonly total: string;
+    /** The dish crosses the allergy list: the tag under the line. */
+    readonly clash?: string | undefined;
 }) {
     const formatter = useFormatter();
     const meal = useMealQuery(mealId ?? null);
     return (
-        <View testID={testID} className="flex-row items-center gap-3 py-2">
-            <View className="h-12 w-12 overflow-hidden rounded-xl">
-                <EntityImage
-                    assetId={meal.data?.imagePlaceholderId}
-                    photoUrl={meal.data?.photoUrl}
-                    variant="card"
-                    seed={meal.data?.slug ?? name}
-                    label={name}
-                    decorative
-                    flush
-                    className="h-full w-full"
-                />
+        <View className="flex-col">
+            <View testID={testID} className="flex-row items-center gap-3 py-2">
+                <View className="h-12 w-12 overflow-hidden rounded-xl">
+                    <EntityImage
+                        assetId={meal.data?.imagePlaceholderId}
+                        photoUrl={meal.data?.photoUrl}
+                        variant="card"
+                        seed={meal.data?.slug ?? name}
+                        label={name}
+                        decorative
+                        flush
+                        className="h-full w-full"
+                    />
+                </View>
+                <View className="min-w-0 flex-1">
+                    <RNText
+                        numberOfLines={1}
+                        className="text-sm font-semibold text-content-primary text-start"
+                    >
+                        {name}
+                    </RNText>
+                    <RNText className="text-xs font-medium tabular-nums text-content-secondary text-start">
+                        {`${formatter.formatNumber(quantity)} × ${unit}`}
+                    </RNText>
+                </View>
+                <RNText className="text-sm font-bold tabular-nums text-content-primary">
+                    {total}
+                </RNText>
             </View>
-            <View className="min-w-0 flex-1">
-                <RNText
-                    numberOfLines={1}
-                    className="text-sm font-semibold text-content-primary text-start"
+            {clash === undefined ? null : (
+                <View
+                    testID={`${testID}-clash`}
+                    role="alert"
+                    className="-mt-1 mb-1.5 ms-[60px] h-6 flex-row items-center gap-1.5 self-start rounded-full bg-danger-subtle px-2.5"
                 >
-                    {name}
-                </RNText>
-                <RNText className="text-xs font-medium tabular-nums text-content-secondary text-start">
-                    {`${formatter.formatNumber(quantity)} × ${unit}`}
-                </RNText>
-            </View>
-            <RNText className="text-sm font-bold tabular-nums text-content-primary">{total}</RNText>
+                    <Icon name="shield" size="sm" className="text-danger-on-subtle" />
+                    <RNText className="text-xs font-bold text-danger-on-subtle">{clash}</RNText>
+                </View>
+            )}
         </View>
     );
 }
@@ -1608,11 +1772,11 @@ function DeliveryFacts({
 }) {
     const { t } = useTranslation();
     const facts = [
-        { key: 'address', icon: 'home' as const, text: address },
+        { key: 'address', icon: 'mapPin' as const, text: address },
         { key: 'when', icon: 'calendar' as const, text: when },
-        { key: 'pay', icon: 'basket' as const, text: t('commerce:checkout.paymentCod') },
+        { key: 'pay', icon: 'banknote' as const, text: t('commerce:checkout.paymentCod') },
     ].filter(
-        (fact): fact is { key: string; icon: 'home' | 'calendar' | 'basket'; text: string } =>
+        (fact): fact is { key: string; icon: 'mapPin' | 'calendar' | 'banknote'; text: string } =>
             fact.text !== null,
     );
     return (
@@ -1738,4 +1902,121 @@ function OrderPlaced({ order, kitchenName, arriving, onTrack, onKeepShopping }: 
     );
 
     return <Columns testID="checkout-success-layout" wide={wide} main={main} aside={aside} />;
+}
+
+/** A basket line in the allergen pop-up: its photo, name, quantity × price, and its allergens on amber. */
+function ClashLine({
+    testID,
+    name,
+    mealId,
+    meta,
+    allergens,
+}: {
+    readonly testID: string;
+    readonly name: string;
+    readonly mealId: MealId;
+    readonly meta: string;
+    readonly allergens: readonly string[];
+}) {
+    const meal = useMealQuery(mealId);
+    return (
+        <ShopDialogSubject
+            testID={testID}
+            lead={
+                <View className="h-[52px] w-[52px] overflow-hidden rounded-[14px]">
+                    <EntityImage
+                        assetId={meal.data?.imagePlaceholderId}
+                        photoUrl={meal.data?.photoUrl}
+                        variant="card"
+                        seed={meal.data?.slug ?? name}
+                        label={name}
+                        decorative
+                        flush
+                        className="h-full w-full"
+                    />
+                </View>
+            }
+            name={name}
+            meta={meta}
+            end={
+                <View className="flex-row flex-wrap justify-end gap-1">
+                    {allergens.map((allergen) => (
+                        <View
+                            key={allergen}
+                            className="h-[26px] flex-row items-center gap-1 rounded-full bg-warning-strong px-2.5"
+                        >
+                            <Icon name="alert" size="sm" className="text-warning-on-strong" />
+                            <RNText className="text-xs font-bold text-warning-on-strong">
+                                {allergen}
+                            </RNText>
+                        </View>
+                    ))}
+                </View>
+            }
+        />
+    );
+}
+
+/**
+ * A tile that stands in a section's place when it cannot be answered yet — no saved address, no
+ * delivery window — saying what is wrong and, when there is one, the action that fixes it
+ * (Basket + checkout, pins 2 and 3).
+ */
+function DashedTile({
+    testID,
+    icon,
+    title,
+    body,
+    action,
+    tone = 'brand',
+    role,
+}: {
+    readonly testID: string;
+    readonly icon: 'mapPin' | 'clock';
+    readonly title: string;
+    readonly body: string;
+    readonly action?: ReactNode | undefined;
+    readonly tone?: 'brand' | 'warning' | undefined;
+    readonly role?: 'alert' | undefined;
+}) {
+    const warning = tone === 'warning';
+    return (
+        <View
+            testID={testID}
+            role={role}
+            className={cx(
+                'flex-row flex-wrap items-center gap-3.5 rounded-[18px] border-[1.5px] border-dashed p-4',
+                warning
+                    ? 'border-warning-border bg-warning-subtle'
+                    : 'border-stroke bg-surface-base',
+            )}
+        >
+            <View className="h-[46px] w-[46px] items-center justify-center rounded-[15px] bg-surface-raised shadow-elevation-1">
+                <Icon
+                    name={icon}
+                    size="lg"
+                    className={warning ? 'text-warning-on-subtle' : 'text-content-on-brand-subtle'}
+                />
+            </View>
+            <View className="min-w-[200px] flex-1">
+                <RNText
+                    className={cx(
+                        'text-base font-bold leading-5 text-start',
+                        warning ? 'text-warning-on-subtle' : 'text-content-primary',
+                    )}
+                >
+                    {title}
+                </RNText>
+                <RNText
+                    className={cx(
+                        'mt-0.5 text-sm leading-[18px] text-start',
+                        warning ? 'text-warning-on-subtle' : 'text-content-secondary',
+                    )}
+                >
+                    {body}
+                </RNText>
+            </View>
+            {action}
+        </View>
+    );
 }

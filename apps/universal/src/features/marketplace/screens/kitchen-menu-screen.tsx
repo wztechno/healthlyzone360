@@ -1,4 +1,4 @@
-import { Icon, cx } from '@healthy360/design-system';
+import { HideShellTopbar, Icon, cx, useBreakpoint } from '@healthy360/design-system';
 import type { MealFilter } from '@healthy360/api-client/contracts';
 import { neutral } from '@healthy360/design-tokens';
 import { KitchenId } from '@healthy360/domain-types';
@@ -7,7 +7,7 @@ import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, Text as RNText, TextInput, View } from 'react-native';
+import { Pressable, Text as RNText, ScrollView, TextInput, View } from 'react-native';
 
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { mealsFromPages, useMealsQuery } from '../../../data/catalogue-hooks.ts';
@@ -48,6 +48,8 @@ export interface KitchenMenuScreenProps {
  */
 export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
     const { t } = useTranslation();
+    // Shop · Kitchens, kitchen menu phone board: its own bar, chips that scroll, two cards a row.
+    const phone = !useBreakpoint().atLeast('md');
     const formatter = useFormatter();
     const basket = useBasketAdd({ labelKey: 'marketplace:nav.kitchens', testID: 'kitchen-menu' });
     const router = useRouter();
@@ -159,18 +161,66 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
         );
     };
 
+    const shelfChips = (
+        <View
+            role="radiogroup"
+            aria-label={t('marketplace:filters.category')}
+            className={cx('flex-row gap-2', phone ? null : 'flex-wrap')}
+        >
+            {chip(null, t('marketplace:storefront.menu.all'), everything.length)}
+            {shelves.map((shelf) =>
+                chip(shelf.key, shelf.name ?? t('marketplace:storefront.menu.other'), shelf.count),
+            )}
+        </View>
+    );
+    const goUp = () => {
+        if (parsed !== null) navigateUp(`/kitchens/${String(parsed)}`);
+    };
+
     return (
         <View testID="kitchen-menu-screen" className="flex-col pb-10 pt-1">
-            <BackPill
-                testID="kitchen-menu-crumb-kitchen"
-                label={kitchen.data?.name ?? t('marketplace:kitchen.loading')}
-                onPress={() => {
-                    if (parsed !== null) navigateUp(`/kitchens/${String(parsed)}`);
-                }}
-            />
+            {phone ? (
+                // Shop · Kitchens, phone board: the page's own bar — Back and "Menu" — for the shop's.
+                <>
+                    <HideShellTopbar />
+                    <View className="h-14 flex-row items-center gap-2.5 rounded-full border border-stroke-subtle bg-surface-raised pe-4 ps-1.5 shadow-elevation-3">
+                        <Pressable
+                            testID="kitchen-menu-crumb-kitchen"
+                            role="link"
+                            accessibilityRole="link"
+                            accessibilityLabel={
+                                kitchen.data?.name ?? t('marketplace:kitchen.loading')
+                            }
+                            onPress={goUp}
+                            className="h-11 w-11 items-center justify-center rounded-full bg-surface-base"
+                        >
+                            <Icon name="chevronBackward" className="text-content-primary" />
+                        </Pressable>
+                        <RNText className="font-display text-lg font-bold text-content-primary">
+                            {t('marketplace:menu.title')}
+                        </RNText>
+                    </View>
+                </>
+            ) : (
+                <BackPill
+                    testID="kitchen-menu-crumb-kitchen"
+                    label={kitchen.data?.name ?? t('marketplace:kitchen.loading')}
+                    onPress={goUp}
+                />
+            )}
 
-            <View className="mt-4 flex-row flex-wrap items-center gap-3.5">
-                <View className="h-14 w-14 overflow-hidden rounded-2xl">
+            <View
+                className={cx(
+                    'flex-row items-center',
+                    phone ? 'mt-5 gap-3' : 'mt-4 flex-wrap gap-3.5',
+                )}
+            >
+                <View
+                    className={cx(
+                        'overflow-hidden',
+                        phone ? 'h-[46px] w-[46px] rounded-[14px]' : 'h-14 w-14 rounded-2xl',
+                    )}
+                >
                     <EntityImage
                         assetId={kitchen.data?.imagePlaceholderId}
                         seed={kitchen.data?.slug ?? 'kitchen'}
@@ -185,7 +235,10 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
                         testID="kitchen-menu-title"
                         role="heading"
                         aria-level={1}
-                        className="font-display text-3xl font-bold tracking-display text-content-primary text-start"
+                        className={cx(
+                            'font-display font-bold tracking-display text-content-primary text-start',
+                            phone ? 'text-2xl' : 'text-3xl',
+                        )}
                     >
                         {t('marketplace:menu.title')}
                     </RNText>
@@ -195,7 +248,7 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
                             .join(t('marketplace:kitchens.areaSeparator'))}
                     </RNText>
                 </View>
-                {kitchen.data === undefined ? null : (
+                {kitchen.data === undefined || phone ? null : (
                     <View className="h-8 flex-row items-center gap-1.5 rounded-full bg-surface-brand-subtle px-3">
                         <View
                             className={cx(
@@ -222,7 +275,9 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
                 <View
                     className={cx(
                         'h-[52px] min-w-[240px] flex-1 basis-[360px] flex-row items-center gap-2.5 rounded-full border-[1.5px] bg-surface-raised pe-2 ps-4',
-                        searchFocused ? 'border-surface-brand' : 'border-stroke',
+                        searchFocused
+                            ? 'border-surface-brand shadow-elevation-focus-ring'
+                            : 'border-stroke',
                     )}
                 >
                     <Icon
@@ -269,20 +324,18 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
                         </Pressable>
                     )}
                 </View>
-                <View
-                    role="radiogroup"
-                    aria-label={t('marketplace:filters.category')}
-                    className="flex-row flex-wrap gap-2"
-                >
-                    {chip(null, t('marketplace:storefront.menu.all'), everything.length)}
-                    {shelves.map((shelf) =>
-                        chip(
-                            shelf.key,
-                            shelf.name ?? t('marketplace:storefront.menu.other'),
-                            shelf.count,
-                        ),
-                    )}
-                </View>
+                {phone ? (
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        className="-mx-4 grow-0"
+                        contentContainerClassName="px-4"
+                    >
+                        {shelfChips}
+                    </ScrollView>
+                ) : (
+                    shelfChips
+                )}
             </View>
 
             <View className="mt-[18px]">
@@ -314,13 +367,15 @@ export function KitchenMenuScreen({ kitchenId }: KitchenMenuScreenProps) {
                     <View className="flex-col gap-7">
                         <MenuGrid
                             testID="kitchen-menu-grid"
-                            gap={20}
+                            gap={phone ? 10 : 20}
+                            minCell={phone ? 140 : undefined}
                             entranceKey={JSON.stringify(filter ?? null)}
                         >
                             {meals.map((meal) => (
                                 <MenuMealCard
                                     key={meal.id}
                                     meal={meal}
+                                    phone={phone}
                                     onOpen={() => {
                                         router.push(`/meals/${String(meal.id)}` as never);
                                     }}

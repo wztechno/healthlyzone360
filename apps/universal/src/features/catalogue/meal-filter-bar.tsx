@@ -13,7 +13,6 @@ import { EntityImage } from '../../media/entity-image.tsx';
 import { InkSortMenu } from '../../ui/ink-sort-menu.tsx';
 import { useOutsideDismiss } from '../../ui/use-outside-dismiss.ts';
 import type { MarketplaceFilterState } from '../marketplace/filter-bar.tsx';
-import { FilterRows } from './filter-rows.tsx';
 import { MealRangeFilters } from './meal-filters.tsx';
 import type { MealRangeKey, MealRangeState } from './meal-filters.tsx';
 import { MENU_SORTS } from './meal-readings.ts';
@@ -134,6 +133,8 @@ export function CategoryTabs({
 }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    // Shop · Menu, phone: 60px chips with a 46px face that scroll from the edge.
+    const phone = !useBreakpoint().atLeast('md');
     // A hidden shelf (`shown-shelves.ts`) is not drawn even when a link selected it.
     const selected = (filters.selected['category'] ?? []).filter(isShownShelf)[0] ?? ALL_SHELVES;
 
@@ -156,12 +157,12 @@ export function CategoryTabs({
             horizontal
             showsHorizontalScrollIndicator={false}
             testID="meals-filter-category"
-            contentContainerClassName="grow pb-1 pt-1"
+            contentContainerClassName={phone ? 'pb-1 pt-1' : 'grow pb-1 pt-1'}
         >
             <View
                 role="radiogroup"
                 aria-label={t('catalogue:filters.category')}
-                className="grow flex-row items-stretch gap-3.5"
+                className={cx('flex-row items-stretch', phone ? 'gap-2' : 'grow gap-3.5')}
             >
                 {tabs.map((tab) => {
                     const on = tab.value === selected;
@@ -192,12 +193,22 @@ export function CategoryTabs({
                                 );
                             }}
                             className={cx(
-                                'h-[84px] min-w-[180px] flex-1 flex-row items-center gap-3 rounded-[20px] border-2 pe-3.5 ps-2.5 transition duration-normal ease-standard hover:-translate-y-0.5',
+                                'flex-row items-center border-2 transition duration-normal ease-standard hover:-translate-y-0.5',
+                                phone
+                                    ? 'h-[60px] gap-2 rounded-[18px] pe-3.5 ps-1.5'
+                                    : 'h-[84px] min-w-[180px] flex-1 gap-3 rounded-[20px] pe-3.5 ps-2.5',
                                 TINT_FILL[tint],
                                 on ? TINT_BORDER[tint] : 'border-transparent',
                             )}
                         >
-                            <View className="h-[60px] w-[60px] items-center justify-center overflow-hidden rounded-2xl">
+                            <View
+                                className={cx(
+                                    'items-center justify-center overflow-hidden',
+                                    phone
+                                        ? 'h-[46px] w-[46px] rounded-xl'
+                                        : 'h-[60px] w-[60px] rounded-2xl',
+                                )}
+                            >
                                 {meal === undefined ? (
                                     <Icon name="layoutGrid" className={TINT_INK[tint]} />
                                 ) : (
@@ -208,15 +219,18 @@ export function CategoryTabs({
                                         label={tab.label}
                                         decorative
                                         flush
-                                        className="h-[60px] w-[60px]"
+                                        className={
+                                            phone ? 'h-[46px] w-[46px]' : 'h-[60px] w-[60px]'
+                                        }
                                     />
                                 )}
                             </View>
-                            <View className="min-w-0 flex-1 flex-col">
+                            <View className={cx('min-w-0 flex-col', phone ? null : 'flex-1')}>
                                 <RNText
                                     numberOfLines={1}
                                     className={cx(
-                                        'font-display text-lg font-bold text-start',
+                                        'font-display font-bold text-start',
+                                        phone ? 'text-base' : 'text-lg',
                                         TINT_INK[tint],
                                     )}
                                 >
@@ -229,14 +243,17 @@ export function CategoryTabs({
                                         accessibilityElementsHidden
                                         importantForAccessibility="no"
                                         className={cx(
-                                            'text-sm font-medium tabular-nums opacity-85 text-start',
+                                            'font-medium tabular-nums opacity-85 text-start',
+                                            phone ? 'text-xs' : 'text-sm',
                                             TINT_INK[tint],
                                         )}
                                     >
-                                        {t('catalogue:filters.shelfCount', {
-                                            count: tab.count ?? 0,
-                                            n: countText,
-                                        })}
+                                        {phone
+                                            ? countText
+                                            : t('catalogue:filters.shelfCount', {
+                                                  count: tab.count ?? 0,
+                                                  n: countText,
+                                              })}
                                     </RNText>
                                 )}
                             </View>
@@ -491,7 +508,12 @@ export interface MealFilterBarProps {
     readonly filters: MarketplaceFilterState;
     readonly ranges: MealRangeState;
     /** Fetched marketplace kitchens, which is the only thing that knows a kitchen id's name. */
-    readonly kitchens: readonly { readonly id: unknown; readonly name: string }[];
+    readonly kitchens: readonly {
+        readonly id: unknown;
+        readonly name: string;
+        readonly tagline?: string | undefined;
+        readonly imagePlaceholderId?: string | undefined;
+    }[];
     readonly currency: CurrencyCode;
     readonly sort: MenuSort;
     readonly onSort: (sort: MenuSort) => void;
@@ -522,6 +544,8 @@ export function MealFilterBar({
     const { t } = useTranslation();
     const { formatNumber } = useFormatter();
     const wide = useBreakpoint().atLeast('lg');
+    // Shop · Menu, phone: the search sits on its own row above, so the bar is one row of menus.
+    const phone = !useBreakpoint().atLeast('md');
     const selectedDiets = filters.selected['diet'] ?? [];
     const selectedExclusions = filters.selected['exclude'] ?? [];
     const selectedKitchens = filters.selected['kitchen'] ?? [];
@@ -683,18 +707,77 @@ export function MealFilterBar({
                     wide={wide}
                     summary={summary}
                 >
-                    <FilterRows
-                        testID="meals-filter"
-                        groupKey="kitchen"
-                        options={kitchens.map((kitchen) => ({
-                            value: String(kitchen.id),
-                            label: kitchen.name,
-                        }))}
-                        selected={selectedKitchens}
-                        onToggle={(value, next) => {
-                            filters.toggle('kitchen', value, next);
-                        }}
-                    />
+                    {/* Shop · Menu, pin 3: the board's kitchen rows — photo, name, its line, a tick box. */}
+                    <View className="flex-col gap-2.5">
+                        {kitchens.map((kitchen) => {
+                            const value = String(kitchen.id);
+                            const on = selectedKitchens.includes(value);
+                            const tint = FILTER_LOOKS.kitchen.tint;
+                            return (
+                                <Pressable
+                                    key={value}
+                                    testID={`meals-filter-kitchen-${value}`}
+                                    role="button"
+                                    accessibilityRole="button"
+                                    accessibilityLabel={kitchen.name}
+                                    aria-pressed={on}
+                                    accessibilityState={{ selected: on }}
+                                    onPress={() => {
+                                        filters.toggle('kitchen', value, !on);
+                                    }}
+                                    className={cx(
+                                        'min-w-[260px] flex-row items-center gap-3 rounded-[14px] border bg-surface-raised py-2 pe-2.5 ps-2 transition duration-normal ease-standard',
+                                        on
+                                            ? TINT_BORDER[tint]
+                                            : 'border-stroke-subtle hover:border-stroke',
+                                    )}
+                                >
+                                    <View className="h-11 w-11 overflow-hidden rounded-xl">
+                                        <EntityImage
+                                            assetId={kitchen.imagePlaceholderId}
+                                            variant="card"
+                                            seed={value}
+                                            label={kitchen.name}
+                                            decorative
+                                            flush
+                                            className="h-full w-full"
+                                        />
+                                    </View>
+                                    <View className="min-w-0 flex-1">
+                                        <RNText className="text-sm font-semibold text-content-primary text-start">
+                                            {kitchen.name}
+                                        </RNText>
+                                        {kitchen.tagline === undefined ||
+                                        kitchen.tagline.trim() === '' ? null : (
+                                            <RNText
+                                                numberOfLines={1}
+                                                className="text-xs text-content-secondary text-start"
+                                            >
+                                                {kitchen.tagline}
+                                            </RNText>
+                                        )}
+                                    </View>
+                                    <View
+                                        aria-hidden
+                                        className={cx(
+                                            'h-6 w-6 items-center justify-center rounded-[7px] border-2',
+                                            on
+                                                ? cx(TINT_INK_FILL[tint], 'border-transparent')
+                                                : 'border-stroke',
+                                        )}
+                                    >
+                                        {on ? (
+                                            <Icon
+                                                name="check"
+                                                size="sm"
+                                                className="text-surface-raised"
+                                            />
+                                        ) : null}
+                                    </View>
+                                </Pressable>
+                            );
+                        })}
+                    </View>
                 </FilterMenu>
             )}
             <FilterMenu
@@ -735,6 +818,7 @@ export function MealFilterBar({
                 (option) => option !== 'rating' || hasRatings || sort === 'rating',
             ).map((option) => ({ value: option, label: t(`catalogue:meals.sort.${option}`) }))}
             onChange={onSort}
+            compact={phone}
         />
     );
 
@@ -744,8 +828,12 @@ export function MealFilterBar({
             role="toolbar"
             aria-label={t('catalogue:filters.barLabel')}
             className={cx(
-                'z-auto rounded-3xl border border-stroke-subtle bg-surface-raised p-2 shadow-elevation-2',
-                wide ? 'flex-row items-center gap-1' : 'flex-col gap-2',
+                'z-auto border border-stroke-subtle bg-surface-raised shadow-elevation-2',
+                wide
+                    ? 'flex-row items-center gap-1 rounded-3xl p-2'
+                    : phone
+                      ? 'flex-row items-center gap-1 rounded-[20px] p-1.5'
+                      : 'flex-col gap-2 rounded-3xl p-2',
             )}
         >
             {search === undefined ? null : (
@@ -767,12 +855,12 @@ export function MealFilterBar({
                     <ScrollView
                         horizontal
                         showsHorizontalScrollIndicator={false}
-                        className="w-full"
+                        className={phone ? 'min-w-0 flex-1' : 'w-full'}
                         contentContainerClassName="flex-row items-center gap-1"
                     >
                         {menus}
                     </ScrollView>
-                    <View className="z-auto self-start">{sortMenu}</View>
+                    <View className={cx('z-auto', phone ? 'ms-1' : 'self-start')}>{sortMenu}</View>
                 </>
             )}
         </View>

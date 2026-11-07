@@ -13,6 +13,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use stdClass;
 use Throwable;
 
 /**
@@ -71,19 +72,19 @@ final class AlertExpiringStock implements ShouldQueue
      */
     private function tradingKitchens(): array
     {
-        return Organisation::query()
+        return array_values(Organisation::query()
             ->orderBy('id')
             ->get(['id', 'status'])
             ->filter(static fn (Organisation $organisation): bool => $organisation->status->isTrading())
             ->map(static fn (Organisation $organisation): string => (string) $organisation->getKey())
             ->values()
-            ->all();
+            ->all());
     }
 
     /**
      * Finished batches dated in the window, on a shelf that still holds stock.
      *
-     * @return Collection<int, object{id: string, name: string, date: string}>
+     * @return Collection<int, object{id: string, name: string, date: string}&stdClass>
      */
     private function batches(string $organisationId, string $from, string $until): Collection
     {
@@ -100,13 +101,18 @@ final class AlertExpiringStock implements ShouldQueue
             ->whereBetween('batch.expiry_date', [$from, $until])
             ->where('level.quantity', '>', 0)
             ->selectRaw('batch.id, item.name_en as name, batch.expiry_date::text as date')
-            ->get();
+            ->get()
+            ->map(static fn (object $row): object => (object) [
+                'id' => (string) $row->id,
+                'name' => (string) $row->name,
+                'date' => (string) $row->date,
+            ]);
     }
 
     /**
      * Delivery lines dated in the window, on a shelf that still holds stock.
      *
-     * @return Collection<int, object{id: string, name: string, date: string}>
+     * @return Collection<int, object{id: string, name: string, date: string}&stdClass>
      */
     private function deliveries(string $organisationId, string $from, string $until): Collection
     {
@@ -120,6 +126,11 @@ final class AlertExpiringStock implements ShouldQueue
             ->whereBetween('line.expires_on', [$from, $until])
             ->where('level.quantity', '>', 0)
             ->selectRaw('line.id, item.name_en as name, line.expires_on::text as date')
-            ->get();
+            ->get()
+            ->map(static fn (object $row): object => (object) [
+                'id' => (string) $row->id,
+                'name' => (string) $row->name,
+                'date' => (string) $row->date,
+            ]);
     }
 }

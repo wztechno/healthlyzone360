@@ -60,6 +60,7 @@ import type {
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import { pathnameOf, queryOf, withReturnTo } from '../../navigation/return-to.ts';
 import { clearAllSessionDrafts } from '../../navigation/session-draft.ts';
 import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
@@ -610,7 +611,7 @@ function dietaryProfile(allergenCodes: readonly AllergenCode[] = []): DietaryPro
             severity: 'allergy' as const,
             note: null,
         })),
-        excludedIngredientIds: [],
+        exclusions: [],
         updatedAt: null,
     };
 }
@@ -3075,7 +3076,10 @@ describe('CheckoutScreen — a basket that crosses the person’s allergies', ()
             fireEvent.press(screen.getByTestId('checkout-review'));
         });
 
-        expect(await screen.findByTestId('checkout-allergen-conflict')).toBeTruthy();
+        // Basket + checkout, pin 4: the clash sits on its dish in the summary, not in a red box.
+        expect(await screen.findByTestId(`checkout-items-${clashing.id}-clash`)).toHaveTextContent(
+            /Not yet checked for allergens/,
+        );
         await waitFor(() => {
             expect(
                 screen.getByTestId('checkout-place-order').props.accessibilityState,
@@ -3322,7 +3326,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         expect(screen.getByTestId('configurator-empty')).toBeTruthy();
     });
 
-    it('reports a failure rather than an empty page for an unknown plan', async () => {
+    it('says a plan that is gone could not be found, with the way to the plans', async () => {
         await renderConfigurator(
             { planId: UNKNOWN_PLAN_ID },
             {
@@ -3331,9 +3335,15 @@ describe('SubscriptionConfiguratorScreen', () => {
             },
         );
         expect(screen.getByTestId('configurator-loading')).toBeTruthy();
+        // Shop · Plan setup, pin 8: not a blank page and not "something went wrong" — the plan is
+        // gone, so the page says so and offers the plans.
         await waitFor(() => {
-            expect(screen.getByTestId('configurator-error')).toBeTruthy();
+            expect(screen.getByTestId('configurator-empty')).toHaveTextContent(
+                /We could not find that plan/,
+            );
         });
+        expect(screen.getByTestId('configurator-browse')).toBeTruthy();
+        expect(screen.queryByTestId('configurator-error')).toBeNull();
     });
 
     it('opens on the band, the meals and the length, with the progress beside them', async () => {
@@ -3462,7 +3472,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         await waitFor(() => {
             expect(
                 within(notice).getByTestId('configurator-allergy-notice-list'),
-            ).toHaveTextContent(/Your allergy list: Milk/);
+            ).toHaveTextContent(/Your allergy list.*Milk/);
         });
         // The run's one dish has milk in it; it is named, with what it carries.
         const clashes = await within(notice).findByTestId('configurator-allergy-notice-clashes');
@@ -3505,7 +3515,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         // yet, rather than giving a clean bill it cannot stand behind.
         await waitFor(() => {
             expect(screen.getByTestId('configurator-allergy-notice-unchecked')).toHaveTextContent(
-                /No dishes to check yet/,
+                /Each meal you pick is checked against this list/,
             );
         });
         expect(screen.queryByTestId('configurator-allergy-notice-none')).toBeNull();
@@ -3527,7 +3537,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         );
 
         const note = await screen.findByTestId('configurator-start-date-cutoff');
-        expect(note).toHaveTextContent(/locks each delivery 48 hours ahead/);
+        expect(note).toHaveTextContent(/each delivery locks 48 hours ahead/);
         // The floor the note names is the one the rules enforce: two days on, not tomorrow.
         const floor = earliestStartDate(new Date(), 48);
         expect(floor > earliestStartDate()).toBe(true);
@@ -3768,7 +3778,7 @@ describe('SubscriptionConfiguratorScreen', () => {
             within(screen.getByTestId('configurator-review-allergens')).getByTestId(
                 'configurator-review-allergy-notice-list',
             ),
-        ).toHaveTextContent('Your allergy list is empty.');
+        ).toHaveTextContent(/Your allergy list is empty\./);
 
         // How to pay is shown, not sent: the purchase takes no payment yet.
         expect(screen.getByTestId('configurator-pay-cash').props.accessibilityState).toMatchObject({
@@ -4112,18 +4122,21 @@ describe('SubscriptionConfiguratorScreen — its place survives leaving it', () 
     });
 
     it('moves a review whose days have no meals yet back to the meals step', async () => {
-        // An address and a delivery step that is answered — and not one meal chosen.
-        await renderConfigurator(
-            { planId: PLAN_PARAM },
-            { addresses: [HOME_ADDRESS], params: { step: 'review' } },
-        );
+        // The desk stepper: a phone draws a progress line with no step buttons.
+        await withDeskWidth(async () => {
+            // An address and a delivery step that is answered — and not one meal chosen.
+            await renderConfigurator(
+                { planId: PLAN_PARAM },
+                { addresses: [HOME_ADDRESS], params: { step: 'review' } },
+            );
 
-        expect(await screen.findByTestId('configurator-step-meals')).toBeTruthy();
-        expect(routerMock.__router.setParams).toHaveBeenCalledWith({ step: 'meals' });
-        expect(screen.queryByTestId('configurator-step-review')).toBeNull();
-        expect(
-            screen.getByTestId('configurator-progress-review').props.accessibilityState,
-        ).toMatchObject({ disabled: true });
+            expect(await screen.findByTestId('configurator-step-meals')).toBeTruthy();
+            expect(routerMock.__router.setParams).toHaveBeenCalledWith({ step: 'meals' });
+            expect(screen.queryByTestId('configurator-step-review')).toBeNull();
+            expect(
+                screen.getByTestId('configurator-progress-review').props.accessibilityState,
+            ).toMatchObject({ disabled: true });
+        });
     });
 
     it.each([
@@ -4634,7 +4647,7 @@ describe('SubscriptionDetailScreen', () => {
         expect(screen.getByTestId('subscription-detail-empty')).toBeTruthy();
     });
 
-    it('reports a failure for an identifier that is well formed but unknown', async () => {
+    it('says a well-formed but unknown subscription could not be found', async () => {
         await renderDetail(liveWorld(), {
             subscriptionId: UNKNOWN_SUBSCRIPTION_ID,
             latencyMs: 40,
@@ -4644,9 +4657,13 @@ describe('SubscriptionDetailScreen', () => {
             },
         });
         expect(screen.getByTestId('subscription-detail-loading')).toBeTruthy();
+        // Shop · Subscription, pin 13: "could not find", not "something went wrong".
         await waitFor(() => {
-            expect(screen.getByTestId('subscription-detail-error')).toBeTruthy();
+            expect(screen.getByTestId('subscription-detail-empty')).toHaveTextContent(
+                /We could not find that subscription/,
+            );
         });
+        expect(screen.queryByTestId('subscription-detail-error')).toBeNull();
     });
 
     it('renders the record, the plan card with its Change links, and the actions', async () => {
@@ -4685,7 +4702,7 @@ describe('SubscriptionDetailScreen', () => {
         await waitFor(() => {
             expect(
                 within(card).getByTestId('subscription-detail-allergy-notice-list'),
-            ).toHaveTextContent(/Your allergy list: Milk/);
+            ).toHaveTextContent(/Your allergy list.*Milk/);
         });
         // Three dishes across the run's days; the halloumi plate is the one with milk in it.
         const clashes = await within(card).findByTestId(
@@ -4731,16 +4748,15 @@ describe('SubscriptionDetailScreen', () => {
         // which can trail the dialog ("Choose a meal" until then).
         await waitFor(() => {
             expect(
-                within(dialog).getByTestId('subscription-meals-dialog-day-lunch-1-value'),
+                within(dialog).getByTestId('subscription-meals-dialog-cell-lunch-1-value'),
             ).toHaveTextContent(harvest.name);
         });
+        // Meals for a day: the dinner cell, then a dish from the list under it.
         await fireEvent.press(
-            within(dialog).getByTestId('subscription-meals-dialog-day-dinner-1-trigger'),
+            within(dialog).getByTestId('subscription-meals-dialog-cell-dinner-1'),
         );
         await fireEvent.press(
-            await screen.findByTestId(
-                `subscription-meals-dialog-day-dinner-1-option-${String(sesame.id)}`,
-            ),
+            within(dialog).getByTestId(`subscription-meals-dialog-dish-${sesame.slug}`),
         );
         await act(async () => {
             fireEvent.press(screen.getByTestId('subscription-meals-save'));

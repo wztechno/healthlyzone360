@@ -156,8 +156,11 @@ it('lets whoever holds the approvals move the limits, and audits both ends', fun
         'price_approval_above_percent' => 15,
     ], $this->headers)->assertOk();
 
-    $values = AuditLog::query()->where('action', 'kitchen.service_settings_updated')->sole()->metadata['values'];
+    $metadata = AuditLog::query()->where('action', 'kitchen.service_settings_updated')->sole()->metadata;
 
-    expect($values['refund_approval_above_minor'])->toEqual(['old' => 5000, 'new' => 7500])
-        ->and($values['price_approval_above_percent'])->toEqual(['old' => null, 'new' => 15]);
+    // Flat `was_`/`now_` pairs: the audit redaction reads top-level keys only.
+    expect($metadata['was_refund_approval_above_minor'])->toEqual(5000)
+        ->and($metadata['now_refund_approval_above_minor'])->toEqual(7500)
+        ->and($metadata['was_price_approval_above_percent'])->toBeNull()
+        ->and($metadata['now_price_approval_above_percent'])->toEqual(15);
 });

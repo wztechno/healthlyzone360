@@ -162,6 +162,11 @@ export const DRAWN_ICON_FALLBACKS = {
     circleHelp: 'info',
     handshake: 'lock',
     ban: 'dotOutline',
+    // Account → "Ingredients to leave out": the kind on each food, and the search's keyboard hint.
+    // Lucide's `thumbs-down`, `corner-down-left` and `type`.
+    thumbsDown: 'minus',
+    cornerDownLeft: 'chevronBackward',
+    typeText: 'pen',
     infoCircle: 'info',
     trendingUp: 'calendar',
     trendingDown: 'warning',
@@ -227,6 +232,18 @@ export const DRAWN_ICON_FALLBACKS = {
     briefcase: 'device',
     // A step onwards — the basket's Checkout. Lucide's `arrow-right`, turned round in Arabic.
     arrowForward: 'chevronForward',
+    // The shop pop-ups' head tiles. Lucide's `pause`, `play`, `skip-forward` and `trash-2`.
+    pause: 'minus',
+    play: 'chevronForward',
+    skipForward: 'chevronForward',
+    trash: 'close',
+    // The menu card's calories pill. Lucide's `flame`.
+    flame: 'dot',
+    // The shop's state cards. Lucide's `cloud-alert` and `rotate-cw`.
+    cloudAlert: 'offline',
+    rotateCw: 'refresh',
+    // The guest order page's reference chip. Lucide's `copy`.
+    copy: 'archive',
 } as const satisfies Readonly<Record<string, IconGlyphName>>;
 export type DrawnIconName = keyof typeof DRAWN_ICON_FALLBACKS;
 

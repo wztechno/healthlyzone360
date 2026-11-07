@@ -4,6 +4,7 @@ import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
+import { ShopStateCard } from '../../../ui/shop-state.tsx';
 import { cheapestVariant } from '../../catalogue/plan-catalogue.ts';
 import { TINT_FILL, TINT_INK } from '../../catalogue/shelf-tints.ts';
 import type { ShelfTint } from '../../catalogue/shelf-tints.ts';
@@ -71,15 +72,13 @@ export function StorefrontPlansTab({
             </View>
 
             {plans.length === 0 ? (
-                <View
+                // Shop · Kitchens + storefront, pin 9: the small state card, its sentence as title.
+                <ShopStateCard
                     testID="kitchen-plans-empty"
-                    className="items-center gap-2 rounded-3xl border-2 border-dashed border-stroke px-6 py-12"
-                >
-                    <Icon name="calendarDays" size="lg" className="text-content-secondary" />
-                    <RNText className="text-center text-sm text-content-secondary">
-                        {t('marketplace:storefront.plans.empty')}
-                    </RNText>
-                </View>
+                    small
+                    icon="calendarDays"
+                    title={t('marketplace:storefront.plans.empty')}
+                />
             ) : (
                 <View className="flex-row flex-wrap gap-4">
                     {plans.map((plan, index) => {

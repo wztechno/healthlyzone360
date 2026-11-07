@@ -1,4 +1,4 @@
-import { Button, Callout, Dialog, Icon, Stack, cx } from '@healthy360/design-system';
+import { Button, Icon, cx } from '@healthy360/design-system';
 import type { Subscription, SubscriptionFilter } from '@healthy360/api-client/contracts';
 import type { SubscriptionState } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -24,12 +24,13 @@ import { TINT_FILL, TINT_INK } from '../../catalogue/shelf-tints.ts';
 import type { ShelfTint } from '../../catalogue/shelf-tints.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
+import { Bone } from '../../../ui/shop-skeletons.tsx';
 import { bandLabel, mealsLine, slotName } from '../configurator-steps.tsx';
 import { todayIso } from '../dates.ts';
 import { deliverySlotsForKitchen } from '../delivery.ts';
 import { canPauseOrSkip, canResume, isTerminalSubscriptionState } from '../state-badge.tsx';
 import { estimatedEndDate } from '../subscription-board.ts';
-import { DialogFailure, shortWeekday } from '../subscription-editors.tsx';
+import { PauseResumeDialog, shortWeekday } from '../subscription-editors.tsx';
 
 /**
  * `/customer/subscriptions` — every subscription this person has, drawn as the account page's
@@ -216,7 +217,12 @@ export function SubscriptionsScreen(_props: SubscriptionsScreenProps = {}) {
                         />
                     )
                 }
-                skeletonCount={2}
+                loading={
+                    <View className="flex-col gap-4">
+                        <SubscriptionCardSkeleton />
+                        <SubscriptionCardSkeleton />
+                    </View>
+                }
                 testID="subscriptions"
             >
                 <View testID="subscriptions-list" className="flex-col gap-4">
@@ -229,6 +235,50 @@ export function SubscriptionsScreen(_props: SubscriptionsScreenProps = {}) {
                     ))}
                 </View>
             </QueryStates>
+        </View>
+    );
+}
+
+/* ── one subscription, loading: the card's own outline ──────────────────────────────────────── */
+
+function SubscriptionCardSkeleton() {
+    return (
+        <View className="flex-col overflow-hidden rounded-3xl border border-stroke-subtle bg-surface-raised">
+            <View className={cx('flex-row items-center gap-4 p-5', TINT_FILL.green)}>
+                <Bone heightClassName="h-14" widthClassName="w-14" />
+                <View className="min-w-0 flex-1 gap-2">
+                    <Bone heightClassName="h-6" widthClassName="w-1/2" />
+                    <View className="flex-row gap-1.5">
+                        <Bone heightClassName="h-6" widthClassName="w-24" rounded="full" />
+                        <Bone heightClassName="h-6" widthClassName="w-24" rounded="full" />
+                    </View>
+                </View>
+                <View className="items-end gap-1.5">
+                    <Bone heightClassName="h-8" widthClassName="w-20" />
+                    <Bone heightClassName="h-3" widthClassName="w-10" />
+                </View>
+            </View>
+            <View className="flex-col gap-[18px] p-5">
+                <View className="flex-row items-center gap-3">
+                    <Bone heightClassName="h-4" widthClassName="w-20" />
+                    <Bone heightClassName="h-2.5" rounded="full" className="flex-1" />
+                </View>
+                <View className="flex-col gap-2.5 sm:flex-row">
+                    {[0, 1, 2].map((index) => (
+                        <View
+                            key={index}
+                            className="min-w-0 flex-1 gap-2 rounded-2xl bg-surface-base px-3.5 py-3"
+                        >
+                            <Bone heightClassName="h-3" widthClassName="w-1/3" />
+                            <Bone heightClassName="h-4" widthClassName="w-2/3" />
+                        </View>
+                    ))}
+                </View>
+                <View className="flex-row gap-2">
+                    <Bone heightClassName="h-10" widthClassName="w-36" rounded="full" />
+                    <Bone heightClassName="h-10" widthClassName="w-24" rounded="full" />
+                </View>
+            </View>
         </View>
     );
 }
@@ -403,7 +453,7 @@ function SubscriptionCard({
                         <CardAction
                             testID={`${id}-meals`}
                             label={t('commerce:subscriptions.changeMeals')}
-                            icon="plate"
+                            icon="utensils"
                             tone="primary"
                             onPress={() => {
                                 router.push(withQuery(href, { meals: '1' }) as never);
@@ -444,73 +494,36 @@ function SubscriptionCard({
                 )}
             </View>
 
-            <Dialog
-                testID={`${id}-pause-dialog`}
-                open={dialog === 'pause'}
-                onClose={close}
-                title={t('commerce:subscription.pauseDialogTitle')}
-                description={t('commerce:subscription.pauseDialogBody')}
-                actions={
-                    <>
-                        <Button
-                            testID={`${id}-pause-cancel`}
-                            variant="quiet"
-                            label={t('commerce:common.cancel')}
-                            onPress={close}
-                        />
-                        <Button
-                            testID={`${id}-pause-confirm`}
-                            label={t('commerce:subscription.pauseConfirm')}
-                            loading={pause.isPending}
-                            onPress={() => {
+            {/* Shop · Subscription, pins 8 and 9: the same pop-ups as the subscription page. */}
+            {(['pause', 'resume'] as const).map((kind) => {
+                const mutation = kind === 'pause' ? pause : resume;
+                return (
+                    <PauseResumeDialog
+                        key={kind}
+                        kind={kind}
+                        testID={`${id}-${kind}`}
+                        open={dialog === kind}
+                        subject={{
+                            planName: subscription.planName,
+                            state: subscription.state,
+                            kitchenName: kitchen.data?.name,
+                        }}
+                        pending={mutation.isPending}
+                        error={mutation.error}
+                        onClose={close}
+                        onConfirm={() => {
+                            if (kind === 'pause') {
                                 pause.mutate(
                                     { subscriptionId: subscription.id },
                                     { onSuccess: close },
                                 );
-                            }}
-                        />
-                    </>
-                }
-            >
-                <Stack space="sm">
-                    <Callout
-                        role="note"
-                        tone="warning"
-                        icon="info"
-                        title={t('commerce:subscription.pauseConsequenceTitle')}
-                        body={t('commerce:subscription.pauseConsequenceOpen')}
-                    />
-                    <DialogFailure error={pause.error} testID={`${id}-pause-failure`} />
-                </Stack>
-            </Dialog>
-
-            <Dialog
-                testID={`${id}-resume-dialog`}
-                open={dialog === 'resume'}
-                onClose={close}
-                title={t('commerce:subscription.resumeDialogTitle')}
-                description={t('commerce:subscription.resumeDialogBody')}
-                actions={
-                    <>
-                        <Button
-                            testID={`${id}-resume-cancel`}
-                            variant="quiet"
-                            label={t('commerce:common.cancel')}
-                            onPress={close}
-                        />
-                        <Button
-                            testID={`${id}-resume-confirm`}
-                            label={t('commerce:subscription.resumeConfirm')}
-                            loading={resume.isPending}
-                            onPress={() => {
+                            } else {
                                 resume.mutate(subscription.id, { onSuccess: close });
-                            }}
-                        />
-                    </>
-                }
-            >
-                <DialogFailure error={resume.error} testID={`${id}-resume-failure`} />
-            </Dialog>
+                            }
+                        }}
+                    />
+                );
+            })}
         </View>
     );
 }
@@ -634,7 +647,7 @@ function CardAction({
 }: {
     readonly testID: string;
     readonly label: string;
-    readonly icon?: 'plate' | undefined;
+    readonly icon?: 'utensils' | undefined;
     readonly tone?: 'primary' | 'neutral';
     readonly disabled?: boolean;
     readonly onPress: () => void;

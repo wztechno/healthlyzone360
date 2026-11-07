@@ -148,7 +148,9 @@
         "window": "موعد التوصيل",
         "slotTime": "{{start}} – {{end}}",
         "slotSummary": "{{day}}، {{slot}} {{time}}",
-        "slotShort": "{{day}}، {{slot}}"
+        "slotShort": "{{day}}، {{slot}}",
+        "seeAll": "عرض الكل",
+        "headerPlace": "{{label}} · {{area}}"
     },
     "kitchens": {
         "title": "المطابخ",
@@ -274,7 +276,8 @@
         "noDeliveryZones": "هذا الفرع لا يوصل. تُستلم الطلبات من الفرع.",
         "zoneMinutes": "نحو {{minutes}} دقيقة",
         "zoneFee": "رسوم التوصيل {{fee}}",
-        "zoneMinimum": "حد أدنى للطلب {{minimum}}"
+        "zoneMinimum": "حد أدنى للطلب {{minimum}}",
+        "browseKitchens": "تصفّح المطابخ"
     },
     "menu": {
         "title": "قائمة الطعام",
@@ -775,7 +778,8 @@
             "countCutOff_many": "{{formattedCount}} طبقًا · اطلب قبل {{time}}",
             "countCutOff_other": "{{formattedCount}} طبق · اطلب قبل {{time}}",
             "emptyTitle": "لا شيء في القائمة بعد",
-            "emptyBody": "لم ينشر هذا المطبخ أي شيء للطلب. تصفّح الدليل للعثور على مطبخ آخر."
+            "emptyBody": "لم ينشر هذا المطبخ أي شيء للطلب. تصفّح الدليل للعثور على مطبخ آخر.",
+            "chipShort": "{{label}} · {{count}}"
         },
         "row": {
             "energy": "{{value}} سعرة",
@@ -885,7 +889,8 @@
             "unverifiedBody": "لم يُوثَّق هذا المطبخ بعد.",
             "dietsEyebrow": "الأنظمة الغذائية التي يطهو لها هذا المطبخ",
             "noDiets": "لم يذكر هذا المطبخ الأنظمة الغذائية التي يطهو لها.",
-            "noteJoin": ". "
+            "noteJoin": ". ",
+            "eachEyebrow": "عدد الأطباق التي تُعلن كل واحد"
         },
         "reviews": {
             "notRated": "لم يُقيَّم بعد",
@@ -904,7 +909,9 @@
         "pausedTitle": "أوقف هذا المطبخ استقبال الطلبات الجديدة مؤقتًا",
         "pausedBody": "يمكنك تصفّح القائمة الآن والطلب مجددًا ابتداءً من {{time}}.",
         "allKitchens": "كل المطابخ",
-        "seePlans": "عرض الخطط الأسبوعية"
+        "seePlans": "عرض الخطط الأسبوعية",
+        "pausedPill": "الطلبات الجديدة متوقفة · تعود عند {{time}}",
+        "viewOrder": "عرض الطلب"
     },
     "imageCredits": {
         "title": "اعتمادات الصور",

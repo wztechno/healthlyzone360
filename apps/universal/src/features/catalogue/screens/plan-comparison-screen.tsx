@@ -1,4 +1,4 @@
-import { Button, EmptyState, Icon, cx, useBreakpoint } from '@healthy360/design-system';
+import { Button, Icon, cx, useBreakpoint } from '@healthy360/design-system';
 import type { MealSlot, SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { SubscriptionPlanId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -21,6 +21,7 @@ import { estimatedTotal } from '../../commerce/configurator.ts';
 import { configuratorHref } from '../../commerce/configurator-draft.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
+import { ShopStateButton, ShopStateCard } from '../../../ui/shop-state.tsx';
 import { listDayPrice } from '../plan-balance.ts';
 import { cheapestVariant } from '../plan-catalogue.ts';
 import { TINT_FILL, TINT_INK } from '../shelf-tints.ts';
@@ -56,10 +57,10 @@ const SCALE_HIGH = 2200;
 const HEAD_TINTS: readonly ShelfTint[] = ['orange', 'green', 'blue'];
 const MAX_COMPARED = 3;
 const SLOT_LOOK: Readonly<
-    Record<MealSlot, { tint: ShelfTint; icon: 'sun' | 'plate' | 'moon' | 'leaf' }>
+    Record<MealSlot, { tint: ShelfTint; icon: 'sun' | 'utensils' | 'moon' | 'leaf' }>
 > = {
     breakfast: { tint: 'yellow', icon: 'sun' },
-    lunch: { tint: 'green', icon: 'plate' },
+    lunch: { tint: 'green', icon: 'utensils' },
     dinner: { tint: 'blue', icon: 'moon' },
     snack: { tint: 'orange', icon: 'leaf' },
 };
@@ -86,7 +87,7 @@ interface ComparisonRow {
 interface ComparisonGroup {
     readonly key: string;
     readonly label: string;
-    readonly icon: 'plate' | 'basket' | 'refresh';
+    readonly icon: 'utensils' | 'shoppingBasket' | 'refresh';
     readonly rows: readonly ComparisonRow[];
 }
 
@@ -164,7 +165,7 @@ export function PlanComparisonScreen() {
         {
             key: 'food',
             label: t('catalogue:compare.group.food'),
-            icon: 'plate',
+            icon: 'utensils',
             rows: [
                 {
                     key: 'energy',
@@ -235,7 +236,7 @@ export function PlanComparisonScreen() {
         {
             key: 'price',
             label: t('catalogue:compare.group.price'),
-            icon: 'basket',
+            icon: 'shoppingBasket',
             rows: [
                 {
                     key: 'day',
@@ -412,14 +413,25 @@ export function PlanComparisonScreen() {
                     `QueryStates` would show a skeleton for ever. "Nothing was selected" is not a
                     pending request — it is the answer, and it is rendered as one. */}
                 {planIds.length === 0 ? (
-                    <EmptyState
+                    // Weekly plans, pin 4: and the way to the plans.
+                    <ShopStateCard
                         testID="plan-comparison-empty"
+                        icon="layoutGrid"
                         title={t('catalogue:compare.emptyTitle')}
                         body={t('catalogue:compare.emptyBody')}
-                        actions={back}
+                        actions={
+                            <ShopStateButton
+                                testID="plan-comparison-back"
+                                icon="arrowForward"
+                                iconAfter
+                                label={t('catalogue:compare.backToPlans')}
+                                onPress={backToPlans}
+                            />
+                        }
                     />
                 ) : (
                     <QueryStates
+                        skeleton="rows"
                         query={comparison}
                         isEmpty={plans.length === 0}
                         emptyTitle={t('catalogue:compare.emptyTitle')}

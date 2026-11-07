@@ -408,7 +408,11 @@ module.exports = {
         "elevation-4": "0 8px 16px -4px rgb(23 21 20 / 0.12), 0 4px 8px -4px rgb(23 21 20 / 0.07)",
         "elevation-5": "0 16px 32px -8px rgb(23 21 20 / 0.16), 0 8px 16px -8px rgb(23 21 20 / 0.08)",
         "elevation-card": "0 1px 2px rgb(23 21 20 / 0.05), 0 14px 30px -18px rgb(11 59 38 / 0.35)",
-        "elevation-card-hover": "0 1px 2px rgb(23 21 20 / 0.05), 0 24px 46px -20px rgb(11 59 38 / 0.5)"
+        "elevation-card-hover": "0 1px 2px rgb(23 21 20 / 0.05), 0 24px 46px -20px rgb(11 59 38 / 0.5)",
+        "elevation-bar": "0 22px 44px -18px rgb(11 59 38 / 0.35), 0 2px 8px rgb(11 59 38 / 0.06)",
+        "elevation-brand-glow": "0 6px 14px -4px rgb(var(--h360-color-brand-surface) / 0.6)",
+        "elevation-search": "0 6px 20px rgb(11 59 38 / 0.12)",
+        "elevation-focus-ring": "0 0 0 4px rgb(var(--h360-color-brand-surface-subtle)), 0 6px 20px rgb(11 59 38 / 0.12)"
       },
       "transitionDuration": {
         "instant": "0ms",

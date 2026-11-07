@@ -18,6 +18,11 @@ export interface RangeSliderProps {
     readonly value: RangeEnds;
     /** "Any", "Under 600 kcal", "400 – 600 kcal" — composed by the screen, which knows the locale. */
     readonly readout: string;
+    /**
+     * The same readout for any value — so the web slider can say where a handle is while it is
+     * still being dragged, before the change is committed.
+     */
+    readonly readoutFor?: ((value: RangeEnds) => string) | undefined;
     /** The menu's colour, which the fill and the handles wear. */
     readonly tint: ShelfTint;
     /** The two handles' names, for a screen reader. */

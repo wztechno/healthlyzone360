@@ -1,3 +1,4 @@
+import { Dimensions } from 'react-native';
 import { ApiError, apiFailure } from '@healthy360/api-client';
 import type { PlacedOrder } from '@healthy360/api-client/contracts';
 import { OrderId } from '@healthy360/domain-types';
@@ -13,6 +14,23 @@ import {
     ORDER_HISTORY_HREF,
     ORDER_TRACKING_POLL_MS,
 } from './screens/customer-order-screen.tsx';
+
+/*
+ * These suites were written for the tabbed account and the order page's Back pill, which a
+ * tablet still draws; a phone draws the boards' menu of sections and its own top bar instead
+ * (see the phone cases in the shell and screen suites). So they run at a tablet's width.
+ */
+const phoneWindow = Dimensions.get('window');
+const phoneScreen = Dimensions.get('screen');
+beforeEach(() => {
+    Dimensions.set({
+        window: { ...phoneWindow, width: 820, height: 1180 },
+        screen: { ...phoneScreen, width: 820, height: 1180 },
+    });
+});
+afterEach(() => {
+    Dimensions.set({ window: phoneWindow, screen: phoneScreen });
+});
 
 /**
  * The signed-in order page, over the same tracking body the guest page draws.
@@ -300,8 +318,8 @@ describe('CustomerOrderScreen', () => {
         expect(await screen.findByTestId('customer-order-states-empty')).toBeTruthy();
         expect(repositories.commerce.getMyOrder).not.toHaveBeenCalled();
 
-        // Nothing to show, so the one action is the history — by name, as from the trail.
-        await fireEvent.press(screen.getByTestId('customer-order-history'));
+        // Nothing to show, and the Back pill still leads to the history — by name.
+        await fireEvent.press(screen.getByTestId('customer-order-trail-up'));
         expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(ORDER_HISTORY_HREF);
     });
 

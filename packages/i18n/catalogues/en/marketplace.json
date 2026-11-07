@@ -132,7 +132,9 @@
         "window": "Delivery window",
         "slotTime": "{{start}} – {{end}}",
         "slotSummary": "{{day}}, {{slot}} {{time}}",
-        "slotShort": "{{day}}, {{slot}}"
+        "slotShort": "{{day}}, {{slot}}",
+        "seeAll": "See all",
+        "headerPlace": "{{label}} · {{area}}"
     },
     "kitchens": {
         "title": "Kitchens",
@@ -246,7 +248,8 @@
         "noDeliveryZones": "This branch does not deliver. Orders are collected.",
         "zoneMinutes": "about {{minutes}} minutes",
         "zoneFee": "delivery {{fee}}",
-        "zoneMinimum": "minimum order {{minimum}}"
+        "zoneMinimum": "minimum order {{minimum}}",
+        "browseKitchens": "Browse kitchens"
     },
     "menu": {
         "title": "Menu",
@@ -715,7 +718,8 @@
             "countCutOff_one": "{{formattedCount}} dish · order by {{time}}",
             "countCutOff_other": "{{formattedCount}} dishes · order by {{time}}",
             "emptyTitle": "Nothing on the menu yet",
-            "emptyBody": "This kitchen has not published anything to order. Browse the directory to find another."
+            "emptyBody": "This kitchen has not published anything to order. Browse the directory to find another.",
+            "chipShort": "{{label}} · {{count}}"
         },
         "row": {
             "energy": "{{value}} cal",
@@ -821,7 +825,8 @@
             "unverifiedBody": "This kitchen has not been verified yet.",
             "dietsEyebrow": "Diets this kitchen cooks for",
             "noDiets": "This kitchen has not listed the diets it cooks for.",
-            "noteJoin": ". "
+            "noteJoin": ". ",
+            "eachEyebrow": "How many dishes declare each"
         },
         "reviews": {
             "notRated": "Not rated yet",
@@ -836,7 +841,9 @@
         "pausedTitle": "This kitchen has paused new orders",
         "pausedBody": "You can browse the menu now and order again from {{time}}.",
         "allKitchens": "All kitchens",
-        "seePlans": "See weekly plans"
+        "seePlans": "See weekly plans",
+        "pausedPill": "New orders paused · back at {{time}}",
+        "viewOrder": "View order"
     },
     "imageCredits": {
         "title": "Image credits",

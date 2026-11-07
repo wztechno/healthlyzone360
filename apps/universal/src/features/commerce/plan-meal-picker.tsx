@@ -1,4 +1,4 @@
-import { Icon, Select, cx, useBreakpoint } from '@healthy360/design-system';
+import { Icon, cx, useBreakpoint } from '@healthy360/design-system';
 import type {
     MarketplaceMeal,
     MealSlot,
@@ -17,12 +17,7 @@ import { TINT_FILL, TINT_INK, TINT_INK_FILL } from '../catalogue/shelf-tints.ts'
 import type { ShelfTint } from '../catalogue/shelf-tints.ts';
 import { configuredDeliveryDates, fillWeek, pickKey, sittingsOf, weeksOf } from './configurator.ts';
 import type { ConfiguratorState } from './configurator.ts';
-import {
-    YourAllergens,
-    clashingAllergens,
-    useAllergenNames,
-    useMyAllergenCodes,
-} from './my-allergens.tsx';
+import { clashingAllergens, useMyAllergenCodes } from './my-allergens.tsx';
 import { SetupPane } from './plan-setup-frame.tsx';
 
 const MEAL_SLOTS: readonly MealSlot[] = ['breakfast', 'lunch', 'dinner', 'snack'];
@@ -51,122 +46,15 @@ export function useSittingLabel(): (sitting: PlanSitting) => string {
             : `${t(sittingLabelKey(sitting.slot))} ${formatter.formatNumber(sitting.sequence)}`;
 }
 
-export interface PlanDayMealsProps {
-    /** `YYYY-MM-DD`. */
-    readonly date: string;
-    readonly sittings: readonly PlanSitting[];
-    /** The dish in each sitting, by `slot:sequence`. */
-    readonly picks: Readonly<Record<string, MealId | undefined>>;
-    readonly onPick: (sitting: PlanSitting, mealId: MealId) => void;
-    readonly menu: readonly MarketplaceMeal[];
-    readonly menuLoading?: boolean | undefined;
-    /** Draws a sitting with no dish as an error once the person has tried to move on. */
-    readonly showMissing?: boolean | undefined;
-    /** Hide the date — a dialog that already names the day in its title. */
-    readonly hideDate?: boolean | undefined;
-    readonly testID: string;
-}
-
 /** The `slot:sequence` key a day's picks are held under. */
 export function sittingKey(sitting: PlanSitting): string {
     return `${sitting.slot}:${String(sitting.sequence)}`;
 }
 
-export function PlanDayMeals({
-    date,
-    sittings,
-    picks,
-    onPick,
-    menu,
-    menuLoading = false,
-    showMissing = false,
-    hideDate = false,
-    testID,
-}: PlanDayMealsProps) {
-    const { t } = useTranslation();
-    const formatter = useFormatter();
-    const mine = useMyAllergenCodes();
-    const allergenNames = useAllergenNames();
-    const sittingLabel = useSittingLabel();
-    // Midday UTC, so the calendar day reads the same in every time zone.
-    const day = formatter.formatDate(`${date}T12:00:00Z`, {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short',
-    });
-
-    /** An option names the clash before it is picked, so the list itself warns. */
-    const options = menu.map((meal) => {
-        const clashing = clashingAllergens(meal.allergens, mine);
-        return {
-            value: String(meal.id),
-            label:
-                clashing.length === 0
-                    ? meal.name
-                    : t('commerce:myAllergens.option', {
-                          meal: meal.name,
-                          count: clashing.length,
-                          allergens: allergenNames(clashing),
-                      }),
-        };
-    });
-
-    return (
-        <View testID={testID} className="flex-col gap-2 md:flex-row md:items-start md:gap-4">
-            {hideDate ? null : (
-                <RNText
-                    testID={`${testID}-date`}
-                    className="self-start text-sm font-semibold text-content-primary text-start md:w-[120px] md:pt-2"
-                >
-                    {day}
-                </RNText>
-            )}
-            <View className="min-w-0 flex-col gap-3 md:flex-1 md:flex-row md:flex-wrap">
-                {sittings.map((sitting) => {
-                    const mealId = picks[sittingKey(sitting)];
-                    const meal = menu.find((option) => option.id === mealId);
-                    return (
-                        <View
-                            key={sittingKey(sitting)}
-                            className="min-w-0 flex-col md:min-w-[180px] md:flex-1"
-                        >
-                            <Select
-                                testID={`${testID}-${sitting.slot}-${String(sitting.sequence)}`}
-                                label={sittingLabel(sitting)}
-                                searchable
-                                loading={menuLoading}
-                                value={mealId === undefined ? null : String(mealId)}
-                                placeholder={t('commerce:configurator.meals.placeholder')}
-                                error={
-                                    showMissing && mealId === undefined
-                                        ? t('commerce:configurator.meals.missing')
-                                        : undefined
-                                }
-                                onChange={(next) => {
-                                    const chosen = menu.find(
-                                        (option) => String(option.id) === next,
-                                    );
-                                    if (chosen !== undefined) onPick(sitting, chosen.id);
-                                }}
-                                options={options}
-                            />
-                            <YourAllergens
-                                allergens={meal?.allergens}
-                                testID={`${testID}-${sitting.slot}-${String(sitting.sequence)}-your-allergens`}
-                                className="mt-1"
-                            />
-                        </View>
-                    );
-                })}
-            </View>
-        </View>
-    );
-}
-
 /* ── the configurator's step ─────────────────────────────────────────────────────────────────── */
 
 /** A sitting's colour, as the board's rows wear them. */
-const SITTING_TINT: Readonly<Record<MealSlot, ShelfTint>> = {
+export const SITTING_TINT: Readonly<Record<MealSlot, ShelfTint>> = {
     breakfast: 'yellow',
     lunch: 'green',
     dinner: 'blue',
@@ -685,22 +573,16 @@ export function MealsStep({ plan, state, patch, menu, menuLoading, showIssues }:
                                             />
                                         );
                                     }
-                                    const on = curPick === meal.id;
-                                    const times = used.get(String(meal.id)) ?? 0;
-                                    const clash =
-                                        clashingAllergens(meal.allergens, mine).length > 0;
-                                    const kcal = publishedFigure(meal, 'energy');
-                                    const tag =
-                                        meal.publishedCategory?.name ??
-                                        (meal.mealTypes[0] === undefined
-                                            ? null
-                                            : t(`marketplace:mealTypes.${meal.mealTypes[0]}`));
                                     return (
-                                        <Pressable
+                                        <DishCard
                                             key={meal.id}
+                                            meal={meal}
+                                            on={curPick === meal.id}
+                                            times={used.get(String(meal.id)) ?? 0}
+                                            clash={
+                                                clashingAllergens(meal.allergens, mine).length > 0
+                                            }
                                             testID={`configurator-dish-${meal.slug}`}
-                                            role="button"
-                                            accessibilityRole="button"
                                             accessibilityLabel={
                                                 curWhich === undefined || curDate === undefined
                                                     ? meal.name
@@ -713,101 +595,7 @@ export function MealsStep({ plan, state, patch, menu, menuLoading, showIssues }:
                                             onPress={() => {
                                                 choose(meal);
                                             }}
-                                            className={cx(
-                                                'group relative min-h-[72px] min-w-0 flex-1 flex-row items-center gap-2.5 rounded-2xl border-[1.5px] p-1.5 pe-[50px] transition duration-normal ease-standard hover:-translate-y-px active:scale-[0.98]',
-                                                on
-                                                    ? 'border-surface-brand bg-surface-brand-subtle'
-                                                    : 'border-stroke-subtle bg-surface-raised hover:border-stroke',
-                                            )}
-                                        >
-                                            <View className="h-[60px] w-[60px] overflow-hidden rounded-xl">
-                                                <EntityImage
-                                                    assetId={meal.imagePlaceholderId}
-                                                    photoUrl={meal.photoUrl}
-                                                    variant="card"
-                                                    seed={meal.slug}
-                                                    label={meal.name}
-                                                    decorative
-                                                    flush
-                                                    className="h-full w-full"
-                                                />
-                                            </View>
-                                            <View className="min-w-0 flex-1 flex-col gap-0.5">
-                                                <RNText
-                                                    numberOfLines={2}
-                                                    className="text-sm font-bold leading-[18px] text-content-primary text-start"
-                                                >
-                                                    {meal.name}
-                                                </RNText>
-                                                <RNText
-                                                    numberOfLines={1}
-                                                    className="text-xs text-content-secondary text-start"
-                                                >
-                                                    {[
-                                                        tag,
-                                                        kcal === null
-                                                            ? null
-                                                            : t(
-                                                                  'commerce:configurator.meals.kcal',
-                                                                  {
-                                                                      kcal: formatter.formatNumber(
-                                                                          Math.round(kcal),
-                                                                      ),
-                                                                  },
-                                                              ),
-                                                    ]
-                                                        .filter(
-                                                            (part): part is string => part !== null,
-                                                        )
-                                                        .join(' · ')}
-                                                </RNText>
-                                                {clash ? (
-                                                    <View
-                                                        testID={`configurator-dish-${meal.slug}-clash`}
-                                                        className="flex-row items-center gap-1"
-                                                    >
-                                                        <Icon
-                                                            name="warning"
-                                                            size="sm"
-                                                            className="text-danger-on-subtle"
-                                                        />
-                                                        <RNText className="text-xs font-semibold text-danger-on-subtle">
-                                                            {t('commerce:configurator.meals.clash')}
-                                                        </RNText>
-                                                    </View>
-                                                ) : null}
-                                            </View>
-                                            {times === 0 ? null : (
-                                                <View className="absolute start-1 top-1 h-5 min-w-5 items-center justify-center rounded-full bg-content-primary px-1">
-                                                    <RNText
-                                                        testID={`configurator-dish-${meal.slug}-used`}
-                                                        className="text-xs font-bold tabular-nums text-surface-base"
-                                                    >
-                                                        {t('commerce:configurator.meals.used', {
-                                                            count: formatter.formatNumber(times),
-                                                        })}
-                                                    </RNText>
-                                                </View>
-                                            )}
-                                            <View
-                                                className={cx(
-                                                    'absolute end-2.5 top-1/2 -mt-4 h-8 w-8 items-center justify-center rounded-full transition duration-normal ease-standard',
-                                                    on
-                                                        ? 'bg-surface-brand'
-                                                        : 'bg-surface-brand-subtle group-hover:bg-surface-brand',
-                                                )}
-                                            >
-                                                <Icon
-                                                    name="plus"
-                                                    size="sm"
-                                                    className={
-                                                        on
-                                                            ? 'text-content-on-brand'
-                                                            : 'text-content-on-brand-subtle group-hover:text-content-on-brand'
-                                                    }
-                                                />
-                                            </View>
-                                        </Pressable>
+                                        />
                                     );
                                 })}
                             </View>
@@ -816,6 +604,130 @@ export function MealsStep({ plan, state, patch, menu, menuLoading, showIssues }:
                 </>
             )}
         </SetupPane>
+    );
+}
+
+export interface DishCardProps {
+    readonly meal: MarketplaceMeal;
+    /** The dish already in the current cell. */
+    readonly on: boolean;
+    /** How often it is already in the week or day, as the corner count. */
+    readonly times: number;
+    /** It crosses the person's allergy list. */
+    readonly clash: boolean;
+    readonly accessibilityLabel: string;
+    readonly onPress: () => void;
+    readonly testID: string;
+}
+
+/**
+ * One dish of the picker's list — the accepted Plan setup board's card, shared by the set-up's
+ * Pick your meals and the subscription's Meals for a day: the photo, the name, its type and
+ * calories, a warning when it crosses the allergy list, how often it is already used, and the +.
+ */
+export function DishCard({
+    meal,
+    on,
+    times,
+    clash,
+    accessibilityLabel,
+    onPress,
+    testID,
+}: DishCardProps) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const kcal = publishedFigure(meal, 'energy');
+    const tag =
+        meal.publishedCategory?.name ??
+        (meal.mealTypes[0] === undefined ? null : t(`marketplace:mealTypes.${meal.mealTypes[0]}`));
+    return (
+        <Pressable
+            testID={testID}
+            role="button"
+            accessibilityRole="button"
+            accessibilityLabel={accessibilityLabel}
+            onPress={onPress}
+            className={cx(
+                'group relative min-h-[72px] min-w-0 flex-1 flex-row items-center gap-2.5 rounded-2xl border-[1.5px] p-1.5 pe-[50px] transition duration-normal ease-standard hover:-translate-y-px active:scale-[0.98]',
+                on
+                    ? 'border-surface-brand bg-surface-brand-subtle'
+                    : 'border-stroke-subtle bg-surface-raised hover:border-stroke',
+            )}
+        >
+            <View className="h-[60px] w-[60px] overflow-hidden rounded-xl">
+                <EntityImage
+                    assetId={meal.imagePlaceholderId}
+                    photoUrl={meal.photoUrl}
+                    variant="card"
+                    seed={meal.slug}
+                    label={meal.name}
+                    decorative
+                    flush
+                    className="h-full w-full"
+                />
+            </View>
+            <View className="min-w-0 flex-1 flex-col gap-0.5">
+                <RNText
+                    numberOfLines={2}
+                    className="text-sm font-bold leading-[18px] text-content-primary text-start"
+                >
+                    {meal.name}
+                </RNText>
+                <RNText numberOfLines={1} className="text-xs text-content-secondary text-start">
+                    {[
+                        tag,
+                        kcal === null
+                            ? null
+                            : t('commerce:configurator.meals.kcal', {
+                                  kcal: formatter.formatNumber(Math.round(kcal)),
+                              }),
+                    ]
+                        .filter((part): part is string => part !== null)
+                        .join(' · ')}
+                </RNText>
+                {clash ? (
+                    <View
+                        testID={`${testID}-clash`}
+                        className="mt-0.5 h-[22px] flex-row items-center gap-1 self-start rounded-full bg-warning-subtle px-2"
+                    >
+                        <Icon name="alert" size="sm" className="text-warning-on-subtle" />
+                        <RNText className="text-xs font-bold text-warning-on-subtle">
+                            {t('commerce:configurator.meals.clash')}
+                        </RNText>
+                    </View>
+                ) : null}
+            </View>
+            {times === 0 ? null : (
+                <View className="absolute start-1 top-1 h-5 min-w-5 items-center justify-center rounded-full bg-content-primary px-1">
+                    <RNText
+                        testID={`${testID}-used`}
+                        className="text-xs font-bold tabular-nums text-surface-base"
+                    >
+                        {t('commerce:configurator.meals.used', {
+                            count: formatter.formatNumber(times),
+                        })}
+                    </RNText>
+                </View>
+            )}
+            <View
+                className={cx(
+                    'absolute end-2.5 top-1/2 -mt-4 h-8 w-8 items-center justify-center rounded-full transition duration-normal ease-standard',
+                    on
+                        ? 'bg-surface-brand'
+                        : 'bg-surface-brand-subtle group-hover:bg-surface-brand',
+                )}
+            >
+                <Icon
+                    name="plus"
+                    size="sm"
+                    className={
+                        on
+                            ? 'text-content-on-brand'
+                            : 'text-content-on-brand-subtle group-hover:text-content-on-brand'
+                    }
+                />
+            </View>
+        </Pressable>
     );
 }
 

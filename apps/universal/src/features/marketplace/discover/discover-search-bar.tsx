@@ -1,4 +1,4 @@
-import { Icon, useMotion } from '@healthy360/design-system';
+import { Icon, cx, useBreakpoint, useMotion } from '@healthy360/design-system';
 import type { KitchenId } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -41,6 +41,8 @@ export function DiscoverSearchBar({
     const { t } = useTranslation();
     const router = useRouter();
 
+    // Shop · Discover — phone: "Deliver to" is its own line, over a 52px bar with no divider.
+    const compact = !useBreakpoint().atLeast('md');
     const [term, setTerm] = useState('');
     const [focused, setFocused] = useState(false);
 
@@ -53,19 +55,39 @@ export function DiscoverSearchBar({
 
     // `z-auto` here and on the bar lets the address dropdown sit above the rest of the page.
     return (
-        <View testID={testID} className="z-auto items-center pb-7 pt-2">
+        <View
+            testID={testID}
+            className={cx('z-auto pt-2', compact ? 'items-stretch pb-4' : 'items-center pb-7')}
+        >
+            {compact ? (
+                <View className="z-auto items-start">
+                    <DeliverToMenu testID={testID} kitchenId={kitchenId} />
+                </View>
+            ) : null}
             <View
-                className={
+                className={cx(
+                    'z-auto w-full flex-row items-center rounded-full border bg-surface-raised transition duration-normal ease-standard',
+                    compact
+                        ? 'mt-1 h-[52px] gap-2 py-1 pe-1 ps-4'
+                        : 'h-[60px] max-w-[760px] gap-1.5 p-1.5',
                     focused
-                        ? 'z-auto h-[60px] w-full max-w-[760px] flex-row items-center gap-1.5 rounded-full border border-surface-brand bg-surface-raised p-1.5 shadow-elevation-2'
-                        : 'z-auto h-[60px] w-full max-w-[760px] flex-row items-center gap-1.5 rounded-full border border-stroke bg-surface-raised p-1.5 shadow-elevation-2'
-                }
+                        ? 'border-surface-brand shadow-elevation-focus-ring'
+                        : 'border-stroke shadow-elevation-search',
+                )}
             >
-                <DeliverToMenu testID={testID} kitchenId={kitchenId} />
+                {compact ? null : (
+                    <>
+                        <DeliverToMenu testID={testID} kitchenId={kitchenId} />
+                        <View aria-hidden className="h-7 w-px bg-stroke" />
+                    </>
+                )}
 
-                <View aria-hidden className="h-7 w-px bg-stroke" />
-
-                <View className="min-w-0 flex-1 flex-row items-center gap-2.5 ps-2.5">
+                <View
+                    className={cx(
+                        'min-w-0 flex-1 flex-row items-center gap-2.5',
+                        compact ? null : 'ps-2.5',
+                    )}
+                >
                     <Icon name="search" className="text-content-secondary" />
                     <View className="relative h-6 min-w-0 flex-1">
                         <TextInput
@@ -93,7 +115,10 @@ export function DiscoverSearchBar({
                     accessibilityRole="button"
                     accessibilityLabel={t('marketplace:nav.searchLabel')}
                     onPress={submit}
-                    className="h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-brand transition duration-normal ease-standard active:scale-95"
+                    className={cx(
+                        'shrink-0 items-center justify-center rounded-full bg-surface-brand transition duration-normal ease-standard active:scale-95',
+                        compact ? 'h-11 w-11' : 'h-12 w-12',
+                    )}
                 >
                     <Icon name="search" className="text-content-on-brand" />
                 </Pressable>

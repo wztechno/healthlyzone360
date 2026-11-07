@@ -87,7 +87,7 @@ final class KitchenDisplayController
             ->get();
 
         $orders = $rows->take(self::MAX_ORDERS);
-        $orderIds = array_map('strval', $orders->modelKeys());
+        $orderIds = array_values(array_map('strval', $orders->modelKeys()));
 
         /** @var array<string, list<OrderLine>> $lines */
         $lines = OrderLine::query()

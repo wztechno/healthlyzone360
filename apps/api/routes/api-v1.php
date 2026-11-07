@@ -20,6 +20,7 @@ use Healthy360\Allergens\Http\Controllers\AllergenClassDeactivateController;
 use Healthy360\Allergens\Http\Controllers\AllergenClassStoreController;
 use Healthy360\Allergens\Http\Controllers\AllergenClassUpdateController;
 use Healthy360\Allergens\Http\Controllers\PublicAllergenClassIndexController;
+use Healthy360\Audit\Http\Controllers\AuditActivityIndexController;
 use Healthy360\B2b\Http\Controllers\B2bAgreementIndexController;
 use Healthy360\B2b\Http\Controllers\B2bAgreementShowController;
 use Healthy360\B2b\Http\Controllers\B2bAgreementSignatureChallengeController;
@@ -89,13 +90,12 @@ use Healthy360\Cart\Http\Controllers\CartStoreController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemAllergenIndexController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemAllergensAssessedController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemAvailabilityReplaceController;
-use Healthy360\Catalogues\Http\Controllers\CatalogueItemOffTodayController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemChannelReplaceController;
-use Healthy360\Catalogues\Http\Controllers\CatalogueItemOptionController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemDietClassificationReplaceController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemIndexController;
-use Healthy360\Catalogues\Http\Controllers\DishMarginIndexController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemIngredientReplaceController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemOffTodayController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemOptionController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemPublishController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemReadinessController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemRetireController;
@@ -104,6 +104,7 @@ use Healthy360\Catalogues\Http\Controllers\CatalogueItemStoreController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemUpdateController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemVariantReplaceController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueReferenceNextController;
+use Healthy360\Catalogues\Http\Controllers\DishMarginIndexController;
 use Healthy360\Catalogues\Http\Controllers\PlanCombinationIndexController;
 use Healthy360\Catalogues\Http\Controllers\PlanCombinationStoreController;
 use Healthy360\Catalogues\Http\Controllers\PlanCombinationUpdateController;
@@ -153,6 +154,7 @@ use Healthy360\Customers\Http\Controllers\ContactPrimaryController;
 use Healthy360\Customers\Http\Controllers\ContactStoreController;
 use Healthy360\Customers\Http\Controllers\CustomerAccountShowController;
 use Healthy360\Customers\Http\Controllers\CustomerAccountStoreController;
+use Healthy360\Customers\Http\Controllers\DietaryIngredientSearchController;
 use Healthy360\Customers\Http\Controllers\DietaryProfileReplaceController;
 use Healthy360\Customers\Http\Controllers\DietaryProfileShowController;
 use Healthy360\Delivery\Http\Controllers\DeliveryJobAssignController;
@@ -205,12 +207,11 @@ use Healthy360\Ingredients\Http\Controllers\IngredientShowController;
 use Healthy360\Ingredients\Http\Controllers\IngredientStoreController;
 use Healthy360\Ingredients\Http\Controllers\IngredientUpdateController;
 use Healthy360\Ingredients\Http\Controllers\NutritionReferenceSearchController;
-use Healthy360\Audit\Http\Controllers\AuditActivityIndexController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionCountController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionIndexController;
-use Healthy360\Inventory\Http\Controllers\DuplicateStockIndexController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionResolveController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionRetryController;
+use Healthy360\Inventory\Http\Controllers\DuplicateStockIndexController;
 use Healthy360\Inventory\Http\Controllers\OrderDeskRequirementsController;
 use Healthy360\Inventory\Http\Controllers\OrderDeskShortfallCountController;
 use Healthy360\Inventory\Http\Controllers\OrderDeskWeeklyCheckController;
@@ -253,8 +254,8 @@ use Healthy360\Orders\Http\Controllers\KitchenOrderShowController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderStartController;
 use Healthy360\Orders\Http\Controllers\MyOrderIndexController;
 use Healthy360\Orders\Http\Controllers\MyOrderShowController;
-use Healthy360\Orders\Http\Controllers\OrderPaymentReceiptStoreController;
 use Healthy360\Orders\Http\Controllers\OrderComplaintController;
+use Healthy360\Orders\Http\Controllers\OrderPaymentReceiptStoreController;
 use Healthy360\Orders\Http\Controllers\OrderRefundController;
 use Healthy360\Orders\Http\Controllers\OrderStoreController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\KitchenCustomerIndexController;
@@ -577,6 +578,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             // removal impossible through the ordinary path.
             Route::get('/dietary-profile', DietaryProfileShowController::class)->name('me.dietary-profile.show');
             Route::put('/dietary-profile', DietaryProfileReplaceController::class)->name('me.dietary-profile.replace');
+
+            // The foods a person can name as "leave this out": the platform library
+            // and the kitchens' ingredients a meal on sale lists — nothing else a
+            // kitchen keeps. Read-only, by name, a page for a dropdown.
+            Route::get('/dietary-profile/ingredients', DietaryIngredientSearchController::class)
+                ->name('me.dietary-profile.ingredients');
 
             // Consent is keyed by the definition's own code rather than by a grant id.
             // The person is withdrawing "marketing", not row 4f3a…; and the grant they

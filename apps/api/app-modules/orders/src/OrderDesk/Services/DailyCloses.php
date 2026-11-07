@@ -144,7 +144,7 @@ final readonly class DailyCloses
             ->select(['business_date', 'currency_code', 'branch_id', 'counter_cash_minor', 'handed_in_minor', 'cash_refunds_minor', 'counted_minor', 'variance_minor'])
             ->selectRaw('row_number() over (partition by business_date, currency_code, branch_id order by closed_at desc) = 1 as is_last');
 
-        return DB::query()->fromSub($shifts, 'shifts')
+        return array_values(DB::query()->fromSub($shifts, 'shifts')
             ->select(['business_date', 'currency_code'])
             ->selectRaw('count(distinct branch_id) + max(case when branch_id is null then 1 else 0 end) as till_count')
             ->selectRaw('sum(counter_cash_minor) as counter_cash_minor, sum(handed_in_minor) as handed_in_minor, sum(cash_refunds_minor) as cash_refunds_minor')
@@ -164,7 +164,7 @@ final readonly class DailyCloses
                 'variance_minor' => (int) $row->variance_minor,
             ])
             ->values()
-            ->all();
+            ->all());
     }
 
     /**
@@ -285,14 +285,14 @@ final readonly class DailyCloses
     {
         $since = $now->subDays(self::CURRENCY_LOOKBACK_DAYS);
 
-        return DB::table('order_payment_receipts')
+        return array_values(DB::table('order_payment_receipts')
             ->where('organisation_id', $organisationId)->where('confirmed_at', '>=', $since)->select('currency_code')
             ->union(DB::table('cash_settlements')->where('organisation_id', $organisationId)->where('recorded_at', '>=', $since)->select('currency_code'))
             ->union(DB::table('daily_closes')->where('organisation_id', $organisationId)->select('currency_code'))
             ->orderBy('currency_code')
             ->pluck('currency_code')
             ->map(static fn (mixed $code): string => (string) $code)
-            ->all();
+            ->all());
     }
 
     /**

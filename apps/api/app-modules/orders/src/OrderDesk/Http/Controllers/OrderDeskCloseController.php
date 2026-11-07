@@ -111,7 +111,7 @@ final class OrderDeskCloseController
             ->whereIn('id', $closes->pluck('branch_id')->filter()->unique()->values())
             ->pluck('name', 'id');
 
-        return $closes->map(fn (DailyClose $close): array => [
+        return array_values($closes->map(fn (DailyClose $close): array => [
             'id' => (string) $close->getKey(),
             'branch_id' => $close->branch_id,
             'branch_name' => $close->branch_id === null ? null : ($branches[$close->branch_id] ?? null),
@@ -130,6 +130,6 @@ final class OrderDeskCloseController
             'recorded_by_name' => $names[$close->recorded_by] ?? null,
             'signed_off_by_name' => $close->signed_off_by === null ? null : ($names[$close->signed_off_by] ?? null),
             'signed_off_at' => $close->signed_off_at?->toIso8601String(),
-        ])->values()->all();
+        ])->values()->all());
     }
 }

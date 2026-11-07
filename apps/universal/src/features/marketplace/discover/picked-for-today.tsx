@@ -1,3 +1,4 @@
+import { cx, useBreakpoint } from '@healthy360/design-system';
 import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -51,27 +52,33 @@ export function PickedForToday({
     readonly entranceKey?: string | undefined;
 }) {
     const { t } = useTranslation();
+    // Shop · Discover — phone: 136px cards with a smaller face, a 10 gap and an 18px heading.
+    const compact = !useBreakpoint().atLeast('md');
     if (cards.length === 0) return null;
 
     return (
-        <View testID={testID} className="mt-7 flex-col">
+        <View testID={testID} className={cx('flex-col', compact ? 'mt-1' : 'mt-7')}>
             <RNText
                 role="heading"
                 aria-level={2}
-                className="mb-5 font-display text-2xl font-bold tracking-display text-content-primary text-start"
+                className={cx(
+                    'font-display font-bold tracking-display text-content-primary text-start',
+                    compact ? 'mb-2.5 text-lg' : 'mb-5 text-2xl',
+                )}
             >
                 {t('marketplace:discover.pickedTitle')}
             </RNText>
-            {/* Centred while the cards fit; a phone scrolls them. */}
-            <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerClassName="grow justify-center"
-            >
-                <View className="flex-row gap-3 px-0.5 pb-2 pt-1">
+            {/* Shop · Discover: the strip starts under the heading, as the board draws it, and
+                scrolls when the cards do not fit. */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View className={cx('flex-row px-0.5 pb-2 pt-1', compact ? 'gap-2.5' : 'gap-3')}>
                     {cards.map((card, index) => (
                         <RiseIn key={`${entranceKey ?? ''}:${card.key}`} index={index}>
-                            <PickCard testID={`${testID}-${card.key}`} card={card} />
+                            <PickCard
+                                testID={`${testID}-${card.key}`}
+                                card={card}
+                                compact={compact}
+                            />
                         </RiseIn>
                     ))}
                 </View>
@@ -80,7 +87,15 @@ export function PickedForToday({
     );
 }
 
-function PickCard({ testID, card }: { readonly testID: string; readonly card: PickedCard }) {
+function PickCard({
+    testID,
+    card,
+    compact,
+}: {
+    readonly testID: string;
+    readonly card: PickedCard;
+    readonly compact: boolean;
+}) {
     const { t } = useTranslation();
     const router = useRouter();
     const [hovered, setHovered] = useState(false);
@@ -103,13 +118,18 @@ function PickCard({ testID, card }: { readonly testID: string; readonly card: Pi
                 setHovered(false);
             }}
             className={[
-                'relative h-40 w-40 overflow-hidden rounded-2xl p-4 transition duration-normal ease-standard',
+                'relative overflow-hidden rounded-2xl transition duration-normal ease-standard',
+                compact ? 'h-[136px] w-[136px] p-3' : 'h-40 w-40 p-4',
                 tint.fill,
                 hovered ? '-translate-y-1' : '',
             ].join(' ')}
         >
             <RNText
-                className={`relative z-raised max-w-[120px] font-display text-lg font-bold leading-tight tracking-display text-start ${tint.ink}`}
+                className={cx(
+                    'relative z-raised font-display font-bold leading-tight tracking-display text-start',
+                    compact ? 'max-w-[104px] text-base' : 'max-w-[120px] text-lg',
+                    tint.ink,
+                )}
             >
                 {headline}
             </RNText>
@@ -117,7 +137,8 @@ function PickCard({ testID, card }: { readonly testID: string; readonly card: Pi
                 <View
                     aria-hidden
                     className={[
-                        'absolute -bottom-3 -end-3 h-[92px] w-[92px] overflow-hidden rounded-full transition duration-slow ease-standard',
+                        'absolute -bottom-3 -end-3 overflow-hidden rounded-full transition duration-slow ease-standard',
+                        compact ? 'h-[78px] w-[78px]' : 'h-[92px] w-[92px]',
                         hovered ? 'rotate-[-4deg] scale-105' : '',
                     ].join(' ')}
                 >
@@ -128,7 +149,7 @@ function PickCard({ testID, card }: { readonly testID: string; readonly card: Pi
                         label={headline}
                         decorative
                         flush
-                        className="h-[92px] w-[92px]"
+                        className={compact ? 'h-[78px] w-[78px]' : 'h-[92px] w-[92px]'}
                     />
                 </View>
             )}

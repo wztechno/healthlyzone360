@@ -1,11 +1,12 @@
-import { Button, Callout, Icon, cx } from '@healthy360/design-system';
+import { Icon, cx } from '@healthy360/design-system';
 import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Text as RNText, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { useDietaryProfileQuery } from '../../data/account-hooks.ts';
+import { EntityImage } from '../../media/entity-image.tsx';
 import { withReturnTo } from '../../navigation/return-to.ts';
 import { useSession } from '../../session/session-provider.tsx';
 
@@ -83,24 +84,49 @@ export function clashingMeals(
 }
 
 export interface PlanAllergyNoticeProps {
-    /** The plan's published dishes — its sample week — as far as they have loaded. */
+    /** The plan's dishes to check — its sample week, or what the run has picked so far. */
     readonly meals: readonly MarketplaceMeal[];
     /** False while the dishes are still loading, so an empty list is not read as "nothing clashes". */
     readonly checked: boolean;
     /** Where the allergy editor returns to. */
     readonly returnTo: string;
+    /**
+     * When a clashing dish was picked — "Wed 11 Nov · 3 days". Without it the dish is "On this
+     * plan's menu", which is what the plan page and the subscription show.
+     */
+    readonly whenOf?: ((meal: MarketplaceMeal) => string | undefined) | undefined;
+    /** "Change meal" on each clashing dish: back to the step where it was picked. */
+    readonly onChangeMeal?: ((meal: MarketplaceMeal) => void) | undefined;
+    /** The line under the title. "We check every dish against it" unless the page says otherwise. */
+    readonly note?: string | undefined;
     readonly testID: string;
 }
 
 /**
- * The person's allergy list beside what a plan would do with it.
+ * The person's allergy list beside what a plan would do with it — one card wherever a plan is
+ * shown (Shop · Plan setup pins 1 and 4, Weekly plans pin 1, Subscription pin 2).
  *
  * A subscription has no allergen list of its own: the kitchen reads the profile at generation and
- * swaps or skips a dish that crosses it. So the honest thing to show, on the plan page, in the
- * set-up and on the subscription, is that list, the dishes of this plan that cross it, and the way
- * to change it — rather than a second "leave out" list that went nowhere (plans-16).
+ * swaps or skips a dish that crosses it. So the honest thing to show is that list, the dishes that
+ * cross it, and the way to change it — rather than a second "leave out" list that went nowhere
+ * (plans-16).
+ *
+ * The card: a shield tile, "Your allergy list" and "Change your allergy list" in its head; each
+ * declared allergen as a red chip; then one of three feet. Clashes are an amber section naming each
+ * dish with its photo, when it is, what it contains, and Change meal where the caller can go back
+ * to the pick. "None crosses" is a green row. No dishes is "not checked", never "nothing clashes":
+ * an empty sample is a plan that has not published its menu, and reading it as safe would be a
+ * false all-clear.
  */
-export function PlanAllergyNotice({ meals, checked, returnTo, testID }: PlanAllergyNoticeProps) {
+export function PlanAllergyNotice({
+    meals,
+    checked,
+    returnTo,
+    whenOf,
+    onChangeMeal,
+    note,
+    testID,
+}: PlanAllergyNoticeProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const names = useAllergenNames();
@@ -109,63 +135,161 @@ export function PlanAllergyNotice({ meals, checked, returnTo, testID }: PlanAlle
     if (phase === 'anonymous' || phase === 'restoring') return null;
 
     const clashes = clashingMeals(meals, mine);
-    const edit = (
-        <Button
-            testID={`${testID}-edit`}
-            variant="quiet"
-            size="sm"
-            label={t('commerce:myAllergens.edit')}
-            onPress={() => {
-                router.push(withReturnTo(ALLERGY_LIST_HREF, returnTo) as never);
-            }}
-        />
-    );
 
     return (
-        <View testID={testID} className="flex-col gap-2">
-            <RNText
-                testID={`${testID}-list`}
-                className="self-start text-base text-content-primary text-start"
-            >
-                {mine.length === 0
-                    ? t('commerce:myAllergens.yourListEmpty')
-                    : t('commerce:myAllergens.yourList', { allergens: names(mine) })}
-            </RNText>
-            {/* No dishes is "not checked", never "nothing clashes": an empty sample is a plan that
-                has not published its menu, and reading it as safe would be a false all-clear. */}
+        <View
+            testID={testID}
+            role="group"
+            aria-label={t('commerce:myAllergens.listTitle')}
+            className="overflow-hidden rounded-[22px] border border-stroke-subtle bg-surface-raised"
+        >
+            <View testID={`${testID}-list`} className="flex-col">
+                <View className="flex-row flex-wrap items-center gap-3 px-4 pb-3 pt-3.5">
+                    <View className="h-11 w-11 items-center justify-center rounded-[14px] bg-danger-subtle">
+                        <Icon name="shield" size="md" className="text-danger-on-subtle" />
+                    </View>
+                    <View className="min-w-[160px] flex-1">
+                        <RNText className="font-display text-base font-bold leading-5 text-content-primary text-start">
+                            {t('commerce:myAllergens.listTitle')}
+                        </RNText>
+                        <RNText className="mt-0.5 text-sm text-content-secondary text-start">
+                            {note ?? t('commerce:myAllergens.checkNote')}
+                        </RNText>
+                    </View>
+                    <Pressable
+                        testID={`${testID}-edit`}
+                        role="button"
+                        accessibilityRole="button"
+                        onPress={() => {
+                            router.push(withReturnTo(ALLERGY_LIST_HREF, returnTo) as never);
+                        }}
+                        className="h-9 items-center justify-center rounded-full border border-stroke bg-surface-raised px-3.5 hover:bg-surface-sunken"
+                    >
+                        <RNText className="text-sm font-semibold text-content-primary">
+                            {t('commerce:myAllergens.edit')}
+                        </RNText>
+                    </Pressable>
+                </View>
+                <View className="flex-row flex-wrap gap-2 px-4 pb-3.5">
+                    {mine.length === 0 ? (
+                        <RNText className="text-sm text-content-secondary text-start">
+                            {t('commerce:myAllergens.yourListEmpty')}
+                        </RNText>
+                    ) : (
+                        mine.map((code) => (
+                            <View
+                                key={code}
+                                className="h-8 flex-row items-center gap-1.5 rounded-full border border-danger-border bg-danger-subtle pe-3 ps-2"
+                            >
+                                <Icon name="alert" size="sm" className="text-danger-on-subtle" />
+                                <RNText className="text-sm font-bold text-danger-on-subtle">
+                                    {names([code])}
+                                </RNText>
+                            </View>
+                        ))
+                    )}
+                </View>
+            </View>
+
             {mine.length === 0 ? null : !checked || meals.length === 0 ? (
-                <RNText
+                <View
                     testID={`${testID}-unchecked`}
-                    className="self-start text-sm text-content-secondary text-start"
+                    className="flex-row items-center gap-2.5 border-t border-stroke-subtle bg-surface-base px-4 py-3"
                 >
-                    {t('commerce:myAllergens.planUnchecked')}
-                </RNText>
+                    <Icon name="infoCircle" size="md" className="text-content-secondary" />
+                    <RNText className="shrink text-sm font-semibold text-content-secondary text-start">
+                        {t('commerce:myAllergens.planUnchecked')}
+                    </RNText>
+                </View>
             ) : clashes.length === 0 ? (
-                <RNText
+                <View
                     testID={`${testID}-none`}
-                    className="self-start text-sm text-content-secondary text-start"
+                    className="flex-row items-center gap-2.5 border-t border-stroke-subtle bg-surface-brand-subtle px-4 py-3"
                 >
-                    {t('commerce:myAllergens.planNone')}
-                </RNText>
+                    <Icon name="circleCheck" size="md" className="text-content-on-brand-subtle" />
+                    <RNText className="shrink text-sm font-semibold text-content-on-brand-subtle text-start">
+                        {t('commerce:myAllergens.planNone')}
+                    </RNText>
+                </View>
             ) : (
-                <Callout
+                <View
                     testID={`${testID}-clashes`}
                     role="alert"
-                    tone="warning"
-                    icon="warning"
-                    title={t('commerce:myAllergens.planTitle', { count: clashes.length })}
-                    body={[
-                        ...clashes.map((entry) =>
-                            t('commerce:myAllergens.mealWithAllergens', {
-                                meal: entry.meal.name,
-                                allergens: names(entry.allergens),
-                            }),
-                        ),
-                        t('commerce:myAllergens.planBody'),
-                    ].join('\n')}
-                />
+                    className="border-t border-warning-border bg-warning-subtle px-4 pb-4 pt-3.5"
+                >
+                    <View className="flex-row items-center gap-2">
+                        <Icon name="alert" size="md" className="text-warning-on-subtle" />
+                        <RNText className="shrink text-sm font-bold leading-5 text-warning-on-subtle text-start">
+                            {t('commerce:myAllergens.planTitle', { count: clashes.length })}
+                        </RNText>
+                    </View>
+                    {clashes.map((entry) => (
+                        <View
+                            key={String(entry.meal.id)}
+                            testID={`${testID}-dish-${String(entry.meal.id)}`}
+                            className="mt-2.5 flex-row flex-wrap items-center gap-3 rounded-2xl bg-surface-raised p-2 pe-3 shadow-elevation-1"
+                        >
+                            <View className="h-[52px] w-[52px] overflow-hidden rounded-xl">
+                                <EntityImage
+                                    assetId={entry.meal.imagePlaceholderId}
+                                    photoUrl={entry.meal.photoUrl}
+                                    variant="card"
+                                    seed={entry.meal.slug}
+                                    label={entry.meal.name}
+                                    decorative
+                                    flush
+                                    className="h-full w-full"
+                                />
+                            </View>
+                            <View className="min-w-[120px] flex-1">
+                                <RNText className="text-sm font-bold text-content-primary text-start">
+                                    {entry.meal.name}
+                                </RNText>
+                                <RNText className="mt-0.5 text-xs text-content-secondary text-start">
+                                    {whenOf?.(entry.meal) ?? t('commerce:myAllergens.onMenu')}
+                                </RNText>
+                            </View>
+                            <View className="flex-row flex-wrap items-center gap-2.5">
+                                <View className="h-6 flex-row items-center gap-1 rounded-full bg-warning-subtle px-2.5">
+                                    <Icon
+                                        name="alert"
+                                        size="sm"
+                                        className="text-warning-on-subtle"
+                                    />
+                                    <RNText className="text-xs font-bold text-warning-on-subtle">
+                                        {t('commerce:myAllergens.containsShort', {
+                                            allergens: names(entry.allergens),
+                                        })}
+                                    </RNText>
+                                </View>
+                                {onChangeMeal === undefined ? null : (
+                                    <Pressable
+                                        testID={`${testID}-change-${String(entry.meal.id)}`}
+                                        role="button"
+                                        accessibilityRole="button"
+                                        onPress={() => {
+                                            onChangeMeal(entry.meal);
+                                        }}
+                                        className="h-[34px] flex-row items-center gap-1.5 rounded-full bg-surface-inverse px-3 hover:opacity-90"
+                                    >
+                                        <Icon
+                                            name="rotateCw"
+                                            size="sm"
+                                            className="text-content-inverse"
+                                        />
+                                        <RNText className="text-xs font-bold text-content-inverse">
+                                            {t('commerce:myAllergens.changeMeal')}
+                                        </RNText>
+                                    </Pressable>
+                                )}
+                            </View>
+                        </View>
+                    ))}
+                    <RNText className="mt-2.5 text-sm leading-[18px] text-warning-on-subtle text-start">
+                        {t('commerce:myAllergens.planBody')}
+                    </RNText>
+                </View>
             )}
-            <View className="self-start">{edit}</View>
         </View>
     );
 }

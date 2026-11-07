@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Healthy360\Inventory\Providers;
 
+use Healthy360\Cart\Contracts\QuarantinedStock;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Ingredients\Models\Ingredient;
-use Healthy360\Cart\Contracts\QuarantinedStock;
 use Healthy360\Inventory\Console\CheckStockSufficiencyCommand;
 use Healthy360\Inventory\Console\DeriveStockItemsCommand;
 use Healthy360\Inventory\Contracts\ProductionValuationLedger;

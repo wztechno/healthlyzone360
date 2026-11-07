@@ -212,7 +212,24 @@
         "rounding": "Rounding: {{rounding}}",
         "recipeVersion": "Recipe version",
         "notesTitle": "How this was worked out",
-        "prototypeFlag": "Produced by the prototype calculator"
+        "prototypeFlag": "Produced by the prototype calculator",
+        "energyFrom": "Where the energy comes from",
+        "shareLine": "{{kilocalories}} kcal · {{percentage}}%",
+        "shareLegend": "{{nutrient}} {{percentage}}%",
+        "low": "Low",
+        "high": "High",
+        "compareTitle": "How it compares",
+        "usualRange": "Usual range {{min}}–{{max}}% of energy",
+        "workedOutFrom": "Worked out from",
+        "lastWorkedOut": "Last worked out",
+        "dataVersion": "Data version",
+        "technical": "Technical details",
+        "sourceKind": {
+            "ingredient_derived": "Its ingredients",
+            "laboratory": "A laboratory analysis",
+            "manufacturer": "The maker's label",
+            "professional_entry": "A nutrition professional"
+        }
     },
     "plans": {
         "energyBand": "{{min}}–{{max}} kcal",
@@ -688,7 +705,7 @@
         "noFigure": "—",
         "soldOut": "Sold out",
         "unavailable": "Unavailable",
-        "noNutrition": "Nutrition not published",
+        "noNutrition": "Nutrition not published yet",
         "figure": "{{value}} {{unit}}",
         "unit": {
             "kcal": "kcal",

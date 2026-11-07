@@ -108,19 +108,20 @@ final class SuspectRecordsCommand extends Command
     }
 
     /**
+     * @param  literal-string  $condition
      * @param  list<string>  $bindings
      * @return list<list<string>>
      */
     private function liveItems(string $organisationId, string $kitchen, string $condition, array $bindings): array
     {
-        return DB::table('catalogue_items')
+        return array_values(DB::table('catalogue_items')
             ->where('organisation_id', $organisationId)
             ->where('status', '!=', 'retired')
             ->whereRaw($condition, $bindings)
             ->orderBy('name_en')
             ->get(['id', 'item_type', 'name_en', 'status'])
             ->map(static fn (object $item): array => [(string) $item->item_type, (string) $item->id, $kitchen, (string) $item->name_en, (string) $item->status])
-            ->all();
+            ->all());
     }
 
     /**
@@ -128,7 +129,7 @@ final class SuspectRecordsCommand extends Command
      */
     private function people(string $organisationId, string $kitchen): array
     {
-        return DB::table('organisation_memberships as m')
+        return array_values(DB::table('organisation_memberships as m')
             ->join('users as u', 'u.id', '=', 'm.user_id')
             ->leftJoin('user_profiles as p', 'p.user_id', '=', 'u.id')
             ->where('m.organisation_id', $organisationId)
@@ -144,6 +145,6 @@ final class SuspectRecordsCommand extends Command
                 trim($person->given_name.' '.$person->family_name.' <'.$person->email.'>'),
                 (string) $person->status,
             ])
-            ->all();
+            ->all());
     }
 }

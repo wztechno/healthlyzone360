@@ -1,4 +1,4 @@
-import { MealId, ProductId } from '@healthy360/domain-types';
+import { IngredientId, MealId, ProductId } from '@healthy360/domain-types';
 import { describe, expect, it } from 'vitest';
 
 import { ApiError, isRateLimitFailure, isValidationFailure } from '../contracts/failure.ts';
@@ -1046,7 +1046,7 @@ describe('dietary profile', () => {
         const saved = await repositories.account.saveDietaryProfile({
             dietCategoryCode: 'vegetarian',
             allergens: [],
-            excludedIngredientIds: [],
+            exclusions: [],
         });
 
         expect(calls[0]!.method).toBe('PUT');
@@ -1061,11 +1061,109 @@ describe('dietary profile', () => {
         const saved = await repositories.account.saveDietaryProfile({
             dietCategoryCode: null,
             allergens: [],
-            excludedIngredientIds: [],
+            exclusions: [],
         });
 
         expect(calls[0]!.body).toMatchObject({ diet_classification_code: null });
         expect(saved.dietCategoryCode).toBeNull();
+    });
+
+    /*
+     * "Ingredients to leave out": each food goes with its kind and exactly one subject column, and
+     * comes back with the ingredient's name — the write used to send every one as a `forbidden`
+     * ingredient and the read dropped free text altogether.
+     */
+    it('carries each exclusion with its kind, by ingredient or as written', async () => {
+        const garlic = '0b9c6e9e-0000-7000-8000-0000000000aa';
+        const answer = PROFILE(null);
+        answer.body.data.dietary_profile.exclusions = [
+            {
+                id: 'x-1',
+                kind: 'dislike',
+                subject_kind: 'ingredient',
+                ingredient_id: garlic,
+                ingredient_name: 'Garlic',
+                diet_classification_id: null,
+                free_text: null,
+            },
+            {
+                id: 'x-2',
+                kind: 'forbidden',
+                subject_kind: 'free_text',
+                ingredient_id: null,
+                ingredient_name: null,
+                diet_classification_id: null,
+                free_text: 'Alcohol',
+            },
+        ] as never;
+        const { repositories, calls } = harness([answer], createMemoryTokenStore('token'));
+
+        const saved = await repositories.account.saveDietaryProfile({
+            dietCategoryCode: null,
+            allergens: [],
+            exclusions: [
+                {
+                    subject: 'ingredient',
+                    kind: 'dislike',
+                    ingredientId: IngredientId.unsafe(garlic),
+                    name: 'Garlic',
+                },
+                { subject: 'freeText', kind: 'forbidden', text: 'Alcohol' },
+            ],
+        });
+
+        expect(calls[0]!.body).toMatchObject({
+            exclusions: [
+                { kind: 'dislike', ingredient_id: garlic },
+                { kind: 'forbidden', free_text: 'Alcohol' },
+            ],
+        });
+        expect(saved.exclusions).toEqual([
+            { subject: 'ingredient', kind: 'dislike', ingredientId: garlic, name: 'Garlic' },
+            { subject: 'freeText', kind: 'forbidden', text: 'Alcohol' },
+        ]);
+    });
+
+    it('searches the ingredients by name, with the term trimmed', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: [
+                            {
+                                id: '0b9c6e9e-0000-7000-8000-0000000000bb',
+                                name: 'Balsamic Vinegar',
+                                category: 'Condiment',
+                            },
+                            {
+                                id: '0b9c6e9e-0000-7000-8000-0000000000cc',
+                                name: 'Vinegar',
+                                category: null,
+                            },
+                        ],
+                        meta: { correlation_id: 'c-search', count: 2 },
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const found = await repositories.account.searchDietaryIngredients({
+            query: ' vine ',
+            limit: 8,
+        });
+
+        expect(calls[0]!.method).toBe('GET');
+        expect(calls[0]!.url).toContain('/me/dietary-profile/ingredients?q=vine&limit=8');
+        expect(found).toEqual([
+            {
+                id: '0b9c6e9e-0000-7000-8000-0000000000bb',
+                name: 'Balsamic Vinegar',
+                category: 'Condiment',
+            },
+            { id: '0b9c6e9e-0000-7000-8000-0000000000cc', name: 'Vinegar', category: null },
+        ]);
     });
 });
 

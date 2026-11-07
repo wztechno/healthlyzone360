@@ -774,7 +774,7 @@ describe('the quote replaced the seven-probe hack', () => {
 
         // One read, and it carried the cut-off with it.
         expect(screen.getByTestId('subscription-weekdays-cutoff')).toHaveTextContent(
-            /Deliveries less than 24 hours away go ahead as planned\./,
+            /changes close 24 hours before a delivery/,
         );
         expect(harness.repositories.commerce.getSubscriptionQuote).toHaveBeenCalledTimes(1);
         expect(harness.repositories.commerce.getSubscriptionQuote).toHaveBeenCalledWith({

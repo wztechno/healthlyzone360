@@ -126,7 +126,8 @@
         "addNamed": "Add {{meal}}",
         "allergenGate_one": "{{count}} item contains your allergens",
         "allergenGate_other": "{{count}} items contain your allergens",
-        "allergenAck": "I know, add them anyway"
+        "allergenAck": "I know, add them anyway",
+        "totalWithCount": "Total · {{count}}"
     },
     "checkout": {
         "title": "Checkout",
@@ -199,7 +200,9 @@
         "deliveringToLabel": "Delivering to",
         "whenLabel": "When",
         "change": "Change",
-        "basket": "Basket"
+        "basket": "Basket",
+        "noWindowTitle": "No delivery window for this address",
+        "basketKept": "Your basket is kept."
     },
     "configurator": {
         "title": "Set up your subscription",
@@ -269,7 +272,9 @@
             "addAddress": "Add a delivery address",
             "title": "Delivery",
             "startOn": "Start on",
-            "deliverTo": "Deliver to"
+            "deliverTo": "Deliver to",
+            "cutoffShort_one": "Earliest start {{date}} · each delivery locks {{count}} hour ahead",
+            "cutoffShort_other": "Earliest start {{date}} · each delivery locks {{count}} hours ahead"
         },
         "checks": {
             "areaServed": "Delivers to {{area}}",
@@ -381,7 +386,16 @@
             "body": "{{plan}} · starts {{date}}",
             "seePlan": "See my plan",
             "backToPlans": "Back to plans"
-        }
+        },
+        "receipt": {
+            "times_one": "× {{count}} delivery day",
+            "times_other": "× {{count}} delivery days",
+            "discount": "Duration discount",
+            "percent": "{{percent}} %",
+            "perDay": "per delivery day",
+            "perDayAfter": "per delivery day, after the discount"
+        },
+        "stepOf": "Step {{step}} of {{total}}"
     },
     "subscriptions": {
         "title": "Subscriptions",
@@ -521,7 +535,13 @@
                 "free": "Free"
             },
             "noDayUsed": "No day used"
-        }
+        },
+        "dialog": {
+            "nextOn": "next {{date}}",
+            "daysLeft_one": "{{count}} day left",
+            "daysLeft_other": "{{count}} days left"
+        },
+        "notSaved": "That change was not saved."
     },
     "balance": {
         "remaining_one": "1 delivery day left",
@@ -578,7 +598,9 @@
         "chooseOne": "Choose at least one delivery day.",
         "cutOffTitle": "When this takes effect",
         "cutOffBody_one": "Deliveries less than 1 hour away go ahead as planned. The change starts after that.",
-        "cutOffBody_other": "Deliveries less than {{count}} hours away go ahead as planned. The change starts after that."
+        "cutOffBody_other": "Deliveries less than {{count}} hours away go ahead as planned. The change starts after that.",
+        "hint_one": "At least one day · changes close {{count}} hour before a delivery",
+        "hint_other": "At least one day · changes close {{count}} hours before a delivery"
     },
     "choices": {
         "sectionTitle": "Your meals",
@@ -588,13 +610,23 @@
         "confirm": "Save",
         "notChosen": "Not chosen",
         "repeated": "Repeated",
-        "substituted": "Swapped"
+        "substituted": "Swapped",
+        "cutoffNote_one": "You can change any meal up to {{count}} hour before its delivery",
+        "cutoffNote_other": "You can change any meal up to {{count}} hours before its delivery",
+        "locked": "Locked",
+        "stillToChoose_one": "{{count}} meal is still to choose this week.",
+        "stillToChoose_other": "{{count}} meals are still to choose this week.",
+        "saved": "Changes saved.",
+        "chosenCount": "{{done}} of {{total}} meals chosen"
     },
     "basketConflict": {
         "title": "Start a new basket?",
         "body": "Your basket has meals from {{kitchen}}. A basket holds one kitchen's meals.",
         "keep": "Keep my basket",
-        "replace": "Start a new basket"
+        "replace": "Start a new basket",
+        "yourBasket": "Your basket",
+        "basketLine_one": "Your basket · {{count}} item",
+        "basketLine_other": "Your basket · {{count}} items"
     },
     "myAllergens": {
         "badge": "On your allergy list: {{allergens}}",
@@ -615,14 +647,23 @@
         "planTitle_other": "{{count}} dishes in this plan contain something on your allergy list",
         "planBody": "The kitchen swaps these for a safe dish or skips that slot. Keep your list up to date so it can.",
         "planNone": "None of these dishes crosses your allergy list.",
-        "planUnchecked": "No dishes to check yet.",
+        "planUnchecked": "Each meal you pick is checked against this list.",
         "containsTitle": "Contains {{allergens}}",
         "containsShort": "Contains {{allergens}}",
         "containsLabel": "Contains",
         "whoFor": "Who is it for?",
         "forMe": "Me",
         "forSomeoneElse": "Someone else",
-        "findAnother": "Find another dish"
+        "findAnother": "Find another dish",
+        "listTitle": "Your allergy list",
+        "checkNote": "We check every dish against it",
+        "onMenu": "On this plan’s menu",
+        "changeMeal": "Change meal",
+        "pickedOnMore_one": "{{date}} and {{count}} more day",
+        "pickedOnMore_other": "{{date}} and {{count}} more days",
+        "savedNote": "Saved on your account",
+        "lineTag": "Contains {{allergens}} · on your allergy list",
+        "unassessedTag": "Not yet checked for allergens"
     },
     "receipt": {
         "printerLabel": "Receipt printer",

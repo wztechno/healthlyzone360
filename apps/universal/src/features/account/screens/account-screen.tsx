@@ -1,5 +1,5 @@
 import type { AccountChecklistItem, ConsentState } from '@healthy360/api-client/contracts';
-import { Button, Callout, Dialog, Icon, Tabs, cx, useBreakpoint } from '@healthy360/design-system';
+import { Button, Callout, Icon, Tabs, cx, useBreakpoint } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -21,8 +21,16 @@ import { useLogoutMutation } from '../../../data/hooks.ts';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useSession } from '../../../session/session-provider.tsx';
+import {
+    ShopDialog,
+    ShopDialogButton,
+    ShopDialogSubject,
+    ShopDialogTag,
+    ShopDialogTile,
+} from '../../../ui/shop-dialog.tsx';
 import { ShopSwitch } from '../../../ui/shop-switch.tsx';
-import { SubpageTrail } from '../../../ui/subpage-trail.tsx';
+import { BackPill } from '../../../ui/back-pill.tsx';
+import { ShopPhoneTopBar } from '../../../ui/shop-phone-bar.tsx';
 import { SubscriptionsScreen } from '../../commerce/screens/subscriptions-screen.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { AccountSetupPanel } from '../account-setup-steps.tsx';
@@ -32,6 +40,7 @@ import { AllergiesPanel } from '../account-allergies-panel.tsx';
 import { AccountOrdersPanel } from '../account-orders-panel.tsx';
 import { AccountProfilePanel } from '../account-profile-panel.tsx';
 import { clearClosureDraft } from './closure-wizard-screen.tsx';
+import { Bone } from '../../../ui/shop-skeletons.tsx';
 
 /**
  * `/customer/account` — the accepted Account board: the canopy band with the person's name, email and
@@ -403,6 +412,9 @@ function AddressesPanel({ here }: { readonly here: string }) {
     const [pendingRemoval, setPendingRemoval] = useState<{
         readonly id: string;
         readonly label: string;
+        readonly isDefault: boolean;
+        /** The area and the street, as the pop-up's card shows them. */
+        readonly line: string;
     } | null>(null);
 
     const openEditor = (address: string) => {
@@ -442,10 +454,13 @@ function AddressesPanel({ here }: { readonly here: string }) {
                 />
             )}
             <QueryStates
+                skeleton="rows"
                 query={addresses}
                 isEmpty={items.length === 0}
                 emptyTitle={t('account:addresses.empty')}
                 emptyBody={t('account:addresses.emptyBody')}
+                emptyIcon="mapPin"
+                compact
                 emptyActions={addButton}
                 skeletonCount={2}
                 testID="account-addresses-states"
@@ -554,6 +569,28 @@ function AddressesPanel({ here }: { readonly here: string }) {
                                                     setPendingRemoval({
                                                         id: address.id,
                                                         label: address.label,
+                                                        isDefault: address.isDefault,
+                                                        line: [
+                                                            address.areaName,
+                                                            [
+                                                                address.line1,
+                                                                address.line2,
+                                                                address.building,
+                                                                address.floor,
+                                                            ]
+                                                                .filter(
+                                                                    (part): part is string =>
+                                                                        part !== null &&
+                                                                        part.trim().length > 0,
+                                                                )
+                                                                .join(
+                                                                    t(
+                                                                        'account:addresses.partSeparator',
+                                                                    ),
+                                                                ),
+                                                        ]
+                                                            .filter((part) => part.trim() !== '')
+                                                            .join(' · '),
                                                     });
                                                 }}
                                             />
@@ -566,9 +603,12 @@ function AddressesPanel({ here }: { readonly here: string }) {
                 </View>
             </QueryStates>
 
-            <Dialog
+            {/* Shop · Account, pin 11. */}
+            <ShopDialog
                 testID="account-addresses-remove-dialog"
                 open={pendingRemoval !== null}
+                tone="danger"
+                icon="trash"
                 title={t('account:addresses.removeTitle')}
                 description={t('account:addresses.removeBody', {
                     label: pendingRemoval?.label ?? '',
@@ -577,22 +617,20 @@ function AddressesPanel({ here }: { readonly here: string }) {
                     setPendingRemoval(null);
                 }}
                 actions={
-                    <View className="flex-row flex-wrap gap-2.5">
-                        <Button
+                    <>
+                        <ShopDialogButton
                             testID="account-addresses-remove-cancel"
-                            variant="quiet"
                             label={t('common:action.cancel')}
                             onPress={() => {
                                 setPendingRemoval(null);
                             }}
                         />
-                        <Button
+                        <ShopDialogButton
                             testID="account-addresses-remove-confirm"
-                            // Destructive, so `danger`: the dialog's other option is "keep my
-                            // address", and a destructive action must not wear the primary fill.
-                            variant="danger"
+                            kind="danger"
+                            icon="trash"
                             label={t('account:addresses.remove')}
-                            loading={remove.isPending}
+                            busy={remove.isPending}
                             onPress={() => {
                                 if (pendingRemoval === null) return;
                                 remove.mutate(pendingRemoval.id, {
@@ -602,9 +640,23 @@ function AddressesPanel({ here }: { readonly here: string }) {
                                 });
                             }}
                         />
-                    </View>
+                    </>
                 }
-            />
+            >
+                {pendingRemoval === null ? null : (
+                    <ShopDialogSubject
+                        testID="account-addresses-remove-subject"
+                        lead={<ShopDialogTile icon="mapPin" />}
+                        name={pendingRemoval.label}
+                        tag={
+                            pendingRemoval.isDefault ? (
+                                <ShopDialogTag label={t('account:addresses.default')} />
+                            ) : undefined
+                        }
+                        meta={pendingRemoval.line === '' ? undefined : pendingRemoval.line}
+                    />
+                )}
+            </ShopDialog>
         </View>
     );
 }
@@ -699,12 +751,34 @@ function NotificationsPanel() {
                 />
             )}
             {consents.isPending ? (
-                <RNText
+                // Shop · Account, pin 1: rows shaped like the switches, not a bare "Loading…".
+                <View
                     testID="account-marketing-loading"
-                    className="text-sm text-content-secondary text-start"
+                    aria-busy
+                    accessibilityLabel={t('common:state.loading')}
+                    className="flex-col"
                 >
-                    {t('common:state.loading')}
-                </RNText>
+                    {[0, 1, 2].map((index) => (
+                        <View
+                            key={index}
+                            aria-hidden
+                            className={cx(
+                                'flex-row items-center gap-3.5 px-1 py-4',
+                                index === 0 ? null : 'border-t border-stroke-subtle',
+                            )}
+                        >
+                            <View className="min-w-0 flex-1 flex-col gap-2">
+                                <Bone heightClassName="h-3" widthClassName="w-2/5" />
+                                <Bone heightClassName="h-3" widthClassName="w-3/4" />
+                            </View>
+                            <Bone
+                                heightClassName="h-[30px]"
+                                widthClassName="w-[52px]"
+                                rounded="full"
+                            />
+                        </View>
+                    ))}
+                </View>
             ) : (
                 marketing.map((consent, index) => (
                     <View
@@ -772,6 +846,7 @@ function AccountBand({
     plan,
     nextDelivery,
     orders,
+    compact = false,
 }: {
     readonly name: string;
     readonly email: string | null;
@@ -779,6 +854,8 @@ function AccountBand({
     readonly plan: string | null;
     readonly nextDelivery: string | null;
     readonly orders: string | null;
+    /** The phone board's band: a 56px badge beside the name, the three figures in one row. */
+    readonly compact?: boolean;
 }) {
     const { t } = useTranslation();
     const initials = name
@@ -793,6 +870,69 @@ function AccountBand({
         { key: 'next', label: t('account:band.nextDelivery'), value: nextDelivery ?? dash },
         { key: 'orders', label: t('account:band.orders'), value: orders ?? dash },
     ];
+
+    if (compact) {
+        return (
+            <View
+                testID="account-band"
+                className="relative mt-1 overflow-hidden rounded-[24px] bg-surface-canopy p-4"
+            >
+                <View
+                    aria-hidden
+                    pointerEvents="none"
+                    className="absolute -end-[90px] -top-[120px] h-[300px] w-[300px] rounded-full bg-stage-green opacity-15"
+                />
+                <View className="z-10 flex-row items-center gap-3">
+                    <View
+                        aria-hidden
+                        className="h-14 w-14 items-center justify-center rounded-[18px] bg-stage-green"
+                    >
+                        <RNText className="font-display text-xl font-bold text-surface-canopy">
+                            {initials === '' ? '·' : initials}
+                        </RNText>
+                    </View>
+                    <View className="min-w-0 flex-1">
+                        <RNText
+                            testID="account-title"
+                            accessibilityRole="header"
+                            aria-level={1}
+                            numberOfLines={1}
+                            className="font-display text-xl font-bold tracking-display text-content-on-canopy text-start"
+                        >
+                            {name}
+                        </RNText>
+                        <RNText
+                            numberOfLines={1}
+                            className="text-xs text-content-on-canopy-muted text-start"
+                        >
+                            {[email, phone]
+                                .filter((part): part is string => part !== null)
+                                .join(' · ')}
+                        </RNText>
+                    </View>
+                </View>
+                <View className="z-10 mt-3 flex-row gap-1.5">
+                    {stats.map((stat) => (
+                        <View
+                            key={stat.key}
+                            testID={`account-band-${stat.key}`}
+                            className="min-w-0 flex-1 rounded-xl bg-content-on-canopy/10 px-2.5 py-2"
+                        >
+                            <RNText className="text-xs font-semibold uppercase text-content-on-canopy-muted text-start">
+                                {stat.label}
+                            </RNText>
+                            <RNText
+                                numberOfLines={1}
+                                className="text-sm font-bold text-content-on-canopy text-start"
+                            >
+                                {stat.value}
+                            </RNText>
+                        </View>
+                    ))}
+                </View>
+            </View>
+        );
+    }
 
     return (
         <View
@@ -870,6 +1010,7 @@ export function AccountScreen({ returnTo, section: within, children }: AccountSc
     const formatter = useFormatter();
     const { atLeast } = useBreakpoint();
     const wide = atLeast('lg');
+    const phoneWidth = !atLeast('md');
     const overview = useAccountOverviewQuery();
     const addresses = useAddressesQuery();
     const subscriptions = useSubscriptionsQuery();
@@ -881,6 +1022,15 @@ export function AccountScreen({ returnTo, section: within, children }: AccountSc
     // The URL's section, followed during render (not in an effect) so a link to another section
     // pressed while this page is open never paints a frame of the old one.
     const requested: Section = within ?? sectionFrom(params.section) ?? 'orders';
+    /*
+     * Shop · Account, phone board: the account opens on a menu of its sections, each one a row
+     * that opens it on a page of its own ("‹ Orders"), rather than tabs over a panel.
+     */
+    const phoneMenu =
+        phoneWidth &&
+        children === undefined &&
+        within === undefined &&
+        sectionFrom(params.section) === null;
     const [section, setSection] = useState<Section>(requested);
     const [followed, setFollowed] = useState<Section>(requested);
     if (followed !== requested) {
@@ -971,14 +1121,137 @@ export function AccountScreen({ returnTo, section: within, children }: AccountSc
         </View>
     );
 
+    if (phoneWidth) {
+        const current = items.find((item) => item.value === section);
+        return (
+            <View testID="account-screen" className="w-full flex-col pb-10">
+                {phoneMenu ? (
+                    <>
+                        {back.returnTo === null ? null : (
+                            <View className="mb-3 items-start">
+                                <BackPill
+                                    testID="account-return-up"
+                                    label={t(`common:destination.${back.destination}`)}
+                                    onPress={back.up}
+                                />
+                            </View>
+                        )}
+                        <AccountBand
+                            compact
+                            name={
+                                account?.displayName ??
+                                me?.profile.displayName ??
+                                t('account:title')
+                            }
+                            email={account?.loginEmail ?? me?.user.email ?? null}
+                            phone={phone}
+                            plan={liveSubscriptions[0]?.planName ?? null}
+                            nextDelivery={
+                                nextSubscription?.nextDeliveryDate === undefined ||
+                                nextSubscription.nextDeliveryDate === null
+                                    ? null
+                                    : formatter.formatDate(
+                                          `${nextSubscription.nextDeliveryDate}T12:00:00Z`,
+                                          {
+                                              weekday: 'short',
+                                              day: 'numeric',
+                                              month: 'short',
+                                          },
+                                      )
+                            }
+                            orders={orderCount ?? null}
+                        />
+                        {checklist === null ? null : (
+                            <View className="mt-3">
+                                <SetupNotice
+                                    items={checklist.items}
+                                    canActivate={checklist.canActivate}
+                                    returnTo={here}
+                                />
+                            </View>
+                        )}
+                        <View
+                            testID="account-nav"
+                            role="list"
+                            aria-label={navLabel}
+                            className="mt-3 overflow-hidden rounded-[20px] border border-stroke-subtle bg-surface-raised"
+                        >
+                            {items.map((item, index) => (
+                                <Pressable
+                                    key={item.value}
+                                    testID={item.testID}
+                                    role="link"
+                                    accessibilityRole="link"
+                                    onPress={() => {
+                                        openSection(item.value);
+                                    }}
+                                    className={cx(
+                                        'h-[58px] flex-row items-center gap-3 px-3.5',
+                                        index === 0 ? null : 'border-t border-stroke-subtle',
+                                    )}
+                                >
+                                    <View className="h-9 w-9 items-center justify-center rounded-xl bg-surface-brand-subtle">
+                                        <Icon
+                                            name={item.icon}
+                                            size="sm"
+                                            className="text-content-on-brand-subtle"
+                                        />
+                                    </View>
+                                    <RNText className="text-base font-semibold text-content-primary">
+                                        {item.label}
+                                    </RNText>
+                                    {item.count === undefined ? null : (
+                                        <View className="ms-auto h-[22px] min-w-[24px] items-center justify-center rounded-full bg-surface-base px-[7px]">
+                                            <RNText className="text-xs font-bold tabular-nums text-content-primary">
+                                                {item.count}
+                                            </RNText>
+                                        </View>
+                                    )}
+                                    <View className={item.count === undefined ? 'ms-auto' : 'ms-1'}>
+                                        <Icon
+                                            name="chevronForward"
+                                            size="sm"
+                                            className="text-content-secondary"
+                                        />
+                                    </View>
+                                </Pressable>
+                            ))}
+                        </View>
+                        <View className="mt-3 items-start">
+                            <SignOutButton />
+                        </View>
+                    </>
+                ) : (
+                    <>
+                        <ShopPhoneTopBar
+                            backTestID="account-section-up"
+                            backLabel={t('account:title')}
+                            onBack={() => {
+                                if (children !== undefined) {
+                                    router.dismissTo('/customer/account' as never);
+                                    return;
+                                }
+                                router.setParams({ section: undefined } as never);
+                            }}
+                            titleTestID="account-section-title"
+                            title={current?.label ?? t('account:title')}
+                            count={current?.count}
+                        />
+                        <View className="mt-4">{panel}</View>
+                    </>
+                )}
+            </View>
+        );
+    }
+
     return (
         <View testID="account-screen" className="w-full flex-col pb-10">
             {back.returnTo === null ? null : (
-                <View className="mb-3">
-                    <SubpageTrail
-                        back={back}
-                        current={t('account:title')}
-                        testID="account-return"
+                <View className="mb-3 items-start">
+                    <BackPill
+                        testID="account-return-up"
+                        label={t(`common:destination.${back.destination}`)}
+                        onPress={back.up}
                     />
                 </View>
             )}

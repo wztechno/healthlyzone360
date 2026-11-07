@@ -3,7 +3,7 @@ import { View } from 'react-native';
 
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useUnsavedGuard } from '../../../navigation/use-unsaved-guard.ts';
-import { SubpageTrail } from '../../../ui/subpage-trail.tsx';
+import { BackPill } from '../../../ui/back-pill.tsx';
 import { UnsavedChangesDialog } from '../../../ui/unsaved-changes-dialog.tsx';
 import { AllergiesPanel } from '../account-allergies-panel.tsx';
 
@@ -31,11 +31,21 @@ export function AllergiesScreen({ returnTo }: AllergiesScreenProps) {
 
     return (
         <View testID={TEST_ID} className="flex-col gap-4 pb-10">
-            <SubpageTrail
-                testID={`${TEST_ID}-trail`}
-                back={{ ...back, up: () => guard.intercept(back.up) }}
-                current={t('account:nav.allergies')}
-            />
+            {/* Shop · Account: the Back pill the Mobile number and Consents pages use, naming where
+                it goes, in place of the underlined "Back › Allergies" trail. */}
+            <View className="items-start pt-1">
+                <BackPill
+                    testID={`${TEST_ID}-trail-up`}
+                    label={
+                        back.returnTo === null
+                            ? t('account:title')
+                            : t(`common:destination.${back.destination}`)
+                    }
+                    onPress={() => {
+                        guard.intercept(back.up);
+                    }}
+                />
+            </View>
             <AllergiesPanel
                 testID={TEST_ID}
                 guard={guard}
@@ -47,7 +57,7 @@ export function AllergiesScreen({ returnTo }: AllergiesScreenProps) {
                     guard.intercept(back.up);
                 }}
             />
-            <UnsavedChangesDialog guard={guard} testID={`${TEST_ID}-unsaved`} />
+            <UnsavedChangesDialog look="shop" guard={guard} testID={`${TEST_ID}-unsaved`} />
         </View>
     );
 }

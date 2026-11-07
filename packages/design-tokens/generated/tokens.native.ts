@@ -717,6 +717,46 @@ export const nativeTokens = {
       "shadowOpacity": 0.26,
       "shadowRadius": 23,
       "elevation": 10
+    },
+    "bar": {
+      "shadowColor": "#0b3b26",
+      "shadowOffset": {
+        "width": 0,
+        "height": 12
+      },
+      "shadowOpacity": 0.22,
+      "shadowRadius": 22,
+      "elevation": 12
+    },
+    "brand-glow": {
+      "shadowColor": "#0b3b26",
+      "shadowOffset": {
+        "width": 0,
+        "height": 6
+      },
+      "shadowOpacity": 0.4,
+      "shadowRadius": 7,
+      "elevation": 6
+    },
+    "search": {
+      "shadowColor": "#0b3b26",
+      "shadowOffset": {
+        "width": 0,
+        "height": 4
+      },
+      "shadowOpacity": 0.12,
+      "shadowRadius": 10,
+      "elevation": 4
+    },
+    "focus-ring": {
+      "shadowColor": "#0b3b26",
+      "shadowOffset": {
+        "width": 0,
+        "height": 4
+      },
+      "shadowOpacity": 0.12,
+      "shadowRadius": 10,
+      "elevation": 4
     }
   },
   "elevationRoles": {

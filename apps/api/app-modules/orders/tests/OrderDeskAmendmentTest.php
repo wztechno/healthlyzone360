@@ -223,22 +223,27 @@ it('keeps a line the calendar closed after the order took it, and refuses moving
 
 it('still refuses a day in the past or a day the branch is closed', function (): void {
     CheckoutWorld::cutOff($this->world->branch, '15:00:00');
-    $this->travelTo(CarbonImmutable::parse('2026-11-02 10:00:00', 'Asia/Beirut'));
+    // A Monday a month ahead, counted from today: a fixed date passes, and the world's records,
+    // written before the clock moves, would then not exist yet on it.
+    $monday = CarbonImmutable::now('Asia/Beirut')->addMonth()->startOfWeek();
+    $this->travelTo($monday->setTime(10, 0));
 
     $order = amendDeskDelivery($this, [
         'branch_id' => (string) $this->world->branch->getKey(),
-        'requested_delivery_date' => '2026-11-03',
+        'requested_delivery_date' => $monday->addDay()->toDateString(),
     ]);
 
-    amendPatch($this, $order, ['lines' => amendMealLines($this), 'requested_delivery_date' => '2026-11-01'])
+    amendPatch($this, $order, ['lines' => amendMealLines($this), 'requested_delivery_date' => $monday->subDay()->toDateString()])
         ->assertUnprocessable();
+
+    $wednesday = $monday->addDays(2);
 
     BranchOpeningHour::withoutTenancy()
         ->where('branch_id', $this->world->branch->getKey())
-        ->where('weekday', CarbonImmutable::parse('2026-11-04')->dayOfWeekIso)
+        ->where('weekday', $wednesday->dayOfWeekIso)
         ->update(['opens_at' => null, 'closes_at' => null, 'order_cut_off_at' => null]);
 
-    $reasons = amendRefusal(amendPatch($this, $order, ['lines' => amendMealLines($this), 'requested_delivery_date' => '2026-11-04']));
+    $reasons = amendRefusal(amendPatch($this, $order, ['lines' => amendMealLines($this), 'requested_delivery_date' => $wednesday->toDateString()]));
 
     expect(array_column($reasons, 'reason'))->toBe(['closed']);
 });

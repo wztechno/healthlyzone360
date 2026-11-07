@@ -1,5 +1,6 @@
 import type { AccountChecklistStep } from '@healthy360/api-client/contracts';
 import { Icon, cx, useBreakpoint } from '@healthy360/design-system';
+import type { IconName } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
@@ -80,24 +81,35 @@ export interface AccountSetupStepsProps {
     readonly testID: string;
 }
 
+/** Each step's mark on its tile. */
+const STEP_ICONS: Readonly<Record<AccountChecklistStep, IconName>> = {
+    verify_email: 'send',
+    verify_phone: 'smartphone',
+    add_address: 'mapPin',
+    dietary_profile: 'shield',
+    consents: 'clipboardCheck',
+};
+
 export function AccountSetupSteps({ steps, returnTo, testID }: AccountSetupStepsProps) {
     const { t } = useTranslation();
     const router = useRouter();
-    // The action's words from `md`; below it the chevron alone, so the title keeps the width.
-    const wide = useBreakpoint().atLeast('md');
+    // One row of tiles from `md`; stacked below it, so each title keeps its width.
+    const row = useBreakpoint().atLeast('md');
 
     return (
-        <View testID={testID} role="list" className="flex-col gap-2">
-            {steps.map(({ step, blockedReason, hasAddress }, index) => {
+        <View testID={testID} role="list" className={cx('gap-2.5', row ? 'flex-row' : 'flex-col')}>
+            {steps.map(({ step, blockedReason, hasAddress }) => {
                 const blocked = blockedReason !== undefined && blockedReason !== null;
                 const title = t(`account:checklist.steps.${step}.title`);
                 const action = t(`account:checklist.steps.${step}.action`);
-                const body =
-                    step === 'add_address' && hasAddress === true
-                        ? t('account:checklist.steps.add_address.bodyOutsideArea')
-                        : t(`account:checklist.steps.${step}.body`);
+                const outsideArea = step === 'add_address' && hasAddress === true;
                 return (
-                    <View key={step} role="listitem" testID={`${testID}-${step}`}>
+                    <View
+                        key={step}
+                        role="listitem"
+                        testID={`${testID}-${step}`}
+                        className={row ? 'min-w-0 flex-1' : ''}
+                    >
                         <Pressable
                             testID={`${testID}-${step}-open`}
                             role="link"
@@ -112,32 +124,24 @@ export function AccountSetupSteps({ steps, returnTo, testID }: AccountSetupSteps
                                 );
                             }}
                             className={cx(
-                                'min-h-touch flex-row items-center gap-4 rounded-lg border bg-surface-raised px-4 py-3',
+                                'min-h-[72px] flex-1 flex-row items-center gap-3 rounded-[18px] border-[1.5px] bg-surface-base px-3.5 py-3',
                                 blocked
-                                    ? 'border-stroke-subtle opacity-60'
-                                    : 'border-stroke hover:border-surface-brand hover:bg-surface-sunken',
+                                    ? 'border-dashed border-stroke-subtle opacity-70'
+                                    : 'border-stroke-subtle hover:border-surface-brand hover:bg-surface-brand-subtle',
                             )}
                         >
                             <View
                                 aria-hidden
-                                className={cx(
-                                    'h-8 w-8 items-center justify-center rounded-full',
-                                    blocked ? 'bg-surface-sunken' : 'bg-surface-brand-subtle',
-                                )}
+                                className="h-9 w-9 items-center justify-center rounded-xl border border-stroke-subtle bg-surface-raised"
                             >
-                                <RNText
-                                    className={cx(
-                                        'text-sm font-semibold tabular-nums',
-                                        blocked
-                                            ? 'text-content-secondary'
-                                            : 'text-content-on-brand-subtle',
-                                    )}
-                                >
-                                    {index + 1}
-                                </RNText>
+                                <Icon
+                                    name={STEP_ICONS[step]}
+                                    size="md"
+                                    className="text-content-on-brand-subtle"
+                                />
                             </View>
                             <View className="min-w-0 flex-1 flex-col gap-0.5">
-                                <RNText className="self-start text-sm font-semibold text-content-primary text-start">
+                                <RNText className="self-start text-sm font-bold leading-[18px] text-content-primary text-start">
                                     {title}
                                 </RNText>
                                 <RNText
@@ -146,26 +150,26 @@ export function AccountSetupSteps({ steps, returnTo, testID }: AccountSetupSteps
                                             ? `${testID}-${step}-blocked`
                                             : `${testID}-${step}-body`
                                     }
-                                    className="self-start text-sm text-content-secondary text-start"
+                                    className={cx(
+                                        'self-start text-xs font-semibold text-start',
+                                        blocked || outsideArea
+                                            ? 'text-content-secondary'
+                                            : 'text-content-on-brand-subtle',
+                                    )}
                                 >
                                     {blocked
                                         ? t('account:checklist.blocked', { reason: blockedReason })
-                                        : body}
+                                        : outsideArea
+                                          ? t('account:checklist.steps.add_address.bodyOutsideArea')
+                                          : action}
                                 </RNText>
                             </View>
                             {blocked ? null : (
-                                <View className="shrink-0 flex-row items-center gap-1">
-                                    {wide ? (
-                                        <RNText className="text-sm font-semibold text-content-on-brand-subtle">
-                                            {action}
-                                        </RNText>
-                                    ) : null}
-                                    <Icon
-                                        name="chevronEnd"
-                                        size="sm"
-                                        className="text-content-on-brand-subtle"
-                                    />
-                                </View>
+                                <Icon
+                                    name="chevronEnd"
+                                    size="sm"
+                                    className="text-content-secondary"
+                                />
                             )}
                         </Pressable>
                     </View>
@@ -189,9 +193,9 @@ export interface AccountSetupPanelProps {
 }
 
 /**
- * The steps under their heading, on the page itself rather than inside a tinted box. The cards
- * already carry the weight — numbered, bordered, each a press target — and a warning fill around
- * them only made a to-do list read as an error. The heading says what is wanted; the cards are how.
+ * "Finish setting up your account" as one card (Shop · Plan setup pin 6, Basket + checkout pin 1,
+ * the account page): an amber person tile with the heading and how many steps are left, beside a
+ * row of step tiles — each its mark, its title and what pressing it does. Stacked on a phone.
  */
 export function AccountSetupPanel({
     title,
@@ -202,6 +206,7 @@ export function AccountSetupPanel({
     testID,
     stepsTestID,
 }: AccountSetupPanelProps) {
+    const wide = useBreakpoint().atLeast('lg');
     return (
         <View
             testID={testID}
@@ -209,21 +214,34 @@ export function AccountSetupPanel({
             {...(role === 'alert'
                 ? { accessibilityRole: 'alert' as const }
                 : { 'aria-live': 'polite' as const })}
-            className="flex-col gap-3"
+            className={cx(
+                'gap-[18px] rounded-3xl border border-stroke-subtle bg-surface-raised p-[18px] shadow-elevation-2',
+                wide ? 'flex-row items-center' : 'flex-col',
+            )}
         >
-            <View className="flex-col gap-0.5">
-                <RNText
-                    accessibilityRole="header"
-                    aria-level={2}
-                    className="self-start text-base font-semibold text-content-primary text-start"
+            <View className={cx('flex-row items-start gap-3', wide ? 'w-[300px]' : null)}>
+                <View
+                    aria-hidden
+                    className="h-11 w-11 items-center justify-center rounded-[14px] bg-warning-subtle"
                 >
-                    {title}
-                </RNText>
-                <RNText className="self-start text-sm text-content-secondary text-start">
-                    {body}
-                </RNText>
+                    <Icon name="person" size="md" className="text-warning-on-subtle" />
+                </View>
+                <View className="min-w-0 flex-1">
+                    <RNText
+                        accessibilityRole="header"
+                        aria-level={2}
+                        className="self-start font-display text-base font-bold leading-[21px] text-content-primary text-start"
+                    >
+                        {title}
+                    </RNText>
+                    <RNText className="mt-1 self-start text-sm text-content-secondary text-start">
+                        {body}
+                    </RNText>
+                </View>
             </View>
-            <AccountSetupSteps steps={steps} returnTo={returnTo} testID={stepsTestID} />
+            <View className={wide ? 'min-w-0 flex-1' : ''}>
+                <AccountSetupSteps steps={steps} returnTo={returnTo} testID={stepsTestID} />
+            </View>
         </View>
     );
 }

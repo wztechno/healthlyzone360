@@ -1,5 +1,5 @@
 import type { ContactPoint } from '@healthy360/api-client/contracts';
-import { Icon, Select, useToast } from '@healthy360/design-system';
+import { Icon, Select, useBreakpoint, useToast } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -201,6 +201,7 @@ export function PhoneScreen({ returnTo, challengeId: challengeParam }: PhoneScre
             query={contacts}
             isEmpty={false}
             emptyTitle={t('account:phone.title')}
+            skeleton="rows"
             skeletonCount={1}
             testID={`${TEST_ID}-contacts`}
         >
@@ -317,6 +318,7 @@ export function PhoneScreen({ returnTo, challengeId: challengeParam }: PhoneScre
             ) : (
                 <ExtraCard testID={`${TEST_ID}-challenge-card`}>
                     <PhoneChallenge
+                        look="auth"
                         testID={`${TEST_ID}-challenge`}
                         challengeId={challengeId}
                         onVerified={onVerified}
@@ -337,6 +339,8 @@ function NumberRow({
     readonly note?: string | undefined;
     readonly chip: ReactNode;
 }) {
+    // On a phone the state chip sits under the note, so the number and note keep the width.
+    const phone = !useBreakpoint().atLeast('md');
     return (
         <View className="flex-row items-center gap-3.5 rounded-[18px] bg-surface-base p-4">
             <View className="h-11 w-11 items-center justify-center rounded-[14px] bg-surface-brand-subtle">
@@ -351,8 +355,9 @@ function NumberRow({
                         {note}
                     </RNText>
                 )}
+                {phone ? <View className="mt-2 items-start">{chip}</View> : null}
             </View>
-            {chip}
+            {phone ? null : chip}
         </View>
     );
 }

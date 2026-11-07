@@ -315,6 +315,7 @@ export function AddressEditorScreen({ addressId, returnTo }: AddressEditorScreen
                 />
             ) : (
                 <QueryStates
+                    skeleton="form"
                     query={areas}
                     isEmpty={areaList.length === 0}
                     emptyTitle={t('account:addresses.noAreasTitle')}
@@ -765,7 +766,7 @@ export function AddressEditorScreen({ addressId, returnTo }: AddressEditorScreen
                     </View>
                 </QueryStates>
             )}
-            <UnsavedChangesDialog guard={guard} testID={`${TEST_ID}-unsaved`} />
+            <UnsavedChangesDialog look="shop" guard={guard} testID={`${TEST_ID}-unsaved`} />
         </View>
     );
 }

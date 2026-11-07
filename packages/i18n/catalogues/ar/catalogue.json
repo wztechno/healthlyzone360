@@ -248,7 +248,24 @@
         "rounding": "التقريب: {{rounding}}",
         "recipeVersion": "إصدار الوصفة",
         "notesTitle": "كيف حُسبت",
-        "prototypeFlag": "من إنتاج حاسبة النموذج الأولي"
+        "prototypeFlag": "من إنتاج حاسبة النموذج الأولي",
+        "energyFrom": "من أين تأتي الطاقة",
+        "shareLine": "{{kilocalories}} سعرة · {{percentage}}٪",
+        "shareLegend": "{{nutrient}} {{percentage}}٪",
+        "low": "منخفض",
+        "high": "مرتفع",
+        "compareTitle": "كيف يقارن",
+        "usualRange": "النطاق المعتاد {{min}}–{{max}}٪ من الطاقة",
+        "workedOutFrom": "محسوبة من",
+        "lastWorkedOut": "آخر حساب",
+        "dataVersion": "إصدار البيانات",
+        "technical": "التفاصيل التقنية",
+        "sourceKind": {
+            "ingredient_derived": "مكوّناته",
+            "laboratory": "تحليل مخبري",
+            "manufacturer": "ملصق المُصنِّع",
+            "professional_entry": "اختصاصي تغذية"
+        }
     },
     "plans": {
         "energyBand": "{{min}}–{{max}} سعرة",
@@ -808,7 +825,7 @@
         "noFigure": "—",
         "soldOut": "نفدت الكمية",
         "unavailable": "غير متاح",
-        "noNutrition": "القيم الغذائية غير منشورة",
+        "noNutrition": "لم تُنشر القيم الغذائية بعد",
         "figure": "{{value}} {{unit}}",
         "unit": {
             "kcal": "سعرة",

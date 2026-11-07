@@ -1,11 +1,21 @@
-import { Button, Callout, Dialog, Stack, cx } from '@healthy360/design-system';
+import { Callout, Icon, cx } from '@healthy360/design-system';
 import type { SubscriptionBalance, SubscriptionQuote } from '@healthy360/api-client/contracts';
+import type { SubscriptionState } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, Text as RNText, View } from 'react-native';
 
 import { toFailure } from '../../data/commerce-hooks.ts';
+import {
+    ShopDialog,
+    ShopDialogButton,
+    ShopDialogConsequence,
+    ShopDialogSubject,
+    ShopDialogTag,
+    ShopDialogTile,
+} from '../../ui/shop-dialog.tsx';
 import { weekdayKey } from '../marketplace/format.ts';
+import { isTerminalSubscriptionState } from './state-badge.tsx';
 
 /**
  * The three S1 editors, and the dialog that ends a subscription.
@@ -46,6 +56,171 @@ export function DialogFailure({
     );
 }
 
+/**
+ * A tile editor's refusal (Shop · Subscription, pin 3): one small red line under the buttons —
+ * "That change was not saved.", the server's reason, and Try again — rather than the full red box a
+ * pop-up uses. The editor stays open with what the person chose.
+ */
+export function InlineFailure({
+    error,
+    onRetry,
+    testID,
+}: {
+    readonly error: unknown;
+    readonly onRetry?: (() => void) | undefined;
+    readonly testID: string;
+}) {
+    const { t } = useTranslation();
+    const failure = toFailure(error);
+    if (failure === null) return null;
+    return (
+        <View
+            testID={testID}
+            role="alert"
+            className="flex-row items-center gap-2 rounded-xl bg-danger-subtle px-2.5 py-2"
+        >
+            <Icon name="alert" size="sm" className="text-danger-on-subtle" />
+            <RNText className="min-w-0 flex-1 text-xs font-semibold leading-4 text-danger-on-subtle text-start">
+                {`${t('commerce:subscription.notSaved')} ${failure.message}`}
+            </RNText>
+            {onRetry === undefined ? null : (
+                <Pressable
+                    testID={`${testID}-retry`}
+                    role="button"
+                    accessibilityRole="button"
+                    onPress={onRetry}
+                >
+                    <RNText className="text-xs font-bold text-danger-on-subtle underline">
+                        {t('errors:generic.retry')}
+                    </RNText>
+                </Pressable>
+            )}
+        </View>
+    );
+}
+
+/* ── pause and resume ───────────────────────────────────────────────────────────────────────── */
+
+export interface PlanSubjectProps {
+    readonly planName: string;
+    readonly state: SubscriptionState;
+    readonly kitchenName?: string | undefined;
+    /** One more fact after the kitchen — the next delivery, the days left. */
+    readonly line?: string | undefined;
+    readonly testID?: string | undefined;
+}
+
+/** The subscription pop-ups' card: the plan, its state as a tag, the kitchen and one line. */
+export function PlanSubject({ planName, state, kitchenName, line, testID }: PlanSubjectProps) {
+    const { t } = useTranslation();
+    const meta = [kitchenName, line].filter(
+        (part): part is string => part !== undefined && part !== '',
+    );
+    return (
+        <ShopDialogSubject
+            testID={testID}
+            lead={<ShopDialogTile icon="leaf" />}
+            name={planName}
+            tag={
+                <ShopDialogTag
+                    label={t(`commerce:states.${state}`)}
+                    tone={
+                        state === 'paused'
+                            ? 'warning'
+                            : isTerminalSubscriptionState(state)
+                              ? 'muted'
+                              : 'brand'
+                    }
+                />
+            }
+            meta={meta.length === 0 ? undefined : meta.join(' · ')}
+        />
+    );
+}
+
+export interface PauseResumeDialogProps {
+    readonly kind: 'pause' | 'resume';
+    readonly open: boolean;
+    readonly subject: PlanSubjectProps;
+    readonly pending: boolean;
+    readonly error?: unknown;
+    readonly onClose: () => void;
+    readonly onConfirm: () => void;
+    /** `{prefix}-dialog`, `-cancel`, `-confirm`, `-consequence`, `-failure`. */
+    readonly testID: string;
+}
+
+/**
+ * "Pause this subscription?" and "Resume this subscription?" — Shop · Subscription, pins 8 and 9.
+ * The same two questions on the subscription page and on the account's subscription cards.
+ *
+ * Pause has no "resume on" date: the platform has no scheduled resume, and the field that used to
+ * ask for one collected a date nothing acted on.
+ */
+export function PauseResumeDialog({
+    kind,
+    open,
+    subject,
+    pending,
+    error,
+    onClose,
+    onConfirm,
+    testID,
+}: PauseResumeDialogProps) {
+    const { t } = useTranslation();
+    const pausing = kind === 'pause';
+    return (
+        <ShopDialog
+            testID={`${testID}-dialog`}
+            open={open}
+            onClose={onClose}
+            icon={pausing ? 'pause' : 'play'}
+            title={t(
+                pausing
+                    ? 'commerce:subscription.pauseDialogTitle'
+                    : 'commerce:subscription.resumeDialogTitle',
+            )}
+            description={t(
+                pausing
+                    ? 'commerce:subscription.pauseDialogBody'
+                    : 'commerce:subscription.resumeDialogBody',
+            )}
+            actions={
+                <>
+                    <ShopDialogButton
+                        testID={`${testID}-cancel`}
+                        label={t('commerce:common.cancel')}
+                        onPress={onClose}
+                    />
+                    <ShopDialogButton
+                        testID={`${testID}-confirm`}
+                        kind="brand"
+                        icon={pausing ? 'pause' : 'play'}
+                        label={t(
+                            pausing
+                                ? 'commerce:subscription.pauseConfirm'
+                                : 'commerce:subscription.resumeConfirm',
+                        )}
+                        busy={pending}
+                        onPress={onConfirm}
+                    />
+                </>
+            }
+        >
+            <PlanSubject {...subject} testID={`${testID}-subject`} />
+            {pausing ? (
+                <ShopDialogConsequence
+                    testID={`${testID}-consequence`}
+                    icon="infoCircle"
+                    title={t('commerce:subscription.pauseConsequenceTitle')}
+                    body={t('commerce:subscription.pauseConsequenceOpen')}
+                />
+            ) : null}
+            <DialogFailure error={error} testID={`${testID}-failure`} />
+        </ShopDialog>
+    );
+}
+
 /* ── cancellation ────────────────────────────────────────────────────────────────────────────── */
 
 export interface CancelSubscriptionDialogProps {
@@ -55,6 +230,10 @@ export interface CancelSubscriptionDialogProps {
     readonly cancelled: boolean;
     /** The plan's name, which the board's title asks about: "Cancel Weekday Lean?". */
     readonly planName: string;
+    /** The kitchen, under the plan's name on the pop-up's card. */
+    readonly kitchenName?: string | undefined;
+    /** The state before cancelling, as the card's tag. */
+    readonly state?: SubscriptionState | undefined;
     readonly pending: boolean;
     /** The refusal of the last attempt, drawn inside the dialog ({@link DialogFailure}). */
     readonly error?: unknown;
@@ -72,6 +251,8 @@ export function CancelSubscriptionDialog({
     balance,
     cancelled,
     planName,
+    kitchenName,
+    state = 'active',
     pending,
     error,
     onClose,
@@ -81,65 +262,88 @@ export function CancelSubscriptionDialog({
     const { t } = useTranslation();
 
     const remaining = balance?.days.remaining ?? 0;
+    const subject = (
+        <ShopDialogSubject
+            testID={`${testID}-subject`}
+            lead={<ShopDialogTile icon="leaf" />}
+            name={planName}
+            tag={
+                cancelled ? (
+                    <ShopDialogTag label={t('commerce:states.cancelled')} tone="muted" />
+                ) : (
+                    <ShopDialogTag label={t(`commerce:states.${state}`)} />
+                )
+            }
+            meta={kitchenName}
+            end={
+                cancelled || balance === undefined ? undefined : (
+                    <RNText className="pe-1 font-display text-base font-bold text-content-primary">
+                        {t('commerce:subscription.dialog.daysLeft', { count: remaining })}
+                    </RNText>
+                )
+            }
+        />
+    );
 
+    /*
+     * The board draws the two moments as two pop-ups (Shop · Subscription, pins 11 and 12): the
+     * question on a danger head, then "Subscription cancelled" on a plain one. Here they are one
+     * dialog whose head and body change once the cancellation has happened.
+     */
     return (
-        <Dialog
+        <ShopDialog
             testID={`${testID}-dialog`}
             open={open}
             onClose={onClose}
-            title={t('commerce:cancel.titleNamed', { plan: planName })}
-            description={t('commerce:cancel.body')}
+            tone={cancelled ? 'brand' : 'danger'}
+            icon={cancelled ? 'check' : 'circleX'}
+            title={
+                cancelled
+                    ? t('commerce:cancel.doneTitle')
+                    : t('commerce:cancel.titleNamed', { plan: planName })
+            }
+            description={cancelled ? t('commerce:cancel.doneBody') : t('commerce:cancel.body')}
             actions={
                 !cancelled ? (
                     <>
-                        <Button
+                        <ShopDialogButton
                             testID={`${testID}-dismiss`}
-                            variant="quiet"
                             label={t('commerce:cancel.keep')}
                             onPress={onClose}
                         />
-                        <Button
+                        <ShopDialogButton
                             testID={`${testID}-confirm`}
-                            variant="danger"
+                            kind="danger"
                             label={t('commerce:cancel.confirm')}
-                            loading={pending}
+                            busy={pending}
                             onPress={onConfirm}
                         />
                     </>
                 ) : (
-                    <Button
+                    <ShopDialogButton
                         testID={`${testID}-done`}
+                        kind="brand"
                         label={t('commerce:common.close')}
                         onPress={onClose}
                     />
                 )
             }
         >
-            <Stack space="sm">
-                {!cancelled ? (
-                    <>
-                        <Callout
-                            testID={`${testID}-consequence`}
-                            role="alert"
-                            tone="warning"
-                            icon="warning"
-                            title={t('commerce:cancel.consequenceTitle')}
-                            body={t('commerce:cancel.consequenceBody', { count: remaining })}
-                        />
-
-                        <DialogFailure error={error} testID={`${testID}-failure`} />
-                    </>
-                ) : (
-                    <Callout
-                        testID={`${testID}-result`}
-                        role="status"
-                        tone="success"
-                        title={t('commerce:cancel.doneTitle')}
-                        body={t('commerce:cancel.doneBody')}
+            {subject}
+            {!cancelled ? (
+                <>
+                    <ShopDialogConsequence
+                        testID={`${testID}-consequence`}
+                        icon="calendar"
+                        title={t('commerce:cancel.consequenceTitle')}
+                        body={t('commerce:cancel.consequenceBody', { count: remaining })}
                     />
-                )}
-            </Stack>
-        </Dialog>
+                    <DialogFailure error={error} testID={`${testID}-failure`} />
+                </>
+            ) : (
+                <View testID={`${testID}-result`} role="status" />
+            )}
+        </ShopDialog>
     );
 }
 
@@ -249,11 +453,14 @@ export function WeekdayEditor({
                 </RNText>
             ) : null}
 
-            <RNText testID={`${testID}-cutoff`} className="text-xs text-content-secondary">
-                {t('commerce:weekdays.cutOffBody', {
-                    count: balance?.changeCutoffHours ?? quote?.changeCutoffHours ?? 24,
-                })}
-            </RNText>
+            <View testID={`${testID}-cutoff`} className="flex-row items-center gap-1.5">
+                <Icon name="clock" size="sm" className="text-content-secondary" />
+                <RNText className="shrink text-xs leading-4 text-content-secondary text-start">
+                    {t('commerce:weekdays.hint', {
+                        count: balance?.changeCutoffHours ?? quote?.changeCutoffHours ?? 24,
+                    })}
+                </RNText>
+            </View>
 
             <View className="flex-row gap-1.5">
                 <EditorButton
@@ -271,7 +478,7 @@ export function WeekdayEditor({
                 />
             </View>
 
-            <DialogFailure error={error} testID={`${testID}-failure`} />
+            <InlineFailure error={error} onRetry={onConfirm} testID={`${testID}-failure`} />
         </View>
     );
 }

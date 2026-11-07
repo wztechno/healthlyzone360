@@ -1,4 +1,4 @@
-import { Callout, useBreakpoint } from '@healthy360/design-system';
+import { HideShellTopbar, cx, useBreakpoint } from '@healthy360/design-system';
 import type { Kitchen, MarketplaceMeal, SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { KitchenId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -13,6 +13,7 @@ import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { useNavigateUp, useRememberQuery } from '../../../navigation/use-return-to.ts';
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
 import { QueryStates } from '../query-states.tsx';
+import { ShopStateButton } from '../../../ui/shop-state.tsx';
 import { isoWeekdayToday } from '../storefront-facts.ts';
 import { StorefrontCanopy } from '../storefront/storefront-canopy.tsx';
 import { latestCutOffToday } from '../storefront/storefront-menu.ts';
@@ -94,6 +95,22 @@ export function KitchenProfileScreen({ kitchenId }: KitchenProfileScreenProps) {
                 isEmpty={query.data === undefined && !query.isPending}
                 emptyTitle={t('marketplace:kitchen.notFoundTitle')}
                 emptyBody={t('marketplace:kitchen.notFoundBody')}
+                emptyIcon="store"
+                emptyActions={
+                    <ShopStateButton
+                        testID="kitchen-browse"
+                        icon="arrowForward"
+                        iconAfter
+                        label={t('marketplace:kitchen.browseKitchens')}
+                        onPress={() => {
+                            navigateUp('/kitchens');
+                        }}
+                    />
+                }
+                // Shop · Kitchens + storefront, pin 6: a kitchen that is gone is "not on the
+                // marketplace", not "something went wrong".
+                treatFailuresAsEmpty={['resource.not_found']}
+                skeleton="page"
                 skeletonCount={2}
                 testID="kitchen"
             >
@@ -134,6 +151,8 @@ function Storefront({
     const formatter = useFormatter();
     const { atLeast } = useBreakpoint();
     const wide = atLeast('lg');
+    // Shop · Kitchens, phone board: the cover to the screen's edges, no shop bar, a docked order bar.
+    const phone = !atLeast('md');
     const params = useLocalSearchParams<{ tab?: string; shelf?: string }>();
     const basket = useBasketAdd({ labelKey: 'marketplace:nav.kitchens', testID: 'kitchen' });
 
@@ -217,7 +236,13 @@ function Storefront({
     };
 
     const orderPanel = (
-        <StorefrontOrderPanel kitchen={kitchen} meals={meals} cutOff={cutOff} clock={clock} />
+        <StorefrontOrderPanel
+            kitchen={kitchen}
+            meals={meals}
+            cutOff={cutOff}
+            clock={clock}
+            phone={phone}
+        />
     );
 
     const panels: Record<StorefrontTab, ReactNode> = {
@@ -227,6 +252,18 @@ function Storefront({
                 isEmpty={meals.length === 0}
                 emptyTitle={t('marketplace:storefront.menu.emptyTitle')}
                 emptyBody={t('marketplace:storefront.menu.emptyBody')}
+                emptyIcon="store"
+                emptyActions={
+                    <ShopStateButton
+                        testID="kitchen-menu-browse"
+                        icon="arrowForward"
+                        iconAfter
+                        label={t('marketplace:kitchen.browseKitchens')}
+                        onPress={() => {
+                            onBack();
+                        }}
+                    />
+                }
                 testID="kitchen-menu"
             >
                 <StorefrontMenuTab
@@ -252,6 +289,7 @@ function Storefront({
         plans: <KitchenPlans kitchen={kitchen} />,
         safety: (
             <QueryStates
+                skeleton="rows"
                 query={menuState}
                 isEmpty={false}
                 emptyTitle={t('marketplace:storefront.menu.emptyTitle')}
@@ -265,6 +303,7 @@ function Storefront({
 
     return (
         <View className="flex-col">
+            {phone ? <HideShellTopbar /> : null}
             <StorefrontCanopy
                 kitchen={kitchen}
                 onBack={onBack}
@@ -273,30 +312,19 @@ function Storefront({
                 }}
             />
 
-            {kitchen.pausedUntil === null || kitchen.pausedUntil === undefined ? null : (
-                <View className="mt-5">
-                    <Callout
-                        testID="kitchen-paused"
-                        tone="warning"
-                        role="status"
-                        title={t('marketplace:storefront.pausedTitle')}
-                        body={t('marketplace:storefront.pausedBody', {
-                            time: formatter.formatDate(kitchen.pausedUntil, {
-                                timeStyle: 'short',
-                            }),
-                        })}
-                    />
-                </View>
-            )}
-
-            {wide ? null : <View className="mt-5">{orderPanel}</View>}
+            {wide ? null : phone ? orderPanel : <View className="mt-5">{orderPanel}</View>}
 
             {/*
              * Sticky on the web, under the shell's top bar: `top-0` resolves against the shell's
              * scroll port, not the document. The page surface behind it so the dishes scrolling
              * underneath do not show through the row.
              */}
-            <View className="z-sticky mt-5 bg-surface-base pb-1 web:sticky web:top-0">
+            <View
+                className={cx(
+                    'z-sticky bg-surface-base web:sticky web:top-0',
+                    phone ? '-mx-4 mt-3 px-4' : 'mt-5 pb-1',
+                )}
+            >
                 <StorefrontTabs<StorefrontTab>
                     testID="kitchen-tabs"
                     label={t('marketplace:storefront.tabs.label')}
@@ -314,7 +342,12 @@ function Storefront({
                 />
             </View>
 
-            <View className="mt-[22px] flex-col gap-6 lg:flex-row lg:items-start">
+            <View
+                className={cx(
+                    'flex-col gap-6 lg:flex-row lg:items-start',
+                    phone ? 'mt-3.5' : 'mt-[22px]',
+                )}
+            >
                 <View
                     testID={`kitchen-panel-${tab}`}
                     role="tabpanel"
@@ -390,6 +423,7 @@ function SoldPlans({
 
     return (
         <QueryStates
+            skeleton="plans"
             query={plans}
             isEmpty={false}
             emptyTitle={t('marketplace:storefront.plans.empty')}

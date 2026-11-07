@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Orders\Contracts;
 
+use Healthy360\Cart\Contracts\QuarantinedStock;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Orders\Services\NullHeldStockLookup;
 
@@ -13,7 +14,7 @@ use Healthy360\Orders\Services\NullHeldStockLookup;
  * The desk quote asks it so the agent is warned while free stock of the same
  * ingredient is left (owner decision, 13 Oct 2026). A sale that could only come
  * out of held stock is refused, at every till, by
- * {@see \Healthy360\Cart\Contracts\QuarantinedStock} (owner, 2 Nov 2026).
+ * {@see QuarantinedStock} (owner, 2 Nov 2026).
  *
  * A port because the answer needs what a sale draws (Inventory's explosion) and
  * what is held (quality checks on receipts and batches), and order capture must

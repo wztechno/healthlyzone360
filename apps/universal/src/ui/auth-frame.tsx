@@ -1,8 +1,8 @@
-import { ToastLookScope, useBreakpoint } from '@healthy360/design-system';
+import { Icon, ToastLookScope, useBreakpoint } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, View } from 'react-native';
+import { Text as RNText, ScrollView, View } from 'react-native';
 
 import { ThemeToggle } from '../shell/theme-toggle.tsx';
 import { AuthStage } from './auth-stage';
@@ -24,6 +24,57 @@ export function AuthFrame({ children }: { readonly children: ReactNode }) {
     const { t } = useTranslation();
     const router = useRouter();
     const { atLeast } = useBreakpoint();
+    const toShop = () => {
+        router.dismissTo('/discover' as never);
+    };
+
+    /*
+     * The phone boards: a canopy panel at the top — "Back to the shop", the theme toggle, the brand
+     * — and the form in a sheet rising over its foot, rather than a bare page.
+     */
+    if (!atLeast('md')) {
+        return (
+            <ToastLookScope look="card">
+                <View testID="auth-frame" className="flex-1 bg-surface-canopy">
+                    <ScrollView
+                        testID="auth-shell-content"
+                        className="flex-1"
+                        contentContainerClassName="flex-grow"
+                    >
+                        <View className="relative h-[200px] overflow-hidden px-4 pt-3">
+                            <View
+                                aria-hidden
+                                pointerEvents="none"
+                                className="absolute -end-24 -top-28 h-[320px] w-[320px] rounded-full bg-stage-green opacity-15"
+                            />
+                            <View className="flex-row items-center justify-between">
+                                <BackPill
+                                    testID="auth-frame-shop"
+                                    label={t('auth:frame.backToShop')}
+                                    onPress={toShop}
+                                />
+                                <ThemeToggle onCanopy />
+                            </View>
+                            <View className="mt-5 flex-row items-center gap-2.5">
+                                <View className="h-10 w-10 items-center justify-center rounded-full bg-stage-green">
+                                    <Icon name="leaf" className="text-surface-canopy" />
+                                </View>
+                                <RNText className="font-display text-xl font-bold tracking-display text-content-on-canopy">
+                                    {t('marketplace:brand.name')}
+                                </RNText>
+                            </View>
+                        </View>
+                        <View
+                            role="main"
+                            className="-mt-6 flex-grow rounded-t-[28px] bg-surface-base px-4 pb-10 pt-5"
+                        >
+                            {children}
+                        </View>
+                    </ScrollView>
+                </View>
+            </ToastLookScope>
+        );
+    }
 
     return (
         <ToastLookScope look="card">
@@ -43,9 +94,7 @@ export function AuthFrame({ children }: { readonly children: ReactNode }) {
                         <BackPill
                             testID="auth-frame-shop"
                             label={t('auth:frame.backToShop')}
-                            onPress={() => {
-                                router.dismissTo('/discover' as never);
-                            }}
+                            onPress={toShop}
                         />
                         <ThemeToggle />
                     </View>

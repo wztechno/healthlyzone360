@@ -1,4 +1,4 @@
-import { Icon, useMotion } from '@healthy360/design-system';
+import { Icon, cx, useBreakpoint, useMotion } from '@healthy360/design-system';
 import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
 import { memo, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,8 +14,9 @@ import {
 
 import { EntityImage } from '../../../media/entity-image.tsx';
 
-/** A tab is 100 wide with a 16 gap, so the indicator moves 116 per tab. */
+/** A tab is 100 wide with a 16 gap, so the indicator moves 116 per tab — a phone's, 72 and 12. */
 const TAB_STEP = 116;
+const PHONE_TAB_STEP = 84;
 
 export interface ShopByTab {
     /** `null` for All; otherwise the shelf code the menu filters on. */
@@ -43,18 +44,21 @@ export function ShopByTabs({
 }) {
     const { t } = useTranslation();
     const { enabled, axisSign } = useMotion();
+    // Shop · Discover — phone: 72px tiles with a 48px face, 12 apart, scrolling from the edge.
+    const compact = !useBreakpoint().atLeast('md');
+    const tabStep = compact ? PHONE_TAB_STEP : TAB_STEP;
     const index = Math.max(
         0,
         tabs.findIndex((tab) => tab.code === selected),
     );
-    const target = index * TAB_STEP * axisSign;
+    const target = index * tabStep * axisSign;
     const [offset] = useState(() => new Animated.Value(target));
 
     useEffect(() => {
         // The web slides the bar with a CSS transition instead — no JavaScript per frame.
         if (Platform.OS === 'web') return undefined;
         const animation = Animated.timing(offset, {
-            toValue: index * TAB_STEP * axisSign,
+            toValue: index * tabStep * axisSign,
             duration: enabled ? 350 : 0,
             easing: Easing.bezier(0.22, 1, 0.36, 1),
             useNativeDriver: true,
@@ -63,7 +67,7 @@ export function ShopByTabs({
         return () => {
             animation.stop();
         };
-    }, [axisSign, enabled, index, offset]);
+    }, [axisSign, enabled, index, offset, tabStep]);
 
     return (
         <ScrollView
@@ -75,7 +79,10 @@ export function ShopByTabs({
                 testID={testID}
                 role="tablist"
                 aria-label={t('marketplace:discover.shopBy')}
-                className="relative flex-row gap-4 px-0.5 pb-[18px] pt-1"
+                className={cx(
+                    'relative flex-row px-0.5 pt-1',
+                    compact ? 'gap-3 pb-3.5' : 'gap-4 pb-[18px]',
+                )}
             >
                 {tabs.map((tab) => (
                     <ShopByTile
@@ -86,6 +93,7 @@ export function ShopByTabs({
                         meal={tab.meal}
                         on={tab.code === selected}
                         onSelect={onSelect}
+                        compact={compact}
                     />
                 ))}
                 {Platform.OS === 'web' ? (
@@ -123,6 +131,7 @@ const ShopByTile = memo(function ShopByTile({
     meal,
     on,
     onSelect,
+    compact,
 }: {
     readonly testID: string;
     readonly code: string | null;
@@ -130,6 +139,7 @@ const ShopByTile = memo(function ShopByTile({
     readonly meal: MarketplaceMeal | undefined;
     readonly on: boolean;
     readonly onSelect: (code: string | null) => void;
+    readonly compact: boolean;
 }) {
     // State, not a hover class: the tint belongs on the tile inside, while the pointer target is
     // the whole tab, its label included.
@@ -151,11 +161,17 @@ const ShopByTile = memo(function ShopByTile({
             onHoverOut={() => {
                 setHovered(false);
             }}
-            className="w-[100px] flex-col items-center gap-2.5"
+            className={cx(
+                'flex-col items-center',
+                compact ? 'w-[72px] gap-2' : 'w-[100px] gap-2.5',
+            )}
         >
             <View
                 className={[
-                    'h-[100px] w-[100px] items-center justify-center overflow-hidden rounded-2xl border-2 transition duration-normal ease-standard',
+                    'items-center justify-center overflow-hidden border-2 transition duration-normal ease-standard',
+                    compact
+                        ? 'h-[72px] w-[72px] rounded-[18px]'
+                        : 'h-[100px] w-[100px] rounded-[20px]',
                     on ? 'border-surface-brand' : 'border-transparent',
                     hovered ? '-translate-y-0.5 bg-surface-brand-subtle' : 'bg-surface-sunken',
                 ].join(' ')}
@@ -163,16 +179,24 @@ const ShopByTile = memo(function ShopByTile({
                 {meal === undefined ? (
                     <Icon name="layoutGrid" size="lg" className="text-content-primary" />
                 ) : (
-                    <EntityImage
-                        assetId={meal.imagePlaceholderId}
-                        photoUrl={meal.photoUrl}
-                        seed={meal.slug}
-                        label={label}
-                        decorative
-                        flush
-                        aspect="square"
-                        className="h-full w-full"
-                    />
+                    // The board's dish sits inside the tile as a rounded face, not edge to edge.
+                    <View
+                        className={cx(
+                            'overflow-hidden',
+                            compact ? 'h-12 w-12 rounded-xl' : 'h-16 w-16 rounded-2xl',
+                        )}
+                    >
+                        <EntityImage
+                            assetId={meal.imagePlaceholderId}
+                            photoUrl={meal.photoUrl}
+                            seed={meal.slug}
+                            label={label}
+                            decorative
+                            flush
+                            aspect="square"
+                            className="h-full w-full"
+                        />
+                    </View>
                 )}
             </View>
             <RNText

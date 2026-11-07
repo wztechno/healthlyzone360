@@ -54,11 +54,29 @@ export function DeliverToMenu({
     testID,
     framed = false,
     bar = false,
+    header = false,
+    row = false,
+    chips = false,
     kitchenId = null,
 }: {
     readonly testID: string;
     readonly framed?: boolean | undefined;
     readonly bar?: boolean | undefined;
+    /**
+     * The phone header's start, on every shop page but Discover (the accepted phone boards): the
+     * pin in a soft tile, the address's name and area over the day and window, no chevron.
+     */
+    readonly header?: boolean | undefined;
+    /**
+     * The phone meal page's row (Shop · Meal page, phone board): full width, dashed, the place and
+     * the day on one line and "Change" at its end.
+     */
+    readonly row?: boolean | undefined;
+    /**
+     * The basket's line (Shop · Basket board): where and when as two quiet chips, then "Change",
+     * on one line under the title.
+     */
+    readonly chips?: boolean | undefined;
     /** The kitchen of the food on screen, whose own delivery windows the When row offers. */
     readonly kitchenId?: KitchenId | null | undefined;
 }) {
@@ -206,7 +224,13 @@ export function DeliverToMenu({
     };
 
     return (
-        <View ref={root} className="relative z-raised shrink-0">
+        <View
+            ref={root}
+            className={cx(
+                'relative z-raised',
+                header ? 'min-w-0 shrink' : row ? 'w-full' : chips ? 'min-w-0' : 'shrink-0',
+            )}
+        >
             <Pressable
                 testID={`${testID}-deliver-to`}
                 role="button"
@@ -230,24 +254,123 @@ export function DeliverToMenu({
                     setOpen((current) => !current);
                 }}
                 className={
-                    bar
-                        ? cx(
-                              'h-14 flex-row items-center gap-2.5 rounded-2xl px-3.5 transition duration-normal ease-standard hover:bg-surface-brand-subtle',
-                              open ? 'bg-surface-brand-subtle' : 'bg-surface-base',
-                          )
-                        : framed
-                          ? [
-                                'h-[52px] flex-row items-center gap-2.5 rounded-2xl border bg-surface-raised pe-3.5 ps-3 transition duration-normal ease-standard hover:border-surface-brand',
-                                open ? 'border-surface-brand' : 'border-stroke',
-                            ].join(' ')
-                          : [
-                                'h-12 flex-row items-center gap-2.5 rounded-full pe-4 ps-3 transition duration-normal ease-standard hover:bg-surface-brand-subtle',
-                                open ? 'bg-surface-brand-subtle' : '',
-                            ].join(' ')
+                    chips
+                        ? 'min-h-touch flex-row flex-wrap items-center gap-2'
+                        : row
+                          ? cx(
+                                'h-[52px] w-full flex-row items-center gap-2.5 rounded-2xl border border-dashed px-3.5',
+                                open ? 'border-surface-brand' : 'border-stroke-strong',
+                            )
+                          : header
+                            ? cx(
+                                  'h-12 min-w-0 flex-row items-center gap-2.5 rounded-[14px] pe-2.5 ps-1.5 transition duration-normal ease-standard hover:bg-surface-base',
+                                  open ? 'bg-surface-base' : null,
+                              )
+                            : bar
+                              ? cx(
+                                    'h-14 flex-row items-center gap-2.5 rounded-2xl px-3.5 transition duration-normal ease-standard hover:bg-surface-brand-subtle',
+                                    open ? 'bg-surface-brand-subtle' : 'bg-surface-base',
+                                )
+                              : framed
+                                ? [
+                                      'h-[52px] flex-row items-center gap-2.5 rounded-2xl border bg-surface-raised pe-3.5 ps-3 transition duration-normal ease-standard hover:border-surface-brand',
+                                      open ? 'border-surface-brand' : 'border-stroke',
+                                  ].join(' ')
+                                : [
+                                      'h-12 flex-row items-center gap-2.5 rounded-full pe-4 ps-3 transition duration-normal ease-standard hover:bg-surface-brand-subtle',
+                                      open ? 'bg-surface-brand-subtle' : '',
+                                  ].join(' ')
                 }
             >
-                <Icon name="mapPin" className="text-content-on-brand-subtle" />
-                {bar ? (
+                {chips ? (
+                    <>
+                        <View className="h-8 flex-row items-center gap-1.5 rounded-full border border-stroke-subtle bg-surface-raised px-3">
+                            <Icon
+                                name="mapPin"
+                                size="sm"
+                                className="text-content-on-brand-subtle"
+                            />
+                            <RNText
+                                testID={`${testID}-area`}
+                                numberOfLines={1}
+                                className="text-sm font-semibold text-content-primary"
+                            >
+                                {home === undefined
+                                    ? t('marketplace:discover.chooseArea')
+                                    : t('marketplace:discover.headerPlace', {
+                                          label: home.label,
+                                          area: home.areaName,
+                                      })}
+                            </RNText>
+                        </View>
+                        {home === undefined ? null : (
+                            <View className="h-8 flex-row items-center gap-1.5 rounded-full border border-stroke-subtle bg-surface-raised px-3">
+                                <Icon
+                                    name="clock"
+                                    size="sm"
+                                    className="text-content-on-brand-subtle"
+                                />
+                                <RNText numberOfLines={1} className="text-sm text-content-primary">
+                                    {whenText(when.date, when.slot)}
+                                </RNText>
+                            </View>
+                        )}
+                        <RNText className="px-1 text-sm font-semibold text-content-on-brand-subtle">
+                            {t('common:action.change')}
+                        </RNText>
+                    </>
+                ) : null}
+                {chips ? null : row ? (
+                    <>
+                        <Icon name="mapPin" size="sm" className="text-content-on-brand-subtle" />
+                        <RNText
+                            testID={`${testID}-area`}
+                            numberOfLines={1}
+                            className="min-w-0 shrink text-sm font-semibold text-content-primary text-start"
+                        >
+                            {home === undefined
+                                ? t('marketplace:discover.chooseArea')
+                                : t('marketplace:discover.headerPlace', {
+                                      label: home.label,
+                                      area: whenShort(when.date, when.slot),
+                                  })}
+                        </RNText>
+                        <RNText className="ms-auto text-xs font-medium text-content-secondary">
+                            {t('common:action.change')}
+                        </RNText>
+                    </>
+                ) : null}
+                {row || chips ? null : header ? (
+                    <View className="h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-brand-subtle">
+                        <Icon name="mapPin" size="sm" className="text-content-on-brand-subtle" />
+                    </View>
+                ) : (
+                    <Icon name="mapPin" className="text-content-on-brand-subtle" />
+                )}
+                {row || chips ? null : header ? (
+                    <View className="min-w-0 shrink flex-col items-start">
+                        <RNText
+                            testID={`${testID}-area`}
+                            numberOfLines={1}
+                            className="text-base font-bold leading-5 text-content-primary text-start"
+                        >
+                            {home === undefined
+                                ? t('marketplace:discover.chooseArea')
+                                : t('marketplace:discover.headerPlace', {
+                                      label: home.label,
+                                      area: home.areaName,
+                                  })}
+                        </RNText>
+                        {home === undefined ? null : (
+                            <RNText
+                                numberOfLines={1}
+                                className="text-xs leading-4 text-content-secondary text-start"
+                            >
+                                {whenText(when.date, when.slot)}
+                            </RNText>
+                        )}
+                    </View>
+                ) : bar ? (
                     <View className="flex-col items-start">
                         <RNText
                             testID={`${testID}-area`}
@@ -291,7 +414,7 @@ export function DeliverToMenu({
                         </RNText>
                     </View>
                 )}
-                {bar ? null : (
+                {bar || header || row || chips ? null : (
                     <View className={open ? 'hidden rotate-180 md:flex' : 'hidden md:flex'}>
                         <Icon name="chevronDown" size="sm" className="text-content-secondary" />
                     </View>
@@ -303,7 +426,7 @@ export function DeliverToMenu({
                     testID={`${testID}-addresses`}
                     role="dialog"
                     aria-label={t('marketplace:discover.deliverTo')}
-                    className={`absolute ${framed || bar ? 'end-0' : 'start-0'} top-full z-tooltip mt-3 w-[380px] rounded-3xl border border-stroke-subtle bg-surface-raised p-4 shadow-elevation-3 web:max-w-[calc(100vw-32px)]`}
+                    className={`absolute ${(framed || bar) && !header ? 'end-0' : 'start-0'} top-full z-tooltip mt-3 w-[380px] rounded-3xl border border-stroke-subtle bg-surface-raised p-4 shadow-elevation-3 web:max-w-[calc(100vw-32px)]`}
                 >
                     <View className="flex-row items-center gap-2">
                         <View className="h-6 w-6 items-center justify-center rounded-lg bg-surface-brand-subtle">

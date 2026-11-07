@@ -1,15 +1,25 @@
-import { Button, Dialog, Icon, cx, useMotion } from '@healthy360/design-system';
+import { Icon, cx, useMotion } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, Easing, Image, Platform, Pressable, Text as RNText, View } from 'react-native';
-import type { ImageSourcePropType } from 'react-native';
+import {
+    Animated,
+    Easing,
+    Image,
+    Platform,
+    Pressable,
+    StyleSheet,
+    Text as RNText,
+    View,
+} from 'react-native';
+import type { ImageSourcePropType, StyleProp, ViewStyle } from 'react-native';
 
 import { resolveMarketingImage } from '../../../media/entity-image.tsx';
 import { useGoToAuth } from '../../../navigation/use-return-to.ts';
 import { useSession } from '../../../session/session-provider.tsx';
+import { ShopDialog, ShopDialogButton } from '../../../ui/shop-dialog.tsx';
 import { ShopSwitch } from '../../../ui/shop-switch.tsx';
 
 const APPLY_HREF = '/apply';
@@ -114,27 +124,31 @@ export function ForBusinessScreen() {
                 </View>
             </View>
 
-            <Dialog
+            {/* Shop · Shared looks + other, pin 1. */}
+            <ShopDialog
                 testID="for-business-enquiry"
                 open={enquiryOpen}
                 onClose={() => {
                     setEnquiryOpen(false);
                 }}
+                icon="briefcase"
                 title={t('marketplace:forBusiness.enquiryTitle')}
                 description={t('marketplace:forBusiness.enquiryBody')}
                 actions={
                     <>
-                        <Button
+                        <ShopDialogButton
                             testID="for-business-enquiry-register"
-                            variant="secondary"
                             label={t('marketplace:nav.register')}
                             onPress={() => {
                                 setEnquiryOpen(false);
                                 goToAuth('/register', APPLY_HREF);
                             }}
                         />
-                        <Button
+                        <ShopDialogButton
                             testID="for-business-enquiry-sign-in"
+                            kind="brand"
+                            icon="arrowForward"
+                            iconAfter
                             label={t('marketplace:nav.signIn')}
                             onPress={() => {
                                 setEnquiryOpen(false);
@@ -275,6 +289,31 @@ function Hero({ onApply }: { readonly onApply: () => void }) {
     );
 }
 
+/**
+ * The hero cards' bob on the web, as a CSS keyframe animation: the browser runs a transform-only
+ * animation on the compositor, so the cards and their wide shadows are painted once and slid, not
+ * repainted every frame from JavaScript (which is what made them stutter). `will-change` keeps
+ * each card on its own layer.
+ */
+const WEB_BOB = StyleSheet.create({
+    bob: {
+        // react-native-web's own keyframe styles (its ActivityIndicator spins the same way).
+        // @ts-expect-error -- web-only style keys, absent from React Native's style types.
+        animationKeyframes: [
+            {
+                '0%': { transform: 'translateY(0px)' },
+                '50%': { transform: 'translateY(-8px)' },
+                '100%': { transform: 'translateY(0px)' },
+            },
+        ],
+        animationDuration: '6s',
+        animationTimingFunction: 'ease-in-out',
+        animationIterationCount: 'infinite',
+        animationFillMode: 'both',
+        willChange: 'transform',
+    },
+});
+
 /** A card of the hero's illustration, bobbing gently on its own beat. */
 function Floating({
     delay,
@@ -286,22 +325,23 @@ function Floating({
     readonly children: ReactNode;
 }) {
     const { enabled } = useMotion();
+    const web = Platform.OS === 'web';
     const [bob] = useState(() => new Animated.Value(0));
     useEffect(() => {
-        if (!enabled) return undefined;
+        if (!enabled || web) return undefined;
         const loop = Animated.loop(
             Animated.sequence([
                 Animated.timing(bob, {
                     toValue: 1,
                     duration: 3000,
                     easing: Easing.inOut(Easing.sin),
-                    useNativeDriver: Platform.OS !== 'web',
+                    useNativeDriver: true,
                 }),
                 Animated.timing(bob, {
                     toValue: 0,
                     duration: 3000,
                     easing: Easing.inOut(Easing.sin),
-                    useNativeDriver: Platform.OS !== 'web',
+                    useNativeDriver: true,
                 }),
             ]),
         );
@@ -312,10 +352,29 @@ function Floating({
             clearTimeout(timer);
             loop.stop();
         };
-    }, [bob, delay, enabled]);
+    }, [bob, delay, enabled, web]);
+    const frame = cx('absolute rounded-3xl bg-surface-raised shadow-elevation-4', className);
+    if (web) {
+        return (
+            <View
+                className={frame}
+                style={
+                    enabled
+                        ? // `animationDelay` is react-native-web's, outside React Native's style types.
+                          ([
+                              WEB_BOB.bob,
+                              { animationDelay: `${String(delay)}ms` },
+                          ] as unknown as StyleProp<ViewStyle>)
+                        : undefined
+                }
+            >
+                {children}
+            </View>
+        );
+    }
     return (
         <Animated.View
-            className={cx('absolute rounded-3xl bg-surface-raised shadow-elevation-4', className)}
+            className={frame}
             style={{
                 transform: [
                     { translateY: bob.interpolate({ inputRange: [0, 1], outputRange: [0, -8] }) },

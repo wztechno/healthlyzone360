@@ -18,6 +18,11 @@ export interface InkSortMenuProps<T extends string> {
     readonly value: T;
     readonly options: readonly { readonly value: T; readonly label: string }[];
     readonly onChange: (next: T) => void;
+    /**
+     * A phone's bar (Shop · Menu, phone board): a 46px pill that says the label ("Sort") rather
+     * than the current choice, so the filter buttons beside it keep their room.
+     */
+    readonly compact?: boolean | undefined;
 }
 
 export function InkSortMenu<T extends string>({
@@ -27,6 +32,7 @@ export function InkSortMenu<T extends string>({
     value,
     options,
     onChange,
+    compact = false,
 }: InkSortMenuProps<T>) {
     const [open, setOpen] = useState(false);
     const close = useCallback(() => {
@@ -48,13 +54,20 @@ export function InkSortMenu<T extends string>({
                 onPress={() => {
                     setOpen((now) => !now);
                 }}
-                className="h-[52px] flex-row items-center gap-2.5 rounded-2xl bg-content-primary pe-4 ps-3.5"
+                className={cx(
+                    'flex-row items-center bg-content-primary',
+                    compact
+                        ? 'h-[46px] gap-1.5 rounded-[14px] pe-3.5 ps-3'
+                        : 'h-[52px] gap-2.5 rounded-2xl pe-4 ps-3.5',
+                )}
             >
                 <Icon name="listChecks" size="sm" className="text-surface-base" />
                 <RNText numberOfLines={1} className="text-sm font-semibold text-surface-base">
-                    {current}
+                    {compact ? label : current}
                 </RNText>
-                <Icon name="chevronDown" size="sm" className="text-surface-base" />
+                {compact ? null : (
+                    <Icon name="chevronDown" size="sm" className="text-surface-base" />
+                )}
             </Pressable>
             {open ? (
                 <View
