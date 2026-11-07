@@ -1267,7 +1267,8 @@ function StockMovementEditor({
     const isWaste = direction === 'waste';
     const notesRequired = isWaste ? wasteReason === 'other' : !isCount;
     const reasonMissing =
-        hasMovement && ((isWaste && wasteReason === null) || (notesRequired && notes.trim() === ''));
+        hasMovement &&
+        ((isWaste && wasteReason === null) || (notesRequired && notes.trim() === ''));
 
     const canSave =
         branchId !== null &&

@@ -408,7 +408,10 @@ export function OrderTracking({
                                             qty: formatter.formatNumber(line.quantity),
                                             name: line.name,
                                         })}
-                                        <LineMods line={line} testID={`${testID}-line-${line.id}`} />
+                                        <LineMods
+                                            line={line}
+                                            testID={`${testID}-line-${line.id}`}
+                                        />
                                     </RNText>
                                     <RNText className="text-sm font-bold tabular-nums text-content-primary text-end">
                                         {formatMoney(formatter, line.lineTotal)}

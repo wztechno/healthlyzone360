@@ -1879,9 +1879,9 @@ describe('the storefront profile', () => {
         });
         await untilVisible('kitchen-storefront-profile');
 
-        expect(
-            screen.getByTestId('kitchen-storefront-profile-cuisines-en-input').props.value,
-        ).toBe('Lebanese');
+        expect(screen.getByTestId('kitchen-storefront-profile-cuisines-en-input').props.value).toBe(
+            'Lebanese',
+        );
 
         await act(async () => {
             fireEvent.changeText(

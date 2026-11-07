@@ -347,7 +347,10 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
     // What the dish's choices add to the plate: a free-from tag they contradict is refused too.
     const dishOptions = useDishOptionsQuery(String(meal));
     const choiceAllergens = useMemo(
-        () => (dishOptions.data ?? []).flatMap((option) => (option.allergens ?? []).map(({ code }) => code)),
+        () =>
+            (dishOptions.data ?? []).flatMap((option) =>
+                (option.allergens ?? []).map(({ code }) => code),
+            ),
         [dishOptions.data],
     );
     const serverKey =
@@ -871,7 +874,10 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                       mealId: data.id,
                                       request: {
                                           lockVersion: data.meta.lockVersion,
-                                          dietClassifications: tagsTheLabelAllows(data, choiceAllergens),
+                                          dietClassifications: tagsTheLabelAllows(
+                                              data,
+                                              choiceAllergens,
+                                          ),
                                       },
                                   },
                                   {

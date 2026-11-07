@@ -1012,7 +1012,10 @@ function StorefrontProfileSection({
             {
                 tagline: shown.tagline,
                 description: shown.description,
-                cuisines: { en: cuisineList(shown.cuisines.en), ar: cuisineList(shown.cuisines.ar) },
+                cuisines: {
+                    en: cuisineList(shown.cuisines.en),
+                    ar: cuisineList(shown.cuisines.ar),
+                },
             },
             {
                 onSuccess: () => {

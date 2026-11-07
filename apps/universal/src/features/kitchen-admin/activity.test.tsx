@@ -87,9 +87,9 @@ describe('the Activity page', () => {
             },
         });
 
-        expect(await screen.findByTestId('kitchen-activity-waste-reason-waste-1')).toHaveTextContent(
-            'Expired',
-        );
+        expect(
+            await screen.findByTestId('kitchen-activity-waste-reason-waste-1'),
+        ).toHaveTextContent('Expired');
         expect(screen.getByTestId('kitchen-activity-stock-order-consume-1')).toHaveTextContent(
             'HZ-1001',
         );

@@ -412,7 +412,9 @@ describe('order desk calendar — the ladder', () => {
         for (const date of DATES) {
             expect(screen.getByTestId(`kitchen-order-desk-calendar-day-${date}`)).toBeTruthy();
             for (const slot of ['slot-breakfast', 'slot-lunch', 'slot-snack', 'slot-dinner']) {
-                expect(screen.queryByTestId(`kitchen-order-desk-calendar-${date}-${slot}`)).toBeNull();
+                expect(
+                    screen.queryByTestId(`kitchen-order-desk-calendar-${date}-${slot}`),
+                ).toBeNull();
             }
         }
     });

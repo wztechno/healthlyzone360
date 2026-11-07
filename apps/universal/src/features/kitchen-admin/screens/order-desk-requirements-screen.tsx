@@ -162,7 +162,9 @@ function OrderDeskRequirements() {
     const createOrder = () => {
         router.push(
             withReturnTo(
-                withQuery('/kitchen/supply-orders/new', { items: shortIds.slice(0, 100).join(',') }),
+                withQuery('/kitchen/supply-orders/new', {
+                    items: shortIds.slice(0, 100).join(','),
+                }),
                 '/kitchen/order-desk/requirements',
             ) as never,
         );
