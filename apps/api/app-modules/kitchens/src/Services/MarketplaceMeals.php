@@ -270,6 +270,168 @@ final readonly class MarketplaceMeals
     }
 
     /**
+     * {@see priceOf()} and {@see packSizeOf()} for many items of **one kitchen**
+     * at once — the listing's batch.
+     *
+     * The answer per item is exactly `priceOf()`'s: candidates in the same order
+     * (active packs default first, then the item-level row), and for each
+     * candidate the channels in the kitchen's order, first answer wins. Each
+     * round asks {@see PriceResolver::firstPricedForMany()} — itself proven equal
+     * to `currentFor()` — for one candidate position across every item still
+     * unpriced. What changes is the cost: a page of twenty paid five reads per
+     * item for the price (channel, its lists twice, the rows, the packs) and two
+     * for the size; this pays a handful per channel and round.
+     *
+     * @param  list<CatalogueItem>  $items  every one of the same organisation
+     * @param  list<SalesChannel>  $channels
+     * @return array<string, array{price: ResolvedPrice, pack: array{size: string, unit: string}|null}> item id → its price and size; an unpriced item is absent
+     */
+    public function pricesOf(array $items, array $channels): array
+    {
+        if ($items === [] || $channels === []) {
+            return [];
+        }
+
+        $candidates = $this->listingCandidatesOf($items);
+        // Every item has at least the item-level candidate, so the deepest list is at least one.
+        $depth = max(1, ...array_values(array_map(count(...), $candidates)));
+
+        return $this->tenantContext->during(null, $items[0]->organisation_id, null, function () use ($candidates, $channels, $depth): array {
+            /** @var array<string, ResolvedPrice> $resolved */
+            $resolved = [];
+
+            for ($position = 0; $position < $depth; $position++) {
+                $pending = [];
+
+                foreach ($candidates as $itemId => $variants) {
+                    if (! isset($resolved[$itemId]) && array_key_exists($position, $variants)) {
+                        $pending[$itemId] = [$variants[$position]];
+                    }
+                }
+
+                foreach ($channels as $channel) {
+                    if ($pending === []) {
+                        break;
+                    }
+
+                    foreach ($this->prices->firstPricedForMany((string) $channel->getKey(), $pending) as $itemId => $price) {
+                        $resolved[(string) $itemId] = $price;
+                        unset($pending[(string) $itemId]);
+                    }
+                }
+            }
+
+            $sizes = CatalogueItemPackVariant::sizesOf(array_values(array_filter(array_map(
+                static fn (ResolvedPrice $price): ?string => $price->catalogueItemVariantId,
+                $resolved,
+            ))));
+
+            return array_map(
+                static fn (ResolvedPrice $price): array => [
+                    'price' => $price,
+                    'pack' => $price->catalogueItemVariantId === null ? null : ($sizes[$price->catalogueItemVariantId] ?? null),
+                ],
+                $resolved,
+            );
+        });
+    }
+
+    /**
+     * {@see listingPackVariantIds()} for many items in one query: item id → the
+     * variants to try in order, the item-level row (null) last. An item that is
+     * not sold by the pack tries the item-level row alone, as `priceOf()` does.
+     *
+     * @param  list<CatalogueItem>  $items
+     * @return array<string, list<string|null>>
+     */
+    private function listingCandidatesOf(array $items): array
+    {
+        $packItemIds = [];
+
+        foreach ($items as $item) {
+            if ($item->item_type->variantType() === VariantType::Pack) {
+                $packItemIds[] = (string) $item->getKey();
+            }
+        }
+
+        /** @var array<string, list<string>> $packs */
+        $packs = [];
+
+        if ($packItemIds !== []) {
+            $rows = CatalogueItemVariant::withoutTenancy()
+                ->whereIn('catalogue_item_id', $packItemIds)
+                ->where('status', VariantStatus::Active->value)
+                ->orderByDesc('is_default')
+                ->orderBy('created_at')
+                ->get(['id', 'catalogue_item_id']);
+
+            foreach ($rows as $row) {
+                $packs[(string) $row->catalogue_item_id][] = (string) $row->getKey();
+            }
+        }
+
+        $candidates = [];
+
+        foreach ($items as $item) {
+            $id = (string) $item->getKey();
+            $candidates[$id] = in_array($id, $packItemIds, true) ? [...($packs[$id] ?? []), null] : [null];
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * {@see dietClassificationCodesOf()} for many items in two queries.
+     *
+     * @param  list<CatalogueItem>  $items
+     * @return array<string, list<string>> item id → codes, in display order; every item present
+     */
+    public function dietClassificationCodesOfMany(array $items): array
+    {
+        $ids = array_map(static fn (CatalogueItem $item): string => (string) $item->getKey(), $items);
+        $byItem = array_fill_keys($ids, []);
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $links = CatalogueItemDietClassification::withoutTenancy()
+            ->whereIn('catalogue_item_id', $ids)
+            ->get(['catalogue_item_id', 'diet_classification_id']);
+
+        if ($links->isEmpty()) {
+            return $byItem;
+        }
+
+        /** @var array<string, string> $codes classification id → code, in display order */
+        $codes = DietClassification::query()
+            ->whereIn('id', $links->pluck('diet_classification_id')->map(strval(...))->unique()->values()->all())
+            ->where('is_active', true)
+            ->orderBy('display_order')
+            ->orderBy('code')
+            ->pluck('code', 'id')
+            ->mapWithKeys(static fn (mixed $code, mixed $id): array => [(string) $id => (string) $code])
+            ->all();
+
+        /** @var array<string, array<string, true>> $linked */
+        $linked = [];
+
+        foreach ($links as $link) {
+            $linked[(string) $link->catalogue_item_id][(string) $link->diet_classification_id] = true;
+        }
+
+        foreach ($linked as $itemId => $classifications) {
+            // Walked in the codes' own order, so the result reads like codesFor().
+            $byItem[$itemId] = array_values(array_filter(
+                array_map(static fn (string $id): ?string => isset($classifications[$id]) ? $codes[$id] : null, array_keys($codes)),
+                static fn (?string $code): bool => $code !== null,
+            ));
+        }
+
+        return $byItem;
+    }
+
+    /**
      * The portions a customer can pick between: every active pack with a price on
      * these channels. Empty unless there are two, because one is no choice. The
      * pack is the portion, so its price is its price-list row and a chosen one
