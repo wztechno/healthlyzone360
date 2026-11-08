@@ -90,4 +90,5 @@ export { SupplyOrdersScreen } from './supply-orders-screen.tsx';
 export { PostReceiptScreen } from './post-receipt-screen.tsx';
 export { UnpricedReceiptScreen } from './unpriced-receipt-screen.tsx';
 export { WholesaleSetupScreen } from './wholesale-setup-screen.tsx';
+export { StorefrontProfileScreen } from './storefront-profile-screen.tsx';
 export { KitchenTicketPrintScreen } from '../../kds/ticket-print-sheet.tsx';

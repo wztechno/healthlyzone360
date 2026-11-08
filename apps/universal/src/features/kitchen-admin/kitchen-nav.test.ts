@@ -49,6 +49,19 @@ describe('kitchen nav', () => {
         expect(kitchenNavSections(cook).map((section) => section.group)).not.toContain('access');
     });
 
+    it('withholds the storefront from somebody who may only read the catalogue', () => {
+        const reader: AccessState = {
+            ...managerState,
+            permissions: new Set(['catalogue.view_organisation']),
+        };
+        const keys = (state: AccessState) =>
+            kitchenNavSections(state).flatMap((section) => section.items.map((item) => item.key));
+
+        expect(keys(managerState)).toContain('storefront');
+        expect(keys(reader)).not.toContain('storefront');
+        expect(keys(reader)).toContain('branch-operating');
+    });
+
     it('shows a cashier who may only settle cash the Cash page', () => {
         const cashier: AccessState = {
             ...managerState,

@@ -68,6 +68,7 @@ import { DeliveryWindowsScreen } from './screens/delivery-windows-screen.tsx';
 import { DeliveryZoneEditScreen } from './screens/delivery-zone-edit-screen.tsx';
 import { DeliveryZonesScreen } from './screens/delivery-zones-screen.tsx';
 import { KitchenHomeScreen } from './screens/kitchen-home-screen.tsx';
+import { StorefrontProfileScreen } from './screens/storefront-profile-screen.tsx';
 
 /*
  * The Commercial lists are desk surfaces: above  a row draws every column the spec declares.
@@ -1867,10 +1868,9 @@ describe('the storefront profile', () => {
     };
 
     it('reads the copy and saves the cuisines typed with either comma as a list', async () => {
-        const { repositories } = await renderStubScreen(<BranchOperatingScreen />, {
+        const { repositories } = await renderStubScreen(<StorefrontProfileScreen />, {
             session: kitchenSession(),
             repositories: {
-                kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING },
                 staffAlerts: {
                     getStorefrontProfile: async () => PROFILE,
                     saveStorefrontProfile: async (saved) => saved,
@@ -1889,7 +1889,6 @@ describe('the storefront profile', () => {
                 'لبناني، مشاوي, ',
             );
         });
-        await untilVisible('kitchen-branch-hours-screen-dirty');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-storefront-profile-save'));
         });
@@ -1901,12 +1900,22 @@ describe('the storefront profile', () => {
         });
     });
 
-    it('is not drawn for someone who may only read the week', async () => {
-        const { repositories } = await renderStubScreen(<BranchOperatingScreen />, {
+    it('refuses a reader', async () => {
+        const { repositories } = await renderStubScreen(<StorefrontProfileScreen />, {
             session: kitchenManagerSession({
                 memberships: [testMembership({ branches: [testBranch()] })],
                 activeContext: testActiveContext({ permissions: ['catalogue.view_organisation'] }),
             }),
+        });
+        await untilVisible('kitchen-storefront-forbidden');
+
+        expect(screen.queryByTestId('kitchen-storefront-profile')).toBeNull();
+        expect(repositories.staffAlerts.getStorefrontProfile).not.toHaveBeenCalled();
+    });
+
+    it('is no longer drawn on the opening hours page', async () => {
+        const { repositories } = await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenSession(),
             repositories: { kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING } },
         });
         await untilVisible('kitchen-branch-hours-screen');

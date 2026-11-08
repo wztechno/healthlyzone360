@@ -640,6 +640,20 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: CATALOGUE_MANAGE_PERMISSION,
     },
     {
+        // The tagline, description and cuisines a customer reads on the kitchen's marketplace page.
+        // The same code twice, as the supply-order book: the server refuses the read to anybody who
+        // may not write it, so there is no view-only reader to list.
+        key: 'storefront',
+        kind: 'workbench',
+        group: 'commercial',
+        nameKey: 'kitchen:families.storefront.name',
+        descriptionKey: 'kitchen:families.storefront.description',
+        icon: 'store',
+        href: '/kitchen/storefront',
+        permission: CATALOGUE_MANAGE_PERMISSION,
+        managePermission: CATALOGUE_MANAGE_PERMISSION,
+    },
+    {
         key: 'orders',
         kind: 'managed',
         group: 'operations',

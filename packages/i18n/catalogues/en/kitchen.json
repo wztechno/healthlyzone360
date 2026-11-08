@@ -2706,6 +2706,10 @@
             "name": "Opening hours",
             "description": "When this branch trades, and the last moment it will take an order for today."
         },
+        "storefront": {
+            "name": "Storefront",
+            "description": "The tagline, description and cuisines customers read on your marketplace page."
+        },
         "orders": {
             "name": "Orders",
             "description": "The orders placed against this kitchen — confirm, fulfil or cancel each one."
