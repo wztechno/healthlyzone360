@@ -88,6 +88,12 @@
             "close": "Daily close"
         }
     },
+    "supplierBills": {
+        "tab": {
+            "unpriced": "To price",
+            "bills": "To pay"
+        }
+    },
     "nav": {
         "railTitle": "Kitchen",
         "overview": "Overview",
@@ -2804,9 +2810,9 @@
             "name": "Activity",
             "description": "Who moved the stock, what the waste cost, and everything the audit trail recorded."
         },
-        "payables": {
-            "name": "Payables",
-            "description": "What is owed for deliveries, when it falls due, and prices waiting for approval."
+        "supplierBills": {
+            "name": "Supplier bills",
+            "description": "Deliveries still waiting for their prices, what is owed for them, when it falls due, and prices waiting for approval."
         },
         "dishMargins": {
             "name": "Dish margins",

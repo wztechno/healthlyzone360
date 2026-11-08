@@ -475,7 +475,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                               icon: null,
                               onPress: () => {
                                   setViewing(null);
-                                  router.push('/kitchen/procurement/unpriced-receipts' as never);
+                                  router.push('/kitchen/supplier-bills?tab=unpriced' as never);
                               },
                           },
                       }
@@ -622,7 +622,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                                 variant="ghost"
                                 label={t('kitchen:ops.procurement.unpricedReceipts')}
                                 onPress={() => {
-                                    router.push('/kitchen/procurement/unpriced-receipts' as never);
+                                    router.push('/kitchen/supplier-bills?tab=unpriced' as never);
                                 }}
                             />
                         ) : null}

@@ -134,6 +134,12 @@ it('sends a stuck batch and a customer cancel to managers, once', function (Staf
     'customer cancelled' => [StaffAlertType::CustomerCancelled, 'order', '/kitchen/orders?view={id}'],
 ]);
 
+it('opens the cash and supplier-bill alerts on their tab', function (): void {
+    expect(StaffAlertType::ShortHandIn->page($this->subjectId))->toBe('/kitchen/order-desk/cash?tab=handins')
+        ->and(StaffAlertType::ShortClose->page($this->subjectId))->toBe('/kitchen/order-desk/cash?tab=close')
+        ->and(StaffAlertType::PriceApproval->page($this->subjectId))->toBe('/kitchen/supplier-bills?tab=bills');
+});
+
 it('does not alert twice for one order and type', function (): void {
     ContactPoint::factory()->phone()->create(['user_id' => staffManager($this->organisationId)->getKey()]);
 

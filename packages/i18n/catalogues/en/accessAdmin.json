@@ -186,7 +186,6 @@
     "extras": {
         "orderDeskSale": "Ring up a sale",
         "orderDeskCustomer": "Open an account for a caller",
-        "unpricedReceipts": "Unpriced receipts",
         "cashSettle": "Settle cash and close the day"
     },
     "add": {

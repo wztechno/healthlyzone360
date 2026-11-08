@@ -206,7 +206,6 @@
     "extras": {
         "orderDeskSale": "تسجيل عملية بيع",
         "orderDeskCustomer": "فتح حساب لمتصل",
-        "unpricedReceipts": "إيصالات بلا أسعار",
         "cashSettle": "تسوية النقد وإقفال اليوم"
     },
     "add": {

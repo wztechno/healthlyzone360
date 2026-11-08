@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10467 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10468 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -166,7 +166,6 @@ export interface NamespaceKeys {
     | 'extras.cashSettle'
     | 'extras.orderDeskCustomer'
     | 'extras.orderDeskSale'
-    | 'extras.unpricedReceipts'
     | 'member.assignmentExpired'
     | 'member.assignmentFrom'
     | 'member.assignmentScheduled'
@@ -4422,8 +4421,6 @@ export interface NamespaceKeys {
     | 'families.orders.name'
     | 'families.packaging.description'
     | 'families.packaging.name'
-    | 'families.payables.description'
-    | 'families.payables.name'
     | 'families.plans.description'
     | 'families.plans.name'
     | 'families.priceLists.description'
@@ -4455,6 +4452,8 @@ export interface NamespaceKeys {
     | 'families.stock.name'
     | 'families.stockDuplicates.description'
     | 'families.stockDuplicates.name'
+    | 'families.supplierBills.description'
+    | 'families.supplierBills.name'
     | 'families.suppliers.description'
     | 'families.suppliers.name'
     | 'families.supplyOrders.description'
@@ -7800,6 +7799,8 @@ export interface NamespaceKeys {
     | 'storefrontProfile.savedToast'
     | 'storefrontProfile.taglineLabel'
     | 'storefrontProfile.title'
+    | 'supplierBills.tab.bills'
+    | 'supplierBills.tab.unpriced'
     | 'temperature.active'
     | 'temperature.addUnit'
     | 'temperature.celsius'
@@ -10663,7 +10664,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'accessAdmin:extras.cashSettle',
   'accessAdmin:extras.orderDeskCustomer',
   'accessAdmin:extras.orderDeskSale',
-  'accessAdmin:extras.unpricedReceipts',
   'accessAdmin:member.assignmentExpired',
   'accessAdmin:member.assignmentFrom',
   'accessAdmin:member.assignmentScheduled',
@@ -14907,8 +14907,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.orders.name',
   'kitchen:families.packaging.description',
   'kitchen:families.packaging.name',
-  'kitchen:families.payables.description',
-  'kitchen:families.payables.name',
   'kitchen:families.plans.description',
   'kitchen:families.plans.name',
   'kitchen:families.priceLists.description',
@@ -14940,6 +14938,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:families.stock.name',
   'kitchen:families.stockDuplicates.description',
   'kitchen:families.stockDuplicates.name',
+  'kitchen:families.supplierBills.description',
+  'kitchen:families.supplierBills.name',
   'kitchen:families.suppliers.description',
   'kitchen:families.suppliers.name',
   'kitchen:families.supplyOrders.description',
@@ -18285,6 +18285,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:storefrontProfile.savedToast',
   'kitchen:storefrontProfile.taglineLabel',
   'kitchen:storefrontProfile.title',
+  'kitchen:supplierBills.tab.bills',
+  'kitchen:supplierBills.tab.unpriced',
   'kitchen:temperature.active',
   'kitchen:temperature.addUnit',
   'kitchen:temperature.celsius',

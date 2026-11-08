@@ -61,7 +61,7 @@ import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
- * `/kitchen/procurement/unpriced-receipts/{receipt}` — one receipt's missing prices (SUP5, §7).
+ * `/kitchen/supplier-bills/{receipt}` — one receipt's missing prices (SUP5, §7).
  *
  * ```
  * Kitchen workspace › Prices to finish › Receipt DN-0412      ← the queue crumb is the way back
@@ -98,7 +98,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 /** The dialog this page replaces priced in USD; the contract has no per-receipt default to read. */
 const RECEIPT_CURRENCY = 'USD';
 
-const QUEUE_ROUTE = '/kitchen/procurement/unpriced-receipts';
+const QUEUE_ROUTE = '/kitchen/supplier-bills?tab=unpriced';
 
 export interface UnpricedReceiptScreenProps {
     /** The route parameter. Anything that is not an identifier lands on the not-found state. */

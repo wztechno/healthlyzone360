@@ -802,14 +802,15 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         managePermission: INVENTORY_MANAGE_PERMISSION,
     },
     {
-        key: 'payables',
+        key: 'supplier-bills',
         kind: 'workbench',
         group: 'buying',
-        nameKey: 'kitchen:families.payables.name',
-        descriptionKey: 'kitchen:families.payables.description',
+        nameKey: 'kitchen:families.supplierBills.name',
+        descriptionKey: 'kitchen:families.supplierBills.description',
         icon: 'banknote',
-        href: '/kitchen/payables',
-        // Rows of money, so the cost code reads them. Its acts ask their own code on the page.
+        href: '/kitchen/supplier-bills',
+        // A delivery's paperwork from price to payment: the receipts still to price, then what is
+        // owed. Rows of money, so the cost code reads both tabs. Its acts ask their own code.
         permission: INVENTORY_VIEW_COSTS_PERMISSION,
         managePermission: null,
     },
@@ -981,10 +982,6 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
  *  * the same wizard asks for `customer.create_on_behalf_organisation` before it will open an
  *    account for a cold caller, which until now was an exported constant with no reader anywhere in
  *    this application;
- *  * unpriced receipts is nested under `/kitchen/procurement` and gated on
- *    `inventory.view_costs_organisation`, which belongs to a *different* family (purchases) — so
- *    Procurement→Manage with Purchases→None produces a 403 on a route nested under a page you can
- *    manage, which is the one combination a page grid would otherwise present as impossible;
  *  * the Cash page's Hand-ins and Daily close tabs ask for `order.settle_cash_organisation`, while
  *    the family carries the manage code its Cash taken tab asks for.
  *
@@ -1020,13 +1017,6 @@ export const PAGE_EXTRAS: readonly PageExtra[] = [
         // somebody already on file is a smaller authority than one that may add people to the file.
         href: '/kitchen/order-desk/sale',
         permission: CUSTOMER_CREATE_ON_BEHALF_PERMISSION,
-    },
-    {
-        key: 'unpriced-receipts',
-        familyKey: 'procurement',
-        nameKey: 'accessAdmin:extras.unpricedReceipts',
-        href: '/kitchen/procurement/unpriced-receipts',
-        permission: INVENTORY_VIEW_COSTS_PERMISSION,
     },
     {
         key: 'cash-settle',

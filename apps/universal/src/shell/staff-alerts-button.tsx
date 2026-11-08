@@ -55,7 +55,7 @@ const PAGES: Partial<Readonly<Record<StaffAlertType, string>>> = {
     temperature_out_of_range: '/kitchen/temperature-logs',
     short_hand_in: '/kitchen/order-desk/cash?tab=handins',
     short_close: '/kitchen/order-desk/cash?tab=close',
-    price_approval: '/kitchen/payables',
+    price_approval: '/kitchen/supplier-bills?tab=bills',
     dish_below_target: '/kitchen/dish-margins',
     delivery_closed_unmoved: '/kitchen/branch-operating',
     batch_stuck: '/kitchen/production-desk/{id}',

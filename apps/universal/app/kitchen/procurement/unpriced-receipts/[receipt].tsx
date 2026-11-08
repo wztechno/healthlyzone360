@@ -1,21 +1,11 @@
-import { useLocalSearchParams } from 'expo-router';
-
-import { lazyScreen } from '../../../../src/shell/lazy-screen.tsx';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 
 /**
- * `/kitchen/procurement/unpriced-receipts/{receipt}` — one receipt's missing prices (SUP5).
- *
- * The parameter is validated in the screen, so a hand-typed link produces the designed not-found
- * state rather than a repository failure.
+ * `/kitchen/procurement/unpriced-receipts/{receipt}` — where a receipt's pricing page used to be.
+ * It lives under Supplier bills now, and this forwards the id so a bookmark still opens the same
+ * receipt. A redirect is not a page: `entity-registry.test.ts` skips it.
  */
-const UnpricedReceiptScreen = lazyScreen(
-    'kitchen-unpriced-receipt-loading',
-    async () =>
-        (await import('../../../../src/features/kitchen-admin/screens/index.ts'))
-            .UnpricedReceiptScreen,
-);
-
 export default function KitchenUnpricedReceipt() {
     const { receipt } = useLocalSearchParams<{ receipt?: string }>();
-    return <UnpricedReceiptScreen receipt={receipt} />;
+    return <Redirect href={`/kitchen/supplier-bills/${receipt ?? ''}` as never} />;
 }

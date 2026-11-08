@@ -93,9 +93,9 @@ enum StaffAlertType: string
         return match ($this) {
             self::StockExpiring => '/kitchen/stock',
             self::TemperatureOutOfRange => '/kitchen/temperature-logs',
-            self::ShortHandIn => '/kitchen/order-desk/settlement',
-            self::ShortClose => '/kitchen/order-desk/close',
-            self::PriceApproval => '/kitchen/payables',
+            self::ShortHandIn => '/kitchen/order-desk/cash?tab=handins',
+            self::ShortClose => '/kitchen/order-desk/cash?tab=close',
+            self::PriceApproval => '/kitchen/supplier-bills?tab=bills',
             self::DishBelowTarget => '/kitchen/dish-margins',
             self::DeliveryClosedUnmoved => '/kitchen/branch-operating',
             self::BatchStuck => '/kitchen/production-desk/'.$subjectId,

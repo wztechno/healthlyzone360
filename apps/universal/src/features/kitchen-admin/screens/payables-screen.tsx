@@ -35,7 +35,7 @@ import {
 } from '../entity-registry.ts';
 
 /**
- * `/kitchen/payables` — what is owed for deliveries.
+ * `/kitchen/supplier-bills?tab=bills` — what is owed for deliveries.
  *
  * Copied from the settlement page: two lists in the cash report's table and a dialog behind each
  * act. Nothing here sends money: Mark paid writes down a payment made by hand. A price waiting for
