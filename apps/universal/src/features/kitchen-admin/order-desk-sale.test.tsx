@@ -487,6 +487,44 @@ describe('sale — who it is for comes first', () => {
         expect(screen.getByTestId(MEAL_TILE)).toBeEnabled();
     });
 
+    it('names two allergens on the tile band and opens the full list from it', async () => {
+        await renderSaleShut({
+            getCustomerAllergies: async () => ({
+                declared: true,
+                declaresNoAllergens: false,
+                allergens: [{ allergenCode: 'milk', severity: 'anaphylaxis' }],
+            }),
+            quoteSale: async (request) => ({
+                ...quoteFor(request),
+                allergenConflicts: request.lines.some(
+                    (line) => line.catalogueItemId === String(MEAL_ID),
+                )
+                    ? [
+                          {
+                              mealId: MEAL_ID,
+                              reason: 'allergen_declared',
+                              allergenCodes: ['milk', 'eggs', 'fish', 'sesame', 'mustard'],
+                          },
+                      ]
+                    : [],
+            }),
+        });
+
+        await chooseLayla();
+
+        await untilVisible(`${MEAL_TILE}-conflict`);
+        const band = screen.getByTestId(`${MEAL_TILE}-conflict`);
+        expect(band).toHaveTextContent(/Milk, Eggs.*\+3/);
+        expect(screen.queryByText('Mustard')).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(band);
+        });
+        await waitFor(() => {
+            expect(screen.getByText('Mustard')).toBeTruthy();
+        });
+    });
+
     it('does not let "never asked" read as "no allergens"', async () => {
         await renderSaleShut();
 

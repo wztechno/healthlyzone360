@@ -2496,6 +2496,8 @@
             "customerAllergiesUnknown": "Nobody has asked this customer about allergies yet. Ask before you take the order.",
             "customerAllergiesError": "The allergies could not be read. Ask the customer before you take the order.",
             "tileConflict": "Contains {{allergens}}",
+            "tileConflictMore": "+{{count}}",
+            "tileConflictList": "Contains",
             "tileConflictDiet": "Conflicts with this customer's diet",
             "offToday": "Off today",
             "backOnToday": "Back on today",

@@ -1,6 +1,5 @@
 import type { OrderDeskCustomer, ServiceArea } from '@healthy360/api-client/contracts';
 import {
-    Avatar,
     Badge,
     Button,
     Callout,
@@ -85,6 +84,19 @@ const SEARCH_DEBOUNCE_MS = 300;
 
 const EM_DASH = '—';
 
+/** Up to two letters for the customer bar's mark. */
+function initialsOf(name: string): string {
+    return name
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((part) => part.charAt(0).toUpperCase())
+        .join('');
+}
+
+/** Every pill on the customer bar: one height, centred on the bar's line. */
+const BAR_PILL_CLASS = '!h-6 self-center !rounded-full !px-2.5';
+
 /* ------------------------------------------------------------------------------------------------
  * The customer
  * ---------------------------------------------------------------------------------------------- */
@@ -130,6 +142,7 @@ export function ChosenAllergies({
                         key={allergen.allergenCode}
                         tone="warning"
                         icon="warning"
+                        className={BAR_PILL_CLASS}
                         label={t('kitchen:allergy.item', {
                             allergen: allergenLabel(allergen.allergenCode, t),
                             severity: t(`kitchen:allergy.severity.${allergen.severity}`),
@@ -529,11 +542,16 @@ export function CustomerSection({
                 </View>
             ) : folded && chosen !== null ? (
                 <View className="z-auto flex-row flex-wrap items-center gap-3.5">
-                    <Avatar
-                        name={chosen.displayName ?? t('kitchen:desk.sale.customerUnnamed')}
-                        seed={chosen.id}
-                        size="md"
-                    />
+                    <View
+                        aria-hidden
+                        className="h-10 w-10 items-center justify-center rounded-xl bg-surface-canopy"
+                    >
+                        <Text variant="strong" className="font-bold !text-brand-300">
+                            {initialsOf(
+                                chosen.displayName ?? t('kitchen:desk.sale.customerUnnamed'),
+                            )}
+                        </Text>
+                    </View>
                     <View
                         testID="kitchen-order-desk-sale-customer-chosen"
                         className="flex-row flex-wrap items-center gap-3"
@@ -550,6 +568,7 @@ export function CustomerSection({
                             <Badge
                                 tone="success"
                                 icon={null}
+                                className={BAR_PILL_CLASS}
                                 label={t('kitchen:desk.sale.customerRegular')}
                             />
                         ) : null}
@@ -557,6 +576,7 @@ export function CustomerSection({
                             <Badge
                                 tone="neutral"
                                 icon={null}
+                                className={BAR_PILL_CLASS}
                                 label={t('kitchen:desk.sale.customerRegistered')}
                             />
                         ) : null}

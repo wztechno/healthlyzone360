@@ -2779,6 +2779,8 @@
             "customerAllergiesUnknown": "لم يُسأل هذا الزبون عن الحساسية بعد. اسأله قبل أخذ الطلب.",
             "customerAllergiesError": "تعذّرت قراءة الحساسيات. اسأل الزبون قبل أخذ الطلب.",
             "tileConflict": "يحتوي على {{allergens}}",
+            "tileConflictMore": "+{{count}}",
+            "tileConflictList": "يحتوي على",
             "tileConflictDiet": "يتعارض مع النظام الغذائي لهذا الزبون",
             "offToday": "غير متوفر اليوم",
             "backOnToday": "إعادته لليوم",

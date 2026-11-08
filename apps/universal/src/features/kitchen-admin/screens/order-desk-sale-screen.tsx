@@ -21,6 +21,7 @@ import {
     Drawer,
     EmptyState,
     ErrorState,
+    Dropdown,
     FormSection,
     Icon,
     IconButton,
@@ -1361,6 +1362,134 @@ function stackedGrid(width: number): { readonly columns: number; readonly tileWi
     return { columns, tileWidth };
 }
 
+/** The tile's frame around its photo: the border and the padding, each side. */
+const TILE_PHOTO_INSET = 7;
+const CONFLICT_BAND_HEIGHT = 34;
+/** How many allergens the band names before it says how many more there are. */
+const CONFLICT_BAND_NAMES = 2;
+
+/**
+ * What this customer must not eat, as an amber band along the foot of the tile's photo: the first
+ * names always in view, and the whole list on hover or press when they do not all fit.
+ *
+ * It sits outside the tile's press target (a button cannot hold a button) and outside the fade of a
+ * tile that is not sold: a warning about the food is not less true for that.
+ */
+function ConflictBand({
+    conflict,
+    label,
+    width,
+    testID,
+}: {
+    readonly conflict: readonly string[];
+    readonly label: string;
+    readonly width: number;
+    readonly testID: string;
+}) {
+    const { t } = useTranslation();
+    const names = conflict.map((code) => allergenLabel(code, t));
+    const diet = names.length === 0;
+    const more = names.length - CONFLICT_BAND_NAMES;
+    const expands = diet || more > 0;
+    const photoHeight = ((width - 2 * TILE_PHOTO_INSET) * 3) / 4;
+    const frame = {
+        top: TILE_PHOTO_INSET + photoHeight - CONFLICT_BAND_HEIGHT,
+        height: CONFLICT_BAND_HEIGHT,
+        start: TILE_PHOTO_INSET,
+        end: TILE_PHOTO_INSET,
+    };
+    const content = (
+        <>
+            <Icon name="warning" size="sm" className="text-warning-on-subtle" />
+            <Text
+                variant="label"
+                numberOfLines={1}
+                // eslint-disable-next-line no-restricted-syntax -- the names take what the count leaves.
+                className="min-w-0 flex-1 font-semibold !text-warning-on-subtle"
+            >
+                {diet
+                    ? label
+                    : names.slice(0, CONFLICT_BAND_NAMES).join(t('kitchen:common.listSeparator'))}
+            </Text>
+            {more > 0 ? (
+                <Text variant="label" className="font-bold !text-warning-on-subtle">
+                    {t('kitchen:desk.sale.tileConflictMore', { count: more })}
+                </Text>
+            ) : null}
+        </>
+    );
+    const bandClass =
+        'h-full flex-row items-center gap-1.5 rounded-b-[11px] bg-warning-subtle px-2.5';
+
+    if (!expands) {
+        return (
+            <View
+                testID={testID}
+                pointerEvents="none"
+                accessibilityLabel={label}
+                aria-label={label}
+                className={`absolute ${bandClass}`}
+                style={frame}
+            >
+                {content}
+            </View>
+        );
+    }
+
+    return (
+        <View className="absolute z-auto" style={frame}>
+            <Dropdown
+                label={label}
+                role="dialog"
+                testID={`${testID}-list`}
+                trigger={({ triggerProps, toggle, close, open }) => (
+                    <Pressable
+                        {...triggerProps}
+                        testID={testID}
+                        role="button"
+                        accessibilityRole="button"
+                        accessibilityLabel={label}
+                        onHoverIn={() => {
+                            if (!open) toggle();
+                        }}
+                        onHoverOut={close}
+                        onPress={() => {
+                            if (!open) toggle();
+                        }}
+                        className={bandClass}
+                        // The dropdown's box has no height of its own for h-full to fill.
+                        style={{ height: CONFLICT_BAND_HEIGHT }}
+                    >
+                        {content}
+                    </Pressable>
+                )}
+            >
+                <View
+                    className="flex-col gap-2 p-1"
+                    style={{ width: width - 2 * TILE_PHOTO_INSET }}
+                >
+                    <Text variant="strong">{t('kitchen:desk.sale.tileConflictList')}</Text>
+                    {diet ? (
+                        <Text variant="label">{label}</Text>
+                    ) : (
+                        <View className="flex-row flex-wrap gap-1">
+                            {names.map((name) => (
+                                <Badge
+                                    key={name}
+                                    tone="warning"
+                                    icon={null}
+                                    className="!rounded-full"
+                                    label={name}
+                                />
+                            ))}
+                        </View>
+                    )}
+                </View>
+            </Dropdown>
+        </View>
+    );
+}
+
 function MenuGrid({
     tileWidth,
     columns,
@@ -1522,7 +1651,7 @@ function MenuGrid({
                 />
             ) : (
                 <>
-                    <View className="flex-row flex-wrap gap-snug">
+                    <View className="z-auto flex-row flex-wrap gap-snug">
                         {tiles.map((tile) => {
                             const quoted = shelfById.get(tile.id) ?? null;
                             const isOff = (quoted?.refusals ?? []).some(
@@ -1531,7 +1660,7 @@ function MenuGrid({
                             return (
                                 <View
                                     key={tile.id}
-                                    className="flex-col gap-hair"
+                                    className="z-auto flex-col gap-hair"
                                     style={{ width: tileWidth }}
                                 >
                                     <MenuTileButton
@@ -1653,7 +1782,7 @@ function MenuTileButton({
         <View
             style={{ width }}
             // eslint-disable-next-line no-restricted-syntax -- a row of cards shares one height, so Off today lines up.
-            className="relative flex-1"
+            className="relative z-auto flex-1"
         >
             <Pressable
                 testID={`kitchen-order-desk-sale-tile-${tile.id}`}
@@ -1710,17 +1839,15 @@ function MenuTileButton({
                         </View>
                     )}
                 </View>
-                {conflictLabel === null ? null : (
-                    <View className="absolute start-3 top-3 max-w-full pe-16">
-                        <Badge
-                            testID={`kitchen-order-desk-sale-tile-${tile.id}-conflict`}
-                            tone="warning"
-                            icon="warning"
-                            label={conflictLabel}
-                        />
-                    </View>
-                )}
             </Pressable>
+            {conflict === null || conflictLabel === null ? null : (
+                <ConflictBand
+                    testID={`kitchen-order-desk-sale-tile-${tile.id}-conflict`}
+                    width={width}
+                    conflict={conflict}
+                    label={conflictLabel}
+                />
+            )}
             {count > 0 ? (
                 <View className="absolute end-3 top-3">
                     <TileStepper
