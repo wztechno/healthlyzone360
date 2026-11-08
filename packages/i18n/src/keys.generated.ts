@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10366 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10371 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4006,6 +4006,7 @@ export interface NamespaceKeys {
     | 'desk.figures.unsettledCaption'
     | 'desk.filterTypeAll'
     | 'desk.filterTypeLabel'
+    | 'desk.filterTypeShort'
     | 'desk.filteredEmptyBody'
     | 'desk.filteredEmptyTitle'
     | 'desk.footnoteAll'
@@ -4192,6 +4193,10 @@ export interface NamespaceKeys {
     | 'desk.sale.slotLabel'
     | 'desk.sale.soldBody'
     | 'desk.sale.soldToast'
+    | 'desk.sale.step.checkout'
+    | 'desk.sale.step.customer'
+    | 'desk.sale.step.meals'
+    | 'desk.sale.stepsLabel'
     | 'desk.sale.subtotal'
     | 'desk.sale.ticketEmpty'
     | 'desk.sale.ticketTitle'
@@ -14390,6 +14395,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.figures.unsettledCaption',
   'kitchen:desk.filterTypeAll',
   'kitchen:desk.filterTypeLabel',
+  'kitchen:desk.filterTypeShort',
   'kitchen:desk.filteredEmptyBody',
   'kitchen:desk.filteredEmptyTitle',
   'kitchen:desk.footnoteAll',
@@ -14576,6 +14582,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.slotLabel',
   'kitchen:desk.sale.soldBody',
   'kitchen:desk.sale.soldToast',
+  'kitchen:desk.sale.step.checkout',
+  'kitchen:desk.sale.step.customer',
+  'kitchen:desk.sale.step.meals',
+  'kitchen:desk.sale.stepsLabel',
   'kitchen:desk.sale.subtotal',
   'kitchen:desk.sale.ticketEmpty',
   'kitchen:desk.sale.ticketTitle',

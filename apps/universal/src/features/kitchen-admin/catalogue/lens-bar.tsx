@@ -114,6 +114,15 @@ export interface LensBarProps {
      * bar is narrow, so it can draw its controls as icons and keep the row on one line.
      */
     readonly trailing?: ReactNode | ((narrow: boolean) => ReactNode) | undefined;
+    /**
+     * `bar` (default): one panel, figures over the query row. `split`: the figures as chips on the
+     * page with the actions beside them, and the query row as the top of the list's card.
+     */
+    readonly layout?: 'bar' | 'split' | undefined;
+    /** Split only: the list under it passes `joined` and closes the card. */
+    readonly joined?: boolean | undefined;
+    /** Split only: banners between the figures and the card — a paused kitchen, a capped list. */
+    readonly notice?: ReactNode | undefined;
     readonly testID: string;
 }
 
@@ -159,12 +168,85 @@ export function LensBar({
     onClear,
     clearLabel,
     trailing,
+    layout = 'bar',
+    joined = false,
+    notice,
     testID,
 }: LensBarProps) {
+    const split = layout === 'split';
     const mixTotal = mix?.reduce((sum, part) => sum + part.value, 0) ?? 0;
     // Wide until measured: a bare render (and every test) draws the labelled controls.
     const [narrow, setNarrow] = useState(false);
     const trailingNode = typeof trailing === 'function' ? trailing(narrow) : trailing;
+
+    if (split) {
+        return (
+            <SplitLens
+                label={label}
+                figures={figures}
+                mixParts={mixParts(mix, mixTotal, testID)}
+                mixLabel={mixLabel}
+                actions={actions}
+                joined={joined}
+                notice={notice}
+                narrow={narrow}
+                onNarrow={setNarrow}
+                testID={testID}
+            >
+                <View className="z-auto flex-row flex-wrap items-center gap-tight p-2">
+                    {scope === undefined || scope === null ? null : (
+                        <View className="z-auto flex-row flex-wrap items-center gap-tight">
+                            {scope}
+                        </View>
+                    )}
+                    {onSearchChange === undefined ? null : (
+                        // eslint-disable-next-line no-restricted-syntax -- the search absorbs the row; the exempt case.
+                        <View className="flex-1" style={{ minWidth: SPLIT_SEARCH_MIN_WIDTH }}>
+                            <SearchInput
+                                value={search ?? ''}
+                                onChangeText={onSearchChange}
+                                label={searchLabel ?? ''}
+                                placeholder={searchPlaceholder}
+                                size="sm"
+                                testID={`${testID}-search`}
+                            />
+                        </View>
+                    )}
+                    {result === null ? (
+                        <Skeleton heightClassName="h-4" widthClassName="w-16" />
+                    ) : (
+                        <Text
+                            testID={`${testID}-result`}
+                            variant="label"
+                            tone="secondary"
+                            role="status"
+                            className="font-semibold tabular-nums"
+                        >
+                            {result}
+                        </Text>
+                    )}
+                    {onClear === undefined ? null : (
+                        <Pressable
+                            testID={`${testID}-clear`}
+                            role="button"
+                            accessibilityRole="button"
+                            onPress={onClear}
+                            className="h-control-sm justify-center rounded px-2 hover:bg-brand-50"
+                        >
+                            <Text variant="strong" tone="brand">
+                                {clearLabel}
+                            </Text>
+                        </Pressable>
+                    )}
+                    {trailingNode === undefined || trailingNode === null ? null : (
+                        <View className="z-auto ms-auto flex-row items-center gap-tight">
+                            {trailingNode}
+                        </View>
+                    )}
+                </View>
+            </SplitLens>
+        );
+    }
 
     return (
         // `z-10`: RN-Web makes every View a stacking context at 0, so without a rank of its own the
@@ -220,24 +302,9 @@ export function LensBar({
                 aria-label={mixLabel}
                 className="h-1 flex-row gap-0.5 bg-surface-raised"
             >
-                {mix === undefined || mixTotal === 0 ? (
+                {mixParts(mix, mixTotal, testID) ?? (
                     // eslint-disable-next-line no-restricted-syntax -- the strip *is* the row; not a control.
                     <View className="h-px flex-1 self-end bg-brand-100" />
-                ) : (
-                    mix
-                        .filter((part) => part.value > 0)
-                        .map((part) => (
-                            /*
-                             * Each part's share of the strip as a percentage width, the issue
-                             * tray's progress bar's own shape; `shrink` gives back the 2px gaps.
-                             */
-                            <View
-                                key={part.key}
-                                testID={`${testID}-mix-${part.key}`}
-                                className={`h-1 shrink ${BAR_CLASS[part.tone]} ${part.dimmed === true ? 'opacity-25' : ''}`}
-                                style={{ width: `${(part.value / mixTotal) * 100}%` }}
-                            />
-                        ))
                 )}
             </View>
 
@@ -330,6 +397,123 @@ export function LensBar({
         </View>
     );
 }
+
+/**
+ * Each part's share of the strip as a percentage width, the issue tray's progress bar's own shape;
+ * `shrink` gives back the 2px gaps. `null` before the counts land, or on an empty list.
+ */
+function mixParts(
+    mix: readonly LensMixPart[] | undefined,
+    total: number,
+    testID: string,
+): ReactNode[] | null {
+    if (mix === undefined || total === 0) return null;
+    return mix
+        .filter((part) => part.value > 0)
+        .map((part) => (
+            <View
+                key={part.key}
+                testID={`${testID}-mix-${part.key}`}
+                className={`h-1 shrink ${BAR_CLASS[part.tone]} ${part.dimmed === true ? 'opacity-25' : ''}`}
+                style={{ width: `${(part.value / total) * 100}%` }}
+            />
+        ));
+}
+
+/**
+ * The split layout (`layout="split"`).
+ *
+ * ```
+ *  (Open now 16) (● Past due 3) (● Needs a driver 8)            [Pause kitchen ▾] [+ New order]
+ * ╭──▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆──────────────────────────────────────────────────────────────╮
+ * │ [Today|Overdue|Next 7 days] [From] [To] (Placed) (Confirmed) [Kind All ▾] [⌕ …] 16 of 16 ▦ │
+ * ├────────────────────────────────────────────────────────────────────────────────────────┤ <- the list, `joined`
+ * ```
+ *
+ * The figures stand on the page as chips with the actions at their end; the query row is the top
+ * of the list's card, and the mix rides that card's top edge, inset from its corners.
+ */
+function SplitLens({
+    label,
+    figures,
+    mixParts: parts,
+    mixLabel,
+    actions,
+    joined,
+    notice,
+    narrow,
+    onNarrow,
+    testID,
+    children,
+}: {
+    readonly notice: ReactNode;
+    readonly label: string;
+    readonly figures: readonly LensFigure[];
+    readonly mixParts: ReactNode[] | null;
+    readonly mixLabel: string | undefined;
+    readonly actions: ReactNode;
+    readonly joined: boolean;
+    readonly narrow: boolean;
+    readonly onNarrow: (narrow: boolean) => void;
+    readonly testID: string;
+    readonly children: ReactNode;
+}) {
+    return (
+        <View
+            testID={testID}
+            role="region"
+            aria-label={label}
+            onLayout={(event) => {
+                onNarrow(event.nativeEvent.layout.width < NARROW_BAR_WIDTH);
+            }}
+            className="z-10 flex-col gap-3"
+        >
+            <View className="z-auto flex-row flex-wrap items-center gap-tight">
+                <View
+                    testID={`${testID}-figures`}
+                    className="flex-row flex-wrap items-center gap-1.5"
+                >
+                    {figures.map((figure) => (
+                        <LensFigureCell
+                            key={figure.key}
+                            figure={figure}
+                            narrow={narrow}
+                            chip
+                            testID={`${testID}-figure-${figure.key}`}
+                        />
+                    ))}
+                </View>
+                {actions === undefined || actions === null ? null : (
+                    <View
+                        testID={`${testID}-actions`}
+                        className="z-auto ms-auto flex-row items-center gap-2"
+                    >
+                        {actions}
+                    </View>
+                )}
+            </View>
+            {notice}
+            <View
+                className={`z-auto border border-brand-100 bg-surface-raised ${
+                    joined ? 'rounded-t-panel border-b-0' : 'rounded-panel shadow-elevation-card'
+                }`}
+            >
+                <View
+                    testID={`${testID}-mix`}
+                    role="img"
+                    aria-label={mixLabel}
+                    className="absolute -top-px end-4 start-4 h-1 flex-row gap-0.5 overflow-hidden rounded-b-sm"
+                >
+                    {parts}
+                </View>
+                {children}
+            </View>
+        </View>
+    );
+}
+
+/** The split query row carries more controls before the search, so it gives way sooner. */
+const SPLIT_SEARCH_MIN_WIDTH = 150;
 
 export interface LensViewOption<T extends string> {
     readonly value: T;
@@ -479,11 +663,14 @@ const NO_BREAK_SPACE = String.fromCharCode(0xa0);
 export function LensFigureCell({
     figure,
     narrow,
+    chip = false,
     testID,
 }: {
     readonly figure: LensFigure;
     /** Beside the issue tray: 6px pills instead of 8, so the actions keep the first line. */
     readonly narrow: boolean;
+    /** The split layout's look: each figure a bordered chip standing on the page. */
+    readonly chip?: boolean | undefined;
     readonly testID: string;
 }) {
     const active = figure.active === true;
@@ -511,7 +698,12 @@ export function LensFigureCell({
                     }
                 />
             )}
-            <Text variant="label" tone={active ? 'primary' : 'secondary'} numberOfLines={1}>
+            <Text
+                variant="label"
+                tone={active ? 'primary' : 'secondary'}
+                numberOfLines={1}
+                className={chip ? 'font-semibold' : ''}
+            >
                 {figure.label}
             </Text>
             {value === null ? (
@@ -527,7 +719,7 @@ export function LensFigureCell({
                     testID={`${testID}-value`}
                     variant="label"
                     tone={alarm ? 'danger' : zero ? 'secondary' : 'primary'}
-                    className="font-semibold tabular-nums"
+                    className={chip ? 'font-bold tabular-nums' : 'font-semibold tabular-nums'}
                 >
                     {figure.display ?? String(value)}
                 </Text>
@@ -538,9 +730,15 @@ export function LensFigureCell({
         </>
     );
 
-    const cellClass = `h-control-sm flex-row items-center gap-1.5 rounded ${narrow ? 'px-1.5' : 'px-2'} ${
-        active ? 'bg-surface-brand-subtle' : ''
-    }`;
+    const cellClass = chip
+        ? `h-control-lg flex-row items-center gap-2 rounded-lg border px-3 ${
+              active
+                  ? 'border-surface-brand bg-surface-brand-subtle'
+                  : 'border-brand-100 bg-surface-raised'
+          }`
+        : `h-control-sm flex-row items-center gap-1.5 rounded ${narrow ? 'px-1.5' : 'px-2'} ${
+              active ? 'bg-surface-brand-subtle' : ''
+          }`;
 
     return (
         <>
@@ -560,7 +758,9 @@ export function LensFigureCell({
                     accessibilityHint={figure.accessibilityLabel}
                     accessibilityState={{ selected: active }}
                     onPress={figure.onPress}
-                    className={`${cellClass} ${active ? '' : 'hover:bg-surface-sunken'}`}
+                    className={`${cellClass} ${
+                        active ? '' : chip ? 'hover:border-brand-300' : 'hover:bg-surface-sunken'
+                    }`}
                 >
                     {body}
                 </Pressable>

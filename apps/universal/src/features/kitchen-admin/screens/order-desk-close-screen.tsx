@@ -34,6 +34,7 @@ import {
 } from '../../../data/order-desk-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { DeskTableTitle } from '../order-desk/desk-parts.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
 
@@ -109,6 +110,7 @@ function OrderDeskClose() {
         },
         {
             key: 'counter',
+            align: 'end',
             label: t('kitchen:ops.dailyClose.columnCounter'),
             width: 140,
             priority: 95,
@@ -123,6 +125,7 @@ function OrderDeskClose() {
         },
         {
             key: 'handedIn',
+            align: 'end',
             label: t('kitchen:ops.dailyClose.columnHandedIn'),
             width: 140,
             priority: 90,
@@ -137,6 +140,7 @@ function OrderDeskClose() {
         },
         {
             key: 'refunds',
+            align: 'end',
             label: t('kitchen:ops.dailyClose.columnRefunds'),
             width: 140,
             priority: 85,
@@ -151,19 +155,22 @@ function OrderDeskClose() {
         },
         {
             key: 'close',
+            align: 'end',
             label: t('kitchen:ops.dailyClose.columnAction'),
             width: 120,
             priority: 99,
             render: (row) => (
-                <Button
-                    testID={`kitchen-close-${row.branchId ?? 'kitchen'}-${row.currencyCode}-open`}
-                    variant="secondary"
-                    size="sm"
-                    label={t('kitchen:ops.dailyClose.close')}
-                    onPress={() => {
-                        setClosing(row);
-                    }}
-                />
+                <View className="flex-row justify-end">
+                    <Button
+                        testID={`kitchen-close-${row.branchId ?? 'kitchen'}-${row.currencyCode}-open`}
+                        variant="secondary"
+                        size="sm"
+                        label={t('kitchen:ops.dailyClose.close')}
+                        onPress={() => {
+                            setClosing(row);
+                        }}
+                    />
+                </View>
             ),
         },
     ];
@@ -202,6 +209,7 @@ function OrderDeskClose() {
         },
         {
             key: 'float',
+            align: 'end',
             label: t('kitchen:ops.dailyClose.columnFloat'),
             width: 120,
             priority: 70,
@@ -216,6 +224,7 @@ function OrderDeskClose() {
         },
         {
             key: 'expected',
+            align: 'end',
             label: t('kitchen:ops.dailyClose.columnExpected'),
             width: 120,
             priority: 90,
@@ -230,6 +239,7 @@ function OrderDeskClose() {
         },
         {
             key: 'counted',
+            align: 'end',
             role: 'metric',
             label: t('kitchen:ops.dailyClose.columnCounted'),
             width: 120,
@@ -337,6 +347,7 @@ function OrderDeskClose() {
         },
         ...totalFigures.map(([key, label, amount, priority]): CatalogueColumn<DailyCloseTotal> => ({
             key,
+            ...(key === 'variance' ? {} : { align: 'end' as const }),
             ...(key === 'counted' ? { role: 'metric' as const } : {}),
             label: t(`kitchen:ops.dailyClose.${label}`),
             width: 130,
@@ -390,12 +401,15 @@ function OrderDeskClose() {
                             />
                         </View>
                     )}
-                    <Text variant="section" accessibilityRole="header">
-                        {t('kitchen:ops.dailyClose.openHeading')}
-                    </Text>
-                    <Text variant="caption" tone="secondary" testID="kitchen-close-clock">
-                        {t('kitchen:ops.dailyClose.clockNote', { timezone: data.timezone })}
-                    </Text>
+                    <DeskTableTitle
+                        title={t('kitchen:ops.dailyClose.openHeading')}
+                        count={open.length}
+                        aside={
+                            <Text variant="caption" tone="secondary" testID="kitchen-close-clock">
+                                {t('kitchen:ops.dailyClose.clockNote', { timezone: data.timezone })}
+                            </Text>
+                        }
+                    />
                     {open.length === 0 ? (
                         <EmptyState
                             testID="kitchen-close-open-empty"
@@ -412,9 +426,7 @@ function OrderDeskClose() {
                         />
                     )}
 
-                    <Text variant="section" accessibilityRole="header">
-                        {t('kitchen:ops.dailyClose.recentHeading')}
-                    </Text>
+                    <DeskTableTitle title={t('kitchen:ops.dailyClose.recentHeading')} />
                     {closes.length === 0 ? (
                         <EmptyState
                             testID="kitchen-close-recent-empty"
@@ -433,12 +445,14 @@ function OrderDeskClose() {
 
                     {!multiBranch ? null : (
                         <>
-                            <Text variant="section" accessibilityRole="header">
-                                {t('kitchen:ops.dailyClose.totalHeading')}
-                            </Text>
-                            <Text variant="caption" tone="secondary">
-                                {t('kitchen:ops.dailyClose.totalNote')}
-                            </Text>
+                            <DeskTableTitle
+                                title={t('kitchen:ops.dailyClose.totalHeading')}
+                                aside={
+                                    <Text variant="caption" tone="secondary">
+                                        {t('kitchen:ops.dailyClose.totalNote')}
+                                    </Text>
+                                }
+                            />
                             {data.totals.length === 0 ? (
                                 <EmptyState
                                     testID="kitchen-close-total-empty"

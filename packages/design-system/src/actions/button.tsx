@@ -107,6 +107,7 @@ const SPINNER_COLOUR: Readonly<Record<ButtonVariant, (theme: ThemeTokens) => str
     quiet: (theme) => theme.colours.textSecondary,
     ghost: (theme) => theme.colours.brandSurface,
     danger: (theme) => theme.semantic.danger.onDefault,
+    sidebar: (theme) => theme.colours.onSidebarActive,
 };
 
 export interface ButtonProps extends Omit<

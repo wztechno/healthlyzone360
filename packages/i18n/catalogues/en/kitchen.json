@@ -2261,6 +2261,7 @@
         },
         "filterTypeLabel": "Kind of sale",
         "filterTypeAll": "All kinds",
+        "filterTypeShort": "Kind",
         "recordPayment": {
             "open": "Record a payment",
             "title": "Record a payment",
@@ -2302,9 +2303,9 @@
                 "delivery": "Delivery"
             },
             "typeHint": {
-                "counter": "The customer is here and pays now. Nothing is delivered and no name is needed.",
-                "pickup": "The customer collects later, so we need to know who they are. They pay on collection.",
-                "delivery": "We take it to them. We need the customer and somewhere to send it, and they pay at the door."
+                "counter": "Pays now",
+                "pickup": "Collects later",
+                "delivery": "We take it to them"
             },
             "customerSearchLabel": "Find the customer",
             "customerSearchPlaceholder": "Search by name or phone number",
@@ -2428,7 +2429,13 @@
             "tileConflict": "Contains {{allergens}}",
             "tileConflictDiet": "Conflicts with this customer's diet",
             "offToday": "Off today",
-            "backOnToday": "Back on today"
+            "backOnToday": "Back on today",
+            "stepsLabel": "Steps",
+            "step": {
+                "customer": "Customer",
+                "meals": "Meals",
+                "checkout": "Checkout"
+            }
         },
         "refusal": {
             "customer_required": "This kind of sale needs a customer. Go back and choose or add one.",

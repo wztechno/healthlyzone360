@@ -71,7 +71,7 @@ import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import type { RecordAction } from '../catalogue/record-popup.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
+import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
 import { KitchenPauseBanner, KitchenPauseButton } from '../order-desk/kitchen-pause.tsx';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
@@ -251,11 +251,6 @@ const EM_DASH = '—';
  * what the server reads as "all three".
  */
 const ANY_FULFILMENT_TYPE = '__any__';
-
-/**
- * The kind picker's width — a style because it has no token: wide enough for its longest label.
- */
-const KIND_WIDTH = 140;
 
 /** Rows per page. The queue arrives whole, so the pages are cut from the loaded rows. */
 const PAGE_SIZE = 18;
@@ -1497,6 +1492,8 @@ function OrderDeskQueueList() {
     const totalPages = Math.max(1, Math.ceil(controls.rows.length / PAGE_SIZE));
     const page = paging.key === pagingKey ? Math.min(paging.page, totalPages) : 1;
     const pageRows = controls.rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    /** Rows on screen: the toolbar card then runs on into the table rather than closing above it. */
+    const showsRows = !queue.isPending && failure === null && pageRows.length > 0;
 
     /*
      * The two dialogs, outside the record page's cards: a modal mounted inside a scrolling surface is
@@ -2188,116 +2185,134 @@ function OrderDeskQueueList() {
              * means both — while the kind of sale is a single choice because the endpoint takes
              * exactly one value or none. See the file header.
              */}
-            <LensBar
-                testID="kitchen-order-desk-toolbar"
-                label={t('kitchen:lens.label')}
-                figures={figures}
-                {...deskMix}
-                search={query}
-                onSearchChange={setQuery}
-                searchLabel={t('kitchen:desk.searchLabel')}
-                searchPlaceholder={t('kitchen:desk.searchPlaceholder')}
-                scope={
-                    <>
-                        <SegmentedControl<OrderDeskWindow>
-                            testID="kitchen-order-desk-window"
-                            label={t('kitchen:desk.windowLabel')}
-                            value={deskWindow}
-                            onChange={(next) => {
-                                chooseWindow(next);
-                                setRangeFrom('');
-                                setRangeTo('');
-                            }}
-                            items={SEGMENT_WINDOWS.map((candidate) => ({
-                                value: candidate,
-                                label: t(WINDOW_LABEL_KEYS[candidate]),
-                                testID: `kitchen-order-desk-window-${candidate}`,
-                            }))}
-                        />
-
-                        {/*
-                         * Any span of days, past or future — the orders `overdue` and `next_7` cannot
-                         * reach. Each end bounds the other, so the span can never run backwards, and
-                         * clearing either returns the desk to today. `z-tooltip` so the month opens over
-                         * the rows below, as the kind filter does.
-                         */}
-                        <View
-                            testID="kitchen-order-desk-range"
-                            role="group"
-                            aria-label={t('kitchen:desk.window.range')}
-                            className="z-tooltip flex-row items-center gap-hair"
-                        >
-                            <DatePickerButton
-                                testID="kitchen-order-desk-from"
-                                label={t('kitchen:desk.window.from')}
-                                placeholder={t('kitchen:desk.window.from')}
-                                value={deskWindow === 'range' ? rangeFrom : ''}
-                                {...(deskWindow === 'range' && rangeTo !== ''
-                                    ? { max: rangeTo }
-                                    : {})}
-                                onChange={(next) => {
-                                    setRangeFrom(next);
-                                    if (
-                                        deskWindow !== 'range' ||
-                                        rangeTo === '' ||
-                                        rangeTo < next
-                                    ) {
-                                        setRangeTo(next);
-                                    }
-                                    chooseWindow('range');
-                                }}
-                                onClear={clearRange}
-                            />
-                            <DatePickerButton
-                                testID="kitchen-order-desk-to"
-                                label={t('kitchen:desk.window.to')}
-                                placeholder={t('kitchen:desk.window.to')}
-                                value={deskWindow === 'range' ? rangeTo : ''}
-                                {...(deskWindow === 'range' && rangeFrom !== ''
-                                    ? { min: rangeFrom }
-                                    : {})}
-                                align="end"
-                                onChange={(next) => {
-                                    setRangeTo(next);
-                                    if (
-                                        deskWindow !== 'range' ||
-                                        rangeFrom === '' ||
-                                        rangeFrom > next
-                                    ) {
-                                        setRangeFrom(next);
-                                    }
-                                    chooseWindow('range');
-                                }}
-                                onClear={clearRange}
-                            />
-                        </View>
-
-                        <View
-                            testID="kitchen-order-desk-status"
-                            role="group"
-                            aria-label={t('kitchen:desk.statusLabel')}
-                            className="flex-row items-center gap-hair"
-                        >
-                            {ORDER_DESK_QUEUE_STATUSES.map((candidate) => (
-                                <FilterChip
-                                    key={candidate}
-                                    size="sm"
-                                    testID={`kitchen-order-desk-status-${candidate}`}
-                                    label={t(kitchenOrderStatusKey(candidate))}
-                                    selected={statuses.includes(candidate)}
-                                    onChange={(selected) => {
-                                        toggleStatus(candidate, selected);
-                                    }}
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={showsRows ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-order-desk-toolbar"
+                    layout="split"
+                    joined={showsRows}
+                    notice={
+                        <>
+                            <KitchenPauseBanner />
+                            {showsRows && meta?.truncated === true ? (
+                                // A silent truncation would hide exactly the backlog this queue exists
+                                // to surface, and there is no second page to offer instead — so the cap
+                                // is stated, with the three ways to get under it.
+                                <Callout
+                                    testID="kitchen-order-desk-truncated"
+                                    tone="info"
+                                    role="status"
+                                    title={t('kitchen:desk.truncatedTitle', { limit: meta.limit })}
+                                    body={t('kitchen:desk.truncatedBody')}
                                 />
-                            ))}
-                        </View>
+                            ) : null}
+                        </>
+                    }
+                    label={t('kitchen:lens.label')}
+                    figures={figures}
+                    {...deskMix}
+                    search={query}
+                    onSearchChange={setQuery}
+                    searchLabel={t('kitchen:desk.searchLabel')}
+                    searchPlaceholder={t('kitchen:desk.searchPlaceholder')}
+                    scope={
+                        <>
+                            <SegmentedControl<OrderDeskWindow>
+                                testID="kitchen-order-desk-window"
+                                label={t('kitchen:desk.windowLabel')}
+                                value={deskWindow}
+                                onChange={(next) => {
+                                    chooseWindow(next);
+                                    setRangeFrom('');
+                                    setRangeTo('');
+                                }}
+                                items={SEGMENT_WINDOWS.map((candidate) => ({
+                                    value: candidate,
+                                    label: t(WINDOW_LABEL_KEYS[candidate]),
+                                    testID: `kitchen-order-desk-window-${candidate}`,
+                                }))}
+                            />
 
-                        <View className="z-tooltip" style={{ width: KIND_WIDTH }}>
-                            <Select<OrderDeskFulfilmentType | typeof ANY_FULFILMENT_TYPE>
+                            {/*
+                             * Any span of days, past or future — the orders `overdue` and `next_7` cannot
+                             * reach. Each end bounds the other, so the span can never run backwards, and
+                             * clearing either returns the desk to today. `z-tooltip` so the month opens over
+                             * the rows below, as the kind filter does.
+                             */}
+                            <View
+                                testID="kitchen-order-desk-range"
+                                role="group"
+                                aria-label={t('kitchen:desk.window.range')}
+                                className="z-tooltip flex-row items-center gap-hair"
+                            >
+                                <DatePickerButton
+                                    testID="kitchen-order-desk-from"
+                                    label={t('kitchen:desk.window.from')}
+                                    placeholder={t('kitchen:desk.window.from')}
+                                    value={deskWindow === 'range' ? rangeFrom : ''}
+                                    {...(deskWindow === 'range' && rangeTo !== ''
+                                        ? { max: rangeTo }
+                                        : {})}
+                                    onChange={(next) => {
+                                        setRangeFrom(next);
+                                        if (
+                                            deskWindow !== 'range' ||
+                                            rangeTo === '' ||
+                                            rangeTo < next
+                                        ) {
+                                            setRangeTo(next);
+                                        }
+                                        chooseWindow('range');
+                                    }}
+                                    onClear={clearRange}
+                                />
+                                <DatePickerButton
+                                    testID="kitchen-order-desk-to"
+                                    label={t('kitchen:desk.window.to')}
+                                    placeholder={t('kitchen:desk.window.to')}
+                                    value={deskWindow === 'range' ? rangeTo : ''}
+                                    {...(deskWindow === 'range' && rangeFrom !== ''
+                                        ? { min: rangeFrom }
+                                        : {})}
+                                    align="end"
+                                    onChange={(next) => {
+                                        setRangeTo(next);
+                                        if (
+                                            deskWindow !== 'range' ||
+                                            rangeFrom === '' ||
+                                            rangeFrom > next
+                                        ) {
+                                            setRangeFrom(next);
+                                        }
+                                        chooseWindow('range');
+                                    }}
+                                    onClear={clearRange}
+                                />
+                            </View>
+
+                            <View
+                                testID="kitchen-order-desk-status"
+                                role="group"
+                                aria-label={t('kitchen:desk.statusLabel')}
+                                className="flex-row items-center gap-hair"
+                            >
+                                {ORDER_DESK_QUEUE_STATUSES.map((candidate) => (
+                                    <FilterChip
+                                        key={candidate}
+                                        size="sm"
+                                        testID={`kitchen-order-desk-status-${candidate}`}
+                                        label={t(kitchenOrderStatusKey(candidate))}
+                                        selected={statuses.includes(candidate)}
+                                        onChange={(selected) => {
+                                            toggleStatus(candidate, selected);
+                                        }}
+                                    />
+                                ))}
+                            </View>
+
+                            <LensScope<OrderDeskFulfilmentType | typeof ANY_FULFILMENT_TYPE>
                                 testID="kitchen-order-desk-type"
-                                id="kitchen-order-desk-type"
-                                label={t('kitchen:desk.filterTypeLabel')}
-                                labelHidden
+                                label={t('kitchen:desk.filterTypeShort')}
                                 value={fulfilmentType ?? ANY_FULFILMENT_TYPE}
                                 onChange={(next) => {
                                     setFulfilmentType(next === ANY_FULFILMENT_TYPE ? null : next);
@@ -2306,155 +2321,145 @@ function OrderDeskQueueList() {
                                     {
                                         value: ANY_FULFILMENT_TYPE,
                                         label: t('kitchen:desk.filterTypeAll'),
+                                        testID: `kitchen-order-desk-type-option-${ANY_FULFILMENT_TYPE}`,
                                     },
                                     ...ORDER_DESK_FULFILMENT_TYPES.map((candidate) => ({
                                         value: candidate,
-                                        // The wizard's own labels, through the shared table — translating
-                                        // "Collection" twice would eventually produce two translations of
-                                        // it.
+                                        // The wizard's own labels, through the shared table.
                                         label: t(kitchenOrderFulfilmentTypeKey(candidate)),
+                                        testID: `kitchen-order-desk-type-option-${candidate}`,
                                     })),
                                 ]}
                             />
-                        </View>
-                    </>
-                }
-                result={
-                    queue.isPending
-                        ? null
-                        : t('kitchen:lens.result', {
-                              shown: controls.rows.length,
-                              total: rows.length,
-                          })
-                }
-                clearLabel={t('kitchen:desk.clearFilters')}
-                {...(filtered ? { onClear: clearFilters } : {})}
-                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
-                actions={
-                    <Inline space="xs">
-                        <KitchenPauseButton />
-                        <Button
-                            testID="kitchen-order-desk-new-sale"
-                            label={t('kitchen:desk.newSale')}
-                            iconStart={<Icon name="plus" size="sm" />}
-                            onPress={() => {
-                                router.push('/kitchen/order-desk/sale');
-                            }}
-                        />
-                    </Inline>
-                }
-            />
-
-            <KitchenPauseBanner />
-
-            {queue.isPending ? (
-                <TableSkeleton
-                    testID="kitchen-order-desk-loading"
-                    partTestID="kitchen-order-desk"
-                    rows={8}
-                />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-order-desk-error"
-                    title={t('kitchen:desk.loadErrorTitle')}
-                    failure={failure}
-                    onRetry={() => {
-                        void queue.refetch();
-                    }}
-                    retrying={queue.isFetching}
-                />
-            ) : rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-order-desk-empty"
-                    title={t(
-                        filtered ? 'kitchen:desk.filteredEmptyTitle' : 'kitchen:desk.emptyTitle',
-                    )}
-                    body={t(filtered ? 'kitchen:desk.filteredEmptyBody' : 'kitchen:desk.emptyBody')}
+                        </>
+                    }
+                    result={
+                        queue.isPending
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  shown: controls.rows.length,
+                                  total: rows.length,
+                              })
+                    }
+                    clearLabel={t('kitchen:desk.clearFilters')}
+                    {...(filtered ? { onClear: clearFilters } : {})}
+                    trailing={<ColumnPicker {...controls.picker} compact />}
                     actions={
-                        filtered ? (
+                        <Inline space="xs">
+                            <KitchenPauseButton />
                             <Button
-                                testID="kitchen-order-desk-clear"
-                                size="sm"
-                                variant="secondary"
-                                label={t('kitchen:desk.clearFilters')}
-                                onPress={clearFilters}
+                                testID="kitchen-order-desk-new-sale"
+                                label={t('kitchen:desk.newSale')}
+                                iconStart={<Icon name="plus" size="sm" />}
+                                onPress={() => {
+                                    router.push('/kitchen/order-desk/sale');
+                                }}
                             />
-                        ) : undefined
+                        </Inline>
                     }
                 />
-            ) : (
-                <Stack space="sm">
-                    {meta?.truncated === true ? (
-                        // A silent truncation would hide exactly the backlog this queue exists to
-                        // surface, and there is no second page to offer instead — so the cap is
-                        // stated, with the three ways to get under it.
-                        <Callout
-                            testID="kitchen-order-desk-truncated"
-                            tone="info"
-                            role="status"
-                            title={t('kitchen:desk.truncatedTitle', { limit: meta.limit })}
-                            body={t('kitchen:desk.truncatedBody')}
-                        />
-                    ) : null}
 
-                    {/*
-                     * Opens on the server's due-time order. Order, Customer, Telephone, Due,
-                     * Ageing and Total sort on a press; Kind and Payment filter from their menus.
-                     */}
-                    <CatalogueList<OrderDeskQueueRow>
-                        testID="kitchen-order-desk-table"
-                        label={t('kitchen:desk.caption')}
-                        columns={controls.columns}
-                        rows={pageRows}
-                        rowKey={(row) => String(row.id)}
-                        density="sm"
-                        onRowPress={openDetail}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                        // The row itself opens the order; this is the same action as a named,
-                        // focusable control — the eye every kitchen list draws for View — so a
-                        // keyboard user has a target that says what pressing it does.
-                        rowActions={(row): readonly MenuItem[] => [
-                            {
-                                key: 'view',
-                                label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
-                                testID: `${orderDeskRowTestId(String(row.id))}-view`,
-                                onSelect: () => {
-                                    openDetail(row);
-                                },
-                            },
-                            // Drawn on every row a seller sees, enabled where the server's
-                            // `amendable` says the edit would be accepted — as the record page does.
-                            ...(canSell
-                                ? [
-                                      {
-                                          key: 'edit',
-                                          label: t('kitchen:desk.edit.open'),
-                                          icon: CATALOGUE_ROW_ICONS.edit,
-                                          disabled: !row.amendable,
-                                          testID: `${orderDeskRowTestId(String(row.id))}-edit`,
-                                          onSelect: () => {
-                                              router.push(
-                                                  `/kitchen/order-desk/sale?order=${encodeURIComponent(String(row.id))}`,
-                                              );
-                                          },
-                                      },
-                                  ]
-                                : []),
-                        ]}
+                {queue.isPending ? (
+                    <TableSkeleton
+                        testID="kitchen-order-desk-loading"
+                        partTestID="kitchen-order-desk"
+                        rows={8}
                     />
-
-                    <CataloguePager
-                        testID="kitchen-order-desk-pagination"
-                        page={page}
-                        totalPages={totalPages}
-                        onPageChange={(next) => {
-                            setPaging({ key: pagingKey, page: next });
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-order-desk-error"
+                        title={t('kitchen:desk.loadErrorTitle')}
+                        failure={failure}
+                        onRetry={() => {
+                            void queue.refetch();
                         }}
-                        label={t('kitchen:catalogue.pagerLabel')}
+                        retrying={queue.isFetching}
                     />
-                </Stack>
-            )}
+                ) : rows.length === 0 ? (
+                    <EmptyState
+                        testID="kitchen-order-desk-empty"
+                        title={t(
+                            filtered
+                                ? 'kitchen:desk.filteredEmptyTitle'
+                                : 'kitchen:desk.emptyTitle',
+                        )}
+                        body={t(
+                            filtered ? 'kitchen:desk.filteredEmptyBody' : 'kitchen:desk.emptyBody',
+                        )}
+                        actions={
+                            filtered ? (
+                                <Button
+                                    testID="kitchen-order-desk-clear"
+                                    size="sm"
+                                    variant="secondary"
+                                    label={t('kitchen:desk.clearFilters')}
+                                    onPress={clearFilters}
+                                />
+                            ) : undefined
+                        }
+                    />
+                ) : (
+                    <Stack space="sm">
+                        {/*
+                         * Opens on the server's due-time order. Order, Customer, Telephone, Due,
+                         * Ageing and Total sort on a press; Kind and Payment filter from their menus.
+                         */}
+                        <CatalogueList<OrderDeskQueueRow>
+                            testID="kitchen-order-desk-table"
+                            label={t('kitchen:desk.caption')}
+                            columns={controls.columns}
+                            rows={pageRows}
+                            rowKey={(row) => String(row.id)}
+                            density="sm"
+                            joined
+                            onRowPress={openDetail}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                            // The row itself opens the order; this is the same action as a named,
+                            // focusable control — the eye every kitchen list draws for View — so a
+                            // keyboard user has a target that says what pressing it does.
+                            rowActions={(row): readonly MenuItem[] => [
+                                {
+                                    key: 'view',
+                                    label: t('kitchen:list.view'),
+                                    icon: CATALOGUE_ROW_ICONS.view,
+                                    testID: `${orderDeskRowTestId(String(row.id))}-view`,
+                                    onSelect: () => {
+                                        openDetail(row);
+                                    },
+                                },
+                                // Drawn on every row a seller sees, enabled where the server's
+                                // `amendable` says the edit would be accepted — as the record page does.
+                                ...(canSell
+                                    ? [
+                                          {
+                                              key: 'edit',
+                                              label: t('kitchen:desk.edit.open'),
+                                              icon: CATALOGUE_ROW_ICONS.edit,
+                                              disabled: !row.amendable,
+                                              testID: `${orderDeskRowTestId(String(row.id))}-edit`,
+                                              onSelect: () => {
+                                                  router.push(
+                                                      `/kitchen/order-desk/sale?order=${encodeURIComponent(String(row.id))}`,
+                                                  );
+                                              },
+                                          },
+                                      ]
+                                    : []),
+                            ]}
+                        />
+
+                        <CataloguePager
+                            testID="kitchen-order-desk-pagination"
+                            page={page}
+                            totalPages={totalPages}
+                            onPageChange={(next) => {
+                                setPaging({ key: pagingKey, page: next });
+                            }}
+                            label={t('kitchen:catalogue.pagerLabel')}
+                        />
+                    </Stack>
+                )}
+            </View>
 
             {viewPopup}
         </Cascade>

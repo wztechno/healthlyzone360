@@ -30,6 +30,13 @@ const FRAME_CLASS =
     'flex-col rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card';
 
 /**
+ * The panel's lower half, under a split Lens bar's query row (`LensBar` `layout="split"`): the bar
+ * draws the top corners and the side rules down to here, so the toolbar and the rows read as one card.
+ */
+const JOINED_FRAME_CLASS =
+    'flex-col rounded-b-panel border border-brand-100 bg-surface-raised shadow-elevation-card';
+
+/**
  * Part five (§4.1): the list.
  *
  * ```
@@ -122,6 +129,8 @@ export interface CatalogueListProps<Row> {
     readonly initialPage?: number | undefined;
     /** Told when the reader pages a list this component pages itself — for the list's memory. */
     readonly onPageChange?: ((page: number) => void) | undefined;
+    /** Closes the card a split Lens bar opens above it, instead of drawing a panel of its own. */
+    readonly joined?: boolean | undefined;
     readonly testID: string;
 }
 
@@ -191,8 +200,10 @@ function CatalogueTable<Row>({
     emptyState,
     rowEntrance = true,
     highlightedId,
+    joined = false,
     testID,
 }: CatalogueListProps<Row>) {
+    const frameClass = joined ? JOINED_FRAME_CLASS : FRAME_CLASS;
     const { atLeast } = useBreakpoint();
     const port = useCataloguePort();
     const wide = atLeast('md');
@@ -217,7 +228,7 @@ function CatalogueTable<Row>({
                 role="list"
                 aria-label={label}
                 accessibilityLabel={label}
-                className={rows.length === 0 ? 'flex-col' : FRAME_CLASS}
+                className={rows.length === 0 ? 'flex-col' : frameClass}
             >
                 {rows.length === 0
                     ? emptyState
@@ -274,7 +285,7 @@ function CatalogueTable<Row>({
          * `getBoundingClientRect`, which includes a border, so a frame on the measured box would
          * fit tracks two pixels wider than the space inside it.
          */
-        <View ref={frame} className={rows.length === 0 ? 'flex-col' : FRAME_CLASS}>
+        <View ref={frame} className={rows.length === 0 ? 'flex-col' : frameClass}>
             <View
                 testID={`${testID}-port`}
                 // Both measurement paths, and each is inert on the other's platform: `onLayout` never

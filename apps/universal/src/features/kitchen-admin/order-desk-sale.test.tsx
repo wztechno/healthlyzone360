@@ -612,16 +612,13 @@ describe('sale — the ticket is priced by the quote alone', () => {
             expect(screen.getByTestId(`${MEAL_LINE}-total`)).toHaveTextContent('AED 64.00');
         });
         expect(screen.getByTestId(`${MEAL_LINE}-quantity`)).toHaveTextContent('2');
-        // The badge is drawn for the eye and hidden from assistive technology; the tile's own label
-        // is where the count is spoken.
-        expect(
-            screen.getByTestId(`${MEAL_TILE}-count`, { includeHiddenElements: true }),
-        ).toHaveTextContent('2');
+        // The stepper on the tile shows the count, and the tile's own label speaks it.
+        expect(screen.getByTestId(`${MEAL_TILE}-stepper-count`)).toHaveTextContent('2');
         expect(screen.getByTestId(MEAL_TILE)).toHaveAccessibleName(/2 on the ticket/);
         expect(screen.getByTestId('kitchen-order-desk-sale-total')).toHaveTextContent('AED 64.00');
         // Null is not zero: a counter sale has no fee at all.
         expect(screen.queryByTestId('kitchen-order-desk-sale-fee')).toBeNull();
-        expect(screen.getByTestId(CHARGE)).toHaveTextContent('Charge AED 64.00');
+        expect(screen.getByTestId(CHARGE)).toHaveTextContent(/^Charge AED 64\.00/);
         // How it is paid depends on how it leaves, which is not asked yet.
         expect(screen.queryByTestId('kitchen-order-desk-sale-method')).toBeNull();
     });

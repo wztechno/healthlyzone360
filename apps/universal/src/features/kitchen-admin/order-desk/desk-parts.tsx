@@ -1,4 +1,5 @@
 import { Text } from '@healthy360/design-system';
+import { useFormatter } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
@@ -104,6 +105,43 @@ export function DeskSectionHeading({
                 {title}
             </Text>
             {action}
+        </View>
+    );
+}
+
+/**
+ * A table's title on a desk report page — `Drivers holding cash (2)` — with how many rows wait in it
+ * as an amber chip while any do (the Order desk redesign, 2026-11-07). A count of zero draws no chip:
+ * nothing is waiting.
+ */
+export function DeskTableTitle({
+    title,
+    count,
+    aside,
+    testID,
+}: {
+    /** Translated. */
+    readonly title: string;
+    /** Rows waiting; omit for a table that is history rather than work. */
+    readonly count?: number | undefined;
+    /** At the line's inline end — a note about the clock, a filter. */
+    readonly aside?: ReactNode | undefined;
+    readonly testID?: string | undefined;
+}) {
+    const formatter = useFormatter();
+    return (
+        <View className="flex-row flex-wrap items-center gap-2">
+            <Text variant="title" accessibilityRole="header" testID={testID}>
+                {title}
+            </Text>
+            {count === undefined || count === 0 ? null : (
+                <View className="h-6 min-w-6 items-center justify-center rounded-full bg-warning-subtle px-1.5">
+                    <Text variant="caption" tone="warning" className="font-bold tabular-nums">
+                        {formatter.formatNumber(count)}
+                    </Text>
+                </View>
+            )}
+            {aside === undefined ? null : <View className="ms-auto">{aside}</View>}
         </View>
     );
 }

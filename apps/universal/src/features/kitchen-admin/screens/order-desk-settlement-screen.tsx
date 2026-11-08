@@ -36,6 +36,7 @@ import {
 } from '../../../data/order-desk-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { DeskTableTitle } from '../order-desk/desk-parts.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
 
@@ -118,6 +119,7 @@ function OrderDeskSettlement() {
         },
         {
             key: 'runs',
+            align: 'end',
             label: t('kitchen:ops.settlement.columnRuns'),
             width: 80,
             priority: 80,
@@ -129,6 +131,7 @@ function OrderDeskSettlement() {
         },
         {
             key: 'amount',
+            align: 'end',
             role: 'metric',
             label: t('kitchen:ops.settlement.columnCollected'),
             width: 140,
@@ -139,19 +142,22 @@ function OrderDeskSettlement() {
         },
         {
             key: 'settle',
+            align: 'end',
             label: t('kitchen:ops.settlement.columnAction'),
             width: 120,
             priority: 99,
             render: (row) => (
-                <Button
-                    testID={`kitchen-settlement-driver-${row.driverUserId}${tillSuffix(row)}-settle`}
-                    variant="secondary"
-                    size="sm"
-                    label={t('kitchen:ops.settlement.settle')}
-                    onPress={() => {
-                        setSettling({ kind: 'driver', row });
-                    }}
-                />
+                <View className="flex-row justify-end">
+                    <Button
+                        testID={`kitchen-settlement-driver-${row.driverUserId}${tillSuffix(row)}-settle`}
+                        variant="secondary"
+                        size="sm"
+                        label={t('kitchen:ops.settlement.settle')}
+                        onPress={() => {
+                            setSettling({ kind: 'driver', row });
+                        }}
+                    />
+                </View>
             ),
         },
     ];
@@ -168,6 +174,7 @@ function OrderDeskSettlement() {
         },
         {
             key: 'runs',
+            align: 'end',
             label: t('kitchen:ops.settlement.columnRuns'),
             width: 80,
             priority: 80,
@@ -179,6 +186,7 @@ function OrderDeskSettlement() {
         },
         {
             key: 'due',
+            align: 'end',
             role: 'metric',
             label: t('kitchen:ops.settlement.columnDue'),
             width: 140,
@@ -187,6 +195,7 @@ function OrderDeskSettlement() {
         },
         {
             key: 'fee',
+            align: 'end',
             label: t('kitchen:ops.settlement.columnFee'),
             width: 120,
             priority: 70,
@@ -198,6 +207,7 @@ function OrderDeskSettlement() {
         },
         {
             key: 'expense',
+            align: 'end',
             label: t('kitchen:ops.settlement.columnExpense'),
             width: 140,
             priority: 65,
@@ -209,19 +219,22 @@ function OrderDeskSettlement() {
         },
         {
             key: 'settle',
+            align: 'end',
             label: t('kitchen:ops.settlement.columnAction'),
             width: 120,
             priority: 99,
             render: (row) => (
-                <Button
-                    testID={`kitchen-settlement-courier-${row.courierName}${tillSuffix(row)}-settle`}
-                    variant="secondary"
-                    size="sm"
-                    label={t('kitchen:ops.settlement.settle')}
-                    onPress={() => {
-                        setSettling({ kind: 'courier', row });
-                    }}
-                />
+                <View className="flex-row justify-end">
+                    <Button
+                        testID={`kitchen-settlement-courier-${row.courierName}${tillSuffix(row)}-settle`}
+                        variant="secondary"
+                        size="sm"
+                        label={t('kitchen:ops.settlement.settle')}
+                        onPress={() => {
+                            setSettling({ kind: 'courier', row });
+                        }}
+                    />
+                </View>
             ),
         },
     ];
@@ -252,6 +265,7 @@ function OrderDeskSettlement() {
         },
         {
             key: 'handed',
+            align: 'end',
             role: 'metric',
             label: t('kitchen:ops.settlement.columnHandedIn'),
             width: 140,
@@ -333,10 +347,11 @@ function OrderDeskSettlement() {
                     retrying={report.isFetching}
                 />
             ) : data === undefined ? null : (
-                <View className="flex-col gap-loose">
-                    <Text variant="section" accessibilityRole="header">
-                        {t('kitchen:ops.settlement.driversHeading')}
-                    </Text>
+                <View className="flex-col gap-base">
+                    <DeskTableTitle
+                        title={t('kitchen:ops.settlement.driversHeading')}
+                        count={data.drivers.length}
+                    />
                     {data.drivers.length === 0 ? (
                         <EmptyState
                             testID="kitchen-settlement-drivers-empty"
@@ -355,9 +370,10 @@ function OrderDeskSettlement() {
                         />
                     )}
 
-                    <Text variant="section" accessibilityRole="header">
-                        {t('kitchen:ops.settlement.couriersHeading')}
-                    </Text>
+                    <DeskTableTitle
+                        title={t('kitchen:ops.settlement.couriersHeading')}
+                        count={data.couriers.length}
+                    />
                     {data.couriers.length === 0 ? (
                         <EmptyState
                             testID="kitchen-settlement-couriers-empty"
@@ -376,9 +392,7 @@ function OrderDeskSettlement() {
                         />
                     )}
 
-                    <Text variant="section" accessibilityRole="header">
-                        {t('kitchen:ops.settlement.recentHeading')}
-                    </Text>
+                    <DeskTableTitle title={t('kitchen:ops.settlement.recentHeading')} />
                     {data.settlements.length === 0 ? (
                         <EmptyState
                             testID="kitchen-settlement-recent-empty"

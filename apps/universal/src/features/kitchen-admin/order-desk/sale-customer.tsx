@@ -1,5 +1,6 @@
 import type { OrderDeskCustomer, ServiceArea } from '@healthy360/api-client/contracts';
 import {
+    Avatar,
     Badge,
     Button,
     Callout,
@@ -105,9 +106,39 @@ function useKitchenDial(): string | null {
 }
 
 /** What the chosen customer has declared, or an honest failure to find out. */
-export function ChosenAllergies({ customerAccountId }: { readonly customerAccountId: string }) {
+export function ChosenAllergies({
+    customerAccountId,
+    inline = false,
+}: {
+    readonly customerAccountId: string;
+    /** The sale's customer bar: each allergen as an amber pill on the bar's line. */
+    readonly inline?: boolean | undefined;
+}) {
     const { t } = useTranslation();
     const read = useOrderDeskCustomerAllergiesQuery(customerAccountId);
+
+    if (inline && read.data !== undefined && read.data.allergens.length > 0) {
+        return (
+            <View
+                testID="kitchen-order-desk-sale-customer-allergies"
+                role="alert"
+                aria-label={t('kitchen:desk.sale.customerAllergiesTitle')}
+                className="flex-row flex-wrap items-center gap-1.5"
+            >
+                {read.data.allergens.map((allergen) => (
+                    <Badge
+                        key={allergen.allergenCode}
+                        tone="warning"
+                        icon="warning"
+                        label={t('kitchen:allergy.item', {
+                            allergen: allergenLabel(allergen.allergenCode, t),
+                            severity: t(`kitchen:allergy.severity.${allergen.severity}`),
+                        })}
+                    />
+                ))}
+            </View>
+        );
+    }
 
     if (read.isPending) {
         return (
@@ -334,52 +365,68 @@ export function CustomerSection({
         </>
     );
 
+    const actions = walkIn ? (
+        <Button
+            testID="kitchen-order-desk-sale-walk-in-change"
+            size="sm"
+            variant="secondary"
+            label={t('kitchen:desk.sale.change')}
+            onPress={onUndoWalkIn}
+        />
+    ) : folded && !editing ? (
+        <Inline space="xs">
+            {/* A registered customer's name is theirs: the row policy refuses the write. */}
+            {chosen?.origin === 'self_service' ? null : (
+                <Button
+                    testID="kitchen-order-desk-sale-customer-edit"
+                    size="sm"
+                    variant="secondary"
+                    label={t('kitchen:desk.sale.customerEdit')}
+                    onPress={() => {
+                        if (chosen !== null) startEditing(chosen);
+                    }}
+                />
+            )}
+            <Button
+                testID="kitchen-order-desk-sale-customer-change"
+                size="sm"
+                variant="secondary"
+                label={t('kitchen:desk.sale.change')}
+                onPress={() => {
+                    setChanging(true);
+                }}
+            />
+        </Inline>
+    ) : null;
+
+    /*
+     * A slim bar rather than a card with a title (the Order desk redesign): who the sale is for on
+     * one line — their initials, name and number, what they are, what they must not eat — with
+     * Edit and Change at its end. Unanswered, the same bar is the search with New customer and
+     * Walk-in beside it.
+     */
     return (
-        <FormSection
-            variant="card"
+        <View
             testID="kitchen-order-desk-sale-customer"
-            title={t('kitchen:desk.sale.customerTitle')}
-            actions={
-                walkIn ? (
-                    <Button
-                        testID="kitchen-order-desk-sale-walk-in-change"
-                        size="sm"
-                        variant="secondary"
-                        label={t('kitchen:desk.sale.change')}
-                        onPress={onUndoWalkIn}
-                    />
-                ) : folded && !editing ? (
-                    <Inline space="xs">
-                        {/* A registered customer's name is theirs: the row policy refuses the write. */}
-                        {chosen?.origin === 'self_service' ? null : (
-                            <Button
-                                testID="kitchen-order-desk-sale-customer-edit"
-                                size="sm"
-                                variant="secondary"
-                                label={t('kitchen:desk.sale.customerEdit')}
-                                onPress={() => {
-                                    if (chosen !== null) startEditing(chosen);
-                                }}
-                            />
-                        )}
-                        <Button
-                            testID="kitchen-order-desk-sale-customer-change"
-                            size="sm"
-                            variant="secondary"
-                            label={t('kitchen:desk.sale.change')}
-                            onPress={() => {
-                                setChanging(true);
-                            }}
-                        />
-                    </Inline>
-                ) : undefined
-            }
+            role="group"
+            aria-label={t('kitchen:desk.sale.customerTitle')}
+            className="z-auto flex-col gap-3 rounded-2xl border border-brand-100 bg-surface-raised px-3.5 py-3"
         >
             {duplicateNotices}
             {walkIn ? (
-                <Text variant="label" testID="kitchen-order-desk-sale-walk-in-chosen">
-                    {t('kitchen:desk.sale.walkIn')}
-                </Text>
+                <View className="flex-row items-center gap-3.5">
+                    <View className="h-10 w-10 items-center justify-center rounded-lg bg-surface-sidebar">
+                        <Icon name="person" size="md" className="text-content-on-sidebar" />
+                    </View>
+                    <Text
+                        variant="label"
+                        className="font-bold"
+                        testID="kitchen-order-desk-sale-walk-in-chosen"
+                    >
+                        {t('kitchen:desk.sale.walkIn')}
+                    </Text>
+                    <View className="ms-auto">{actions}</View>
+                </View>
             ) : folded && chosen !== null && editing ? (
                 <View
                     testID="kitchen-order-desk-sale-customer-edit-form"
@@ -446,17 +493,24 @@ export function CustomerSection({
                     </Inline>
                 </View>
             ) : folded && chosen !== null ? (
-                <View className="flex-col gap-tight">
+                <View className="z-auto flex-row flex-wrap items-center gap-3.5">
+                    <Avatar
+                        name={chosen.displayName ?? t('kitchen:desk.sale.customerUnnamed')}
+                        seed={chosen.id}
+                        size="md"
+                    />
                     <View
                         testID="kitchen-order-desk-sale-customer-chosen"
-                        className="flex-row flex-wrap items-center gap-tight"
+                        className="flex-row flex-wrap items-center gap-3"
                     >
-                        <Text variant="label">
-                            {chosen.displayName ?? t('kitchen:desk.sale.customerUnnamed')}
-                        </Text>
-                        <Text variant="mono" tone="secondary">
-                            {chosen.phone ?? EM_DASH}
-                        </Text>
+                        <View className="flex-col">
+                            <Text variant="label" className="font-bold">
+                                {chosen.displayName ?? t('kitchen:desk.sale.customerUnnamed')}
+                            </Text>
+                            <Text variant="mono" tone="secondary">
+                                {chosen.phone ?? EM_DASH}
+                            </Text>
+                        </View>
                         {chosen.hasOrdersWithOrg ? (
                             <Badge
                                 tone="success"
@@ -472,20 +526,57 @@ export function CustomerSection({
                             />
                         ) : null}
                     </View>
-                    <ChosenAllergies customerAccountId={chosen.id} />
+                    <View aria-hidden className="h-7 w-px bg-brand-100" />
+                    <ChosenAllergies customerAccountId={chosen.id} inline />
+                    <View className="ms-auto">{actions}</View>
                 </View>
             ) : (
                 <View className="z-auto flex-col gap-tight">
-                    <View style={{ width: fieldWidth }}>
-                        <SearchInput
-                            testID="kitchen-order-desk-sale-customer-search"
-                            label={t('kitchen:desk.sale.customerSearchLabel')}
-                            placeholder={t('kitchen:desk.sale.customerSearchPlaceholder')}
-                            value={query}
-                            onChangeText={setQuery}
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                        />
+                    <View className="z-auto flex-row flex-wrap items-center gap-tight">
+                        <View className="h-10 w-10 items-center justify-center rounded-lg bg-surface-sidebar">
+                            <Icon name="person" size="md" className="text-content-on-sidebar" />
+                        </View>
+                        {/* eslint-disable-next-line no-restricted-syntax -- the search absorbs the bar. */}
+                        <View className="flex-1" style={{ minWidth: fieldWidth }}>
+                            <SearchInput
+                                testID="kitchen-order-desk-sale-customer-search"
+                                label={t('kitchen:desk.sale.customerSearchLabel')}
+                                placeholder={t('kitchen:desk.sale.customerSearchPlaceholder')}
+                                value={query}
+                                onChangeText={setQuery}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                            />
+                        </View>
+                        {creating ? null : (
+                            <Inline space="xs">
+                                <Button
+                                    testID="kitchen-order-desk-sale-customer-new"
+                                    size="sm"
+                                    variant="secondary"
+                                    label={t('kitchen:desk.sale.customerNew')}
+                                    iconStart={<Icon name="plus" size="sm" />}
+                                    onPress={() => {
+                                        setCreating(true);
+                                        setCreateAttempted(false);
+                                        // Opens on the kitchen's own code; the agent types the rest.
+                                        if (phone === '' && dial !== null) setPhone(`${dial} `);
+                                    }}
+                                />
+                                {walkInOffered ? (
+                                    <Button
+                                        testID="kitchen-order-desk-sale-walk-in"
+                                        size="sm"
+                                        variant="secondary"
+                                        label={t('kitchen:desk.sale.walkInChoose')}
+                                        onPress={() => {
+                                            setChanging(false);
+                                            onWalkIn();
+                                        }}
+                                    />
+                                ) : null}
+                            </Inline>
+                        )}
                     </View>
 
                     {tooShort ? (
@@ -681,38 +772,10 @@ export function CustomerSection({
                                 />
                             </Inline>
                         </View>
-                    ) : (
-                        <Inline space="xs">
-                            <Button
-                                testID="kitchen-order-desk-sale-customer-new"
-                                size="sm"
-                                variant="secondary"
-                                label={t('kitchen:desk.sale.customerNew')}
-                                iconStart={<Icon name="plus" size="sm" />}
-                                onPress={() => {
-                                    setCreating(true);
-                                    setCreateAttempted(false);
-                                    // Opens on the kitchen's own code; the agent types the rest.
-                                    if (phone === '' && dial !== null) setPhone(`${dial} `);
-                                }}
-                            />
-                            {walkInOffered ? (
-                                <Button
-                                    testID="kitchen-order-desk-sale-walk-in"
-                                    size="sm"
-                                    variant="secondary"
-                                    label={t('kitchen:desk.sale.walkInChoose')}
-                                    onPress={() => {
-                                        setChanging(false);
-                                        onWalkIn();
-                                    }}
-                                />
-                            ) : null}
-                        </Inline>
-                    )}
+                    ) : null}
                 </View>
             )}
-        </FormSection>
+        </View>
     );
 }
 

@@ -51,6 +51,8 @@ export const TEXT_TONES = [
     'success',
     'warning',
     'info',
+    'sidebar',
+    'sidebarMuted',
 ] as const;
 export type TextTone = (typeof TEXT_TONES)[number];
 
@@ -120,6 +122,9 @@ const TONE_CLASS: Readonly<Record<TextTone, string>> = {
     success: 'text-success-strong',
     warning: 'text-warning-strong',
     info: 'text-info-strong',
+    // Ink on a panel drawn in the sidebar green — the rail itself, the order desk ticket.
+    sidebar: 'text-content-on-sidebar',
+    sidebarMuted: 'text-content-on-sidebar-muted',
 };
 
 const ALIGN_CLASS: Readonly<Record<TextAlignment, string>> = {

@@ -1724,8 +1724,8 @@ describe('order desk queue — the fulfilment-type filter', () => {
         });
 
         // "All kinds" is the screen's own sentinel and never reaches the wire: choosing it omits
-        // the key, which is what the server reads as no narrowing.
-        fireEvent.press(screen.getByTestId('kitchen-order-desk-type-trigger'));
+        // the key, which is what the server reads as no narrowing. The scope menu stays open after a
+        // checked choice, as every Lens scope does, so "All kinds" is still on screen.
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-order-desk-type-option-__any__')).toBeTruthy();
         });

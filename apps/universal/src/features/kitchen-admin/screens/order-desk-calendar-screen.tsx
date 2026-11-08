@@ -445,7 +445,7 @@ function OrderDeskCalendarWeek() {
                 {message}
             </Text>
 
-            {/* One 28px row: the week stepper and the range it is on. */}
+            {/* One row: the week stepper, the range it is on as the page title, and the day count at its end. */}
             <View
                 testID="kitchen-order-desk-calendar-toolbar"
                 className="min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
@@ -481,7 +481,11 @@ function OrderDeskCalendarWeek() {
                         }}
                     />
                 </View>
-                <Text variant="mono" testID="kitchen-order-desk-calendar-range">
+                <Text
+                    variant="strong"
+                    className="tabular-nums"
+                    testID="kitchen-order-desk-calendar-range"
+                >
                     {rangeLabel}
                 </Text>
                 {meta === null ? null : (
@@ -493,6 +497,7 @@ function OrderDeskCalendarWeek() {
                         tone="secondary"
                         role="status"
                         aria-live="polite"
+                        className="ms-auto font-semibold"
                         testID="kitchen-order-desk-calendar-day-count"
                     >
                         {t('kitchen:calendar.dayCount', { count: meta.dayCount })}
