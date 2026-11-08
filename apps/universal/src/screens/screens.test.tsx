@@ -43,7 +43,7 @@ import { ChangePasswordScreen } from './change-password-screen.tsx';
 import { RegisterScreen } from './register-screen.tsx';
 import { SignInScreen } from './sign-in-screen.tsx';
 import { VerifyEmailScreen } from './verify-email-screen.tsx';
-import { WorkspaceSelectorScreen } from './workspace-selector-screen.tsx';
+import { WorkspaceOrgSwitcher, WorkspaceSelectorScreen } from './workspace-selector-screen.tsx';
 
 /**
  * The world these suites run in is *authored here*, not signed into.
@@ -663,8 +663,9 @@ describe('WorkspaceSelectorScreen', () => {
     });
 
     it('offers a switch back to the organisation picker', async () => {
-        await renderStubScreen(<WorkspaceSelectorScreen />, { session: kitchenSession() });
+        await renderStubScreen(<WorkspaceOrgSwitcher />, { session: kitchenSession() });
 
+        await fireEvent.press(await screen.findByTestId('workspace-org-trigger'));
         await fireEvent.press(await screen.findByTestId('workspace-switch-organisation'));
         expect(routerMock.__push).toHaveBeenCalledWith('/select-organisation');
     });

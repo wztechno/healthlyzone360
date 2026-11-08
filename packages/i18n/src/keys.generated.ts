@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10478 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10486 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -50,17 +50,25 @@ export interface NamespaceKeys {
     | 'notFound.toDiscover'
     | 'pending.body'
     | 'pending.title'
+    | 'workspaceSelector.assignedOnRoad'
+    | 'workspaceSelector.confirmed'
     | 'workspaceSelector.current'
     | 'workspaceSelector.empty'
     | 'workspaceSelector.emptyBody'
     | 'workspaceSelector.greeting.afternoon'
     | 'workspaceSelector.greeting.evening'
     | 'workspaceSelector.greeting.morning'
+    | 'workspaceSelector.live'
+    | 'workspaceSelector.onBoard'
     | 'workspaceSelector.open'
+    | 'workspaceSelector.resume'
+    | 'workspaceSelector.shopPages'
     | 'workspaceSelector.title'
+    | 'workspaceSelector.toConfirm'
     | 'workspaceSelector.today'
+    | 'workspaceSelector.viewOnly'
+    | 'workspaceSelector.waiting'
     | 'workspaceSelector.webShop'
-    | 'workspaceSelector.workingIn'
     | 'workspaceSelector.yourAccount';
   readonly "accessAdmin":
     | 'add.back'
@@ -10559,17 +10567,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'access:notFound.toDiscover',
   'access:pending.body',
   'access:pending.title',
+  'access:workspaceSelector.assignedOnRoad',
+  'access:workspaceSelector.confirmed',
   'access:workspaceSelector.current',
   'access:workspaceSelector.empty',
   'access:workspaceSelector.emptyBody',
   'access:workspaceSelector.greeting.afternoon',
   'access:workspaceSelector.greeting.evening',
   'access:workspaceSelector.greeting.morning',
+  'access:workspaceSelector.live',
+  'access:workspaceSelector.onBoard',
   'access:workspaceSelector.open',
+  'access:workspaceSelector.resume',
+  'access:workspaceSelector.shopPages',
   'access:workspaceSelector.title',
+  'access:workspaceSelector.toConfirm',
   'access:workspaceSelector.today',
+  'access:workspaceSelector.viewOnly',
+  'access:workspaceSelector.waiting',
   'access:workspaceSelector.webShop',
-  'access:workspaceSelector.workingIn',
   'access:workspaceSelector.yourAccount',
   'accessAdmin:add.back',
   'accessAdmin:add.branch',

@@ -1,6 +1,7 @@
-import { Slot } from 'expo-router';
+import { Slot, usePathname } from 'expo-router';
 
 import { Gate } from '../../src/access/gate.tsx';
+import { WorkspaceOrgSwitcher } from '../../src/screens/workspace-selector-screen.tsx';
 import { AreaShell } from '../../src/shell/area-shell.tsx';
 
 /**
@@ -12,9 +13,16 @@ import { AreaShell } from '../../src/shell/area-shell.tsx';
  * to see their profile and revoke a session.
  */
 export default function WorkspaceLayout() {
+    const pathname = usePathname();
     return (
         <Gate area="auth" requirement={{ requiresAuth: true, requiresVerifiedEmail: true }}>
-            <AreaShell area="auth" variant="workspace" unguarded testID="workspace-shell">
+            <AreaShell
+                area="auth"
+                variant="workspace"
+                unguarded
+                testID="workspace-shell"
+                topbarTitle={pathname === '/workspace' ? <WorkspaceOrgSwitcher /> : undefined}
+            >
                 <Slot />
             </AreaShell>
         </Gate>
