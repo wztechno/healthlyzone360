@@ -107,7 +107,7 @@ final class CarryRecipeAllergensCommand extends Command
                         return;
                     }
 
-                    foreach ($this->platformOutputs($producers->all()) as [$recipe, $ingredient]) {
+                    foreach ($this->platformOutputs(array_values($producers->all())) as [$recipe, $ingredient]) {
                         $skipped[] = [(string) $slug, $recipe, $ingredient, 'not carried: platform ingredient'];
                     }
 
@@ -126,7 +126,7 @@ final class CarryRecipeAllergensCommand extends Command
                             $moved += $writer->write($producer, scheduleDependants: false);
                         }
 
-                        foreach ($this->dishesThatMove($organisationId, $producers->modelKeys(), $rollup, $labels) as [$dish, $reason]) {
+                        foreach ($this->dishesThatMove($organisationId, array_values($producers->modelKeys()), $rollup, $labels) as [$dish, $reason]) {
                             $dishes[] = [(string) $slug, $dish, $reason];
                         }
                     } finally {

@@ -170,7 +170,7 @@ final class OrderDeskTodayController
             $closes->whereRaw(TillBranches::rowIn('branch_id'), [$first, $branchId]);
         }
 
-        return DB::query()->fromSub($closes, 'closes')
+        return array_values(DB::query()->fromSub($closes, 'closes')
             ->where('is_last', true)
             ->groupBy('currency_code')
             ->orderBy('currency_code')
@@ -178,7 +178,6 @@ final class OrderDeskTodayController
             ->selectRaw('sum(counted_minor) as amount_minor')
             ->get()
             ->map(static fn (object $row): array => ['currency_code' => (string) $row->currency_code, 'amount_minor' => (int) $row->amount_minor])
-            ->values()
-            ->all();
+            ->all());
     }
 }

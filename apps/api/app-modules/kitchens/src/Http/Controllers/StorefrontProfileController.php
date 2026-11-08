@@ -59,10 +59,12 @@ final class StorefrontProfileController
         }
 
         $changed = array_keys($organisation->getDirty());
-        $values = [];
+        // Flat `<field>_old` / `<field>_new` pairs: audit metadata holds scalars and lists only.
+        $metadata = ['changed_fields' => $changed];
 
         foreach ($changed as $field) {
-            $values[$field] = ['old' => $organisation->getOriginal($field), 'new' => $organisation->getAttribute($field)];
+            $metadata["{$field}_old"] = self::auditValue($organisation->getOriginal($field));
+            $metadata["{$field}_new"] = self::auditValue($organisation->getAttribute($field));
         }
 
         $organisation->save();
@@ -72,10 +74,24 @@ final class StorefrontProfileController
             actorUserId: $this->context->userId(),
             subjectType: 'organisation',
             subjectId: (string) $organisation->getKey(),
-            metadata: ['changed_fields' => $changed, 'values' => $values],
+            metadata: $metadata,
         );
 
         return ApiResponse::data(self::profile($organisation));
+    }
+
+    /**
+     * A profile field as the audit stores it: text, a list of cuisines, or nothing.
+     *
+     * @return string|list<string>|null
+     */
+    private static function auditValue(mixed $value): string|array|null
+    {
+        if (is_array($value)) {
+            return array_values(array_map(static fn (mixed $item): string => is_scalar($item) ? (string) $item : '', $value));
+        }
+
+        return is_scalar($value) ? (string) $value : null;
     }
 
     private function organisation(): Organisation

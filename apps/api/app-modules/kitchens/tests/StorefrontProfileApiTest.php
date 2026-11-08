@@ -86,7 +86,9 @@ it('saves the profile, tidies the cuisines and audits what changed', function ()
     $log = AuditLog::query()->where('action', 'kitchen.storefront_profile_updated')->sole();
 
     expect($log->metadata['changed_fields'])->toEqualCanonicalizing(array_keys(STOREFRONT_PROFILE))
-        ->and($log->metadata['values']['tagline_en'])->toEqual(['old' => null, 'new' => 'Grilled, never fried']);
+        ->and($log->metadata['tagline_en_old'])->toBeNull()
+        ->and($log->metadata['tagline_en_new'])->toBe('Grilled, never fried')
+        ->and($log->metadata['cuisines_ar_new'])->toBe(['لبناني', 'مشاوي']);
 });
 
 it('clears a field sent empty', function (): void {

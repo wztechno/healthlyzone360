@@ -306,7 +306,11 @@ final readonly class DuplicateStockShelves
                 actorUserId: $actorUserId,
                 subjectType: 'stock_item',
                 subjectId: (string) $shelves->first()?->getKey(),
-                metadata: ['stock_item_ids' => $shelves->modelKeys(), 'codes' => $shelves->pluck('code')->all()],
+                // `shelves`, not `codes`: the recorder redacts any key containing "code".
+                metadata: [
+                    'stock_item_ids' => array_values(array_map(strval(...), $shelves->modelKeys())),
+                    'shelves' => array_values(array_map(strval(...), $shelves->pluck('code')->all())),
+                ],
             );
         });
     }

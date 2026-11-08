@@ -229,10 +229,10 @@ final class OrderDeskCashReportController
         // "no profile at all" and the empty string a blank pair of names would
         // produce into one null the wire can carry honestly.
         $name = "nullif(trim(coalesce(user_profiles.given_name, '') || ' ' || coalesce(user_profiles.family_name, '')), '')";
-        $day = "(order_payment_receipts.confirmed_at at time zone '{$window['zone']}')::date";
-
+        // The zone is a binding, so the day is grouped and sorted by its alias:
+        // the same expression twice would be two parameters PostgreSQL cannot match.
         $query = DB::table('order_payment_receipts')
-            ->selectRaw($day.' as day')
+            ->selectRaw('(order_payment_receipts.confirmed_at at time zone ?)::date as day', [$window['zone']])
             ->addSelect([
                 'order_payment_receipts.confirmed_by',
                 'order_payment_receipts.method',
@@ -245,7 +245,7 @@ final class OrderDeskCashReportController
             ->where('order_payment_receipts.organisation_id', $organisationId)
             ->where('order_payment_receipts.confirmed_at', '>=', $window['start'])
             ->where('order_payment_receipts.confirmed_at', '<', $window['end'])
-            ->groupByRaw($day)
+            ->groupBy('day')
             ->groupBy([
                 'order_payment_receipts.confirmed_by',
                 'order_payment_receipts.method',
@@ -258,7 +258,7 @@ final class OrderDeskCashReportController
             // Day by day, then named agents first, nameless last, then a total
             // order over the two remaining key columns so that two identical
             // requests cannot return the same figures in two orders.
-            ->orderByRaw($day.' asc')
+            ->orderBy('day')
             ->orderByRaw('lower('.$name.') asc nulls last')
             ->orderBy('order_payment_receipts.confirmed_by')
             ->orderBy('order_payment_receipts.method')
@@ -300,10 +300,8 @@ final class OrderDeskCashReportController
     private function adjustments(string $organisationId, array $window): array
     {
         $name = "nullif(trim(coalesce(user_profiles.given_name, '') || ' ' || coalesce(user_profiles.family_name, '')), '')";
-        $refundDay = "(order_refunds.decided_at at time zone '{$window['zone']}')::date";
-
         $refunds = DB::table('order_refunds')
-            ->selectRaw($refundDay.' as day')
+            ->selectRaw('(order_refunds.decided_at at time zone ?)::date as day', [$window['zone']])
             ->addSelect(['order_refunds.kind', 'order_refunds.currency_code'])
             ->selectRaw($name.' as display_name')
             ->selectRaw('count(*) as entry_count')
@@ -313,7 +311,7 @@ final class OrderDeskCashReportController
             ->where('order_refunds.status', 'completed')
             ->where('order_refunds.decided_at', '>=', $window['start'])
             ->where('order_refunds.decided_at', '<', $window['end'])
-            ->groupByRaw($refundDay)
+            ->groupBy('day')
             ->groupBy(['order_refunds.kind', 'order_refunds.currency_code'])
             ->groupByRaw($name);
 
@@ -321,7 +319,6 @@ final class OrderDeskCashReportController
 
         $rows = [...$refunds->get()];
 
-        $settlementDay = "(cash_settlements.recorded_at at time zone '{$window['zone']}')::date";
         $settlements = DB::table('cash_settlements')
             ->leftJoin('user_profiles', 'user_profiles.user_id', '=', 'cash_settlements.driver_user_id')
             ->where('cash_settlements.organisation_id', $organisationId)
@@ -334,14 +331,14 @@ final class OrderDeskCashReportController
         // never part of a hand-in, so it is listed beside the fees that were.
         foreach (['courier_fee' => 'fee_minor', 'courier_expense' => 'expense_minor', 'short' => 'short_minor'] as $kind => $column) {
             $rows = [...$rows, ...(clone $settlements)
-                ->selectRaw($settlementDay.' as day')
+                ->selectRaw('(cash_settlements.recorded_at at time zone ?)::date as day', [$window['zone']])
                 ->selectRaw('? as kind', [$kind])
                 ->addSelect('cash_settlements.currency_code')
                 ->selectRaw('coalesce(cash_settlements.courier_name, '.$name.') as display_name')
                 ->selectRaw('count(*) as entry_count')
                 ->selectRaw('sum(cash_settlements.'.$column.') as amount_minor_sum')
                 ->where('cash_settlements.'.$column, '>', 0)
-                ->groupByRaw($settlementDay)
+                ->groupBy('day')
                 ->groupBy('cash_settlements.currency_code', 'cash_settlements.courier_name')
                 ->groupByRaw($name)
                 ->get()];
@@ -365,6 +362,7 @@ final class OrderDeskCashReportController
      * Narrow to one till, when one is named. `$predicate` is a {@see TillBranches}
      * clause, which binds the first branch and then the till's branch.
      *
+     * @param  literal-string  $predicate
      * @param  array{zone: string, start: CarbonImmutable, end: CarbonImmutable, first: string|null, branch: string|null}  $window
      */
     private function applyTill(QueryBuilder $query, string $predicate, array $window): void

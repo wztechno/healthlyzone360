@@ -1102,7 +1102,7 @@ final readonly class RecipeVersionService
             // sub-recipe retired under this dish leaves its output unassessed,
             // and the recomputed label then reads "none" where it means
             // "nobody knows".
-            $ingredientIds = $this->readiness->linesOf($locked)->pluck('ingredient_id')->map(static fn (mixed $id): string => (string) $id)->all();
+            $ingredientIds = array_values($this->readiness->linesOf($locked)->pluck('ingredient_id')->map(static fn (mixed $id): string => (string) $id)->all());
             $undetermined = $this->readiness->undeterminedIngredientIds(
                 $ingredientIds,
                 $this->rollup->effectiveFor(array_values(array_unique($ingredientIds)), $locked->organisation_id),

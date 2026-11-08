@@ -79,7 +79,7 @@ final class ProductionOrderShowController
      */
     private function cookingTemperatures(ProductionOrder $order): array
     {
-        return DB::table('cooking_temperatures as c')
+        return array_values(DB::table('cooking_temperatures as c')
             ->join('production_orders as o', 'o.id', '=', 'c.production_order_id')
             ->leftJoin('recipe_versions as v', 'v.id', '=', 'o.recipe_version_id')
             ->leftJoin('recipes as r', 'r.id', '=', 'v.recipe_id')
@@ -91,14 +91,18 @@ final class ProductionOrderShowController
             ->map(static fn (object $row): array => [
                 'id' => (string) $row->id,
                 'production_order_id' => (string) $row->production_order_id,
-                'batch_label' => $row->lot_number ?? $row->reference,
-                'recipe' => $row->recipe,
+                'batch_label' => self::text($row->lot_number ?? $row->reference),
+                'recipe' => self::text($row->recipe),
                 'celsius' => (string) $row->celsius,
-                'note' => $row->note,
-                'recorded_by_name' => $row->recorded_by_name,
+                'note' => self::text($row->note),
+                'recorded_by_name' => self::text($row->recorded_by_name),
                 'recorded_at' => CarbonImmutable::parse($row->created_at)->toIso8601String(),
             ])
-            ->values()
-            ->all();
+            ->all());
+    }
+
+    private static function text(mixed $value): ?string
+    {
+        return is_string($value) ? $value : null;
     }
 }

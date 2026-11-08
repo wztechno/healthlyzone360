@@ -131,7 +131,11 @@ final class PriceListIndexController
         return [
             'status_counts' => $statusCounts,
             'unpriced_count' => $query->clone()
-                ->whereDoesntHave('entries', static fn ($entries) => $entries->confirmedOpenRows())
+                ->whereDoesntHave(
+                    'entries',
+                    /** @param  Builder<PriceListItem>  $entries */
+                    static fn (Builder $entries) => $entries->confirmedOpenRows(),
+                )
                 ->toBase()
                 ->getCountForPagination(),
             'agreement_count' => $query->clone()
