@@ -176,7 +176,7 @@ export function Popover({
                     compactButton ? 'h-desk-toolbar rounded-full' : 'min-h-touch rounded-lg',
                     triggerVariant === 'button'
                         ? compactButton
-                            ? 'border border-brand-100 bg-surface-raised px-3 hover:bg-surface-brand-subtle'
+                            ? 'border border-stroke-subtle bg-surface-raised px-3 hover:bg-surface-brand-subtle'
                             : 'border border-stroke bg-surface-raised px-3.5 py-2'
                         : 'px-2 py-1',
                 )}

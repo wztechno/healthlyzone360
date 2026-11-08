@@ -495,7 +495,7 @@ function SplitLens({
             </View>
             {notice}
             <View
-                className={`z-auto border border-brand-100 bg-surface-raised ${
+                className={`z-auto border border-stroke-subtle bg-surface-raised ${
                     joined ? 'rounded-t-panel border-b-0' : 'rounded-panel'
                 }`}
             >
@@ -637,7 +637,7 @@ export function LensScope<T extends string>({
                     accessibilityRole="button"
                     accessibilityLabel={`${label}: ${current?.label ?? ''}`}
                     onPress={toggle}
-                    className="h-desk-toolbar flex-row items-center gap-1.5 rounded-full border border-brand-100 bg-surface-raised pe-2 ps-3 hover:border-brand-300"
+                    className="h-desk-toolbar flex-row items-center gap-1.5 rounded-full border border-stroke-subtle bg-surface-raised pe-2 ps-3 hover:border-stroke"
                 >
                     <Text variant="body" tone="secondary">
                         {label}
@@ -740,7 +740,7 @@ export function LensFigureCell({
         ? `h-10 flex-row items-center gap-2 rounded-xl border px-3.5 ${
               active
                   ? 'border-surface-brand bg-surface-brand-subtle'
-                  : 'border-brand-100 bg-surface-raised'
+                  : 'border-stroke-subtle bg-surface-raised'
           }`
         : `h-control-sm flex-row items-center gap-1.5 rounded ${narrow ? 'px-1.5' : 'px-2'} ${
               active ? 'bg-surface-brand-subtle' : ''

@@ -3,7 +3,9 @@ import { usePathname, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useCan } from '../../access/gate.tsx';
 import { useReviewQueueQuery } from '../../data/kitchen-admin-hooks.ts';
+import { useCashWaiting } from '../../data/order-desk-hooks.ts';
 import {
     useConsumptionExceptionCountQuery,
     useKitchenSetupQuery,
@@ -17,6 +19,7 @@ import {
     isKitchenNavActive,
     kitchenNavSections,
 } from './kitchen-nav.ts';
+import { ORDER_SETTLE_CASH_PERMISSION } from './entity-registry.ts';
 import type { EntityGroup } from './entity-registry.ts';
 import { buildReviewQueue } from './review-queue.ts';
 
@@ -108,6 +111,12 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
         }).total;
     }, [reviewSources.data]);
     const exceptionTotal = exceptions.data ?? null;
+    // The Cash row adds up what its tabs say is waiting. Only for whoever may settle.
+    const cashWaiting = useCashWaiting(useCan(ORDER_SETTLE_CASH_PERMISSION));
+    const cashTotal =
+        cashWaiting.settle === null && cashWaiting.close === null
+            ? null
+            : (cashWaiting.settle ?? 0) + (cashWaiting.close ?? 0);
 
     return useMemo(() => {
         const activeHref = activeKitchenNavHref(
@@ -118,6 +127,7 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
         const queueCount = (key: string): number | null => {
             if (key === 'review') return reviewTotal;
             if (key === 'consumption-exceptions') return exceptionTotal;
+            if (key === 'cash') return cashTotal === 0 ? null : cashTotal;
             return null;
         };
 
@@ -164,5 +174,5 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
                 })),
             ),
         ];
-    }, [sections, pathname, reviewTotal, exceptionTotal, router, t]);
+    }, [sections, pathname, reviewTotal, exceptionTotal, cashTotal, router, t]);
 }

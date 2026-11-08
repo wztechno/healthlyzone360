@@ -937,9 +937,11 @@ describe('kitchen orders', () => {
             );
 
             await waitFor(() => {
-                expect(screen.getByTestId('kitchen-orders-cancel')).toBeTruthy();
+                expect(screen.getByTestId('kitchen-orders-detail-actions')).toBeTruthy();
             });
-            await fireEvent.press(screen.getByTestId('kitchen-orders-cancel'));
+            await fireEvent.press(
+                await getRecordAction('kitchen-orders-detail', 'kitchen-orders-cancel'),
+            );
             await waitFor(() => {
                 expect(screen.getByTestId('kitchen-orders-cancel-reasons')).toBeTruthy();
             });
@@ -992,12 +994,12 @@ describe('kitchen orders', () => {
         );
         await openOrder(book, orderIdAt(3));
 
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-remake-of')).toHaveTextContent(
-                /VK-2026-0148/,
-            );
+        await waitFor(async () => {
+            expect(
+                await getRecordAction('kitchen-orders-detail', 'kitchen-orders-remake-of'),
+            ).toHaveTextContent(/VK-2026-0148/);
         });
-        fireEvent.press(screen.getByTestId('kitchen-orders-remake-of'));
+        fireEvent.press(await getRecordAction('kitchen-orders-detail', 'kitchen-orders-remake-of'));
         expect(mockPush).toHaveBeenCalledWith(
             `/kitchen/orders?view=${encodeURIComponent(String(orderIdAt(1)))}`,
         );

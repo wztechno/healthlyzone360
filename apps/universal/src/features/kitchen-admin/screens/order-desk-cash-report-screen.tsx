@@ -374,12 +374,12 @@ function OrderDeskCashReport() {
                                         {
                                             value: ALL_BRANCHES,
                                             label: t('kitchen:ops.dailyClose.allBranches'),
-                                            testID: 'kitchen-order-desk-cash-report-branch-all',
+                                            testID: 'kitchen-order-desk-cash-report-branch-option-all',
                                         },
                                         ...branches.map((option) => ({
                                             value: String(option.id),
                                             label: option.name,
-                                            testID: `kitchen-order-desk-cash-report-branch-${String(option.id)}`,
+                                            testID: `kitchen-order-desk-cash-report-branch-option-${String(option.id)}`,
                                         })),
                                     ]}
                                 />

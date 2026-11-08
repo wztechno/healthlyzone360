@@ -22,7 +22,7 @@ import { Skeleton } from './skeleton.tsx';
 
 /** The list panel's frame — `catalogue-list.tsx`'s `FRAME_CLASS`, so the skeleton sits where the rows will. */
 const PANEL_CLASS =
-    'flex-col overflow-hidden rounded-panel border border-brand-100 bg-surface-raised';
+    'flex-col overflow-hidden rounded-panel border border-stroke-subtle bg-surface-raised';
 
 /**
  * Cell widths, cycled by row and column so the rows read as text of different lengths rather than

@@ -1212,6 +1212,7 @@ function AppShellLayout({
                         <ScrollView
                             testID={testID === undefined ? undefined : `${testID}-rail-scroll`}
                             className="w-full flex-1"
+                            showsVerticalScrollIndicator={false}
                             contentContainerClassName="items-center py-0.5"
                         >
                             {moduleRail()}

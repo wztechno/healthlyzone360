@@ -297,12 +297,12 @@ export function useOrderDeskCashReportQuery(
     });
 }
 
-export function useDailyClosesQuery(): UseQueryResult<OrderDeskCloses> {
+export function useDailyClosesQuery(enabled = true): UseQueryResult<OrderDeskCloses> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.orderDesk.closes(),
-        enabled: repositories !== null,
+        enabled: enabled && repositories !== null,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.orderDesk.getCloses();
@@ -346,17 +346,36 @@ export function useSignOffDailyCloseMutation(): UseMutationResult<
     });
 }
 
-export function useCashSettlementsQuery(): UseQueryResult<OrderDeskSettlements> {
+export function useCashSettlementsQuery(enabled = true): UseQueryResult<OrderDeskSettlements> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.orderDesk.settlements(),
-        enabled: repositories !== null,
+        enabled: enabled && repositories !== null,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.orderDesk.getSettlements();
         },
     });
+}
+
+/**
+ * What is waiting on the Cash page: drivers and couriers to settle, shifts to close. `null` until
+ * read. The same queries the tabs read, so the tabs, the side panel and the rail agree.
+ */
+export function useCashWaiting(enabled: boolean): {
+    readonly settle: number | null;
+    readonly close: number | null;
+} {
+    const settlements = useCashSettlementsQuery(enabled).data;
+    const closes = useDailyClosesQuery(enabled).data;
+    return {
+        settle:
+            settlements === undefined
+                ? null
+                : settlements.drivers.length + settlements.couriers.length,
+        close: closes === undefined ? null : closes.open.length,
+    };
 }
 
 /** No retry: a settled run answers `409`, and the screen reloads rather than guessing. */

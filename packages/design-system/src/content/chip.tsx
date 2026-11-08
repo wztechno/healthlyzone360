@@ -251,8 +251,8 @@ export function FilterChip({
                 coarse ? 'min-h-touch' : null,
                 density === 'compact'
                     ? selected
-                        ? 'border-brand-300 bg-surface-brand-subtle'
-                        : 'border-brand-100 bg-surface-raised hover:bg-surface-brand-subtle'
+                        ? 'border-stroke bg-surface-brand-subtle'
+                        : 'border-stroke-subtle bg-surface-raised hover:bg-surface-brand-subtle'
                     : selected
                       ? 'border-surface-inverse bg-surface-inverse'
                       : 'border-stroke-strong bg-surface-raised',

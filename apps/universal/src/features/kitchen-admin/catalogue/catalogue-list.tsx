@@ -26,13 +26,13 @@ import { RowThumbnail } from './row-thumbnail.tsx';
  * rows read as one object on the page rather than lines drawn straight onto the ground. Only drawn
  * around rows: an empty state is the caller's own block and brings its own layout.
  */
-const FRAME_CLASS = 'flex-col rounded-panel border border-brand-100 bg-surface-raised';
+const FRAME_CLASS = 'flex-col rounded-panel border border-stroke-subtle bg-surface-raised';
 
 /**
  * The panel's lower half, under a split Lens bar's query row (`LensBar` `layout="split"`): the bar
  * draws the top corners and the side rules down to here, so the toolbar and the rows read as one card.
  */
-const JOINED_FRAME_CLASS = 'flex-col rounded-b-panel border border-brand-100 bg-surface-raised';
+const JOINED_FRAME_CLASS = 'flex-col rounded-b-panel border border-stroke-subtle bg-surface-raised';
 
 /**
  * Part five (§4.1): the list.
