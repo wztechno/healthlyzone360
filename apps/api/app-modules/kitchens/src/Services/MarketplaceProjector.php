@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Healthy360\Kitchens\Services;
 
+use Carbon\CarbonImmutable;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Services\DishOptions;
 use Healthy360\Delivery\Models\DeliveryWindow;
 use Healthy360\Delivery\Models\DeliveryZone;
+use Healthy360\Kitchens\Models\BranchClosure;
 use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Kitchens\Presenters\MarketplaceKitchenPresenter;
 use Healthy360\Kitchens\Presenters\MarketplaceMealPresenter;
@@ -46,7 +48,7 @@ final class MarketplaceProjector
      *     zones: array<string, list<array{zone: DeliveryZone, areas: list<DeliveryArea>, window_codes: list<string>}>>,
      *     channels: array{b2c: bool, b2b: bool, marketplace: bool, pos: bool, subscription: bool, delivery: bool, pickup: bool, corporate: bool},
      *     listing_channels: list<SalesChannel>,
-     *     availability: list<array{date: string, available: bool, remaining: null, order_cut_off_at: string|null}>
+     *     availability: list<array{date: string, available: bool, remaining: int|null, order_cut_off_at: string|null}>
      * }>
      */
     private array $context = [];
@@ -62,6 +64,13 @@ final class MarketplaceProjector
 
     /** @var array<string, list<string>> */
     private array $primedDiets = [];
+
+    /**
+     * Each meal's own calendar days, keyed by meal id; read a page at a time.
+     *
+     * @var array<string, array<string, array{available: bool, remaining: int|null, order_cut_off_at: string|null}>>
+     */
+    private array $mealDays = [];
 
     public function __construct(
         private readonly MarketplaceKitchens $kitchens,
@@ -120,13 +129,15 @@ final class MarketplaceProjector
     }
 
     /**
-     * Read the prices, pack sizes and diet codes of a batch of meals ahead of
-     * projecting them, one kitchen at a time, so a listing page pays a handful
-     * of queries per kitchen for them rather than about eight per meal.
+     * Read ahead, for a batch of meals about to be projected one by one:
      *
-     * Each answer is the one {@see meal()} would have read for itself —
-     * `MarketplaceMeals::pricesOf()` documents why — so priming changes the cost
-     * of a page and nothing in it.
+     * - their prices, pack sizes and diet codes, one kitchen at a time, so a
+     *   listing page pays a handful of queries per kitchen rather than about
+     *   eight per meal. Each answer is the one {@see meal()} would have read for
+     *   itself — `MarketplaceMeals::pricesOf()` documents why — so priming
+     *   changes the cost of a page and nothing in it;
+     * - their per-meal calendar days, in one query. A meal nobody primed is read
+     *   on its own when it is projected, so the detail page needs no call.
      *
      * @param  list<CatalogueItem>  $meals
      */
@@ -156,6 +167,28 @@ final class MarketplaceProjector
             }
 
             $this->primedDiets += $this->meals->dietClassificationCodesOfMany($kitchenMeals);
+        }
+
+        $ids = array_values(array_diff(
+            array_map(static fn (CatalogueItem $meal): string => (string) $meal->getKey(), $meals),
+            array_keys($this->mealDays),
+        ));
+
+        if ($ids === []) {
+            return;
+        }
+
+        // A day either side of the server's today: every kitchen's fortnight
+        // starts on its own branch's today, which can be the server's yesterday
+        // or tomorrow.
+        $byMeal = $this->meals->availabilityByMeal(
+            $ids,
+            CarbonImmutable::now()->subDay(),
+            MarketplaceAvailability::WINDOW_DAYS + 2,
+        );
+
+        foreach ($ids as $id) {
+            $this->mealDays[$id] = $byMeal[$id] ?? [];
         }
     }
 
@@ -227,7 +260,9 @@ final class MarketplaceProjector
             return null;
         }
 
-        if ($availableOn !== null && ! $this->isAvailableOn($context['availability'], $availableOn)) {
+        $availability = $this->withMealDays($context['availability'], $meal, $context['branches'][0]->timezone ?? null);
+
+        if ($availableOn !== null && ! $this->isAvailableOn($availability, $availableOn)) {
             return null;
         }
 
@@ -245,7 +280,7 @@ final class MarketplaceProjector
             // the name.
             array_values($meal->meal_types ?? []),
             $context['channels'],
-            $context['availability'],
+            $availability,
         );
     }
 
@@ -295,7 +330,7 @@ final class MarketplaceProjector
      *     zones: array<string, list<array{zone: DeliveryZone, areas: list<DeliveryArea>, window_codes: list<string>}>>,
      *     channels: array{b2c: bool, b2b: bool, marketplace: bool, pos: bool, subscription: bool, delivery: bool, pickup: bool, corporate: bool},
      *     listing_channels: list<SalesChannel>,
-     *     availability: list<array{date: string, available: bool, remaining: null, order_cut_off_at: string|null}>
+     *     availability: list<array{date: string, available: bool, remaining: int|null, order_cut_off_at: string|null}>
      * }
      */
     private function contextFor(Organisation|string $kitchen): array
@@ -334,12 +369,89 @@ final class MarketplaceProjector
             'zones' => $this->kitchens->deliveryZonesOf($organisation, $branches),
             'channels' => MarketplaceChannels::switchesFor(MarketplaceChannels::activeFor($id)),
             'listing_channels' => $this->meals->listingChannelsOf($id),
-            'availability' => $this->availability->calendar($branches, $hours),
+            'availability' => $this->availability->calendar($branches, $hours, $this->closuresOf($branches)),
         ];
     }
 
     /**
-     * @param  list<array{date: string, available: bool, remaining: null, order_cut_off_at: string|null}>  $calendar
+     * Every closure of these branches not yet over, in one query. The table's
+     * read policy is open (its migration says why), so the anonymous
+     * marketplace sees the same closures placement refuses on.
+     *
+     * @param  list<OrganisationBranch>  $branches
+     * @return list<BranchClosure>
+     */
+    private function closuresOf(array $branches): array
+    {
+        if ($branches === []) {
+            return [];
+        }
+
+        return array_values(BranchClosure::withoutTenancy()
+            ->whereIn('branch_id', array_map(static fn (OrganisationBranch $branch): string => (string) $branch->getKey(), $branches))
+            ->where('closed_to', '>=', now()->subDay()->toDateString())
+            ->get()
+            ->all());
+    }
+
+    /**
+     * The kitchen's calendar with the meal's own days laid over it, the rules
+     * `LineProbe::calendarRefusal()` refuses on: a day off or a sold-out day is
+     * unavailable even when the kitchen is open, and a counted day publishes
+     * what is left. On a shut day there is nothing to count, so no figure.
+     *
+     * The meal's own cut-off is a clock face on the first branch's wall, the
+     * clock `LineProbe::branchNow()` reads (`branchesOf()` orders the branches
+     * the same way). Today is unavailable once that clock is past it; any day
+     * it applies to publishes the earlier of it and the kitchen's cut-off.
+     *
+     * @param  list<array{date: string, available: bool, remaining: int|null, order_cut_off_at: string|null}>  $calendar
+     * @return list<array{date: string, available: bool, remaining: int|null, order_cut_off_at: string|null}>
+     */
+    private function withMealDays(array $calendar, CatalogueItem $meal, ?string $timezone): array
+    {
+        $id = (string) $meal->getKey();
+
+        if (! isset($this->mealDays[$id])) {
+            $this->primeMeals([$meal]);
+        }
+
+        $days = $this->mealDays[$id];
+        $now = CarbonImmutable::now($timezone !== null && $timezone !== '' ? $timezone : (string) config('app.timezone', 'UTC'));
+
+        return array_map(static function (array $day) use ($days, $now): array {
+            $own = $days[$day['date']] ?? null;
+
+            if ($own === null) {
+                return $day;
+            }
+
+            $available = $day['available'] && $own['available'];
+            $cutOff = $day['order_cut_off_at'];
+
+            if ($available && $own['order_cut_off_at'] !== null) {
+                if ($day['date'] === $now->toDateString() && $now->format('H:i:s') > $own['order_cut_off_at']) {
+                    $available = false;
+                } else {
+                    $mealCutOff = CarbonImmutable::parse($day['date'].' '.$own['order_cut_off_at'], $now->timezone);
+
+                    if ($cutOff === null || $mealCutOff->lessThan(CarbonImmutable::parse($cutOff))) {
+                        $cutOff = $mealCutOff->toIso8601String();
+                    }
+                }
+            }
+
+            return [
+                'date' => $day['date'],
+                'available' => $available,
+                'remaining' => $day['available'] ? $own['remaining'] : null,
+                'order_cut_off_at' => $available ? $cutOff : null,
+            ];
+        }, $calendar);
+    }
+
+    /**
+     * @param  list<array{date: string, available: bool, remaining: int|null, order_cut_off_at: string|null}>  $calendar
      */
     private function isAvailableOn(array $calendar, string $date): bool
     {

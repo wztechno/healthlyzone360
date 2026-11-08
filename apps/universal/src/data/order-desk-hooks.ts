@@ -31,6 +31,7 @@ import type {
     OrderDeskRequirementsFilters,
     OrderDeskSaleRequest,
     OrderDeskShortfallCount,
+    OrderDeskToday,
     PlaceOrderDeskSaleRequest,
     ServiceArea,
     UpdateOrderDeskCustomerRequest,
@@ -40,6 +41,7 @@ import type { BranchId } from '@healthy360/domain-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
+import { useOnlineStatus } from '../online/online-status.tsx';
 import { queryKeys } from './query-keys.ts';
 import { useRepositories, useRepositoryContext } from './repository-provider.tsx';
 
@@ -198,6 +200,28 @@ export function useOrderDeskShortfallCountQuery(
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.orderDesk.countRequirementShortfalls(branchId ?? undefined);
+        },
+    });
+}
+
+/**
+ * The kitchen home's Today card. Polls every minute while online, the desk queue's gate: it is a
+ * glance at a day still happening, not a reconciliation somebody is counting against.
+ */
+export function useOrderDeskTodayQuery(
+    branchId: BranchId | null,
+    enabled = true,
+): UseQueryResult<OrderDeskToday> {
+    const { repositories } = useRepositoryContext();
+    const { online } = useOnlineStatus();
+
+    return useQuery({
+        queryKey: queryKeys.orderDesk.today(branchId),
+        enabled: enabled && repositories !== null,
+        refetchInterval: online ? 60_000 : false,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            return repositories.orderDesk.getToday(branchId ?? undefined);
         },
     });
 }

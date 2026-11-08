@@ -44,7 +44,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $recipe_version_id
  * @property ProductionOrderStatus $status
  * @property string|null $reference the work order's number, minted at confirm
- * @property string|null $lot_number the number on the label: YYMMDD + sequence + check digit, minted when usable units reach a shelf
+ * @property string|null $lot_number the number on the label: YYMMDD + sequence + check digit, minted at start
  * @property string|null $production_item_ingredient_id what the batch makes
  * @property numeric-string|null $planned_yield how much it is meant to make, in planned_yield_unit_id
  * @property string|null $planned_yield_unit_id

@@ -1,4 +1,8 @@
-import type { PriceListAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
+import type {
+    PriceListAdmin,
+    PriceListFigures,
+    PublishableStatus,
+} from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
@@ -26,7 +30,6 @@ import {
     KITCHEN_PAGE_SIZE,
     pagesInResult,
     usePriceListPageQuery,
-    usePriceListWholeSetQuery,
     usePriceListQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
@@ -37,7 +40,6 @@ import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import type { StatusLensSource } from '../catalogue/lens-status.ts';
-import { inStatuses, statusTally, withoutStatuses } from '../catalogue/use-catalogue-filters.ts';
 import {
     compareNumber,
     compareText,
@@ -69,8 +71,12 @@ import {
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
-/** Frozen empty, so "no rows yet" keeps one identity across renders. */
-const NO_ROWS: readonly PriceListAdmin[] = [];
+/** Until the index has counted: every figure reads as pending. */
+const NO_FIGURES: PriceListFigures = {
+    statusCounts: { draft: 0, review_required: 0, published: 0, retired: 0 },
+    unpricedCount: 0,
+    agreementCount: 0,
+};
 
 /** The price list `?view=` names, read on its own when the loaded page does not hold it. */
 function usePriceListById(id: string | null) {
@@ -154,15 +160,13 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
     useRestoredPageFallback(memory, page, priceLists.isError, () => {
         setPage(1);
     });
-    // Without the status, so the figures count every state in scope; `everyRow` re-applies it.
-    const wholeSet = usePriceListWholeSetQuery(withoutStatuses(filter));
-    const scopeRows = wholeSet.data ?? NO_ROWS;
+    // The Lens figures come counted with the page (`meta`), rather than from every list read whole.
+    const counted = priceLists.data?.figures;
+    const figures = counted ?? NO_FIGURES;
     const statuses = useMemo(
         (): readonly PublishableStatus[] => (status === 'all' ? [] : [status]),
         [status],
     );
-    const everyRow = useMemo(() => inStatuses(scopeRows, statuses), [scopeRows, statuses]);
-    const statusCounts = useMemo(() => statusTally(scopeRows), [scopeRows]);
     const rows = useMemo(() => priceLists.data?.items ?? [], [priceLists.data]);
     // The open record is an address, `?view=`, so its editor can come back to it.
     const { viewing, viewingId, setViewing } = useViewedRecord(
@@ -360,9 +364,14 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
 
     const lens: StatusLensSource = {
         total,
-        scopeCount: scopeRows.length,
-        statusCounts,
-        countsPending: wholeSet.isPending,
+        // Archived lists sit outside the list's default scope, so All leaves them out.
+        scopeCount:
+            figures.statusCounts.draft +
+            figures.statusCounts.review_required +
+            figures.statusCounts.published,
+        // Retired is outside that scope too, so the mix draws no slice for it.
+        statusCounts: { ...figures.statusCounts, retired: 0 },
+        countsPending: counted === undefined,
         statuses,
         setStatuses: (next) => {
             setStatus(next[0] ?? 'all');
@@ -405,7 +414,7 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
             <LensBar
                 testID="kitchen-price-lists-toolbar"
                 label={t('kitchen:lens.label')}
-                figures={lensFigures(lens, everyRow, t)}
+                figures={lensFigures(lens, figures, t)}
                 {...statusLensMix(lens, t)}
                 search={query}
                 onSearchChange={(next) => {
@@ -597,19 +606,14 @@ function viewFields(row: PriceListAdmin, t: TFunction, formatter: ReturnType<typ
 
 /**
  * The Lens bar's figures: All · Published · Draft · Awaiting review, then Nothing priced and
- * Agreement, counted over every page the filters match, the status included.
+ * Agreement, counted by the index over every page the filters match.
  */
 function lensFigures(
     lens: StatusLensSource,
-    /** Every price list the filters match, across all pages. */
-    rows: readonly PriceListAdmin[],
+    figures: PriceListFigures,
     t: TFunction,
 ): readonly LensFigure[] {
     const counted = (count: number) => (lens.countsPending ? null : count);
-    const nothingPriced = rows.filter(
-        (row) => summarisePriceEntries(row.entries).confirmed === 0,
-    ).length;
-    const agreement = rows.filter((row) => isAgreementPriced(row.channels)).length;
     return [
         ...statusLensFigures(lens, t, {
             allLabel: t('kitchen:lens.allPriceLists'),
@@ -617,14 +621,14 @@ function lensFigures(
         {
             key: 'nothingPriced',
             label: t('kitchen:list.statUnpriced'),
-            value: counted(nothingPriced),
+            value: counted(figures.unpricedCount),
             tone: 'warning',
             separated: true,
         },
         {
             key: 'agreement',
             label: t('kitchen:priceLists.agreementBadge'),
-            value: counted(agreement),
+            value: counted(figures.agreementCount),
             tone: 'info',
         },
     ];

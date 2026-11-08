@@ -11,6 +11,7 @@ use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\TenantContext;
+use Illuminate\Database\Eloquent\Collection;
 
 /**
  * What staff are told about an item's allergen assessment, and the one way they
@@ -40,9 +41,43 @@ final readonly class AllergenAssessment
         private DerivedAllergenService $allergens,
     ) {}
 
+    /** The attribute {@see prime()} leaves on a list's rows. */
+    private const string PRIMED = 'allergens_assessed_primed';
+
     public function isAssessed(CatalogueItem $item): bool
     {
+        $primed = $item->getAttributes()[self::PRIMED] ?? null;
+
+        if (is_bool($primed)) {
+            return $primed;
+        }
+
         return CatalogueItem::withoutTenancy()->whereKey($item->getKey())->allergensAssessed()->exists();
+    }
+
+    /**
+     * Answers {@see isAssessed()} for a whole list in one query, so a page of rows does
+     * not ask once per row. The answer is stored as an original attribute, so it is never
+     * dirty and a save never writes it.
+     *
+     * @param  Collection<int, CatalogueItem>  $items
+     */
+    public function prime(Collection $items): void
+    {
+        if ($items->isEmpty()) {
+            return;
+        }
+
+        $assessed = CatalogueItem::withoutTenancy()
+            ->whereKey($items->modelKeys())
+            ->allergensAssessed()
+            ->pluck('id')
+            ->map(static fn (mixed $id): string => (string) $id)
+            ->flip();
+
+        foreach ($items as $item) {
+            $item->setRawAttributes([...$item->getAttributes(), self::PRIMED => $assessed->has((string) $item->getKey())], sync: true);
+        }
     }
 
     /**

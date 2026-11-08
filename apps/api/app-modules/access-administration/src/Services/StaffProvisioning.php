@@ -8,6 +8,7 @@ use App\Models\User;
 use Healthy360\AccessControl\Models\MembershipRole;
 use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Services\PermissionCache;
+use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Identity\Enums\ContactChannel;
 use Healthy360\Identity\Models\UserProfile;
 use Healthy360\Identity\Services\ContactPointRegistry;
@@ -41,7 +42,9 @@ use Illuminate\Support\Facades\DB;
  * justification is the one the registry already accepts for
  * `order.create_on_behalf_organisation`: the member of staff standing in front
  * of the customer *is* the verification the checklist was asking for. Here the
- * administrator vouches, and the audit trail records who.
+ * administrator vouches, and the `staff.provisioned` audit row records who —
+ * by user id, beside the new member's, the branch and the role codes; never
+ * the address or the password.
  *
  * **The password must be changed at first sign-in.** `must_change_password` is
  * set here and cleared by `POST /auth/update-password`. What the administrator
@@ -71,6 +74,7 @@ final readonly class StaffProvisioning
         private StaffLoginIdentity $identity,
         private PermissionCache $cache,
         private AccessAdministrationLocator $locator,
+        private AuditRecorder $audit,
     ) {}
 
     /**
@@ -161,6 +165,21 @@ final readonly class StaffProvisioning
             }
 
             $this->cache->bumpVersion((string) $organisation->getKey());
+
+            $roleCodes = array_map(static fn (Role $role): string => (string) $role->code, $roles);
+            sort($roleCodes);
+
+            $this->audit->record(
+                'staff.provisioned',
+                actorUserId: (string) $actor->getKey(),
+                subjectType: 'organisation_membership',
+                subjectId: (string) $membership->getKey(),
+                metadata: [
+                    'member_user_id' => (string) $user->getKey(),
+                    'branch_id' => $branch === null ? null : (string) $branch->getKey(),
+                    'roles' => $roleCodes,
+                ],
+            );
 
             return $membership;
         });

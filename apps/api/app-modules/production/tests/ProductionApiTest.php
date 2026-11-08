@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
+use Healthy360\Identity\Models\UserProfile;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Models\IngredientStockCost;
 use Healthy360\Inventory\Models\StockItem;
@@ -156,8 +157,11 @@ function apiIngredientShelf(object $test, object $tenant, OrganisationBranch $br
  * @param  array<string, mixed>  $report
  * @return array<string, mixed>
  */
-function apiFinishedBatch(object $test, object $world, array $report = ['produced_quantity' => 38]): array
+function apiFinishedBatch(object $test, object $world, array $report = []): array
 {
+    // The world's recipe has no shelf life, so a batch with food on a shelf needs a use-by.
+    $report = $report === [] ? ['produced_quantity' => 38, 'expiry_date' => CarbonImmutable::now()->addDays(5)->toDateString()] : $report;
+
     $orderId = $test->postJson('/api/v1/catalogue/production/orders', [
         'branch_id' => (string) $world->branch->getKey(),
         'recipe_version_id' => (string) $world->version->getKey(),
@@ -228,6 +232,51 @@ it('redacts the money inside the payload rather than refusing the whole desk', f
     expect($response->json('data.plan.ingredients.0.required'))->toBe('10.000000')
         ->and($response->json('data.plan.ingredients.0.estimated_unit_cost_amount'))->toBeNull()
         ->and($response->json('data.plan.estimated_cost_amount'))->toBeNull();
+});
+
+it('carries the batch’s core temperatures on its page, newest first, named and labelled', function (): void {
+    // Detail only: the desk list stays one query per page, not one per row.
+    $world = ($this->world)('probe@kitchen.test', [PRODUCTION_VIEW, PRODUCTION_MANAGE, 'order.prepare_organisation']);
+    UserProfile::factory()->create(['user_id' => $world->tenant->user->getKey(), 'given_name' => 'Sara', 'family_name' => 'Khoury']);
+    $this->actingAs($world->tenant->user);
+
+    $orderId = $this->postJson('/api/v1/catalogue/production/orders', [
+        'branch_id' => (string) $world->branch->getKey(),
+        'recipe_version_id' => (string) $world->version->getKey(),
+        'batch_factor' => 1,
+    ], $world->headers)->assertCreated()->json('data.production_order.id');
+
+    $this->getJson('/api/v1/catalogue/production/orders/'.$orderId, $world->headers)
+        ->assertOk()
+        ->assertJsonPath('data.cooking_temperatures', []);
+
+    $headers = $world->headers + ['X-Branch-Id' => (string) $world->branch->getKey()];
+
+    $this->travelTo(CarbonImmutable::now()->subMinutes(5));
+    $this->postJson('/api/v1/catalogue/quality-control/cooking-temperatures', [
+        'production_order_id' => $orderId,
+        'celsius' => 68,
+    ], $headers)->assertCreated();
+    $this->travelBack();
+
+    $this->postJson('/api/v1/catalogue/quality-control/cooking-temperatures', [
+        'production_order_id' => $orderId,
+        'celsius' => 76,
+        'note' => 'Thickest piece',
+    ], $headers)->assertCreated();
+
+    $this->getJson('/api/v1/catalogue/production/orders/'.$orderId, $world->headers)
+        ->assertOk()
+        ->assertJsonCount(2, 'data.cooking_temperatures')
+        ->assertJsonPath('data.cooking_temperatures.0.celsius', '76.0')
+        ->assertJsonPath('data.cooking_temperatures.0.note', 'Thickest piece')
+        ->assertJsonPath('data.cooking_temperatures.0.recorded_by_name', 'Sara Khoury')
+        ->assertJsonPath('data.cooking_temperatures.0.production_order_id', $orderId)
+        ->assertJsonPath('data.cooking_temperatures.1.celsius', '68.0');
+
+    $this->getJson('/api/v1/catalogue/production/orders', $world->headers)
+        ->assertOk()
+        ->assertJsonMissingPath('data.production_orders.0.cooking_temperatures');
 });
 
 it('refuses the desk entirely to somebody with neither production code', function (): void {
@@ -362,8 +411,9 @@ it('walks a batch from draft to completed over the wire', function (): void {
         // the cook's to type.
         ->and($completed->json('data.production_order.recipe_shelf_life_days'))->toBeNull();
 
-    // Before completion there is no lot, so there is nothing to encode.
-    expect($started->json('data.production_order.lot_number'))->toBeNull()
+    // The lot is given at start and kept; with no use-by yet there is no
+    // barcode, because the label carries one.
+    expect($started->json('data.production_order.lot_number'))->toBe($lot)
         ->and($started->json('data.production_order.barcode'))->toBeNull();
 });
 

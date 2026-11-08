@@ -91,6 +91,7 @@ use Illuminate\Support\Facades\DB;
  * @property CarbonImmutable|null $cancelled_at
  * @property CancellationReason|null $cancellation_reason
  * @property CancellationDisposition|null $cancellation_disposition returned or wasted, on a cancellation after cooking started; null restored the stock
+ * @property string|null $cancelled_by the user who cancelled it; null for a system cancel
  * @property string|null $created_by
  * @property string|null $placed_on_behalf_by
  * @property list<array{allergen_code: string, severity: string, notes: string|null, conflicts_with_line: list<string>}>|null $allergy_snapshot every allergy declared at placement; null when none was

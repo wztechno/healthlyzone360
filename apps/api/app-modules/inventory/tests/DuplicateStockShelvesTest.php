@@ -12,6 +12,7 @@ use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Models\StockMovement;
 use Healthy360\Inventory\Models\StockReservation;
 use Healthy360\Inventory\Services\DuplicateStockShelves;
+use Healthy360\Inventory\Services\InventoryService;
 use Healthy360\Inventory\Services\MealExplosion;
 use Healthy360\Inventory\Services\StockItemDerivationService;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
@@ -19,6 +20,8 @@ use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
+use Healthy360\Support\Api\ErrorCode;
+use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Str;
 
@@ -241,4 +244,226 @@ it('serves the review list behind the inventory read', function (): void {
     $this->getJson('/api/v1/catalogue/inventory/duplicates', firstPartyHeaders() + ['X-Organisation-Id' => $this->orgId])
         ->assertOk()
         ->assertJsonPath('data.0.reason', 'different_units');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Merge with history, and Keep both (owner, 3 November 2026)
+|--------------------------------------------------------------------------
+*/
+
+/** Counts a shelf out to zero, the step a person takes before merging it. */
+function countedOut(object $test, StockItem $shelf): void
+{
+    $level = StockLevel::withoutTenancy()->where('stock_item_id', $shelf->getKey())->sole();
+
+    StockMovement::query()->create([
+        'organisation_id' => $test->orgId,
+        'branch_id' => $test->branch->getKey(),
+        'stock_item_id' => $shelf->getKey(),
+        'quantity_delta' => bcmul((string) $level->quantity, '-1', 4),
+        'reason' => 'adjust',
+    ]);
+
+    $level->quantity = '0';
+    $level->save();
+}
+
+function mergeRefusal(object $test, StockItem $keep, StockItem $drop): ?string
+{
+    try {
+        $test->duplicates->mergeWithHistory($test->orgId, $keep, $drop);
+    } catch (ApiException $refused) {
+        expect($refused->errorCode)->toBe(ErrorCode::ResourceConflict);
+
+        return $refused->details['reason'] ?? null;
+    }
+
+    return null;
+}
+
+it('merges a counted-out shelf into its twin and both histories survive untouched', function (): void {
+    ['original' => $original, 'copy' => $copy] = shelfPair($this);
+    stocked($this, $original, '5');
+    stocked($this, $copy, '2');
+    countedOut($this, $copy);
+
+    $before = StockMovement::withoutTenancy()->orderBy('id')->get()->map->getAttributes()->all();
+
+    $this->duplicates->mergeWithHistory($this->orgId, $original, $copy, (string) $this->tenant->user->getKey());
+
+    // No movement row changed or deleted, and none added.
+    expect(StockMovement::withoutTenancy()->orderBy('id')->get()->map->getAttributes()->all())->toBe($before)
+        ->and(StockMovement::withoutTenancy()->where('stock_item_id', $original->getKey())->count())->toBe(1)
+        ->and(StockMovement::withoutTenancy()->where('stock_item_id', $copy->getKey())->count())->toBe(2);
+
+    $copy->refresh();
+
+    expect($copy->merged_into_stock_item_id)->toBe((string) $original->getKey())
+        ->and($this->duplicates->scan($this->orgId)['reviews'])->toBe([]);
+
+    // Off the shelf list, history kept on its own row.
+    $listed = collect($this->getJson('/api/v1/catalogue/inventory/items', firstPartyHeaders() + ['X-Organisation-Id' => $this->orgId])
+        ->assertOk()
+        ->json('data.stock_items'))->pluck('id');
+
+    expect($listed)->toContain((string) $original->getKey())
+        ->and($listed)->not->toContain((string) $copy->getKey());
+});
+
+it('refuses to merge shelves in different units', function (): void {
+    ['original' => $original, 'copy' => $copy] = shelfPair($this, 'bag');
+    stocked($this, $original, '5');
+    stocked($this, $copy, '2');
+    countedOut($this, $copy);
+
+    expect(mergeRefusal($this, $original, $copy))->toBe('different_units')
+        ->and($copy->refresh()->merged_into_stock_item_id)->toBeNull();
+});
+
+it('refuses to merge a shelf that still holds stock', function (): void {
+    ['original' => $original, 'copy' => $copy] = shelfPair($this);
+    stocked($this, $original, '5');
+    stocked($this, $copy, '2');
+
+    expect(mergeRefusal($this, $original, $copy))->toBe('stock_remaining')
+        ->and($copy->refresh()->merged_into_stock_item_id)->toBeNull();
+});
+
+it('resolves a merged shelf to the one that stayed', function (): void {
+    ['original' => $original, 'copy' => $copy] = shelfPair($this);
+    stocked($this, $original, '5');
+    stocked($this, $copy, '2');
+    countedOut($this, $copy);
+
+    $this->duplicates->mergeWithHistory($this->orgId, $original, $copy);
+
+    $explosion = app(MealExplosion::class);
+
+    expect($explosion->resolveStockItem($this->orgId, (string) $copy->ingredient_id, (string) $this->branch->getKey())?->getKey())
+        ->toBe($original->getKey())
+        ->and($explosion->resolveStockItem($this->orgId, (string) $copy->ingredient_id, null)?->getKey())
+        ->toBe($original->getKey());
+});
+
+it('stops listing a dismissed group until a new shelf of the same name appears', function (): void {
+    ['original' => $original, 'copy' => $copy] = shelfPair($this);
+    stocked($this, $original, '1');
+    stocked($this, $copy, '2');
+
+    $this->duplicates->dismiss($this->orgId, [(string) $original->getKey(), (string) $copy->getKey()]);
+
+    expect($this->duplicates->scan($this->orgId)['reviews'])->toBe([]);
+
+    $third = Ingredient::factory()->create(['organisation_id' => $this->orgId, 'default_unit_id' => $this->unit->getKey(), 'name_en' => 'Rice (bulk)']);
+    StockItem::withoutTenancy()->updateOrCreate(
+        ['organisation_id' => $this->orgId, 'ingredient_id' => $third->getKey()],
+        ['code' => 'rice-3', 'name_en' => 'Rice', 'unit_code' => 'kg', 'unit_id' => $this->unit->getKey()],
+    );
+
+    $reviews = $this->duplicates->scan($this->orgId)['reviews'];
+
+    expect($reviews)->toHaveCount(1)
+        ->and($reviews[0]['shelves'])->toHaveCount(3);
+});
+
+it('audits a merge with history and a keep-both', function (): void {
+    ['original' => $original, 'copy' => $copy] = shelfPair($this);
+    stocked($this, $original, '5');
+    stocked($this, $copy, '2');
+    countedOut($this, $copy);
+
+    $this->duplicates->dismiss($this->orgId, [(string) $original->getKey(), (string) $copy->getKey()], (string) $this->tenant->user->getKey());
+    $this->duplicates->mergeWithHistory($this->orgId, $original, $copy, (string) $this->tenant->user->getKey());
+
+    $merged = AuditLog::query()->where('action', 'inventory.stock_merged')->where('subject_id', $original->getKey())->sole();
+    $dismissed = AuditLog::query()->where('action', 'inventory.duplicate_dismissed')->sole();
+
+    expect($merged->metadata['origin'] ?? null)->toBe('with_history')
+        ->and($merged->metadata['merged_stock_item_id'] ?? null)->toBe((string) $copy->getKey())
+        ->and($merged->actor_user_id)->toBe((string) $this->tenant->user->getKey())
+        ->and($dismissed->metadata['stock_item_ids'] ?? [])->toHaveCount(2);
+});
+
+it('refuses any movement onto a merged shelf', function (): void {
+    ['original' => $original, 'copy' => $copy] = shelfPair($this);
+    stocked($this, $original, '5');
+    stocked($this, $copy, '2');
+    countedOut($this, $copy);
+
+    $this->duplicates->mergeWithHistory($this->orgId, $original, $copy);
+
+    // Every writer of a movement runs inside one kitchen: a request, a job's context.
+    $context = app(TenantContext::class);
+    $context->setOrganisation((string) $this->tenant->user->getKey(), $this->orgId);
+
+    try {
+        app(InventoryService::class)->recordMovement($this->orgId, (string) $this->branch->getKey(), (string) $copy->getKey(), 'adjust', '1');
+        $reason = null;
+    } catch (ApiException $refused) {
+        $reason = $refused->details['reason'] ?? null;
+    } finally {
+        $context->clear();
+    }
+
+    expect($reason)->toBe('stock_merged')
+        ->and(StockMovement::withoutTenancy()->where('stock_item_id', $copy->getKey())->count())->toBe(2);
+});
+
+it('merges and keeps both over HTTP, behind the manage permission', function (): void {
+    $merge = '/api/v1/catalogue/inventory/duplicates/merge';
+    $dismiss = '/api/v1/catalogue/inventory/duplicates/dismiss';
+    $ids = ['keep_id' => (string) Str::uuid(), 'drop_id' => (string) Str::uuid()];
+
+    // The world in beforeEach can read stock but not move it.
+    $viewOnly = firstPartyHeaders() + ['X-Organisation-Id' => $this->orgId];
+    $this->postJson($merge, $ids, $viewOnly)->assertForbidden();
+    $this->postJson($dismiss, ['stock_item_ids' => array_values($ids)], $viewOnly)->assertForbidden();
+
+    $this->tenant = PricingWorld::kitchen('manager@kitchen.test', ['inventory.view_organisation', 'inventory.manage_organisation']);
+    $this->orgId = (string) $this->tenant->organisation->getKey();
+    $this->branch = OrganisationBranch::withoutTenancy()->create([
+        'organisation_id' => $this->orgId,
+        'name' => 'Main kitchen',
+        'country_code' => 'LB',
+        'city' => 'Beirut',
+        'timezone' => 'Asia/Beirut',
+        'status' => 'active',
+        'lock_version' => 0,
+    ]);
+    $this->actingAs($this->tenant->user);
+    $headers = firstPartyHeaders() + ['X-Organisation-Id' => $this->orgId];
+
+    ['original' => $original, 'copy' => $copy] = shelfPair($this);
+    stocked($this, $original, '5');
+    stocked($this, $copy, '2');
+    $pair = ['keep_id' => (string) $original->getKey(), 'drop_id' => (string) $copy->getKey()];
+
+    $this->postJson($merge, $pair, $headers)
+        ->assertStatus(409)
+        ->assertJsonPath('error.code', 'resource.conflict')
+        ->assertJsonPath('error.details.reason', 'stock_remaining');
+
+    countedOut($this, $copy);
+
+    $this->postJson($merge, $pair, $headers)->assertNoContent();
+
+    expect($copy->refresh()->merged_into_stock_item_id)->toBe((string) $original->getKey());
+
+    $this->postJson($merge, $pair, $headers)
+        ->assertStatus(409)
+        ->assertJsonPath('error.details.reason', 'already_merged');
+
+    $twins = [];
+    foreach (['Beef fajita', 'beef fajita '] as $index => $name) {
+        $ingredient = Ingredient::factory()->create(['organisation_id' => $this->orgId, 'default_unit_id' => $this->unit->getKey(), 'name_en' => "Fajita {$index}"]);
+        $twins[] = (string) StockItem::withoutTenancy()->updateOrCreate(
+            ['organisation_id' => $this->orgId, 'ingredient_id' => $ingredient->getKey()],
+            ['code' => "fajita-{$index}", 'name_en' => $name, 'unit_code' => 'kg', 'unit_id' => $this->unit->getKey()],
+        )->getKey();
+    }
+
+    $this->postJson($dismiss, ['stock_item_ids' => $twins], $headers)->assertNoContent();
+
+    expect($this->duplicates->scan($this->orgId)['reviews'])->toBe([]);
 });

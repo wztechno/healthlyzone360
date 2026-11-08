@@ -174,7 +174,14 @@ function page(orders: readonly ProductionOrder[], hasMore = false): ProductionOr
 }
 
 function detail(overrides: Partial<ProductionOrderDetail> = {}): ProductionOrderDetail {
-    return { order: batch(), lines: [], plan: plan(), costsVisible: true, ...overrides };
+    return {
+        order: batch(),
+        lines: [],
+        plan: plan(),
+        coreTemperatures: [],
+        costsVisible: true,
+        ...overrides,
+    };
 }
 
 /** The manager, minus the one code that decides whether money is in the payload at all. */
@@ -499,7 +506,12 @@ describe('one batch', () => {
                 kitchenOps: {
                     getProductionOrder: async () =>
                         detail({
-                            order: batch({ status: 'in_production', lockVersion: 3 }),
+                            // A shelf life fills Use by, so the form asks for nothing else.
+                            order: batch({
+                                status: 'in_production',
+                                lockVersion: 3,
+                                recipeShelfLifeDays: 5,
+                            }),
                             lines: [
                                 line(),
                                 line({
@@ -586,6 +598,189 @@ describe('one batch', () => {
         );
     });
 
+    describe('core temperature', () => {
+        const cooking = () =>
+            batch({
+                status: 'in_production',
+                confirmedAt: '2026-09-25T08:00:00Z',
+                startedAt: '2026-09-25T09:00:00Z',
+            });
+
+        it('shows the last reading and records a new one on the batch', async () => {
+            const recordCookingTemperature = jest.fn(async () => undefined);
+
+            await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
+                session: chefSession(),
+                repositories: {
+                    kitchenOps: {
+                        getProductionOrder: async () =>
+                            detail({
+                                order: cooking(),
+                                lines: [line()],
+                                plan: null,
+                                coreTemperatures: [
+                                    {
+                                        id: 'reading-1',
+                                        batchLabel: 'PB-7K3MQ9ZV',
+                                        recipe: 'Caesar dressing',
+                                        celsius: '76.0',
+                                        note: null,
+                                        recordedByName: 'Sara',
+                                        recordedAt: '2026-09-25T11:32:00Z' as never,
+                                    },
+                                ],
+                            }),
+                        recordCookingTemperature,
+                    },
+                },
+            });
+
+            await waitFor(() => {
+                expect(
+                    screen.getByTestId('kitchen-production-batch-core-temperature-value'),
+                ).toHaveTextContent(/76\.0°C · .+ · Sara/);
+            });
+            // Not today's, so the day is said as well as the time.
+            expect(
+                screen.getByTestId('kitchen-production-batch-core-temperature-value'),
+            ).toHaveTextContent(/\d{1,2}\/\d{1,2}\/\d{2}/);
+
+            fireEvent.press(screen.getByTestId('kitchen-production-batch-temperature'));
+            fireEvent.changeText(
+                await screen.findByTestId('kitchen-production-batch-temperature-celsius-input'),
+                '78.5',
+            );
+            await waitFor(() => {
+                expect(
+                    screen.getByTestId('kitchen-production-batch-temperature-save').props
+                        .accessibilityState?.disabled,
+                ).toBe(false);
+            });
+            fireEvent.press(screen.getByTestId('kitchen-production-batch-temperature-save'));
+
+            await waitFor(() => {
+                expect(recordCookingTemperature).toHaveBeenCalledWith({
+                    productionOrderId: BATCH_ID,
+                    celsius: '78.5',
+                });
+            });
+        });
+
+        it('says only the time of a reading taken today', async () => {
+            await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
+                session: chefSession(),
+                repositories: {
+                    kitchenOps: {
+                        getProductionOrder: async () =>
+                            detail({
+                                order: cooking(),
+                                lines: [line()],
+                                plan: null,
+                                coreTemperatures: [
+                                    {
+                                        id: 'reading-1',
+                                        batchLabel: 'PB-7K3MQ9ZV',
+                                        recipe: 'Caesar dressing',
+                                        celsius: '76.0',
+                                        note: null,
+                                        recordedByName: 'Sara',
+                                        recordedAt: new Date().toISOString() as never,
+                                    },
+                                ],
+                            }),
+                    },
+                },
+            });
+
+            await waitFor(() => {
+                expect(
+                    screen.getByTestId('kitchen-production-batch-core-temperature-value'),
+                ).toHaveTextContent(/76\.0°C · .+ · Sara/);
+            });
+            expect(
+                screen.getByTestId('kitchen-production-batch-core-temperature-value'),
+            ).not.toHaveTextContent(/\d{1,2}\/\d{1,2}\/\d{2}/);
+        });
+
+        it.each([
+            ['abandoned', { abandonedAt: '2026-09-25T10:00:00Z' }],
+            ['cancelled', { cancelledAt: '2026-09-25T10:00:00Z' }],
+        ] as const)('offers no recording on a started batch that was %s', async (status, stamp) => {
+            await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
+                session: chefSession(),
+                repositories: {
+                    kitchenOps: {
+                        getProductionOrder: async () =>
+                            detail({
+                                order: { ...cooking(), status, ...stamp },
+                                lines: [line()],
+                                plan: null,
+                            }),
+                    },
+                },
+            });
+
+            await waitFor(() => {
+                expect(
+                    screen.getByTestId('kitchen-production-batch-core-temperature-value'),
+                ).toBeTruthy();
+            });
+            expect(screen.queryByTestId('kitchen-production-batch-temperature')).toBeNull();
+        });
+
+        it('offers no recording to somebody who may only read the batch', async () => {
+            await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
+                session: kitchenManagerSession({
+                    activeContext: testActiveContext({
+                        permissions: KITCHEN_MANAGER_PERMISSIONS.filter(
+                            (code) =>
+                                code !== 'order.prepare_organisation' &&
+                                code !== 'inventory.manage_organisation' &&
+                                code !== 'production.manage_organisation',
+                        ),
+                    }),
+                }),
+                repositories: {
+                    kitchenOps: {
+                        getProductionOrder: async () =>
+                            detail({ order: cooking(), lines: [line()], plan: null }),
+                    },
+                },
+            });
+
+            await waitFor(() => {
+                expect(
+                    screen.getByTestId('kitchen-production-batch-core-temperature-value'),
+                ).toHaveTextContent('—');
+            });
+            expect(screen.queryByTestId('kitchen-production-batch-temperature')).toBeNull();
+        });
+
+        it('offers no recording before the batch has started', async () => {
+            await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenOps: {
+                        getProductionOrder: async () =>
+                            detail({
+                                order: batch({
+                                    status: 'confirmed',
+                                    confirmedAt: '2026-09-25T08:00:00Z',
+                                }),
+                                lines: [line()],
+                                plan: null,
+                            }),
+                    },
+                },
+            });
+
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchen-production-batch-start')).toBeTruthy();
+            });
+            expect(screen.queryByTestId('kitchen-production-batch-temperature')).toBeNull();
+        });
+    });
+
     it('offers no label for a batch that has no lot yet', async () => {
         await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
             session: kitchenManagerSession(),
@@ -604,6 +799,30 @@ describe('one batch', () => {
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-production-batch-lot-value')).toHaveTextContent('—');
         });
+        expect(screen.queryByTestId('kitchen-production-batch-label')).toBeNull();
+    });
+
+    it('shows the lot from start, and offers no label until a use-by exists', async () => {
+        await renderStubScreen(<ProductionBatchScreen order={BATCH_ID} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    getProductionOrder: async () =>
+                        detail({
+                            order: batch({ status: 'in_production', lotNumber: '2609250077' }),
+                            lines: [line()],
+                            plan: null,
+                        }),
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-production-batch-lot-value')).toHaveTextContent(
+                '260925-007-7',
+            );
+        });
+        // The barcode carries the use-by date, so the server sends none yet.
         expect(screen.queryByTestId('kitchen-production-batch-label')).toBeNull();
     });
 
@@ -890,6 +1109,46 @@ describe('the batch label', () => {
 
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-production-label-nothing')).toBeTruthy();
+        });
+        expect(screen.queryByTestId('kitchen-production-label-sheets')).toBeNull();
+    });
+
+    it('says the lot is what is missing when the batch has none', async () => {
+        await renderStubScreen(<ProductionBatchLabelScreen order={BATCH_ID} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    getProductionOrder: async () =>
+                        detail({ order: batch({ status: 'in_production' }), plan: null }),
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-production-label-nothing')).toHaveTextContent(
+                /gets its lot when it starts/,
+            );
+        });
+    });
+
+    it('says the use-by is what is missing when the batch has a lot', async () => {
+        await renderStubScreen(<ProductionBatchLabelScreen order={BATCH_ID} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    getProductionOrder: async () =>
+                        detail({
+                            order: batch({ status: 'in_production', lotNumber: '2609250077' }),
+                            plan: null,
+                        }),
+                },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-production-label-nothing')).toHaveTextContent(
+                /carries the use-by date/,
+            );
         });
         expect(screen.queryByTestId('kitchen-production-label-sheets')).toBeNull();
     });

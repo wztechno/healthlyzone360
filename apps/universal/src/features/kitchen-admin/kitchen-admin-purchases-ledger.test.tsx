@@ -113,6 +113,8 @@ function ledgerLine(overrides: Partial<PurchaseLedgerLine> = {}): PurchaseLedger
         unitPriceAmount: '2.500000',
         lineTotalAmount: '25.000000',
         costCurrencyCode: 'USD',
+        lastUnitPriceAmount: null,
+        priceVariancePercent: null,
         valuationPendingFx: false,
         costsRedacted: false,
         gtin: null,

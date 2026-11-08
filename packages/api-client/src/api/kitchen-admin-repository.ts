@@ -31,8 +31,11 @@ import type {
     PlanAdminFilter,
     PriceListAdmin,
     PriceListAdminFilter,
+    PriceListFigures,
+    PriceListPage,
     ProductAdmin,
     ProductAdminFilter,
+    PublishableStatus,
     RecipeAdmin,
     RecipeAdminFilter,
     ReferenceSeries,
@@ -139,6 +142,41 @@ function pickCursorFilter(filter?: CursorQueryFilter): CursorQueryFilter | undef
 
     if (Object.keys(picked).length === 0) return undefined;
     return picked;
+}
+
+/** The index's `status` for each list status; `null` where a price list has no such state. */
+const PRICE_LIST_WIRE_STATUS: Readonly<Record<PublishableStatus, string | null>> = {
+    draft: 'draft',
+    review_required: null,
+    published: 'active',
+    retired: 'archived',
+};
+
+/**
+ * The price-list index's Lens figures from its `meta`, or `undefined` when it sent none. The
+ * index's statuses are its own three; `review_required` has no counterpart there and is zero.
+ */
+function priceListFigures(meta: unknown): PriceListFigures | undefined {
+    const wire = meta as {
+        readonly status_counts?: {
+            readonly draft: number;
+            readonly active: number;
+            readonly archived: number;
+        };
+        readonly unpriced_count?: number;
+        readonly agreement_count?: number;
+    };
+    if (wire.status_counts === undefined) return undefined;
+    return {
+        statusCounts: {
+            draft: wire.status_counts.draft,
+            review_required: 0,
+            published: wire.status_counts.active,
+            retired: wire.status_counts.archived,
+        },
+        unpricedCount: wire.unpriced_count ?? 0,
+        agreementCount: wire.agreement_count ?? 0,
+    };
 }
 
 /**
@@ -582,6 +620,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         categoryId?: string | undefined,
         allergen?: string | undefined,
         withoutRecipe?: boolean | undefined,
+        withVariants?: boolean | undefined,
     ): Promise<CursorPage<AdminCatalogueItemIndexRow>> {
         const envelope = await transport.requestEnvelope<AdminCatalogueItemIndexRow[]>({
             method: 'GET',
@@ -597,7 +636,8 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 allergen,
                 has_recipe: withoutRecipe === true ? 'false' : undefined,
                 // Without this every row of a list read "On no channel", published or not.
-                include: 'channels',
+                // `variants` adds each row's live packs, in one batched read for the page.
+                include: withVariants === true ? 'channels,variants' : 'channels',
             })}`,
         });
 
@@ -958,7 +998,7 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                     ? filter.statuses[0]
                     : undefined;
 
-            const [page, lookup] = await Promise.all([
+            const [page, lookup, unitsById] = await Promise.all([
                 listCatalogueItems(
                     filter?.itemType ?? 'product',
                     pickCursorFilter(filter),
@@ -966,13 +1006,18 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                     filter?.categoryId,
                     undefined,
                     filter?.withoutRecipe,
+                    true,
                 ),
                 loadSalesChannelLookup(),
+                loadUnitCodeLookup(),
             ]);
             return {
                 ...page,
                 items: page.items.map((wire) =>
                     mapProductAdminFromItem(wire, {
+                        // The pack column used to read "no packs" on every row: the list never
+                        // asked for them. Mapped as the product's own read maps them.
+                        packVariants: mapProductPackVariants(wire.variants ?? [], unitsById),
                         channelAvailability: mapChannelAssignments(wire.channels ?? [], lookup),
                     }),
                 ),
@@ -1142,8 +1187,12 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             });
         },
 
-        async listPriceLists(filter?: PriceListAdminFilter): Promise<CursorPage<PriceListAdmin>> {
+        async listPriceLists(filter?: PriceListAdminFilter): Promise<PriceListPage> {
             const whole = filter?.withoutEntries !== true;
+            // One status narrows on the server. A price list is never awaiting review, so that
+            // one is asked without a status — the figures still come back — and answers no rows.
+            const sole = filter?.statuses?.length === 1 ? filter.statuses[0] : undefined;
+            const status = sole === undefined ? undefined : PRICE_LIST_WIRE_STATUS[sole];
 
             /*
              * Whole records, entries and channels included — the contract every caller reads this
@@ -1156,16 +1205,17 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             const [envelope, lookup] = await Promise.all([
                 transport.requestEnvelope<AdminPriceListIndexRow[]>({
                     method: 'GET',
-                    path: `/catalogue/price-lists${cursorQuery(
-                        pickCursorFilter(filter),
-                        whole ? { include: 'entries,channels' } : undefined,
-                    )}`,
+                    path: `/catalogue/price-lists${cursorQuery(pickCursorFilter(filter), {
+                        ...(whole ? { include: 'entries,channels' } : {}),
+                        ...(status === null || status === undefined ? {} : { status }),
+                    })}`,
                 }),
                 whole ? loadSalesChannelLookup() : Promise.resolve(null),
             ]);
 
             const meta = envelope.meta as PaginatedOrNumberedMeta;
-            return mapAdminCursorPage(envelope.data, meta, (wire) =>
+            const figures = priceListFigures(envelope.meta);
+            const page = mapAdminCursorPage(envelope.data, meta, (wire) =>
                 lookup === null
                     ? mapPriceListAdmin(wire)
                     : mapPriceListAdmin(wire, {
@@ -1180,6 +1230,11 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                           ),
                       }),
             );
+            const narrowed =
+                status === null
+                    ? { items: [], nextCursor: null, hasMore: false, totalCount: 0 }
+                    : page;
+            return figures === undefined ? narrowed : { ...narrowed, figures };
         },
 
         async getPriceList(priceListId: PriceListId): Promise<PriceListAdmin> {

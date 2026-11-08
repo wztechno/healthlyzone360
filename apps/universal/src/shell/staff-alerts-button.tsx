@@ -45,17 +45,20 @@ const ROW_ICONS: Readonly<Record<StaffAlertType, IconName>> = {
     dish_below_target: 'alert',
     delivery_moved_closed: 'calendar',
     delivery_closed_unmoved: 'calendar',
+    batch_stuck: 'clock',
+    customer_cancelled: 'ban',
 };
 
-/** Where an alert about something other than an order opens. */
+/** Where an alert about something other than an order opens. `{id}` is the alert's subject. */
 const PAGES: Partial<Readonly<Record<StaffAlertType, string>>> = {
     stock_expiring: '/kitchen/stock',
     temperature_out_of_range: '/kitchen/temperature-logs',
-    short_hand_in: '/kitchen/order-desk/settlement',
-    short_close: '/kitchen/order-desk/close',
-    price_approval: '/kitchen/payables',
+    short_hand_in: '/kitchen/order-desk/cash?tab=handins',
+    short_close: '/kitchen/order-desk/cash?tab=close',
+    price_approval: '/kitchen/supplier-bills?tab=bills',
     dish_below_target: '/kitchen/dish-margins',
     delivery_closed_unmoved: '/kitchen/branch-operating',
+    batch_stuck: '/kitchen/production-desk/{id}',
 };
 
 const WHEN: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };
@@ -203,8 +206,10 @@ function AlertsBell() {
         guardNavigation(() => {
             if (alert.readAt === null) markRead.mutate(alert.id);
             router.push(
-                (PAGES[alert.type] ??
-                    `/kitchen/orders?view=${encodeURIComponent(alert.orderId)}`) as never,
+                (PAGES[alert.type] ?? '/kitchen/orders?view={id}').replace(
+                    '{id}',
+                    encodeURIComponent(alert.orderId),
+                ) as never,
             );
         });
     };

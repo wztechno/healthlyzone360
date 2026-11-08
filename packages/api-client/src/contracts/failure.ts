@@ -308,6 +308,11 @@ export type ApiFailure =
            * withholding the one fact that makes the refusal actionable.
            */
           readonly membershipCount?: number | undefined;
+          /**
+           * `details.reason`, when the conflict is a named state rather than a lost race —
+           * `derivation_stale` on an allergen release whose label is still being recomputed.
+           */
+          readonly reason?: string | undefined;
       })
     | (ApiFailureBase & {
           readonly code: 'authz.permission_denied';
@@ -602,6 +607,8 @@ export interface ConflictFailureOptions extends FailureOptions {
     readonly currentLockVersion?: number | undefined;
     /** Omit unless the conflict is a role still held by somebody (AA1). */
     readonly membershipCount?: number | undefined;
+    /** Omit unless the server named the conflict (`details.reason`). */
+    readonly reason?: string | undefined;
 }
 
 /**
@@ -619,6 +626,7 @@ export function conflictFailure(options: ConflictFailureOptions = {}): ApiFailur
         ...(options.membershipCount === undefined
             ? {}
             : { membershipCount: options.membershipCount }),
+        ...(options.reason === undefined ? {} : { reason: options.reason }),
         message: options.message ?? FALLBACK_MESSAGES['resource.conflict'],
         correlationId: options.correlationId ?? null,
         retryable: options.retryable ?? false,

@@ -45,6 +45,14 @@ final class NullRecipeUsageRegistry implements RecipeUsageRegistry
     }
 
     /**
+     * @return list<string>
+     */
+    public function releaseQuarantinedItems(Recipe $recipe): array
+    {
+        return [];
+    }
+
+    /**
      * @param  list<string>  $recipeIds
      * @return array<string, list<RecipeSeller>>
      */

@@ -137,6 +137,7 @@ export type ApiKitchenAdminWrites = Pick<
     | 'previewRecipeRollup'
     | 'publishRecipe'
     | 'retireRecipe'
+    | 'releaseRecipeVersion'
     | 'createProduct'
     | 'updateProduct'
     | 'publishProduct'
@@ -1359,6 +1360,20 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 method: 'POST',
                 path: `/catalogue/recipes/${encodeURIComponent(id)}/archive`,
                 headers: ifMatch(request.lockVersion),
+            });
+            return reads.getRecipe(recipeId);
+        },
+
+        async releaseRecipeVersion(
+            recipeId: RecipeId,
+            versionId: RecipeVersionId,
+            lockVersion: number,
+        ): Promise<RecipeAdmin> {
+            await transport.request({
+                method: 'POST',
+                path: `/catalogue/recipes/${encodeURIComponent(String(recipeId))}/versions/${encodeURIComponent(String(versionId))}/release`,
+                headers: ifMatch(lockVersion),
+                body: { confirmed: true },
             });
             return reads.getRecipe(recipeId);
         },

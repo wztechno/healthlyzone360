@@ -7,16 +7,20 @@ import {
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
+import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
+import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { Gate } from '../../../access/gate.tsx';
+import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useDishMarginsQuery } from '../../../data/kitchen-ops-hooks.ts';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { RECIPE_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
+import { RECIPE_VIEW_COSTS_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
 
 /**
  * `/kitchen/dish-margins` — what each dish earns at today's costs, lowest first.
@@ -24,9 +28,24 @@ import { RECIPE_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
  * One list in the cash report's table. A withheld margin is a badge with its reason and never a
  * number: a margin over part of a recipe reads like a whole one and is too high. Below target is a
  * warning badge with its wording, so colour is not the only signal.
+ *
+ * A row opens its dish's recipe on Production, and its actions open it on Production or on Selling
+ * (where the list price is set), each coming back here. Only for a reader who may open recipes.
  */
 
 const EM_DASH = '—';
+const RETURN_HREF = '/kitchen/dish-margins';
+
+/** The dish's recipe, under its item's address, on one editor tab. */
+function recipeHref(row: DishMargin, tab: 'production' | 'selling'): string {
+    return withReturnTo(
+        withQuery(`/kitchen/recipes/item/${encodeURIComponent(row.catalogueItemId)}`, {
+            kind: row.itemType,
+            tab,
+        }),
+        RETURN_HREF,
+    );
+}
 
 export function DishMarginsScreen() {
     return (
@@ -45,6 +64,29 @@ function DishMarginsPage() {
     const { locale } = useLocale();
     const formatter = useFormatter();
     const report = useDishMarginsQuery();
+    const router = useRouter();
+    const canOpenRecipe = useCan(RECIPE_VIEW_PERMISSION);
+    const open = (row: DishMargin, tab: 'production' | 'selling') => {
+        router.push(recipeHref(row, tab) as never);
+    };
+    const rowActions = (row: DishMargin): readonly MenuItem[] => [
+        {
+            key: 'recipe',
+            label: t('kitchen:ops.dishMargins.openRecipe'),
+            icon: CATALOGUE_ROW_ICONS.view,
+            onSelect: () => {
+                open(row, 'production');
+            },
+        },
+        {
+            key: 'price',
+            label: t('kitchen:ops.dishMargins.changePrice'),
+            icon: 'tag',
+            onSelect: () => {
+                open(row, 'selling');
+            },
+        },
+    ];
 
     const failure = toFailure(report.error);
 
@@ -190,7 +232,15 @@ function DishMarginsPage() {
                         columns={columns}
                         rows={data.dishes}
                         rowKey={(row) => row.id}
+                        onRowPress={
+                            canOpenRecipe
+                                ? (row) => {
+                                      open(row, 'production');
+                                  }
+                                : undefined
+                        }
                         rowActionsLabel={t('kitchen:list.rowActions')}
+                        rowActions={canOpenRecipe ? rowActions : undefined}
                     />
                 </View>
             )}

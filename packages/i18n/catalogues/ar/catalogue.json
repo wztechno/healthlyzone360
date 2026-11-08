@@ -265,7 +265,8 @@
             "laboratory": "تحليل مخبري",
             "manufacturer": "ملصق المُصنِّع",
             "professional_entry": "اختصاصي تغذية"
-        }
+        },
+        "noSource": "لا توجد أرقام غذائية مسجّلة لهذا الطبق."
     },
     "plans": {
         "energyBand": "{{min}}–{{max}} سعرة",
@@ -848,6 +849,7 @@
         "chosen": "{{group}}: {{name}}",
         "separator": " · ",
         "allergensUnassessed": "لم تُفحص مسببات الحساسية بعد. اسأل المطبخ قبل اختياره.",
-        "allergensNone": "لا مسببات حساسية مُعلنة لهذا الخيار."
+        "allergensNone": "لا مسببات حساسية مُعلنة لهذا الخيار.",
+        "mayContain": "قد يحتوي على {{allergens}}"
     }
 }

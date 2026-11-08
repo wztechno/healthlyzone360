@@ -54,7 +54,8 @@
         "checkout_kitchen_not_open": "This kitchen is not open for orders yet.",
         "checkout_kitchen_paused": "This kitchen has paused new orders for a short while. Please try again soon.",
         "checkout_window_full": "That delivery slot is full. Choose another slot or another day.",
-        "checkout_stock_short": "Some of what is in your basket is running low. The kitchen may contact you if it cannot make all of it."
+        "checkout_stock_short": "Some of what is in your basket is running low. The kitchen may contact you if it cannot make all of it.",
+        "checkout_phone_required": "Add a phone number so the driver can reach you. Without one this order cannot be placed."
     },
     "address": {
         "label": "Name for this address",
@@ -146,6 +147,7 @@
         "placeOrderHint": "Cash on delivery. Card details are never entered here.",
         "placeFailedTitle": "The order could not be placed",
         "finishSetup": "Finish setting up your account",
+        "addPhone": "Add a phone number",
         "progressLabel": "Checkout progress",
         "steps": {
             "delivery": "Delivery",
@@ -181,8 +183,8 @@
         "paymentCod": "Cash on delivery",
         "paymentCodMeta": "Pay the driver",
         "back": "Back",
-        "confirmedTitle": "Order {{reference}} confirmed",
-        "confirmedBody": "{{kitchen}} has your order. Arriving {{arriving}}. Pay the driver in cash.",
+        "confirmedTitle": "Order {{reference}} placed, waiting for the kitchen",
+        "confirmedBody": "{{kitchen}} has your order. Arriving {{arriving}} once the kitchen accepts it. Pay the driver in cash.",
         "theKitchen": "The kitchen",
         "setupTitle": "Finish setting up your account to order",
         "setupBody_one": "{{count}} step is left before you can order.",

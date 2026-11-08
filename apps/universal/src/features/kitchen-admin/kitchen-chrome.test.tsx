@@ -61,6 +61,36 @@ describe('useKitchenNavigation', () => {
         expect(screen.queryByTestId('probe-workspace')).toBeNull();
     });
 
+    it('drops Setup once the kitchen is live', async () => {
+        await renderStubScreen(<Probe />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: { getKitchenSetup: async () => ({ isLive: true, steps: [] }) },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('probe-stock')).toBeTruthy();
+        });
+        await waitFor(() => {
+            expect(screen.queryByTestId('probe-setup')).toBeNull();
+        });
+        expect(screen.getByTestId('probe-review')).toHaveTextContent(/\|To do\|/);
+    });
+
+    it('keeps Setup under To do until the kitchen is live', async () => {
+        await renderStubScreen(<Probe />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: { getKitchenSetup: async () => ({ isLive: false, steps: [] }) },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('probe-setup')).toHaveTextContent(/\|To do\|/);
+        });
+    });
+
     it('offers no destination the session is not permitted to open', async () => {
         // The default anonymous-ish stub session: no kitchen permissions, no families.
         await renderStubScreen(<Probe />, {});

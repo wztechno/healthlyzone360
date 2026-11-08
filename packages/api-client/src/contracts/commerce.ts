@@ -14,6 +14,7 @@ import type {
 } from '@healthy360/domain-types';
 
 import type { DishLineChoices, DishOption } from './dish-options.ts';
+import type { KitchenOrderFulfilmentType as FulfilmentType } from './kitchen-orders.ts';
 
 import type { MealSlot, PlanSitting } from './marketplace.ts';
 import type { CursorPage, CursorPageRequest } from './pagination.ts';
@@ -571,6 +572,14 @@ export interface CommerceRepository {
      */
     getMyOrder(orderId: OrderId): Promise<PlacedOrder>;
 
+    /**
+     * `POST /api/v1/me/orders/{order}/cancel` — the customer calls off their own order, only while
+     * it is still `placed`. Once the kitchen accepts it the server answers `409` with `reason:
+     * order_already_accepted`, and the customer contacts the kitchen instead; an order already
+     * cancelled is `reason: order_already_cancelled`. Nothing was paid.
+     */
+    cancelMyOrder(orderId: OrderId): Promise<PlacedOrder>;
+
     /** `POST /api/v1/subscriptions/preview`. */
     previewSubscription(configuration: SubscriptionConfiguration): Promise<SubscriptionPreview>;
 
@@ -709,6 +718,9 @@ export interface PlacedOrderLine {
     readonly quantity: number;
     readonly unitPrice: Money;
     readonly lineTotal: Money;
+    /** What the line changed about the dish, as chosen. Empty on a plain line. */
+    readonly options?: readonly DishOption[] | undefined;
+    readonly note?: string | null | undefined;
 }
 
 /**
@@ -735,4 +747,6 @@ export interface PlacedOrder {
     readonly placedAt: IsoDateTime;
     /** When it reached each later step. Absent on an order built without them (a fixture). */
     readonly stepTimes?: OrderStepTimes | undefined;
+    /** `delivery`, `pickup` or `counter`. Absent on an order built without it (a fixture). */
+    readonly fulfilmentType?: FulfilmentType | undefined;
 }

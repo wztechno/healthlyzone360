@@ -307,6 +307,10 @@ final readonly class OrderLifecycle
                 'cancelled_at' => CarbonImmutable::now(),
                 'cancellation_reason' => $reason,
                 'cancellation_disposition' => $disposition,
+                // Whoever the context names. A queued job carries the user who
+                // dispatched it, so a job that cancels on its own must clear
+                // the user first, or the stamp names that person.
+                'cancelled_by' => $this->context->userId(),
             ],
             function (Order $cancelled) use ($disposition): void {
                 $this->jobs->cancel($cancelled);

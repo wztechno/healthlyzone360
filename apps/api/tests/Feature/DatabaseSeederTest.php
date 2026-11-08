@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 use App\Models\User;
 use Database\Seeders\KitchenReferenceSeeder;
+use Database\Seeders\VerdantProductCatalogueSeeder;
 use Healthy360\AccessControl\Models\MembershipRole;
 use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\AccessControl\Services\PermissionRegistry;
 use Healthy360\Allergens\Models\Allergen;
+use Healthy360\Catalogues\Enums\CatalogueItemStatus;
+use Healthy360\Catalogues\Enums\ProductionMode;
+use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\ProductCategory;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Consent\Models\ConsentDefinition;
@@ -933,4 +937,23 @@ it('marks dependants stale when it fills facts used by a published version', fun
         ->toBe(DerivationState::Stale);
 
     Queue::assertPushed(RecomputeRecipeDerivations::class, 1);
+});
+
+it('leaves the products Verdant makes as unassessed drafts and publishes what it buys in', function (): void {
+    // "Assessed: contains none" is only true of a bought-in good. Honey Mustard
+    // and Mozzarella Sticks are made here, and the `Supplier & Production`
+    // chicken partly so, from recipes with allergens of their own, so the demo
+    // must not press that button for anything but a `Supplier` row.
+    $products = CatalogueItem::withoutTenancy()
+        ->where('source_system', VerdantProductCatalogueSeeder::SOURCE_SYSTEM)
+        ->get()
+        ->keyBy('name_en');
+
+    $made = $products->filter(static fn (CatalogueItem $item): bool => $item->production_mode !== ProductionMode::Supplier);
+
+    expect($made->keys()->all())->toContain('Honey Mustard Sauce', 'Mozzarella Sticks')
+        ->and($made->filter(static fn (CatalogueItem $item): bool => $item->allergens_assessed_at !== null))->toBeEmpty()
+        ->and($made->filter(static fn (CatalogueItem $item): bool => $item->status !== CatalogueItemStatus::Draft))->toBeEmpty()
+        ->and($products->get('Turkey Bacon')?->status)->toBe(CatalogueItemStatus::Published)
+        ->and($products->get('Turkey Bacon')?->allergens_assessed_at)->not->toBeNull();
 });

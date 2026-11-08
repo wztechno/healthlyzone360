@@ -354,6 +354,8 @@ export type {
     PriceListAdmin,
     PriceListAdminFilter,
     PriceListEntry,
+    PriceListFigures,
+    PriceListPage,
     PriceStatus,
     ProductAdmin,
     ProductAdminFilter,
@@ -455,6 +457,7 @@ export {
     SPEND_SUMMARY_GROUPINGS,
     SPEND_SUMMARY_INCLUDES,
     STOCK_MOVEMENT_REASONS,
+    STOCK_WASTE_REASONS,
     formatGtin,
 } from './kitchen-ops.ts';
 export type {
@@ -572,6 +575,7 @@ export type {
     StockLevel,
     StockMovement,
     StockMovementReason,
+    StockWasteReason,
     ActivityEntry,
     ActivityPage,
     ActivityWindow,
@@ -719,6 +723,8 @@ export type {
     OrderDeskRequirementsMeta,
     OrderDeskSaleRequest,
     OrderDeskShortfallCount,
+    OrderDeskToday,
+    OrderDeskTodayAmount,
     WeeklyStockCheck,
     WeeklyStockShortfall,
     OrderDeskWindow,
@@ -764,6 +770,7 @@ export type {
     StaffAlertList,
     StaffAlertsRepository,
     StaffAlertType,
+    StorefrontProfile,
 } from './staff-alerts.ts';
 
 export { KITCHEN_QUOTATION_STATUSES } from './kitchen-quotations.ts';

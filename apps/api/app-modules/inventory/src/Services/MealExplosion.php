@@ -439,8 +439,21 @@ final readonly class MealExplosion
      * The other way round too. A pair merged onto the copy's shelf
      * ({@see DuplicateStockShelves}) leaves the original with none, and a recipe
      * still on the library row draws on the copy's.
+     *
+     * A shelf merged with its history (`merged_into_stock_item_id`) resolves to
+     * the shelf it was merged into. The link is always one step: a merge re-points
+     * anything merged into the shelf it retires.
      */
     public function resolveStockItem(string $organisationId, string $ingredientId, ?string $branchId): ?StockItem
+    {
+        $shelf = $this->resolveOwnShelf($organisationId, $ingredientId, $branchId);
+
+        return $shelf?->merged_into_stock_item_id === null
+            ? $shelf
+            : StockItem::withoutTenancy()->where('organisation_id', $organisationId)->find($shelf->merged_into_stock_item_id) ?? $shelf;
+    }
+
+    private function resolveOwnShelf(string $organisationId, string $ingredientId, ?string $branchId): ?StockItem
     {
         $own = $this->stockItemOf($organisationId, $ingredientId, $branchId);
 

@@ -8,7 +8,11 @@ import type { CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Dimensions } from 'react-native';
 
-import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
+import {
+    KITCHEN_MANAGER_PERMISSIONS,
+    kitchenManagerSession,
+    testActiveContext,
+} from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { DishMarginsScreen } from './screens/dish-margins-screen.tsx';
 import { OrderDeskCloseScreen } from './screens/order-desk-close-screen.tsx';
@@ -25,9 +29,12 @@ beforeAll(() => {
 afterAll(() => {
     Dimensions.set({ window: narrowWindow, screen: narrowWindow });
 });
+/* `mock`-prefixed so the factory below may close over it — Jest's hoisting rule. */
+const mockPush = jest.fn();
+
 jest.mock('expo-router', () => ({
     __esModule: true,
-    useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
+    useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
     usePathname: () => '/kitchen/order-desk/close',
     useLocalSearchParams: () => ({}),
     Redirect: () => null,
@@ -253,38 +260,44 @@ describe('payables', () => {
 });
 
 describe('dish margins', () => {
-    it('shows a reason instead of a number when the margin is withheld', async () => {
-        const margins: DishMargins = {
-            targetPercent: 30,
-            computedAt: '2026-11-03T02:00:00Z' as IsoDateTime,
-            dishes: [
-                {
-                    id: 'margin-1',
-                    catalogueItemId: 'item-1',
-                    name: { en: 'Chicken bowl', ar: '' },
-                    channel: 'b2c',
-                    priceAmount: '10.000000',
-                    costAmount: '8.000000',
-                    currencyCode: 'USD',
-                    marginPercent: '20.00',
-                    withheldReason: null,
-                    isBelowTarget: true,
-                },
-                {
-                    id: 'margin-2',
-                    catalogueItemId: 'item-2',
-                    name: { en: 'Green salad', ar: '' },
-                    channel: 'b2c',
-                    priceAmount: null,
-                    costAmount: null,
-                    currencyCode: null,
-                    marginPercent: null,
-                    withheldReason: 'cost_incomplete',
-                    isBelowTarget: false,
-                },
-            ],
-        };
+    const margins: DishMargins = {
+        targetPercent: 30,
+        computedAt: '2026-11-03T02:00:00Z' as IsoDateTime,
+        dishes: [
+            {
+                id: 'margin-1',
+                catalogueItemId: 'item-1',
+                name: { en: 'Chicken bowl', ar: '' },
+                itemType: 'meal',
+                channel: 'b2c',
+                priceAmount: '10.000000',
+                costAmount: '8.000000',
+                currencyCode: 'USD',
+                marginPercent: '20.00',
+                withheldReason: null,
+                isBelowTarget: true,
+            },
+            {
+                id: 'margin-2',
+                catalogueItemId: 'item-2',
+                name: { en: 'Green salad', ar: '' },
+                itemType: 'dressing',
+                channel: 'b2c',
+                priceAmount: null,
+                costAmount: null,
+                currencyCode: null,
+                marginPercent: null,
+                withheldReason: 'cost_incomplete',
+                isBelowTarget: false,
+            },
+        ],
+    };
 
+    beforeEach(() => {
+        mockPush.mockClear();
+    });
+
+    it('shows a reason instead of a number when the margin is withheld', async () => {
         await renderStubScreen(<DishMarginsScreen />, {
             session: kitchenManagerSession(),
             repositories: { kitchenOps: { getDishMargins: async () => margins } },
@@ -293,5 +306,54 @@ describe('dish margins', () => {
         expect(await screen.findByText('Below target')).toBeTruthy();
         expect(screen.getByText('Withheld: cost incomplete')).toBeTruthy();
         expect(screen.getByTestId('kitchen-dish-margin-margin-2')).toHaveTextContent('—');
+    });
+
+    it('opens the dish recipe from a row, and its price from the row action, coming back here', async () => {
+        await renderStubScreen(<DishMarginsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenOps: { getDishMargins: async () => margins } },
+        });
+
+        const row = await screen.findByTestId('kitchen-dish-margins-table-row-margin-1');
+        await act(async () => {
+            fireEvent.press(row);
+        });
+        expect(mockPush).toHaveBeenLastCalledWith(
+            '/kitchen/recipes/item/item-1?kind=meal&tab=production&returnTo=%252Fkitchen%252Fdish-margins',
+        );
+
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId('kitchen-dish-margins-table-row-margin-2-action-price'),
+            );
+        });
+        expect(mockPush).toHaveBeenLastCalledWith(
+            '/kitchen/recipes/item/item-2?kind=dressing&tab=selling&returnTo=%252Fkitchen%252Fdish-margins',
+        );
+    });
+
+    it('offers no way into a recipe to a reader without recipe.view', async () => {
+        await renderStubScreen(<DishMarginsScreen />, {
+            session: kitchenManagerSession({
+                activeContext: testActiveContext({
+                    permissions: KITCHEN_MANAGER_PERMISSIONS.filter(
+                        (code) => code !== 'recipe.view_organisation',
+                    ),
+                }),
+            }),
+            repositories: { kitchenOps: { getDishMargins: async () => margins } },
+        });
+
+        expect(await screen.findByText('Below target')).toBeTruthy();
+        expect(
+            screen.queryByTestId('kitchen-dish-margins-table-row-margin-1-action-recipe'),
+        ).toBeNull();
+        expect(
+            screen.queryByTestId('kitchen-dish-margins-table-row-margin-1-action-price'),
+        ).toBeNull();
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-dish-margins-table-row-margin-1'));
+        });
+        expect(mockPush).not.toHaveBeenCalled();
     });
 });

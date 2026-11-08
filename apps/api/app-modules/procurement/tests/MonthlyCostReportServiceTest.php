@@ -327,6 +327,36 @@ it('counts refunds only up to the food, across months', function (): void {
     expect(rowFor($rows, '2026-09', 'USD')['refunds_amount'])->toBe('5.000000');
 });
 
+it('reports a prepaid courier fee as its own operating line, never in COGS or the margin', function (): void {
+    $order = reportOrder($this, OrderStatus::Fulfilled, 2000, '2026-08-10 10:00:00');
+    reportConsume($this, $order, '5.000000', '2026-08-10 10:00:00');
+
+    // A courier batch whose runs were prepaid: no cash came back, the kitchen paid the fee.
+    DB::table('cash_settlements')->insert([
+        'id' => (string) Str::uuid7(),
+        'organisation_id' => $this->orgId,
+        'kind' => 'courier',
+        'courier_name' => 'Toters',
+        'currency_code' => 'USD',
+        'expected_minor' => 0,
+        'fee_minor' => 0,
+        'expense_minor' => 300,
+        'handed_in_minor' => 0,
+        'short_minor' => 0,
+        'recorded_by' => $this->tenant->user->getKey(),
+        'recorded_at' => '2026-08-12 10:00:00',
+        'created_at' => '2026-08-12 10:00:00',
+        'updated_at' => '2026-08-12 10:00:00',
+    ]);
+
+    $row = rowFor($this->service->forOrganisation($this->orgId), '2026-08', 'USD');
+
+    expect($row['courier_expense_amount'])->toBe('3.000000')
+        ->and($row['cogs_amount'])->toBe('5.000000')
+        // 20.00 revenue less 5.00 COGS: the 3.00 is not taken off the gross margin.
+        ->and($row['gross_margin_amount'])->toBe('15.000000');
+});
+
 it('leaves receipt corrections and refunds on cancelled orders out of revenue', function (): void {
     $sold = reportOrder($this, OrderStatus::Fulfilled, 2000, '2026-08-10 10:00:00');
     reportRefund($this, $sold, 500, '2026-08-11 10:00:00', 'receipt_correction');

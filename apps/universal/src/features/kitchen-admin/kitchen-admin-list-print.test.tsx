@@ -325,6 +325,9 @@ function recipe(ordinal: number, lines: readonly RecipeLine[] = [DESIGNATED_LINE
         estimatedCost: null,
         derivationStale: false,
         publishedAt: '2026-08-01T09:00:00.000Z',
+        reviewReason: null,
+        previousLabel: null,
+        lockVersion: 1,
     };
 
     return {

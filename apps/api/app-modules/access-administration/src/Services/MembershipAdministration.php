@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Healthy360\AccessAdministration\Services;
 
 use Healthy360\AccessControl\Services\PermissionCache;
+use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Organisations\Enums\MembershipStatus;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Support\Api\Exceptions\StaleLockVersion;
+use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -48,6 +50,8 @@ final readonly class MembershipAdministration
     public function __construct(
         private PermissionCache $cache,
         private AccessAdministrationLocator $locator,
+        private AuditRecorder $audit,
+        private TenantContext $tenant,
     ) {}
 
     /**
@@ -84,7 +88,10 @@ final readonly class MembershipAdministration
 
         return $this->compareAndSwap($membership, [
             'branch_id' => $branch?->getKey(),
-        ], $expectedLockVersion);
+        ], $expectedLockVersion, 'membership.scope_changed', [
+            'from_branch_id' => $membership->branch_id === null ? null : (string) $membership->branch_id,
+            'to_branch_id' => $branch === null ? null : (string) $branch->getKey(),
+        ]);
     }
 
     /**
@@ -114,7 +121,10 @@ final readonly class MembershipAdministration
 
         return $this->compareAndSwap($membership, [
             'status' => MembershipStatus::Suspended,
-        ], $expectedLockVersion);
+        ], $expectedLockVersion, 'membership.suspended', [
+            'from_status' => $membership->status->value,
+            'to_status' => MembershipStatus::Suspended->value,
+        ]);
     }
 
     /**
@@ -136,7 +146,10 @@ final readonly class MembershipAdministration
 
         return $this->compareAndSwap($membership, [
             'status' => MembershipStatus::Active,
-        ], $expectedLockVersion);
+        ], $expectedLockVersion, 'membership.reactivated', [
+            'from_status' => $membership->status->value,
+            'to_status' => MembershipStatus::Active->value,
+        ]);
     }
 
     /**
@@ -166,7 +179,10 @@ final readonly class MembershipAdministration
 
         return $this->compareAndSwap($membership, [
             'status' => MembershipStatus::Ended,
-        ], $expectedLockVersion);
+        ], $expectedLockVersion, 'membership.ended', [
+            'from_status' => $membership->status->value,
+            'to_status' => MembershipStatus::Ended->value,
+        ]);
     }
 
     /**
@@ -184,7 +200,12 @@ final readonly class MembershipAdministration
     }
 
     /**
+     * The audit row is written in the same transaction as the change, so a
+     * change to somebody's access never lands without saying who made it.
+     * Ids only: whose membership is `member_user_id`, never a name or address.
+     *
      * @param  array<string, mixed>  $changes
+     * @param  array<string, scalar|null>  $metadata
      *
      * @throws ApiException
      */
@@ -192,8 +213,10 @@ final readonly class MembershipAdministration
         OrganisationMembership $membership,
         array $changes,
         int $expectedLockVersion,
+        string $action,
+        array $metadata,
     ): OrganisationMembership {
-        return DB::transaction(function () use ($membership, $changes, $expectedLockVersion): OrganisationMembership {
+        return DB::transaction(function () use ($membership, $changes, $expectedLockVersion, $action, $metadata): OrganisationMembership {
             $affected = OrganisationMembership::query()
                 ->whereKey($membership->getKey())
                 ->where('lock_version', $expectedLockVersion)
@@ -213,6 +236,14 @@ final readonly class MembershipAdministration
             // so every change here invalidates a cached permission set that is
             // otherwise good for another five minutes.
             $this->cache->bumpVersion((string) $membership->organisation_id);
+
+            $this->audit->record(
+                $action,
+                actorUserId: $this->tenant->userId(),
+                subjectType: 'organisation_membership',
+                subjectId: (string) $membership->getKey(),
+                metadata: ['member_user_id' => (string) $membership->user_id] + $metadata,
+            );
 
             $membership->refresh();
 

@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
+use Healthy360\Cart\Contracts\QuarantinedStock;
 use Healthy360\Cart\Services\LineProbe;
+use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Orders\Tests\Fixtures\DeskWorld;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
@@ -290,4 +292,40 @@ it('will not price a basket against another kitchen customer address', function 
         'customer_address_id' => (string) $other->customer->address->getKey(),
     ]), $this->headers)
         ->assertNotFound();
+});
+
+it('warns on the line when it needs more than the free stock, and still quotes it', function (): void {
+    // Held stock is not free, so the shelf is short of the sale, but not so short that only held
+    // stock would cover it: the checkout preview's `stock_short`, told to the agent.
+    $this->app->instance(QuarantinedStock::class, new class implements QuarantinedStock
+    {
+        public function refuses(string $organisationId, CatalogueItem $item, string $quantity): bool
+        {
+            return false;
+        }
+
+        public function shortOfFree(string $organisationId, CatalogueItem $item, string $quantity): bool
+        {
+            return true;
+        }
+    });
+
+    $response = $this->postJson('/api/v1/catalogue/order-desk/quote', deskQuoteBody($this), $this->headers)
+        ->assertOk();
+
+    expect($response->json('data.quote.lines.0.warnings'))->toBe([[
+        'reason' => 'stock_short',
+        'catalogue_item_id' => (string) $this->world->meal->getKey(),
+    ]])
+        // A warning, never a refusal: the line is priced and the sale can go ahead.
+        ->and($response->json('data.quote.lines.0.refusals'))->toBe([])
+        ->and($response->json('data.quote.lines.0.line_total_minor'))->toBe(5000)
+        ->and($response->json('data.quote.quotable'))->toBeTrue();
+});
+
+it('carries no warnings on a line the shelf covers', function (): void {
+    $response = $this->postJson('/api/v1/catalogue/order-desk/quote', deskQuoteBody($this), $this->headers)
+        ->assertOk();
+
+    expect($response->json('data.quote.lines.0.warnings'))->toBe([]);
 });

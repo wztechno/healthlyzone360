@@ -405,6 +405,44 @@ describe('ops panels', () => {
         expect(repositories.kitchenOps.recordStockAdjustment).not.toHaveBeenCalled();
     });
 
+    it('opens a shelf sent by its id on Count, the way a duplicate pair asks for it', async () => {
+        await renderStubScreen(
+            <StockScreen
+                shelf={String(stockItem(2).id)}
+                direction="count"
+                returnTo="/kitchen/stock-duplicates"
+            />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenOps: {
+                        listStockItems: async () => [stockItem(1), stockItem(2)],
+                        listStockLevels: async () => [
+                            stockLevel(1),
+                            stockLevel(2, { quantity: '4.000' }),
+                        ],
+                        listItemLatestPurchases: async () => [],
+                    },
+                    kitchenAdmin: { listIngredients: async () => page([]) },
+                },
+            },
+        );
+
+        // The editor opens on its own, on the shelf the id names, already on Count.
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('kitchen-stock-movement-direction-trigger'),
+            ).toHaveTextContent(/Count/);
+        });
+        // A count states the shelf: typing zero against the four kilograms reads as taking them off.
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-stock-movement-quantity-input'), '0');
+        });
+        expect(screen.getByTestId('kitchen-stock-editor-summary-movement')).toHaveTextContent(
+            /−4 kg|-4 kg/,
+        );
+    });
+
     it('shows an honest empty state for each book when the world has neither', async () => {
         await renderStubScreen(<StockScreen />, {
             session: kitchenManagerSession(),

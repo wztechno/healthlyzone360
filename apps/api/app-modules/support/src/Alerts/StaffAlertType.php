@@ -28,6 +28,8 @@ enum StaffAlertType: string
     case DishBelowTarget = 'dish_below_target';
     case DeliveryMovedClosed = 'delivery_moved_closed';
     case DeliveryClosedUnmoved = 'delivery_closed_unmoved';
+    case BatchStuck = 'batch_stuck';
+    case CustomerCancelled = 'customer_cancelled';
 
     /**
      * `requester` is the one person who asked, named by the caller.
@@ -39,7 +41,7 @@ enum StaffAlertType: string
         return match ($this) {
             self::RefundApproved, self::RefundRejected => 'requester',
             self::UnacceptedOwner, self::LateCancel, self::RefundApproval, self::PriceApproval, self::DishBelowTarget => 'owners',
-            self::UnacceptedManager, self::AllergyOrder, self::DeliveryFailed, self::NoCashCollected, self::StockExpiring, self::TemperatureOutOfRange, self::ShortHandIn, self::ShortClose, self::DeliveryMovedClosed, self::DeliveryClosedUnmoved => 'managers',
+            self::UnacceptedManager, self::AllergyOrder, self::DeliveryFailed, self::NoCashCollected, self::StockExpiring, self::TemperatureOutOfRange, self::ShortHandIn, self::ShortClose, self::DeliveryMovedClosed, self::DeliveryClosedUnmoved, self::BatchStuck, self::CustomerCancelled => 'managers',
         };
     }
 
@@ -78,6 +80,7 @@ enum StaffAlertType: string
             self::ShortClose => 'daily_close',
             self::PriceApproval => 'goods_receipt',
             self::DishBelowTarget => 'dish_margin',
+            self::BatchStuck => 'production_order',
             default => 'order',
         };
     }
@@ -90,11 +93,12 @@ enum StaffAlertType: string
         return match ($this) {
             self::StockExpiring => '/kitchen/stock',
             self::TemperatureOutOfRange => '/kitchen/temperature-logs',
-            self::ShortHandIn => '/kitchen/order-desk/settlement',
-            self::ShortClose => '/kitchen/order-desk/close',
-            self::PriceApproval => '/kitchen/payables',
+            self::ShortHandIn => '/kitchen/order-desk/cash?tab=handins',
+            self::ShortClose => '/kitchen/order-desk/cash?tab=close',
+            self::PriceApproval => '/kitchen/supplier-bills?tab=bills',
             self::DishBelowTarget => '/kitchen/dish-margins',
             self::DeliveryClosedUnmoved => '/kitchen/branch-operating',
+            self::BatchStuck => '/kitchen/production-desk/'.$subjectId,
             default => '/kitchen/orders?view='.$subjectId,
         };
     }

@@ -52,6 +52,7 @@ final class RecipeVersionPresenter
      *     derived_at: string|null,
      *     published_at: string|null,
      *     review_reason: string|null,
+     *     previous_label: object|null,
      *     notes: string|null,
      *     lock_version: int,
      *     created_at: string|null,
@@ -103,6 +104,10 @@ final class RecipeVersionPresenter
             'derived_at' => $version->derived_at?->toIso8601String(),
             'published_at' => $version->published_at?->toIso8601String(),
             'review_reason' => $version->review_reason,
+
+            // The label a quarantine replaced, `{class: containment}`. An object
+            // even when empty: a dish that carried nothing is `{}`, never `[]`.
+            'previous_label' => $version->previous_label === null ? null : (object) $version->previous_label,
             'notes' => $version->notes,
             'lock_version' => $version->lock_version,
             'created_at' => $version->created_at?->toIso8601String(),

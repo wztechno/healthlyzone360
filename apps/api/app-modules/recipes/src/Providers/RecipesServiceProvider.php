@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Recipes\Providers;
 
 use Healthy360\Ingredients\Contracts\IngredientUsageRegistry;
+use Healthy360\Recipes\Console\CarryRecipeAllergensCommand;
 use Healthy360\Recipes\Contracts\RecipeUsageRegistry;
 use Healthy360\Recipes\Services\NullRecipeUsageRegistry;
 use Healthy360\Recipes\Services\RecipeIngredientUsageRegistry;
@@ -47,5 +48,9 @@ class RecipesServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->app->bind(IngredientUsageRegistry::class, RecipeIngredientUsageRegistry::class);
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([CarryRecipeAllergensCommand::class]);
+        }
     }
 }

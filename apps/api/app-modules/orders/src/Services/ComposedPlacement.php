@@ -117,6 +117,7 @@ final readonly class ComposedPlacement
      * @param  bool  $agreedInWriting  true only for an accepted quotation
      * @param  bool  $allergenConflictsAcknowledged  the desk told the customer about the basket's allergen conflicts
      * @param  bool  $waivesDeliveryFee  true only for a remake: the customer already paid to have it brought once
+     * @param  bool  $requireDeliveryPhone  true only for the desk: a delivery the driver has no number for is refused `phone_required`
      */
     public function __construct(
         public ?CustomerAccount $account,
@@ -136,6 +137,7 @@ final readonly class ComposedPlacement
         public ?string $allergyNote = null,
         public bool $allergenConflictsAcknowledged = false,
         public bool $waivesDeliveryFee = false,
+        public bool $requireDeliveryPhone = false,
     ) {}
 
     /**

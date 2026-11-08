@@ -25,7 +25,12 @@ import type {
     OpeningHours,
     PackSize,
 } from '../contracts/marketplace.ts';
-import type { DishOption, DishPortion, KitchenDishOption } from '../contracts/dish-options.ts';
+import type {
+    DishOption,
+    DishOptionAllergen,
+    DishPortion,
+    KitchenDishOption,
+} from '../contracts/dish-options.ts';
 import type { CursorPage } from '../contracts/pagination.ts';
 import type {
     DishOption as WireDishOption,
@@ -106,10 +111,8 @@ export const NO_NUTRITION_FACTS: NutritionFacts = {
         calculatedAt: UNKNOWN_ISO_DATE_TIME,
         prototype: true,
         rounding: 'none',
-        notes: [
-            'The platform holds no nutrition figures for this meal. Nothing here is estimated: a ' +
-                'figure would have to be invented, and an invented figure is worse than none.',
-        ],
+        // The panel says "no figures recorded" itself, in the reader's language.
+        notes: [],
     },
 };
 
@@ -382,13 +385,22 @@ export function mapDishOption(wire: WireDishOption): DishOption {
         nameAr: wire.name_ar,
         ...(wire.allergens === undefined
             ? {}
-            : {
-                  allergenCodes:
-                      wire.allergens === null
-                          ? null
-                          : wire.allergens.map((entry) => entry.allergen_code),
-              }),
+            : { allergens: mapDishOptionAllergens(wire.allergens) }),
     };
+}
+
+/**
+ * An option's label, keeping whether each allergen is in it or may be. A containment this build does
+ * not know reads as `contains`: over-declaring is the safe direction. `null` stays unassessed.
+ */
+function mapDishOptionAllergens(
+    wire: WireDishOption['allergens'],
+): readonly DishOptionAllergen[] | null {
+    if (wire === null || wire === undefined) return null;
+    return wire.map((entry) => ({
+        code: entry.allergen_code,
+        containment: entry.containment === 'may_contain' ? 'may_contain' : 'contains',
+    }));
 }
 
 /** A dish option as the kitchen's editor reads it: the recipe link and that recipe's allergens. */
@@ -396,8 +408,7 @@ export function mapKitchenDishOption(wire: WireKitchenDishOption): KitchenDishOp
     return {
         ...mapDishOption(wire),
         recipeId: wire.recipe_id,
-        allergenCodes:
-            wire.allergens === null ? null : wire.allergens.map((entry) => entry.allergen_code),
+        allergens: mapDishOptionAllergens(wire.allergens),
     };
 }
 

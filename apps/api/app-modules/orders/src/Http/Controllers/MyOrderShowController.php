@@ -20,10 +20,12 @@ use Illuminate\Http\JsonResponse;
  * real — and this is the resource a delivery address is snapshotted onto.
  *
  * **No `ETag`.** An order carries `lock_version` and this audience cannot write
- * it: confirm, fulfil and cancel are the kitchen's actions, behind the kitchen's
- * permission. Serving a validator to a reader with no writer would invite a
- * client to send `If-Match` at an endpoint that does not exist for it. The
- * kitchen's read of the same row does carry one.
+ * it, bar one move: confirm, fulfil and a late cancel are the kitchen's actions,
+ * behind the kitchen's permission, and the customer's own cancel of a `placed`
+ * order runs at the lock it reads itself (`MyOrderCancelController`). Serving a
+ * validator to a reader with no `If-Match` writer would invite a client to send
+ * one at an endpoint that does not take it. The kitchen's read of the same row
+ * does carry one.
  */
 final class MyOrderShowController
 {

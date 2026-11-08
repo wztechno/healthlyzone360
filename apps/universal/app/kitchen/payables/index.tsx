@@ -1,12 +1,10 @@
-import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
+import { Redirect } from 'expo-router';
 
-/** `/kitchen/payables` — what is owed for deliveries, behind the cost code. */
-const PayablesScreen = lazyScreen(
-    'kitchen-payables-loading',
-    async () =>
-        (await import('../../../src/features/kitchen-admin/screens/index.ts')).PayablesScreen,
-);
-
+/**
+ * `/kitchen/payables` — where the payables list used to be. It is the To pay tab of Supplier bills
+ * now, and this stays so a bookmark or an old alert link still arrives. A redirect is not a page:
+ * `entity-registry.test.ts` skips it.
+ */
 export default function KitchenPayables() {
-    return <PayablesScreen />;
+    return <Redirect href={'/kitchen/supplier-bills?tab=bills' as never} />;
 }

@@ -1242,7 +1242,7 @@ describe('NutritionFactsPanel', () => {
                 calculatedAt: '',
                 prototype: true,
                 rounding: 'none',
-                notes: ['The platform holds no nutrition figures for this meal.'],
+                notes: ['mass_basis: stored'],
             },
         };
 
@@ -1251,8 +1251,52 @@ describe('NutritionFactsPanel', () => {
         );
 
         expect(screen.getByTestId('meal-detail-facts')).toBeTruthy();
-        expect(screen.getByTestId('meal-detail-facts-synthetic')).toBeTruthy();
         expect(screen.queryByTestId('meal-detail-facts-calculated-at')).toBeNull();
+        // No source is recorded, so there is no name to show — and the mapper's method key and
+        // placeholder label never reach the customer.
+        expect(screen.queryByTestId('meal-detail-facts-source')).toBeNull();
+        expect(screen.queryByText(/none\.no_recorded_source/)).toBeNull();
+        expect(screen.queryByText(/No nutrition source is recorded/)).toBeNull();
+        // One translated sentence says why the table is empty; the server's notes never show.
+        expect(screen.getByTestId('meal-detail-facts-no-source')).toBeTruthy();
+        expect(screen.getByText('No nutrition figures are recorded for this dish.')).toBeTruthy();
+        expect(screen.queryByTestId('meal-detail-facts-notes')).toBeNull();
+        expect(screen.queryByText(/mass_basis/)).toBeNull();
+    });
+
+    it('names the source and nothing else of the calculation', async () => {
+        const recorded: NutritionFacts = {
+            basis: 'per_serving',
+            kind: 'planned',
+            serving: null,
+            totalGrams: null,
+            amounts: [],
+            source: {
+                kind: 'synthetic_prototype',
+                label: 'Kitchen recipe',
+                version: '7',
+                calculatedAt: '2026-11-03T09:00:00Z',
+            },
+            calculation: {
+                method: 'recipe.rollup',
+                basis: 'per_serving',
+                calculatedAt: '2026-11-03T09:00:00Z',
+                prototype: true,
+                rounding: 'label',
+                notes: [],
+            },
+        };
+
+        await renderStubScreen(<NutritionFactsPanel facts={recorded} testID="meal-detail-facts" />);
+
+        const source = screen.getByTestId('meal-detail-facts-source');
+        expect(within(source).getByText(/Kitchen recipe/)).toBeTruthy();
+        for (const gone of ['version', 'calculated-at', 'synthetic']) {
+            expect(screen.queryByTestId(`meal-detail-facts-${gone}`)).toBeNull();
+        }
+        expect(screen.queryByText(/recipe\.rollup/)).toBeNull();
+        expect(screen.queryByText(/Rounding/)).toBeNull();
+        expect(screen.queryByText(/prototype/i)).toBeNull();
     });
 });
 
@@ -1299,9 +1343,7 @@ describe('MealDetailScreen', () => {
 
         const record = screen.getByTestId('meal-detail-record');
         expect(within(record).getByTestId('meal-detail-facts')).toBeTruthy();
-        expect(within(record).getByTestId('meal-detail-facts-version')).toBeTruthy();
-        expect(within(record).getByTestId('meal-detail-facts-calculated-at')).toBeTruthy();
-        expect(within(record).getByTestId('meal-detail-facts-synthetic')).toBeTruthy();
+        expect(within(record).getByTestId('meal-detail-facts-source')).toBeTruthy();
         // The per-serving half of the contrast the weighed listing below draws: this meal states a
         // portion, so it gets a serving line and a basis control with both views on it.
         expect(within(record).getByTestId('meal-detail-serving')).toBeTruthy();

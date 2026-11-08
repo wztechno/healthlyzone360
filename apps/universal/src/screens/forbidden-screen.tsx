@@ -40,7 +40,8 @@ export interface ForbiddenScreenProps {
  * unpermitted area reproducible in a test and describable in a support conversation.
  *
  * Every denial reason maps to a translated title and body (`access:denial.<reason>`); the reason
- * string itself is never shown to a person.
+ * string itself is never shown to a person. A missing permission shows its `accessAdmin:codes`
+ * label (an entitlement key, which has none, falls back to the key itself).
  *
  * ## The way out depends on who is refused
  *
@@ -74,13 +75,6 @@ export function ForbiddenScreen({
                     <Text testID={`${testID}-reason-body`} tone="secondary">
                         {t(`access:denial.${reason}.body`)}
                     </Text>
-                    <Inline space="xs">
-                        <Text variant="caption" tone="secondary">
-                            {t('access:forbidden.reasonLabel')}
-                        </Text>
-                        <Badge testID={`${testID}-reason-code`} tone="danger" label={reason} />
-                    </Inline>
-
                     {missing.length === 0 ? null : (
                         <Inline space="xs">
                             <Text variant="caption" tone="secondary">
@@ -91,7 +85,9 @@ export function ForbiddenScreen({
                                     key={key}
                                     testID={`${testID}-missing-${key}`}
                                     tone="warning"
-                                    label={key}
+                                    label={t(`accessAdmin:codes.${key}.name` as never, {
+                                        defaultValue: key,
+                                    })}
                                 />
                             ))}
                         </Inline>

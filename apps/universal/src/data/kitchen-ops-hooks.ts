@@ -1265,16 +1265,52 @@ export function useCreateBranchMutation(): UseMutationResult<void, unknown, Crea
 }
 
 /** The shelves repeating a name that need a person. */
-export function useDuplicateStockQuery(): UseQueryResult<readonly DuplicateStockGroup[]> {
+export function useDuplicateStockQuery(
+    enabled = true,
+    staleTime?: number,
+): UseQueryResult<readonly DuplicateStockGroup[]> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.kitchenOps.duplicateStock(),
-        enabled: repositories !== null,
+        enabled: enabled && repositories !== null,
+        // The home passes its own longer staleTime; the duplicates page keeps the client default.
+        ...(staleTime === undefined ? {} : { staleTime }),
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.kitchenOps.listDuplicateStock();
         },
+    });
+}
+
+/** Links a counted-out shelf with history into its twin, then re-reads the ops lists. */
+export function useMergeDuplicateStockMutation(): UseMutationResult<
+    void,
+    unknown,
+    { readonly keepId: string; readonly dropId: string }
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ keepId, dropId }) =>
+            repositories.kitchenOps.mergeDuplicateStock(keepId, dropId),
+        onSuccess: onWritten,
+    });
+}
+
+/** Keeps a group of same-named shelves as different things, then re-reads the ops lists. */
+export function useDismissDuplicateStockMutation(): UseMutationResult<
+    void,
+    unknown,
+    readonly string[]
+> {
+    const repositories = useRepositories();
+    const onWritten = useKitchenOpsWriteEffects();
+
+    return useMutation({
+        mutationFn: (stockItemIds) => repositories.kitchenOps.dismissDuplicateStock(stockItemIds),
+        onSuccess: onWritten,
     });
 }
 
@@ -1720,12 +1756,19 @@ export function useRecordCookingTemperatureMutation(): UseMutationResult<
     RecordCookingTemperatureRequest
 > {
     const repositories = useRepositories();
+    const queryClient = useQueryClient();
     const onWritten = useTemperatureLogWritten();
 
     return useMutation({
         retry: false,
         mutationFn: (request) => repositories.kitchenOps.recordCookingTemperature(request),
-        onSuccess: onWritten,
+        onSuccess: (_result, request) => {
+            onWritten();
+            // The batch page shows its readings too.
+            void queryClient.invalidateQueries({
+                queryKey: queryKeys.kitchenOps.productionOrder(request.productionOrderId),
+            });
+        },
     });
 }
 

@@ -68,6 +68,7 @@ import { DeliveryWindowsScreen } from './screens/delivery-windows-screen.tsx';
 import { DeliveryZoneEditScreen } from './screens/delivery-zone-edit-screen.tsx';
 import { DeliveryZonesScreen } from './screens/delivery-zones-screen.tsx';
 import { KitchenHomeScreen } from './screens/kitchen-home-screen.tsx';
+import { StorefrontProfileScreen } from './screens/storefront-profile-screen.tsx';
 
 /*
  * The Commercial lists are desk surfaces: above  a row draws every column the spec declares.
@@ -1856,6 +1857,71 @@ describe('the kitchen service timings', () => {
 
         expect(screen.queryByTestId('kitchen-service-timings')).toBeNull();
         expect(repositories.staffAlerts.getServiceSettings).not.toHaveBeenCalled();
+    });
+});
+
+describe('the storefront profile', () => {
+    const PROFILE = {
+        tagline: { en: 'Grilled, never fried', ar: '' },
+        description: { en: '', ar: '' },
+        cuisines: { en: ['Lebanese'], ar: [] },
+    };
+
+    it('reads the copy and saves the cuisines typed with either comma as a list', async () => {
+        const { repositories } = await renderStubScreen(<StorefrontProfileScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                staffAlerts: {
+                    getStorefrontProfile: async () => PROFILE,
+                    saveStorefrontProfile: async (saved) => saved,
+                },
+            },
+        });
+        await untilVisible('kitchen-storefront-profile');
+
+        expect(screen.getByTestId('kitchen-storefront-profile-cuisines-en-input').props.value).toBe(
+            'Lebanese',
+        );
+
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-storefront-profile-cuisines-ar-input'),
+                'لبناني، مشاوي, ',
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-storefront-profile-save'));
+        });
+
+        await untilVisible('kitchen-storefront-profile-saved-toast');
+        expect(repositories.staffAlerts.saveStorefrontProfile).toHaveBeenCalledWith({
+            ...PROFILE,
+            cuisines: { en: ['Lebanese'], ar: ['لبناني', 'مشاوي'] },
+        });
+    });
+
+    it('refuses a reader', async () => {
+        const { repositories } = await renderStubScreen(<StorefrontProfileScreen />, {
+            session: kitchenManagerSession({
+                memberships: [testMembership({ branches: [testBranch()] })],
+                activeContext: testActiveContext({ permissions: ['catalogue.view_organisation'] }),
+            }),
+        });
+        await untilVisible('kitchen-storefront-forbidden');
+
+        expect(screen.queryByTestId('kitchen-storefront-profile')).toBeNull();
+        expect(repositories.staffAlerts.getStorefrontProfile).not.toHaveBeenCalled();
+    });
+
+    it('is no longer drawn on the opening hours page', async () => {
+        const { repositories } = await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenSession(),
+            repositories: { kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING } },
+        });
+        await untilVisible('kitchen-branch-hours-screen');
+
+        expect(screen.queryByTestId('kitchen-storefront-profile')).toBeNull();
+        expect(repositories.staffAlerts.getStorefrontProfile).not.toHaveBeenCalled();
     });
 });
 

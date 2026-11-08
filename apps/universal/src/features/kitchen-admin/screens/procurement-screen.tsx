@@ -446,6 +446,21 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                                               timeZone: 'UTC',
                                           }),
                                       })}`}
+                                {/* Only where the server compared it; redacted without the cost code. */}
+                                {line.priceVariancePercent === null
+                                    ? ''
+                                    : ` · ${t(
+                                          Number(line.priceVariancePercent) > 0
+                                              ? 'kitchen:ops.ledger.varianceUp'
+                                              : Number(line.priceVariancePercent) < 0
+                                                ? 'kitchen:ops.ledger.varianceDown'
+                                                : 'kitchen:ops.ledger.varianceFlat',
+                                          {
+                                              percent: formatter.formatNumber(
+                                                  Math.abs(Number(line.priceVariancePercent)),
+                                              ),
+                                          },
+                                      )}`}
                             </Text>
                         ))}
                     </Stack>
@@ -459,7 +474,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                               icon: null,
                               onPress: () => {
                                   setViewing(null);
-                                  router.push('/kitchen/procurement/unpriced-receipts' as never);
+                                  router.push('/kitchen/supplier-bills?tab=unpriced' as never);
                               },
                           },
                       }
@@ -605,7 +620,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                                 variant="ghost"
                                 label={t('kitchen:ops.procurement.unpricedReceipts')}
                                 onPress={() => {
-                                    router.push('/kitchen/procurement/unpriced-receipts' as never);
+                                    router.push('/kitchen/supplier-bills?tab=unpriced' as never);
                                 }}
                             />
                         ) : null}

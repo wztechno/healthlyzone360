@@ -148,10 +148,13 @@ export function TextLink({
     label,
     onPress,
     align = 'center',
+    accessibilityHint,
     testID,
 }: {
     readonly label: string;
     readonly onPress: () => void;
+    /** What pressing it does, when the label alone does not say (the driver's address opens maps). */
+    readonly accessibilityHint?: string | undefined;
     /**
      * Where the label sits inside its 44px target. `end` puts it on the target's foot, for a link
      * beside a line of text it must share a baseline with — `ListingHeader`'s count.
@@ -165,6 +168,7 @@ export function TextLink({
             role="link"
             accessibilityRole="link"
             accessibilityLabel={label}
+            {...(accessibilityHint === undefined ? {} : { accessibilityHint })}
             onPress={onPress}
             className={cx(
                 'min-h-touch self-start',

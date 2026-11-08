@@ -176,6 +176,10 @@ final readonly class RecipeVersionReadiness
      * carries nothing" is recorded. An ingredient with neither has simply not
      * been assessed, and that is not the same as being clear.
      *
+     * An ingredient a published recipe produces is assessed by that recipe
+     * (`allergens_derived_from_version_id`, T3), even when its label is empty:
+     * the sauce's own gate already held every one of its lines to this rule.
+     *
      * @param  list<string>  $ingredientIds
      * @param  array<string, array<string, array{containment: AllergenContainment, market_scopes: list<string>}>>  $effective
      * @return list<string>
@@ -193,7 +197,9 @@ final readonly class RecipeVersionReadiness
 
         $verified = Ingredient::withoutTenancy()
             ->whereIn('id', $candidates)
-            ->where('verification_status', IngredientVerificationStatus::Verified->value)
+            ->where(static fn ($query) => $query
+                ->where('verification_status', IngredientVerificationStatus::Verified->value)
+                ->orWhereNotNull('allergens_derived_from_version_id'))
             ->pluck('id')
             ->map(static fn (mixed $id): string => (string) $id)
             ->all();

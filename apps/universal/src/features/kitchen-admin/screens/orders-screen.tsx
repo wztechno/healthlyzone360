@@ -56,6 +56,7 @@ import {
     useRedeliverOrderMutation,
 } from '../../../data/kitchen-orders-hooks.ts';
 import { useOrderDeskDeliveryWindowsQuery } from '../../../data/order-desk-hooks.ts';
+import { useOnlineStatus } from '../../../online/online-status.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
@@ -103,6 +104,7 @@ import {
     useRememberedQuery,
 } from '../list-memory.ts';
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
+import { ORDER_DESK_POLL_MS } from './order-desk-screen.tsx';
 
 /** The order `?view=` names, read on its own when the loaded page does not hold it. */
 function useOrderById(id: string | null) {
@@ -210,7 +212,10 @@ function Orders({ view }: { readonly view?: string | undefined }) {
         [status, deliveryDate, trimmed, cursor],
     );
 
-    const orders = useKitchenOrdersQuery(filters);
+    // Polled like the desk queue, so an order placed while the book is open appears on its own.
+    // Offline the interval stops, as the desk's does.
+    const { online } = useOnlineStatus();
+    const orders = useKitchenOrdersQuery(filters, true, online ? ORDER_DESK_POLL_MS : false);
     const page = orders.data ?? null;
     const rows = useMemo(() => [...carried, ...(page?.items ?? [])], [carried, page]);
     // The open order is an address, `?view=`, so Back and a refresh keep it open.
@@ -705,6 +710,7 @@ function OrderRecord({
     const started = (order?.preparingAt ?? order?.readyAt ?? null) !== null;
     const pickedUp = (order?.delivery.pickedUpAt ?? null) !== null;
     const run = order?.deliveryRun ?? null;
+    const remakeOf = order?.remakeOf ?? null;
     // A failed run waits for a manager, and is not marked delivered until it has been sent out again.
     const failed = run?.status === 'failed';
     const courierName = run?.courierName ?? null;
@@ -876,6 +882,37 @@ function OrderRecord({
 
     // Every action the order has left, behind the pop-up's ⋯ after `forward`.
     const orderActions: RecordAction[] = [
+        ...(order === null
+            ? []
+            : [
+                  {
+                      key: 'print-ticket',
+                      label: t('kitchen:kds.print'),
+                      icon: 'fileText' as const,
+                      testID: 'kitchen-orders-print-ticket',
+                      onSelect: () => {
+                          router.push(
+                              `/kitchen/orders/ticket?order=${encodeURIComponent(String(order.id))}` as never,
+                          );
+                      },
+                  },
+              ]),
+        // A complaint's remake links back to the order complained about.
+        ...(remakeOf === null
+            ? []
+            : [
+                  {
+                      key: 'remake-of',
+                      label: t('kitchen:ops.orders.remakeOf', { number: remakeOf.number }),
+                      icon: 'chevronBackward' as const,
+                      testID: 'kitchen-orders-remake-of',
+                      onSelect: () => {
+                          router.push(
+                              `/kitchen/orders?view=${encodeURIComponent(String(remakeOf.id))}` as never,
+                          );
+                      },
+                  },
+              ]),
         ...(order === null || !failed || !canSupervise
             ? []
             : [
@@ -1085,6 +1122,13 @@ function OrderRecord({
                             testID="kitchen-orders-detail-cancellation-reason"
                             label={t('kitchen:ops.orders.cancellationReason')}
                             value={t(kitchenOrderCancellationReasonKey(shown.cancellationReason))}
+                        />
+                    )}
+                    {(shown.cancelledByName ?? null) === null ? null : (
+                        <FactRow
+                            testID="kitchen-orders-detail-cancelled-by"
+                            label={t('kitchen:ops.orders.cancelledBy')}
+                            value={shown.cancelledByName ?? ''}
                         />
                     )}
                     {(shown.cancellationDisposition ?? null) === null ? null : (

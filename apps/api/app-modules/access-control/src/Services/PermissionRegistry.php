@@ -810,8 +810,8 @@ final class PermissionRegistry
             'kitchen_staff' => [
                 'name_en' => 'Cook',
                 'name_ar' => 'الطاهي',
-                'description_en' => 'Reads recipes and stock, and starts and finishes orders on the kitchen display. Sees no money.',
-                'description_ar' => 'يقرأ الوصفات والمخزون، ويبدأ الطلبات وينهيها على شاشة المطبخ. لا يرى أي مبالغ.',
+                'description_en' => 'Reads recipes, stock and production batches, and starts and finishes orders on the kitchen display. Sees no money.',
+                'description_ar' => 'يقرأ الوصفات والمخزون ودفعات الإنتاج، ويبدأ الطلبات وينهيها على شاشة المطبخ. لا يرى أي مبالغ.',
                 'permissions' => [
                     'catalogue.view_organisation',
                     'recipe.view_organisation',
@@ -827,6 +827,11 @@ final class PermissionRegistry
                     // serves it with the money taken off, so this role still reads
                     // no price, which is what the comment above promises.
                     'order.prepare_organisation',
+
+                    // Owner, 8 Nov 2026. A cook opens the batch they are
+                    // cooking and records its core temperature. The view code
+                    // only: money on a batch needs `production.view_costs_organisation`.
+                    'production.view_organisation',
                 ],
             ],
 

@@ -1,4 +1,8 @@
-import type { ProductionOrder, ProductionPlan } from '@healthy360/api-client/contracts';
+import type {
+    CookingTemperature,
+    ProductionOrder,
+    ProductionPlan,
+} from '@healthy360/api-client/contracts';
 import {
     Badge,
     Button,
@@ -38,7 +42,12 @@ import type {
     RecordLensFigure,
     RecordLensStep,
 } from '../catalogue/record-lens.tsx';
-import { PRODUCTION_MANAGE_PERMISSION, PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
+import {
+    INVENTORY_MANAGE_PERMISSION,
+    ORDER_PREPARE_PERMISSION,
+    PRODUCTION_MANAGE_PERMISSION,
+    PRODUCTION_VIEW_PERMISSION,
+} from '../entity-registry.ts';
 import { formatMoney, knownCurrency, localDay } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { BATCH_QUANTITY_FORMAT } from '../operations/batch-sheet.tsx';
@@ -52,6 +61,7 @@ import { formatLot } from '../production-desk/batch-figures.ts';
 import { BatchLinesPanel } from '../production-desk/batch-lines-panel.tsx';
 import { BatchPlanPanel } from '../production-desk/batch-plan-panel.tsx';
 import { BatchSettlementDialog } from '../production-desk/batch-settlement-dialog.tsx';
+import { CoreTemperatureDialog } from '../production-desk/core-temperature-dialog.tsx';
 import type { CompletionDraft } from '../production-desk/completion-model.ts';
 import {
     abandonRequest,
@@ -143,6 +153,11 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
     const returnLabel = returnCrumbLabel(back.returnTo, t);
     const toast = useToast();
     const canManage = useCan(PRODUCTION_MANAGE_PERMISSION);
+    // Whoever may write the temperature log: the cook at the pot or the storekeeper.
+    const canRecordTemperature = useCan(
+        [ORDER_PREPARE_PERMISSION, INVENTORY_MANAGE_PERMISSION],
+        'any',
+    );
 
     const parsed = order === undefined ? null : ProductionOrderId.safeParse(order);
     const record = useProductionOrderQuery(parsed);
@@ -156,6 +171,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
     const [settlement, setSettlement] = useState<Settlement>(null);
     const [draft, setDraft] = useState<CompletionDraft>(() => emptyCompletionDraft(todayIso()));
     const [cancelling, setCancelling] = useState(false);
+    const [probing, setProbing] = useState(false);
     /*
      * A completion or write-off half typed is work to lose: leaving by the trail, the sidebar or the
      * browser's Back asks first. Measured against a blank form on the same day, so an opened and
@@ -222,6 +238,10 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
     const batch = detail.order;
     const edge = nextProductionEdge(batch.status);
     const settling = batch.status === 'in_production';
+    // A core temperature is taken while the batch cooks or after; never before it starts, and
+    // never on one that was called off or abandoned.
+    const probeable =
+        batch.startedAt !== null && batch.status !== 'cancelled' && batch.status !== 'abandoned';
     const noValue = t('kitchen:list.noValue');
 
     const openSettlement = (mode: Exclude<Settlement, null>) => {
@@ -380,7 +400,8 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                                 }}
                             />
                         )}
-                        {batch.lotNumber === null ? null : (
+                        {/* The lot shows from start; the label waits for a use-by, its barcode's. */}
+                        {batch.barcode === null ? null : (
                             <Button
                                 testID="kitchen-production-batch-label"
                                 variant="secondary"
@@ -393,6 +414,17 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                                 }}
                             />
                         )}
+                        {canRecordTemperature && probeable ? (
+                            <Button
+                                testID="kitchen-production-batch-temperature"
+                                variant="secondary"
+                                size="sm"
+                                label={t('kitchen:ops.production.recordCoreTemperature')}
+                                onPress={() => {
+                                    setProbing(true);
+                                }}
+                            />
+                        ) : null}
                         {canManage && isCallableOff(batch) ? (
                             <Button
                                 testID="kitchen-production-batch-cancel"
@@ -445,6 +477,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                 note={batch.notes}
                 facts={[
                     ...recordFacts(batch, formatter, noValue, t),
+                    coreTemperatureFact(detail.coreTemperatures[0], formatter, noValue, t),
                     ...(detail.costsVisible
                         ? costFacts(batch, detail.plan, formatter, noValue, t)
                         : [costsHiddenFact(noValue, t)]),
@@ -489,6 +522,15 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                 submitting={completeBatch.isPending || abandonBatch.isPending}
                 failureMessage={settlementFailure?.message ?? null}
             />
+
+            {probing ? (
+                <CoreTemperatureDialog
+                    batchId={batch.id}
+                    onClose={() => {
+                        setProbing(false);
+                    }}
+                />
+            ) : null}
 
             <Dialog
                 testID="kitchen-production-batch-cancel-dialog"
@@ -680,6 +722,37 @@ function recordFacts(
                   ),
               ]),
     ];
+}
+
+/** The newest core temperature, when, and who took it — or the dash before anybody has. */
+function coreTemperatureFact(
+    latest: CookingTemperature | undefined,
+    formatter: Formatter,
+    noValue: string,
+    t: TFunction,
+): RecordLensFact {
+    return {
+        key: 'core-temperature',
+        label: t('kitchen:temperature.columnCore'),
+        value: 0,
+        display:
+            latest === undefined
+                ? noValue
+                : [
+                      t('kitchen:temperature.celsius', { value: latest.celsius }),
+                      // Today's reading by its time alone; an older one says which day too.
+                      formatter.formatDate(
+                          latest.recordedAt,
+                          todayIso(new Date(latest.recordedAt)) === todayIso()
+                              ? { timeStyle: 'short' }
+                              : { dateStyle: 'short', timeStyle: 'short' },
+                      ),
+                      latest.recordedByName,
+                  ]
+                      .filter(Boolean)
+                      .join(' · '),
+        testID: 'kitchen-production-batch-core-temperature',
+    };
 }
 
 /**

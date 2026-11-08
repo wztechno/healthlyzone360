@@ -298,11 +298,24 @@ export interface KitchenOrder {
      * until `fulfilledAt`. Absent on payloads that predate it, which reads as "not ready".
      */
     readonly readyAt?: IsoDateTime | null;
+    /**
+     * When the order is due — its requested day at its window's start in the branch's zone, else
+     * when it was placed. Sent by the kitchen display only (`getDisplay`), which sorts by it; absent,
+     * or `null`, everywhere else.
+     */
+    readonly dueAt?: IsoDateTime | null;
     readonly fulfilledAt: IsoDateTime | null;
     readonly cancelledAt: IsoDateTime | null;
     readonly cancellationReason: KitchenOrderCancellationReason | null;
     /** Null on anything but a cancellation after cooking started; absent on older payloads. */
     readonly cancellationDisposition?: KitchenOrderCancellationDisposition | null;
+    /**
+     * Who cancelled it, by their profile name. `null` when it is not cancelled, when a system job
+     * cancelled it, or when that person has no name; absent on older payloads.
+     */
+    readonly cancelledByName?: string | null;
+    /** The order a complaint's remake replaces. `null` on any other order; absent on older payloads. */
+    readonly remakeOf?: { readonly id: OrderId; readonly number: string } | null;
     /**
      * The order's delivery run — who is driving it and when they were given it, collected it and
      * handed it over. `null` on a pickup or counter order and on a delivery order not yet confirmed

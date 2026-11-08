@@ -94,7 +94,7 @@ final readonly class DishMargins
     public function list(): Collection
     {
         return DishMargin::query()
-            ->with('catalogueItem:id,name_en,name_ar')
+            ->with('catalogueItem:id,name_en,name_ar,item_type')
             ->orderByRaw('margin_percent asc nulls last')
             ->orderBy('id')
             ->get();

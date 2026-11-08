@@ -23,6 +23,7 @@ export type { Density, DensityProviderProps } from './hooks/use-density.tsx';
 export { useTheme } from './hooks/use-theme.ts';
 export type { UseThemeResult } from './hooks/use-theme.ts';
 export { BREAKPOINT_ORDER, useBreakpoint } from './hooks/use-breakpoint.ts';
+export { useHydrated } from './hooks/use-hydrated.ts';
 export {
     ContentWidthProvider,
     contentWidthFor,

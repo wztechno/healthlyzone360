@@ -223,13 +223,17 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                 }
                 clearLabel={t('kitchen:lens.clear')}
                 // The category is the scope the reader stands in, so Clear leaves it.
-                {...(list.trimmed === '' && list.statuses.length === 0 && list.allergen === null
+                {...(list.trimmed === '' &&
+                list.statuses.length === 0 &&
+                list.allergen === null &&
+                !list.uncosted
                     ? {}
                     : {
                           onClear: () => {
                               list.setQuery('');
                               list.setStatuses([]);
                               list.setAllergen(null);
+                              list.setUncosted(false);
                           },
                       })}
                 trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
@@ -428,9 +432,10 @@ const ALL_SCOPE = '*';
 /**
  * The Lens bar's figures: All · Published · Draft, then the two that block publishing.
  *
- * Missing Arabic and Uncosted are read-only: `IngredientAdminFilter` carries no parameter for
- * either, and a figure that looked pressable and did nothing would be worse than one that plainly
- * does not. They count the rows the list shows — the status included — like the cards did.
+ * Missing Arabic is read-only: `IngredientAdminFilter` carries no parameter for it, and a figure
+ * that looked pressable and did nothing would be worse than one that plainly does not. Uncosted
+ * narrows the list on the client (`useIngredientList`), and pressing it again lets go. Both count
+ * the rows the list shows — the status included — like the cards did.
  */
 function lensFigures(list: IngredientListState, t: TFunction): readonly LensFigure[] {
     const counted = (count: number) => (list.countsPending ? null : count);
@@ -451,6 +456,11 @@ function lensFigures(list: IngredientListState, t: TFunction): readonly LensFigu
             label: t('kitchen:list.statUnpriced'),
             value: counted(list.uncostedCount),
             tone: 'warning',
+            active: list.uncosted,
+            onPress: () => {
+                list.setUncosted(!list.uncosted);
+            },
+            accessibilityLabel: t('kitchen:lens.uncostedAction'),
         },
     ];
 }
@@ -472,8 +482,22 @@ function lensTokens(list: IngredientListState, t: TFunction, locale: string): re
                           : displayName(allergen.name, locale).value,
               });
 
+    const uncostedLabel = t('kitchen:list.statUnpriced');
+
     return [
         ...statusLensTokens(list, t),
+        ...(list.uncosted
+            ? [
+                  {
+                      key: 'uncosted',
+                      label: uncostedLabel,
+                      removeLabel: t('kitchen:toolbar.removeFilter', { filter: uncostedLabel }),
+                      onRemove: () => {
+                          list.setUncosted(false);
+                      },
+                  },
+              ]
+            : []),
         ...(allergenLabel === null
             ? []
             : [

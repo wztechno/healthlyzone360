@@ -41,7 +41,7 @@ import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
 
 /**
- * `/kitchen/order-desk/settlement` — cash coming back from the road.
+ * `/kitchen/order-desk/cash?tab=handins` — cash coming back from the road.
  *
  * Three lists on one page, in the cash report's table: drivers holding cash, couriers owing a batch,
  * and the recent hand-ins. Pressing Settle opens the runs behind a row. There is no shift table, so

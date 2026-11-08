@@ -30,10 +30,20 @@ use Illuminate\Support\Carbon;
  * @property string|null $unit_id FK to measurement_units (INV1.0)
  * @property string|null $ingredient_id the cost anchor — set on every derived row, resold products included
  * @property string|null $catalogue_item_id set when this shelf is a resold product (INV2.0)
+ * @property string|null $merged_into_stock_item_id the shelf this one was merged into, history and all; hidden from lists once set
+ * @property Carbon|null $duplicate_dismissed_at a person said this and its same-named shelves are different things
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
 class StockItem extends BaseModel implements OrganisationScoped
 {
     use BelongsToOrganisation;
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return ['duplicate_dismissed_at' => 'datetime'];
+    }
 }

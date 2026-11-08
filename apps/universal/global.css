@@ -256,7 +256,13 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
     [data-testid='kitchen-list-print-screen'],
     [data-testid='kitchen-list-print-sheets'],
     [data-testid='kitchen-recipe-sheets-print-screen'],
-    [data-testid='kitchen-recipe-sheets-print-sheets'] {
+    [data-testid='kitchen-recipe-sheets-print-sheets'],
+    /* The kitchen ticket prints from the KDS area too, whose shell is `kds-shell`. */
+    [data-testid='kds-shell'],
+    [data-testid='kds-shell-content'],
+    [data-testid='kds-shell-content'] > div,
+    [data-testid='kds-ticket-print-screen'],
+    [data-testid='kds-ticket-print-sheets'] {
         display: block !important;
         height: auto !important;
         max-height: none !important;
@@ -277,7 +283,8 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
     body :has([data-testid='kitchen-production-label-sheets']),
     body :has([data-testid='kitchen-ingredient-label-sheets']),
     body :has([data-testid='kitchen-list-print-sheets']),
-    body :has([data-testid='kitchen-recipe-sheets-print-sheets']) {
+    body :has([data-testid='kitchen-recipe-sheets-print-sheets']),
+    body :has([data-testid='kds-ticket-print-sheets']) {
         display: block !important;
         height: auto !important;
         max-height: none !important;
@@ -301,7 +308,14 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
     [data-testid='kitchen-production-label-toolbar'],
     [data-testid='kitchen-ingredient-label-toolbar'],
     [data-testid='kitchen-list-print-toolbar'],
-    [data-testid='kitchen-recipe-sheets-print-toolbar'] {
+    [data-testid='kitchen-recipe-sheets-print-toolbar'],
+    [data-testid='kds-shell-topbar'],
+    [data-testid='kds-shell-sidebar'],
+    [data-testid='kds-shell-navigation'],
+    [data-testid='kds-shell-drawer'],
+    [data-testid='kds-shell-dock'],
+    [data-testid='kds-shell-rail-panel'],
+    [data-testid='kds-ticket-print-toolbar'] {
         display: none !important;
     }
 
@@ -349,7 +363,8 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
         page-break-after: auto;
     }
 
-    [data-testid='kitchen-list-print-sheets'] > [data-testid='kitchen-list-print-sheet'] {
+    [data-testid='kitchen-list-print-sheets'] > [data-testid='kitchen-list-print-sheet'],
+    [data-testid='kds-ticket-print-sheets'] > [data-testid='kds-ticket-print-sheet'] {
         max-width: none !important;
         margin: 0 !important;
         padding: 0 !important;
@@ -376,7 +391,9 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
     [data-testid='kitchen-list-print-sheets'],
     [data-testid='kitchen-list-print-sheets'] *,
     [data-testid='kitchen-recipe-sheets-print-sheets'],
-    [data-testid='kitchen-recipe-sheets-print-sheets'] * {
+    [data-testid='kitchen-recipe-sheets-print-sheets'] *,
+    [data-testid='kds-ticket-print-sheets'],
+    [data-testid='kds-ticket-print-sheets'] * {
         color: #000 !important;
         background-color: transparent !important;
         background-image: none !important;

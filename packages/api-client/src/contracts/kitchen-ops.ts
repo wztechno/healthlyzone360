@@ -21,7 +21,8 @@ import type {
     UserId,
 } from '@healthy360/domain-types';
 
-import type { LocalisedText } from './kitchen-admin.ts';
+import type { LocalisedText, RecipeSellerKind } from './kitchen-admin.ts';
+import type { CookingTemperature } from './temperature-logs.ts';
 import type { CursorPage, CursorPageRequest, OffsetPageRequest } from './pagination.ts';
 
 /**
@@ -131,6 +132,17 @@ export interface SetStockThresholdRequest {
 export const STOCK_MOVEMENT_REASONS = ['adjust', 'waste', 'receipt', 'consume', 'yield'] as const;
 export type StockMovementReason = (typeof STOCK_MOVEMENT_REASONS)[number];
 
+/** Why food was thrown away. Only `other` needs a note. */
+export const STOCK_WASTE_REASONS = [
+    'expired',
+    'spoiled',
+    'damaged',
+    'overproduced',
+    'customer_return',
+    'other',
+] as const;
+export type StockWasteReason = (typeof STOCK_WASTE_REASONS)[number];
+
 export interface StockMovement {
     readonly id: string;
     /** Signed — negative for waste and consumption, positive for receipts, yields and increases. */
@@ -150,6 +162,9 @@ export interface StockActivityMovement {
     readonly costMinor: number | null;
     readonly currencyCode: CurrencyCode | null;
     readonly notes: string | null;
+    /** Waste rows only; one from before reasons were recorded reads as `other`. */
+    readonly wasteReason: StockWasteReason | null;
+    readonly orderId: string | null;
     readonly orderNumber: string | null;
     /** A deduction for an order cancelled as wasted. */
     readonly wastedOrder: boolean;
@@ -177,6 +192,8 @@ export interface ActivityEntry {
     readonly action: string;
     readonly actorName: string | null;
     readonly subjectType: string;
+    /** Set when the subject is an order. */
+    readonly orderId: string | null;
     readonly orderNumber: string | null;
     readonly metadata: Readonly<Record<string, unknown>>;
 }
@@ -206,8 +223,9 @@ export interface StockWasteRequest {
     readonly stockItemId: StockItemId;
     /** Always positive; the server signs it negative on the ledger. */
     readonly quantity: number;
-    /** Why. The server refuses waste without one. */
-    readonly notes: string;
+    readonly reason: StockWasteReason;
+    /** Required when the reason is `other`. */
+    readonly notes: string | null;
 }
 
 /** A stock count: what the shelf holds. The server posts the difference from the ledger. */
@@ -915,6 +933,8 @@ export interface DishMargin {
     readonly id: string;
     readonly catalogueItemId: string;
     readonly name: LocalisedText;
+    /** The kind the dish is sold as — the `?kind=` its recipe opens under. */
+    readonly itemType: RecipeSellerKind;
     readonly channel: 'b2c' | 'b2b';
     readonly priceAmount: string | null;
     readonly costAmount: string | null;
@@ -1054,6 +1074,13 @@ export interface GoodsReceiptLine extends ReceiptLineTraceability {
     readonly unitPriceAmount: string | null;
     readonly lineTotalAmount: string | null;
     readonly costCurrencyCode: string | null;
+    /**
+     * The last priced delivery of this shelf before this one, per this line's unit (mass and volume
+     * convert), and this price against it in percent. Both `null` for a first purchase, across
+     * currencies or units that do not convert, or when costs are redacted.
+     */
+    readonly lastUnitPriceAmount: string | null;
+    readonly priceVariancePercent: string | null;
     /**
      * When this line's money was settled (SUP5). `null` means the costing path has not run and price
      * completion may still act on it — the guard that stops one quantity being costed twice. Never
@@ -1376,6 +1403,13 @@ export interface PurchaseLedgerLine extends ReceiptLineTraceability {
     readonly unitPriceAmount: string | null;
     readonly lineTotalAmount: string | null;
     readonly costCurrencyCode: string | null;
+    /**
+     * The last priced delivery of this shelf before this one, per this line's unit (mass and volume
+     * convert), and this price against it in percent. Both `null` for a first purchase, across
+     * currencies or units that do not convert, or when costs are redacted.
+     */
+    readonly lastUnitPriceAmount: string | null;
+    readonly priceVariancePercent: string | null;
     /** This line's price is recorded and its valuation waits on an exchange rate (SUP5). */
     readonly valuationPendingFx: boolean;
     readonly costsRedacted: boolean;
@@ -1442,6 +1476,8 @@ export interface MonthlyCostReportRow {
     readonly revenueAmount: string;
     /** Refunds completed this month, major units. Already off `revenueAmount`. */
     readonly refundsAmount: string;
+    /** Couriers' fees on prepaid runs that the kitchen paid, major units. Outside COGS and the margin. */
+    readonly courierExpenseAmount: string;
     /** Revenue minus COGS, major units, or `null` when withheld. */
     readonly grossMarginAmount: string | null;
     /** Margin as a percentage of revenue, or `null` when revenue is zero or the margin is withheld. */
@@ -2165,6 +2201,8 @@ export interface ProductionOrderDetail {
     readonly order: ProductionOrder;
     readonly lines: readonly ProductionOrderLine[];
     readonly plan: ProductionPlan | null;
+    /** Its core-temperature readings, newest first. Empty when none were taken. */
+    readonly coreTemperatures: readonly CookingTemperature[];
     /** Whether this reader holds `production.view_costs_organisation`. */
     readonly costsVisible: boolean;
 }
@@ -2596,6 +2634,14 @@ export interface KitchenOpsRepository {
     createBranch(request: CreateBranchRequest): Promise<void>;
     /** Stock shelves repeating a name that need a person. Needs `inventory.view_organisation`. */
     listDuplicateStock(): Promise<readonly DuplicateStockGroup[]>;
+    /**
+     * Links a shelf with history, counted to zero in every branch, into its same-named twin. No
+     * movement changes; the dropped shelf leaves the lists. Refused `resource.conflict` with a
+     * `reason` (`stock_remaining`, `different_units`, `open_work`, …). Needs `inventory.manage_organisation`.
+     */
+    mergeDuplicateStock(keepId: string, dropId: string): Promise<void>;
+    /** Keeps same-named shelves as different things; the group leaves the list. Needs `inventory.manage_organisation`. */
+    dismissDuplicateStock(stockItemIds: readonly string[]): Promise<void>;
     /**
      * How many exceptions are unresolved right now, scoped to the active branch context (`X-Branch-Id`)
      * or the whole organisation when none is set — the count the hub badge and review KPI read.

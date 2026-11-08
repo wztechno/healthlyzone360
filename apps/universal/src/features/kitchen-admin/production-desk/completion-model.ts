@@ -92,6 +92,7 @@ export interface CompletionErrors {
     readonly produced?: string;
     readonly rejected?: string;
     readonly reason?: string;
+    readonly expiry?: string;
 }
 
 /**
@@ -99,13 +100,20 @@ export interface CompletionErrors {
  *
  * Deliberately short. The server owns the real rules — a consumption above what is available, a
  * shelf in another currency — and a client that tried to pre-empt them would be a second, staler
- * copy of them. These three are the ones where the *form itself* is incoherent.
+ * copy of them. The first three are the ones where the *form itself* is incoherent.
+ *
+ * The fourth is a server rule held here too: food on a shelf needs a use-by, and with no shelf life
+ * on the recipe only the cook can give one. The server refuses it as well (`expiry_date`); asking
+ * here says so beside the field rather than after the button.
+ *
+ * @param shelfLifeDays the recipe's, or `null` when it has none and the cook types the use-by
  */
 export function completionErrors(
     draft: CompletionDraft,
     mode: 'complete' | 'abandon',
+    shelfLifeDays: number | null,
 ): CompletionErrors {
-    const errors: { produced?: string; rejected?: string; reason?: string } = {};
+    const errors: { produced?: string; rejected?: string; reason?: string; expiry?: string } = {};
     const produced = readNumber(draft.produced);
     const rejected = readNumber(draft.rejected);
 
@@ -119,6 +127,14 @@ export function completionErrors(
 
     if (mode === 'abandon' && draft.reason.trim() === '') {
         errors.reason = 'kitchen:ops.production.abandonReasonRequired';
+    }
+
+    if (
+        shelfLifeDays === null &&
+        draft.expiryDate === null &&
+        (produced ?? 0) - (rejected ?? 0) > 0
+    ) {
+        errors.expiry = 'kitchen:ops.production.expiryRequired';
     }
 
     return errors;

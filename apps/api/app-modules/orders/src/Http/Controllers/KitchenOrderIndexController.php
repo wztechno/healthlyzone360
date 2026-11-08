@@ -86,6 +86,7 @@ final class KitchenOrderIndexController
         $runs = $this->runs->forOrders(array_map('strval', $page['items']->modelKeys()));
         $amendable = $this->amendability->reasons($page['items'], $lines);
         $this->presenter->preloadPlanDays(array_values(array_map('strval', $page['items']->modelKeys())));
+        $this->presenter->preloadRemakes(array_values(array_map('strval', $page['items']->modelKeys())));
 
         return ApiResponse::data(
             $page['items']->map(fn (Order $order): array => $this->presenter->kitchen(

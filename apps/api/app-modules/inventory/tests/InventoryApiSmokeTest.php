@@ -158,6 +158,7 @@ it('records waste as a negative movement', function (): void {
         'branch_id' => (string) $this->branch->getKey(),
         'stock_item_id' => (string) $item->getKey(),
         'quantity' => 3,
+        'reason' => 'other',
         'notes' => 'Dropped',
     ], $this->headers)->assertCreated()
         ->assertJsonPath('data.movement.quantity_delta', '-3.0000');
@@ -173,7 +174,7 @@ it('refuses waste or a decrease that would take the shelf below zero, and posts 
 
     $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => 2, 'notes' => 'Counted'], $this->headers)->assertCreated();
 
-    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => 2.5, 'notes' => 'Dropped'], $this->headers)
+    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => 2.5, 'reason' => 'damaged', 'notes' => 'Dropped'], $this->headers)
         ->assertStatus(409)
         ->assertJsonPath('error.code', 'inventory.insufficient_stock');
     $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => -2.5, 'notes' => 'Counted'], $this->headers)
@@ -182,7 +183,7 @@ it('refuses waste or a decrease that would take the shelf below zero, and posts 
     expect(StockLevel::withoutTenancy()->where('stock_item_id', $item->getKey())->value('quantity'))->toBe('2.0000');
 
     // Exactly what is on the shelf is fine: it empties, it does not go under.
-    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => 2, 'notes' => 'Dropped'], $this->headers)->assertCreated();
+    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => 2, 'reason' => 'damaged', 'notes' => 'Dropped'], $this->headers)->assertCreated();
 
     expect(StockLevel::withoutTenancy()->where('stock_item_id', $item->getKey())->value('quantity'))->toBe('0.0000');
 });
@@ -197,7 +198,7 @@ it('refuses a negative or zero waste on the quantity field, and posts nothing', 
 
     $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => 5, 'notes' => 'Counted'], $this->headers)->assertCreated();
 
-    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => $quantity, 'notes' => 'Dropped'], $this->headers)
+    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => $quantity, 'reason' => 'damaged', 'notes' => 'Dropped'], $this->headers)
         ->assertUnprocessable()
         ->assertJsonPath('error.code', 'validation.failed')
         ->assertJsonStructure(['error' => ['details' => ['fields' => ['quantity']]]]);

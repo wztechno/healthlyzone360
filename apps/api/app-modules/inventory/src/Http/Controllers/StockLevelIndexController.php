@@ -17,6 +17,8 @@ final class StockLevelIndexController
         $branchId = $context->branchId();
         $levels = StockLevel::query()
             ->with('stockItem')
+            // A merged shelf stands at zero for good; its levels leave the list with it.
+            ->whereHas('stockItem', static fn ($q) => $q->whereNull('merged_into_stock_item_id'))
             ->when($branchId !== null, fn ($q) => $q->where('branch_id', $branchId))
             ->orderBy('stock_item_id')
             ->get()

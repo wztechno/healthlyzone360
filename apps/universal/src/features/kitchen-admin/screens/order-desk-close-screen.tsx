@@ -39,7 +39,7 @@ import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
 
 /**
- * `/kitchen/order-desk/close` — counting the till at the end of a shift.
+ * `/kitchen/order-desk/cash?tab=close` — counting the till at the end of a shift.
  *
  * Copied from the settlement page: two lists in the cash report's table, the open shifts and the
  * recent closes, and a dialog behind Close. A shift is everything since the last close, one per

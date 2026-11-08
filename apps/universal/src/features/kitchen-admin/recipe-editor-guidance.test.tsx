@@ -210,6 +210,9 @@ function version(overrides: Partial<RecipeVersionAdmin> = {}): RecipeVersionAdmi
         estimatedCost: null,
         derivationStale: false,
         publishedAt: null,
+        reviewReason: null,
+        previousLabel: null,
+        lockVersion: 1,
         ...overrides,
     };
 }

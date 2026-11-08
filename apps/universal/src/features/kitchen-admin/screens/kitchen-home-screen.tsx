@@ -36,6 +36,7 @@ import {
 } from '../../../data/kitchen-admin-hooks.ts';
 import {
     useConsumptionExceptionCountQuery,
+    useDuplicateStockQuery,
     useKitchenSetupQuery,
     useLowStockCountQuery,
     useSuppliersQuery,
@@ -47,11 +48,14 @@ import { operatingDraftsFrom, summariseOperating } from '../delivery-model.ts';
 import {
     CATALOGUE_VIEW_PERMISSION,
     ENTITY_GROUPS,
+    INVENTORY_MANAGE_PERMISSION,
     WORKSPACE_PERMISSIONS,
     permittedFamilies,
 } from '../entity-registry.ts';
-import type { EntityFamily, EntityGroup } from '../entity-registry.ts';
+import type { EntityFamily } from '../entity-registry.ts';
+import { GROUP_LABEL_KEYS } from '../kitchen-nav.ts';
 import { buildReviewQueue } from '../review-queue.ts';
+import { TodayCard } from '../today-card.tsx';
 
 /**
  * `/kitchen` — the overview: what needs someone today, then every module one press away.
@@ -82,15 +86,6 @@ const COUNT_CLASS: Readonly<Record<Tone, { readonly box: string; readonly ink: s
     warning: { box: 'bg-warning-subtle', ink: 'text-warning-on-subtle' },
     ok: { box: 'bg-surface-brand-subtle', ink: 'text-content-on-brand-subtle' },
     neutral: { box: 'bg-surface-sunken', ink: 'text-content-secondary' },
-};
-
-const GROUP_LABEL_KEYS: Readonly<Record<EntityGroup, string>> = {
-    orderDesk: 'kitchen:nav.groups.orderDesk',
-    workbench: 'kitchen:nav.groups.workbench',
-    catalogue: 'kitchen:nav.groups.catalogue',
-    commercial: 'kitchen:nav.groups.commercial',
-    operations: 'kitchen:nav.groups.operations',
-    access: 'kitchen:nav.groups.access',
 };
 
 /** A small count box — amber when it is waiting on someone. */
@@ -272,6 +267,9 @@ export function KitchenHomeScreen() {
     const permitted = new Set(families.map((family) => family.key));
     const familyByKey = new Map(families.map((family) => [family.key, family]));
     const canViewCatalogue = useCan(CATALOGUE_VIEW_PERMISSION);
+    // Only a manager can merge or count a shelf, so only a manager pays for the duplicates scan.
+    const canManageStock = useCan(INVENTORY_MANAGE_PERMISSION);
+    const showDuplicates = permitted.has('stock-duplicates') && canManageStock;
     const branchId = state.branch?.id ?? null;
 
     // The recipe card counts what is on sale as published — the menu's question, not the recipe's.
@@ -294,6 +292,10 @@ export function KitchenHomeScreen() {
     const exceptionsCount = useConsumptionExceptionCountQuery(
         permitted.has('consumption-exceptions'),
     );
+    // ponytail: the home reads this list only to count it, and every read is a heavy scan over each
+    // shelf; five minutes keeps the home from re-running it on every visit. Add
+    // `GET /inventory/duplicates/count` if the scan ever shows up as slow.
+    const duplicates = useDuplicateStockQuery(showDuplicates, 5 * 60_000);
     // Asked with the workspace's active branch, which may be null — the endpoint answers with
     // `count: null` for a manager who holds no branch rather than refusing.
     const shortfalls = useOrderDeskShortfallCountQuery(
@@ -371,6 +373,7 @@ export function KitchenHomeScreen() {
             ? null
             : (exceptionsCount.data ?? null)
         : null;
+    const duplicateCount = showDuplicates ? (duplicates.data?.length ?? null) : null;
     const supplyNeedCount = supplyNeeds.data?.count ?? null;
 
     const open = (href: string) => () => {
@@ -491,6 +494,27 @@ export function KitchenHomeScreen() {
             textTestID: 'kitchen-family-consumption-exceptions-total',
         });
     }
+    if (showDuplicates) {
+        checks.push({
+            key: 'stock-duplicates',
+            count: duplicateCount,
+            pending: duplicates.isPending,
+            text:
+                duplicateCount === null
+                    ? t('kitchen:hub.countUnavailable')
+                    : duplicateCount === 0
+                      ? t('kitchen:ops.exceptions.clearBadge')
+                      : t('kitchen:hub.attention.duplicates'),
+            spoken:
+                duplicateCount === null
+                    ? undefined
+                    : t('kitchen:hub.attention.duplicatesCount', { count: duplicateCount }),
+            tone: waitingTone(duplicateCount),
+            actionLabel: t('kitchen:hub.action.review'),
+            href: '/kitchen/stock-duplicates',
+            textTestID: 'kitchen-family-stock-duplicates-total',
+        });
+    }
     if (showShortfall) {
         checks.push({
             key: 'requirement-shortfalls',
@@ -601,6 +625,7 @@ export function KitchenHomeScreen() {
     const pillCount = (key: string): number | null => {
         if (key === 'review') return reviewQueue?.total ?? null;
         if (key === 'consumption-exceptions') return exceptionCount;
+        if (key === 'stock-duplicates') return duplicateCount;
         if (key === 'order-requirements') return shortfallCount;
         return null;
     };
@@ -642,6 +667,8 @@ export function KitchenHomeScreen() {
                                 <StatTile key={key} {...tile} />
                             ))}
                         </View>
+
+                        <TodayCard branchId={branchId} />
 
                         <View testID="kitchen-home-panels" className={`grid gap-3 ${groupGrid}`}>
                             {checks.length === 0 ? null : (
@@ -806,8 +833,14 @@ export function KitchenHomeScreen() {
                             <Heading level={2}>{t('kitchen:hub.goTo')}</Heading>
                             <View testID="kitchen-home-grid" className={`grid gap-3 ${groupGrid}`}>
                                 {ENTITY_GROUPS.map((group) => {
+                                    // Setup is done once the kitchen is live; the rail drops it too.
                                     const groupFamilies = families.filter(
-                                        (family) => family.group === group,
+                                        (family) =>
+                                            family.group === group &&
+                                            !(
+                                                family.key === 'setup' &&
+                                                setup.data?.isLive === true
+                                            ),
                                     );
                                     const first = groupFamilies[0];
                                     if (first === undefined) return null;

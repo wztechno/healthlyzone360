@@ -114,6 +114,32 @@ it('writes one row per manager', function (): void {
         ->and($rows->first()->data)->toEqual(STAFF_ALERT_ORDER);
 });
 
+it('sends a stuck batch and a customer cancel to managers, once', function (StaffAlertType $type, string $subjectType, string $page): void {
+    $manager = staffManager($this->organisationId);
+    staffMember($this->organisationId, 'cook_role');
+    staffMember($this->organisationId, 'organisation_owner');
+
+    $this->alerts->send($type, $this->organisationId, $this->subjectId, STAFF_ALERT_ORDER);
+    $this->alerts->send($type, $this->organisationId, $this->subjectId, STAFF_ALERT_ORDER);
+
+    $row = StaffNotification::withoutTenancy()->where('subject_id', $this->subjectId)->sole();
+
+    expect($row->user_id)->toBe($manager->getKey())
+        ->and($row->type)->toBe($type->value)
+        ->and($row->subject_type)->toBe($subjectType);
+    Mail::assertQueued(NoticeMessage::class, 1);
+    Mail::assertQueued(NoticeMessage::class, fn (NoticeMessage $mail): bool => str_ends_with((string) $mail->actionUrl, str_replace('{id}', $this->subjectId, $page)));
+})->with([
+    'batch stuck' => [StaffAlertType::BatchStuck, 'production_order', '/kitchen/production-desk/{id}'],
+    'customer cancelled' => [StaffAlertType::CustomerCancelled, 'order', '/kitchen/orders?view={id}'],
+]);
+
+it('opens the cash and supplier-bill alerts on their tab', function (): void {
+    expect(StaffAlertType::ShortHandIn->page($this->subjectId))->toBe('/kitchen/order-desk/cash?tab=handins')
+        ->and(StaffAlertType::ShortClose->page($this->subjectId))->toBe('/kitchen/order-desk/cash?tab=close')
+        ->and(StaffAlertType::PriceApproval->page($this->subjectId))->toBe('/kitchen/supplier-bills?tab=bills');
+});
+
 it('does not alert twice for one order and type', function (): void {
     ContactPoint::factory()->phone()->create(['user_id' => staffManager($this->organisationId)->getKey()]);
 

@@ -315,6 +315,30 @@ export function useMyOrderQuery(
     });
 }
 
+/**
+ * The customer calls off an order the kitchen has not accepted yet. A `409` (the kitchen got there
+ * first) is left on the mutation for the screen to word; either way the order is read again, so the
+ * page shows where it really is.
+ */
+export function useCancelMyOrderMutation(): UseMutationResult<PlacedOrder, unknown, OrderId> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: 0,
+        mutationFn: (orderId: OrderId) => repositories.commerce.cancelMyOrder(orderId),
+        onSuccess: (order) => {
+            queryClient.setQueryData(queryKeys.commerce.myOrder(order.id), order);
+        },
+        onSettled: async (_order, _error, orderId) => {
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: queryKeys.commerce.myOrder(orderId) }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.commerce.orders() }),
+            ]);
+        },
+    });
+}
+
 /* ── subscription preview and creation ───────────────────────────────────────────────────────── */
 
 export function useSubscriptionPreviewQuery(

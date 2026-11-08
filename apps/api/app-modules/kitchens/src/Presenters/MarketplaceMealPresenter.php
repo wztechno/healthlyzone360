@@ -58,7 +58,7 @@ final class MarketplaceMealPresenter
      * @param  list<string>  $allergens
      * @param  array<string, mixed>|null  $nutrition  the one nutrition decision, already made
      * @param  array{b2c: bool, b2b: bool, marketplace: bool, pos: bool, subscription: bool, delivery: bool, pickup: bool, corporate: bool}  $channels
-     * @param  list<array{date: string, available: bool, remaining: null, order_cut_off_at: string|null}>  $availability
+     * @param  list<array{date: string, available: bool, remaining: int|null, order_cut_off_at: string|null}>  $availability
      * @return array<string, mixed>
      */
     public function meal(

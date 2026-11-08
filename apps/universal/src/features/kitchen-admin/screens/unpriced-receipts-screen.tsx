@@ -39,7 +39,7 @@ import {
 } from '../list-memory.ts';
 
 /**
- * `/kitchen/procurement/unpriced-receipts` — the work queue (SUP5, §3.6, §7).
+ * `/kitchen/supplier-bills?tab=unpriced` — the work queue (SUP5, §3.6, §7).
  *
  * On the Catalogue list parts since the Operations handoff: the Lens bar (figures counted over the
  * queue in hand, the two unfinished states among them as filters, the search over supplier and
@@ -128,7 +128,7 @@ function UnpricedReceipts() {
 
     const openReceipt = (row: UnpricedReceipt) => {
         rememberOpened(String(row.id));
-        router.push(`/kitchen/procurement/unpriced-receipts/${String(row.id)}` as never);
+        router.push(`/kitchen/supplier-bills/${String(row.id)}` as never);
     };
 
     const receivedText = (row: UnpricedReceipt): string =>

@@ -13,12 +13,16 @@ import {
     UserId,
 } from '@healthy360/domain-types';
 import type {
+    CookingTemperature,
     RecordCookingTemperatureRequest,
     RecordTemperatureRequest,
     TemperatureLog,
     TemperatureUnitDraft,
 } from '../contracts/temperature-logs.ts';
-import type { TemperatureLog as WireTemperatureLog } from '../generated/types.ts';
+import type {
+    CookingTemperature as WireCookingTemperature,
+    TemperatureLog as WireTemperatureLog,
+} from '../generated/types.ts';
 import type { CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
 
 import type { CursorPage } from '../contracts/pagination.ts';
@@ -640,6 +644,8 @@ function mapGoodsReceiptLine(line: WireGoodsReceiptLine): GoodsReceiptLine {
         unitPriceAmount: line.unit_price_amount,
         lineTotalAmount: line.line_total_amount,
         costCurrencyCode: line.cost_currency_code,
+        lastUnitPriceAmount: line.last_unit_price_amount,
+        priceVariancePercent: line.price_variance_percent,
         // Work states, not money: they survive the cost redaction because whether a line still needs
         // somebody's attention is not the same question as what it cost.
         costedAt: line.costed_at,
@@ -837,6 +843,8 @@ function mapPurchaseLedgerLine(wire: WirePurchaseLedgerLine): PurchaseLedgerLine
         unitPriceAmount: wire.unit_price_amount,
         lineTotalAmount: wire.line_total_amount,
         costCurrencyCode: wire.cost_currency_code,
+        lastUnitPriceAmount: wire.last_unit_price_amount,
+        priceVariancePercent: wire.price_variance_percent,
         valuationPendingFx: wire.valuation_pending_fx,
         costsRedacted: wire.costs_redacted,
         gtin: wire.gtin,
@@ -889,6 +897,7 @@ function mapMonthlyCostReportRow(wire: WireMonthlyCostReportRow): MonthlyCostRep
         wasteQuantity: wire.waste_quantity,
         revenueAmount: wire.revenue_amount,
         refundsAmount: wire.refunds_amount,
+        courierExpenseAmount: wire.courier_expense_amount,
         grossMarginAmount: wire.gross_margin_amount,
         grossMarginPercent: wire.gross_margin_percent,
         isMarginWithheld: wire.is_margin_withheld,
@@ -1200,16 +1209,30 @@ function batchReportBody(request: CompleteProductionOrderRequest): Record<string
     };
 }
 
+function mapCookingTemperature(row: WireCookingTemperature): CookingTemperature {
+    return {
+        id: row.id,
+        batchLabel: row.batch_label,
+        recipe: row.recipe,
+        celsius: row.celsius,
+        note: row.note,
+        recordedByName: row.recorded_by_name,
+        recordedAt: row.recorded_at as IsoDateTime,
+    };
+}
+
 function mapProductionOrderDetail(data: {
     readonly production_order: WireProductionOrder;
     readonly lines?: readonly WireProductionOrderLine[];
     readonly plan?: WireProductionPlan;
+    readonly cooking_temperatures?: readonly WireCookingTemperature[];
     readonly costs_visible?: boolean;
 }): ProductionOrderDetail {
     return {
         order: mapProductionOrder(data.production_order),
         lines: (data.lines ?? []).map(mapProductionOrderLine),
         plan: data.plan === undefined ? null : mapProductionPlan(data.plan),
+        coreTemperatures: (data.cooking_temperatures ?? []).map(mapCookingTemperature),
         costsVisible: 'estimated_cost_amount' in data.production_order,
     };
 }
@@ -1344,6 +1367,8 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                     costMinor: row.cost_minor,
                     currencyCode: row.currency_code as CurrencyCode | null,
                     notes: row.notes,
+                    wasteReason: row.waste_reason,
+                    orderId: row.order_id,
                     orderNumber: row.order_number,
                     wastedOrder: row.wasted_order,
                     attributed: row.attributed,
@@ -1371,6 +1396,7 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                     action: row.action,
                     actorName: row.actor_name,
                     subjectType: row.subject_type,
+                    orderId: row.order_id,
                     orderNumber: row.order_number,
                     metadata: row.metadata,
                 })),
@@ -1388,7 +1414,8 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                     branch_id: String(request.branchId),
                     stock_item_id: String(request.stockItemId),
                     quantity: request.quantity,
-                    ...(request.notes === undefined ? {} : { notes: request.notes }),
+                    reason: request.reason,
+                    notes: request.notes,
                 },
             });
             return mapStockMovement(envelope.data.movement);
@@ -2048,6 +2075,7 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                     id: dish.id,
                     catalogueItemId: dish.catalogue_item_id,
                     name: { en: dish.name_en, ar: dish.name_ar ?? '' },
+                    itemType: dish.item_type,
                     channel: dish.channel,
                     priceAmount: dish.price_amount,
                     costAmount: dish.cost_amount,
@@ -2250,6 +2278,22 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                     hasHistory: shelf.has_history,
                 })),
             }));
+        },
+
+        async mergeDuplicateStock(keepId: string, dropId: string): Promise<void> {
+            await transport.request({
+                method: 'POST',
+                path: '/catalogue/inventory/duplicates/merge',
+                body: { keep_id: keepId, drop_id: dropId },
+            });
+        },
+
+        async dismissDuplicateStock(stockItemIds: readonly string[]): Promise<void> {
+            await transport.request({
+                method: 'POST',
+                path: '/catalogue/inventory/duplicates/dismiss',
+                body: { stock_item_ids: stockItemIds },
+            });
         },
 
         async countUnresolvedConsumptionExceptions(): Promise<number> {
@@ -2527,15 +2571,7 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                     note: row.note,
                     recordedByName: row.recorded_by_name,
                 })),
-                cooking: log.cooking.map((row) => ({
-                    id: row.id,
-                    batchLabel: row.batch_label,
-                    recipe: row.recipe,
-                    celsius: row.celsius,
-                    note: row.note,
-                    recordedByName: row.recorded_by_name,
-                    recordedAt: row.recorded_at as TemperatureLog['cooking'][number]['recordedAt'],
-                })),
+                cooking: log.cooking.map(mapCookingTemperature),
             };
         },
 

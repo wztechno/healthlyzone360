@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Carbon\CarbonImmutable;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Catalogues\Database\Factories\SalesChannelFactory;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
@@ -376,8 +377,10 @@ it('makes forty trays, loses two to the process and one to the bin, and sells fi
         ->and($completed->actual_cost_status)->toBe('complete')
         ->and((string) $completed->usableYieldQuantity())->toBe('37.0000')
         ->and((string) $completed->yieldVariance())->toBe('-2.0000')
-        // The first lot of the 16th: 260916, sequence 001, check digit 7.
-        ->and($completed->lot_number)->toBe('2609160017');
+        // The lot came at start, dated that day rather than the reported
+        // production date: the day's first, sequence 001, then its check digit.
+        ->and($completed->lot_number)->toBe($started->lot_number)
+        ->and($completed->lot_number)->toStartWith(CarbonImmutable::now()->format('ymd').'001');
 
     // ── sell five ─────────────────────────────────────────────────────────
     $frozenMeal = acceptanceSellable($this, [
@@ -431,7 +434,7 @@ it('produces twenty litres of dressing and sells a salad that draws on it, not o
     $batch = $this->batches->draft($this->organisationId, $this->branchId, $dressingVersion, '20');
     $completed = $this->batches->complete(
         $this->batches->start($this->batches->confirm($batch)),
-        new BatchReport(producedQuantity: '20'),
+        new BatchReport(producedQuantity: '20', expiryDate: CarbonImmutable::now()->addDays(5)->toDateString()),
     );
 
     // Seventy-five plus fifteen over twenty litres.

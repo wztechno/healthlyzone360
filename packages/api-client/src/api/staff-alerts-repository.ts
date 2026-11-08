@@ -5,18 +5,21 @@ import type {
     StaffAlert,
     StaffAlertList,
     StaffAlertsRepository,
+    StorefrontProfile,
 } from '../contracts/staff-alerts.ts';
 import type {
     KitchenServiceSettings as WireKitchenServiceSettings,
     StaffNotification as WireStaffNotification,
     StaffNotificationsEnvelope,
+    StorefrontProfile as WireStorefrontProfile,
 } from '../generated/types.ts';
 import type { Transport } from './transport.ts';
 
 /**
- * The bell over `/catalogue/staff-notifications`, and the timings over
- * `/catalogue/kitchen-service-settings`. `requestEnvelope` on the list, because the unread count
- * lives in the meta. No `If-Match` on the timings: the row carries no lock version.
+ * The bell over `/catalogue/staff-notifications`, the timings over
+ * `/catalogue/kitchen-service-settings` and the storefront copy over `/catalogue/storefront-profile`.
+ * `requestEnvelope` on the list, because the unread count lives in the meta. No `If-Match` on the
+ * timings or the copy: neither row carries a lock version they check.
  */
 export function createApiStaffAlertsRepository(transport: Transport): StaffAlertsRepository {
     return {
@@ -92,6 +95,32 @@ export function createApiStaffAlertsRepository(transport: Transport): StaffAlert
                 }),
             );
         },
+
+        async getStorefrontProfile(): Promise<StorefrontProfile> {
+            return mapStorefrontProfile(
+                await transport.request<WireStorefrontProfile>({
+                    method: 'GET',
+                    path: '/catalogue/storefront-profile',
+                }),
+            );
+        },
+
+        async saveStorefrontProfile(profile: StorefrontProfile): Promise<StorefrontProfile> {
+            return mapStorefrontProfile(
+                await transport.request<WireStorefrontProfile>({
+                    method: 'PUT',
+                    path: '/catalogue/storefront-profile',
+                    body: {
+                        tagline_en: profile.tagline.en,
+                        tagline_ar: profile.tagline.ar,
+                        description_en: profile.description.en,
+                        description_ar: profile.description.ar,
+                        cuisines_en: profile.cuisines.en,
+                        cuisines_ar: profile.cuisines.ar,
+                    },
+                }),
+            );
+        },
     };
 }
 
@@ -118,5 +147,13 @@ function mapServiceSettings(wire: WireKitchenServiceSettings): KitchenServiceSet
         refundApprovalAboveMinor: wire.refund_approval_above_minor,
         priceApprovalAbovePercent: wire.price_approval_above_percent ?? null,
         dishMarginTargetPercent: wire.dish_margin_target_percent ?? null,
+    };
+}
+
+function mapStorefrontProfile(wire: WireStorefrontProfile): StorefrontProfile {
+    return {
+        tagline: { en: wire.tagline_en ?? '', ar: wire.tagline_ar ?? '' },
+        description: { en: wire.description_en ?? '', ar: wire.description_ar ?? '' },
+        cuisines: { en: wire.cuisines_en, ar: wire.cuisines_ar },
     };
 }

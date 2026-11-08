@@ -169,6 +169,14 @@ return [
             'heading' => 'A delivery on :number falls on a closed day',
             'line' => 'No open day was found in the next two weeks, so its date was left as it was. Change the closure or the delivery, and tell the customer.',
         ],
+        'batch_stuck' => [
+            'heading' => 'Batch :number has been in production for two days',
+            'line' => 'Finish it, or check what is holding it up.',
+        ],
+        'customer_cancelled' => [
+            'heading' => 'Order :number was cancelled by the customer',
+            'line' => 'They cancelled it before the kitchen accepted it, so there is nothing to make for it.',
+        ],
         'temperature_out_of_range' => [
             'heading' => 'Temperature out of range: :number',
             'line' => 'Check the unit and move the food if you need to. The reading is on the temperature log.',

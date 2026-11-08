@@ -434,6 +434,7 @@ function hubRepositories(ingredients: readonly IngredientAdmin[]): RepositoryOve
         kitchenOps: {
             countLowStockLevels: async () => 0,
             countUnresolvedConsumptionExceptions: async () => 0,
+            listDuplicateStock: async () => [],
         },
     };
 }
@@ -570,6 +571,9 @@ describe('entity registry', () => {
                 'catalogue',
                 'commercial',
                 'operations',
+                'buying',
+                'foodSafety',
+                'reports',
                 // AA1. Added deliberately, which is what this restated list is for.
                 'access',
             ]).toContain(family.group);
@@ -647,6 +651,104 @@ describe('the kitchen hub', () => {
                 expect.objectContaining({ sellingStatus: 'published' }),
             );
         });
+    });
+
+    it('lists repeated stock names under needs attention, and counts them on the To do pill', async () => {
+        const base = hubRepositories([]);
+        const shelf = (id: string) => ({
+            id,
+            code: id.toUpperCase(),
+            unitCode: 'kg',
+            quantity: '0.0000',
+            hasHistory: false,
+        });
+        await renderStubScreen(<KitchenHomeScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                ...base,
+                kitchenOps: {
+                    ...base.kitchenOps,
+                    listDuplicateStock: async () => [
+                        { name: 'Rice', reason: 'not_a_copy', shelves: [shelf('r1'), shelf('r2')] },
+                        {
+                            name: 'Oats',
+                            reason: 'different_units',
+                            shelves: [shelf('o1'), shelf('o2')],
+                        },
+                    ],
+                },
+            },
+        });
+
+        await untilVisible('kitchen-family-stock-duplicates-total');
+        expect(screen.getByTestId('kitchen-family-stock-duplicates-total')).toHaveTextContent(
+            /Stock rows sharing a name/,
+        );
+        expect(screen.getByTestId('kitchen-home-attention-stock-duplicates')).toHaveAccessibleName(
+            /2 stock names repeated/,
+        );
+        // The Go to pill carries the same number.
+        expect(screen.getByTestId('kitchen-family-stock-duplicates-open')).toHaveTextContent(/2/);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-home-attention-stock-duplicates'));
+        });
+        expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/stock-duplicates');
+    });
+
+    it('never runs the duplicate scan for a reader who may not see stock', async () => {
+        const { repositories } = await renderStubScreen(<KitchenHomeScreen />, {
+            session: kitchenManagerSession({
+                activeContext: testActiveContext({
+                    permissions: KITCHEN_MANAGER_PERMISSIONS.filter(
+                        (permission) => !permission.startsWith('inventory.'),
+                    ),
+                }),
+            }),
+            repositories: hubRepositories([]),
+        });
+
+        await untilVisible('kitchen-home-screen');
+        await untilVisible('kitchen-family-ingredients-total');
+        expect(screen.queryByTestId('kitchen-home-attention-stock-duplicates')).toBeNull();
+        expect(screen.queryByTestId('kitchen-family-stock-duplicates')).toBeNull();
+        expect(repositories.kitchenOps.listDuplicateStock).not.toHaveBeenCalled();
+    });
+
+    it('drops the Setup pill once the kitchen is live', async () => {
+        const base = hubRepositories([]);
+        await renderStubScreen(<KitchenHomeScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                ...base,
+                kitchenOps: {
+                    ...base.kitchenOps,
+                    getKitchenSetup: async () => ({ isLive: true, steps: [] }),
+                },
+            },
+        });
+
+        // Review is in the same To do card, so once it is drawn the card is.
+        await untilVisible('kitchen-family-review');
+        await waitFor(() => {
+            expect(screen.queryByTestId('kitchen-family-setup')).toBeNull();
+        });
+    });
+
+    it('keeps the Setup pill while the kitchen is not live', async () => {
+        const base = hubRepositories([]);
+        await renderStubScreen(<KitchenHomeScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                ...base,
+                kitchenOps: {
+                    ...base.kitchenOps,
+                    getKitchenSetup: async () => ({ isLive: false, steps: [] }),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-family-setup');
     });
 
     it('refuses a signed-in person whose role carries no catalogue permission', async () => {
@@ -865,6 +967,58 @@ describe('the ingredient list', () => {
         // The filtered branch is the one a person actually reaches, and it is the one that offers a
         // way back out of the filter.
         expect(screen.getByTestId('kitchen-ingredients-clear')).toBeTruthy();
+    });
+
+    it('narrows to the uncosted rows from the Unpriced figure, and lets go when pressed again', async () => {
+        const priced = ingredient(1, { unitPrice: { amount: 3.9, currency: 'AED' } });
+        const first = ingredient(2);
+        const second = ingredient(3);
+        await renderStubScreen(<IngredientsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listIngredients: ingredientListing(() => [priced, first, second]),
+                },
+            },
+        });
+        await untilVisible('kitchen-ingredients-table');
+        // The list's own row: at this (phone) width there are no per-column cells to find.
+        const row = (target: IngredientAdmin) =>
+            `kitchen-ingredients-table-row-${String(target.id)}`;
+
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('kitchen-ingredients-toolbar-figure-uncosted-value'),
+            ).toHaveTextContent('2');
+        });
+        expect(screen.getByTestId(row(priced))).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-toolbar-figure-uncosted'));
+        });
+
+        await waitFor(() => {
+            expect(screen.queryByTestId(row(priced))).toBeNull();
+        });
+        expect(screen.getByTestId(row(first))).toBeTruthy();
+        expect(screen.getByTestId(row(second))).toBeTruthy();
+        expect(
+            screen.getByTestId('kitchen-ingredients-toolbar-figure-uncosted').props
+                .accessibilityState,
+        ).toEqual(expect.objectContaining({ selected: true }));
+        expect(screen.getByTestId('kitchen-ingredients-toolbar-token-uncosted')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-ingredients-toolbar-result')).toHaveTextContent(
+            '2 of 2',
+        );
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-toolbar-figure-uncosted'));
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId(row(priced))).toBeTruthy();
+        });
+        expect(screen.queryByTestId('kitchen-ingredients-toolbar-token-uncosted')).toBeNull();
     });
 
     it('renders the error state when the listing fails', async () => {
@@ -3258,10 +3412,15 @@ describe('the ingredient assistant', () => {
         await act(async () => {
             pending[0]!(duplicate('Oldest run.'));
         });
+        // Every run settles, so no request is left pending once the test ends.
+        await act(async () => {
+            pending[1]!(duplicate('Middle run.'));
+        });
 
         await untilVisible('kitchen-ingredient-assist-arabic');
         expect(screen.getByText(/Newest run\./)).toBeTruthy();
         expect(screen.queryByText(/Oldest run\./)).toBeNull();
+        expect(screen.queryByText(/Middle run\./)).toBeNull();
     });
 
     it('does not replace a nutrition match the cook already chose', async () => {

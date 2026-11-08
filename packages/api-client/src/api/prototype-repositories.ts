@@ -556,6 +556,9 @@ export const apiCommerceRepository: CommerceRepository = {
     getMyOrder(_orderId: OrderId): Promise<PlacedOrder> {
         return notImplemented(`GET ${BASE}/me/orders/{order}`);
     },
+    cancelMyOrder(_orderId: OrderId): Promise<PlacedOrder> {
+        return notImplemented(`POST ${BASE}/me/orders/{order}/cancel`);
+    },
     /**
      * Subscription lifecycle (quote preview, create, reads, pause/resume/skip, address/window) is
      * served — implemented in `./subscription-repository.ts` and spread over this object by
@@ -876,6 +879,13 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     },
     retireRecipe(_recipeId: RecipeId, _request: LockedRequest): Promise<RecipeAdmin> {
         return notImplemented(`POST ${BASE}/catalogue/recipes/{recipe}/archive`);
+    },
+    releaseRecipeVersion(
+        _recipeId: RecipeId,
+        _versionId: RecipeVersionId,
+        _lockVersion: number,
+    ): Promise<RecipeAdmin> {
+        return notImplemented(`POST ${BASE}/catalogue/recipes/{recipe}/versions/{version}/release`);
     },
 
     listProducts(_filter?: ProductAdminFilter): Promise<CursorPage<ProductAdmin>> {

@@ -792,7 +792,13 @@ export type IngredientAllergenMapping = {
      *
      */
     market_scope: 'all' | 'us_only' | 'eu_only';
-    source: 'master_list' | 'technical_sheet' | 'supplier_declaration' | 'kitchen_declared' | 'inferred';
+    /**
+     * `recipe_derived` rows are carried from the published recipe that
+     * makes this ingredient. They are read-only: the mapping editor refuses
+     * to change them, and the fix is the recipe.
+     *
+     */
+    source: 'master_list' | 'technical_sheet' | 'supplier_declaration' | 'kitchen_declared' | 'inferred' | 'recipe_derived';
     verification_status: 'verified' | 'unverified' | 'requires_review' | 'requires_supplier_confirmation';
     /**
      * Free text supporting the statement — a supplier reference, a sheet, a note.
@@ -1465,6 +1471,7 @@ export type AdminRecipeVersion = {
      * Why this version is quarantined, when it is.
      */
     review_reason?: string | null;
+    previous_label?: RecipeVersionPreviousLabel;
     notes?: string | null;
     lock_version: number;
     created_at?: string | null;
@@ -2470,15 +2477,20 @@ export type MealTypeCode = 'breakfast' | 'lunch' | 'dinner' | 'snack';
  * A price list row; `entries` and `channels` are present when `include` asks for them.
  */
 export type AdminPriceListIndexRow = AdminPriceList & {
+    /**
+     * Open entries whose price is confirmed.
+     */
+    confirmed_entries_count: number;
     entries?: Array<AdminPriceListEntry>;
     channels?: Array<PriceListChannelAssignment>;
 };
 
 /**
- * A catalogue item row; `channels` is present when `include=channels` asks for it.
+ * A catalogue item row; `channels` and `variants` are present when `include` asks for them.
  */
 export type AdminCatalogueItemIndexRow = AdminCatalogueItem & {
     channels?: Array<AdminChannelAssignment>;
+    variants?: Array<AdminCatalogueItemVariant>;
 };
 
 /**
@@ -2862,7 +2874,20 @@ export type RecipeVersionReadinessMeta = Meta & {
     version_number: number;
     status: RecipeVersionStatus;
     derivation_state: DerivationState;
+    previous_label?: RecipeVersionPreviousLabel;
 };
+
+/**
+ * The allergen label a quarantined version was published with, as
+ * `{allergen class: containment}` — what a release replaces with the
+ * recomputed label. `{}` when the old label carried nothing. Null outside
+ * review, and on a quarantine older than this field, which recorded only
+ * its `review_reason`.
+ *
+ */
+export type RecipeVersionPreviousLabel = {
+    [key: string]: 'contains' | 'may_contain';
+} | null;
 
 export type CatalogueItemReadinessMeta = Meta & {
     slug: string;
@@ -4175,16 +4200,16 @@ export type MarketplaceKitchen = {
     name: string;
     slug: string;
     /**
-     * Always empty; the platform stores no marketing copy.
+     * The kitchen's own copy in the request's language, falling back to the other; empty when unset.
      */
     tagline: string;
     /**
-     * Always empty; the platform stores no marketing copy.
+     * The kitchen's own copy in the request's language, falling back to the other; empty when unset.
      */
     description: string;
     country_code: string;
     /**
-     * Always empty; nothing records how a kitchen cooks.
+     * The kitchen's own free-text list in the request's language, falling back to the other; empty when unset.
      */
     cuisines: Array<string>;
     /**
@@ -4251,14 +4276,15 @@ export type MarketplaceDeliveryWindow = {
  * One day of the fourteen-day ordering calendar, derived from the
  * branches' operating weeks and cut-offs. A day is orderable when at least
  * one active branch is open on it and that branch's cut-off has not
- * passed; a day nobody has configured is not orderable.
+ * passed; a day nobody has configured is not orderable. On a meal, the
+ * meal's own day off or sold-out day is not orderable either.
  *
  */
 export type MarketplaceAvailability = {
     date: string;
     available: boolean;
     /**
-     * Always null — the platform stores no stock counts, and a zero would say sold out.
+     * Portions of the meal left that day when the kitchen counts them; 0 is sold out. Null when nobody is counting.
      */
     remaining: number | null;
     order_cut_off_at: string | null;
@@ -5427,8 +5453,8 @@ export type CheckoutPreview = {
      * `area_not_served`, `zone_suspended`, `currency_mismatch`,
      * `window_not_offered`, `allergen_conflict`, `closed`, `date_in_the_past`,
      * `cut_off_passed`, `kitchen_closed`, `window_ended`, `lead_time_not_met`,
-     * `below_zone_minimum`, `kitchen_paused`, `window_full`, plus the
-     * line-probe vocabulary. Deduplicated — three lines refused for the
+     * `below_zone_minimum`, `kitchen_paused`, `window_full`, `phone_required`,
+     * plus the line-probe vocabulary. Deduplicated — three lines refused for the
      * same reason read as one fact, not three repeats of it.
      * `stock_short` alone is not a refusal: a line needs more than the
      * free stock, and stock on quality hold never counts as free. The
@@ -5832,8 +5858,14 @@ export type StockWasteRequest = {
      * Always positive. The endpoint states the loss; the server signs it negative on the ledger.
      */
     quantity: number;
+    reason: StockWasteReason;
+    /**
+     * Required when `reason` is `other`.
+     */
     notes?: string | null;
 };
+
+export type StockWasteReason = 'expired' | 'spoiled' | 'damaged' | 'overproduced' | 'customer_return' | 'other';
 
 /**
  * One supplier in the organisation's book. The same shape everywhere a
@@ -6918,6 +6950,17 @@ export type GoodsReceiptLine = {
     line_total_amount: string | null;
     cost_currency_code: string | null;
     /**
+     * The last priced delivery of this shelf before this one, per this
+     * line's unit (mass and volume convert). Null for a first purchase,
+     * across currencies or units that do not convert, or when redacted.
+     *
+     */
+    last_unit_price_amount: string | null;
+    /**
+     * This line's unit price against `last_unit_price_amount`, in percent. Null like it.
+     */
+    price_variance_percent: string | null;
+    /**
      * When this line's money was settled (§3.6). Null means the costing
      * path has not run and price completion may still act on it — the guard
      * that stops one quantity being costed twice.
@@ -7381,6 +7424,17 @@ export type PurchasesLedgerLine = {
     line_total_amount: string | null;
     cost_currency_code: string | null;
     /**
+     * The last priced delivery of this shelf before this one, per this
+     * line's unit (mass and volume convert). Null for a first purchase,
+     * across currencies or units that do not convert, or when redacted.
+     *
+     */
+    last_unit_price_amount: string | null;
+    /**
+     * This line's unit price against `last_unit_price_amount`, in percent. Null like it.
+     */
+    price_variance_percent: string | null;
+    /**
      * This line's price is recorded and its valuation is waiting on an
      * exchange-rate decision (§3.6). A work state, not money, so it is
      * never redacted.
@@ -7760,6 +7814,10 @@ export type MonthlyCostReportRow = {
      */
     refunds_amount: string;
     /**
+     * Couriers' fees on prepaid runs that the kitchen paid, by the month the hand-in was recorded, major units. An operating cost outside COGS; the gross margin does not deduct it.
+     */
+    courier_expense_amount: string;
+    /**
      * Revenue minus COGS, major units; null when `is_margin_withheld`.
      */
     gross_margin_amount: string | null;
@@ -8080,6 +8138,21 @@ export type DuplicateStockEnvelope = {
     };
 };
 
+export type DuplicateStockMergeRequest = {
+    /**
+     * The shelf that stays.
+     */
+    keep_id: string;
+    /**
+     * The shelf linked into it; must stand at zero in every branch.
+     */
+    drop_id: string;
+};
+
+export type DuplicateStockDismissRequest = {
+    stock_item_ids: Array<string>;
+};
+
 export type ConsumptionExceptionCountEnvelope = {
     data: {
         /**
@@ -8180,19 +8253,21 @@ export type ProductionOrder = {
     reference: string | null;
     /**
      * The lot — the number on the label and inside the barcode. `YYMMDD` (the
-     * production date), a three-digit sequence for that organisation and day,
-     * and a GS1 mod-10 check digit: `2609250077` is shown `260925-007-7`.
-     * Minted once, when the settlement puts usable units on a shelf, and never
-     * changed. Null on a batch that has not finished or made nothing usable.
+     * branch's day the batch started), a three-digit sequence for that
+     * organisation and day, and a GS1 mod-10 check digit: `2609250077` is
+     * shown `260925-007-7`. Minted once, at start, and never changed — an
+     * abandoned batch keeps it. Null before start.
      *
      */
     lot_number: string | null;
     /**
      * The GS1-128 element string in its human-readable form,
      * `(11)YYMMDD(17)YYMMDD(10)<lot>` — production date, expiry date, lot.
-     * `(17)` is left out when the batch has no expiry date. Derived from
-     * `production_date`, `expiry_date` and `lot_number`, none of which change
-     * after completion, so it is never stored. Null without a lot.
+     * `(11)` is `production_date`, or the lot's own day when a batch has
+     * none. Derived from `production_date`, `expiry_date` and `lot_number`,
+     * none of which change after completion, so it is never stored. Null
+     * until the batch has both a lot and a use-by date: the label prints only
+     * once it can carry one.
      *
      */
     barcode: string | null;
@@ -8579,6 +8654,10 @@ export type ProductionOrderDetailEnvelope = {
         production_order: ProductionOrder;
         lines: Array<ProductionOrderLine>;
         plan?: ProductionPlan;
+        /**
+         * The batch's core-temperature readings, newest first. Detail only; the desk list never carries them.
+         */
+        cooking_temperatures?: Array<CookingTemperature>;
     };
     meta: Meta & {
         costs_visible?: boolean;
@@ -8667,10 +8746,13 @@ export type CompleteProductionOrderRequest = {
     production_date?: string | null;
     storage_location?: string | null;
     /**
-     * Only for a recipe **without** a shelf life. When the recipe has one the
-     * server computes the use-by date itself (production date plus
-     * `shelf_life_days`), and a supplied one is `422` rather than silently
-     * overruled. Never before `production_date`.
+     * Only for a recipe **without** a shelf life, and then **required**
+     * whenever usable units reach a shelf (produced minus rejected above
+     * zero): omitted, it is `422 validation.failed` with `parameter:
+     * expiry_date`. When the recipe has a shelf life the server computes the
+     * use-by date itself (production date plus `shelf_life_days`), and a
+     * supplied one is `422` rather than silently overruled. Never before
+     * `production_date`.
      *
      */
     expiry_date?: string | null;
@@ -8893,6 +8975,13 @@ export type KitchenOrder = {
      * When the kitchen marked it ready. The order stays `confirmed` until it is handed over (`fulfilled_at`).
      */
     ready_at?: string | null;
+    /**
+     * Sent on the kitchen display only. When the order is due: its
+     * requested day at its window's start, in the branch's zone, else when
+     * it was placed. The desk queue's instant; the wall sorts by it.
+     *
+     */
+    due_at?: string;
     fulfilled_at: string | null;
     cancelled_at: string | null;
     cancellation_reason: CancellationReason | null;
@@ -8900,6 +8989,19 @@ export type KitchenOrder = {
      * What became of the food on a cancellation after cooking started. Null otherwise.
      */
     cancellation_disposition?: CancellationDisposition | null;
+    /**
+     * The name on the profile of the person who cancelled it. Null when
+     * it is not cancelled, when a system job cancelled it, and when that
+     * person has no name on their profile.
+     *
+     */
+    cancelled_by_name?: string | null;
+    /**
+     * The order this one remakes, when a complaint placed it. Null on
+     * every other order.
+     *
+     */
+    remake_of?: KitchenOrderRemakeOf | null;
     /**
      * The order's delivery run. Null on a pickup or counter order, and on a delivery order not yet confirmed — a run is projected on confirm.
      */
@@ -8944,6 +9046,14 @@ export type KitchenOrder = {
     plan_day: KitchenOrderPlanDay | null;
     created_at: string | null;
     updated_at: string | null;
+};
+
+export type KitchenOrderRemakeOf = {
+    id: Uuid;
+    /**
+     * The original order's number.
+     */
+    number: string;
 };
 
 export type KitchenOrderPlanDay = {
@@ -9633,7 +9743,8 @@ export type OrderDeskQuoteRefusal = {
      * `address_not_deliverable`, `area_not_served`, `zone_suspended`,
      * `window_not_offered`, `currency_mismatch` (with
      * `subject: delivery_fee`), `cut_off_passed`, `closed`,
-     * `date_in_the_past`, `kitchen_closed`, `window_ended`.
+     * `date_in_the_past`, `kitchen_closed`, `window_ended`,
+     * `phone_required`.
      *
      */
     reason: string;
@@ -9684,6 +9795,14 @@ export type OrderDeskQuoteLine = {
      *
      */
     held_stock?: Array<string>;
+    /**
+     * What the line is sold with, never refused for, in the refusal's
+     * `{reason, …context}` shape. Today only `stock_short`: the line needs
+     * more than the free stock (held stock never counts). The sale still
+     * goes through.
+     *
+     */
+    warnings?: Array<OrderDeskQuoteRefusal>;
 };
 
 /**
@@ -9849,7 +9968,7 @@ export type KitchenCustomerDetail = KitchenCustomer & {
     company: KitchenCustomerCompany | null;
 };
 
-export type StaffNotificationType = 'unaccepted_manager' | 'unaccepted_owner' | 'allergy_order' | 'late_cancel' | 'delivery_failed' | 'no_cash_collected' | 'refund_approval' | 'stock_expiring' | 'temperature_out_of_range' | 'refund_approved' | 'refund_rejected' | 'short_hand_in' | 'short_close' | 'price_approval' | 'dish_below_target' | 'delivery_moved_closed' | 'delivery_closed_unmoved';
+export type StaffNotificationType = 'unaccepted_manager' | 'unaccepted_owner' | 'allergy_order' | 'late_cancel' | 'delivery_failed' | 'no_cash_collected' | 'refund_approval' | 'stock_expiring' | 'temperature_out_of_range' | 'refund_approved' | 'refund_rejected' | 'short_hand_in' | 'short_close' | 'price_approval' | 'dish_below_target' | 'delivery_moved_closed' | 'delivery_closed_unmoved' | 'batch_stuck' | 'customer_cancelled';
 
 export type StaffNotification = {
     id: Uuid;
@@ -9922,6 +10041,23 @@ export type KitchenDisplayEnvelope = {
 
 export type KitchenServiceSettingsEnvelope = {
     data: KitchenServiceSettings;
+    meta: Meta;
+};
+
+export type StorefrontProfile = {
+    tagline_en: string | null;
+    tagline_ar: string | null;
+    description_en: string | null;
+    description_ar: string | null;
+    /**
+     * Free text, one cuisine per entry.
+     */
+    cuisines_en: Array<string>;
+    cuisines_ar: Array<string>;
+};
+
+export type StorefrontProfileEnvelope = {
+    data: StorefrontProfile;
     meta: Meta;
 };
 
@@ -10502,6 +10638,10 @@ export type DishMargin = {
     catalogue_item_id: Uuid;
     name_en: string;
     name_ar: string | null;
+    /**
+     * The recipe kind the dish is sold as. Products and plans are never priced here.
+     */
+    item_type: 'meal' | 'sauce' | 'dressing' | 'frozen_meal';
     channel: 'b2c' | 'b2b';
     price_amount: string | null;
     cost_amount: string | null;
@@ -10700,6 +10840,10 @@ export type KitchenActivityEntry = {
     action: string;
     actor_name: string | null;
     subject_type: string;
+    /**
+     * Set when the subject is an order this organisation can read.
+     */
+    order_id: string | null;
     order_number: string | null;
     metadata: {
         [key: string]: unknown;
@@ -10723,6 +10867,11 @@ export type StockActivityMovement = {
     cost_minor: number | null;
     currency_code: string | null;
     notes: string | null;
+    /**
+     * Set on a waste row only. A row from before reasons were recorded reads as `other`.
+     */
+    waste_reason: StockWasteReason | null;
+    order_id: string | null;
     order_number: string | null;
     /**
      * A deduction for an order cancelled as wasted.
@@ -10748,7 +10897,12 @@ export type StockActivityEnvelope = {
 
 export type OrderDeskCashReportAdjustment = {
     day: string;
-    kind: 'refund' | 'receipt_correction' | 'courier_fee' | 'short';
+    /**
+     * `courier_fee` came off a hand-in. `courier_expense` is a prepaid
+     * run's courier fee, which the kitchen paid and no hand-in carried.
+     *
+     */
+    kind: 'refund' | 'receipt_correction' | 'courier_fee' | 'courier_expense' | 'short';
     /**
      * The person who recorded a refund, the courier, or the driver who was short.
      */
@@ -10771,7 +10925,7 @@ export type OrderDeskCashReportAdjustment = {
  */
 export type OrderDeskCashReportRow = {
     /**
-     * The UTC day the receipts were confirmed on. Part of the row's key.
+     * The local day, on `meta.timezone`, the receipts were confirmed on. Part of the row's key.
      */
     day: string;
     confirmed_by: Uuid;
@@ -10819,6 +10973,62 @@ export type OrderDeskCashReportTotal = {
     amount_minor_sum: number;
 };
 
+export type OrderDeskTodayAmount = {
+    currency_code: string;
+    amount_minor: number;
+};
+
+export type OrderDeskTodayEnvelope = {
+    data: {
+        /**
+         * Today, on `timezone`.
+         */
+        day: string;
+        /**
+         * The clock the day is read on.
+         */
+        timezone: string;
+        /**
+         * Orders placed today and not cancelled, summed per currency.
+         */
+        sales: Array<OrderDeskTodayAmount>;
+        /**
+         * How many orders `sales` sums.
+         */
+        orders: number;
+        /**
+         * What the open tills should hold now, per currency: the float plus
+         * counter cash and hand-ins, less cash refunds, as the daily close
+         * pre-fills it.
+         *
+         */
+        cash_expected: Array<OrderDeskTodayAmount>;
+        /**
+         * Each till's last count today, summed per currency.
+         */
+        cash_counted: Array<OrderDeskTodayAmount>;
+        /**
+         * Open orders past their due time by more than the grace, as the desk queue counts them.
+         */
+        overdue: number;
+        /**
+         * Open orders past their due time, the desk's `past_due` lens.
+         */
+        past_due: number;
+        /**
+         * Orders cancelled today, by what became of the food. No disposition is `other`.
+         */
+        cancelled: {
+            returned: number;
+            wasted: number;
+            other: number;
+        };
+    };
+    meta: Meta & {
+        branch_id: Uuid | null;
+    };
+};
+
 export type OrderDeskCashReportEnvelope = {
     data: {
         /**
@@ -10855,13 +11065,19 @@ export type OrderDeskCashReportEnvelope = {
          */
         branch_id: string | null;
         /**
-         * The clock the day was measured on. **Always `UTC`** — see the
-         * operation. Echoed rather than assumed so a screen can say
-         * which midnight it is showing instead of implying the reader's
-         * own.
+         * The IANA zone the days were measured on: the branch's with
+         * `branch_id`, else the organisation's. Echoed so a screen can
+         * say which midnight it is showing.
          *
          */
         timezone: string;
+        /**
+         * Every branch, so every till, the kitchen's first branch first.
+         */
+        branches: Array<{
+            id: Uuid;
+            name: string;
+        }>;
         /**
          * Rows in this response. Not a count of receipts.
          */
@@ -21382,6 +21598,116 @@ export type RetireRecipeVersionResponses = {
 
 export type RetireRecipeVersionResponse = RetireRecipeVersionResponses[keyof RetireRecipeVersionResponses];
 
+export type ReleaseRecipeVersionData = {
+    body: {
+        /**
+         * The manager's tick that they compared the old and new labels.
+         */
+        confirmed: true;
+    };
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The recipe identifier.
+         */
+        recipe: Uuid;
+        /**
+         * The version identifier, or its `version_number`. Both are accepted
+         * because both are natural — a client that walked the list holds
+         * identifiers, a human reading a technical sheet holds "version 3" — and
+         * a number cannot be mistaken for a UUID. The version is always resolved
+         * inside the recipe in the path, so one recipe's number can never reach
+         * another's version.
+         *
+         */
+        version: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/recipes/{recipe}/versions/{version}/release';
+};
+
+export type ReleaseRecipeVersionErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type ReleaseRecipeVersionError = ReleaseRecipeVersionErrors[keyof ReleaseRecipeVersionErrors];
+
+export type ReleaseRecipeVersionResponses = {
+    /**
+     * The released version.
+     */
+    200: RecipeVersionEnvelope;
+};
+
+export type ReleaseRecipeVersionResponse = ReleaseRecipeVersionResponses[keyof ReleaseRecipeVersionResponses];
+
 export type ShowRecipeTechnicalSheetData = {
     body?: never;
     headers: {
@@ -22324,9 +22650,9 @@ export type ListCatalogueItemsData = {
          */
         ids?: string;
         /**
-         * `channels` adds each item's channel assignments, as the item's own read serves them.
+         * A comma-separated list. `channels` adds each item's channel assignments, as the item's own read serves them; `variants` adds its live (not archived) variants with their packs, in the item read's shape.
          */
-        include?: 'channels';
+        include?: string;
     };
     url: '/catalogue/items';
 };
@@ -24765,7 +25091,27 @@ export type ListPriceListsResponses = {
      */
     200: {
         data: Array<AdminPriceListIndexRow>;
-        meta: PaginatedOrNumberedMeta;
+        meta: PaginatedOrNumberedMeta & {
+            /**
+             * Lists per status over the search and scope
+             * filters, the status filter aside, archived
+             * lists included.
+             *
+             */
+            status_counts: {
+                draft: number;
+                active: number;
+                archived: number;
+            };
+            /**
+             * Lists in the filtered set with no confirmed open entry.
+             */
+            unpriced_count: number;
+            /**
+             * Lists in the filtered set assigned to a channel whose prices are contract-private.
+             */
+            agreement_count: number;
+        };
     };
 };
 
@@ -29128,6 +29474,74 @@ export type ShowMyOrderResponses = {
 
 export type ShowMyOrderResponse = ShowMyOrderResponses[keyof ShowMyOrderResponses];
 
+export type CancelMyOrderData = {
+    body?: never;
+    headers?: {
+        /**
+         * Locale negotiation. Regional subtags are accepted.
+         */
+        'Accept-Language'?: string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The order identifier. **Not** the order number, tempting though it is:
+         * the number is printed on a receipt that passes through a courier's
+         * hands, and a URL that accepted it would turn a scrap of paper into an
+         * address. The number is searchable through `GET /catalogue/orders`,
+         * behind the read permission.
+         *
+         */
+        order: Uuid;
+    };
+    query?: never;
+    url: '/me/orders/{order}/cancel';
+};
+
+export type CancelMyOrderErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The address has not been verified.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * `resource.conflict` with `details.reason`: `order_already_accepted`
+     * (the kitchen accepted it first; contact the kitchen) or
+     * `order_already_cancelled`. There is no `current_lock_version`:
+     * this audience is never served a validator, so there is nothing to
+     * reload against.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type CancelMyOrderError = CancelMyOrderErrors[keyof CancelMyOrderErrors];
+
+export type CancelMyOrderResponses = {
+    /**
+     * The cancelled order, as the customer sees it.
+     */
+    200: CustomerOrderEnvelope;
+};
+
+export type CancelMyOrderResponse = CancelMyOrderResponses[keyof CancelMyOrderResponses];
+
 export type ListStockItemsData = {
     body?: never;
     headers: {
@@ -32533,6 +32947,132 @@ export type ListDuplicateStockResponses = {
 };
 
 export type ListDuplicateStockResponse = ListDuplicateStockResponses[keyof ListDuplicateStockResponses];
+
+export type MergeDuplicateStockData = {
+    body: DuplicateStockMergeRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/inventory/duplicates/merge';
+};
+
+export type MergeDuplicateStockErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type MergeDuplicateStockError = MergeDuplicateStockErrors[keyof MergeDuplicateStockErrors];
+
+export type MergeDuplicateStockResponses = {
+    /**
+     * Merged.
+     */
+    204: void;
+};
+
+export type MergeDuplicateStockResponse = MergeDuplicateStockResponses[keyof MergeDuplicateStockResponses];
+
+export type DismissDuplicateStockData = {
+    body: DuplicateStockDismissRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/inventory/duplicates/dismiss';
+};
+
+export type DismissDuplicateStockErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type DismissDuplicateStockError = DismissDuplicateStockErrors[keyof DismissDuplicateStockErrors];
+
+export type DismissDuplicateStockResponses = {
+    /**
+     * Kept both.
+     */
+    204: void;
+};
+
+export type DismissDuplicateStockResponse = DismissDuplicateStockResponses[keyof DismissDuplicateStockResponses];
 
 export type CountUnresolvedConsumptionExceptionsData = {
     body?: never;
@@ -36071,6 +36611,112 @@ export type UpdateKitchenServiceSettingsResponses = {
 
 export type UpdateKitchenServiceSettingsResponse = UpdateKitchenServiceSettingsResponses[keyof UpdateKitchenServiceSettingsResponses];
 
+export type GetStorefrontProfileData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/storefront-profile';
+};
+
+export type GetStorefrontProfileErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetStorefrontProfileError = GetStorefrontProfileErrors[keyof GetStorefrontProfileErrors];
+
+export type GetStorefrontProfileResponses = {
+    /**
+     * The kitchen's storefront copy.
+     */
+    200: StorefrontProfileEnvelope;
+};
+
+export type GetStorefrontProfileResponse = GetStorefrontProfileResponses[keyof GetStorefrontProfileResponses];
+
+export type UpdateStorefrontProfileData = {
+    body: StorefrontProfile;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/catalogue/storefront-profile';
+};
+
+export type UpdateStorefrontProfileErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type UpdateStorefrontProfileError = UpdateStorefrontProfileErrors[keyof UpdateStorefrontProfileErrors];
+
+export type UpdateStorefrontProfileResponses = {
+    /**
+     * The copy as stored.
+     */
+    200: StorefrontProfileEnvelope;
+};
+
+export type UpdateStorefrontProfileResponse = UpdateStorefrontProfileResponses[keyof UpdateStorefrontProfileResponses];
+
 export type ListKitchenCustomersData = {
     body?: never;
     headers: {
@@ -37876,7 +38522,7 @@ export type GetOrderDeskCashReportData = {
     path?: never;
     query: {
         /**
-         * The first day of the window, read on the UTC clock.
+         * The first day of the window, read on the clock in `meta.timezone`.
          */
         from: string;
         /**
@@ -37886,9 +38532,8 @@ export type GetOrderDeskCashReportData = {
          */
         to: string;
         /**
-         * Narrow to the site that cooked it, through the order. Omitted, the
-         * report is organisation-wide. Orders with no branch are excluded when
-         * this is set — see the description.
+         * Narrow to one branch's till, and read the days on its timezone.
+         * Omitted, the report is organisation-wide on the organisation's clock.
          *
          */
         branch_id?: Uuid;
@@ -37929,6 +38574,66 @@ export type GetOrderDeskCashReportResponses = {
 };
 
 export type GetOrderDeskCashReportResponse = GetOrderDeskCashReportResponses[keyof GetOrderDeskCashReportResponses];
+
+export type GetOrderDeskTodayData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Narrow to one of this kitchen's branches. Another kitchen's branch is refused.
+         */
+        branch_id?: Uuid;
+    };
+    url: '/catalogue/order-desk/today';
+};
+
+export type GetOrderDeskTodayErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderDeskTodayError = GetOrderDeskTodayErrors[keyof GetOrderDeskTodayErrors];
+
+export type GetOrderDeskTodayResponses = {
+    /**
+     * Today's figures.
+     */
+    200: OrderDeskTodayEnvelope;
+};
+
+export type GetOrderDeskTodayResponse = GetOrderDeskTodayResponses[keyof GetOrderDeskTodayResponses];
 
 export type StartGuestSessionData = {
     body?: StartGuestSessionRequest;

@@ -4466,6 +4466,80 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/recipes/{recipe}/versions/{version}/release:
+    post:
+      operationId: releaseRecipeVersion
+      tags: [Recipes]
+      summary: Release a quarantined version with its recomputed allergen label
+      description: |
+        A manager has compared the label the version was published with
+        (`previous_label`) against the recomputed one, ticked that they checked
+        it, and accepts the new one. The new label goes live on the same
+        version, `review_reason` and `previous_label` are cleared, and every
+        quarantined listing of the recipe goes back on sale once no version of
+        it is left in review. Audited as `catalogue.allergen_release`, and
+        `catalogue.item_released` per listing.
+
+        When another version is published, or a newer one is also in review,
+        the released version is `retired` (superseded) rather than published.
+
+        Refusals:
+
+        - `422 validation.failed` when `confirmed` is not `true`.
+        - `409 resource.conflict` when the version is not `review_required`.
+        - `409 resource.conflict` with `details.reason = derivation_stale` when
+          an ingredient change since the quarantine has not been recomputed
+          yet. Reload and compare again.
+
+        Requires `recipe.publish_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/RecipePath'
+        - $ref: '#/components/parameters/RecipeVersionPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirmed]
+              properties:
+                confirmed:
+                  type: boolean
+                  const: true
+                  description: The manager's tick that they compared the old and new labels.
+              additionalProperties: false
+      responses:
+        '200':
+          description: The released version.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeVersionEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/recipes/{recipe}/versions/{version}/technical-sheet:
     get:
       operationId: showRecipeTechnicalSheet
@@ -5224,10 +5298,10 @@ paths:
         - name: include
           in: query
           required: false
-          description: '`channels` adds each item''s channel assignments, as the item''s own read serves them.'
+          description: 'A comma-separated list. `channels` adds each item''s channel assignments, as the item''s own read serves them; `variants` adds its live (not archived) variants with their packs, in the item read''s shape.'
           schema:
             type: string
-            enum: [channels]
+            pattern: '^(channels|variants)(,(channels|variants))?$'
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
@@ -7018,7 +7092,36 @@ paths:
                     items:
                       $ref: '#/components/schemas/AdminPriceListIndexRow'
                   meta:
-                    $ref: '#/components/schemas/PaginatedOrNumberedMeta'
+                    allOf:
+                      - $ref: '#/components/schemas/PaginatedOrNumberedMeta'
+                      - type: object
+                        required: [status_counts, unpriced_count, agreement_count]
+                        properties:
+                          status_counts:
+                            type: object
+                            description: |
+                              Lists per status over the search and scope
+                              filters, the status filter aside, archived
+                              lists included.
+                            required: [draft, active, archived]
+                            properties:
+                              draft:
+                                type: integer
+                                minimum: 0
+                              active:
+                                type: integer
+                                minimum: 0
+                              archived:
+                                type: integer
+                                minimum: 0
+                          unpriced_count:
+                            type: integer
+                            minimum: 0
+                            description: Lists in the filtered set with no confirmed open entry.
+                          agreement_count:
+                            type: integer
+                            minimum: 0
+                            description: Lists in the filtered set assigned to a channel whose prices are contract-private.
         '400':
           $ref: '#/components/responses/RequestInvalid'
         '401':
@@ -10015,7 +10118,7 @@ paths:
         `zone_suspended`, `currency_mismatch`, `window_not_offered`, `closed`,
         `date_in_the_past`, `cut_off_passed`, `kitchen_closed`, `window_ended`,
         `lead_time_not_met`, `below_zone_minimum`, `kitchen_paused`, `window_full`,
-        plus the line-probe vocabulary — come back as `warnings` inside an ordinary `200`. Deliberately the
+        `phone_required`, plus the line-probe vocabulary — come back as `warnings` inside an ordinary `200`. Deliberately the
         *same words* placement would refuse with: a customer taught one
         vocabulary for "we don't deliver there" on the cart screen and a
         different one at checkout has been taught nothing at all.
@@ -10120,7 +10223,9 @@ paths:
         (with `earliest_at` and `lead_minutes`), `below_zone_minimum` (with
         `minimum_minor` and `currency_code`), `kitchen_paused` (with
         `paused_until`), `window_full` (with `requested_date` and
-        `delivery_window_code`), plus the whole line vocabulary,
+        `delivery_window_code`), `phone_required` (a delivery with no live phone
+        on the address or the account, so the driver has nobody to ring),
+        plus the whole line vocabulary,
         `item_unavailable_on_date` included (with `on` and `cause`: `day_off`,
         `sold_out` or `cut_off_passed`),
         folded in per line with the offending `cart_item_id`. A cart with no
@@ -10257,10 +10362,12 @@ paths:
         is snapshotted onto.
 
         **No `ETag`.** The row carries `lock_version` and this audience cannot
-        write it: confirm, fulfil and cancel are the kitchen's actions behind the
-        kitchen's permission. Serving a validator to a reader with no writer
-        invites a client to send `If-Match` at an endpoint that does not exist
-        for it. The kitchen's read of the same row does carry one.
+        write it, bar one move: confirm, fulfil and a late cancel are the
+        kitchen's actions behind the kitchen's permission, and the customer's own
+        cancel of a `placed` order runs at the lock it reads itself. Serving a
+        validator to a reader with no `If-Match` writer invites a client to send
+        one at an endpoint that does not take it. The kitchen's read of the same
+        row does carry one.
 
         The allergen statement on each line is served exactly as it was
         snapshotted at placement — code and containment, never the derivation or
@@ -10286,6 +10393,71 @@ paths:
           $ref: '#/components/responses/EmailUnverified'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /me/orders/{order}/cancel:
+    post:
+      operationId: cancelMyOrder
+      tags: [Orders]
+      summary: Cancel one of the caller's own orders, before the kitchen accepts it
+      description: |
+        **Only while the order is `placed`.** Once the kitchen accepts it, stock
+        is deducted and cooking may start, so the customer contacts the kitchen
+        instead. Any other status is `409 resource.conflict` with `reason:
+        order_already_accepted`, or `order_already_cancelled` when the order is
+        already cancelled. Payment is cash on delivery, so nothing is refunded
+        because nothing was taken.
+
+        **Exactly one of accept and cancel wins.** The cancel runs at the
+        `lock_version` this request read; an accept that lands between the read
+        and the write turns it into the same `409 order_already_accepted` (a
+        kitchen cancel that lands there, `order_already_cancelled`). No
+        `If-Match`: this audience is never served a validator.
+
+        The reason is recorded as `customer_requested` and the kitchen's
+        managers are alerted once. Somebody else's order is `404`.
+      parameters:
+        - $ref: '#/components/parameters/OrderPath'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The cancelled order, as the customer sees it.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerOrderEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/EmailUnverified'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: |
+            `resource.conflict` with `details.reason`: `order_already_accepted`
+            (the kitchen accepted it first; contact the kitchen) or
+            `order_already_cancelled`. There is no `current_lock_version`:
+            this audience is never served a validator, so there is nothing to
+            reload against.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+              example:
+                error:
+                  code: resource.conflict
+                  message: The kitchen has already accepted this order. Contact the kitchen to change it.
+                  details:
+                    reason: order_already_accepted
+                  correlation_id: 0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1d3d
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -12950,6 +13122,81 @@ paths:
           $ref: '#/components/responses/ContextOrPermissionDenied'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /catalogue/inventory/duplicates/merge:
+    post:
+      operationId: mergeDuplicateStock
+      tags: [Kitchen inventory & production]
+      summary: Merge a shelf with history into its same-named twin
+      description: |
+        For a `both_have_history` group. The dropped shelf must stand at zero
+        in every branch: count it to zero first. No stock movement is changed
+        or deleted; the dropped row stays, linked to the kept one, so its
+        history stays readable. It leaves every list, and stock lookups
+        follow the link. Open purchase and production lines and supplier
+        links move to the kept shelf. Audited as `inventory.stock_merged`.
+
+        Refused `409 resource.conflict` with `details.reason`:
+        `not_duplicates`, `already_merged`, `different_units`,
+        `both_sold_as_products`, `stock_remaining` or `open_work`.
+
+        Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DuplicateStockMergeRequest'
+      responses:
+        '204':
+          description: Merged.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /catalogue/inventory/duplicates/dismiss:
+    post:
+      operationId: dismissDuplicateStock
+      tags: [Kitchen inventory & production]
+      summary: Keep same-named shelves as different things
+      description: |
+        Stamps the shelves so their group leaves the review list. A new shelf
+        of the same name brings the group back. Audited as
+        `inventory.duplicate_dismissed`.
+
+        Requires `inventory.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DuplicateStockDismissRequest'
+      responses:
+        '204':
+          description: Kept both.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/inventory/consumption-exceptions/unresolved-count:
     get:
       operationId: countUnresolvedConsumptionExceptions
@@ -15024,8 +15271,8 @@ paths:
         about: the fulfilment **shape** (`customer_required`,
         `address_required`, `address_not_applicable`), the **destination**
         (`address_not_deliverable`, `area_not_served`, `zone_suspended`,
-        `window_not_offered`, and a `currency_mismatch` whose `subject` is
-        `delivery_fee`), and the
+        `window_not_offered`, a `currency_mismatch` whose `subject` is
+        `delivery_fee`, and `phone_required` when nobody can be rung), and the
         **schedule** (`cut_off_passed`, `closed`, `date_in_the_past`,
         `kitchen_closed`, `window_ended`). The desk is not asked the lead time or
         the zone minimum.
@@ -15641,6 +15888,73 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/KitchenServiceSettingsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/storefront-profile:
+    get:
+      operationId: getStorefrontProfile
+      tags: [Kitchen operations]
+      summary: This kitchen's marketplace copy
+      description: |
+        The tagline, description and cuisines a customer reads on the kitchen's
+        marketplace page, in English and Arabic. Unset reads as `''` and `[]`.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The kitchen's storefront copy.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontProfileEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+    put:
+      operationId: updateStorefrontProfile
+      tags: [Kitchen operations]
+      summary: Replace this kitchen's marketplace copy
+      description: |
+        All six values together. No `If-Match`. An empty string or list clears
+        the field; blank and repeated cuisines are dropped. Audited.
+
+        Requires `catalogue.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorefrontProfile'
+      responses:
+        '200':
+          description: The copy as stored.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontProfileEnvelope'
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
@@ -17231,21 +17545,12 @@ paths:
         table — an opening float, a closing count, a named variance — and that is
         now `/catalogue/order-desk/closes`, which reads this same ledger.
 
-        ## The day boundary is UTC, and `meta.timezone` says so
+        ## The day is the kitchen's local day, and `meta.timezone` says which
 
-        `confirmed_at` is an instant; a day is not. Turning one into the other
-        needs a clock this operation does not have — a receipt carries no branch,
-        and the order behind it may carry none either, because an
-        organisation-wide delivery zone leaves `branch_id` null. There is no
-        timezone true of every receipt in the answer, and using each order's
-        branch where it had one would measure the two halves of a report on two
-        different clocks.
-
-        So the boundary is UTC, matching the queue's organisation-wide convention
-        exactly: unnamed, the only zone that is not a guess. A kitchen whose
-        evening runs past UTC midnight sees that evening split across two
-        reports — a visible, explicable fact rather than a silent
-        misattribution.
+        With `branch_id`, days are read on that branch's timezone; without it,
+        on the organisation's, the clock the daily close uses. A receipt at
+        23:30 in Beirut lands on that Beirut date. `meta.timezone` echoes the
+        zone so a screen can say which midnight it is showing.
 
         ## Grouped by three things, and the third is what makes the sums legal
 
@@ -17260,18 +17565,18 @@ paths:
         agents, derived from the rows so the two can never disagree. There is
         deliberately **no grand total**: it would have to add currencies.
 
-        ## `branch_id` narrows through the order
+        ## `branch_id` names a till
 
-        A receipt has no branch — money is taken by a person at a till, and which
-        site cooked the food is a fact about the order — so the filter reaches the
-        order. One consequence, stated because it is the same trap the queue
-        documents: an order with a null `branch_id` is **excluded** by a branch
-        filter. Right for "what did the Marina site take?", wrong as a default,
-        which is why the default is no narrowing at all.
+        One till per branch, resolved as the daily close resolves it. Receipts
+        and refunds belong to their order's till: the order's branch, else its
+        delivery zone's, else the kitchen's first branch. A hand-in carries its
+        own branch; one recorded before tills were per branch counts as the first
+        branch's. `meta.branches` lists the tills. A branch that is not this
+        kitchen's is a `422` naming `branch_id`.
 
         ## A window of days, still read one day at a time
 
-        `from` and `to` name whole UTC days, both inclusive, at most 31 of them.
+        `from` and `to` name whole local days, both inclusive, at most 31 of them.
         The day is part of every row's key, so a week is seven days of rows
         rather than one row summing Monday and Tuesday — each day can still be
         stood next to that day's cash box. `totals` sum the whole window per
@@ -17284,7 +17589,7 @@ paths:
         - name: from
           in: query
           required: true
-          description: The first day of the window, read on the UTC clock.
+          description: The first day of the window, read on the clock in `meta.timezone`.
           schema:
             type: string
             format: date
@@ -17301,9 +17606,8 @@ paths:
           in: query
           required: false
           description: |
-            Narrow to the site that cooked it, through the order. Omitted, the
-            report is organisation-wide. Orders with no branch are excluded when
-            this is set — see the description.
+            Narrow to one branch's till, and read the days on its timezone.
+            Omitted, the report is organisation-wide on the organisation's clock.
           schema:
             $ref: '#/components/schemas/Uuid'
         - $ref: '#/components/parameters/XClientRequestId'
@@ -17317,6 +17621,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrderDeskCashReportEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/order-desk/today:
+    get:
+      operationId: getOrderDeskToday
+      tags: [Order desk]
+      summary: The kitchen home's Today card
+      description: |
+        Four things a manager glances at: sales and orders, cash to collect,
+        late and past-due orders, and cancellations.
+
+        The day is the local day the cash report reads: the branch's timezone
+        with `branch_id`, else the organisation's. `branch_id` names a till, as
+        it does on the cash report, and every figure narrows to that till: the
+        order's branch, else its zone's, else the first branch. Money is per
+        currency, and no figure adds two.
+
+        Requires `order.manage_organisation`, the cash report's code.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: branch_id
+          in: query
+          required: false
+          description: Narrow to one of this kitchen's branches. Another kitchen's branch is refused.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: Today's figures.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskTodayEnvelope'
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
@@ -28885,7 +29233,11 @@ components:
             `us_only` mapping rather than a note nobody reads.
         source:
           type: string
-          enum: [master_list, technical_sheet, supplier_declaration, kitchen_declared, inferred]
+          enum: [master_list, technical_sheet, supplier_declaration, kitchen_declared, inferred, recipe_derived]
+          description: |
+            `recipe_derived` rows are carried from the published recipe that
+            makes this ingredient. They are read-only: the mapping editor refuses
+            to change them, and the fix is the recipe.
         verification_status:
           type: string
           enum: [verified, unverified, requires_review, requires_supplier_confirmation]
@@ -29895,6 +30247,8 @@ components:
           type: ['string', 'null']
           maxLength: 200
           description: Why this version is quarantined, when it is.
+        previous_label:
+          $ref: '#/components/schemas/RecipeVersionPreviousLabel'
         notes:
           type: ['string', 'null']
         lock_version:
@@ -31391,7 +31745,12 @@ components:
       allOf:
         - $ref: '#/components/schemas/AdminPriceList'
         - type: object
+          required: [confirmed_entries_count]
           properties:
+            confirmed_entries_count:
+              type: integer
+              minimum: 0
+              description: Open entries whose price is confirmed.
             entries:
               type: array
               items:
@@ -31402,7 +31761,7 @@ components:
                 $ref: '#/components/schemas/PriceListChannelAssignment'
 
     AdminCatalogueItemIndexRow:
-      description: A catalogue item row; `channels` is present when `include=channels` asks for it.
+      description: A catalogue item row; `channels` and `variants` are present when `include` asks for them.
       allOf:
         - $ref: '#/components/schemas/AdminCatalogueItem'
         - type: object
@@ -31411,6 +31770,10 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/AdminChannelAssignment'
+            variants:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminCatalogueItemVariant'
 
     AdminCatalogueItem:
       type: object
@@ -31902,6 +32265,22 @@ components:
               $ref: '#/components/schemas/RecipeVersionStatus'
             derivation_state:
               $ref: '#/components/schemas/DerivationState'
+            previous_label:
+              $ref: '#/components/schemas/RecipeVersionPreviousLabel'
+
+    RecipeVersionPreviousLabel:
+      type: ['object', 'null']
+      description: |
+        The allergen label a quarantined version was published with, as
+        `{allergen class: containment}` — what a release replaces with the
+        recomputed label. `{}` when the old label carried nothing. Null outside
+        review, and on a quarantine older than this field, which recorded only
+        its `review_reason`.
+      additionalProperties:
+        type: string
+        enum: [contains, may_contain]
+      examples:
+        - { sesame: contains }
 
     CatalogueItemReadinessMeta:
       allOf:
@@ -33886,16 +34265,16 @@ components:
           type: string
         tagline:
           type: string
-          description: Always empty; the platform stores no marketing copy.
+          description: The kitchen's own copy in the request's language, falling back to the other; empty when unset.
         description:
           type: string
-          description: Always empty; the platform stores no marketing copy.
+          description: The kitchen's own copy in the request's language, falling back to the other; empty when unset.
         country_code:
           type: string
           maxLength: 2
         cuisines:
           type: array
-          description: Always empty; nothing records how a kitchen cooks.
+          description: The kitchen's own free-text list in the request's language, falling back to the other; empty when unset.
           items:
             type: string
         diet_classifications:
@@ -33971,7 +34350,8 @@ components:
         One day of the fourteen-day ordering calendar, derived from the
         branches' operating weeks and cut-offs. A day is orderable when at least
         one active branch is open on it and that branch's cut-off has not
-        passed; a day nobody has configured is not orderable.
+        passed; a day nobody has configured is not orderable. On a meal, the
+        meal's own day off or sold-out day is not orderable either.
       required: [date, available, remaining, order_cut_off_at]
       properties:
         date:
@@ -33981,7 +34361,7 @@ components:
           type: boolean
         remaining:
           type: ['integer', 'null']
-          description: Always null — the platform stores no stock counts, and a zero would say sold out.
+          description: Portions of the meal left that day when the kitchen counts them; 0 is sold out. Null when nobody is counting.
         order_cut_off_at:
           type: ['string', 'null']
           format: date-time
@@ -35743,8 +36123,8 @@ components:
             `area_not_served`, `zone_suspended`, `currency_mismatch`,
             `window_not_offered`, `allergen_conflict`, `closed`, `date_in_the_past`,
             `cut_off_passed`, `kitchen_closed`, `window_ended`, `lead_time_not_met`,
-            `below_zone_minimum`, `kitchen_paused`, `window_full`, plus the
-            line-probe vocabulary. Deduplicated — three lines refused for the
+            `below_zone_minimum`, `kitchen_paused`, `window_full`, `phone_required`,
+            plus the line-probe vocabulary. Deduplicated — three lines refused for the
             same reason read as one fact, not three repeats of it.
             `stock_short` alone is not a refusal: a line needs more than the
             free stock, and stock on quality hold never counts as free. The
@@ -36292,7 +36672,7 @@ components:
 
     StockWasteRequest:
       type: object
-      required: [branch_id, stock_item_id, quantity]
+      required: [branch_id, stock_item_id, quantity, reason]
       properties:
         branch_id:
           $ref: '#/components/schemas/Uuid'
@@ -36302,10 +36682,17 @@ components:
           type: number
           exclusiveMinimum: 0
           description: Always positive. The endpoint states the loss; the server signs it negative on the ledger.
+        reason:
+          $ref: '#/components/schemas/StockWasteReason'
         notes:
           type: ['string', 'null']
           maxLength: 255
+          description: Required when `reason` is `other`.
       additionalProperties: false
+
+    StockWasteReason:
+      type: string
+      enum: [expired, spoiled, damaged, overproduced, customer_return, other]
 
     Supplier:
       type: object
@@ -37733,6 +38120,8 @@ components:
         - unit_price_amount
         - line_total_amount
         - cost_currency_code
+        - last_unit_price_amount
+        - price_variance_percent
         - costed_at
         - valuation_pending_fx
         - gtin
@@ -37772,6 +38161,15 @@ components:
           type: ['string', 'null']
         cost_currency_code:
           type: ['string', 'null']
+        last_unit_price_amount:
+          type: ['string', 'null']
+          description: |
+            The last priced delivery of this shelf before this one, per this
+            line's unit (mass and volume convert). Null for a first purchase,
+            across currencies or units that do not convert, or when redacted.
+        price_variance_percent:
+          type: ['string', 'null']
+          description: This line's unit price against `last_unit_price_amount`, in percent. Null like it.
         costed_at:
           type: ['string', 'null']
           format: date-time
@@ -38464,6 +38862,8 @@ components:
         - unit_price_amount
         - line_total_amount
         - cost_currency_code
+        - last_unit_price_amount
+        - price_variance_percent
         - valuation_pending_fx
         - costs_redacted
         - gtin
@@ -38522,6 +38922,15 @@ components:
           type: ['string', 'null']
         cost_currency_code:
           type: ['string', 'null']
+        last_unit_price_amount:
+          type: ['string', 'null']
+          description: |
+            The last priced delivery of this shelf before this one, per this
+            line's unit (mass and volume convert). Null for a first purchase,
+            across currencies or units that do not convert, or when redacted.
+        price_variance_percent:
+          type: ['string', 'null']
+          description: This line's unit price against `last_unit_price_amount`, in percent. Null like it.
         valuation_pending_fx:
           type: boolean
           description: |
@@ -38994,6 +39403,7 @@ components:
         - waste_quantity
         - revenue_amount
         - refunds_amount
+        - courier_expense_amount
         - gross_margin_amount
         - gross_margin_percent
         - is_margin_withheld
@@ -39068,6 +39478,9 @@ components:
         refunds_amount:
           type: string
           description: Refunds that completed this month, major units, each order's counted up to its food subtotal. Already taken off `revenue_amount`.
+        courier_expense_amount:
+          type: string
+          description: Couriers' fees on prepaid runs that the kitchen paid, by the month the hand-in was recorded, major units. An operating cost outside COGS; the gross margin does not deduct it.
         gross_margin_amount:
           type: ['string', 'null']
           description: Revenue minus COGS, major units; null when `is_margin_withheld`.
@@ -39556,6 +39969,32 @@ components:
                       type: boolean
         meta:
           type: object
+    DuplicateStockMergeRequest:
+      type: object
+      required: [keep_id, drop_id]
+      additionalProperties: false
+      properties:
+        keep_id:
+          type: string
+          format: uuid
+          description: The shelf that stays.
+        drop_id:
+          type: string
+          format: uuid
+          description: The shelf linked into it; must stand at zero in every branch.
+    DuplicateStockDismissRequest:
+      type: object
+      required: [stock_item_ids]
+      additionalProperties: false
+      properties:
+        stock_item_ids:
+          type: array
+          minItems: 2
+          maxItems: 50
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
     ConsumptionExceptionCountEnvelope:
       type: object
       required: [data, meta]
@@ -39673,18 +40112,20 @@ components:
           pattern: '^[0-9]{10}$'
           description: |
             The lot — the number on the label and inside the barcode. `YYMMDD` (the
-            production date), a three-digit sequence for that organisation and day,
-            and a GS1 mod-10 check digit: `2609250077` is shown `260925-007-7`.
-            Minted once, when the settlement puts usable units on a shelf, and never
-            changed. Null on a batch that has not finished or made nothing usable.
+            branch's day the batch started), a three-digit sequence for that
+            organisation and day, and a GS1 mod-10 check digit: `2609250077` is
+            shown `260925-007-7`. Minted once, at start, and never changed — an
+            abandoned batch keeps it. Null before start.
         barcode:
           type: [string, 'null']
           description: |
             The GS1-128 element string in its human-readable form,
             `(11)YYMMDD(17)YYMMDD(10)<lot>` — production date, expiry date, lot.
-            `(17)` is left out when the batch has no expiry date. Derived from
-            `production_date`, `expiry_date` and `lot_number`, none of which change
-            after completion, so it is never stored. Null without a lot.
+            `(11)` is `production_date`, or the lot's own day when a batch has
+            none. Derived from `production_date`, `expiry_date` and `lot_number`,
+            none of which change after completion, so it is never stored. Null
+            until the batch has both a lot and a use-by date: the label prints only
+            once it can carry one.
         branch_id:
           $ref: '#/components/schemas/Uuid'
         branch_name:
@@ -40177,6 +40618,11 @@ components:
                 $ref: '#/components/schemas/ProductionOrderLine'
             plan:
               $ref: '#/components/schemas/ProductionPlan'
+            cooking_temperatures:
+              type: array
+              description: The batch's core-temperature readings, newest first. Detail only; the desk list never carries them.
+              items:
+                $ref: '#/components/schemas/CookingTemperature'
         meta:
           allOf:
             - $ref: '#/components/schemas/Meta'
@@ -40288,10 +40734,13 @@ components:
           type: [string, 'null']
           format: date
           description: |
-            Only for a recipe **without** a shelf life. When the recipe has one the
-            server computes the use-by date itself (production date plus
-            `shelf_life_days`), and a supplied one is `422` rather than silently
-            overruled. Never before `production_date`.
+            Only for a recipe **without** a shelf life, and then **required**
+            whenever usable units reach a shelf (produced minus rejected above
+            zero): omitted, it is `422 validation.failed` with `parameter:
+            expiry_date`. When the recipe has a shelf life the server computes the
+            use-by date itself (production date plus `shelf_life_days`), and a
+            supplied one is `422` rather than silently overruled. Never before
+            `production_date`.
         notes:
           type: [string, 'null']
 
@@ -40615,6 +41064,13 @@ components:
           type: ['string', 'null']
           format: date-time
           description: When the kitchen marked it ready. The order stays `confirmed` until it is handed over (`fulfilled_at`).
+        due_at:
+          type: string
+          format: date-time
+          description: |
+            Sent on the kitchen display only. When the order is due: its
+            requested day at its window's start, in the branch's zone, else when
+            it was placed. The desk queue's instant; the wall sorts by it.
         fulfilled_at:
           type: ['string', 'null']
           format: date-time
@@ -40630,6 +41086,19 @@ components:
             - $ref: '#/components/schemas/CancellationDisposition'
             - type: 'null'
           description: What became of the food on a cancellation after cooking started. Null otherwise.
+        cancelled_by_name:
+          type: ['string', 'null']
+          description: |
+            The name on the profile of the person who cancelled it. Null when
+            it is not cancelled, when a system job cancelled it, and when that
+            person has no name on their profile.
+        remake_of:
+          description: |
+            The order this one remakes, when a complaint placed it. Null on
+            every other order.
+          oneOf:
+            - $ref: '#/components/schemas/KitchenOrderRemakeOf'
+            - type: 'null'
         delivery_run:
           oneOf:
             - $ref: '#/components/schemas/KitchenOrderDeliveryRun'
@@ -40689,6 +41158,17 @@ components:
         updated_at:
           type: ['string', 'null']
           format: date-time
+      additionalProperties: false
+
+    KitchenOrderRemakeOf:
+      type: object
+      required: [id, number]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        number:
+          type: string
+          description: The original order's number.
       additionalProperties: false
 
     KitchenOrderPlanDay:
@@ -41599,7 +42079,8 @@ components:
             `address_not_deliverable`, `area_not_served`, `zone_suspended`,
             `window_not_offered`, `currency_mismatch` (with
             `subject: delivery_fee`), `cut_off_passed`, `closed`,
-            `date_in_the_past`, `kitchen_closed`, `window_ended`.
+            `date_in_the_past`, `kitchen_closed`, `window_ended`,
+            `phone_required`.
       additionalProperties: true
 
     OrderDeskQuoteLine:
@@ -41668,6 +42149,15 @@ components:
             A warning, never a refusal: the names of the ingredients this line
             would draw that have stock on quality hold (a receipt or a batch under
             a held check). Empty on a refused line and when nothing is held.
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderDeskQuoteRefusal'
+          description: |
+            What the line is sold with, never refused for, in the refusal's
+            `{reason, …context}` shape. Today only `stock_short`: the line needs
+            more than the free stock (held stock never counts). The sale still
+            goes through.
       additionalProperties: false
 
     OrderDeskQuote:
@@ -41951,6 +42441,8 @@ components:
         - dish_below_target
         - delivery_moved_closed
         - delivery_closed_unmoved
+        - batch_stuck
+        - customer_cancelled
 
     StaffNotification:
       type: object
@@ -42079,6 +42571,45 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/KitchenServiceSettings'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    StorefrontProfile:
+      type: object
+      required: [tagline_en, tagline_ar, description_en, description_ar, cuisines_en, cuisines_ar]
+      properties:
+        tagline_en:
+          type: [string, 'null']
+          maxLength: 160
+        tagline_ar:
+          type: [string, 'null']
+          maxLength: 160
+        description_en:
+          type: [string, 'null']
+          maxLength: 2000
+        description_ar:
+          type: [string, 'null']
+          maxLength: 2000
+        cuisines_en:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 40
+          description: Free text, one cuisine per entry.
+        cuisines_ar:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 40
+
+    StorefrontProfileEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/StorefrontProfile'
         meta:
           $ref: '#/components/schemas/Meta'
 
@@ -42835,7 +43366,7 @@ components:
 
     DishMargin:
       type: object
-      required: [id, catalogue_item_id, name_en, name_ar, channel, price_amount, cost_amount, currency_code, margin_percent, withheld_reason, is_below_target]
+      required: [id, catalogue_item_id, name_en, name_ar, item_type, channel, price_amount, cost_amount, currency_code, margin_percent, withheld_reason, is_below_target]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -42845,6 +43376,10 @@ components:
           type: string
         name_ar:
           type: [string, 'null']
+        item_type:
+          type: string
+          enum: [meal, sauce, dressing, frozen_meal]
+          description: The recipe kind the dish is sold as. Products and plans are never priced here.
         channel:
           type: string
           enum: [b2c, b2b]
@@ -43236,7 +43771,7 @@ components:
 
     KitchenActivityEntry:
       type: object
-      required: [id, at, action, actor_name, subject_type, order_number, metadata]
+      required: [id, at, action, actor_name, subject_type, order_id, order_number, metadata]
       properties:
         id:
           type: string
@@ -43249,6 +43784,9 @@ components:
           type: [string, 'null']
         subject_type:
           type: string
+        order_id:
+          type: [string, 'null']
+          description: Set when the subject is an order this organisation can read.
         order_number:
           type: [string, 'null']
         metadata:
@@ -43274,7 +43812,7 @@ components:
 
     StockActivityMovement:
       type: object
-      required: [id, at, item_name, unit, reason, quantity_delta, cost_minor, currency_code, notes, order_number, wasted_order, attributed, actor_name]
+      required: [id, at, item_name, unit, reason, quantity_delta, cost_minor, currency_code, notes, waste_reason, order_id, order_number, wasted_order, attributed, actor_name]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -43295,6 +43833,13 @@ components:
         currency_code:
           type: [string, 'null']
         notes:
+          type: [string, 'null']
+        waste_reason:
+          description: Set on a waste row only. A row from before reasons were recorded reads as `other`.
+          oneOf:
+            - $ref: '#/components/schemas/StockWasteReason'
+            - type: 'null'
+        order_id:
           type: [string, 'null']
         order_number:
           type: [string, 'null']
@@ -43349,7 +43894,10 @@ components:
           format: date
         kind:
           type: string
-          enum: [refund, receipt_correction, courier_fee, short]
+          enum: [refund, receipt_correction, courier_fee, courier_expense, short]
+          description: |
+            `courier_fee` came off a hand-in. `courier_expense` is a prepaid
+            run's courier fee, which the kitchen paid and no hand-in carried.
         display_name:
           type: [string, 'null']
           description: The person who recorded a refund, the courier, or the driver who was short.
@@ -43377,7 +43925,7 @@ components:
         day:
           type: string
           format: date
-          description: The UTC day the receipts were confirmed on. Part of the row's key.
+          description: The local day, on `meta.timezone`, the receipts were confirmed on. Part of the row's key.
         confirmed_by:
           $ref: '#/components/schemas/Uuid'
         display_name:
@@ -43431,6 +43979,88 @@ components:
         amount_minor_sum:
           type: integer
 
+    OrderDeskTodayAmount:
+      type: object
+      required: [currency_code, amount_minor]
+      additionalProperties: false
+      properties:
+        currency_code:
+          type: string
+        amount_minor:
+          type: integer
+
+    OrderDeskTodayEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [day, timezone, sales, orders, cash_expected, cash_counted, overdue, past_due, cancelled]
+          additionalProperties: false
+          properties:
+            day:
+              type: string
+              format: date
+              description: Today, on `timezone`.
+            timezone:
+              type: string
+              description: The clock the day is read on.
+            sales:
+              type: array
+              description: Orders placed today and not cancelled, summed per currency.
+              items:
+                $ref: '#/components/schemas/OrderDeskTodayAmount'
+            orders:
+              type: integer
+              minimum: 0
+              description: How many orders `sales` sums.
+            cash_expected:
+              type: array
+              description: |
+                What the open tills should hold now, per currency: the float plus
+                counter cash and hand-ins, less cash refunds, as the daily close
+                pre-fills it.
+              items:
+                $ref: '#/components/schemas/OrderDeskTodayAmount'
+            cash_counted:
+              type: array
+              description: Each till's last count today, summed per currency.
+              items:
+                $ref: '#/components/schemas/OrderDeskTodayAmount'
+            overdue:
+              type: integer
+              minimum: 0
+              description: Open orders past their due time by more than the grace, as the desk queue counts them.
+            past_due:
+              type: integer
+              minimum: 0
+              description: Open orders past their due time, the desk's `past_due` lens.
+            cancelled:
+              type: object
+              required: [returned, wasted, other]
+              additionalProperties: false
+              description: Orders cancelled today, by what became of the food. No disposition is `other`.
+              properties:
+                returned:
+                  type: integer
+                  minimum: 0
+                wasted:
+                  type: integer
+                  minimum: 0
+                other:
+                  type: integer
+                  minimum: 0
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required: [branch_id]
+              properties:
+                branch_id:
+                  oneOf:
+                    - $ref: '#/components/schemas/Uuid'
+                    - type: 'null'
+
     OrderDeskCashReportEnvelope:
       type: object
       required: [data, meta]
@@ -43466,7 +44096,7 @@ components:
           allOf:
             - $ref: '#/components/schemas/Meta'
             - type: object
-              required: [from, to, branch_id, timezone, count]
+              required: [from, to, branch_id, timezone, branches, count]
               properties:
                 from:
                   type: string
@@ -43483,10 +44113,20 @@ components:
                 timezone:
                   type: string
                   description: |
-                    The clock the day was measured on. **Always `UTC`** — see the
-                    operation. Echoed rather than assumed so a screen can say
-                    which midnight it is showing instead of implying the reader's
-                    own.
+                    The IANA zone the days were measured on: the branch's with
+                    `branch_id`, else the organisation's. Echoed so a screen can
+                    say which midnight it is showing.
+                branches:
+                  type: array
+                  description: Every branch, so every till, the kitchen's first branch first.
+                  items:
+                    type: object
+                    required: [id, name]
+                    properties:
+                      id:
+                        $ref: '#/components/schemas/Uuid'
+                      name:
+                        type: string
                 count:
                   type: integer
                   minimum: 0

@@ -27,6 +27,7 @@ import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Linking } from 'react-native';
 
 import { Gate } from '../../access/gate.tsx';
 import {
@@ -38,6 +39,8 @@ import {
     useDriverJobsQuery,
 } from '../../data/driver-jobs-hooks.ts';
 import { useOnlineStatus } from '../../online/online-status.tsx';
+// The customer surfaces' inline link: role link, a 44px target, accent ink (a phone surface too).
+import { TextLink } from '../catalogue/plan-controls.tsx';
 
 /**
  * `/driver` — one driver's run sheet, and the stamp that closes a job.
@@ -589,6 +592,12 @@ interface JobCardProps {
     readonly onFail?: ((job: DriverJob) => void) | undefined;
 }
 
+/** A maps search for the parts of an address that were recorded, in the order given. */
+function driverMapUrl(parts: readonly (string | null)[]): string {
+    const query = parts.filter((part): part is string => part !== null && part !== '').join(', ');
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
 /**
  * One job.
  *
@@ -612,6 +621,10 @@ function JobCard({ job, locale, disabled, action, onAction, onFail }: JobCardPro
     const unitParts = [delivery.building, delivery.floor, delivery.apartment].filter(
         (part): part is string => part !== null && part !== '',
     );
+    /** The address in the phone's maps app: the street, the building and the area are a search. */
+    const openMap = () => {
+        void Linking.openURL(driverMapUrl([delivery.lineOne, delivery.building, areaName]));
+    };
 
     return (
         <Card padding="md" testID={testID}>
@@ -682,10 +695,14 @@ function JobCard({ job, locale, disabled, action, onAction, onFail }: JobCardPro
                     </Text>
                 ) : (
                     <Stack space="none" testID={`${testID}-address`}>
+                        {/* The first line drawn is the link to the map, never a second target beside it. */}
                         {delivery.lineOne === null ? null : (
-                            <Text variant="bodyStrong" testID={`${testID}-address-line-one`}>
-                                {delivery.lineOne}
-                            </Text>
+                            <TextLink
+                                testID={`${testID}-address-line-one`}
+                                label={delivery.lineOne}
+                                accessibilityHint={t('kitchen:driver.openMap')}
+                                onPress={openMap}
+                            />
                         )}
                         {unitParts.length === 0 ? null : (
                             <Text
@@ -696,7 +713,14 @@ function JobCard({ job, locale, disabled, action, onAction, onFail }: JobCardPro
                                 {unitParts.join(t('kitchen:common.listSeparator'))}
                             </Text>
                         )}
-                        {areaName === null ? null : (
+                        {areaName === null ? null : delivery.lineOne === null ? (
+                            <TextLink
+                                testID={`${testID}-address-area`}
+                                label={areaName}
+                                accessibilityHint={t('kitchen:driver.openMap')}
+                                onPress={openMap}
+                            />
+                        ) : (
                             <Text
                                 variant="caption"
                                 tone="secondary"

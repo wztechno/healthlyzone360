@@ -310,7 +310,8 @@ it('sweeps every PII literal out of the schema while the order rows survive', fu
         // Still answers "did this address ever have an account here", with no
         // copy of the address anywhere.
         ->and($tombstone->email_hash)->toBe($emailDigest)
-        ->and($tombstone->phone_hashes)->toHaveCount(1)
+        // Theirs and the fixture's: `readyCustomer()` gives every customer a phone.
+        ->and($tombstone->phone_hashes)->toHaveCount(2)
         ->and($tombstone->reason_code)->toBe(ClosureReasonCode::PrivacyConcerns);
 
     // The one thing an erasure is allowed to leave behind, so the next import

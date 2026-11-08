@@ -130,6 +130,10 @@ it('takes an anonymous browser from no credential at all to a placed order', fun
         'lock_version' => 0,
     ]);
 
+    // The mobile the guest gave beside the email: a delivery the driver cannot
+    // ring is refused `phone_required`.
+    app(ContactPointRegistry::class)->rememberForCustomerAccount((string) $account->getKey(), ContactChannel::Phone, '+96170555123');
+
     $placed = $this->postJson('/api/v1/guest/orders', [
         'cart_id' => (string) $cart->getKey(),
         'customer_address_id' => (string) $address->getKey(),
