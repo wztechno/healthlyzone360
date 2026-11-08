@@ -25,23 +25,15 @@ import {
     ErrorState,
     FilterChip,
     Inline,
-    IssueTrayFrame,
     Select,
     Stack,
     Table,
     TableSkeleton,
     Text,
     TextInputField,
-    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type {
-    IssueCardItem,
-    IssueTrayContent,
-    MenuItem,
-    RecordWindowField,
-    TableColumn,
-} from '@healthy360/design-system';
+import type { MenuItem, RecordWindowField, TableColumn } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useRouter } from 'expo-router';
@@ -74,6 +66,7 @@ import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensMixPart, LensToken, LensTone } from '../catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { RecordViewSection } from '../catalogue/record-view-page.tsx';
+import type { RecordAction } from '../catalogue/record-popup.tsx';
 import {
     compareNumber,
     compareText,
@@ -110,7 +103,6 @@ import {
     useRememberedOpened,
     useRememberedQuery,
 } from '../list-memory.ts';
-import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 import { ORDER_DESK_POLL_MS } from './order-desk-screen.tsx';
 
@@ -397,8 +389,8 @@ function Orders({ view }: { readonly view?: string | undefined }) {
 
     const controls = useColumnControls(rows, columns, 'kitchen-orders');
 
-    if (selected !== null) {
-        return (
+    const viewPopup =
+        selected === null ? null : (
             <OrderRecord
                 seed={selected}
                 onBack={() => {
@@ -406,7 +398,6 @@ function Orders({ view }: { readonly view?: string | undefined }) {
                 }}
             />
         );
-    }
 
     const listFailure = toFailure(orders.error);
     const unfiltered = status === 'all' && deliveryDate === null && trimmed === '';
@@ -547,6 +538,8 @@ function Orders({ view }: { readonly view?: string | undefined }) {
                     ) : null}
                 </Stack>
             )}
+
+            {viewPopup}
         </Cascade>
     );
 }
@@ -730,11 +723,6 @@ function OrderRecord({
         toFailure(cancelOrder.error);
     const isConflict = actionFailure?.code === 'resource.conflict';
 
-    // The record's issue tray; a refused confirm, fulfil or cancel opens it.
-    const issueTray = useIssueTrayController();
-    const { nudge: nudgeTray } = issueTray;
-    useNudgeOnRefusal(confirmOrder.error ?? fulfilOrder.error ?? cancelOrder.error, nudgeTray);
-
     function clearActionState() {
         confirmOrder.reset();
         fulfilOrder.reset();
@@ -804,183 +792,203 @@ function OrderRecord({
     const shown = order ?? seed;
 
     /*
-     * A confirm, fulfil or cancel the server turned down, in the record's issue tray rather than
-     * above the status card's button. A stale version is its own card, whose way out is to read the
-     * order again; anything else keeps the server's own words.
+     * A confirm, fulfil or cancel the server turned down, at the head of the pop-up — a tray
+     * beside the page would sit behind its backdrop. A stale version is its own banner, whose way
+     * out is to read the order again; anything else keeps the server's own words.
      */
-    const failedCards: IssueCardItem[] =
-        actionFailure === null
-            ? []
-            : isConflict
-              ? [
-                    {
-                        key: 'conflict',
-                        tone: 'warning',
-                        label: t('kitchen:ops.orders.conflictTitle'),
-                        action: {
-                            label: t('kitchen:ops.orders.conflictRefresh'),
-                            loading: detail.isFetching,
-                            onPress: () => {
-                                clearActionState();
-                                void detail.refetch();
-                            },
-                            testID: 'kitchen-orders-conflict-refresh',
-                        },
-                        testID: 'kitchen-orders-conflict',
-                    },
-                ]
-              : [
-                    {
-                        key: 'action',
-                        tone: 'danger',
-                        label: t('kitchen:ops.orders.saveFailed'),
-                        detail: actionFailure.message,
-                        testID: 'kitchen-orders-action-error',
-                    },
-                ];
-    const trayContent: IssueTrayContent = {
-        title: t('kitchen:tray.title'),
-        testID: 'kitchen-orders-tray',
-        // A list page has no "done" to show: the tray appears only while it has something.
-        hideWhenClear: true,
-        groups: [{ key: 'failed', title: t('kitchen:tray.groupFailed'), items: failedCards }],
-    };
-
-    const actionContent = (
-        <Stack space="sm">
-            {order === null ? null : (
-                <View className="flex-row">
+    const failureBanner =
+        actionFailure === null ? undefined : isConflict ? (
+            <Callout
+                testID="kitchen-orders-conflict"
+                tone="warning"
+                role="alert"
+                title={t('kitchen:ops.orders.conflictTitle')}
+                actions={
                     <Button
-                        testID="kitchen-orders-print-ticket"
+                        testID="kitchen-orders-conflict-refresh"
                         variant="secondary"
                         size="sm"
-                        label={t('kitchen:kds.print')}
-                        onPress={() => {
-                            router.push(
-                                `/kitchen/orders/ticket?order=${encodeURIComponent(String(order.id))}` as never,
-                            );
-                        }}
-                    />
-                </View>
-            )}
-            {/* A complaint's remake links back to the order complained about. */}
-            {remakeOf === null ? null : (
-                <View className="flex-row">
-                    <Button
-                        testID="kitchen-orders-remake-of"
-                        variant="secondary"
-                        size="sm"
-                        label={t('kitchen:ops.orders.remakeOf', { number: remakeOf.number })}
-                        onPress={() => {
-                            router.push(
-                                `/kitchen/orders?view=${encodeURIComponent(String(remakeOf.id))}` as never,
-                            );
-                        }}
-                    />
-                </View>
-            )}
-            {/* The server's `amendable` decides; the desk's sale page edits it. */}
-            {order === null || !order.amendable || !canSell ? null : (
-                <View className="flex-row">
-                    <Button
-                        testID="kitchen-orders-edit"
-                        variant="secondary"
-                        size="sm"
-                        label={t('kitchen:desk.edit.open')}
-                        onPress={() => {
-                            router.push(
-                                `/kitchen/order-desk/sale?order=${encodeURIComponent(String(order.id))}`,
-                            );
-                        }}
-                    />
-                </View>
-            )}
-            {order === null || !isDelivery || !canFulfilKitchenOrder(order.status) ? null : (
-                // Where the run stands, in the kitchen display's words.
-                <Text variant="caption" tone="secondary" testID="kitchen-orders-detail-run-state">
-                    {failed
-                        ? [
-                              t('kitchen:ops.orders.deliveryFailedNote', {
-                                  reason: t(deliveryFailureReasonKey(run.failureReason ?? 'other')),
-                              }),
-                              run.failureNote,
-                          ]
-                              .filter((part) => part !== null && part !== undefined)
-                              .join(t('kitchen:common.listSeparator'))
-                        : withCourier
-                          ? t('kitchen:ops.orders.withCourier', { name: courierName })
-                          : t(
-                                (order.readyAt ?? null) === null
-                                    ? 'kitchen:ops.orders.notReadyYet'
-                                    : (order.deliveryRun?.pickedUpAt ?? null) === null
-                                      ? 'kitchen:kds.waitingForDriver'
-                                      : 'kitchen:kds.withDriver',
-                            )}
-                </Text>
-            )}
-            {order === null || !failed || !canSupervise ? null : (
-                <Inline space="xs" wrap>
-                    <Button
-                        testID="kitchen-orders-redeliver"
-                        variant="secondary"
-                        size="sm"
-                        label={t('kitchen:ops.orders.redeliver')}
-                        disabled={actionPending}
-                        onPress={() => {
-                            setDeliveryAction('redeliver');
-                        }}
-                    />
-                    <Button
-                        testID="kitchen-orders-close-failed"
-                        variant="secondary"
-                        size="sm"
-                        label={t('kitchen:ops.orders.closeFailed')}
-                        disabled={actionPending}
-                        onPress={() => {
-                            setDeliveryAction('close');
-                        }}
-                    />
-                </Inline>
-            )}
-            {order === null || !withCourier || !canManage ? null : (
-                <View className="flex-row">
-                    <Button
-                        testID="kitchen-orders-fail-delivery"
-                        variant="secondary"
-                        size="sm"
-                        label={t('kitchen:ops.orders.failDelivery')}
-                        disabled={actionPending}
-                        onPress={() => {
-                            setDeliveryAction('fail');
-                        }}
-                    />
-                </View>
-            )}
-            {!canManage || order === null ? null : !canCancelKitchenOrder(order.status) ? (
-                <Text variant="caption" tone="secondary" testID="kitchen-orders-detail-closed">
-                    {t('kitchen:ops.orders.nothingToDo')}
-                </Text>
-            ) : pickedUp ? null : started && !canSupervise ? (
-                <Text variant="caption" tone="secondary" testID="kitchen-orders-cancel-manager">
-                    {t('kitchen:ops.orders.cancelNeedsManager')}
-                </Text>
-            ) : (
-                <View className="flex-row">
-                    <Button
-                        testID="kitchen-orders-cancel"
-                        variant="secondary"
-                        size="sm"
-                        label={t('kitchen:ops.orders.cancel')}
-                        disabled={actionPending}
+                        label={t('kitchen:ops.orders.conflictRefresh')}
+                        loading={detail.isFetching}
                         onPress={() => {
                             clearActionState();
-                            setCancelling(true);
+                            void detail.refetch();
                         }}
                     />
-                </View>
-            )}
-        </Stack>
-    );
+                }
+            />
+        ) : (
+            <Callout
+                testID="kitchen-orders-action-error"
+                tone="danger"
+                role="alert"
+                title={t('kitchen:ops.orders.saveFailed')}
+                {...(actionFailure.message === undefined || actionFailure.message === null
+                    ? {}
+                    : { body: actionFailure.message })}
+            />
+        );
+
+    // What the status tile says — no tile at all when there is nothing to say, now that its
+    // buttons are behind the pop-up's ⋯.
+    const runNote = order !== null && isDelivery && canFulfilKitchenOrder(order.status);
+    const cancelNote =
+        canManage &&
+        order !== null &&
+        (!canCancelKitchenOrder(order.status) || (!pickedUp && started && !canSupervise));
+    const actionContent =
+        !runNote && !cancelNote ? undefined : (
+            <Stack space="sm">
+                {order === null || !isDelivery || !canFulfilKitchenOrder(order.status) ? null : (
+                    // Where the run stands, in the kitchen display's words.
+                    <Text
+                        variant="caption"
+                        tone="secondary"
+                        testID="kitchen-orders-detail-run-state"
+                    >
+                        {failed
+                            ? [
+                                  t('kitchen:ops.orders.deliveryFailedNote', {
+                                      reason: t(
+                                          deliveryFailureReasonKey(run.failureReason ?? 'other'),
+                                      ),
+                                  }),
+                                  run.failureNote,
+                              ]
+                                  .filter((part) => part !== null && part !== undefined)
+                                  .join(t('kitchen:common.listSeparator'))
+                            : withCourier
+                              ? t('kitchen:ops.orders.withCourier', { name: courierName })
+                              : t(
+                                    (order.readyAt ?? null) === null
+                                        ? 'kitchen:ops.orders.notReadyYet'
+                                        : (order.deliveryRun?.pickedUpAt ?? null) === null
+                                          ? 'kitchen:kds.waitingForDriver'
+                                          : 'kitchen:kds.withDriver',
+                                )}
+                    </Text>
+                )}
+                {!canManage || order === null ? null : !canCancelKitchenOrder(order.status) ? (
+                    <Text variant="caption" tone="secondary" testID="kitchen-orders-detail-closed">
+                        {t('kitchen:ops.orders.nothingToDo')}
+                    </Text>
+                ) : pickedUp ? null : started && !canSupervise ? (
+                    <Text variant="caption" tone="secondary" testID="kitchen-orders-cancel-manager">
+                        {t('kitchen:ops.orders.cancelNeedsManager')}
+                    </Text>
+                ) : null}
+            </Stack>
+        );
+
+    // Every action the order has left, behind the pop-up's ⋯ after `forward`.
+    const orderActions: RecordAction[] = [
+        ...(order === null
+            ? []
+            : [
+                  {
+                      key: 'print-ticket',
+                      label: t('kitchen:kds.print'),
+                      icon: 'fileText' as const,
+                      testID: 'kitchen-orders-print-ticket',
+                      onSelect: () => {
+                          router.push(
+                              `/kitchen/orders/ticket?order=${encodeURIComponent(String(order.id))}` as never,
+                          );
+                      },
+                  },
+              ]),
+        // A complaint's remake links back to the order complained about.
+        ...(remakeOf === null
+            ? []
+            : [
+                  {
+                      key: 'remake-of',
+                      label: t('kitchen:ops.orders.remakeOf', { number: remakeOf.number }),
+                      icon: 'chevronBackward' as const,
+                      testID: 'kitchen-orders-remake-of',
+                      onSelect: () => {
+                          router.push(
+                              `/kitchen/orders?view=${encodeURIComponent(String(remakeOf.id))}` as never,
+                          );
+                      },
+                  },
+              ]),
+        ...(order === null || !failed || !canSupervise
+            ? []
+            : [
+                  {
+                      key: 'redeliver',
+                      label: t('kitchen:ops.orders.redeliver'),
+                      icon: 'truck' as const,
+                      testID: 'kitchen-orders-redeliver',
+                      disabled: actionPending,
+                      onSelect: () => {
+                          setDeliveryAction('redeliver');
+                      },
+                  },
+                  {
+                      key: 'close-failed',
+                      label: t('kitchen:ops.orders.closeFailed'),
+                      icon: 'circleX' as const,
+                      testID: 'kitchen-orders-close-failed',
+                      disabled: actionPending,
+                      onSelect: () => {
+                          setDeliveryAction('close');
+                      },
+                  },
+              ]),
+        ...(order === null || !withCourier || !canManage
+            ? []
+            : [
+                  {
+                      key: 'fail-delivery',
+                      label: t('kitchen:ops.orders.failDelivery'),
+                      icon: 'alert' as const,
+                      testID: 'kitchen-orders-fail-delivery',
+                      disabled: actionPending,
+                      onSelect: () => {
+                          setDeliveryAction('fail');
+                      },
+                  },
+              ]),
+        ...(!canManage ||
+        order === null ||
+        !canCancelKitchenOrder(order.status) ||
+        pickedUp ||
+        (started && !canSupervise)
+            ? []
+            : [
+                  {
+                      key: 'cancel',
+                      label: t('kitchen:ops.orders.cancel'),
+                      icon: 'ban' as const,
+                      tone: 'danger' as const,
+                      testID: 'kitchen-orders-cancel',
+                      disabled: actionPending,
+                      onSelect: () => {
+                          clearActionState();
+                          setCancelling(true);
+                      },
+                  },
+              ]),
+        // The server's `amendable` decides; the desk's sale page edits it.
+        ...(order === null || !order.amendable || !canSell
+            ? []
+            : [
+                  {
+                      key: 'edit',
+                      label: t('kitchen:desk.edit.open'),
+                      icon: 'pen' as const,
+                      testID: 'kitchen-orders-edit',
+                      separated: true,
+                      onSelect: () => {
+                          router.push(
+                              `/kitchen/order-desk/sale?order=${encodeURIComponent(String(order.id))}`,
+                          );
+                      },
+                  },
+              ]),
+    ];
 
     const sections: RecordViewSection[] = [
         // Right under the details, as the view drew it: what was ordered comes before where it goes.
@@ -1244,9 +1252,10 @@ function OrderRecord({
                   : undefined;
 
     return (
-        <IssueTrayFrame tray={trayContent} controller={issueTray}>
+        <>
             <RecordViewPage
                 testID="kitchen-orders-detail"
+                banner={failureBanner}
                 onBack={onBack}
                 title={t('kitchen:ops.orders.detailTitle', { number })}
                 kind={t('kitchen:ops.orders.viewKind')}
@@ -1268,6 +1277,7 @@ function OrderRecord({
                 statusContent={actionContent}
                 footNote={t('kitchen:ops.orders.cancelFinal')}
                 primaryAction={forward}
+                actions={orderActions}
             />
 
             <Dialog
@@ -1386,7 +1396,7 @@ function OrderRecord({
                     }}
                 />
             )}
-        </IssueTrayFrame>
+        </>
     );
 }
 

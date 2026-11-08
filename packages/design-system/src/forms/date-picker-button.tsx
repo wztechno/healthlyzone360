@@ -161,7 +161,7 @@ export function DatePickerButton({
                 aria-controls={panelId}
                 aria-haspopup="dialog"
                 onPress={toggle}
-                className="h-control-sm flex-row items-center gap-tight self-start rounded border border-stroke bg-surface-raised px-control-sm"
+                className="h-desk-toolbar flex-row items-center gap-1.5 self-start rounded-full border border-stroke-subtle bg-surface-raised px-3 hover:bg-surface-brand-subtle"
             >
                 <Icon name="calendar" size="sm" className="text-content-secondary" />
                 <Text

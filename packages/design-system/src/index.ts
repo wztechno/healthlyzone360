@@ -252,6 +252,7 @@ export type {
 export { ListItem } from './content/list-item.tsx';
 export type { ListItemProps } from './content/list-item.tsx';
 export {
+    DATA_LIST_HEAD_TEXT_CLASS,
     DataList,
     UNDROPPABLE_PRIORITY,
     dataListColumnAlign,
@@ -376,6 +377,8 @@ export { Dialog } from './overlays/dialog.tsx';
 export type { DialogProps, DialogSize } from './overlays/dialog.tsx';
 export { Notice } from './overlays/notice.tsx';
 export type { NoticeAction, NoticeProps, NoticeTone } from './overlays/notice.tsx';
+export { RECORD_DIALOG_WIDTH, RecordDialog } from './overlays/record-dialog.tsx';
+export type { RecordDialogAction, RecordDialogProps } from './overlays/record-dialog.tsx';
 export { RecordWindow, RecordWindowFieldGrid } from './overlays/record-window.tsx';
 export type { RecordWindowField, RecordWindowProps } from './overlays/record-window.tsx';
 export { DRAWER_PLACEMENTS, Drawer } from './overlays/drawer.tsx';
@@ -413,9 +416,22 @@ export type {
     ToastTone,
 } from './overlays/toast.tsx';
 
-export { APP_SHELL_VARIANTS, AppShell } from './shell/app-shell.tsx';
+export {
+    APP_SHELL_VARIANTS,
+    AppShell,
+    FRAME_GUTTER,
+    RAIL_WIDTH,
+    ShellRailButton,
+} from './shell/app-shell.tsx';
+export { RailAccount } from './shell/rail-account.tsx';
+export type { RailAccountProps } from './shell/rail-account.tsx';
 export { HideShellTopbar, ShellDock } from './shell/shell-dock.tsx';
-export type { AppShellProps, AppShellVariant, NavigationItem } from './shell/app-shell.tsx';
+export type {
+    AppShellProps,
+    AppShellVariant,
+    NavigationItem,
+    ShellRailButtonProps,
+} from './shell/app-shell.tsx';
 
 export { MAX_STAGGERED_ITEMS, STAGGER_STEP_MS, useMotion } from './motion/use-motion.ts';
 export type { MotionTokens } from './motion/use-motion.ts';

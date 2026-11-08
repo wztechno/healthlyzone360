@@ -39,10 +39,11 @@ export function ThemeToggle({
             testID="theme-toggle"
             size="sm"
             variant={onCanopy ? 'ghost' : 'quiet'}
+            round
             className={
                 onCanopy
-                    ? 'rounded-full bg-content-on-canopy/15'
-                    : 'rounded-full transition duration-fast ease-standard active:scale-95'
+                    ? 'bg-content-on-canopy/15'
+                    : 'transition duration-fast ease-standard active:scale-95'
             }
             icon={
                 <Icon

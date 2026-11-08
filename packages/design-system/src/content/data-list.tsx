@@ -301,10 +301,21 @@ const ROW_DURATION = 'normal';
  * `TableCellTextContext`), so a page of ordinary rows is the same 28 / 32 / 36px whatever its values.
  */
 const ROW_HEIGHT_CLASS: Readonly<Record<RowDensity, string>> = {
-    sm: 'min-h-row-sm',
-    md: 'min-h-row-md',
-    lg: 'min-h-row-lg',
+    sm: 'min-h-[46px]',
+    md: 'min-h-[46px]',
+    lg: 'min-h-[52px]',
 };
+
+/**
+ * A column's name, as the admin canvas draws it: 11px bold capitals on the table's quiet band.
+ *
+ * Exported so the Catalogue's sort-and-filter header sets its label in the same type as a plain one.
+ */
+export const DATA_LIST_HEAD_TEXT_CLASS =
+    'text-[11px] leading-4 font-bold uppercase tracking-[0.06em] text-content-secondary';
+
+/** The first track's extra start inset: the row's text starts 14px in from the frame. */
+const FIRST_TRACK_CLASS = 'ps-3.5';
 
 const TEXT_ALIGN_CLASS: Readonly<Record<'start' | 'end' | 'center', string>> = {
     start: 'text-start',
@@ -346,7 +357,7 @@ export function dataListColumnAlign(
 /** The text of a cell with no renderer — the one size and ink every cell is set in. */
 function cellClass(column: DataListColumn<unknown>): string {
     return cx(
-        'text-role-body text-content-primary',
+        'text-[13px] leading-[18px] font-medium text-content-primary',
         column.mono === true ? 'tabular-nums' : null,
         TEXT_ALIGN_CLASS[dataListColumnAlign(column)],
     );
@@ -495,14 +506,14 @@ export function DataList<Row>({
                      * there.
                      */
                     className={cx(
-                        'min-h-row-sm z-raised flex-row items-center border-b border-stroke-subtle',
-                        // The brand's subtle ground: the header reads as the table's green band.
-                        // Opaque, which the sticky header needs so rows do not show through.
-                        'bg-surface-brand-subtle web:sticky web:top-0',
+                        'min-h-[38px] z-raised flex-row items-center border-b border-stroke-subtle',
+                        // The table's quiet band. Opaque, which the sticky header needs so rows do
+                        // not show through.
+                        'bg-surface-sunken web:sticky web:top-0',
                         framed ? 'rounded-t-panel' : null,
                     )}
                 >
-                    {visible.map((column) => (
+                    {visible.map((column, columnIndex) => (
                         <View
                             key={column.key}
                             role="columnheader"
@@ -512,7 +523,10 @@ export function DataList<Row>({
                                     : `${testID}-columnheader-${column.key}`
                             }
                             style={trackStyle(column, fills)}
-                            className="px-control-sm"
+                            className={cx(
+                                'px-control-sm',
+                                columnIndex === 0 ? FIRST_TRACK_CLASS : null,
+                            )}
                         >
                             {column.renderHeader === undefined ? (
                                 /*
@@ -525,10 +539,7 @@ export function DataList<Row>({
                                     numberOfLines={1}
                                     {...truncationHoverProps}
                                     className={cx(
-                                        // `strong`: a step larger and heavier than the 12px cells
-                                        // under it, so the header reads as the column's name — the
-                                        // same role the sort and filter headers draw with.
-                                        'text-role-strong text-content-on-brand-subtle',
+                                        DATA_LIST_HEAD_TEXT_CLASS,
                                         TEXT_ALIGN_CLASS[
                                             dataListColumnAlign(column as DataListColumn<unknown>)
                                         ],
@@ -547,7 +558,7 @@ export function DataList<Row>({
                     ? null
                     : rows.map((row, index) => {
                           const key = rowKey(row);
-                          const cells = visible.map((column) => (
+                          const cells = visible.map((column, columnIndex) => (
                               <View
                                   key={column.key}
                                   role="cell"
@@ -558,6 +569,7 @@ export function DataList<Row>({
                                       // density it was asked for. No `overflow-hidden`: a cell
                                       // can hold a select whose panel has to escape it.
                                       'flex-row items-center px-control-sm',
+                                      columnIndex === 0 ? FIRST_TRACK_CLASS : null,
                                       JUSTIFY_CLASS[
                                           dataListColumnAlign(column as DataListColumn<unknown>)
                                       ],

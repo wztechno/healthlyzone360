@@ -26,8 +26,13 @@ import { RowThumbnail } from './row-thumbnail.tsx';
  * rows read as one object on the page rather than lines drawn straight onto the ground. Only drawn
  * around rows: an empty state is the caller's own block and brings its own layout.
  */
-const FRAME_CLASS =
-    'flex-col rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card';
+const FRAME_CLASS = 'flex-col rounded-panel border border-stroke-subtle bg-surface-raised';
+
+/**
+ * The panel's lower half, under a split Lens bar's query row (`LensBar` `layout="split"`): the bar
+ * draws the top corners and the side rules down to here, so the toolbar and the rows read as one card.
+ */
+const JOINED_FRAME_CLASS = 'flex-col rounded-b-panel border border-stroke-subtle bg-surface-raised';
 
 /**
  * Part five (§4.1): the list.
@@ -122,6 +127,10 @@ export interface CatalogueListProps<Row> {
     readonly initialPage?: number | undefined;
     /** Told when the reader pages a list this component pages itself — for the list's memory. */
     readonly onPageChange?: ((page: number) => void) | undefined;
+    /** Closes the card a split Lens bar opens above it, instead of drawing a panel of its own. */
+    readonly joined?: boolean | undefined;
+    /** Keeps the frame when empty: for an `emptyState` drawn in the table's `table` or `row` shape. */
+    readonly frameEmpty?: boolean | undefined;
     readonly testID: string;
 }
 
@@ -191,8 +200,11 @@ function CatalogueTable<Row>({
     emptyState,
     rowEntrance = true,
     highlightedId,
+    joined = false,
+    frameEmpty = false,
     testID,
 }: CatalogueListProps<Row>) {
+    const frameClass = joined ? JOINED_FRAME_CLASS : FRAME_CLASS;
     const { atLeast } = useBreakpoint();
     const port = useCataloguePort();
     const wide = atLeast('md');
@@ -217,7 +229,7 @@ function CatalogueTable<Row>({
                 role="list"
                 aria-label={label}
                 accessibilityLabel={label}
-                className={rows.length === 0 ? 'flex-col' : FRAME_CLASS}
+                className={rows.length === 0 ? 'flex-col' : frameClass}
             >
                 {rows.length === 0
                     ? emptyState
@@ -274,7 +286,7 @@ function CatalogueTable<Row>({
          * `getBoundingClientRect`, which includes a border, so a frame on the measured box would
          * fit tracks two pixels wider than the space inside it.
          */
-        <View ref={frame} className={rows.length === 0 ? 'flex-col' : FRAME_CLASS}>
+        <View ref={frame} className={rows.length === 0 && !frameEmpty ? 'flex-col' : frameClass}>
             <View
                 testID={`${testID}-port`}
                 // Both measurement paths, and each is inert on the other's platform: `onLayout` never
@@ -309,7 +321,7 @@ function CatalogueTable<Row>({
                     density={density}
                     onRowPress={onRowPress}
                     emptyState={emptyState}
-                    framed={rows.length > 0}
+                    framed={rows.length > 0 || frameEmpty}
                     rowEntrance={rowEntrance}
                     testID={testID}
                 />
@@ -552,7 +564,15 @@ function actionColumn<Row>(
                         size="sm"
                         {...(action.tone === undefined ? {} : { tone: action.tone })}
                         {...(action.disabled === undefined ? {} : { disabled: action.disabled })}
-                        icon={<Icon name={action.icon ?? 'more'} size="sm" />}
+                        icon={
+                            <Icon
+                                name={action.icon ?? 'more'}
+                                size="sm"
+                                className={
+                                    action.tone === 'danger' ? undefined : 'text-content-secondary'
+                                }
+                            />
+                        }
                         onPress={action.onSelect}
                         // The item's own id where it has one, so a spec that used to click the
                         // menu entry clicks the button instead and nothing else has to change.
@@ -569,7 +589,7 @@ function actionColumn<Row>(
 /**
  * The action column's track: as many 28px buttons as the busiest row on the page needs.
  *
- * `MIN_ACTION_SLOTS` is three — the View / Edit / Archive set every Catalogue list starts from —
+ * `MIN_ACTION_SLOTS` is two — the View / Edit pair the admin canvas draws on its rows —
  * so a page whose rows all happen to hide Archive does not draw a narrower column than the page
  * before it and shuffle every other track sideways. Empty pages take the same floor for the same
  * reason.
@@ -577,7 +597,7 @@ function actionColumn<Row>(
  * Stated as the sum — buttons, the gaps between them, the cell's own inset — rather than a round
  * number, so the track cannot silently stop fitting its contents when the control ladder moves.
  */
-const MIN_ACTION_SLOTS = 3;
+const MIN_ACTION_SLOTS = 2;
 
 function actionTrack<Row>(
     rowActions: (row: Row) => readonly MenuItem[],

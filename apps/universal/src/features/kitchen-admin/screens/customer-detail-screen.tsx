@@ -36,7 +36,12 @@ import {
 import { prefersArabic } from '../format.ts';
 import { kitchenOrderStatusKey } from '../ops-format.ts';
 import { ChosenAllergies } from '../order-desk/sale-customer.tsx';
-import { customerName, customerTypeKey, customerTypeTone } from './customers-screen.tsx';
+import {
+    CustomersScreen,
+    customerName,
+    customerTypeKey,
+    customerTypeTone,
+} from './customers-screen.tsx';
 
 /**
  * `/kitchen/customers/{customer}` — one customer in the kitchen's book: their contacts, every saved
@@ -127,11 +132,18 @@ function CustomerRecord({ customer }: CustomerDetailScreenProps) {
         );
     }
 
-    if (record.data === undefined) {
-        return <TableSkeleton testID="kitchen-customer-loading" partTestID="kitchen-customer" />;
-    }
-
-    return <CustomerView detail={record.data} onBack={backToList} />;
+    // The record opens as a pop-up over the book it was picked from (`View as a pop-up`): the book
+    // is drawn behind while the record loads, and the pop-up joins it once it has.
+    return (
+        <>
+            <CustomersScreen />
+            {record.data === undefined ? (
+                <View testID="kitchen-customer-loading" />
+            ) : (
+                <CustomerView detail={record.data} onBack={backToList} />
+            )}
+        </>
+    );
 }
 
 function CustomerView({

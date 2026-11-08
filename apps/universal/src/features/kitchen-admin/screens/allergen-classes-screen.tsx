@@ -140,8 +140,8 @@ function AllergenClasses({ view }: { readonly view?: string | undefined }) {
      * route of its own — Back is a state change, so the list's page, sort and filters survive it.
      */
     const viewing = list.viewing;
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-allergen-classes-view"
                 kind={t('kitchen:classes.viewKind')}
@@ -157,7 +157,6 @@ function AllergenClasses({ view }: { readonly view?: string | undefined }) {
                 onBack={list.closeView}
             />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-allergen-classes-screen">
@@ -271,6 +270,8 @@ function AllergenClasses({ view }: { readonly view?: string | undefined }) {
                     ]}
                 />
             )}
+
+            {viewPopup}
         </Cascade>
     );
 }

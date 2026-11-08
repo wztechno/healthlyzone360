@@ -23,6 +23,7 @@ import { minutesPastDue, orderDeskDeliveryState, orderDeskDueTone } from './ops-
 import { OrderDeskScreen } from './screens/order-desk-screen.tsx';
 import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
 import { Dimensions } from 'react-native';
+import { getRecordAction, queryRecordAction } from '../../testing/record-actions.ts';
 
 /**
  * These screens draw their tables through `CatalogueList`, which only lays out columns at `md` and
@@ -526,18 +527,9 @@ describe('order desk queue — ageing against the due instant', () => {
             { timeout: 5000 },
         );
 
-        // `Badge` marks every non-neutral tone with a dot and leaves neutral bare, so "has come
-        // due" and "not yet" still differ in greyscale; the interval itself is spelled out in the
-        // label. The dot is `aria-hidden` on purpose, so it is only reachable with
-        // `includeHiddenElements` — and that must be passed on the *negative* assertion too, or it
-        // would pass whatever the tone was.
-        const hidden = { includeHiddenElements: true } as const;
         expect(screen.getByTestId(rowTestId(1, 'due-age'))).toHaveTextContent(/ago$/);
-        expect(screen.getByTestId(`${rowTestId(1, 'due-age')}-mark`, hidden)).toBeTruthy();
-        expect(screen.getByTestId(`${rowTestId(2, 'due-age')}-mark`, hidden)).toBeTruthy();
-        // Neutral carries no mark, because there is nothing yet to warn about.
+        // The pill has no mark on any band: the words say past or future, the tone says how late.
         expect(screen.getByTestId(rowTestId(3, 'due-age'))).toHaveTextContent(/^in /);
-        expect(screen.queryByTestId(`${rowTestId(3, 'due-age')}-mark`, hidden)).toBeNull();
     });
 });
 
@@ -900,7 +892,9 @@ describe('order desk queue — the order record page', () => {
         const row = deskRow({ id: orderIdAt(1), status: 'placed' });
         await openRecord(detailOrder(row, { amendable: true }), row);
 
-        fireEvent.press(screen.getByTestId('kitchen-order-desk-detail-edit'));
+        fireEvent.press(
+            await getRecordAction('kitchen-order-desk-view', 'kitchen-order-desk-detail-edit'),
+        );
         expect(mockPush).toHaveBeenCalledWith(
             `/kitchen/order-desk/sale?order=${encodeURIComponent(String(row.id))}`,
         );
@@ -938,7 +932,9 @@ describe('order desk queue — the order record page', () => {
         const row = deskRow({ id: orderIdAt(1), status: 'confirmed' });
         await openRecord(detailOrder(row, { amendable: false }), row);
 
-        expect(screen.queryByTestId('kitchen-order-desk-detail-edit')).toBeNull();
+        expect(
+            await queryRecordAction('kitchen-order-desk-view', 'kitchen-order-desk-detail-edit'),
+        ).toBeNull();
     });
 
     it('stays shut until a row is opened, then re-reads the order rather than trusting the row', async () => {
@@ -988,14 +984,23 @@ describe('order desk queue — the order record page', () => {
             { timeout: 5000 },
         );
         fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-order-desk-detail-confirm')).toBeTruthy();
+        await waitFor(async () => {
+            expect(
+                await getRecordAction(
+                    'kitchen-order-desk-view',
+                    'kitchen-order-desk-detail-confirm',
+                ),
+            ).toBeTruthy();
         });
         // `placed` offers Confirm and nothing else — a Fulfil button here would manufacture a
         // conflict on somebody's behalf.
-        expect(screen.queryByTestId('kitchen-order-desk-detail-fulfil')).toBeNull();
+        expect(
+            await queryRecordAction('kitchen-order-desk-view', 'kitchen-order-desk-detail-fulfil'),
+        ).toBeNull();
 
-        fireEvent.press(screen.getByTestId('kitchen-order-desk-detail-confirm'));
+        fireEvent.press(
+            await getRecordAction('kitchen-order-desk-view', 'kitchen-order-desk-detail-confirm'),
+        );
 
         await waitFor(() => {
             expect(repositories.kitchenOrders.confirmOrder).toHaveBeenCalledWith({
@@ -1044,8 +1049,13 @@ describe('order desk queue — the order record page', () => {
         );
         fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
 
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-order-desk-detail-fulfil')).toBeTruthy();
+        await waitFor(async () => {
+            expect(
+                await getRecordAction(
+                    'kitchen-order-desk-view',
+                    'kitchen-order-desk-detail-fulfil',
+                ),
+            ).toBeTruthy();
         });
 
         // The tracking axis is beside the button, unblocked: the customer has been told the driver
@@ -1060,7 +1070,9 @@ describe('order desk queue — the order record page', () => {
         );
         expect(screen.getByTestId('kitchen-order-desk-detail-delivery-assigned-at')).toBeTruthy();
 
-        fireEvent.press(screen.getByTestId('kitchen-order-desk-detail-fulfil'));
+        fireEvent.press(
+            await getRecordAction('kitchen-order-desk-view', 'kitchen-order-desk-detail-fulfil'),
+        );
         await waitFor(() => {
             expect(repositories.kitchenOrders.fulfilOrder).toHaveBeenCalledWith({
                 id: row.id,
@@ -1085,11 +1097,18 @@ describe('order desk queue — the order record page', () => {
             { timeout: 5000 },
         );
         fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-order-desk-detail-record-payment')).toBeTruthy();
+        await waitFor(async () => {
+            expect(
+                await getRecordAction(
+                    'kitchen-order-desk-view',
+                    'kitchen-order-desk-detail-record-payment',
+                ),
+            ).toBeTruthy();
         });
         // The server refuses it before Ready; a button here would only earn a conflict.
-        expect(screen.queryByTestId('kitchen-order-desk-detail-fulfil')).toBeNull();
+        expect(
+            await queryRecordAction('kitchen-order-desk-view', 'kitchen-order-desk-detail-fulfil'),
+        ).toBeNull();
     });
 
     it('reads a fulfilled cash order as settled, and stops offering to record the same money', async () => {
@@ -1121,18 +1140,30 @@ describe('order desk queue — the order record page', () => {
             { timeout: 5000 },
         );
         fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-order-desk-detail-record-payment')).toBeTruthy();
+        await waitFor(async () => {
+            expect(
+                await getRecordAction(
+                    'kitchen-order-desk-view',
+                    'kitchen-order-desk-detail-record-payment',
+                ),
+            ).toBeTruthy();
         });
 
-        fireEvent.press(screen.getByTestId('kitchen-order-desk-detail-fulfil'));
+        fireEvent.press(
+            await getRecordAction('kitchen-order-desk-view', 'kitchen-order-desk-detail-fulfil'),
+        );
 
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-order-desk-detail-payment-state')).toHaveTextContent(
                 'Settled',
             );
         });
-        expect(screen.queryByTestId('kitchen-order-desk-detail-record-payment')).toBeNull();
+        expect(
+            await queryRecordAction(
+                'kitchen-order-desk-view',
+                'kitchen-order-desk-detail-record-payment',
+            ),
+        ).toBeNull();
     });
 
     it('keeps the payment position and the run in the record page, from the row the detail cannot serve', async () => {
@@ -1175,7 +1206,9 @@ describe('order desk queue — the order record page', () => {
         expect(screen.getByTestId('kitchen-order-desk-detail-delivery-state')).toHaveTextContent(
             'Needs a driver',
         );
-        expect(screen.getByTestId('kitchen-order-desk-detail-assign')).toBeTruthy();
+        expect(
+            await getRecordAction('kitchen-order-desk-view', 'kitchen-order-desk-detail-assign'),
+        ).toBeTruthy();
     });
 
     it('draws no delivery section at all for an order nothing is driven for', async () => {
@@ -1232,11 +1265,18 @@ describe('order desk queue — the order record page', () => {
             { timeout: 5000 },
         );
         fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-order-desk-detail-confirm')).toBeTruthy();
+        await waitFor(async () => {
+            expect(
+                await getRecordAction(
+                    'kitchen-order-desk-view',
+                    'kitchen-order-desk-detail-confirm',
+                ),
+            ).toBeTruthy();
         });
 
-        fireEvent.press(screen.getByTestId('kitchen-order-desk-detail-confirm'));
+        fireEvent.press(
+            await getRecordAction('kitchen-order-desk-view', 'kitchen-order-desk-detail-confirm'),
+        );
 
         await waitFor(
             () => {
@@ -1260,8 +1300,13 @@ describe('order desk queue — the order record page', () => {
         );
         // Re-read, and the record page now shows what the other tablet did rather than a stale offer:
         // a confirmed order has no Confirm button.
-        await waitFor(() => {
-            expect(screen.queryByTestId('kitchen-order-desk-detail-confirm')).toBeNull();
+        await waitFor(async () => {
+            expect(
+                await queryRecordAction(
+                    'kitchen-order-desk-view',
+                    'kitchen-order-desk-detail-confirm',
+                ),
+            ).toBeNull();
         });
     });
 
@@ -1283,10 +1328,17 @@ describe('order desk queue — the order record page', () => {
             { timeout: 5000 },
         );
         fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-order-desk-detail-confirm')).toBeTruthy();
+        await waitFor(async () => {
+            expect(
+                await getRecordAction(
+                    'kitchen-order-desk-view',
+                    'kitchen-order-desk-detail-confirm',
+                ),
+            ).toBeTruthy();
         });
-        fireEvent.press(screen.getByTestId('kitchen-order-desk-detail-confirm'));
+        fireEvent.press(
+            await getRecordAction('kitchen-order-desk-view', 'kitchen-order-desk-detail-confirm'),
+        );
 
         await waitFor(
             () => {
@@ -1370,12 +1422,19 @@ describe('order desk queue — the driver picker', () => {
         );
         fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
         await waitFor(
-            () => {
-                expect(screen.getByTestId('kitchen-order-desk-detail-assign')).toBeTruthy();
+            async () => {
+                expect(
+                    await getRecordAction(
+                        'kitchen-order-desk-view',
+                        'kitchen-order-desk-detail-assign',
+                    ),
+                ).toBeTruthy();
             },
             { timeout: 5000 },
         );
-        fireEvent.press(screen.getByTestId('kitchen-order-desk-detail-assign'));
+        fireEvent.press(
+            await getRecordAction('kitchen-order-desk-view', 'kitchen-order-desk-detail-assign'),
+        );
         await waitFor(
             () => {
                 expect(screen.getByTestId('kitchen-order-desk-assign-list')).toBeTruthy();
@@ -1398,13 +1457,20 @@ describe('order desk queue — the driver picker', () => {
         expect(repositories.orderDesk.listDrivers).not.toHaveBeenCalled();
 
         fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-order-desk-detail-assign')).toBeTruthy();
+        await waitFor(async () => {
+            expect(
+                await getRecordAction(
+                    'kitchen-order-desk-view',
+                    'kitchen-order-desk-detail-assign',
+                ),
+            ).toBeTruthy();
         });
         // Still not: the record page is a reading surface.
         expect(repositories.orderDesk.listDrivers).not.toHaveBeenCalled();
 
-        fireEvent.press(screen.getByTestId('kitchen-order-desk-detail-assign'));
+        fireEvent.press(
+            await getRecordAction('kitchen-order-desk-view', 'kitchen-order-desk-detail-assign'),
+        );
         await waitFor(
             () => {
                 expect(repositories.orderDesk.listDrivers).toHaveBeenCalledTimes(1);
@@ -1592,7 +1658,9 @@ describe('order desk queue — the driver picker', () => {
         });
         // The server would refuse it; the screen does not offer it. Both, deliberately — the race
         // between the frame and the press is real on a fifteen-second poll.
-        expect(screen.queryByTestId('kitchen-order-desk-detail-assign')).toBeNull();
+        expect(
+            await queryRecordAction('kitchen-order-desk-view', 'kitchen-order-desk-detail-assign'),
+        ).toBeNull();
     });
 
     it('shows the ladder’s failure and empty rungs inside the dialog rather than an empty list', async () => {
@@ -1604,10 +1672,17 @@ describe('order desk queue — the driver picker', () => {
             { timeout: 5000 },
         );
         fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-order-desk-detail-assign')).toBeTruthy();
+        await waitFor(async () => {
+            expect(
+                await getRecordAction(
+                    'kitchen-order-desk-view',
+                    'kitchen-order-desk-detail-assign',
+                ),
+            ).toBeTruthy();
         });
-        fireEvent.press(screen.getByTestId('kitchen-order-desk-detail-assign'));
+        fireEvent.press(
+            await getRecordAction('kitchen-order-desk-view', 'kitchen-order-desk-detail-assign'),
+        );
 
         await waitFor(
             () => {
@@ -1659,8 +1734,8 @@ describe('order desk queue — the fulfilment-type filter', () => {
         });
 
         // "All kinds" is the screen's own sentinel and never reaches the wire: choosing it omits
-        // the key, which is what the server reads as no narrowing.
-        fireEvent.press(screen.getByTestId('kitchen-order-desk-type-trigger'));
+        // the key, which is what the server reads as no narrowing. The scope menu stays open after a
+        // checked choice, as every Lens scope does, so "All kinds" is still on screen.
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-order-desk-type-option-__any__')).toBeTruthy();
         });
@@ -1745,12 +1820,22 @@ describe('order desk queue — recording a payment', () => {
         );
         fireEvent.press(screen.getByTestId(rowTestId(1, 'view')));
         await waitFor(
-            () => {
-                expect(screen.getByTestId('kitchen-order-desk-detail-record-payment')).toBeTruthy();
+            async () => {
+                expect(
+                    await getRecordAction(
+                        'kitchen-order-desk-view',
+                        'kitchen-order-desk-detail-record-payment',
+                    ),
+                ).toBeTruthy();
             },
             { timeout: 5000 },
         );
-        fireEvent.press(screen.getByTestId('kitchen-order-desk-detail-record-payment'));
+        fireEvent.press(
+            await getRecordAction(
+                'kitchen-order-desk-view',
+                'kitchen-order-desk-detail-record-payment',
+            ),
+        );
         await waitFor(
             () => {
                 expect(screen.getByTestId('kitchen-order-desk-payment-amount-input')).toBeTruthy();
@@ -1895,7 +1980,12 @@ describe('order desk queue — recording a payment', () => {
         );
         // Settled: there is nothing left to write down, and an over-payment is not corrected by a
         // second receipt — money going back is a refund, which is a different object.
-        expect(screen.queryByTestId('kitchen-order-desk-detail-record-payment')).toBeNull();
+        expect(
+            await queryRecordAction(
+                'kitchen-order-desk-view',
+                'kitchen-order-desk-detail-record-payment',
+            ),
+        ).toBeNull();
     });
 
     it('does not offer the action on a cancelled order', async () => {
@@ -1916,6 +2006,11 @@ describe('order desk queue — recording a payment', () => {
         );
         // The server refuses a cancelled order with a `409` carrying no version, so offering the
         // button would be offering a wall to walk into.
-        expect(screen.queryByTestId('kitchen-order-desk-detail-record-payment')).toBeNull();
+        expect(
+            await queryRecordAction(
+                'kitchen-order-desk-view',
+                'kitchen-order-desk-detail-record-payment',
+            ),
+        ).toBeNull();
     });
 });

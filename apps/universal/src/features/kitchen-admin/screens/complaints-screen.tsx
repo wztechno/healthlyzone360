@@ -177,8 +177,8 @@ function Complaints({ view }: { readonly view: string | undefined }) {
         setViewing(row);
     };
 
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <>
                 <RecordViewPage
                     testID="kitchen-complaints-view"
@@ -230,37 +230,31 @@ function Complaints({ view }: { readonly view: string | undefined }) {
                                   },
                               ]),
                     ]}
-                    sections={[
+                    actions={[
                         {
-                            key: 'order',
-                            title: t('kitchen:complaints.columnOrder'),
-                            content: (
-                                <Stack space="xs">
-                                    <Button
-                                        testID="kitchen-complaints-open-order"
-                                        variant="secondary"
-                                        size="sm"
-                                        label={t('kitchen:complaints.openOrder')}
-                                        onPress={() => {
-                                            router.push(
-                                                `/kitchen/orders?view=${encodeURIComponent(String(viewing.orderId))}` as never,
-                                            );
-                                        }}
-                                    />
-                                    {!isOpen(viewing) ? null : (
-                                        <Button
-                                            testID="kitchen-complaints-close"
-                                            variant="secondary"
-                                            size="sm"
-                                            label={t('kitchen:complaints.close')}
-                                            onPress={() => {
-                                                setClosing(true);
-                                            }}
-                                        />
-                                    )}
-                                </Stack>
-                            ),
+                            key: 'open-order',
+                            label: t('kitchen:complaints.openOrder'),
+                            icon: 'receipt',
+                            testID: 'kitchen-complaints-open-order',
+                            onSelect: () => {
+                                router.push(
+                                    `/kitchen/orders?view=${encodeURIComponent(String(viewing.orderId))}` as never,
+                                );
+                            },
                         },
+                        ...(!isOpen(viewing)
+                            ? []
+                            : [
+                                  {
+                                      key: 'close',
+                                      label: t('kitchen:complaints.close'),
+                                      icon: 'circleCheck' as const,
+                                      testID: 'kitchen-complaints-close',
+                                      onSelect: () => {
+                                          setClosing(true);
+                                      },
+                                  },
+                              ]),
                     ]}
                     {...(!isOpen(viewing)
                         ? {}
@@ -299,7 +293,6 @@ function Complaints({ view }: { readonly view: string | undefined }) {
                 )}
             </>
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-complaints-screen">
@@ -384,6 +377,8 @@ function Complaints({ view }: { readonly view: string | undefined }) {
                     />
                 </Stack>
             )}
+
+            {viewPopup}
         </Cascade>
     );
 }

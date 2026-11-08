@@ -1,8 +1,8 @@
-import { Icon, Menu, Text, cx } from '@healthy360/design-system';
+import { DATA_LIST_HEAD_TEXT_CLASS, Icon, Menu, cx } from '@healthy360/design-system';
 import type { DataListColumn, MenuSection } from '@healthy360/design-system';
 import { useTranslation } from 'react-i18next';
 import type { ReactNode } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 /**
  * One column header, with its sort-and-filter menu — §4.3, drawn so the affordance is visible
@@ -128,10 +128,24 @@ export function CatalogueColumnHeader({
     // decorative by default, which is what the bare `Text` here used to set by hand.
     const arrow = (
         <Icon
-            name={arrowDown ? 'arrowDown' : 'arrowUp'}
-            // On the header's green ground: the brand ink, full strength on the sorted column.
+            // A column that only filters marks its menu with a chevron; a sorting column's arrow
+            // stays hidden until the header is hovered or the list is ordered by it.
+            name={
+                filters && !split
+                    ? filtered
+                        ? 'funnel'
+                        : 'chevronDown'
+                    : arrowDown
+                      ? 'arrowDown'
+                      : 'arrowUp'
+            }
+            size="sm"
             className={
-                arrowInk ? 'text-content-primary' : 'text-content-on-brand-subtle opacity-60'
+                arrowInk
+                    ? 'text-content-on-brand-subtle'
+                    : filters && !split
+                      ? 'text-content-secondary'
+                      : 'text-content-secondary opacity-0 group-hover:opacity-50'
             }
             testID={active ? `${testID}-sorted` : `${testID}-affordance`}
         />
@@ -139,12 +153,18 @@ export function CatalogueColumnHeader({
 
     // `strong`: 13px at 600 — a column's name, set heavier and larger than the 12px cells under it.
     const labelText = (
-        <Text variant="strong" tone={active || filtered ? 'primary' : 'brand'}>
+        <RNText
+            numberOfLines={1}
+            className={cx(
+                DATA_LIST_HEAD_TEXT_CLASS,
+                active || filtered ? '!text-content-primary' : null,
+            )}
+        >
             {label}
-        </Text>
+        </RNText>
     );
 
-    const className = cx('flex-row items-center gap-tight', JUSTIFY_CLASS[align ?? 'start']);
+    const className = cx('group flex-row items-center gap-1', JUSTIFY_CLASS[align ?? 'start']);
 
     const menu = (content: ReactNode, accessibilityLabel: string) => (
         <Menu

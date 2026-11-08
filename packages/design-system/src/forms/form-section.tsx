@@ -53,7 +53,7 @@ export interface FormSectionProps {
      * on the page. Every kitchen record editor draws its sections this way. It does not clip: a
      * dropdown opened in the last field still has to escape the panel.
      */
-    readonly variant?: 'divided' | 'underlined' | 'card' | undefined;
+    readonly variant?: 'divided' | 'underlined' | 'card' | 'panel' | undefined;
     readonly children: ReactNode;
     readonly className?: string | undefined;
     /**
@@ -77,6 +77,8 @@ export function FormSection({
     testID,
 }: FormSectionProps) {
     const card = variant === 'card';
+    // The admin canvas's flat card: no cast, no rule under the title, a heavier title.
+    const panel = variant === 'panel';
     const underlined = variant === 'underlined' || card;
 
     return (
@@ -88,13 +90,14 @@ export function FormSection({
             nativeID={nativeID}
             className={cx(
                 'z-auto flex-col',
+                panel ? 'rounded-[18px] border border-stroke-subtle bg-surface-raised p-4' : null,
                 card
                     ? 'rounded border border-stroke-subtle bg-surface-raised p-base shadow-elevation-card'
                     : null,
                 className,
             )}
         >
-            {first || underlined ? null : <Separator className="mb-loose" />}
+            {first || underlined || panel ? null : <Separator className="mb-loose" />}
 
             <View
                 className={cx(
@@ -114,7 +117,10 @@ export function FormSection({
                             testID={testID === undefined ? undefined : `${testID}-title`}
                             accessibilityRole="header"
                             aria-level={3}
-                            className="text-role-section text-content-primary text-start"
+                            className={cx(
+                                panel ? 'text-[15px] font-bold' : 'text-role-section',
+                                'text-content-primary text-start',
+                            )}
                         >
                             {title}
                         </RNText>

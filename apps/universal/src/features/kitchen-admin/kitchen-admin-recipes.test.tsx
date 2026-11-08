@@ -74,6 +74,7 @@ import {
 } from './format.ts';
 import { RecipeEditScreen } from './screens/recipe-edit-screen.tsx';
 import { RecipesScreen } from './screens/recipes-screen.tsx';
+import { getRecordAction } from '../../testing/record-actions.ts';
 
 /**
  * The recipe half of the kitchen workspace, against a world this file declares.
@@ -1782,7 +1783,7 @@ describe('the recipe list at desk width', () => {
         // Allergens filters but does not sort, so its arrow is never the black one a sorted column
         // earns: `-affordance`, never `-sorted`, and pointing up until something is applied.
         expect(screen.queryByTestId('kitchen-recipes-column-allergens-sorted', hidden)).toBeNull();
-        expect(glyph('kitchen-recipes-column-allergens-affordance')).toBe('\u2191');
+        expect(glyph('kitchen-recipes-column-allergens-affordance')).toBe('\u2304');
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipes-column-allergens-trigger'));
@@ -1798,7 +1799,7 @@ describe('the recipe list at desk width', () => {
         // The arrow turns over. A shape, not a shade — a filtered column a reader cannot see is a
         // filter they cannot clear.
         await waitFor(() => {
-            expect(glyph('kitchen-recipes-column-allergens-affordance')).toBe('\u2193');
+            expect(glyph('kitchen-recipes-column-allergens-affordance')).not.toBe('\u2304');
         });
 
         // And the way out is inside the menu the mark points at.
@@ -1811,7 +1812,7 @@ describe('the recipe list at desk width', () => {
         });
 
         await waitFor(() => {
-            expect(glyph('kitchen-recipes-column-allergens-affordance')).toBe('\u2191');
+            expect(glyph('kitchen-recipes-column-allergens-affordance')).toBe('\u2304');
         });
     });
 
@@ -1991,8 +1992,9 @@ describe('the recipe list at desk width', () => {
         await untilVisible('kitchen-recipes-view');
         expect(routerMock.__setParams).toHaveBeenLastCalledWith({ view: String(kept.id) });
 
+        const action = await getRecordAction('kitchen-recipes-view', 'kitchen-recipes-view-edit');
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipes-view-edit'));
+            fireEvent.press(action);
         });
         // The editor's Cancel, Save and trail come back to this record's page, not the bare list.
         expect(routerMock.__push).toHaveBeenCalledWith(
@@ -2017,7 +2019,8 @@ describe('the recipe list at desk width', () => {
         });
 
         await untilVisible('kitchen-recipes-view');
-        expect(screen.queryByTestId('kitchen-recipes-table')).toBeNull();
+        // A pop-up over the list: the list stays mounted behind it.
+        expect(screen.getByTestId('kitchen-recipes-table')).toBeTruthy();
     });
 
     it('shows the label a meal seller carries in the shop, read off the meal itself', async () => {

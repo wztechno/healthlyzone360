@@ -3,6 +3,7 @@ import { Button, Cascade, DensityProvider, Icon, Text } from '@healthy360/design
 import { AllergenCode, IngredientId } from '@healthy360/domain-types';
 import type { IsoDateTime, OrganisationId } from '@healthy360/domain-types';
 import type { NutritionFacts } from '@healthy360/nutrition';
+import { useState } from 'react';
 import { View } from 'react-native';
 
 import {
@@ -141,69 +142,126 @@ function noop(): void {}
 
 /**
  * `/showcase-record-canopy` — option C of the `Minimal view page` canvas on its own page, as the
- * user asks for redesign parts: the ingredient view filled in and with nothing recorded yet, then
+ * user asks for redesign parts: the ingredient view filled in and with nothing recorded yet, each
+ * opened as the pop-up every View now is (`/showcase-record-popup` has the window itself), then
  * the parts it is made of — the canopy with a history strip, the allergen board's other state, the
  * segment bar.
  *
  * Literal copy, like `/showcase`: a development page, never a customer one.
  */
 export function RecordCanopyShowcaseScreen() {
+    const [open, setOpen] = useState<'tahini' | 'product' | 'blank' | null>(null);
+    const close = () => {
+        setOpen(null);
+    };
+
     return (
         <DensityProvider value="compact">
             <View className="mx-auto w-full max-w-[1280px] p-6">
                 <Cascade space="lg" testID="record-canopy-showcase">
                     <Text variant="title">Record canopy</Text>
 
-                    <Text variant="section">Ingredient view — filled in</Text>
-                    <IngredientDetail
-                        testID="record-canopy-showcase-tahini"
-                        ingredient={TAHINI}
-                        categoryName={categoryName}
-                        onBack={noop}
-                        onEdit={noop}
-                    />
-
-                    <Text variant="section">
-                        Every other View page — the shared record page (a product)
-                    </Text>
-                    <RecordViewPage
-                        testID="record-canopy-showcase-product"
-                        title="Hummus, 250 g tub"
-                        kind="Product"
-                        reference="PR-0031"
-                        status={{ label: 'Published', tone: 'success' }}
-                        onBack={noop}
-                        fields={[
-                            { key: 'sku', label: 'SKU', value: 'HUM-250' },
-                            { key: 'price', label: 'B2C price', value: 'AED 14.00' },
-                            { key: 'recipe', label: 'Recipe', value: 'Hummus' },
-                            { key: 'portion', label: 'Portion', value: '250 g' },
-                        ]}
-                        sections={[
-                            {
-                                key: 'info',
-                                title: 'Shelf',
-                                icon: 'boxes',
-                                subtitle: 'How the tub is stored and sold.',
-                                content: <Text>Chilled · sold in the shop and to businesses</Text>,
-                            },
-                        ]}
-                        chipsLabel="Channels"
-                        chips={[
-                            { key: 'b2c', label: 'Shop', tone: 'brand' },
-                            { key: 'b2b', label: 'Business', tone: 'brand' },
-                        ]}
-                        statusLines={['Updated 3 days ago by Sara K.', 'Version 4']}
-                        primaryAction={{ label: 'Edit product', onPress: noop }}
-                    />
-
-                    <Text variant="section">Ingredient view — nothing recorded yet</Text>
-                    <IngredientDetail
-                        testID="record-canopy-showcase-blank"
-                        ingredient={BLANK}
-                        categoryName={categoryName}
-                        onBack={noop}
-                    />
+                    {/*
+                     * Every View is a pop-up over its list since 2026-11-07, so the three records
+                     * open from buttons rather than all drawing at once.
+                     */}
+                    <Text variant="section">The views — each opens as a pop-up</Text>
+                    <View className="flex-row flex-wrap gap-2">
+                        <Button
+                            testID="record-canopy-showcase-open-tahini"
+                            variant="secondary"
+                            size="sm"
+                            label="Ingredient — filled in"
+                            onPress={() => {
+                                setOpen('tahini');
+                            }}
+                        />
+                        <Button
+                            testID="record-canopy-showcase-open-product"
+                            variant="secondary"
+                            size="sm"
+                            label="Shared record page — a product"
+                            onPress={() => {
+                                setOpen('product');
+                            }}
+                        />
+                        <Button
+                            testID="record-canopy-showcase-open-blank"
+                            variant="secondary"
+                            size="sm"
+                            label="Ingredient — nothing recorded yet"
+                            onPress={() => {
+                                setOpen('blank');
+                            }}
+                        />
+                    </View>
+                    {open !== 'tahini' ? null : (
+                        <IngredientDetail
+                            testID="record-canopy-showcase-tahini"
+                            ingredient={TAHINI}
+                            categoryName={categoryName}
+                            onBack={close}
+                            onEdit={noop}
+                        />
+                    )}
+                    {open !== 'product' ? null : (
+                        <RecordViewPage
+                            testID="record-canopy-showcase-product"
+                            title="Hummus, 250 g tub"
+                            kind="Product"
+                            reference="PR-0031"
+                            status={{ label: 'Published', tone: 'success' }}
+                            onBack={close}
+                            fields={[
+                                { key: 'sku', label: 'SKU', value: 'HUM-250' },
+                                { key: 'price', label: 'B2C price', value: 'AED 14.00' },
+                                { key: 'recipe', label: 'Recipe', value: 'Hummus' },
+                                { key: 'portion', label: 'Portion', value: '250 g' },
+                            ]}
+                            sections={[
+                                {
+                                    key: 'info',
+                                    title: 'Shelf',
+                                    icon: 'boxes',
+                                    subtitle: 'How the tub is stored and sold.',
+                                    content: (
+                                        <Text>Chilled · sold in the shop and to businesses</Text>
+                                    ),
+                                },
+                            ]}
+                            chipsLabel="Channels"
+                            chips={[
+                                { key: 'b2c', label: 'Shop', tone: 'brand' },
+                                { key: 'b2b', label: 'Business', tone: 'brand' },
+                            ]}
+                            statusLines={['Updated 3 days ago by Sara K.', 'Version 4']}
+                            primaryAction={{ label: 'Edit product', onPress: noop }}
+                            actions={[
+                                {
+                                    key: 'print',
+                                    label: 'Print label',
+                                    icon: 'receipt',
+                                    onSelect: noop,
+                                },
+                                {
+                                    key: 'archive',
+                                    label: 'Archive',
+                                    icon: 'archive',
+                                    tone: 'danger',
+                                    separated: true,
+                                    onSelect: noop,
+                                },
+                            ]}
+                        />
+                    )}
+                    {open !== 'blank' ? null : (
+                        <IngredientDetail
+                            testID="record-canopy-showcase-blank"
+                            ingredient={BLANK}
+                            categoryName={categoryName}
+                            onBack={close}
+                        />
+                    )}
 
                     <Text variant="section">Canopy with a history strip</Text>
                     <RecordCanopy

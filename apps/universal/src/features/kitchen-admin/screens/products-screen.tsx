@@ -207,8 +207,8 @@ function ProductsList({
      * route of its own — Back is a state change, so the list's page, sort and filters survive it.
      */
     const viewing = list.viewing;
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-products-view"
                 media={
@@ -248,7 +248,6 @@ function ProductsList({
                 chipsContent={channelChips(viewing, t)}
             />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-products-screen">
@@ -399,6 +398,8 @@ function ProductsList({
                     </Text>
                 )}
             </Dialog>
+
+            {viewPopup}
         </Cascade>
     );
 }

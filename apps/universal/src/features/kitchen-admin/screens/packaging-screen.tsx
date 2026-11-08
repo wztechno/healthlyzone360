@@ -156,8 +156,8 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
      * route of its own — Back is a state change, so the list's page, sort and filters survive it.
      */
     const viewing = list.viewing;
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-packaging-view"
                 media={
@@ -190,7 +190,6 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                 }}
             />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-packaging-screen">
@@ -367,6 +366,8 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                     </Text>
                 )}
             </Dialog>
+
+            {viewPopup}
         </Cascade>
     );
 }

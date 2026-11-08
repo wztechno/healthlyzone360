@@ -394,8 +394,8 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
         pending: wholeSet.isPending || kitchenWindows.isPending,
     });
 
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-zones-view"
                 onBack={() => {
@@ -464,7 +464,6 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                 }}
             />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-zones-screen">
@@ -594,6 +593,8 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                     />
                 </Stack>
             )}
+
+            {viewPopup}
         </Cascade>
     );
 }

@@ -379,8 +379,8 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
         },
     };
 
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-price-lists-view"
                 onBack={() => {
@@ -404,7 +404,6 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                 }}
             />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-price-lists-screen">
@@ -545,6 +544,8 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                     />
                 </Stack>
             )}
+
+            {viewPopup}
         </Cascade>
     );
 }

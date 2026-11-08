@@ -356,8 +356,8 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
      * route of its own — Back is a state change, so the list's page, sort, filters and tab survive
      * it.
      */
-    if (viewed !== null) {
-        return (
+    const viewPopup =
+        viewed === null ? null : (
             <RecordViewPage
                 testID="kitchen-recipes-view"
                 media={
@@ -413,7 +413,6 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                       })}
             />
         );
-    }
 
     // The empty state offers the tab's own kind, and a preparation on All.
     const emptyKind = list.kind ?? 'preparation';
@@ -725,6 +724,8 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                     )}
                 </Dialog>
             </Cascade>
+
+            {viewPopup}
         </IssueTrayFrame>
     );
 }

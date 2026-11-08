@@ -199,7 +199,7 @@ describe('order desk requirements — the ladder', () => {
         expect(screen.queryByTestId('kitchen-order-desk-requirements-table')).toBeNull();
     });
 
-    it('says a window the server answered and found nothing in, rather than drawing an empty table', async () => {
+    it('says a window the server answered and found nothing in, under the table header', async () => {
         await renderRequirements(async () => answer([]));
 
         await waitFor(
@@ -208,7 +208,8 @@ describe('order desk requirements — the ladder', () => {
             },
             { timeout: 5000 },
         );
-        expect(screen.queryByTestId('kitchen-order-desk-requirements-table')).toBeNull();
+        // The header stays, so the page keeps its shape.
+        expect(screen.getByTestId('kitchen-order-desk-requirements-table')).toBeTruthy();
     });
 });
 

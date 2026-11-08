@@ -2,7 +2,6 @@ import { Slot } from 'expo-router';
 
 import {
     KITCHEN_SIDEBAR_WIDTH,
-    KitchenBrandBlock,
     KitchenRailTop,
     useKitchenNavigation,
 } from '../../src/features/kitchen-admin/kitchen-chrome.tsx';
@@ -19,8 +18,8 @@ import { StaffAlertsButton } from '../../src/shell/staff-alerts-button.tsx';
 /**
  * The `kitchen` area. `AreaShell` applies `<Gate area="kitchen">` and this area's chrome — here
  * the family rail from `kitchen-chrome.tsx`: every permitted destination in its registry group,
- * and queue badges on Review and Exceptions. The top bar carries the Workspaces button back to the
- * workspace page and Sign out, as on every admin page.
+ * and queue counts on Review and Exceptions. The rail's foot carries Workspaces and the account
+ * avatar (Sign out); the top bar the trail, the page search and the page's own buttons.
  *
  * The breadcrumb trail is drawn in the top bar in place of the area title. Its provider wraps the
  * shell rather than sitting inside it, because the bar and the screen that names the trail's leaf
@@ -44,15 +43,10 @@ function KitchenAreaShell() {
             testID="kitchen-shell"
             navigation={navigation}
             sidebarWidth={KITCHEN_SIDEBAR_WIDTH}
-            sidebarStart={<KitchenBrandBlock />}
             sidebarStartCollapsed={<KitchenRailTop />}
             topbarTitle={crumbs.length === 0 ? undefined : <KitchenTrail crumbs={crumbs} />}
-            topbarSearch={
-                <>
-                    <StaffAlertsButton />
-                    <KitchenPageSearch navigation={navigation} />
-                </>
-            }
+            topbarSearch={<KitchenPageSearch navigation={navigation} />}
+            topbarActions={<StaffAlertsButton />}
         >
             <KitchenOpsShell>
                 <Slot />

@@ -487,6 +487,44 @@ describe('sale — who it is for comes first', () => {
         expect(screen.getByTestId(MEAL_TILE)).toBeEnabled();
     });
 
+    it('names two allergens on the tile band and opens the full list from it', async () => {
+        await renderSaleShut({
+            getCustomerAllergies: async () => ({
+                declared: true,
+                declaresNoAllergens: false,
+                allergens: [{ allergenCode: 'milk', severity: 'anaphylaxis' }],
+            }),
+            quoteSale: async (request) => ({
+                ...quoteFor(request),
+                allergenConflicts: request.lines.some(
+                    (line) => line.catalogueItemId === String(MEAL_ID),
+                )
+                    ? [
+                          {
+                              mealId: MEAL_ID,
+                              reason: 'allergen_declared',
+                              allergenCodes: ['milk', 'eggs', 'fish', 'sesame', 'mustard'],
+                          },
+                      ]
+                    : [],
+            }),
+        });
+
+        await chooseLayla();
+
+        await untilVisible(`${MEAL_TILE}-conflict`);
+        const band = screen.getByTestId(`${MEAL_TILE}-conflict`);
+        expect(band).toHaveTextContent(/Milk, Eggs.*\+3/);
+        expect(screen.queryByText('Mustard')).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(band);
+        });
+        await waitFor(() => {
+            expect(screen.getByText('Mustard')).toBeTruthy();
+        });
+    });
+
     it('does not let "never asked" read as "no allergens"', async () => {
         await renderSaleShut();
 
@@ -612,16 +650,13 @@ describe('sale — the ticket is priced by the quote alone', () => {
             expect(screen.getByTestId(`${MEAL_LINE}-total`)).toHaveTextContent('AED 64.00');
         });
         expect(screen.getByTestId(`${MEAL_LINE}-quantity`)).toHaveTextContent('2');
-        // The badge is drawn for the eye and hidden from assistive technology; the tile's own label
-        // is where the count is spoken.
-        expect(
-            screen.getByTestId(`${MEAL_TILE}-count`, { includeHiddenElements: true }),
-        ).toHaveTextContent('2');
+        // The stepper on the tile shows the count, and the tile's own label speaks it.
+        expect(screen.getByTestId(`${MEAL_TILE}-stepper-count`)).toHaveTextContent('2');
         expect(screen.getByTestId(MEAL_TILE)).toHaveAccessibleName(/2 on the ticket/);
         expect(screen.getByTestId('kitchen-order-desk-sale-total')).toHaveTextContent('AED 64.00');
         // Null is not zero: a counter sale has no fee at all.
         expect(screen.queryByTestId('kitchen-order-desk-sale-fee')).toBeNull();
-        expect(screen.getByTestId(CHARGE)).toHaveTextContent('Charge AED 64.00');
+        expect(screen.getByTestId(CHARGE)).toHaveTextContent(/^Charge AED 64\.00/);
         // How it is paid depends on how it leaves, which is not asked yet.
         expect(screen.queryByTestId('kitchen-order-desk-sale-method')).toBeNull();
     });

@@ -227,11 +227,11 @@ function AlertsBell() {
                     onPress={() => {
                         setOpenOn(open ? null : pathname);
                     }}
-                    className="h-8 flex-row items-center gap-1.5 rounded-full border border-stroke-strong bg-surface-sunken pe-2 ps-3"
+                    className="h-11 flex-row items-center gap-2 rounded-full border border-stroke-subtle bg-surface-raised pe-3 ps-4 hover:bg-surface-brand-subtle"
                 >
                     <Icon name="bell" size="sm" className="text-content-primary" />
                     {roomy ? (
-                        <RNText className="text-xs font-semibold text-content-primary">
+                        <RNText className="text-sm font-semibold text-content-primary">
                             {t('kitchen:alerts.title')}
                         </RNText>
                     ) : null}

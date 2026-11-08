@@ -3,7 +3,6 @@ import { Slot } from 'expo-router';
 import { View } from 'react-native';
 
 import {
-    CorporateBrandBlock,
     useCorporateNavigation,
     useCorporateTrail,
 } from '../../src/features/business/corporate-chrome.tsx';
@@ -38,7 +37,6 @@ function CorporateAreaShell() {
             testID="corporate-shell"
             navigation={navigation}
             sidebarWidth={DESK_SIDEBAR_WIDTH}
-            sidebarStart={<CorporateBrandBlock />}
             sidebarStartCollapsed={<AreaRailTop testID="corporate-rail-top" />}
             topbarTitle={
                 crumbs.length === 0 ? undefined : (

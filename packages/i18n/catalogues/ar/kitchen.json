@@ -2602,6 +2602,7 @@
         },
         "filterTypeLabel": "نوع البيع",
         "filterTypeAll": "كل الأنواع",
+        "filterTypeShort": "النوع",
         "recordPayment": {
             "open": "تسجيل دفعة",
             "title": "تسجيل دفعة",
@@ -2643,9 +2644,9 @@
                 "delivery": "توصيل"
             },
             "typeHint": {
-                "counter": "العميل هنا ويدفع الآن. لا توصيل ولا حاجة إلى اسم.",
-                "pickup": "العميل يستلم لاحقًا، لذا نحتاج إلى معرفته. يدفع عند الاستلام.",
-                "delivery": "نوصله إليه. نحتاج إلى العميل وإلى مكان نرسل إليه، ويدفع عند الباب."
+                "counter": "يدفع الآن",
+                "pickup": "يستلم لاحقًا",
+                "delivery": "نوصله إليه"
             },
             "customerSearchLabel": "ابحث عن العميل",
             "customerSearchPlaceholder": "ابحث بالاسم أو رقم الهاتف",
@@ -2778,9 +2779,17 @@
             "customerAllergiesUnknown": "لم يُسأل هذا الزبون عن الحساسية بعد. اسأله قبل أخذ الطلب.",
             "customerAllergiesError": "تعذّرت قراءة الحساسيات. اسأل الزبون قبل أخذ الطلب.",
             "tileConflict": "يحتوي على {{allergens}}",
+            "tileConflictMore": "+{{count}}",
+            "tileConflictList": "يحتوي على",
             "tileConflictDiet": "يتعارض مع النظام الغذائي لهذا الزبون",
             "offToday": "غير متوفر اليوم",
-            "backOnToday": "إعادته لليوم"
+            "backOnToday": "إعادته لليوم",
+            "stepsLabel": "الخطوات",
+            "step": {
+                "customer": "العميل",
+                "meals": "الوجبات",
+                "checkout": "الدفع"
+            }
         },
         "refusal": {
             "phone_required": "لا يوجد رقم للاتصال في هذا التوصيل. أضف رقم هاتف للزبون قبل خروجه.",

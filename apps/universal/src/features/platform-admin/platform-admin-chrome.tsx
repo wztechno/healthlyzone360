@@ -1,4 +1,3 @@
-import { Badge } from '@healthy360/design-system';
 import type { NavigationItem } from '@healthy360/design-system';
 import { usePathname, useRouter } from 'expo-router';
 import { useMemo } from 'react';
@@ -6,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 
 import { useCan } from '../../access/gate.tsx';
 import { usePlatformB2bApplicationsQuery } from '../../data/platform-b2b-hooks.ts';
-import { AreaBrandBlock } from '../../shell/area-brand-block.tsx';
 
 /**
  * The platform console's rail: Kitchens and B2B applications. Imported only by
@@ -26,13 +24,6 @@ export function platformB2bApplicationHref(applicationId: string): string {
 }
 
 const B2B_VIEW_PERMISSION = 'b2b_application.view_platform';
-
-export function PlatformAdminBrandBlock() {
-    const { t } = useTranslation();
-    return (
-        <AreaBrandBlock testID="platform-admin-rail-brand" subtitle={t('platformAdmin:title')} />
-    );
-}
 
 export function usePlatformAdminNavigation(): readonly NavigationItem[] {
     const { t } = useTranslation();
@@ -70,13 +61,7 @@ export function usePlatformAdminNavigation(): readonly NavigationItem[] {
                 ...(count === 0
                     ? {}
                     : {
-                          badge: (
-                              <Badge
-                                  testID="nav-platform-b2b-badge"
-                                  tone="warning"
-                                  label={String(count)}
-                              />
-                          ),
+                          count: count,
                       }),
                 onPress: go(PLATFORM_B2B_HREF),
             });

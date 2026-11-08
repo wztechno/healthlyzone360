@@ -378,8 +378,8 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
         },
     };
 
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-plans-view"
                 onBack={() => {
@@ -428,7 +428,6 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
                 }}
             />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-plans-screen">
@@ -547,6 +546,8 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
                     />
                 </Stack>
             )}
+
+            {viewPopup}
         </Cascade>
     );
 }

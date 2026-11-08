@@ -9,7 +9,6 @@ import {
     DatePickerButton,
     EmptyState,
     ErrorState,
-    Select,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
@@ -35,7 +34,7 @@ import {
 } from '../catalogue/use-column-controls.tsx';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
+import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { PeriodScope } from '../catalogue/period-scope.tsx';
 
@@ -283,6 +282,9 @@ function OrderDeskCashReport() {
         picker: { storageKey: 'kitchen-order-desk-cash-report.v2' },
     });
 
+    /** Rows on screen: the toolbar card then runs on into the table rather than closing above it. */
+    const joined = filters !== null && !report.isPending && failure === null;
+
     return (
         <Cascade space="md" testID="kitchen-order-desk-cash-report-screen">
             {/*
@@ -290,252 +292,269 @@ function OrderDeskCashReport() {
              * day is in flight each figure holds a placeholder — a zero there would claim an answer
              * the screen does not have yet — and with no day to read, or a failed read, a dash.
              */}
-            <LensBar
-                testID="kitchen-order-desk-cash-report-toolbar"
-                label={t('kitchen:lens.label')}
-                figures={(() => {
-                    const unknown = filters === null || failure !== null;
-                    const figure = (count: number): Pick<LensFigure, 'value' | 'display'> =>
-                        unknown
-                            ? { value: 0, display: t('kitchen:list.noValue') }
-                            : report.isPending
-                              ? { value: null }
-                              : { value: count, display: formatter.formatNumber(count) };
-                    return [
-                        {
-                            key: 'receipts',
-                            label: t('kitchen:ops.cashReport.kpiReceipts'),
-                            ...figure(rows.reduce((sum, row) => sum + row.receiptCount, 0)),
-                        },
-                        {
-                            key: 'rows',
-                            label: t('kitchen:ops.cashReport.kpiRows'),
-                            ...figure(rows.length),
-                            tone: 'brand',
-                            separated: true,
-                        },
-                        {
-                            key: 'currencies',
-                            label: t('kitchen:ops.cashReport.kpiCurrencies'),
-                            ...figure(new Set(totals.map((total) => total.currencyCode)).size),
-                            tone: 'info',
-                        },
-                    ];
-                })()}
-                /*
-                 * The period shortcut, then the window it stands for. Picking a shortcut writes both
-                 * days; editing either day by hand reads back as Custom, because the shortcut is
-                 * derived from the window rather than stored beside it.
-                 */
-                scope={
-                    <>
-                        <PeriodScope
-                            testID="kitchen-order-desk-cash-report-period"
-                            today={today}
-                            value={{ from, to }}
-                            onChange={(next) => {
-                                setFrom(next.from);
-                                setTo(next.to);
-                            }}
-                        />
-                        <View className="z-auto flex-row items-center gap-tight">
-                            <DatePickerButton
-                                testID="kitchen-order-desk-cash-report-from"
-                                label={t('kitchen:ops.cashReport.fromLabel')}
-                                value={from}
-                                max={to}
-                                onChange={setFrom}
-                            />
-                            <Text variant="caption" tone="secondary" aria-hidden>
-                                {t('kitchen:ops.requirements.windowTo')}
-                            </Text>
-                            <DatePickerButton
-                                testID="kitchen-order-desk-cash-report-to"
-                                label={t('kitchen:ops.cashReport.toLabel')}
-                                value={to}
-                                min={from}
-                                onChange={setTo}
-                            />
-                        </View>
-                    </>
-                }
-                result={
-                    report.isPending && filters !== null
-                        ? null
-                        : t('kitchen:lens.result', {
-                              shown: controls.rows.length,
-                              total: rows.length,
-                          })
-                }
-                clearLabel={t('kitchen:lens.clear')}
-                {...(controls.filtered ? { onClear: controls.clearFilters } : {})}
-                trailing={
-                    rows.length === 0
-                        ? undefined
-                        : (narrow) => <ColumnPicker {...controls.picker} compact={narrow} />
-                }
-            />
-
-            {/* The daily close's till picker, shown once the kitchen has more than one till. */}
-            {branches.length > 1 ? (
-                <View className="w-field">
-                    <Select
-                        testID="kitchen-order-desk-cash-report-branch"
-                        label={t('kitchen:ops.dailyClose.branchLabel')}
-                        size="sm"
-                        value={branch}
-                        options={[
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-order-desk-cash-report-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={(() => {
+                        const unknown = filters === null || failure !== null;
+                        const figure = (count: number): Pick<LensFigure, 'value' | 'display'> =>
+                            unknown
+                                ? { value: 0, display: t('kitchen:list.noValue') }
+                                : report.isPending
+                                  ? { value: null }
+                                  : { value: count, display: formatter.formatNumber(count) };
+                        return [
                             {
-                                value: ALL_BRANCHES,
-                                label: t('kitchen:ops.dailyClose.allBranches'),
+                                key: 'receipts',
+                                label: t('kitchen:ops.cashReport.kpiReceipts'),
+                                ...figure(rows.reduce((sum, row) => sum + row.receiptCount, 0)),
                             },
-                            ...branches.map((option) => ({
-                                value: option.id,
-                                label: option.name,
-                            })),
-                        ]}
-                        onChange={setBranch}
-                    />
-                </View>
-            ) : null}
+                            {
+                                key: 'rows',
+                                label: t('kitchen:ops.cashReport.kpiRows'),
+                                ...figure(rows.length),
+                                tone: 'brand',
+                                separated: true,
+                            },
+                            {
+                                key: 'currencies',
+                                label: t('kitchen:ops.cashReport.kpiCurrencies'),
+                                ...figure(new Set(totals.map((total) => total.currencyCode)).size),
+                                tone: 'info',
+                            },
+                        ];
+                    })()}
+                    /*
+                     * The period shortcut, then the window it stands for. Picking a shortcut writes both
+                     * days; editing either day by hand reads back as Custom, because the shortcut is
+                     * derived from the window rather than stored beside it.
+                     */
+                    scope={
+                        <>
+                            <PeriodScope
+                                testID="kitchen-order-desk-cash-report-period"
+                                today={today}
+                                value={{ from, to }}
+                                onChange={(next) => {
+                                    setFrom(next.from);
+                                    setTo(next.to);
+                                }}
+                            />
+                            <View className="z-auto flex-row items-center gap-tight">
+                                <DatePickerButton
+                                    testID="kitchen-order-desk-cash-report-from"
+                                    label={t('kitchen:ops.cashReport.fromLabel')}
+                                    value={from}
+                                    max={to}
+                                    onChange={setFrom}
+                                />
+                                <Text variant="caption" tone="secondary" aria-hidden>
+                                    {t('kitchen:ops.requirements.windowTo')}
+                                </Text>
+                                <DatePickerButton
+                                    testID="kitchen-order-desk-cash-report-to"
+                                    label={t('kitchen:ops.cashReport.toLabel')}
+                                    value={to}
+                                    min={from}
+                                    onChange={setTo}
+                                />
+                            </View>
+                            {branches.length > 1 ? (
+                                <LensScope<string>
+                                    testID="kitchen-order-desk-cash-report-branch"
+                                    label={t('kitchen:ops.dailyClose.branchLabel')}
+                                    value={branch}
+                                    onChange={setBranch}
+                                    options={[
+                                        {
+                                            value: ALL_BRANCHES,
+                                            label: t('kitchen:ops.dailyClose.allBranches'),
+                                            testID: 'kitchen-order-desk-cash-report-branch-option-all',
+                                        },
+                                        ...branches.map((option) => ({
+                                            value: String(option.id),
+                                            label: option.name,
+                                            testID: `kitchen-order-desk-cash-report-branch-option-${String(option.id)}`,
+                                        })),
+                                    ]}
+                                />
+                            ) : null}
+                        </>
+                    }
+                    result={
+                        report.isPending && filters !== null
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  shown: controls.rows.length,
+                                  total: rows.length,
+                              })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(controls.filtered ? { onClear: controls.clearFilters } : {})}
+                    trailing={
+                        rows.length === 0 ? undefined : (
+                            <ColumnPicker {...controls.picker} compact />
+                        )
+                    }
+                />
 
-            {filters === null ? (
-                tooLong ? (
-                    <Callout
-                        testID="kitchen-order-desk-cash-report-window-too-long"
-                        tone="info"
-                        title={t('kitchen:ops.cashReport.windowTooLongTitle', {
-                            count: MAX_WINDOW_DAYS,
-                        })}
+                {filters === null ? (
+                    tooLong ? (
+                        <Callout
+                            testID="kitchen-order-desk-cash-report-window-too-long"
+                            tone="info"
+                            title={t('kitchen:ops.cashReport.windowTooLongTitle', {
+                                count: MAX_WINDOW_DAYS,
+                            })}
+                        />
+                    ) : (
+                        <Callout
+                            testID="kitchen-order-desk-cash-report-date-invalid"
+                            tone="info"
+                            title={t('kitchen:ops.cashReport.dateInvalidTitle')}
+                            body={t('kitchen:ops.cashReport.dateInvalidBody')}
+                        />
+                    )
+                ) : report.isPending ? (
+                    <TableSkeleton testID="kitchen-order-desk-cash-report-loading" rows={6} />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-order-desk-cash-report-error"
+                        title={t('kitchen:ops.cashReport.loadErrorTitle')}
+                        failure={failure}
+                        onRetry={() => {
+                            void report.refetch();
+                        }}
+                        retrying={report.isFetching}
                     />
-                ) : (
-                    <Callout
-                        testID="kitchen-order-desk-cash-report-date-invalid"
-                        tone="info"
-                        title={t('kitchen:ops.cashReport.dateInvalidTitle')}
-                        body={t('kitchen:ops.cashReport.dateInvalidBody')}
-                    />
-                )
-            ) : report.isPending ? (
-                <TableSkeleton testID="kitchen-order-desk-cash-report-loading" rows={6} />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-order-desk-cash-report-error"
-                    title={t('kitchen:ops.cashReport.loadErrorTitle')}
-                    failure={failure}
-                    onRetry={() => {
-                        void report.refetch();
-                    }}
-                    retrying={report.isFetching}
-                />
-            ) : rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-order-desk-cash-report-empty"
-                    title={t('kitchen:ops.cashReport.emptyTitle')}
-                    body={t('kitchen:ops.cashReport.emptyBody')}
-                />
-            ) : (
-                <View className="flex-col gap-loose">
+                ) : rows.length === 0 ? (
                     <CatalogueList<OrderDeskCashReportRow>
                         testID="kitchen-order-desk-cash-report-table"
                         label={t('kitchen:ops.cashReport.caption')}
                         columns={controls.columns}
-                        rows={controls.rows}
+                        rows={[]}
                         rowKey={rowTestId}
                         rowActionsLabel={t('kitchen:list.rowActions')}
+                        joined
+                        frameEmpty
+                        emptyState={
+                            <EmptyState
+                                testID="kitchen-order-desk-cash-report-empty"
+                                shape="table"
+                                icon="banknote"
+                                title={t('kitchen:ops.cashReport.emptyTitle')}
+                                body={t('kitchen:ops.cashReport.emptyBody')}
+                            />
+                        }
                     />
+                ) : (
+                    <View className="flex-col gap-loose">
+                        <CatalogueList<OrderDeskCashReportRow>
+                            testID="kitchen-order-desk-cash-report-table"
+                            label={t('kitchen:ops.cashReport.caption')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={rowTestId}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                            joined
+                        />
 
-                    {/*
-                     * The totals, as a panel of labelled pairs rather than a footer row of the list
-                     * above. A total per *(method, currency)* is not a column sum: three agents taking
-                     * dirhams and one taking dollars produce two totals, not one, and a row across the
-                     * bottom would be a shape that could only show one of them. The panel has no
-                     * grand-total line to fill, because that would add currencies together.
-                     */}
-                    <View
-                        testID="kitchen-order-desk-cash-report-totals"
-                        style={{ maxWidth: TOTALS_MAX_WIDTH }}
-                        // The green card: the brand's subtle ground, raised like the figures.
-                        className="flex-col rounded-panel border border-brand-100 bg-surface-brand-subtle shadow-elevation-card"
-                    >
-                        {/* A heading a step above the pairs under it, so it reads as their title. */}
-                        <View className="px-snug pb-hair pt-snug">
-                            <Text variant="section" tone="brand" accessibilityRole="header">
-                                {t('kitchen:ops.cashReport.totalsHeading')}
-                            </Text>
-                        </View>
-                        {totals.map((total) => (
-                            <View
-                                key={totalKey(total)}
-                                className="flex-row items-baseline justify-between gap-snug border-t border-stroke-subtle px-snug py-tight"
-                            >
-                                {/*
-                                 * The method alone, through the shared table the queue and the sale
-                                 * wizard read. The currency is not repeated in the label because the
-                                 * formatted amount beside it already carries one — two totals for one
-                                 * method are told apart by the money, which is the only place the
-                                 * distinction is unambiguous.
-                                 */}
-                                <Text variant="label">
-                                    {t(kitchenOrderPaymentMethodKey(total.method))}
-                                </Text>
-                                <Text
-                                    variant="strong"
-                                    tone="brand"
-                                    className="tabular-nums"
-                                    testID={`kitchen-order-desk-cash-report-total-${totalKey(total)}`}
-                                >
-                                    {formatMoney(formatter, {
-                                        amount: total.amountMinorSum,
-                                        currency: total.currencyCode,
-                                    })}
-                                </Text>
-                            </View>
-                        ))}
-                    </View>
-
-                    {/* What came off those takings, one panel down and never netted into them. */}
-                    {adjustments.length === 0 ? null : (
+                        {/*
+                         * The totals, as a panel of labelled pairs rather than a footer row of the list
+                         * above. A total per *(method, currency)* is not a column sum: three agents taking
+                         * dirhams and one taking dollars produce two totals, not one, and a row across the
+                         * bottom would be a shape that could only show one of them. The panel has no
+                         * grand-total line to fill, because that would add currencies together.
+                         */}
                         <View
-                            testID="kitchen-order-desk-cash-report-adjustments"
+                            testID="kitchen-order-desk-cash-report-totals"
                             style={{ maxWidth: TOTALS_MAX_WIDTH }}
-                            className="flex-col rounded-panel border border-stroke-subtle bg-surface-raised shadow-elevation-card"
+                            // The green card: the brand's subtle ground, raised like the figures.
+                            className="flex-col rounded-panel border border-stroke-subtle bg-surface-brand-subtle shadow-elevation-card"
                         >
+                            {/* A heading a step above the pairs under it, so it reads as their title. */}
                             <View className="px-snug pb-hair pt-snug">
-                                <Text variant="section" accessibilityRole="header">
-                                    {t('kitchen:ops.cashReport.adjustmentsHeading')}
+                                <Text variant="section" tone="brand" accessibilityRole="header">
+                                    {t('kitchen:ops.cashReport.totalsHeading')}
                                 </Text>
                             </View>
-                            {adjustments.map((adjustment) => (
+                            {totals.map((total) => (
                                 <View
-                                    key={`${adjustment.day}-${adjustment.kind}-${adjustment.displayName ?? ''}-${adjustment.currencyCode}`}
+                                    key={totalKey(total)}
                                     className="flex-row items-baseline justify-between gap-snug border-t border-stroke-subtle px-snug py-tight"
                                 >
+                                    {/*
+                                     * The method alone, through the shared table the queue and the sale
+                                     * wizard read. The currency is not repeated in the label because the
+                                     * formatted amount beside it already carries one — two totals for one
+                                     * method are told apart by the money, which is the only place the
+                                     * distinction is unambiguous.
+                                     */}
                                     <Text variant="label">
-                                        {[
-                                            t(
-                                                `kitchen:ops.cashReport.adjustment.${adjustment.kind}`,
-                                            ),
-                                            adjustment.displayName ?? EM_DASH,
-                                            formatter.formatDate(adjustment.day, {
-                                                day: 'numeric',
-                                                month: 'short',
-                                                timeZone: 'UTC',
-                                            }),
-                                        ].join(t('kitchen:common.listSeparator'))}
+                                        {t(kitchenOrderPaymentMethodKey(total.method))}
                                     </Text>
-                                    <Text variant="strong" className="tabular-nums">
+                                    <Text
+                                        variant="strong"
+                                        tone="brand"
+                                        className="tabular-nums"
+                                        testID={`kitchen-order-desk-cash-report-total-${totalKey(total)}`}
+                                    >
                                         {formatMoney(formatter, {
-                                            amount: adjustment.amountMinorSum,
-                                            currency: adjustment.currencyCode,
+                                            amount: total.amountMinorSum,
+                                            currency: total.currencyCode,
                                         })}
                                     </Text>
                                 </View>
                             ))}
                         </View>
-                    )}
-                </View>
-            )}
+
+                        {/* What came off those takings, one panel down and never netted into them. */}
+                        {adjustments.length === 0 ? null : (
+                            <View
+                                testID="kitchen-order-desk-cash-report-adjustments"
+                                style={{ maxWidth: TOTALS_MAX_WIDTH }}
+                                className="flex-col rounded-panel border border-stroke-subtle bg-surface-raised shadow-elevation-card"
+                            >
+                                <View className="px-snug pb-hair pt-snug">
+                                    <Text variant="section" accessibilityRole="header">
+                                        {t('kitchen:ops.cashReport.adjustmentsHeading')}
+                                    </Text>
+                                </View>
+                                {adjustments.map((adjustment) => (
+                                    <View
+                                        key={`${adjustment.day}-${adjustment.kind}-${adjustment.displayName ?? ''}-${adjustment.currencyCode}`}
+                                        className="flex-row items-baseline justify-between gap-snug border-t border-stroke-subtle px-snug py-tight"
+                                    >
+                                        <Text variant="label">
+                                            {[
+                                                t(
+                                                    `kitchen:ops.cashReport.adjustment.${adjustment.kind}`,
+                                                ),
+                                                adjustment.displayName ?? EM_DASH,
+                                                formatter.formatDate(adjustment.day, {
+                                                    day: 'numeric',
+                                                    month: 'short',
+                                                    timeZone: 'UTC',
+                                                }),
+                                            ].join(t('kitchen:common.listSeparator'))}
+                                        </Text>
+                                        <Text variant="strong" className="tabular-nums">
+                                            {formatMoney(formatter, {
+                                                amount: adjustment.amountMinorSum,
+                                                currency: adjustment.currencyCode,
+                                            })}
+                                        </Text>
+                                    </View>
+                                ))}
+                            </View>
+                        )}
+                    </View>
+                )}
+            </View>
         </Cascade>
     );
 }

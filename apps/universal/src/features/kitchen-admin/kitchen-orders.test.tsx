@@ -17,6 +17,7 @@ import { TEST_BRANCH_ID, kitchenManagerSession } from '../../testing/session-fix
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { ORDER_DESK_POLL_MS } from './screens/order-desk-screen.tsx';
 import { OrdersScreen } from './screens/orders-screen.tsx';
+import { getRecordAction, queryRecordAction } from '../../testing/record-actions.ts';
 
 /* `mock`-prefixed so the factory below may close over it — Jest's hoisting rule. */
 const mockPush = jest.fn();
@@ -537,11 +538,13 @@ describe('kitchen orders', () => {
         if (placed === undefined) throw new Error('this test authored no placed order');
 
         fireEvent.press(screen.getByTestId(`kitchen-orders-table-row-${String(placed.id)}`));
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-confirm')).toBeTruthy();
+        await waitFor(async () => {
+            expect(
+                await getRecordAction('kitchen-orders-detail', 'kitchen-orders-confirm'),
+            ).toBeTruthy();
         });
 
-        fireEvent.press(screen.getByTestId('kitchen-orders-confirm'));
+        fireEvent.press(await getRecordAction('kitchen-orders-detail', 'kitchen-orders-confirm'));
 
         // The version the panel sends is the one it read, and the book enforces the real machine —
         // so this is the transition itself, `placed → confirmed` with the lock version incremented.
@@ -564,9 +567,15 @@ describe('kitchen orders', () => {
                 'Not ready yet',
             );
         });
-        expect(screen.queryByTestId('kitchen-orders-confirm')).toBeNull();
-        expect(screen.queryByTestId('kitchen-orders-fulfil')).toBeNull();
-        expect(screen.queryByTestId('kitchen-orders-mark-delivered')).toBeNull();
+        expect(
+            await queryRecordAction('kitchen-orders-detail', 'kitchen-orders-confirm'),
+        ).toBeNull();
+        expect(
+            await queryRecordAction('kitchen-orders-detail', 'kitchen-orders-fulfil'),
+        ).toBeNull();
+        expect(
+            await queryRecordAction('kitchen-orders-detail', 'kitchen-orders-mark-delivered'),
+        ).toBeNull();
     });
 
     it('says in the tray when somebody else moved the order first, and refreshes it from there', async () => {
@@ -581,14 +590,17 @@ describe('kitchen orders', () => {
             if (placed === undefined) throw new Error('this test authored no placed order');
 
             fireEvent.press(screen.getByTestId(`kitchen-orders-table-row-${String(placed.id)}`));
-            await waitFor(() => {
-                expect(screen.getByTestId('kitchen-orders-confirm')).toBeTruthy();
+            await waitFor(async () => {
+                expect(
+                    await getRecordAction('kitchen-orders-detail', 'kitchen-orders-confirm'),
+                ).toBeTruthy();
             });
 
             // Another tablet confirms it while this record still holds the placed version.
             book.confirmOrder({ id: placed.id, lockVersion: placed.lockVersion });
+            const action = await getRecordAction('kitchen-orders-detail', 'kitchen-orders-confirm');
             await act(async () => {
-                fireEvent.press(screen.getByTestId('kitchen-orders-confirm'));
+                fireEvent.press(action);
             });
 
             await waitFor(() => {
@@ -605,8 +617,10 @@ describe('kitchen orders', () => {
             await waitFor(() => {
                 expect(screen.queryByTestId('kitchen-orders-conflict')).toBeNull();
             });
-            await waitFor(() => {
-                expect(screen.queryByTestId('kitchen-orders-confirm')).toBeNull();
+            await waitFor(async () => {
+                expect(
+                    await queryRecordAction('kitchen-orders-detail', 'kitchen-orders-confirm'),
+                ).toBeNull();
             });
         });
     });
@@ -662,10 +676,12 @@ describe('kitchen orders', () => {
         await openOrder(book, orderIdAt(3));
 
         // Drawn from the re-read order, which lands after the row's first paint.
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-edit')).toBeTruthy();
+        await waitFor(async () => {
+            expect(
+                await getRecordAction('kitchen-orders-detail', 'kitchen-orders-edit'),
+            ).toBeTruthy();
         });
-        fireEvent.press(screen.getByTestId('kitchen-orders-edit'));
+        fireEvent.press(await getRecordAction('kitchen-orders-detail', 'kitchen-orders-edit'));
         expect(mockPush).toHaveBeenCalledWith(
             `/kitchen/order-desk/sale?order=${encodeURIComponent(String(orderIdAt(3)))}`,
         );
@@ -679,7 +695,7 @@ describe('kitchen orders', () => {
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-orders-detail-run-state')).toBeTruthy();
         });
-        expect(screen.queryByTestId('kitchen-orders-edit')).toBeNull();
+        expect(await queryRecordAction('kitchen-orders-detail', 'kitchen-orders-edit')).toBeNull();
     });
 
     it('offers no way to close a delivery order the kitchen has not marked ready (HA-29)', async () => {
@@ -691,25 +707,37 @@ describe('kitchen orders', () => {
                 'Not ready yet',
             );
         });
-        expect(screen.queryByTestId('kitchen-orders-fulfil')).toBeNull();
-        expect(screen.queryByTestId('kitchen-orders-mark-delivered')).toBeNull();
+        expect(
+            await queryRecordAction('kitchen-orders-detail', 'kitchen-orders-fulfil'),
+        ).toBeNull();
+        expect(
+            await queryRecordAction('kitchen-orders-detail', 'kitchen-orders-mark-delivered'),
+        ).toBeNull();
         // Cancel is still there: calling an order off is not closing it.
-        expect(screen.getByTestId('kitchen-orders-cancel')).toBeTruthy();
+        expect(
+            await getRecordAction('kitchen-orders-detail', 'kitchen-orders-cancel'),
+        ).toBeTruthy();
     });
 
     it('closes a ready delivery order only after saying the run closes too (HA-29)', async () => {
         const book = createOrderBook(withConfirmed({ readyAt: '2026-08-05T16:30:00Z' }));
         const { repositories } = await openOrder(book, orderIdAt(3));
 
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-mark-delivered')).toBeTruthy();
+        await waitFor(async () => {
+            expect(
+                await getRecordAction('kitchen-orders-detail', 'kitchen-orders-mark-delivered'),
+            ).toBeTruthy();
         });
         expect(screen.getByTestId('kitchen-orders-detail-run-state')).toHaveTextContent(
             'Waiting for the driver',
         );
-        expect(screen.queryByTestId('kitchen-orders-fulfil')).toBeNull();
+        expect(
+            await queryRecordAction('kitchen-orders-detail', 'kitchen-orders-fulfil'),
+        ).toBeNull();
 
-        fireEvent.press(screen.getByTestId('kitchen-orders-mark-delivered'));
+        fireEvent.press(
+            await getRecordAction('kitchen-orders-detail', 'kitchen-orders-mark-delivered'),
+        );
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-orders-mark-delivered-dialog')).toHaveTextContent(
                 /closes the driver's run/,
@@ -738,10 +766,14 @@ describe('kitchen orders', () => {
         const book = createOrderBook(withConfirmed({ readyAt: '2026-08-05T16:30:00Z' }));
         const { repositories } = await openOrder(book, orderIdAt(3));
 
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-mark-delivered')).toBeTruthy();
+        await waitFor(async () => {
+            expect(
+                await getRecordAction('kitchen-orders-detail', 'kitchen-orders-mark-delivered'),
+            ).toBeTruthy();
         });
-        fireEvent.press(screen.getByTestId('kitchen-orders-mark-delivered'));
+        fireEvent.press(
+            await getRecordAction('kitchen-orders-detail', 'kitchen-orders-mark-delivered'),
+        );
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-orders-mark-delivered-dismiss')).toBeTruthy();
         });
@@ -781,12 +813,14 @@ describe('kitchen orders', () => {
         const book = createOrderBook(withConfirmed({ fulfilmentType: 'pickup' }));
         const { repositories } = await openOrder(book, orderIdAt(3));
 
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-fulfil')).toBeTruthy();
+        await waitFor(async () => {
+            expect(
+                await getRecordAction('kitchen-orders-detail', 'kitchen-orders-fulfil'),
+            ).toBeTruthy();
         });
         expect(screen.queryByTestId('kitchen-orders-detail-run-state')).toBeNull();
 
-        fireEvent.press(screen.getByTestId('kitchen-orders-fulfil'));
+        fireEvent.press(await getRecordAction('kitchen-orders-detail', 'kitchen-orders-fulfil'));
         await waitFor(() => {
             expect(repositories.kitchenOrders.fulfilOrder).toHaveBeenCalledWith({
                 id: orderIdAt(3),
@@ -810,11 +844,13 @@ describe('kitchen orders', () => {
         if (placed === undefined) throw new Error('this test authored no placed order');
 
         fireEvent.press(screen.getByTestId(`kitchen-orders-table-row-${String(placed.id)}`));
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-cancel')).toBeTruthy();
+        await waitFor(async () => {
+            expect(
+                await getRecordAction('kitchen-orders-detail', 'kitchen-orders-cancel'),
+            ).toBeTruthy();
         });
 
-        fireEvent.press(screen.getByTestId('kitchen-orders-cancel'));
+        fireEvent.press(await getRecordAction('kitchen-orders-detail', 'kitchen-orders-cancel'));
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-orders-cancel-reasons')).toBeTruthy();
         });
@@ -901,9 +937,11 @@ describe('kitchen orders', () => {
             );
 
             await waitFor(() => {
-                expect(screen.getByTestId('kitchen-orders-cancel')).toBeTruthy();
+                expect(screen.getByTestId('kitchen-orders-detail-actions')).toBeTruthy();
             });
-            await fireEvent.press(screen.getByTestId('kitchen-orders-cancel'));
+            await fireEvent.press(
+                await getRecordAction('kitchen-orders-detail', 'kitchen-orders-cancel'),
+            );
             await waitFor(() => {
                 expect(screen.getByTestId('kitchen-orders-cancel-reasons')).toBeTruthy();
             });
@@ -956,12 +994,12 @@ describe('kitchen orders', () => {
         );
         await openOrder(book, orderIdAt(3));
 
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-remake-of')).toHaveTextContent(
-                /VK-2026-0148/,
-            );
+        await waitFor(async () => {
+            expect(
+                await getRecordAction('kitchen-orders-detail', 'kitchen-orders-remake-of'),
+            ).toHaveTextContent(/VK-2026-0148/);
         });
-        fireEvent.press(screen.getByTestId('kitchen-orders-remake-of'));
+        fireEvent.press(await getRecordAction('kitchen-orders-detail', 'kitchen-orders-remake-of'));
         expect(mockPush).toHaveBeenCalledWith(
             `/kitchen/orders?view=${encodeURIComponent(String(orderIdAt(1)))}`,
         );

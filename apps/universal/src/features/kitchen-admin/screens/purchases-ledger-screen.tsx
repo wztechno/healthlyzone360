@@ -52,7 +52,7 @@ import { displayName } from '../format.ts';
 import { receiptCostStatusKey } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { ReceiptOpenOrder, ReceiptOrderRef } from '../receipt-order-ref.tsx';
+import { ReceiptOrderRef, useReceiptOpenOrderActions } from '../receipt-order-ref.tsx';
 import {
     useListMemory,
     useRememberedFilter,
@@ -667,8 +667,12 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
 
     const viewingState = viewing === null ? null : ledgerLineState(viewing);
 
-    if (viewing !== null && viewingState !== null) {
-        return (
+    const openOrderActions = useReceiptOpenOrderActions(
+        viewing?.purchaseOrderId ?? null,
+        'kitchen-ledger-view-open-order',
+    );
+    const viewPopup =
+        viewing === null || viewingState === null ? null : (
             <RecordViewPage
                 testID="kitchen-purchases-ledger-view"
                 onBack={() => {
@@ -689,16 +693,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                                   : 'kitchen:ops.ledger.viewUnpricedNote',
                           ),
                       })}
-                {...(viewing.purchaseOrderId === null
-                    ? {}
-                    : {
-                          statusContent: (
-                              <ReceiptOpenOrder
-                                  orderId={viewing.purchaseOrderId}
-                                  testID="kitchen-ledger-view-open-order"
-                              />
-                          ),
-                      })}
+                actions={openOrderActions}
                 fields={[
                     {
                         key: 'supplier',
@@ -778,7 +773,6 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                 footNote={t('kitchen:ops.ledger.viewFoot')}
             />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-purchases-ledger-screen">
@@ -964,6 +958,8 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                     rowActionsLabel={t('kitchen:list.rowActions')}
                 />
             )}
+
+            {viewPopup}
         </Cascade>
     );
 }

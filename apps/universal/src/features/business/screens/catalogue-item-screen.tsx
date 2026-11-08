@@ -3,7 +3,6 @@ import {
     Cascade,
     EmptyState,
     ErrorState,
-    Inline,
     RecordSkeleton,
     Stack,
     Text,
@@ -30,6 +29,7 @@ import { RecordViewPage } from '../../kitchen-admin/catalogue/record-view-page.t
 import { formatMoney, formatPackSize, weekdayKey } from '../../marketplace/format.ts';
 import { CORPORATE_HOME_HREF, corporateCatalogueHref } from '../corporate-chrome.tsx';
 import { catalogueKindKey, contractPriceTestId, salesChannelKey } from '../format.ts';
+import { CorporateCatalogueScreen } from './corporate-catalogue-screen.tsx';
 
 /**
  * `/corporate/items/{item}` — one negotiated line, with its volume tiers, as an admin record page
@@ -141,110 +141,111 @@ export function CatalogueItemScreen({ itemId }: CatalogueItemScreenProps) {
     const orderable = item.mealId !== null || item.kind === 'meal';
     const separator = t('business:common.listSeparator');
 
+    // A pop-up over the programme's catalogue it was picked from (`View as a pop-up`).
     return (
-        <RecordViewPage
-            testID="catalogue-item-screen"
-            title={item.name}
-            kind={t(catalogueKindKey(item.kind))}
-            reference={item.id}
-            onBack={() => {
-                router.push(corporateCatalogueHref(String(item.programmeId)) as never);
-            }}
-            fields={[
-                {
-                    key: 'description',
-                    label: t('business:item.fieldDescription'),
-                    value: item.description,
-                },
-                {
-                    key: 'minimum',
-                    label: t('business:catalogue.columnMinimum'),
-                    value: formatter.formatNumber(item.minimumOrderQuantity),
-                    mono: true,
-                },
-                {
-                    key: 'lead-time',
-                    label: t('business:catalogue.columnLeadTime'),
-                    value: t('business:catalogue.days', { count: item.leadTimeDays }),
-                    mono: true,
-                },
-                {
-                    key: 'weekdays',
-                    label: t('business:catalogue.columnWeekdays'),
-                    value:
-                        item.deliveryWeekdays.length === 0
-                            ? t('business:catalogue.noWeekdaysShort')
-                            : item.deliveryWeekdays
-                                  .map((weekday) => t(weekdayKey(weekday)))
-                                  .join(separator),
-                },
-                {
-                    key: 'recurring',
-                    label: t('business:catalogue.columnRecurring'),
-                    value: item.supportsRecurringOrder
-                        ? t('business:catalogue.recurringShort')
-                        : t('business:catalogue.oneOffShort'),
-                },
-            ]}
-            sections={[
-                {
-                    key: 'tiers',
-                    title: t('business:item.tiersTitle'),
-                    content: <VolumeTiers item={item} t={t} formatter={formatter} />,
-                },
-            ]}
-            chipsLabel={t('business:catalogue.columnChannels')}
-            chips={item.channels.map((channel) => ({
-                key: channel,
-                label: t(salesChannelKey(channel)),
-            }))}
-            statusContent={
-                <Stack space="sm">
-                    <HeadlinePrice item={item} t={t} formatter={formatter} />
-                    {orderable ? (
-                        <Inline space="xs" wrap>
-                            <Button
-                                testID="catalogue-item-cart"
-                                size="sm"
-                                variant="secondary"
-                                label={t('business:item.addToCart')}
-                                loading={addToCart.isPending}
-                                // Wrapped rather than passed by reference: `onPress` hands the press
-                                // event to its callback, and this one's first parameter is an
-                                // `onSuccess` continuation it would then try to call.
-                                onPress={() => {
-                                    onAddToCart();
-                                }}
-                            />
-                            <Button
-                                testID="catalogue-item-order"
-                                size="sm"
-                                variant="secondary"
-                                label={t('business:item.placeOrder')}
-                                loading={addToCart.isPending}
-                                onPress={() => {
-                                    onAddToCart(() => {
-                                        router.push(
-                                            `/customer/checkout?channel=${encodeURIComponent(B2B_CART_CHANNEL_CODE)}` as never,
-                                        );
-                                    });
-                                }}
-                            />
-                        </Inline>
-                    ) : null}
-                </Stack>
-            }
-            primaryAction={{
-                testID: 'catalogue-item-quote',
-                label: t('business:item.quote'),
-                icon: 'fileText',
-                onPress: () => {
-                    router.push(
-                        `/corporate/quotations/new?programme=${String(item.programmeId)}&item=${item.id}` as never,
-                    );
-                },
-            }}
-        />
+        <>
+            <CorporateCatalogueScreen programmeId={String(item.programmeId)} />
+            <RecordViewPage
+                testID="catalogue-item-screen"
+                title={item.name}
+                kind={t(catalogueKindKey(item.kind))}
+                reference={item.id}
+                onBack={() => {
+                    router.push(corporateCatalogueHref(String(item.programmeId)) as never);
+                }}
+                fields={[
+                    {
+                        key: 'description',
+                        label: t('business:item.fieldDescription'),
+                        value: item.description,
+                    },
+                    {
+                        key: 'minimum',
+                        label: t('business:catalogue.columnMinimum'),
+                        value: formatter.formatNumber(item.minimumOrderQuantity),
+                        mono: true,
+                    },
+                    {
+                        key: 'lead-time',
+                        label: t('business:catalogue.columnLeadTime'),
+                        value: t('business:catalogue.days', { count: item.leadTimeDays }),
+                        mono: true,
+                    },
+                    {
+                        key: 'weekdays',
+                        label: t('business:catalogue.columnWeekdays'),
+                        value:
+                            item.deliveryWeekdays.length === 0
+                                ? t('business:catalogue.noWeekdaysShort')
+                                : item.deliveryWeekdays
+                                      .map((weekday) => t(weekdayKey(weekday)))
+                                      .join(separator),
+                    },
+                    {
+                        key: 'recurring',
+                        label: t('business:catalogue.columnRecurring'),
+                        value: item.supportsRecurringOrder
+                            ? t('business:catalogue.recurringShort')
+                            : t('business:catalogue.oneOffShort'),
+                    },
+                ]}
+                sections={[
+                    {
+                        key: 'tiers',
+                        title: t('business:item.tiersTitle'),
+                        content: <VolumeTiers item={item} t={t} formatter={formatter} />,
+                    },
+                ]}
+                chipsLabel={t('business:catalogue.columnChannels')}
+                chips={item.channels.map((channel) => ({
+                    key: channel,
+                    label: t(salesChannelKey(channel)),
+                }))}
+                statusContent={<HeadlinePrice item={item} t={t} formatter={formatter} />}
+                {...(orderable
+                    ? {
+                          actions: [
+                              {
+                                  key: 'cart',
+                                  label: t('business:item.addToCart'),
+                                  icon: 'shoppingCart' as const,
+                                  testID: 'catalogue-item-cart',
+                                  loading: addToCart.isPending,
+                                  // Wrapped rather than passed by reference: this one's first
+                                  // parameter is an `onSuccess` continuation.
+                                  onSelect: () => {
+                                      onAddToCart();
+                                  },
+                              },
+                              {
+                                  key: 'order',
+                                  label: t('business:item.placeOrder'),
+                                  icon: 'basket' as const,
+                                  testID: 'catalogue-item-order',
+                                  loading: addToCart.isPending,
+                                  onSelect: () => {
+                                      onAddToCart(() => {
+                                          router.push(
+                                              `/customer/checkout?channel=${encodeURIComponent(B2B_CART_CHANNEL_CODE)}` as never,
+                                          );
+                                      });
+                                  },
+                              },
+                          ],
+                      }
+                    : {})}
+                primaryAction={{
+                    testID: 'catalogue-item-quote',
+                    label: t('business:item.quote'),
+                    icon: 'fileText',
+                    onPress: () => {
+                        router.push(
+                            `/corporate/quotations/new?programme=${String(item.programmeId)}&item=${item.id}` as never,
+                        );
+                    },
+                }}
+            />
+        </>
     );
 }
 

@@ -210,7 +210,8 @@ describe('order desk cash report — the ladder', () => {
             { timeout: 5000 },
         );
         // No table and no totals block: there is nothing to total.
-        expect(screen.queryByTestId('kitchen-order-desk-cash-report-table')).toBeNull();
+        // The header stays, so the page keeps its shape.
+        expect(screen.getByTestId('kitchen-order-desk-cash-report-table')).toBeTruthy();
         expect(screen.queryByTestId('kitchen-order-desk-cash-report-totals')).toBeNull();
     });
 

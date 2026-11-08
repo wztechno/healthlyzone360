@@ -141,7 +141,7 @@ function StatTile({
                 interactive={onPress !== undefined}
                 accessibilityLabel={label}
                 {...(onPress === undefined ? {} : { onPress })}
-                className="border-brand-100"
+                className="border-stroke-subtle"
             >
                 <Inline space="xs" align="center" wrap={false}>
                     <View className={cx('h-2 w-2 rounded-full', DOT_CLASS[tone])} />
@@ -191,7 +191,7 @@ function Panel({
                 testID={testID}
                 padding="none"
                 tone="raised"
-                className="flex-1 overflow-hidden border-brand-100"
+                className="flex-1 overflow-hidden border-stroke-subtle"
             >
                 <Inline space="sm" align="center" justify="between" className="px-4 pb-2 pt-3">
                     <Heading level={2}>{title}</Heading>
@@ -850,7 +850,7 @@ export function KitchenHomeScreen() {
                                             testID={`kitchen-home-section-${group}`}
                                             padding="sm"
                                             tone="raised"
-                                            className="min-w-0 gap-2 border-brand-100"
+                                            className="min-w-0 gap-2 border-stroke-subtle"
                                         >
                                             <Inline space="xs" align="center" wrap={false}>
                                                 <View className="h-7 w-7 items-center justify-center rounded bg-surface-brand-subtle">

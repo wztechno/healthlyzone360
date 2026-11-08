@@ -70,6 +70,13 @@ export interface NavigationItem {
      * sidebar and the drawer; the rail and the bottom tabs have no room for one.
      */
     readonly badge?: ReactNode | undefined;
+    /**
+     * A queue count — what is waiting on this page. The shell draws it itself as an amber pill on the
+     * row, and the workspace rail adds a module's counts into one badge on its icon, so a waiting
+     * page is visible while its module is shut. Zero and `undefined` draw nothing. Takes the place
+     * of `badge` wherever both are given.
+     */
+    readonly count?: number | undefined;
     readonly onPress: () => void;
     readonly testID?: string | undefined;
 }
@@ -98,6 +105,11 @@ export interface AppShellProps {
      * Not used by the `marketplace` bar, which draws no title.
      */
     readonly topbarTitle?: ReactNode | undefined;
+    /**
+     * The workspace bar's search, drawn after the title. With it the title keeps its own width and
+     * a spacer pushes `topbarEnd` to the inline end; without it the title takes the spare width.
+     */
+    readonly topbarSearch?: ReactNode | undefined;
     /** Trailing topbar slot — locale switch, avatar, sign out. */
     readonly topbarEnd?: ReactNode | undefined;
     /** Full-width strip above everything: offline indicator, mock-data banner. */
@@ -116,6 +128,12 @@ export interface AppShellProps {
     readonly sidebarStartCollapsed?: ReactNode | undefined;
     /** `sidebarEnd` for the collapsed sidebar — the same control as an icon. */
     readonly sidebarEndCollapsed?: ReactNode | undefined;
+    /**
+     * The foot of the two-pane workspace's module rail, under the modules — the Workspaces control
+     * and the account avatar (`ShellRailButton`, `RailAccount`). Two-pane only: below `lg` there is
+     * no rail, and the caller keeps those controls in the top bar.
+     */
+    readonly railEnd?: ReactNode | undefined;
     /**
      * Pinned at the bottom of the sidebar — a sign-out control. Sidebar only: the drawer is a
      * white overlay with its own title bar. Below `lg`
@@ -224,6 +242,7 @@ function AppShellLayout({
     bottomNavigation = [],
     topbarStart,
     topbarTitle,
+    topbarSearch,
     topbarEnd,
     banner,
     footer,
@@ -233,6 +252,7 @@ function AppShellLayout({
     sidebarEnd,
     sidebarStartCollapsed,
     sidebarEndCollapsed,
+    railEnd,
     authAside,
     contentClassName,
     pathname,
@@ -244,6 +264,7 @@ function AppShellLayout({
 }: AppShellProps & { readonly dock: ReactNode; readonly topbarHidden: boolean }) {
     const { t } = useTranslation();
     const { atLeast, width: windowWidth } = useBreakpoint();
+    const isRtl = useIsRtl();
     const [drawerOpen, setDrawerOpen] = useState(false);
     /*
      * A change of path closes the drawer (CHROME-15). Adjusted during render rather than in an
@@ -287,7 +308,8 @@ function AppShellLayout({
      * The panel's contents stay mounted until the slide has finished, then leave the tree — a shut
      * panel's links must not stay in the tab order behind a zero-width box.
      */
-    const [panelContentMounted, setPanelContentMounted] = useState(true);
+    // A panel that starts shut starts unmounted too.
+    const [panelContentMounted, setPanelContentMounted] = useState(!sidebarCollapsed);
     /** The module the panel lists. `null` follows the page: the module holding the active item. */
     const [chosenGroup, setChosenGroup] = useState<string | null>(null);
     const wideEnoughForSidebar = atLeast('lg');
@@ -299,9 +321,10 @@ function AppShellLayout({
      */
     const contentInset = {
         chrome: twoPane
-            ? SIDEBAR_COLLAPSED_WIDTH + (sidebarCollapsed ? 0 : (sidebarWidth ?? 260))
+            ? SIDEBAR_COLLAPSED_WIDTH +
+              (sidebarCollapsed ? 0 : (sidebarWidth ?? 260) + FRAME_GUTTER)
             : 0,
-        padding: wideEnoughForSidebar ? CONTENT_PADDING_LG : CONTENT_PADDING,
+        padding: twoPane ? 12 : wideEnoughForSidebar ? CONTENT_PADDING_LG : CONTENT_PADDING,
     };
 
     const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -374,9 +397,6 @@ function AppShellLayout({
         setCollapsed(next);
         persistPanel(next ? 'shut' : 'open');
     };
-    const toggleSidebar = () => {
-        chooseCollapsed(!sidebarCollapsed);
-    };
     /** A module icon: show its pages, opening the panel if it is shut; the same icon again shuts it. */
     const chooseGroup = (group: string) => {
         if (!sidebarCollapsed && shownGroup === group) {
@@ -386,10 +406,15 @@ function AppShellLayout({
         setChosenGroup(group);
         if (sidebarCollapsed) chooseCollapsed(false);
     };
-    /** An ungrouped destination: go there, and open the panel on its note if it is shut. */
+    /**
+     * An ungrouped destination: go there, and open the panel on its note if it is shut. Where
+     * nothing is grouped the panel lists every destination and there is no module icon to open it
+     * from, so a press on any of them is what brings a shut panel back.
+     */
     const chooseUngrouped = (item: NavigationItem) => {
         setChosenGroup(null);
-        if (sidebarCollapsed && groups.length > 0 && roomyWindow) setCollapsed(false);
+        if (sidebarCollapsed && groups.length === 0) chooseCollapsed(false);
+        else if (sidebarCollapsed && roomyWindow) setCollapsed(false);
         item.onPress();
     };
 
@@ -546,32 +571,14 @@ function AppShellLayout({
             <View testID={testID === undefined ? undefined : `${testID}-dock`}>{dock}</View>
         );
 
-    const topBar = (
-        <View
-            testID={testID === undefined ? undefined : `${testID}-topbar`}
-            role="banner"
-            /*
-             * Raised above the page it heads: on the web every View is its own stacking context, so
-             * a panel dropped from the bar — the top bar's Continue list — was painted under the
-             * page that follows it.
-             */
-            className="z-raised flex-row items-center gap-3 border-b border-stroke-subtle bg-surface-raised px-4 py-2 shadow-elevation-1"
-        >
-            {twoPane ? (
-                <IconButton
-                    testID={testID === undefined ? undefined : `${testID}-sidebar-toggle`}
-                    label={
-                        sidebarCollapsed
-                            ? t('designSystem:shell.showNavigation')
-                            : t('designSystem:shell.hideNavigation')
-                    }
-                    aria-expanded={!sidebarCollapsed}
-                    // The menu while the panel is open; an arrow pointing the way it will slide out
-                    // once it is shut.
-                    icon={<Icon name={sidebarCollapsed ? 'chevronEnd' : 'menu'} />}
-                    onPress={toggleSidebar}
-                />
-            ) : null}
+    /*
+     * The staff desks' bar floats: a 60px pill with a 12px gutter from the window and the rail, as
+     * the admin frame boards draw it. The customer variants keep the flat bar under a hairline.
+     */
+    const floatingBar = variant === 'workspace' || variant === 'rail';
+    const titleWide = topbarSearch === undefined;
+    const topBarRow = (
+        <>
             {variant === 'workspace' && !wideEnoughForSidebar && navigation.length > 0 ? (
                 <IconButton
                     testID={testID === undefined ? undefined : `${testID}-menu`}
@@ -589,16 +596,53 @@ function AppShellLayout({
                     accessibilityRole="header"
                     aria-level={1}
                     numberOfLines={1}
-                    className="flex-1 text-base font-semibold text-content-primary text-start"
+                    className={cx(
+                        'text-base font-semibold text-content-primary text-start',
+                        titleWide ? 'flex-1' : 'min-w-0 shrink ps-2',
+                    )}
                 >
                     {title ?? t('common:app.name')}
                 </RNText>
             ) : (
-                // `flex-1` as the text title has it: the trail's column pushes the trailing controls
-                // to the inline end, and `min-w-0` lets a long trail wrap rather than shove them off.
-                <View className="min-w-0 flex-1 flex-row items-center">{topbarTitle}</View>
+                // `flex-1` when nothing follows: the trail's column pushes the trailing controls to
+                // the inline end, and `min-w-0` lets a long trail wrap rather than shove them off.
+                <View
+                    className={cx('min-w-0 flex-row items-center', titleWide ? 'flex-1' : 'shrink')}
+                >
+                    {topbarTitle}
+                </View>
+            )}
+            {titleWide ? null : (
+                <>
+                    {topbarSearch}
+                    <View className="flex-1" />
+                </>
             )}
             {topbarEnd}
+        </>
+    );
+    const topBar = floatingBar ? (
+        <View
+            testID={testID === undefined ? undefined : `${testID}-topbar`}
+            role="banner"
+            // Raised above the page it heads: on the web every View is its own stacking context, so
+            // a panel dropped from the bar — the top bar's Continue list — was painted under the page.
+            className={cx('z-raised pe-3 pt-3', twoPane ? null : 'ps-3')}
+        >
+            <View
+                testID={testID === undefined ? undefined : `${testID}-topbar-pill`}
+                className="min-h-[60px] flex-row items-center gap-2 rounded-2xl border border-stroke-subtle bg-surface-raised py-1.5 pe-2.5 ps-2 shadow-elevation-bar md:rounded-full"
+            >
+                {topBarRow}
+            </View>
+        </View>
+    ) : (
+        <View
+            testID={testID === undefined ? undefined : `${testID}-topbar`}
+            role="banner"
+            className="z-raised flex-row items-center gap-3 border-b border-stroke-subtle bg-surface-raised px-4 py-2 shadow-elevation-1"
+        >
+            {topBarRow}
         </View>
     );
 
@@ -702,9 +746,36 @@ function AppShellLayout({
                             {item.label}
                         </RNText>
                     )}
-                    {compact ? null : item.badge}
+                    {compact ? null : <RowCount item={item} />}
                 </Pressable>
             );
+
+        /** A run of items, with a section label wherever an item's section changes. */
+        const withSections = (members: readonly NavigationItem[]) =>
+            members.flatMap((item, index) => {
+                const opensSection =
+                    item.section !== undefined && item.section !== members[index - 1]?.section;
+                return opensSection
+                    ? [
+                          <RNText
+                              key={`section-${item.section ?? ''}`}
+                              accessibilityRole="header"
+                              aria-level={3}
+                              className={cx(
+                                  // A step under the module heading: the module names the panel,
+                                  // this names a run of pages inside it.
+                                  'px-3 pb-1 pt-2 text-xs font-semibold text-start',
+                                  onSidebar
+                                      ? 'text-content-on-sidebar-muted'
+                                      : 'text-content-secondary',
+                              )}
+                          >
+                              {item.section}
+                          </RNText>,
+                          renderItem(item, index),
+                      ]
+                    : [renderItem(item, index)];
+            });
 
         // Grouped by first appearance rather than by sorting, so the caller's order survives and a
         // group split across the table stays split rather than being silently reassembled.
@@ -713,7 +784,8 @@ function AppShellLayout({
         for (const item of source) {
             if (item.group !== undefined && !groups.includes(item.group)) groups.push(item.group);
         }
-        const showGroups = !compact && groups.length > 0;
+        // The page panel names its module in its own header, so its list draws no heading.
+        const showGroups = !compact && !panel && groups.length > 0;
 
         return (
             <View
@@ -721,9 +793,13 @@ function AppShellLayout({
                 testID={testID === undefined ? undefined : `${testID}-navigation`}
                 role="navigation"
                 aria-label={t('designSystem:shell.primaryNavigation')}
-                className="flex-col gap-1 p-2"
+                className={panel ? 'flex-col px-1.5' : 'flex-col gap-1 p-2'}
             >
-                {(showGroups ? ungrouped : source).map(renderItem)}
+                {showGroups
+                    ? ungrouped.map(renderItem)
+                    : panel
+                      ? withSections(source)
+                      : source.map(renderItem)}
                 {!showGroups
                     ? null
                     : groups.map((group) => (
@@ -752,34 +828,7 @@ function AppShellLayout({
                               >
                                   {group}
                               </RNText>
-                              {source
-                                  .filter((item) => item.group === group)
-                                  .flatMap((item, index, members) => {
-                                      const opensSection =
-                                          item.section !== undefined &&
-                                          item.section !== members[index - 1]?.section;
-                                      return opensSection
-                                          ? [
-                                                <RNText
-                                                    key={`section-${item.section ?? ''}`}
-                                                    accessibilityRole="header"
-                                                    aria-level={3}
-                                                    className={cx(
-                                                        // A step under the module heading: the
-                                                        // module names the panel, this names a
-                                                        // run of pages inside it.
-                                                        'px-3 pb-1 pt-2 text-xs font-semibold text-start',
-                                                        onSidebar
-                                                            ? 'text-content-on-sidebar-muted'
-                                                            : 'text-content-secondary',
-                                                    )}
-                                                >
-                                                    {item.section}
-                                                </RNText>,
-                                                renderItem(item, index),
-                                            ]
-                                          : [renderItem(item, index)];
-                                  })}
+                              {withSections(source.filter((item) => item.group === group))}
                           </View>
                       ))}
             </View>
@@ -825,6 +874,7 @@ function AppShellLayout({
                     icon: item.icon ?? ('dot' as const),
                     active: litKey === item.key,
                     expanded: undefined as boolean | undefined,
+                    count: item.count ?? 0,
                     testID: item.testID === undefined ? undefined : `${item.testID}-rail`,
                     onPress: () => {
                         chooseUngrouped(item);
@@ -842,6 +892,8 @@ function AppShellLayout({
                     ('dot' as const),
                 active: litKey === `group-${group}`,
                 expanded: !sidebarCollapsed && shownGroup === group,
+                // What is waiting anywhere in the module, so a queue shows while its panel is shut.
+                count: members.reduce((sum, item) => sum + (item.count ?? 0), 0),
                 testID: testID === undefined ? undefined : `${testID}-rail-group-${group}`,
                 onPress: () => {
                     chooseGroup(group);
@@ -854,7 +906,7 @@ function AppShellLayout({
                 testID={testID === undefined ? undefined : `${testID}-rail`}
                 role="navigation"
                 aria-label={t('designSystem:shell.modules')}
-                className="flex-col items-center gap-1 py-2"
+                className="flex-col items-center gap-1.5"
             >
                 {entries.map((entry) => (
                     <RailButton
@@ -863,6 +915,7 @@ function AppShellLayout({
                         icon={entry.icon}
                         active={entry.active}
                         expanded={entry.expanded}
+                        count={entry.count}
                         onPress={entry.onPress}
                         testID={entry.testID}
                     />
@@ -1107,66 +1160,138 @@ function AppShellLayout({
     if (twoPane) {
         const panelWidth = sidebarWidth ?? 260;
         /*
-         * Smooth, not laggy: only the panel's *width* animates, as a CSS transition on the web — one
-         * property, run by the browser, with no React work per frame. Its contents never reflow while
-         * it moves: they are laid out at the panel's full width inside the clipping box, so shutting
-         * slides the edge over a list that is already in place, and opening reveals one already laid
-         * out.
+         * Smooth, not laggy: the panel's column animates its *width* as a CSS transition on the web
+         * — one property, run by the browser — which pushes the content over, and the card inside
+         * fades and slides in from the rail as the frame boards draw it. The card is laid out at its
+         * full width the whole time, so nothing in it reflows while it moves.
          *
-         * It runs under reduced motion too, by the product owner's choice: a 200ms change of one
-         * panel's width, started by the reader's own press, with no travel, parallax or looping.
+         * It runs under reduced motion too, by the product owner's choice: a 200ms move started by
+         * the reader's own press, with no travel beyond the panel's own and no looping.
          */
-        const transition =
+        const timing = {
+            transitionDuration: `${String(SIDEBAR_TRANSITION_MS)}ms`,
+            transitionTimingFunction: 'cubic-bezier(0.2, 0, 0, 1)',
+        };
+        const columnTransition =
+            Platform.OS === 'web'
+                ? ({ transitionProperty: 'width', ...timing } as object)
+                : undefined;
+        const cardTransition =
             Platform.OS === 'web'
                 ? ({
-                      transitionProperty: 'width',
-                      transitionDuration: `${String(SIDEBAR_TRANSITION_MS)}ms`,
-                      transitionTimingFunction: 'cubic-bezier(0.2, 0, 0, 1)',
+                      transitionProperty: 'opacity, transform',
+                      ...timing,
+                      opacity: sidebarCollapsed ? 0 : 1,
+                      transform: `translateX(${String(sidebarCollapsed ? (isRtl ? 18 : -18) : 0)}px)`,
                   } as object)
                 : undefined;
+        // A module's name; the area's where nothing is grouped and the panel lists every page.
+        const panelTitle = groups.length === 0 ? title : (shownGroup ?? activeUngrouped?.label);
 
         return (
             <View testID={testID} className="flex-1 flex-row bg-surface-base">
-                {/* The rail and the panel run the full height of the page: their edge is the
-                    window's, and the top bar begins beside them. */}
-                <View
-                    testID={testID === undefined ? undefined : `${testID}-rail-panel`}
-                    className="h-full flex-col bg-surface-sidebar"
-                    style={{ width: SIDEBAR_COLLAPSED_WIDTH }}
-                >
-                    {sidebarBackground === undefined ? null : (
-                        <View className="absolute inset-0" pointerEvents="none">
-                            {sidebarBackground}
-                        </View>
-                    )}
-                    {sidebarStartCollapsed}
-                    <ScrollView
-                        testID={testID === undefined ? undefined : `${testID}-rail-scroll`}
-                        className="flex-1"
+                {/*
+                 * The rail floats 12px in from the window's top, bottom and start. Raised over the
+                 * panel and the page so the account card it opens is painted above both.
+                 */}
+                <View className="z-raised h-full p-3">
+                    <View
+                        testID={testID === undefined ? undefined : `${testID}-rail-panel`}
+                        className="h-full flex-col items-center rounded-2xl bg-surface-sidebar py-[14px] shadow-elevation-bar"
+                        style={{ width: RAIL_WIDTH }}
                     >
-                        {moduleRail()}
-                    </ScrollView>
-                    {sidebarEndCollapsed}
+                        {sidebarBackground === undefined ? null : (
+                            <View
+                                className="absolute inset-0 overflow-hidden rounded-2xl"
+                                pointerEvents="none"
+                            >
+                                {sidebarBackground}
+                            </View>
+                        )}
+                        {sidebarStartCollapsed}
+                        <ScrollView
+                            testID={testID === undefined ? undefined : `${testID}-rail-scroll`}
+                            className="w-full flex-1"
+                            showsVerticalScrollIndicator={false}
+                            contentContainerClassName="items-center py-0.5"
+                        >
+                            {moduleRail()}
+                        </ScrollView>
+                        {railEnd === undefined ? null : (
+                            <View
+                                testID={testID === undefined ? undefined : `${testID}-rail-end`}
+                                className="items-center gap-1.5 pt-1.5"
+                            >
+                                {railEnd}
+                            </View>
+                        )}
+                        {sidebarEndCollapsed}
+                    </View>
                 </View>
 
+                {/*
+                 * The page panel's column: the card and the gutter after it. Its width is what
+                 * pushes the page over — from 96px to 348px with the 240px panel.
+                 */}
                 <View
                     testID={testID === undefined ? undefined : `${testID}-sidebar`}
                     aria-hidden={sidebarCollapsed}
-                    className={cx(
-                        // The width class is the default the style overrides; the style is what moves.
-                        'h-full w-[260px] overflow-hidden bg-surface-raised',
-                        sidebarCollapsed ? null : 'border-e border-stroke-subtle',
-                    )}
-                    style={{ width: sidebarCollapsed ? 0 : panelWidth, ...transition }}
+                    className="h-full w-[260px]"
+                    style={{
+                        width: sidebarCollapsed ? 0 : panelWidth + FRAME_GUTTER,
+                        ...columnTransition,
+                    }}
                 >
                     {panelContentMounted ? (
-                        <View className="h-full flex-col" style={{ width: panelWidth }}>
+                        <View
+                            testID={testID === undefined ? undefined : `${testID}-panel-card`}
+                            pointerEvents={sidebarCollapsed ? 'none' : 'auto'}
+                            className="absolute bottom-3 start-0 top-3 flex-col rounded-2xl border border-stroke-subtle bg-surface-raised shadow-elevation-bar"
+                            style={{ width: panelWidth, ...cardTransition }}
+                        >
                             {sidebarStart}
+                            <View className="flex-row items-center gap-2 pb-2.5 pe-3.5 ps-[18px] pt-[18px]">
+                                {panelTitle === undefined ? (
+                                    <View className="flex-1" />
+                                ) : (
+                                    <RNText
+                                        testID={
+                                            testID === undefined
+                                                ? undefined
+                                                : `${testID}-panel-title`
+                                        }
+                                        accessibilityRole="header"
+                                        aria-level={2}
+                                        numberOfLines={1}
+                                        className="flex-1 font-display text-lg font-bold text-content-primary text-start"
+                                    >
+                                        {panelTitle}
+                                    </RNText>
+                                )}
+                                <IconButton
+                                    testID={
+                                        testID === undefined ? undefined : `${testID}-panel-close`
+                                    }
+                                    size="sm"
+                                    variant="ghost"
+                                    label={t('designSystem:shell.hideNavigation')}
+                                    icon={
+                                        <Icon
+                                            name="chevronsBackward"
+                                            className="text-content-secondary"
+                                        />
+                                    }
+                                    onPress={() => {
+                                        chooseCollapsed(true);
+                                    }}
+                                />
+                            </View>
                             <ScrollView
                                 testID={
                                     testID === undefined ? undefined : `${testID}-sidebar-scroll`
                                 }
                                 className="flex-1"
+                                contentContainerClassName="px-1 pb-3"
                             >
                                 {shownGroup === undefined &&
                                 groups.length > 0 &&
@@ -1196,9 +1321,11 @@ function AppShellLayout({
                         {...contentPort}
                         testID={testID === undefined ? undefined : `${testID}-content`}
                         role="main"
-                        className="flex-1"
+                        // Room for the scrollbar is always kept, so a page that grows past the fold keeps the width
+                        // it measured: the order desk menu cuts its tiles from that width.
+                        className="flex-1 web:[scrollbar-gutter:stable]"
                         contentContainerClassName={cx(
-                            'flex-grow gap-4 p-4 lg:p-7',
+                            'flex-grow gap-4 p-4 lg:px-3 lg:pb-7 lg:pt-[18px]',
                             contentClassName,
                         )}
                     >
@@ -1245,10 +1372,14 @@ function AppShellLayout({
 }
 
 /**
- * The module rail's width: a 40px icon and 8px either side. The workspace is a desk surface driven
- * with a mouse (CLAUDE.md), so the rail sizes to the pointer rather than to the 44px touch floor.
+ * The floating module rail's own width: a 48px button and 12px either side. The workspace is a desk
+ * surface driven with a mouse (CLAUDE.md), so it sizes to the pointer, not to the 44px touch floor.
  */
-export const SIDEBAR_COLLAPSED_WIDTH = 56;
+export const RAIL_WIDTH = 72;
+/** The gap the admin frame keeps between the window, the rail, the page panel and the page. */
+export const FRAME_GUTTER = 12;
+/** Where the page starts with the panel shut: the rail with a gutter either side — 96px. */
+export const SIDEBAR_COLLAPSED_WIDTH = FRAME_GUTTER + RAIL_WIDTH + FRAME_GUTTER;
 /** How long the page panel takes to slide shut or open. */
 export const SIDEBAR_TRANSITION_MS = 200;
 
@@ -1296,24 +1427,16 @@ function persistPanel(choice: PanelChoice): void {
 }
 
 /**
- * One glyph on the module rail. White on the green strip, and a white pill in green when lit. Its
- * name floats beside it on hover, at the rail's inline end.
- */
-/**
  * One destination in the workspace page panel — the module's pages beside the rail.
  *
  * ```
- *  ·   Ingredients
- *  ◉  ( Recipes          )   <- current: brand dot in a soft halo, the pill in brand-subtle
- *  ·   Products              <- hover: the pill takes the sunken tint
+ *  ·  Ingredients
+ *  ●  Recipes            3   <- current: brand dot, the row in brand-subtle; an amber count
+ *  ·  Products               <- hover: the row takes the sunken tint
  * ```
  *
- * The dot is a sibling of the pill in the row, not an absolutely positioned child hanging out of
- * it: react-native-web clips and stacks an escaped child unpredictably, and the first version of
- * this marker, drawn at `-start-5`, did not paint at all. As a flex sibling it always has a box.
- *
- * Hover is state, not a `hover:` class, because the tint belongs on the pill while the pointer
- * target is the whole row — dot included — and a class on the row would tint the gutter too.
+ * Hover is state, not a `hover:` class, so the tint follows the pointer on the web without a class
+ * NativeWind would also have to generate for native.
  */
 function PanelNavLink({
     item,
@@ -1341,43 +1464,54 @@ function PanelNavLink({
             onHoverOut={() => {
                 setHovered(false);
             }}
-            className="flex-row items-center gap-1"
+            className={cx(
+                'h-[38px] flex-row items-center gap-2.5 rounded-lg px-2.5',
+                active
+                    ? 'bg-surface-brand-subtle'
+                    : hovered
+                      ? 'bg-surface-sunken'
+                      : 'bg-transparent',
+            )}
         >
-            {/*
-             * The same bullet on every page, the current one included. The pill behind the label
-             * is what says which page is open; a haloed, brand-filled dot beside it said it twice.
-             */}
             <View
                 testID={item.testID === undefined ? undefined : `${item.testID}-marker`}
-                className="w-4 items-center justify-center"
-            >
-                <View className="h-1.5 w-1.5 rounded-full bg-stroke-strong" />
-            </View>
-            <View
                 className={cx(
-                    'min-h-control-md flex-1 flex-row items-center gap-2 rounded-lg px-3 py-1.5',
+                    'h-1.5 w-1.5 rounded-full',
+                    active ? 'bg-surface-brand' : 'bg-stroke-strong',
+                )}
+            />
+            <RNText
+                numberOfLines={1}
+                className={cx(
+                    'flex-1 text-sm text-start',
                     active
-                        ? 'bg-surface-brand-subtle'
-                        : hovered
-                          ? 'bg-surface-sunken'
-                          : 'bg-transparent',
+                        ? 'font-bold text-content-on-brand-subtle'
+                        : 'font-medium text-content-primary',
                 )}
             >
-                {/* A step smaller than the module heading above it, so they read as its pages. */}
-                <RNText
-                    numberOfLines={1}
-                    className={cx(
-                        'flex-1 text-xs text-start',
-                        active
-                            ? 'font-semibold text-content-on-brand-subtle'
-                            : 'text-content-primary',
-                    )}
-                >
-                    {item.label}
-                </RNText>
-                {item.badge}
-            </View>
+                {item.label}
+            </RNText>
+            <RowCount item={item} />
         </Pressable>
+    );
+}
+
+/**
+ * A row's trailing count: the shell's own amber pill when the item carries a `count`, else the
+ * caller's `badge`. Named `<item testID>-badge`, as the callers' own badges were.
+ */
+function RowCount({ item }: { readonly item: NavigationItem }) {
+    if (item.count === undefined) return <>{item.badge}</>;
+    if (item.count <= 0) return null;
+    return (
+        <View
+            testID={item.testID === undefined ? undefined : `${item.testID}-badge`}
+            className="h-[22px] min-w-[24px] items-center justify-center rounded-full bg-warning-subtle px-1.5"
+        >
+            <RNText className="text-xs font-bold tabular-nums text-warning-on-subtle">
+                {String(item.count)}
+            </RNText>
+        </View>
     );
 }
 
@@ -1418,23 +1552,37 @@ function PanelEmptyNote({
     );
 }
 
-function RailButton({
-    label,
-    icon,
-    active,
-    expanded,
-    onPress,
-    testID,
-}: {
+/**
+ * One 48px control on the workspace's module rail: a module, an ungrouped destination, or — passed
+ * to `railEnd` — the Workspaces control. Its glyph sits on the green rail, a white pill in green
+ * when lit, a soft tint on hover and while its module's panel is open. Its name floats beside it on
+ * hover, at the rail's inline end. A `count` over zero is an amber badge on its corner.
+ */
+export interface ShellRailButtonProps {
     readonly label: string;
     readonly icon: IconName;
-    readonly active: boolean;
+    readonly active?: boolean | undefined;
     /** A module icon whose pages the panel lists. `undefined` on a plain destination. */
     readonly expanded?: boolean | undefined;
+    readonly count?: number | undefined;
+    /** `link` for a destination (the default); `button` for a control that opens something. */
+    readonly role?: 'link' | 'button' | undefined;
     readonly onPress: () => void;
     readonly testID?: string | undefined;
-}) {
+}
+
+export function ShellRailButton({
+    label,
+    icon,
+    active = false,
+    expanded,
+    count = 0,
+    role = 'link',
+    onPress,
+    testID,
+}: ShellRailButtonProps) {
     const floating = useRef<FloatingLabel | null>(null);
+    const [hovered, setHovered] = useState(false);
     const hide = useCallback(() => {
         floating.current?.hide();
         floating.current = null;
@@ -1444,11 +1592,15 @@ function RailButton({
     return (
         <Pressable
             testID={testID}
-            role="link"
-            accessibilityRole="link"
-            accessibilityLabel={label}
-            accessibilityState={{ selected: active }}
-            aria-current={active ? 'page' : undefined}
+            role={role}
+            accessibilityRole={role}
+            accessibilityLabel={count > 0 ? `${label}, ${String(count)}` : label}
+            {...(role === 'link'
+                ? {
+                      accessibilityState: { selected: active },
+                      'aria-current': active ? ('page' as const) : undefined,
+                  }
+                : {})}
             focusable
             {...(expanded === undefined ? {} : { 'aria-expanded': expanded })}
             onPress={() => {
@@ -1456,6 +1608,7 @@ function RailButton({
                 onPress();
             }}
             onHoverIn={(event) => {
+                setHovered(true);
                 if (Platform.OS !== 'web') return;
                 hide();
                 floating.current = showFloatingLabel(
@@ -1465,20 +1618,42 @@ function RailButton({
                     'end',
                 );
             }}
-            onHoverOut={hide}
+            onHoverOut={() => {
+                setHovered(false);
+                hide();
+            }}
             className={cx(
-                'h-10 w-10 items-center justify-center rounded-lg',
-                active ? 'bg-surface-sidebar-active' : 'bg-transparent',
+                'h-12 w-12 items-center justify-center rounded-xl',
+                active
+                    ? 'bg-surface-sidebar-active shadow-elevation-1'
+                    : expanded === true || hovered
+                      ? 'bg-content-on-sidebar/20'
+                      : 'bg-transparent',
             )}
         >
-            {/* 20px in the 40px button — the rail's marks are drawn, and read best at full size. */}
             <Icon
                 name={icon}
                 size="lg"
                 className={active ? 'text-content-on-sidebar-active' : 'text-content-on-sidebar'}
             />
+            {count > 0 ? (
+                <View
+                    testID={testID === undefined ? undefined : `${testID}-count`}
+                    aria-hidden
+                    className="absolute end-0 top-0.5 h-5 min-w-[20px] items-center justify-center rounded-full border-2 border-surface-sidebar bg-warning px-1"
+                >
+                    <RNText className="text-xs font-bold tabular-nums text-warning-on-default">
+                        {String(count)}
+                    </RNText>
+                </View>
+            ) : null}
         </Pressable>
     );
+}
+
+/** The module rail's own buttons — `ShellRailButton` as the rail draws a module or destination. */
+function RailButton(props: ShellRailButtonProps) {
+    return <ShellRailButton {...props} />;
 }
 
 /** The accepted shop design's overshoot: the pill grows a little past full size and settles. */

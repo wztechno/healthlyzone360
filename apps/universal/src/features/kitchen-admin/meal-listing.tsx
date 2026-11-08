@@ -1034,7 +1034,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                      */}
                     <View
                         testID="kitchen-meal-allergens"
-                        className="gap-2 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
+                        className="gap-2 rounded-panel border border-stroke-subtle bg-surface-raised p-4 shadow-elevation-card"
                     >
                         <Inline space="xs" align="center" wrap>
                             <Text variant="micro" tone="secondary">
@@ -1095,7 +1095,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
 
                     <View
                         testID="kitchen-meal-confidential"
-                        className="gap-2 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
+                        className="gap-2 rounded-panel border border-stroke-subtle bg-surface-raised p-4 shadow-elevation-card"
                     >
                         <Inline space="xs" align="center" wrap>
                             <Text variant="micro" tone="secondary">

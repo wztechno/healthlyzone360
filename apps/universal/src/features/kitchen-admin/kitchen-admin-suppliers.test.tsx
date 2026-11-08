@@ -28,6 +28,7 @@ import {
 } from './ops-format.ts';
 import { SupplierDetailScreen } from './screens/supplier-detail-screen.tsx';
 import { SuppliersScreen } from './screens/suppliers-screen.tsx';
+import { getRecordAction } from '../../testing/record-actions.ts';
 
 /*
  * The Operations lists are desk surfaces: at desk width a row draws every column the spec declares.
@@ -331,8 +332,12 @@ describe('suppliers list', () => {
         await untilVisible('kitchen-suppliers-view');
         expect(routerMock.__setParams).toHaveBeenLastCalledWith({ view: String(GULF.id) });
 
+        const action = await getRecordAction(
+            'kitchen-suppliers-view',
+            'kitchen-suppliers-view-primary',
+        );
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-suppliers-view-primary'));
+            fireEvent.press(action);
         });
         expect(routerMock.__push).toHaveBeenCalledWith(
             withReturnTo(
@@ -349,7 +354,8 @@ describe('suppliers list', () => {
         });
 
         await untilVisible('kitchen-suppliers-view');
-        expect(screen.queryByTestId('kitchen-suppliers-table')).toBeNull();
+        // A pop-up over the list: the list stays mounted behind it.
+        expect(screen.getByTestId('kitchen-suppliers-table')).toBeTruthy();
     });
 
     it('searches the English name, the Arabic name and the code', async () => {

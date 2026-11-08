@@ -87,8 +87,11 @@ export interface RecordCanopyProps {
     readonly facts?: readonly RecordCanopyFact[] | undefined;
     /** Every action the record has left, at the head's inline end. */
     readonly actions?: ReactNode | undefined;
-    /** The way back — a `Button`, drawn first. */
-    readonly back: ReactNode;
+    /**
+     * The way back — a `Button`, drawn first. Omitted in a `RecordDialog`, whose ✕ is the way
+     * back; a record that is a route of its own still draws one.
+     */
+    readonly back?: ReactNode | undefined;
     readonly steps?: readonly RecordCanopyStep[] | undefined;
     /** Translated. The history strip's accessible name. */
     readonly stepsLabel?: string | undefined;

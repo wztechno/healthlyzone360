@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10470 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10482 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2740,6 +2740,7 @@ export interface NamespaceKeys {
     | 'weekdays.open'
     | 'weekdays.title';
   readonly "common":
+    | 'action.actions'
     | 'action.back'
     | 'action.cancel'
     | 'action.change'
@@ -2790,8 +2791,10 @@ export interface NamespaceKeys {
     | 'keptWork.new.recipe'
     | 'keptWork.title'
     | 'locale.arabic'
+    | 'locale.arabicShort'
     | 'locale.changed'
     | 'locale.english'
+    | 'locale.englishShort'
     | 'locale.label'
     | 'locale.reloadLater'
     | 'locale.reloadNow'
@@ -2903,6 +2906,8 @@ export interface NamespaceKeys {
     | 'select.searchLabel'
     | 'select.searchPlaceholder'
     | 'select.searchResults'
+    | 'shell.account'
+    | 'shell.accountFor'
     | 'shell.emptyPanelBody'
     | 'shell.emptyPanelTitle'
     | 'shell.hideNavigation'
@@ -4021,6 +4026,7 @@ export interface NamespaceKeys {
     | 'desk.figures.unsettledCaption'
     | 'desk.filterTypeAll'
     | 'desk.filterTypeLabel'
+    | 'desk.filterTypeShort'
     | 'desk.filteredEmptyBody'
     | 'desk.filteredEmptyTitle'
     | 'desk.footnoteAll'
@@ -4211,11 +4217,17 @@ export interface NamespaceKeys {
     | 'desk.sale.slotLabel'
     | 'desk.sale.soldBody'
     | 'desk.sale.soldToast'
+    | 'desk.sale.step.checkout'
+    | 'desk.sale.step.customer'
+    | 'desk.sale.step.meals'
+    | 'desk.sale.stepsLabel'
     | 'desk.sale.subtotal'
     | 'desk.sale.ticketEmpty'
     | 'desk.sale.ticketTitle'
     | 'desk.sale.tileConflict'
     | 'desk.sale.tileConflictDiet'
+    | 'desk.sale.tileConflictList'
+    | 'desk.sale.tileConflictMore'
     | 'desk.sale.title'
     | 'desk.sale.total'
     | 'desk.sale.type.counter'
@@ -13233,6 +13245,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'commerce:weekdays.loading',
   'commerce:weekdays.open',
   'commerce:weekdays.title',
+  'common:action.actions',
   'common:action.back',
   'common:action.cancel',
   'common:action.change',
@@ -13283,8 +13296,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:keptWork.new.recipe',
   'common:keptWork.title',
   'common:locale.arabic',
+  'common:locale.arabicShort',
   'common:locale.changed',
   'common:locale.english',
+  'common:locale.englishShort',
   'common:locale.label',
   'common:locale.reloadLater',
   'common:locale.reloadNow',
@@ -13395,6 +13410,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:select.searchLabel',
   'designSystem:select.searchPlaceholder',
   'designSystem:select.searchResults',
+  'designSystem:shell.account',
+  'designSystem:shell.accountFor',
   'designSystem:shell.emptyPanelBody',
   'designSystem:shell.emptyPanelTitle',
   'designSystem:shell.hideNavigation',
@@ -14509,6 +14526,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.figures.unsettledCaption',
   'kitchen:desk.filterTypeAll',
   'kitchen:desk.filterTypeLabel',
+  'kitchen:desk.filterTypeShort',
   'kitchen:desk.filteredEmptyBody',
   'kitchen:desk.filteredEmptyTitle',
   'kitchen:desk.footnoteAll',
@@ -14699,11 +14717,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.sale.slotLabel',
   'kitchen:desk.sale.soldBody',
   'kitchen:desk.sale.soldToast',
+  'kitchen:desk.sale.step.checkout',
+  'kitchen:desk.sale.step.customer',
+  'kitchen:desk.sale.step.meals',
+  'kitchen:desk.sale.stepsLabel',
   'kitchen:desk.sale.subtotal',
   'kitchen:desk.sale.ticketEmpty',
   'kitchen:desk.sale.ticketTitle',
   'kitchen:desk.sale.tileConflict',
   'kitchen:desk.sale.tileConflictDiet',
+  'kitchen:desk.sale.tileConflictList',
+  'kitchen:desk.sale.tileConflictMore',
   'kitchen:desk.sale.title',
   'kitchen:desk.sale.total',
   'kitchen:desk.sale.type.counter',

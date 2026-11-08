@@ -343,8 +343,8 @@ function CostReport() {
             share: Math.max(0, value) / total,
         }));
     })();
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-cost-report-window"
                 onBack={() => {
@@ -435,7 +435,6 @@ function CostReport() {
                 }}
             />
         );
-    }
 
     const showsReport =
         !report.isPending && failure === null && currencyRows.length > 0 && latest !== null;
@@ -595,6 +594,8 @@ function CostReport() {
                     />
                 </Cascade>
             )}
+
+            {viewPopup}
         </Cascade>
     );
 }

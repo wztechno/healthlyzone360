@@ -136,6 +136,8 @@
         "openNavigation": "فتح التنقّل الرئيسي",
         "skipToContent": "الانتقال إلى المحتوى الرئيسي",
         "hideNavigation": "إغلاق لوحة الصفحات",
+        "account": "الحساب",
+        "accountFor": "حساب {{name}}",
         "showNavigation": "فتح لوحة الصفحات",
         "modules": "الوحدات",
         "emptyPanelTitle": "لا توجد صفحات ضمن {{page}}",
