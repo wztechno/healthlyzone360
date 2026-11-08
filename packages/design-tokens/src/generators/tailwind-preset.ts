@@ -122,11 +122,12 @@ function colours(): Record<string, unknown> {
         STAGE_INK_NAMES.map((name) => [name, variableReference(`stage-${name}`)]),
     );
 
-    // `bg-tint-blue` for the fill, `text-tint-blue-on` for the ink on it.
+    // `bg-tint-blue` for the fill, `text-tint-blue-on` for the ink on it, `bg-tint-blue-fill` for a bar.
     result['tint'] = Object.fromEntries(
         TINT_NAMES.flatMap((name) => [
             [name, variableReference(`tint-${name}`)],
             [`${name}-on`, variableReference(`tint-${name}-on`)],
+            [`${name}-fill`, variableReference(`tint-${name}-fill`)],
         ]),
     );
 

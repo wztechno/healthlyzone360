@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10486 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10492 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4574,6 +4574,7 @@ export interface NamespaceKeys {
     | 'hub.action.plan'
     | 'hub.action.review'
     | 'hub.action.set'
+    | 'hub.allOrders'
     | 'hub.attention.cutOffs'
     | 'hub.attention.duplicates'
     | 'hub.attention.duplicatesCount'
@@ -4586,6 +4587,7 @@ export interface NamespaceKeys {
     | 'hub.countUnavailable'
     | 'hub.dateLine'
     | 'hub.draftCount'
+    | 'hub.draftSupplyOrders'
     | 'hub.emptyBody'
     | 'hub.emptyTitle'
     | 'hub.errorTitle'
@@ -4600,10 +4602,14 @@ export interface NamespaceKeys {
     | 'hub.kpi.needsReview'
     | 'hub.kpi.publishedMeals'
     | 'hub.kpi.requirementShortfalls'
+    | 'hub.moreCount'
     | 'hub.newSale'
+    | 'hub.noOrdersToConfirm'
+    | 'hub.onSale'
     | 'hub.onSaleOfTotal'
     | 'hub.openingDays'
     | 'hub.orderSupplies'
+    | 'hub.ordersToConfirm'
     | 'hub.publishedCount'
     | 'hub.quarantineCount'
     | 'hub.referenceOnly'
@@ -15078,6 +15084,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.action.plan',
   'kitchen:hub.action.review',
   'kitchen:hub.action.set',
+  'kitchen:hub.allOrders',
   'kitchen:hub.attention.cutOffs',
   'kitchen:hub.attention.duplicates',
   'kitchen:hub.attention.duplicatesCount',
@@ -15090,6 +15097,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.countUnavailable',
   'kitchen:hub.dateLine',
   'kitchen:hub.draftCount',
+  'kitchen:hub.draftSupplyOrders',
   'kitchen:hub.emptyBody',
   'kitchen:hub.emptyTitle',
   'kitchen:hub.errorTitle',
@@ -15104,10 +15112,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.kpi.needsReview',
   'kitchen:hub.kpi.publishedMeals',
   'kitchen:hub.kpi.requirementShortfalls',
+  'kitchen:hub.moreCount',
   'kitchen:hub.newSale',
+  'kitchen:hub.noOrdersToConfirm',
+  'kitchen:hub.onSale',
   'kitchen:hub.onSaleOfTotal',
   'kitchen:hub.openingDays',
   'kitchen:hub.orderSupplies',
+  'kitchen:hub.ordersToConfirm',
   'kitchen:hub.publishedCount',
   'kitchen:hub.quarantineCount',
   'kitchen:hub.referenceOnly',

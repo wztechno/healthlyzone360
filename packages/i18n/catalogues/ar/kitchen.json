@@ -91,6 +91,12 @@
         "itemsToOrder": "أصناف للطلب",
         "openingDays": "أيام العمل",
         "goTo": "انتقل إلى",
+        "ordersToConfirm": "طلبات بانتظار التأكيد",
+        "allOrders": "كل الطلبات",
+        "noOrdersToConfirm": "لا طلبات بالانتظار",
+        "onSale": "معروض للبيع",
+        "draftSupplyOrders": "طلبات توريد مسودة",
+        "moreCount": "+{{count}} أخرى",
         "today": {
             "title": "اليوم",
             "sales": "المبيعات",

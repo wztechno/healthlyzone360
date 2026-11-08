@@ -67,6 +67,12 @@
         "itemsToOrder": "Items to order",
         "openingDays": "Opening days",
         "goTo": "Go to",
+        "ordersToConfirm": "Orders to confirm",
+        "allOrders": "All orders",
+        "noOrdersToConfirm": "No orders waiting",
+        "onSale": "On sale",
+        "draftSupplyOrders": "Draft supply orders",
+        "moreCount": "+{{count}} more",
         "today": {
             "title": "Today",
             "sales": "Sales",
