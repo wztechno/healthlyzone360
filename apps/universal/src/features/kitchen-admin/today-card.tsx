@@ -5,12 +5,12 @@ import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
-import { Can } from '../../access/gate.tsx';
+import { Can, useCan } from '../../access/gate.tsx';
 import { useOrderDeskTodayQuery } from '../../data/order-desk-hooks.ts';
 import { formatMoney } from '../marketplace/format.ts';
 import { CatalogueStatCards } from './catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from './catalogue/catalogue-stat-cards.tsx';
-import { ORDER_MANAGE_PERMISSION } from './entity-registry.ts';
+import { ORDER_MANAGE_PERMISSION, ORDER_SETTLE_CASH_PERMISSION } from './entity-registry.ts';
 
 /**
  * The kitchen home's Today card (owner, 3 Nov): sales and orders, cash to collect, late orders and
@@ -31,6 +31,8 @@ function TodayFigures({ branchId }: { readonly branchId: BranchId | null }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
+    // The till count is the settle-cash tab; without that grant the figure stays a figure.
+    const canCountTill = useCan(ORDER_SETTLE_CASH_PERMISSION);
     const today = useOrderDeskTodayQuery(branchId);
     const data = today.data;
 
@@ -65,10 +67,14 @@ function TodayFigures({ branchId }: { readonly branchId: BranchId | null }) {
             value: money(data?.cashExpected),
             caption: t('kitchen:hub.today.counted', { amount: money(data?.cashCounted) }),
             mark: 'coins',
-            accessibilityLabel: t('kitchen:hub.today.openClose'),
-            onPress: () => {
-                router.push('/kitchen/order-desk/cash?tab=close' as never);
-            },
+            ...(canCountTill
+                ? {
+                      accessibilityLabel: t('kitchen:hub.today.openClose'),
+                      onPress: () => {
+                          router.push('/kitchen/order-desk/cash?tab=close' as never);
+                      },
+                  }
+                : {}),
         },
         {
             key: 'late',

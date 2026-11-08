@@ -48,6 +48,7 @@ import { operatingDraftsFrom, summariseOperating } from '../delivery-model.ts';
 import {
     CATALOGUE_VIEW_PERMISSION,
     ENTITY_GROUPS,
+    INVENTORY_MANAGE_PERMISSION,
     WORKSPACE_PERMISSIONS,
     permittedFamilies,
 } from '../entity-registry.ts';
@@ -266,6 +267,9 @@ export function KitchenHomeScreen() {
     const permitted = new Set(families.map((family) => family.key));
     const familyByKey = new Map(families.map((family) => [family.key, family]));
     const canViewCatalogue = useCan(CATALOGUE_VIEW_PERMISSION);
+    // Only a manager can merge or count a shelf, so only a manager pays for the duplicates scan.
+    const canManageStock = useCan(INVENTORY_MANAGE_PERMISSION);
+    const showDuplicates = permitted.has('stock-duplicates') && canManageStock;
     const branchId = state.branch?.id ?? null;
 
     // The recipe card counts what is on sale as published — the menu's question, not the recipe's.
@@ -291,7 +295,7 @@ export function KitchenHomeScreen() {
     // ponytail: the home reads this list only to count it, and every read is a heavy scan over each
     // shelf; five minutes keeps the home from re-running it on every visit. Add
     // `GET /inventory/duplicates/count` if the scan ever shows up as slow.
-    const duplicates = useDuplicateStockQuery(permitted.has('stock-duplicates'), 5 * 60_000);
+    const duplicates = useDuplicateStockQuery(showDuplicates, 5 * 60_000);
     // Asked with the workspace's active branch, which may be null — the endpoint answers with
     // `count: null` for a manager who holds no branch rather than refusing.
     const shortfalls = useOrderDeskShortfallCountQuery(
@@ -369,9 +373,7 @@ export function KitchenHomeScreen() {
             ? null
             : (exceptionsCount.data ?? null)
         : null;
-    const duplicateCount = permitted.has('stock-duplicates')
-        ? (duplicates.data?.length ?? null)
-        : null;
+    const duplicateCount = showDuplicates ? (duplicates.data?.length ?? null) : null;
     const supplyNeedCount = supplyNeeds.data?.count ?? null;
 
     const open = (href: string) => () => {
@@ -492,7 +494,7 @@ export function KitchenHomeScreen() {
             textTestID: 'kitchen-family-consumption-exceptions-total',
         });
     }
-    if (permitted.has('stock-duplicates')) {
+    if (showDuplicates) {
         checks.push({
             key: 'stock-duplicates',
             count: duplicateCount,
