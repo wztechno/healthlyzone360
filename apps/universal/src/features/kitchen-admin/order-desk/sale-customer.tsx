@@ -20,7 +20,7 @@ import { fieldWidth } from '@healthy360/design-tokens';
 import { useLocale } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { toFailure } from '../../../data/hooks.ts';
 import { useKitchenCustomerQuery } from '../../../data/kitchen-customers-hooks.ts';
@@ -76,8 +76,8 @@ import { useDebouncedValue } from './use-debounced-value.ts';
  *
  * ## The a11y rule the rows follow
  *
- * A customer row holds a Choose button, so the row itself takes no press: nested interactive content
- * is a serious axe violation.
+ * A customer row is one press target, and its Choose is drawn inside it rather than being a second
+ * button: nested interactive content is a serious axe violation.
  */
 
 /** The wait before a customer search is asked — a request per keystroke otherwise. */
@@ -144,7 +144,8 @@ export function ChosenAllergies({
         return (
             <Skeleton
                 testID="kitchen-order-desk-sale-customer-allergies-loading"
-                heightClassName="h-row-md"
+                heightClassName={inline ? 'h-6' : 'h-row-md'}
+                {...(inline ? { widthClassName: 'w-40' } : {})}
             />
         );
     }
@@ -406,6 +407,7 @@ export function CustomerSection({
                     testID="kitchen-order-desk-sale-customer-edit"
                     size="sm"
                     variant="secondary"
+                    className="!rounded-[10px]"
                     label={t('kitchen:desk.sale.customerEdit')}
                     onPress={() => {
                         if (chosen !== null) startEditing(chosen);
@@ -416,6 +418,7 @@ export function CustomerSection({
                 testID="kitchen-order-desk-sale-customer-change"
                 size="sm"
                 variant="secondary"
+                className="!rounded-[10px]"
                 label={t('kitchen:desk.sale.change')}
                 onPress={() => {
                     setChanging(true);
@@ -423,6 +426,13 @@ export function CustomerSection({
             />
         </Inline>
     ) : null;
+
+    const openCreate = () => {
+        setCreating(true);
+        setCreateAttempted(false);
+        // Opens on the kitchen's own code; the agent types the rest.
+        if (phone === '' && dial !== null) setPhone(`${dial} `);
+    };
 
     /*
      * A slim bar rather than a card with a title (the Order desk redesign): who the sale is for on
@@ -558,8 +568,8 @@ export function CustomerSection({
             ) : (
                 <View className="z-auto flex-col gap-tight">
                     <View className="z-auto flex-row flex-wrap items-center gap-tight">
-                        <View className="h-10 w-10 items-center justify-center rounded-lg bg-surface-sidebar">
-                            <Icon name="person" size="md" className="text-content-on-sidebar" />
+                        <View className="h-10 w-10 items-center justify-center rounded-xl bg-surface-canopy">
+                            <Icon name="person" size="md" className="text-brand-300" />
                         </View>
                         {/* eslint-disable-next-line no-restricted-syntax -- the search absorbs the bar. */}
                         <View className="flex-1" style={{ minWidth: fieldWidth }}>
@@ -576,24 +586,23 @@ export function CustomerSection({
                         </View>
                         {creating ? null : (
                             <Inline space="xs">
-                                <Button
-                                    testID="kitchen-order-desk-sale-customer-new"
-                                    size="sm"
-                                    variant="secondary"
-                                    label={t('kitchen:desk.sale.customerNew')}
-                                    iconStart={<Icon name="plus" size="sm" />}
-                                    onPress={() => {
-                                        setCreating(true);
-                                        setCreateAttempted(false);
-                                        // Opens on the kitchen's own code; the agent types the rest.
-                                        if (phone === '' && dial !== null) setPhone(`${dial} `);
-                                    }}
-                                />
+                                {rows.length > 0 ? null : (
+                                    <Button
+                                        testID="kitchen-order-desk-sale-customer-new"
+                                        size="sm"
+                                        variant="secondary"
+                                        className="!rounded-[10px]"
+                                        label={t('kitchen:desk.sale.customerNew')}
+                                        iconStart={<Icon name="plus" size="sm" />}
+                                        onPress={openCreate}
+                                    />
+                                )}
                                 {walkInOffered ? (
                                     <Button
                                         testID="kitchen-order-desk-sale-walk-in"
                                         size="sm"
                                         variant="secondary"
+                                        className="!rounded-[10px]"
                                         label={t('kitchen:desk.sale.walkInChoose')}
                                         onPress={() => {
                                             setChanging(false);
@@ -638,53 +647,100 @@ export function CustomerSection({
                     ) : rows.length > 0 ? (
                         <View
                             testID="kitchen-order-desk-sale-customer-results"
-                            className="flex-col border-t border-stroke"
+                            className="flex-col"
                         >
-                            {rows.map((row) => (
-                                <View
-                                    key={row.id}
-                                    testID={`kitchen-order-desk-sale-customer-${row.id}`}
-                                    className={
-                                        customerAccountId === row.id
-                                            ? 'min-h-row-md flex-row flex-wrap items-center gap-tight border-b border-stroke-subtle bg-surface-brand-subtle px-control-sm'
-                                            : 'min-h-row-md flex-row flex-wrap items-center gap-tight border-b border-stroke-subtle px-control-sm'
-                                    }
-                                >
-                                    {/* eslint-disable-next-line no-restricted-syntax -- the name is the row's filler. */}
-                                    <View className="min-w-0 flex-1">
-                                        <Text variant="label">
-                                            {row.displayName ??
-                                                t('kitchen:desk.sale.customerUnnamed')}
-                                        </Text>
+                            {rows.map((row) => {
+                                const rowName =
+                                    row.displayName ?? t('kitchen:desk.sale.customerUnnamed');
+                                return (
+                                    <View
+                                        key={row.id}
+                                        testID={`kitchen-order-desk-sale-customer-${row.id}`}
+                                        className="border-t border-stroke-subtle"
+                                    >
+                                        <Pressable
+                                            testID={`kitchen-order-desk-sale-customer-${row.id}-choose`}
+                                            role="button"
+                                            accessibilityRole="button"
+                                            accessibilityLabel={`${t('kitchen:desk.sale.customerChoose')}: ${rowName}`}
+                                            onPress={() => {
+                                                choose(row);
+                                            }}
+                                            className={
+                                                customerAccountId === row.id
+                                                    ? 'flex-row flex-wrap items-center gap-3 rounded-lg bg-surface-brand-subtle px-2 py-2'
+                                                    : 'group flex-row flex-wrap items-center gap-3 rounded-lg px-2 py-2 hover:bg-surface-sunken'
+                                            }
+                                        >
+                                            {/* eslint-disable-next-line no-restricted-syntax -- the name is the row's filler. */}
+                                            <View className="min-w-0 flex-1 flex-col">
+                                                <Text
+                                                    variant="strong"
+                                                    className="font-bold"
+                                                    numberOfLines={1}
+                                                >
+                                                    {rowName}
+                                                </Text>
+                                                <Text variant="mono" tone="secondary">
+                                                    {row.phone ?? EM_DASH}
+                                                </Text>
+                                            </View>
+                                            {row.hasOrdersWithOrg ? (
+                                                <Badge
+                                                    tone="success"
+                                                    icon={null}
+                                                    className="!h-6 self-center !rounded-full !px-2.5"
+                                                    label={t('kitchen:desk.sale.customerRegular')}
+                                                />
+                                            ) : null}
+                                            {row.origin === 'self_service' ? (
+                                                <Badge
+                                                    tone="neutral"
+                                                    icon={null}
+                                                    className="!h-6 self-center !rounded-full !px-2.5"
+                                                    label={t(
+                                                        'kitchen:desk.sale.customerRegistered',
+                                                    )}
+                                                />
+                                            ) : null}
+                                            <View
+                                                aria-hidden
+                                                className="h-desk-step items-center justify-center rounded bg-surface-brand px-3 group-hover:bg-surface-canopy"
+                                            >
+                                                <Text
+                                                    variant="label"
+                                                    className="font-semibold !text-content-on-brand"
+                                                >
+                                                    {t('kitchen:desk.sale.customerChoose')}
+                                                </Text>
+                                            </View>
+                                        </Pressable>
                                     </View>
-                                    <Text variant="mono" tone="secondary">
-                                        {row.phone ?? EM_DASH}
-                                    </Text>
-                                    {row.hasOrdersWithOrg ? (
-                                        <Badge
-                                            tone="success"
-                                            icon={null}
-                                            label={t('kitchen:desk.sale.customerRegular')}
+                                );
+                            })}
+                            {creating ? null : (
+                                <View className="flex-row border-t border-stroke-subtle pt-2">
+                                    <Pressable
+                                        testID="kitchen-order-desk-sale-customer-new"
+                                        role="button"
+                                        accessibilityRole="button"
+                                        onPress={openCreate}
+                                        className="flex-row items-center gap-1 px-2 py-1"
+                                    >
+                                        <Icon
+                                            name="plus"
+                                            size="sm"
+                                            className="text-content-on-brand-subtle"
                                         />
-                                    ) : null}
-                                    {row.origin === 'self_service' ? (
-                                        <Badge
-                                            tone="neutral"
-                                            icon={null}
-                                            label={t('kitchen:desk.sale.customerRegistered')}
-                                        />
-                                    ) : null}
-                                    <Button
-                                        testID={`kitchen-order-desk-sale-customer-${row.id}-choose`}
-                                        size="sm"
-                                        variant="quiet"
-                                        label={t('kitchen:desk.sale.customerChoose')}
-                                        onPress={() => {
-                                            choose(row);
-                                        }}
-                                    />
+                                        <Text
+                                            variant="label"
+                                            className="font-semibold !text-content-on-brand-subtle"
+                                        >
+                                            {t('kitchen:desk.sale.customerNew')}
+                                        </Text>
+                                    </Pressable>
                                 </View>
-                            ))}
+                            )}
                             {rows.length >= (search.data?.limit ?? Number.POSITIVE_INFINITY) ? (
                                 <Text
                                     variant="caption"
@@ -708,40 +764,96 @@ export function CustomerSection({
                     {creating ? (
                         <View
                             testID="kitchen-order-desk-sale-customer-form"
-                            className="flex-col gap-tight border-t border-stroke-subtle pt-tight"
+                            className="flex-col gap-3 rounded-xl bg-surface-sunken p-3.5"
                         >
-                            <Text variant="strong" accessibilityRole="header">
+                            <Text
+                                variant="strong"
+                                accessibilityRole="header"
+                                className="!text-[15px] font-bold"
+                            >
                                 {t('kitchen:desk.sale.customerCreateTitle')}
                             </Text>
-                            <FormGrid columns={2}>
-                                <TextInputField
-                                    testID="kitchen-order-desk-sale-customer-name"
-                                    id="kitchen-order-desk-sale-customer-name"
-                                    label={t('kitchen:desk.sale.customerNameLabel')}
-                                    placeholder={t('kitchen:desk.sale.customerNamePlaceholder')}
-                                    size="sm"
-                                    required
-                                    {...createServer.flag('display_name')}
-                                    value={name}
-                                    onChangeText={setName}
-                                />
-                                <TextInputField
-                                    testID="kitchen-order-desk-sale-customer-phone"
-                                    id="kitchen-order-desk-sale-customer-phone"
-                                    label={t('kitchen:desk.sale.customerPhoneLabel')}
-                                    hint={t('kitchen:desk.sale.customerPhoneHint')}
-                                    size="sm"
-                                    required
-                                    {...(createPhoneError === undefined
-                                        ? {}
-                                        : { error: createPhoneError })}
-                                    value={phone}
-                                    onChangeText={setPhone}
-                                    autoCapitalize="none"
-                                    autoCorrect={false}
-                                    inputMode="tel"
-                                />
-                            </FormGrid>
+                            <View className="z-auto flex-row flex-wrap items-end gap-3">
+                                {/* eslint-disable-next-line no-restricted-syntax -- two fields share the row. */}
+                                <View className="flex-1" style={{ minWidth: fieldWidth }}>
+                                    <TextInputField
+                                        testID="kitchen-order-desk-sale-customer-name"
+                                        id="kitchen-order-desk-sale-customer-name"
+                                        label={t('kitchen:desk.sale.customerNameLabel')}
+                                        placeholder={t('kitchen:desk.sale.customerNamePlaceholder')}
+                                        size="lg"
+                                        required
+                                        {...createServer.flag('display_name')}
+                                        value={name}
+                                        onChangeText={setName}
+                                    />
+                                </View>
+                                {/* eslint-disable-next-line no-restricted-syntax -- two fields share the row. */}
+                                <View className="flex-1" style={{ minWidth: fieldWidth }}>
+                                    <TextInputField
+                                        testID="kitchen-order-desk-sale-customer-phone"
+                                        id="kitchen-order-desk-sale-customer-phone"
+                                        label={t('kitchen:desk.sale.customerPhoneLabel')}
+                                        hint={t('kitchen:desk.sale.customerPhoneHint')}
+                                        size="lg"
+                                        required
+                                        {...(createPhoneError === undefined
+                                            ? {}
+                                            : { error: createPhoneError })}
+                                        value={phone}
+                                        onChangeText={setPhone}
+                                        autoCapitalize="none"
+                                        autoCorrect={false}
+                                        inputMode="tel"
+                                    />
+                                </View>
+                                <Inline space="xs" wrap>
+                                    <Button
+                                        testID="kitchen-order-desk-sale-customer-create"
+                                        size="sm"
+                                        label={t('kitchen:desk.sale.customerCreate')}
+                                        loading={create.isPending}
+                                        disabled={name.trim() === '' || isBlankPhone(phone, dial)}
+                                        onPress={() => {
+                                            setCreateAttempted(true);
+                                            if (createPhoneProblem !== null) return;
+                                            create.mutate(
+                                                {
+                                                    displayName: name.trim(),
+                                                    phone: normaliseDeskPhone(phone),
+                                                },
+                                                {
+                                                    onSuccess: (result) => {
+                                                        // Chosen at once: the agent just typed this
+                                                        // person in. The duplicate warning, if any,
+                                                        // is the thing to read before moving on.
+                                                        if (
+                                                            result.possibleDuplicates.length === 0
+                                                        ) {
+                                                            choose(result.customer);
+                                                        } else {
+                                                            // Held open on the possible duplicates,
+                                                            // so they are read.
+                                                            setChanging(true);
+                                                            setChosen(result.customer);
+                                                            onChoose(result.customer);
+                                                        }
+                                                    },
+                                                },
+                                            );
+                                        }}
+                                    />
+                                    <Button
+                                        testID="kitchen-order-desk-sale-customer-cancel"
+                                        size="sm"
+                                        variant="secondary"
+                                        label={t('kitchen:desk.sale.customerCancelCreate')}
+                                        onPress={() => {
+                                            setCreating(false);
+                                        }}
+                                    />
+                                </Inline>
+                            </View>
 
                             {createFailure === null ||
                             (createServer.isValidation && createServer.unplaced === null) ? null : (
@@ -752,51 +864,6 @@ export function CustomerSection({
                                     {createServer.unplaced ?? createFailure.message}
                                 </Text>
                             )}
-
-                            <Inline space="xs" wrap>
-                                <Button
-                                    testID="kitchen-order-desk-sale-customer-create"
-                                    size="sm"
-                                    label={t('kitchen:desk.sale.customerCreate')}
-                                    loading={create.isPending}
-                                    disabled={name.trim() === '' || isBlankPhone(phone, dial)}
-                                    onPress={() => {
-                                        setCreateAttempted(true);
-                                        if (createPhoneProblem !== null) return;
-                                        create.mutate(
-                                            {
-                                                displayName: name.trim(),
-                                                phone: normaliseDeskPhone(phone),
-                                            },
-                                            {
-                                                onSuccess: (result) => {
-                                                    // Chosen at once: the agent just typed this
-                                                    // person in. The duplicate warning, if any,
-                                                    // is the thing to read before moving on.
-                                                    if (result.possibleDuplicates.length === 0) {
-                                                        choose(result.customer);
-                                                    } else {
-                                                        // Held open on the possible duplicates,
-                                                        // so they are read.
-                                                        setChanging(true);
-                                                        setChosen(result.customer);
-                                                        onChoose(result.customer);
-                                                    }
-                                                },
-                                            },
-                                        );
-                                    }}
-                                />
-                                <Button
-                                    testID="kitchen-order-desk-sale-customer-cancel"
-                                    size="sm"
-                                    variant="secondary"
-                                    label={t('kitchen:desk.sale.customerCancelCreate')}
-                                    onPress={() => {
-                                        setCreating(false);
-                                    }}
-                                />
-                            </Inline>
                         </View>
                     ) : null}
                 </View>

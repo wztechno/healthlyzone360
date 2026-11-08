@@ -283,8 +283,7 @@ function OrderDeskCashReport() {
     });
 
     /** Rows on screen: the toolbar card then runs on into the table rather than closing above it. */
-    const joined =
-        filters !== null && !report.isPending && failure === null && controls.rows.length > 0;
+    const joined = filters !== null && !report.isPending && failure === null;
 
     return (
         <Cascade space="md" testID="kitchen-order-desk-cash-report-screen">
@@ -433,10 +432,24 @@ function OrderDeskCashReport() {
                         retrying={report.isFetching}
                     />
                 ) : rows.length === 0 ? (
-                    <EmptyState
-                        testID="kitchen-order-desk-cash-report-empty"
-                        title={t('kitchen:ops.cashReport.emptyTitle')}
-                        body={t('kitchen:ops.cashReport.emptyBody')}
+                    <CatalogueList<OrderDeskCashReportRow>
+                        testID="kitchen-order-desk-cash-report-table"
+                        label={t('kitchen:ops.cashReport.caption')}
+                        columns={controls.columns}
+                        rows={[]}
+                        rowKey={rowTestId}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        joined
+                        frameEmpty
+                        emptyState={
+                            <EmptyState
+                                testID="kitchen-order-desk-cash-report-empty"
+                                shape="table"
+                                icon="banknote"
+                                title={t('kitchen:ops.cashReport.emptyTitle')}
+                                body={t('kitchen:ops.cashReport.emptyBody')}
+                            />
+                        }
                     />
                 ) : (
                     <View className="flex-col gap-loose">

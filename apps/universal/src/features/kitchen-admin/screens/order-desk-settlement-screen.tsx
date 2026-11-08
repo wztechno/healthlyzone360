@@ -352,62 +352,66 @@ function OrderDeskSettlement() {
                         title={t('kitchen:ops.settlement.driversHeading')}
                         count={data.drivers.length}
                     />
-                    {data.drivers.length === 0 ? (
-                        <EmptyState
-                            testID="kitchen-settlement-drivers-empty"
-                            title={t('kitchen:ops.settlement.driversEmpty')}
-                        />
-                    ) : (
-                        <CatalogueList<DriverCashOwed>
-                            testID="kitchen-settlement-drivers"
-                            label={t('kitchen:ops.settlement.driversHeading')}
-                            columns={driverColumns}
-                            rows={data.drivers}
-                            rowKey={(row) =>
-                                `${row.driverUserId}-${row.currencyCode}${tillSuffix(row)}`
-                            }
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                        />
-                    )}
+                    <CatalogueList<DriverCashOwed>
+                        testID="kitchen-settlement-drivers"
+                        label={t('kitchen:ops.settlement.driversHeading')}
+                        columns={driverColumns}
+                        rows={data.drivers}
+                        rowKey={(row) =>
+                            `${row.driverUserId}-${row.currencyCode}${tillSuffix(row)}`
+                        }
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        frameEmpty
+                        emptyState={
+                            <EmptyState
+                                testID="kitchen-settlement-drivers-empty"
+                                shape="row"
+                                icon="truck"
+                                title={t('kitchen:ops.settlement.driversEmpty')}
+                            />
+                        }
+                    />
 
                     <DeskTableTitle
                         title={t('kitchen:ops.settlement.couriersHeading')}
                         count={data.couriers.length}
                     />
-                    {data.couriers.length === 0 ? (
-                        <EmptyState
-                            testID="kitchen-settlement-couriers-empty"
-                            title={t('kitchen:ops.settlement.couriersEmpty')}
-                        />
-                    ) : (
-                        <CatalogueList<CourierCashOwed>
-                            testID="kitchen-settlement-couriers"
-                            label={t('kitchen:ops.settlement.couriersHeading')}
-                            columns={courierColumns}
-                            rows={data.couriers}
-                            rowKey={(row) =>
-                                `${row.courierName}-${row.currencyCode}${tillSuffix(row)}`
-                            }
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                        />
-                    )}
+                    <CatalogueList<CourierCashOwed>
+                        testID="kitchen-settlement-couriers"
+                        label={t('kitchen:ops.settlement.couriersHeading')}
+                        columns={courierColumns}
+                        rows={data.couriers}
+                        rowKey={(row) => `${row.courierName}-${row.currencyCode}${tillSuffix(row)}`}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        frameEmpty
+                        emptyState={
+                            <EmptyState
+                                testID="kitchen-settlement-couriers-empty"
+                                shape="row"
+                                icon="wallet"
+                                title={t('kitchen:ops.settlement.couriersEmpty')}
+                            />
+                        }
+                    />
 
                     <DeskTableTitle title={t('kitchen:ops.settlement.recentHeading')} />
-                    {data.settlements.length === 0 ? (
-                        <EmptyState
-                            testID="kitchen-settlement-recent-empty"
-                            title={t('kitchen:ops.settlement.recentEmpty')}
-                        />
-                    ) : (
-                        <CatalogueList<CashSettlementRecord>
-                            testID="kitchen-settlement-recent"
-                            label={t('kitchen:ops.settlement.recentHeading')}
-                            columns={recentColumns}
-                            rows={data.settlements}
-                            rowKey={(row) => row.id}
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                        />
-                    )}
+                    <CatalogueList<CashSettlementRecord>
+                        testID="kitchen-settlement-recent"
+                        label={t('kitchen:ops.settlement.recentHeading')}
+                        columns={recentColumns}
+                        rows={data.settlements}
+                        rowKey={(row) => row.id}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        frameEmpty
+                        emptyState={
+                            <EmptyState
+                                testID="kitchen-settlement-recent-empty"
+                                shape="row"
+                                icon="banknote"
+                                title={t('kitchen:ops.settlement.recentEmpty')}
+                            />
+                        }
+                    />
                 </View>
             )}
 

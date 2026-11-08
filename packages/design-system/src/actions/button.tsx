@@ -161,6 +161,8 @@ export function Button({
     // A loading button is not merely styled as busy — it must not fire again, or a double tap
     // submits the form twice while the first request is still in flight.
     const inert = disabled || loading;
+    // Faded white on the sidebar's green reads as a hover state, and its words barely read at all.
+    const outlinedWhenInert = inert && variant === 'sidebar';
 
     const floating = useRef<FloatingLabel | null>(null);
     const hideHint = useCallback(() => {
@@ -209,10 +211,12 @@ export function Button({
             }}
             className={cx(
                 'flex-row items-center justify-center',
-                CONTAINER_VARIANT[variant],
+                outlinedWhenInert
+                    ? 'border border-content-on-sidebar/60 bg-transparent'
+                    : CONTAINER_VARIANT[variant],
                 CONTAINER_SIZE[density][size],
                 block ? 'self-stretch' : 'self-start',
-                inert ? 'opacity-50' : null,
+                inert && !outlinedWhenInert ? 'opacity-50' : null,
                 className,
             )}
         >
@@ -235,7 +239,13 @@ export function Button({
                 // No family class: there is one Latin family, set on `html` per script. This used
                 // to add `ADMIN_FONT_CLASS` on the compact branch, which is now an empty string —
                 // a concatenation that costs a branch and says nothing.
-                className={cx(LABEL_VARIANT[variant], LABEL_SIZE[density][size], 'text-center')}
+                className={cx(
+                    outlinedWhenInert
+                        ? 'font-semibold text-content-on-sidebar'
+                        : LABEL_VARIANT[variant],
+                    LABEL_SIZE[density][size],
+                    'text-center',
+                )}
                 numberOfLines={1}
             >
                 {label}

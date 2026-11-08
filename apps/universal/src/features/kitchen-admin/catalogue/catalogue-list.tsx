@@ -129,6 +129,8 @@ export interface CatalogueListProps<Row> {
     readonly onPageChange?: ((page: number) => void) | undefined;
     /** Closes the card a split Lens bar opens above it, instead of drawing a panel of its own. */
     readonly joined?: boolean | undefined;
+    /** Keeps the frame when empty: for an `emptyState` drawn in the table's `table` or `row` shape. */
+    readonly frameEmpty?: boolean | undefined;
     readonly testID: string;
 }
 
@@ -199,6 +201,7 @@ function CatalogueTable<Row>({
     rowEntrance = true,
     highlightedId,
     joined = false,
+    frameEmpty = false,
     testID,
 }: CatalogueListProps<Row>) {
     const frameClass = joined ? JOINED_FRAME_CLASS : FRAME_CLASS;
@@ -283,7 +286,7 @@ function CatalogueTable<Row>({
          * `getBoundingClientRect`, which includes a border, so a frame on the measured box would
          * fit tracks two pixels wider than the space inside it.
          */
-        <View ref={frame} className={rows.length === 0 ? 'flex-col' : frameClass}>
+        <View ref={frame} className={rows.length === 0 && !frameEmpty ? 'flex-col' : frameClass}>
             <View
                 testID={`${testID}-port`}
                 // Both measurement paths, and each is inert on the other's platform: `onLayout` never
@@ -318,7 +321,7 @@ function CatalogueTable<Row>({
                     density={density}
                     onRowPress={onRowPress}
                     emptyState={emptyState}
-                    framed={rows.length > 0}
+                    framed={rows.length > 0 || frameEmpty}
                     rowEntrance={rowEntrance}
                     testID={testID}
                 />

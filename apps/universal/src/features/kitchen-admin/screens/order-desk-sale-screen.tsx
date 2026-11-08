@@ -814,6 +814,7 @@ function Sale() {
                             testID="kitchen-order-desk-sale-back"
                             size="sm"
                             variant="secondary"
+                            className="!rounded-[10px]"
                             label={t('kitchen:desk.sale.backToMenu')}
                             iconStart={<Icon name="chevronBackward" size="sm" />}
                             onPress={() => {
@@ -825,6 +826,7 @@ function Sale() {
                             testID="kitchen-order-desk-sale-back-to-desk"
                             size="sm"
                             variant="secondary"
+                            className="!rounded-[10px]"
                             label={t('kitchen:desk.sale.backToDesk')}
                             iconStart={<Icon name="chevronBackward" size="sm" />}
                             onPress={() => {
@@ -1648,7 +1650,11 @@ function MenuTileButton({
      * the tile's sibling, never inside its button, so no control nests in another.
      */
     return (
-        <View style={{ width }} className="relative">
+        <View
+            style={{ width }}
+            // eslint-disable-next-line no-restricted-syntax -- a row of cards shares one height, so Off today lines up.
+            className="relative flex-1"
+        >
             <Pressable
                 testID={`kitchen-order-desk-sale-tile-${tile.id}`}
                 role="button"
@@ -1659,7 +1665,8 @@ function MenuTileButton({
                 accessibilityState={{ disabled: refused }}
                 disabled={refused}
                 onPress={onAdd}
-                className={`flex-col gap-1 rounded-2xl border p-1.5 ${
+                // eslint-disable-next-line no-restricted-syntax -- the card fills its row so a row of cards shares one height.
+                className={`flex-1 flex-col gap-1 rounded-2xl border p-1.5 ${
                     refused
                         ? 'border-stroke-subtle bg-surface-sunken opacity-60'
                         : count > 0
@@ -1679,9 +1686,10 @@ function MenuTileButton({
                         flush
                     />
                 </View>
-                <View className="flex-row items-end gap-2 px-1 pb-0.5">
+                {/* eslint-disable-next-line no-restricted-syntax -- the words stay under the photo; the add sits at the foot. */}
+                <View className="flex-1 flex-row items-end gap-2 px-1 pb-0.5">
                     {/* eslint-disable-next-line no-restricted-syntax -- the name is the row's filler. */}
-                    <View className="min-w-0 flex-1 flex-col gap-hair">
+                    <View className="min-w-0 flex-1 flex-col gap-hair self-start">
                         <Text variant="strong" numberOfLines={2}>
                             {name}
                         </Text>
@@ -2574,14 +2582,40 @@ function PaymentMethods({
                             onPress={() => {
                                 onChange(candidate);
                             }}
-                            // White cards on the ticket's green; the chosen one ringed in the brand.
+                            // White cards on the ticket's green; the chosen one filled and ringed dark, with a tick.
                             className={
                                 selected
-                                    ? 'h-desk-pay flex-row items-center justify-start gap-1.5 rounded-xl px-2.5 border-2 border-surface-brand bg-surface-raised px-2'
-                                    : 'h-desk-pay flex-row items-center justify-start gap-1.5 rounded-xl px-2.5 border-2 border-stroke-subtle bg-surface-raised px-2 web:hover:border-brand-300'
+                                    ? 'relative h-desk-pay flex-col items-start justify-center gap-0.5 rounded-xl border-2 border-surface-canopy bg-surface-brand-subtle px-2.5'
+                                    : 'relative h-desk-pay flex-col items-start justify-center gap-0.5 rounded-xl border border-stroke bg-surface-raised px-2.5 web:hover:border-surface-brand'
                             }
                         >
-                            <Text variant="label" numberOfLines={1}>
+                            {selected ? (
+                                <View className="absolute end-2 top-2">
+                                    <Icon
+                                        name="check"
+                                        size="sm"
+                                        className="text-content-on-brand-subtle"
+                                    />
+                                </View>
+                            ) : null}
+                            <Icon
+                                name={candidate === 'wish' ? 'smartphone' : 'banknote'}
+                                size="sm"
+                                className={
+                                    selected
+                                        ? 'text-content-on-brand-subtle'
+                                        : 'text-content-primary'
+                                }
+                            />
+                            <Text
+                                variant="label"
+                                numberOfLines={1}
+                                className={
+                                    selected
+                                        ? 'font-semibold !text-content-on-brand-subtle'
+                                        : 'font-semibold'
+                                }
+                            >
                                 {t(kitchenOrderPaymentMethodKey(candidate))}
                             </Text>
                         </Pressable>

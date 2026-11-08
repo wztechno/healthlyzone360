@@ -411,38 +411,42 @@ function OrderDeskClose() {
                             </Text>
                         }
                     />
-                    {open.length === 0 ? (
-                        <EmptyState
-                            testID="kitchen-close-open-empty"
-                            title={t('kitchen:ops.dailyClose.openEmpty')}
-                        />
-                    ) : (
-                        <CatalogueList<OpenDailyClose>
-                            testID="kitchen-close-open"
-                            label={t('kitchen:ops.dailyClose.openHeading')}
-                            columns={openColumns}
-                            rows={open}
-                            rowKey={(row) => `${row.branchId ?? 'kitchen'}-${row.currencyCode}`}
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                        />
-                    )}
+                    <CatalogueList<OpenDailyClose>
+                        testID="kitchen-close-open"
+                        label={t('kitchen:ops.dailyClose.openHeading')}
+                        columns={openColumns}
+                        rows={open}
+                        rowKey={(row) => `${row.branchId ?? 'kitchen'}-${row.currencyCode}`}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        frameEmpty
+                        emptyState={
+                            <EmptyState
+                                testID="kitchen-close-open-empty"
+                                shape="row"
+                                icon="coins"
+                                title={t('kitchen:ops.dailyClose.openEmpty')}
+                            />
+                        }
+                    />
 
                     <DeskTableTitle title={t('kitchen:ops.dailyClose.recentHeading')} />
-                    {closes.length === 0 ? (
-                        <EmptyState
-                            testID="kitchen-close-recent-empty"
-                            title={t('kitchen:ops.dailyClose.recentEmpty')}
-                        />
-                    ) : (
-                        <CatalogueList<DailyCloseRecord>
-                            testID="kitchen-close-recent"
-                            label={t('kitchen:ops.dailyClose.recentHeading')}
-                            columns={recentColumns}
-                            rows={closes}
-                            rowKey={(row) => row.id}
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                        />
-                    )}
+                    <CatalogueList<DailyCloseRecord>
+                        testID="kitchen-close-recent"
+                        label={t('kitchen:ops.dailyClose.recentHeading')}
+                        columns={recentColumns}
+                        rows={closes}
+                        rowKey={(row) => row.id}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        frameEmpty
+                        emptyState={
+                            <EmptyState
+                                testID="kitchen-close-recent-empty"
+                                shape="row"
+                                icon="clipboardCheck"
+                                title={t('kitchen:ops.dailyClose.recentEmpty')}
+                            />
+                        }
+                    />
 
                     {!multiBranch ? null : (
                         <>
@@ -454,21 +458,23 @@ function OrderDeskClose() {
                                     </Text>
                                 }
                             />
-                            {data.totals.length === 0 ? (
-                                <EmptyState
-                                    testID="kitchen-close-total-empty"
-                                    title={t('kitchen:ops.dailyClose.recentEmpty')}
-                                />
-                            ) : (
-                                <CatalogueList<DailyCloseTotal>
-                                    testID="kitchen-close-total"
-                                    label={t('kitchen:ops.dailyClose.totalHeading')}
-                                    columns={totalColumns}
-                                    rows={data.totals}
-                                    rowKey={(row) => `${row.businessDate}-${row.currencyCode}`}
-                                    rowActionsLabel={t('kitchen:list.rowActions')}
-                                />
-                            )}
+                            <CatalogueList<DailyCloseTotal>
+                                testID="kitchen-close-total"
+                                label={t('kitchen:ops.dailyClose.totalHeading')}
+                                columns={totalColumns}
+                                rows={data.totals}
+                                rowKey={(row) => `${row.businessDate}-${row.currencyCode}`}
+                                rowActionsLabel={t('kitchen:list.rowActions')}
+                                frameEmpty
+                                emptyState={
+                                    <EmptyState
+                                        testID="kitchen-close-total-empty"
+                                        shape="row"
+                                        icon="banknote"
+                                        title={t('kitchen:ops.dailyClose.recentEmpty')}
+                                    />
+                                }
+                            />
                         </>
                     )}
                 </View>

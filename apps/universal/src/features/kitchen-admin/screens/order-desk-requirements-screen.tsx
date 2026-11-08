@@ -517,10 +517,24 @@ function OrderDeskRequirements() {
                     ) : (
                         <View className="flex-col gap-snug">
                             {rows.length === 0 ? (
-                                <EmptyState
-                                    testID="kitchen-order-desk-requirements-empty"
-                                    title={t('kitchen:ops.requirements.noRowsTitle')}
-                                    body={t('kitchen:ops.requirements.noRowsBody')}
+                                <CatalogueList<OrderDeskRequirement>
+                                    testID="kitchen-order-desk-requirements-table"
+                                    label={t('kitchen:ops.requirements.title')}
+                                    columns={controls.columns}
+                                    rows={[]}
+                                    rowKey={(row) => row.stockItemId}
+                                    rowActionsLabel={t('kitchen:list.rowActions')}
+                                    joined
+                                    frameEmpty
+                                    emptyState={
+                                        <EmptyState
+                                            testID="kitchen-order-desk-requirements-empty"
+                                            shape="table"
+                                            icon="clipboardCheck"
+                                            title={t('kitchen:ops.requirements.noRowsTitle')}
+                                            body={t('kitchen:ops.requirements.noRowsBody')}
+                                        />
+                                    }
                                 />
                             ) : (
                                 <CatalogueList<OrderDeskRequirement>

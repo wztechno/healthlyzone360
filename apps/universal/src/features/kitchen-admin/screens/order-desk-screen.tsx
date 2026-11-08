@@ -1510,7 +1510,7 @@ function OrderDeskQueueList() {
     const page = paging.key === pagingKey ? Math.min(paging.page, totalPages) : 1;
     const pageRows = controls.rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
     /** Rows on screen: the toolbar card then runs on into the table rather than closing above it. */
-    const showsRows = !queue.isPending && failure === null && pageRows.length > 0;
+    const showsRows = !queue.isPending && failure === null;
 
     /*
      * The two dialogs, outside the record page's cards: a modal mounted inside a scrolling surface is
@@ -2395,26 +2395,53 @@ function OrderDeskQueueList() {
                         retrying={queue.isFetching}
                     />
                 ) : rows.length === 0 ? (
-                    <EmptyState
-                        testID="kitchen-order-desk-empty"
-                        title={t(
-                            filtered
-                                ? 'kitchen:desk.filteredEmptyTitle'
-                                : 'kitchen:desk.emptyTitle',
-                        )}
-                        body={t(
-                            filtered ? 'kitchen:desk.filteredEmptyBody' : 'kitchen:desk.emptyBody',
-                        )}
-                        actions={
-                            filtered ? (
-                                <Button
-                                    testID="kitchen-order-desk-clear"
-                                    size="sm"
-                                    variant="secondary"
-                                    label={t('kitchen:desk.clearFilters')}
-                                    onPress={clearFilters}
-                                />
-                            ) : undefined
+                    <CatalogueList<OrderDeskQueueRow>
+                        testID="kitchen-order-desk-table"
+                        label={t('kitchen:desk.caption')}
+                        columns={controls.columns}
+                        rows={[]}
+                        rowKey={(row) => String(row.id)}
+                        density="sm"
+                        joined
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        frameEmpty
+                        emptyState={
+                            <EmptyState
+                                testID="kitchen-order-desk-empty"
+                                shape="table"
+                                icon={filtered ? 'searchLens' : 'receipt'}
+                                title={t(
+                                    filtered
+                                        ? 'kitchen:desk.filteredEmptyTitle'
+                                        : 'kitchen:desk.emptyTitle',
+                                )}
+                                body={t(
+                                    filtered
+                                        ? 'kitchen:desk.filteredEmptyBody'
+                                        : 'kitchen:desk.emptyBody',
+                                )}
+                                actions={
+                                    filtered ? (
+                                        <Button
+                                            testID="kitchen-order-desk-clear"
+                                            size="sm"
+                                            variant="secondary"
+                                            label={t('kitchen:desk.clearFilters')}
+                                            onPress={clearFilters}
+                                        />
+                                    ) : (
+                                        <Button
+                                            testID="kitchen-order-desk-empty-new-sale"
+                                            size="sm"
+                                            label={t('kitchen:desk.newSale')}
+                                            iconStart={<Icon name="plus" size="sm" />}
+                                            onPress={() => {
+                                                router.push('/kitchen/order-desk/sale');
+                                            }}
+                                        />
+                                    )
+                                }
+                            />
                         }
                     />
                 ) : (
