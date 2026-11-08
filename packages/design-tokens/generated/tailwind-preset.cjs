@@ -452,10 +452,14 @@ module.exports = {
         "icon-xs": "12px",
         "icon-sm": "14px",
         "icon-md": "16px",
-        "icon-lg": "18px"
+        "icon-lg": "18px",
+        "desk-toolbar": "34px",
+        "desk-step": "30px",
+        "desk-step-mark": "22px"
       },
       "width": {
         "field": "280px",
+        "desk-step-mark": "22px",
         "icon-xs": "12px",
         "icon-sm": "14px",
         "icon-md": "16px",

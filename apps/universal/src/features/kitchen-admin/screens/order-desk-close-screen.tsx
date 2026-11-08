@@ -156,7 +156,7 @@ function OrderDeskClose() {
         {
             key: 'close',
             align: 'end',
-            label: t('kitchen:ops.dailyClose.columnAction'),
+            label: '',
             width: 120,
             priority: 99,
             render: (row) => (

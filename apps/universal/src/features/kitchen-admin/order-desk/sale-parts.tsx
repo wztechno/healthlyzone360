@@ -57,14 +57,14 @@ export function SaleSteps({
                         testID={`${testID}-${step.key}`}
                         role="listitem"
                         aria-current={on ? 'step' : undefined}
-                        className={`h-control-md flex-row items-center gap-2 rounded-full pe-3 ps-1 ${
-                            on ? 'bg-surface-sidebar' : ''
+                        className={`h-desk-step flex-row items-center gap-[7px] rounded-full pe-3 ps-1 ${
+                            on ? 'bg-surface-canopy' : ''
                         }`}
                     >
                         <View
-                            className={`h-6 w-6 items-center justify-center rounded-full ${
+                            className={`h-desk-step-mark w-desk-step-mark items-center justify-center rounded-full ${
                                 on
-                                    ? 'bg-surface-sidebar-active'
+                                    ? 'bg-brand-300'
                                     : done
                                       ? 'bg-surface-brand-subtle'
                                       : 'bg-surface-sunken'
@@ -79,8 +79,12 @@ export function SaleSteps({
                             ) : (
                                 <Text
                                     variant="caption"
-                                    tone={on ? 'brand' : 'secondary'}
-                                    className="font-bold"
+                                    tone="secondary"
+                                    className={
+                                        on
+                                            ? '!text-[11px] font-bold !text-surface-canopy'
+                                            : '!text-[11px] font-bold'
+                                    }
                                 >
                                     {formatter.formatNumber(index + 1)}
                                 </Text>
@@ -88,8 +92,10 @@ export function SaleSteps({
                         </View>
                         <Text
                             variant="label"
-                            tone={on ? 'sidebar' : done ? 'primary' : 'secondary'}
-                            className="font-semibold"
+                            tone={done ? 'primary' : 'secondary'}
+                            className={
+                                on ? 'font-semibold !text-content-on-canopy' : 'font-semibold'
+                            }
                         >
                             {step.label}
                         </Text>

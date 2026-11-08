@@ -61,6 +61,16 @@ export const iconSize: Readonly<Record<ControlSize, number>> = {
     lg: 18,
 };
 
+/**
+ * The admin canvas's own control sizes, in dp: the toolbar's 34px pill and New order's step marker.
+ * `h-desk-toolbar`, `h-desk-step`, `h-desk-step-mark` / `w-desk-step-mark`.
+ */
+export const deskHeight = {
+    toolbar: 34,
+    step: 30,
+    'step-mark': 22,
+} as const;
+
 export const ROW_DENSITIES = ['sm', 'md', 'lg'] as const;
 export type RowDensity = (typeof ROW_DENSITIES)[number];
 

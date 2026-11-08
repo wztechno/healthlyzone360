@@ -324,7 +324,7 @@ function AppShellLayout({
             ? SIDEBAR_COLLAPSED_WIDTH +
               (sidebarCollapsed ? 0 : (sidebarWidth ?? 260) + FRAME_GUTTER)
             : 0,
-        padding: wideEnoughForSidebar ? CONTENT_PADDING_LG : CONTENT_PADDING,
+        padding: twoPane ? 12 : wideEnoughForSidebar ? CONTENT_PADDING_LG : CONTENT_PADDING,
     };
 
     const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -793,7 +793,7 @@ function AppShellLayout({
                 testID={testID === undefined ? undefined : `${testID}-navigation`}
                 role="navigation"
                 aria-label={t('designSystem:shell.primaryNavigation')}
-                className="flex-col gap-1 p-2"
+                className={panel ? 'flex-col px-1.5' : 'flex-col gap-1 p-2'}
             >
                 {showGroups
                     ? ungrouped.map(renderItem)
@@ -1249,7 +1249,7 @@ function AppShellLayout({
                             style={{ width: panelWidth, ...cardTransition }}
                         >
                             {sidebarStart}
-                            <View className="flex-row items-center gap-2 pb-2 pe-3 ps-4 pt-4">
+                            <View className="flex-row items-center gap-2 pb-2.5 pe-3.5 ps-[18px] pt-[18px]">
                                 {panelTitle === undefined ? (
                                     <View className="flex-1" />
                                 ) : (
@@ -1272,7 +1272,7 @@ function AppShellLayout({
                                         testID === undefined ? undefined : `${testID}-panel-close`
                                     }
                                     size="sm"
-                                    variant="quiet"
+                                    variant="ghost"
                                     label={t('designSystem:shell.hideNavigation')}
                                     icon={
                                         <Icon
@@ -1322,7 +1322,7 @@ function AppShellLayout({
                         role="main"
                         className="flex-1"
                         contentContainerClassName={cx(
-                            'flex-grow gap-4 p-4 lg:p-7',
+                            'flex-grow gap-4 p-4 lg:px-3 lg:pb-7 lg:pt-[18px]',
                             contentClassName,
                         )}
                     >

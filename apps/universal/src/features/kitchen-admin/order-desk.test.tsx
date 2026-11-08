@@ -508,18 +508,9 @@ describe('order desk queue — ageing against the due instant', () => {
             { timeout: 5000 },
         );
 
-        // `Badge` marks every non-neutral tone with a dot and leaves neutral bare, so "has come
-        // due" and "not yet" still differ in greyscale; the interval itself is spelled out in the
-        // label. The dot is `aria-hidden` on purpose, so it is only reachable with
-        // `includeHiddenElements` — and that must be passed on the *negative* assertion too, or it
-        // would pass whatever the tone was.
-        const hidden = { includeHiddenElements: true } as const;
         expect(screen.getByTestId(rowTestId(1, 'due-age'))).toHaveTextContent(/ago$/);
-        expect(screen.getByTestId(`${rowTestId(1, 'due-age')}-mark`, hidden)).toBeTruthy();
-        expect(screen.getByTestId(`${rowTestId(2, 'due-age')}-mark`, hidden)).toBeTruthy();
-        // Neutral carries no mark, because there is nothing yet to warn about.
+        // The pill has no mark on any band: the words say past or future, the tone says how late.
         expect(screen.getByTestId(rowTestId(3, 'due-age'))).toHaveTextContent(/^in /);
-        expect(screen.queryByTestId(`${rowTestId(3, 'due-age')}-mark`, hidden)).toBeNull();
     });
 });
 

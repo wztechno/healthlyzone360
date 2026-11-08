@@ -143,7 +143,7 @@ function OrderDeskSettlement() {
         {
             key: 'settle',
             align: 'end',
-            label: t('kitchen:ops.settlement.columnAction'),
+            label: '',
             width: 120,
             priority: 99,
             render: (row) => (
@@ -220,7 +220,7 @@ function OrderDeskSettlement() {
         {
             key: 'settle',
             align: 'end',
-            label: t('kitchen:ops.settlement.columnAction'),
+            label: '',
             width: 120,
             priority: 99,
             render: (row) => (

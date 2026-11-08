@@ -59,9 +59,10 @@ const COMFORTABLE_CONTAINER_SIZE: Readonly<Record<ButtonSize, string>> = {
  * from padding, so "make the admin two pixels tighter" stays one edit in `control.ts`.
  */
 const COMPACT_CONTAINER_SIZE: Readonly<Record<ButtonSize, string>> = {
-    sm: 'h-control-sm px-control-sm gap-control-sm rounded',
-    md: 'h-control-md px-control-md gap-control-md rounded',
-    lg: 'h-control-lg px-control-lg gap-control-lg rounded',
+    // The admin canvas draws every button as a pill: 34px in a toolbar or a row, 40 and 44 above that.
+    sm: 'h-desk-toolbar px-3 gap-1.5 rounded-full',
+    md: 'h-10 px-4 gap-2 rounded-full',
+    lg: 'h-11 px-4 gap-2 rounded-full',
 };
 
 const CONTAINER_SIZE: Readonly<Record<Density, Readonly<Record<ButtonSize, string>>>> = {
@@ -86,9 +87,9 @@ const COMFORTABLE_LABEL_SIZE: Readonly<Record<ButtonSize, string>> = {
  * gives the size and the variant gives the weight, so the two never disagree.
  */
 const COMPACT_LABEL_SIZE: Readonly<Record<ButtonSize, string>> = {
-    sm: 'text-role-label',
-    md: 'text-role-label',
-    lg: 'text-role-label',
+    sm: 'text-[13px] leading-[18px] !font-semibold',
+    md: 'text-[13px] leading-[18px] !font-semibold',
+    lg: 'text-[13px] leading-[18px] !font-semibold',
 };
 
 const LABEL_SIZE: Readonly<Record<Density, Readonly<Record<ButtonSize, string>>>> = {

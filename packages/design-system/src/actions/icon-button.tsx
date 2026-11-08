@@ -44,6 +44,8 @@ export interface IconButtonProps extends Omit<
      */
     readonly tone?: 'default' | 'danger' | undefined;
     readonly size?: ButtonSize | undefined;
+    /** A full circle rather than the ladder's rounded square — the top bar's round controls. */
+    readonly round?: boolean | undefined;
     readonly disabled?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
@@ -78,6 +80,7 @@ export function IconButton({
     variant = 'ghost',
     tone = 'default',
     size = 'md',
+    round = false,
     disabled = false,
     className,
     onPress,
@@ -150,7 +153,12 @@ export function IconButton({
             className={cx(
                 'relative items-center justify-center',
                 CONTAINER_VARIANT[variant],
-                ICON_BUTTON_SIZE[density][size],
+                round
+                    ? ICON_BUTTON_SIZE[density][size].replace(
+                          /rounded(-[a-z0-9]+)?/,
+                          'rounded-full',
+                      )
+                    : ICON_BUTTON_SIZE[density][size],
                 disabled ? 'opacity-50' : null,
                 className,
             )}

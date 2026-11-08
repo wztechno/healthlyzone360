@@ -1308,14 +1308,18 @@ function OrderDeskQueueList() {
             role: 'title',
             value: (row) => row.orderNumber,
             label: t('kitchen:desk.columnNumber'),
-            width: 120,
+            width: 150,
             priority: 100,
             sort: (left, right, direction) =>
                 compareText(left.orderNumber, right.orderNumber, direction),
             mono: true,
             render: (row) => (
                 <View className="flex-col items-start gap-hair">
-                    <Text variant="mono" testID={`${orderDeskRowTestId(String(row.id))}-number`}>
+                    <Text
+                        variant="mono"
+                        className="!text-[12px] !font-semibold !text-content-secondary"
+                        testID={`${orderDeskRowTestId(String(row.id))}-number`}
+                    >
                         {row.orderNumber}
                     </Text>
                     {row.allergy === null ? null : (
@@ -1387,7 +1391,11 @@ function OrderDeskQueueList() {
             sort: (left, right, direction) =>
                 compareNumber(Date.parse(left.dueAt), Date.parse(right.dueAt), direction),
             render: (row) => (
-                <Text variant="mono" testID={`${orderDeskRowTestId(String(row.id))}-due`}>
+                <Text
+                    variant="mono"
+                    className="!font-semibold"
+                    testID={`${orderDeskRowTestId(String(row.id))}-due`}
+                >
                     {formatter.formatDate(row.dueAt, { timeStyle: 'short' })}
                 </Text>
             ),
@@ -1450,13 +1458,18 @@ function OrderDeskQueueList() {
             key: 'total',
             role: 'metric',
             label: t('kitchen:desk.columnTotal'),
+            align: 'end',
             width: 100,
             priority: 85,
             sort: (left, right, direction) =>
                 compareNumber(left.totalMinor, right.totalMinor, direction),
             mono: true,
             render: (row) => (
-                <Text variant="mono" testID={`${orderDeskRowTestId(String(row.id))}-total`}>
+                <Text
+                    variant="mono"
+                    className="!font-semibold"
+                    testID={`${orderDeskRowTestId(String(row.id))}-total`}
+                >
                     {formatMoney(formatter, { amount: row.totalMinor, currency: row.currencyCode })}
                 </Text>
             ),
@@ -2349,6 +2362,8 @@ function OrderDeskQueueList() {
                             <KitchenPauseButton />
                             <Button
                                 testID="kitchen-order-desk-new-sale"
+                                size="sm"
+                                className="!h-desk-toolbar rounded-full px-3"
                                 label={t('kitchen:desk.newSale')}
                                 iconStart={<Icon name="plus" size="sm" />}
                                 onPress={() => {

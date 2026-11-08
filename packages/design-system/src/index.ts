@@ -251,6 +251,7 @@ export type {
 export { ListItem } from './content/list-item.tsx';
 export type { ListItemProps } from './content/list-item.tsx';
 export {
+    DATA_LIST_HEAD_TEXT_CLASS,
     DataList,
     UNDROPPABLE_PRIORITY,
     dataListColumnAlign,

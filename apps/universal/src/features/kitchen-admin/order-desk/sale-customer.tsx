@@ -539,6 +539,7 @@ export function CustomerSection({
                         {/* eslint-disable-next-line no-restricted-syntax -- the search absorbs the bar. */}
                         <View className="flex-1" style={{ minWidth: fieldWidth }}>
                             <SearchInput
+                                className="!h-[38px] !rounded-[10px] !border-transparent !bg-surface-sunken"
                                 testID="kitchen-order-desk-sale-customer-search"
                                 label={t('kitchen:desk.sale.customerSearchLabel')}
                                 placeholder={t('kitchen:desk.sale.customerSearchPlaceholder')}

@@ -777,7 +777,11 @@ function Sale() {
              */}
             <View className="flex-row flex-wrap items-center gap-4">
                 {editOrder === null ? (
-                    <Text variant="title" accessibilityRole="header">
+                    <Text
+                        variant="title"
+                        className="font-display !text-[26px] !leading-8 !font-bold tracking-tight"
+                        accessibilityRole="header"
+                    >
                         {t('kitchen:desk.sale.title')}
                     </Text>
                 ) : (
@@ -997,6 +1001,7 @@ function Sale() {
                             placeholder={t('kitchen:desk.sale.pickerSearchPlaceholder')}
                             value={query}
                             onChangeText={setQuery}
+                            className="!h-10 !rounded-xl"
                         />
                         {!isEditing && !partyChosen(state) ? (
                             <View className="items-center rounded-2xl border border-dashed border-stroke px-4 py-10">
@@ -1660,9 +1665,9 @@ function MenuTileButton({
                     {refused ? null : (
                         <View
                             aria-hidden
-                            className="h-8 w-8 items-center justify-center rounded-lg bg-surface-sidebar"
+                            className="h-8 w-8 items-center justify-center rounded-[10px] bg-surface-canopy"
                         >
-                            <Icon name="plus" size="sm" className="text-content-on-sidebar" />
+                            <Icon name="plus" size="sm" className="text-brand-300" />
                         </View>
                     )}
                 </View>

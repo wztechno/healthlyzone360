@@ -27,7 +27,8 @@ export function LocaleToggle({ round = false }: { readonly round?: boolean } = {
                 testID="locale-toggle"
                 size="sm"
                 variant="quiet"
-                className="rounded-full transition duration-fast ease-standard active:scale-95"
+                round
+                className="transition duration-fast ease-standard active:scale-95"
                 label={arabic ? t('common:locale.english') : t('common:locale.arabic')}
                 icon={
                     <RNText className="text-base font-bold text-content-primary">

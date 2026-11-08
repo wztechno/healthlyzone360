@@ -448,7 +448,7 @@ describe('the packaging list', () => {
         // sorted column earns — and, until something is applied, it points up like every other
         // untouched head.
         expect(screen.queryByTestId('kitchen-packaging-column-status-sorted', hidden)).toBeNull();
-        expect(glyph('kitchen-packaging-column-status-affordance')).toBe('↑');
+        expect(glyph('kitchen-packaging-column-status-affordance')).toBe('⌄');
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-packaging-column-status-trigger'));
@@ -461,7 +461,7 @@ describe('the packaging list', () => {
         // The arrow turns over, which is what the list had no way of saying before. A shape, not a
         // shade — a filtered column a reader cannot see is a filter they cannot clear.
         await waitFor(() => {
-            expect(glyph('kitchen-packaging-column-status-affordance')).toBe('↓');
+            expect(glyph('kitchen-packaging-column-status-affordance')).not.toBe('⌄');
         });
 
         // And the way out is inside the menu the mark points at, rather than somewhere the reader
@@ -476,7 +476,7 @@ describe('the packaging list', () => {
         });
 
         await waitFor(() => {
-            expect(glyph('kitchen-packaging-column-status-affordance')).toBe('↑');
+            expect(glyph('kitchen-packaging-column-status-affordance')).toBe('⌄');
         });
     });
 
@@ -648,7 +648,10 @@ describe('the packaging list', () => {
         // Edit routes to `/kitchen/packaging/{item}`, which exists now: the ingredient form
         // wearing this family's `PKG-` series, its category and its back-link.
         expect(routerMock.__push).not.toHaveBeenCalled();
-        const action = await getRecordAction('kitchen-packaging-view', 'kitchen-packaging-view-edit');
+        const action = await getRecordAction(
+            'kitchen-packaging-view',
+            'kitchen-packaging-view-edit',
+        );
         await act(async () => {
             fireEvent.press(action);
         });

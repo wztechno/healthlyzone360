@@ -36,6 +36,8 @@ export function DueBadge({
         <Badge
             testID={`${orderDeskRowTestId(String(row.id))}-due-age`}
             tone={orderDeskDueTone(row.dueAt, now, overdueGraceMinutes)}
+            icon={null}
+            className="!h-[22px] !rounded-full !px-2"
             label={formatter.formatRelativeTime(row.dueAt, now)}
         />
     );

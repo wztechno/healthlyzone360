@@ -208,6 +208,7 @@ export function LensBar({
                                 label={searchLabel ?? ''}
                                 placeholder={searchPlaceholder}
                                 size="sm"
+                                className="!h-desk-toolbar !rounded-full !border-transparent !bg-surface-sunken"
                                 testID={`${testID}-search`}
                             />
                         </View>
@@ -220,7 +221,7 @@ export function LensBar({
                             variant="label"
                             tone="secondary"
                             role="status"
-                            className="font-semibold tabular-nums"
+                            className="!text-[13px] font-semibold tabular-nums"
                         >
                             {result}
                         </Text>
@@ -495,7 +496,7 @@ function SplitLens({
             {notice}
             <View
                 className={`z-auto border border-brand-100 bg-surface-raised ${
-                    joined ? 'rounded-t-panel border-b-0' : 'rounded-panel shadow-elevation-card'
+                    joined ? 'rounded-t-panel border-b-0' : 'rounded-panel'
                 }`}
             >
                 <View
@@ -636,7 +637,7 @@ export function LensScope<T extends string>({
                     accessibilityRole="button"
                     accessibilityLabel={`${label}: ${current?.label ?? ''}`}
                     onPress={toggle}
-                    className="h-control-sm flex-row items-center gap-1.5 rounded border border-brand-100 bg-surface-base pe-1.5 ps-2.5 hover:border-brand-300"
+                    className="h-desk-toolbar flex-row items-center gap-1.5 rounded-full border border-brand-100 bg-surface-raised pe-2 ps-3 hover:border-brand-300"
                 >
                     <Text variant="body" tone="secondary">
                         {label}
@@ -702,7 +703,7 @@ export function LensFigureCell({
                 variant="label"
                 tone={active ? 'primary' : 'secondary'}
                 numberOfLines={1}
-                className={chip ? 'font-semibold' : ''}
+                className={chip ? '!text-sm font-semibold' : ''}
             >
                 {figure.label}
             </Text>
@@ -719,19 +720,24 @@ export function LensFigureCell({
                     testID={`${testID}-value`}
                     variant="label"
                     tone={alarm ? 'danger' : zero ? 'secondary' : 'primary'}
-                    className={chip ? 'font-bold tabular-nums' : 'font-semibold tabular-nums'}
+                    className={
+                        chip ? '!text-sm font-bold tabular-nums' : 'font-semibold tabular-nums'
+                    }
                 >
                     {figure.display ?? String(value)}
                 </Text>
             )}
-            {figure.info === undefined ? null : (
-                <InfoTip label={figure.label} text={figure.info} testID={`${testID}-info`} />
-            )}
         </>
     );
 
+    // Beside the press target, never inside it: a button cannot hold a button.
+    const info =
+        figure.info === undefined ? null : (
+            <InfoTip label={figure.label} text={figure.info} testID={`${testID}-info`} />
+        );
+
     const cellClass = chip
-        ? `h-control-lg flex-row items-center gap-2 rounded-lg border px-3 ${
+        ? `h-10 flex-row items-center gap-2 rounded-xl border px-3.5 ${
               active
                   ? 'border-surface-brand bg-surface-brand-subtle'
                   : 'border-brand-100 bg-surface-raised'
@@ -748,6 +754,23 @@ export function LensFigureCell({
             {figure.onPress === undefined ? (
                 <View testID={testID} className={cellClass}>
                     {body}
+                    {info}
+                </View>
+            ) : info !== null ? (
+                <View className={cellClass}>
+                    <Pressable
+                        testID={testID}
+                        role="button"
+                        accessibilityRole="button"
+                        accessibilityLabel={`${figure.label} ${value === null ? '' : (figure.display ?? String(value))}`.trim()}
+                        accessibilityHint={figure.accessibilityLabel}
+                        accessibilityState={{ selected: active }}
+                        onPress={figure.onPress}
+                        className="flex-row items-center gap-2"
+                    >
+                        {body}
+                    </Pressable>
+                    {info}
                 </View>
             ) : (
                 <Pressable

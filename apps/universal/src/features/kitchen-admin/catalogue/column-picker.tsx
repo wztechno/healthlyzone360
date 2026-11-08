@@ -260,6 +260,8 @@ export function ColumnPicker({
                     testID={`${testID}-trigger`}
                     variant="secondary"
                     label={t('kitchen:catalogue.columnsButton', { shown, max })}
+                    round
+                    className="!h-desk-toolbar border border-brand-100"
                     icon={<Icon name="layoutGrid" size="sm" className="text-content-primary" />}
                     aria-haspopup="dialog"
                     onPress={() => {

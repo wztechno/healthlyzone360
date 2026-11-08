@@ -88,7 +88,7 @@ const COMFORTABLE_LIST_VARIANT: Readonly<Record<TabsVariant, string>> = {
  */
 const COMPACT_LIST_VARIANT: Readonly<Record<TabsVariant, string>> = {
     underline: 'flex-row flex-wrap items-end gap-hair border-b border-stroke-subtle',
-    segmented: 'flex-row flex-wrap items-stretch gap-0.5 rounded bg-surface-sunken p-0.5',
+    segmented: 'flex-row flex-wrap items-stretch gap-0.5 rounded-xl bg-surface-sunken p-[3px]',
     /*
      * The step row the Catalogue's recipe editor opens on: a sunken track with a hairline, holding
      * one raised tab per step. Not a control height — it is the form's opening, not a field in a
@@ -111,8 +111,7 @@ const COMFORTABLE_TAB_VARIANT: Readonly<Record<TabsVariant, string>> = {
 const COMPACT_TAB_VARIANT: Readonly<Record<TabsVariant, string>> = {
     underline:
         'h-control-md flex-row items-center justify-center gap-control-md border-b-2 px-control-md',
-    segmented:
-        'h-control-xs flex-row items-center justify-center gap-control-sm rounded px-control-sm',
+    segmented: 'h-7 flex-row items-center justify-center gap-control-sm rounded-[9px] px-[11px]',
     steps: 'h-control-lg min-w-0 flex-row items-center justify-start gap-control-sm rounded px-control-sm',
 };
 
@@ -249,7 +248,11 @@ export function Tabs<T extends string = string>({
                         }}
                         className={cx(
                             TAB_VARIANT[density][variant],
-                            selected ? TAB_SELECTED[variant] : TAB_UNSELECTED[variant],
+                            selected
+                                ? density === 'compact' && variant === 'segmented'
+                                    ? 'border border-transparent bg-surface-raised shadow-elevation-1'
+                                    : TAB_SELECTED[variant]
+                                : TAB_UNSELECTED[variant],
                             block || steps ? 'flex-1' : null,
                             disabled ? 'opacity-50' : null,
                         )}
@@ -295,7 +298,11 @@ export function Tabs<T extends string = string>({
                             numberOfLines={1}
                             className={cx(
                                 steps ? 'min-w-0 flex-1 text-start' : 'text-center',
-                                density === 'compact' ? 'text-role-label' : 'text-sm',
+                                density === 'compact'
+                                    ? variant === 'segmented'
+                                        ? 'text-[13px] font-semibold'
+                                        : 'text-role-label'
+                                    : 'text-sm',
                                 selected
                                     ? variant === 'segmented'
                                         ? 'font-semibold text-content-on-brand-subtle'

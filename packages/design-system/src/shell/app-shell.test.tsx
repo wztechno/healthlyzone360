@@ -164,8 +164,8 @@ describe('AppShell — workspace', () => {
         // 240 and the 12px gutter after it.
         expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 252 });
         expect(screen.getByTestId('shell-panel-card').props.style).toMatchObject({ width: 240 });
-        // 1440 − 96 − 252 − 28px padding each side.
-        expect(screen.getByTestId('content-width')).toHaveTextContent('1036');
+        // 1440 − 96 − 252 − 12px padding each side.
+        expect(screen.getByTestId('content-width')).toHaveTextContent('1068');
         // The bar is a floating pill.
         expect(screen.getByTestId('shell-topbar-pill').props.className).toContain('rounded-full');
     });
@@ -186,13 +186,13 @@ describe('AppShell — workspace', () => {
         // Shut from the start means out of the tree, not an invisible card still in the tab order.
         expect(screen.queryByTestId('shell-panel-card')).toBeNull();
         expect(screen.getByTestId('shell-rail')).toBeTruthy();
-        // 1280 − the rail and its two 12px gutters (96) − 28px padding each side.
-        expect(screen.getByTestId('content-width')).toHaveTextContent('1128');
+        // 1280 − the rail and its two 12px gutters (96) − 12px padding each side.
+        expect(screen.getByTestId('content-width')).toHaveTextContent('1160');
 
         await fireEvent.press(screen.getByTestId('nav-overview-rail'));
         expect(screen.getByTestId('shell-sidebar').props.style).toMatchObject({ width: 244 });
         // The page re-lays on the press, not after the slide.
-        expect(screen.getByTestId('content-width')).toHaveTextContent('884');
+        expect(screen.getByTestId('content-width')).toHaveTextContent('916');
     });
 
     it('opens on the reader’s remembered choice over the window’s default', async () => {

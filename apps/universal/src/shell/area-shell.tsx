@@ -230,8 +230,10 @@ function GuardedAreaShell({
                             size="sm"
                             variant="secondary"
                             label={workspacesLabel}
-                            iconStart={<Icon name="gridDots" size="sm" />}
-                            className="self-center rounded-full"
+                            iconStart={
+                                <Icon name="gridDots" size="sm" className="text-content-primary" />
+                            }
+                            className="!h-11 !min-h-0 self-center !rounded-full !px-4"
                             onPress={toWorkspace}
                         />
                     )}

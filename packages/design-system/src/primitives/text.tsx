@@ -189,11 +189,12 @@ const NestedTextContext = createContext(false);
 const CELL_TONES: ReadonlySet<TextTone> = new Set(['danger', 'warning', 'success']);
 
 function cellVariantClass(density: Density, variant: TextVariant, strong: boolean): string {
+    const bold = strong || variant === 'bodyStrong' || variant === 'strong';
     return cx(
-        VARIANT_CLASS[density].body,
+        // The admin canvas sets every cell at 13px medium, its names bold.
+        density === 'compact' ? 'text-[13px] leading-[18px]' : VARIANT_CLASS[density].body,
         variant === 'mono' ? 'tabular-nums' : null,
-        strong || variant === 'bodyStrong' || variant === 'strong' ? 'font-semibold' : null,
-        variant === 'label' ? 'font-medium' : null,
+        bold ? 'font-bold' : density === 'compact' || variant === 'label' ? 'font-medium' : null,
     );
 }
 
