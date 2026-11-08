@@ -64,7 +64,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * `/kitchen/supplier-bills/{receipt}` — one receipt's missing prices (SUP5, §7).
  *
  * ```
- * Kitchen workspace › Prices to finish › Receipt DN-0412      ← the queue crumb is the way back
+ * Kitchen workspace › Supplier bills › Receipt DN-0412      ← the queue crumb is the way back
  * Receipt DN-0412 [UNPRICED]                                        [Cancel] [Save prices]
  * ┌ TO PRICE ┐ ┌ TYPED ┐ ┌ WAITING ON A RATE ┐ ┌ RECEIVED ┐
  * ┌ LINES ─────────────────────────────────┐   ┌ RECEIPT ── supplier · delivery note · … ┐
