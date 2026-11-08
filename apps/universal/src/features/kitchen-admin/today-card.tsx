@@ -114,7 +114,7 @@ function TodayFigures({ branchId }: { readonly branchId: BranchId | null }) {
             testID="kitchen-home-today"
             padding="sm"
             tone="raised"
-            className="min-w-0 gap-2 border-brand-100"
+            className="min-w-0 gap-2 border-stroke-subtle"
         >
             <Heading level={2}>{t('kitchen:hub.today.title')}</Heading>
             {today.isError && data === undefined ? (

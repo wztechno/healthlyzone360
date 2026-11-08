@@ -461,7 +461,7 @@ function OrderDeskCashReport() {
                             testID="kitchen-order-desk-cash-report-totals"
                             style={{ maxWidth: TOTALS_MAX_WIDTH }}
                             // The green card: the brand's subtle ground, raised like the figures.
-                            className="flex-col rounded-panel border border-brand-100 bg-surface-brand-subtle shadow-elevation-card"
+                            className="flex-col rounded-panel border border-stroke-subtle bg-surface-brand-subtle shadow-elevation-card"
                         >
                             {/* A heading a step above the pairs under it, so it reads as their title. */}
                             <View className="px-snug pb-hair pt-snug">

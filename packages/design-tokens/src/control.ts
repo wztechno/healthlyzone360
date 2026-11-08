@@ -69,6 +69,9 @@ export const deskHeight = {
     toolbar: 34,
     step: 30,
     'step-mark': 22,
+    tile: 60,
+    'tile-mark': 42,
+    pay: 52,
 } as const;
 
 export const ROW_DENSITIES = ['sm', 'md', 'lg'] as const;

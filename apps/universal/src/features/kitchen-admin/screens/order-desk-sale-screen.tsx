@@ -217,6 +217,9 @@ const SECTION_RAIL_WIDTH = 168;
 
 /** A column that runs the full width when the row stacks. */
 const STRETCH = { alignSelf: 'stretch' } as const;
+/** Address and When share a row down to this width each, then stack. */
+// eslint-disable-next-line no-restricted-syntax -- two checkout cards share a row; not a control.
+const CHECKOUT_COLUMN = { flexGrow: 1, flexShrink: 1, flexBasis: 340, minWidth: 0 } as const;
 
 /**
  * The narrowest a product tile may be before the grid drops a column, when the menu runs the full
@@ -881,93 +884,109 @@ function Sale() {
                         />
                     )}
 
-                    <>
-                        {editOrder !== null && needsAddress(state.fulfilmentType) ? (
-                            <FormSection
-                                variant="card"
-                                testID="kitchen-order-desk-sale-edit-address"
-                                title={t('kitchen:desk.sale.addressTitle')}
-                                actions={
-                                    <Button
-                                        testID="kitchen-order-desk-sale-edit-address-toggle"
-                                        size="sm"
-                                        variant="secondary"
-                                        label={t(
-                                            changingAddress
-                                                ? 'kitchen:desk.edit.keepAddress'
-                                                : 'kitchen:desk.edit.changeAddress',
-                                        )}
-                                        onPress={() => {
-                                            // Keeping the stored address drops one added meanwhile.
-                                            if (
-                                                changingAddress &&
-                                                state.customerAddressId !== null
-                                            ) {
-                                                update({ ...state, customerAddressId: null });
-                                            }
-                                            setChangingAddress(!changingAddress);
+                    <View className="z-auto flex-row flex-wrap items-start gap-base">
+                        {kindChosen && needsAddress(state.fulfilmentType) ? (
+                            <View className="z-auto flex-col gap-base" style={CHECKOUT_COLUMN}>
+                                {editOrder !== null && needsAddress(state.fulfilmentType) ? (
+                                    <FormSection
+                                        variant="panel"
+                                        testID="kitchen-order-desk-sale-edit-address"
+                                        title={t('kitchen:desk.sale.addressTitle')}
+                                        actions={
+                                            <Button
+                                                testID="kitchen-order-desk-sale-edit-address-toggle"
+                                                size="sm"
+                                                variant="secondary"
+                                                label={t(
+                                                    changingAddress
+                                                        ? 'kitchen:desk.edit.keepAddress'
+                                                        : 'kitchen:desk.edit.changeAddress',
+                                                )}
+                                                onPress={() => {
+                                                    // Keeping the stored address drops one added meanwhile.
+                                                    if (
+                                                        changingAddress &&
+                                                        state.customerAddressId !== null
+                                                    ) {
+                                                        update({
+                                                            ...state,
+                                                            customerAddressId: null,
+                                                        });
+                                                    }
+                                                    setChangingAddress(!changingAddress);
+                                                }}
+                                            />
+                                        }
+                                    >
+                                        <Text
+                                            variant="label"
+                                            testID="kitchen-order-desk-sale-edit-address-current"
+                                        >
+                                            {[
+                                                editOrder.delivery.lineOne,
+                                                editOrder.delivery.lineTwo,
+                                                locale.startsWith('ar')
+                                                    ? editOrder.delivery.areaNameAr
+                                                    : editOrder.delivery.areaNameEn,
+                                            ]
+                                                .filter(
+                                                    (part): part is string =>
+                                                        part !== null && part !== '',
+                                                )
+                                                .join(', ') || EM_DASH}
+                                        </Text>
+                                    </FormSection>
+                                ) : null}
+
+                                {/*
+                                 * The same surface a new sale uses, unchanged: it only ever adds an address,
+                                 * and on an edit the one it adds replaces the stored destination.
+                                 */}
+                                {kindChosen &&
+                                needsAddress(state.fulfilmentType) &&
+                                (!isEditing || changingAddress) ? (
+                                    <AddressSection
+                                        customerAccountId={state.customerAccountId}
+                                        customerAddressId={state.customerAddressId}
+                                        onSaved={(addressId) => {
+                                            update({ ...state, customerAddressId: addressId });
                                         }}
                                     />
-                                }
-                            >
-                                <Text
-                                    variant="label"
-                                    testID="kitchen-order-desk-sale-edit-address-current"
-                                >
-                                    {[
-                                        editOrder.delivery.lineOne,
-                                        editOrder.delivery.lineTwo,
-                                        locale.startsWith('ar')
-                                            ? editOrder.delivery.areaNameAr
-                                            : editOrder.delivery.areaNameEn,
-                                    ]
-                                        .filter(
-                                            (part): part is string => part !== null && part !== '',
-                                        )
-                                        .join(', ') || EM_DASH}
-                                </Text>
-                            </FormSection>
+                                ) : null}
+                            </View>
                         ) : null}
 
-                        {/*
-                         * The same surface a new sale uses, unchanged: it only ever adds an address,
-                         * and on an edit the one it adds replaces the stored destination.
-                         */}
-                        {kindChosen &&
-                        needsAddress(state.fulfilmentType) &&
-                        (!isEditing || changingAddress) ? (
-                            <AddressSection
-                                customerAccountId={state.customerAccountId}
-                                customerAddressId={state.customerAddressId}
-                                onSaved={(addressId) => {
-                                    update({ ...state, customerAddressId: addressId });
-                                }}
-                            />
-                        ) : null}
-                    </>
-
-                    {!kindChosen || schedule === null ? null : (
-                        <WhenSection
-                            windows={windowList}
-                            zoneOffersNone={offeredCodes !== null && windowList.length === 0}
-                            schedule={schedule}
-                            ended={schedule.requestedDeliveryDate === today ? overToday : new Set()}
-                            firstDay={firstOpenDay(today, windowCodes, overToday)}
-                            onSchedule={(next) => {
-                                update({ ...state, ...next });
-                            }}
-                            // An edit leaves the run to the record page's own reassignment.
-                            drivers={
-                                !isEditing && state.fulfilmentType === 'delivery'
-                                    ? (drivers.data?.rows ?? null)
-                                    : null
-                            }
-                            driverUserId={state.driverUserId}
-                            onDriver={(driverUserId) => {
-                                update({ ...state, driverUserId });
-                            }}
-                        />
-                    )}
+                        {!kindChosen || schedule === null ? null : (
+                            <View className="z-auto" style={CHECKOUT_COLUMN}>
+                                <WhenSection
+                                    windows={windowList}
+                                    zoneOffersNone={
+                                        offeredCodes !== null && windowList.length === 0
+                                    }
+                                    schedule={schedule}
+                                    ended={
+                                        schedule.requestedDeliveryDate === today
+                                            ? overToday
+                                            : new Set()
+                                    }
+                                    firstDay={firstOpenDay(today, windowCodes, overToday)}
+                                    onSchedule={(next) => {
+                                        update({ ...state, ...next });
+                                    }}
+                                    // An edit leaves the run to the record page's own reassignment.
+                                    drivers={
+                                        !isEditing && state.fulfilmentType === 'delivery'
+                                            ? (drivers.data?.rows ?? null)
+                                            : null
+                                    }
+                                    driverUserId={state.driverUserId}
+                                    onDriver={(driverUserId) => {
+                                        update({ ...state, driverUserId });
+                                    }}
+                                />
+                            </View>
+                        )}
+                    </View>
                 </View>
 
                 <View
@@ -1125,7 +1144,7 @@ function KindPicker({
 
     return (
         <FormSection
-            variant="card"
+            variant="panel"
             testID="kitchen-order-desk-sale-kind-card"
             title={t('kitchen:desk.sale.kindTitle')}
         >
@@ -1192,7 +1211,7 @@ function WhenSection({
 
     return (
         <FormSection
-            variant="card"
+            variant="panel"
             testID="kitchen-order-desk-sale-when"
             title={t('kitchen:desk.sale.whenLabel')}
         >
@@ -1260,7 +1279,7 @@ function WhenSection({
                         testID="kitchen-order-desk-sale-slot"
                         role="radiogroup"
                         aria-label={t('kitchen:desk.sale.slotLabel')}
-                        className="flex-row flex-wrap gap-tight"
+                        className="flex-col gap-1.5"
                     >
                         {windows.map((window) => {
                             const selected = schedule.deliveryWindowCode === window.code;
@@ -1292,17 +1311,26 @@ function WhenSection({
                                     }}
                                     className={
                                         over
-                                            ? 'h-control-md flex-row items-center gap-hair rounded-sm border border-stroke-subtle bg-surface-sunken px-control-sm opacity-60'
+                                            ? 'h-10 flex-row items-center gap-2.5 rounded-[10px] border border-stroke-subtle bg-surface-sunken px-3 opacity-50'
                                             : selected
-                                              ? 'h-control-md flex-row items-center gap-hair rounded-sm border border-surface-brand bg-surface-brand-subtle px-control-sm'
-                                              : 'h-control-md flex-row items-center gap-hair rounded-sm border border-stroke bg-surface-raised px-control-sm web:hover:border-surface-brand'
+                                              ? 'h-10 flex-row items-center gap-2.5 rounded-[10px] border border-surface-brand bg-surface-brand-subtle px-3'
+                                              : 'h-10 flex-row items-center gap-2.5 rounded-[10px] border border-stroke bg-surface-raised px-3'
                                     }
                                 >
-                                    <Text variant="label" numberOfLines={1}>
+                                    <View
+                                        aria-hidden
+                                        className={`h-2 w-2 rounded-full ${selected ? 'bg-surface-brand' : 'bg-stroke'}`}
+                                    />
+                                    <Text variant="strong" numberOfLines={1}>
                                         {name}
                                     </Text>
                                     {hours === null ? null : (
-                                        <Text variant="mono" tone="secondary" numberOfLines={1}>
+                                        <Text
+                                            variant="mono"
+                                            tone="secondary"
+                                            numberOfLines={1}
+                                            className="ms-auto"
+                                        >
                                             {hours}
                                         </Text>
                                     )}
@@ -1636,7 +1664,7 @@ function MenuTileButton({
                         ? 'border-stroke-subtle bg-surface-sunken opacity-60'
                         : count > 0
                           ? 'border-surface-brand bg-surface-raised shadow-elevation-card active:opacity-80'
-                          : 'border-brand-100 bg-surface-raised active:opacity-80 web:hover:border-surface-brand'
+                          : 'border-stroke-subtle bg-surface-raised active:opacity-80 web:hover:border-surface-brand'
                 }`}
             >
                 <View className="overflow-hidden rounded-xl">
@@ -2549,17 +2577,10 @@ function PaymentMethods({
                             // White cards on the ticket's green; the chosen one ringed in the brand.
                             className={
                                 selected
-                                    ? 'h-11 flex-row items-center justify-center gap-1.5 rounded-lg border-2 border-surface-brand bg-surface-raised px-2'
-                                    : 'h-11 flex-row items-center justify-center gap-1.5 rounded-lg border-2 border-stroke-subtle bg-surface-raised px-2 web:hover:border-brand-300'
+                                    ? 'h-desk-pay flex-row items-center justify-start gap-1.5 rounded-xl px-2.5 border-2 border-surface-brand bg-surface-raised px-2'
+                                    : 'h-desk-pay flex-row items-center justify-start gap-1.5 rounded-xl px-2.5 border-2 border-stroke-subtle bg-surface-raised px-2 web:hover:border-brand-300'
                             }
                         >
-                            {selected ? (
-                                <Icon
-                                    name="check"
-                                    size="sm"
-                                    className="text-content-on-brand-subtle"
-                                />
-                            ) : null}
                             <Text variant="label" numberOfLines={1}>
                                 {t(kitchenOrderPaymentMethodKey(candidate))}
                             </Text>

@@ -244,8 +244,8 @@ function CalendarSquare({
             // date.
             className={
                 today
-                    ? 'rounded-panel border border-brand-100 bg-surface-brand-subtle px-tight py-tight shadow-elevation-card'
-                    : 'rounded-panel border border-brand-100 bg-surface-raised px-tight py-tight shadow-elevation-card'
+                    ? 'rounded-panel border border-stroke-subtle bg-surface-brand-subtle px-tight py-tight shadow-elevation-card'
+                    : 'rounded-panel border border-stroke-subtle bg-surface-raised px-tight py-tight shadow-elevation-card'
             }
         >
             <View className="flex-col gap-hair">
@@ -398,8 +398,8 @@ function OrderDeskCalendarWeek() {
                 testID={testID}
                 className={
                     isToday
-                        ? 'rounded-panel border border-brand-100 bg-surface-brand-subtle px-tight py-tight shadow-elevation-card'
-                        : 'rounded-panel border border-brand-100 bg-surface-raised px-tight py-tight shadow-elevation-card'
+                        ? 'rounded-panel border border-stroke-subtle bg-surface-brand-subtle px-tight py-tight shadow-elevation-card'
+                        : 'rounded-panel border border-stroke-subtle bg-surface-raised px-tight py-tight shadow-elevation-card'
                 }
             >
                 <Text variant="section" tone={isToday ? 'brand' : 'primary'}>
@@ -448,7 +448,7 @@ function OrderDeskCalendarWeek() {
             {/* One row: the week stepper, the range it is on as the page title, and the day count at its end. */}
             <View
                 testID="kitchen-order-desk-calendar-toolbar"
-                className="min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
+                className="min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-panel border border-stroke-subtle bg-surface-raised p-tight shadow-elevation-card"
             >
                 <View className="flex-row items-center gap-hair">
                     <IconButton

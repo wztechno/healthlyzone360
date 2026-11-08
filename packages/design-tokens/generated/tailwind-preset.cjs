@@ -455,11 +455,15 @@ module.exports = {
         "icon-lg": "18px",
         "desk-toolbar": "34px",
         "desk-step": "30px",
-        "desk-step-mark": "22px"
+        "desk-step-mark": "22px",
+        "desk-tile": "60px",
+        "desk-tile-mark": "42px",
+        "desk-pay": "52px"
       },
       "width": {
         "field": "280px",
         "desk-step-mark": "22px",
+        "desk-tile-mark": "42px",
         "icon-xs": "12px",
         "icon-sm": "14px",
         "icon-md": "16px",

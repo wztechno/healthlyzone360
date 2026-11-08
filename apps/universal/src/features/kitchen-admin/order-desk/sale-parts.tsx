@@ -46,7 +46,7 @@ export function SaleSteps({
             testID={testID}
             role="list"
             aria-label={label}
-            className="flex-row items-center gap-1.5 rounded-full border border-brand-100 bg-surface-raised p-1"
+            className="flex-row items-center gap-1.5 rounded-full border border-stroke-subtle bg-surface-raised p-1"
         >
             {steps.map((step, index) => {
                 const on = index === current;
@@ -345,14 +345,14 @@ export function KindTiles<T extends string>({
                             onChange(tile.value);
                         }}
                         // eslint-disable-next-line no-restricted-syntax -- three equal tiles share the row.
-                        className={`min-w-0 flex-1 flex-row items-center gap-2.5 rounded-xl border-2 px-2 py-2 ${
+                        className={`h-desk-tile min-w-0 flex-1 flex-row items-center gap-2.5 rounded-[14px] border pe-3 ps-2 ${
                             on
                                 ? 'border-surface-brand bg-surface-brand-subtle'
-                                : 'border-brand-100 bg-surface-raised web:hover:border-brand-300'
+                                : 'border-stroke bg-surface-raised web:hover:border-surface-brand'
                         }`}
                     >
                         <View
-                            className={`h-10 w-10 items-center justify-center rounded-lg ${
+                            className={`h-desk-tile-mark w-desk-tile-mark items-center justify-center rounded-[11px] ${
                                 on ? 'bg-surface-brand' : 'bg-surface-sunken'
                             }`}
                         >

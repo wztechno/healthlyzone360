@@ -221,7 +221,7 @@ export function StatTilesSkeleton({
                             ? undefined
                             : `${partTestID}-skeleton-${String(tile + 1)}`
                     }
-                    className="min-w-card flex-1 flex-col gap-tight rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
+                    className="min-w-card flex-1 flex-col gap-tight rounded-panel border border-stroke-subtle bg-surface-raised p-4 shadow-elevation-card"
                 >
                     <Skeleton heightClassName="h-2.5" widthClassName="w-1/3" />
                     <Skeleton heightClassName="h-8" widthClassName="w-1/2" />

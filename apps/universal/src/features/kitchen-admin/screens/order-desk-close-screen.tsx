@@ -13,7 +13,6 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
-    Select,
     Stack,
     TableSkeleton,
     Text,
@@ -34,6 +33,7 @@ import {
 } from '../../../data/order-desk-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { LensScope } from '../catalogue/lens-bar.tsx';
 import { DeskTableTitle } from '../order-desk/desk-parts.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
@@ -381,23 +381,24 @@ function OrderDeskClose() {
             ) : data === undefined ? null : (
                 <View className="flex-col gap-loose">
                     {!multiBranch ? null : (
-                        <View className="w-field">
-                            <Select
+                        <View className="z-10 flex-row">
+                            <LensScope<string>
                                 testID="kitchen-close-branch"
                                 label={t('kitchen:ops.dailyClose.branchLabel')}
-                                size="sm"
                                 value={branch}
+                                onChange={setBranch}
                                 options={[
                                     {
                                         value: ALL_BRANCHES,
                                         label: t('kitchen:ops.dailyClose.allBranches'),
+                                        testID: 'kitchen-close-branch-option-all',
                                     },
                                     ...data.branches.map((option) => ({
-                                        value: option.id,
+                                        value: String(option.id),
                                         label: option.name,
+                                        testID: `kitchen-close-branch-option-${String(option.id)}`,
                                     })),
                                 ]}
-                                onChange={setBranch}
                             />
                         </View>
                     )}

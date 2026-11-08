@@ -259,7 +259,7 @@ export function LensBar({
             onLayout={(event) => {
                 setNarrow(event.nativeEvent.layout.width < NARROW_BAR_WIDTH);
             }}
-            className="z-10 rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card"
+            className="z-10 rounded-panel border border-stroke-subtle bg-surface-raised shadow-elevation-card"
         >
             {/*
              * `ps-2`: the pills carry 8px of their own, so their text starts on the query row's
@@ -546,7 +546,7 @@ export function LensViewSwitch<T extends string>({
             testID={testID}
             role="radiogroup"
             aria-label={label}
-            className="h-control-sm flex-row items-center gap-0.5 rounded border border-brand-100 bg-surface-base p-0.5"
+            className="h-control-sm flex-row items-center gap-0.5 rounded border border-stroke-subtle bg-surface-base p-0.5"
         >
             {options.map((option) => {
                 const on = option.value === value;

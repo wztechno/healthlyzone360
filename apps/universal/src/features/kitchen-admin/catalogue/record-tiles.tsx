@@ -50,8 +50,8 @@ export function RecordTileRow({ children, testID }: RecordTileRowProps) {
 export type RecordTileTone = 'raised' | 'brand' | 'warning';
 
 const TILE_TONE_CLASS: Readonly<Record<RecordTileTone, string>> = {
-    raised: 'border-brand-100 bg-surface-raised',
-    brand: 'border-brand-100 bg-surface-brand-subtle',
+    raised: 'border-stroke-subtle bg-surface-raised',
+    brand: 'border-stroke-subtle bg-surface-brand-subtle',
     warning: 'border-warning-border bg-warning-subtle',
 };
 

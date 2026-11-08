@@ -103,7 +103,7 @@ export function RoleChoiceList({
                 accessibilityLabel={label}
                 className={cx(
                     PANEL,
-                    error === undefined ? 'border-brand-100' : 'border-danger-border',
+                    error === undefined ? 'border-stroke-subtle' : 'border-danger-border',
                 )}
             >
                 {/* `DataList`'s header band: the table's one rule. */}

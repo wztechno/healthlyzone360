@@ -435,7 +435,7 @@ export function CustomerSection({
             testID="kitchen-order-desk-sale-customer"
             role="group"
             aria-label={t('kitchen:desk.sale.customerTitle')}
-            className="z-auto flex-col gap-3 rounded-2xl border border-brand-100 bg-surface-raised px-3.5 py-3"
+            className="z-auto flex-col gap-3 rounded-2xl border border-stroke-subtle bg-surface-raised px-3.5 py-3"
         >
             {duplicateNotices}
             {walkIn ? (
@@ -909,7 +909,7 @@ export function AddressSection({
 
     return (
         <FormSection
-            variant="card"
+            variant="panel"
             testID="kitchen-order-desk-sale-address"
             title={t('kitchen:desk.sale.addressTitle')}
             description={folded ? undefined : t('kitchen:desk.sale.addressNoteBody')}

@@ -1321,7 +1321,9 @@ function AppShellLayout({
                         {...contentPort}
                         testID={testID === undefined ? undefined : `${testID}-content`}
                         role="main"
-                        className="flex-1"
+                        // Room for the scrollbar is always kept, so a page that grows past the fold keeps the width
+                        // it measured: the order desk menu cuts its tiles from that width.
+                        className="flex-1 web:[scrollbar-gutter:stable]"
                         contentContainerClassName={cx(
                             'flex-grow gap-4 p-4 lg:px-3 lg:pb-7 lg:pt-[18px]',
                             contentClassName,

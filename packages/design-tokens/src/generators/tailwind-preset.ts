@@ -279,6 +279,7 @@ export function renderTailwindPreset(): string {
                     // `w-field` is the no-stretch rule's one fixed width.
                     field: px(fieldWidth),
                     'desk-step-mark': px(deskHeight['step-mark']),
+                    'desk-tile-mark': px(deskHeight['tile-mark']),
                     ...Object.fromEntries(
                         Object.entries(iconSize).map(([k, v]) => [`icon-${k}`, px(v)]),
                     ),
