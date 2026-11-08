@@ -2109,7 +2109,6 @@
     },
     "kds": {
         "title": "Kitchen display",
-        "subtitle": "Every open ticket for this kitchen, soonest due first. The board refreshes itself while it is on screen.",
         "lastUpdated": "Updated {{time}}",
         "column": {
             "incoming": "Incoming",
@@ -2122,7 +2121,6 @@
             "done": "Nothing ready or handed over today yet."
         },
         "emptyTitle": "No tickets on the board",
-        "emptyBody": "Orders placed against this kitchen appear here the moment they arrive.",
         "loadErrorTitle": "The board could not be loaded",
         "placedAgo": "Placed {{elapsed}}",
         "lineSummary": "{{name}} × {{quantity}}",
@@ -2135,7 +2133,6 @@
         "conflictBody": "Another station started or finished it. Refresh the board to see where it stands now.",
         "conflictRefresh": "Refresh the board",
         "noBranchTitle": "No kitchen chosen",
-        "noBranchBody": "Choose the branch this screen is displaying before the board can show its tickets.",
         "mayContain": "May contain {{allergen}}",
         "handedOver": "Handed over",
         "deliveryFailed": "Delivery failed",
@@ -2152,6 +2149,7 @@
         "alarmTitle": "Not accepted yet",
         "alarmBody": "Waited {{minutes}} min while open. Accept or start it now.",
         "lanes": "Board lanes",
+        "allDay": "All day",
         "held": "Sending in a few seconds. You can still undo it.",
         "readyHeld": "{{number}} marked ready.",
         "handedOverHeld": "{{number}} handed over.",
@@ -2162,10 +2160,8 @@
     },
     "driver": {
         "title": "Your deliveries",
-        "subtitle": "Every job assigned to you that is still live, oldest first. The list refreshes itself while it is on screen.",
         "loadErrorTitle": "Your deliveries could not be loaded",
         "emptyTitle": "Nothing to run",
-        "emptyBody": "Jobs appear here the moment dispatch assigns one to you.",
         "orderLabel": "Order",
         "orderReference": "Order {{reference}}",
         "mineTitle": "Your runs",

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10482 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10478 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4310,7 +4310,6 @@ export interface NamespaceKeys {
     | 'driver.deliverTitle'
     | 'driver.deliveredToast'
     | 'driver.directions'
-    | 'driver.emptyBody'
     | 'driver.emptyTitle'
     | 'driver.fail'
     | 'driver.failBody'
@@ -4343,7 +4342,6 @@ export interface NamespaceKeys {
     | 'driver.status.failed'
     | 'driver.status.in_transit'
     | 'driver.status.pending'
-    | 'driver.subtitle'
     | 'driver.title'
     | 'driver.tracking.arrived'
     | 'driver.tracking.awaiting_assignment'
@@ -4662,6 +4660,7 @@ export interface NamespaceKeys {
     | 'kds.accepted'
     | 'kds.alarmBody'
     | 'kds.alarmTitle'
+    | 'kds.allDay'
     | 'kds.column.done'
     | 'kds.column.incoming'
     | 'kds.column.preparing'
@@ -4675,7 +4674,6 @@ export interface NamespaceKeys {
     | 'kds.deliveryOn'
     | 'kds.deliveryOnAt'
     | 'kds.deliveryUnknown'
-    | 'kds.emptyBody'
     | 'kds.emptyTitle'
     | 'kds.handedOver'
     | 'kds.handedOverHeld'
@@ -4685,7 +4683,6 @@ export interface NamespaceKeys {
     | 'kds.lineSummary'
     | 'kds.loadErrorTitle'
     | 'kds.mayContain'
-    | 'kds.noBranchBody'
     | 'kds.noBranchTitle'
     | 'kds.placedAgo'
     | 'kds.print'
@@ -4698,7 +4695,6 @@ export interface NamespaceKeys {
     | 'kds.staleBody'
     | 'kds.staleTitle'
     | 'kds.start'
-    | 'kds.subtitle'
     | 'kds.title'
     | 'kds.truncatedBody'
     | 'kds.truncatedTitle'
@@ -14810,7 +14806,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:driver.deliverTitle',
   'kitchen:driver.deliveredToast',
   'kitchen:driver.directions',
-  'kitchen:driver.emptyBody',
   'kitchen:driver.emptyTitle',
   'kitchen:driver.fail',
   'kitchen:driver.failBody',
@@ -14843,7 +14838,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:driver.status.failed',
   'kitchen:driver.status.in_transit',
   'kitchen:driver.status.pending',
-  'kitchen:driver.subtitle',
   'kitchen:driver.title',
   'kitchen:driver.tracking.arrived',
   'kitchen:driver.tracking.awaiting_assignment',
@@ -15162,6 +15156,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:kds.accepted',
   'kitchen:kds.alarmBody',
   'kitchen:kds.alarmTitle',
+  'kitchen:kds.allDay',
   'kitchen:kds.column.done',
   'kitchen:kds.column.incoming',
   'kitchen:kds.column.preparing',
@@ -15175,7 +15170,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:kds.deliveryOn',
   'kitchen:kds.deliveryOnAt',
   'kitchen:kds.deliveryUnknown',
-  'kitchen:kds.emptyBody',
   'kitchen:kds.emptyTitle',
   'kitchen:kds.handedOver',
   'kitchen:kds.handedOverHeld',
@@ -15185,7 +15179,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:kds.lineSummary',
   'kitchen:kds.loadErrorTitle',
   'kitchen:kds.mayContain',
-  'kitchen:kds.noBranchBody',
   'kitchen:kds.noBranchTitle',
   'kitchen:kds.placedAgo',
   'kitchen:kds.print',
@@ -15198,7 +15191,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:kds.staleBody',
   'kitchen:kds.staleTitle',
   'kitchen:kds.start',
-  'kitchen:kds.subtitle',
   'kitchen:kds.title',
   'kitchen:kds.truncatedBody',
   'kitchen:kds.truncatedTitle',

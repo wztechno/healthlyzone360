@@ -10,24 +10,29 @@ import {
     Callout,
     Card,
     Dialog,
+    Drawer,
     EmptyState,
     ErrorState,
     FilterChip,
     Heading,
+    Icon,
+    InfoTip,
     Inline,
     Skeleton,
     Stack,
     Text,
     TextInputField,
+    useBreakpoint,
     useToast,
 } from '@healthy360/design-system';
-import type { BadgeTone } from '@healthy360/design-system';
+import type { BadgeTone, IconName } from '@healthy360/design-system';
 import { minorAmountToInput, minorUnitExponent, parseMinorAmount } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Linking } from 'react-native';
+import { Linking, View } from 'react-native';
 
 import { Gate } from '../../access/gate.tsx';
 import {
@@ -298,13 +303,12 @@ function DriverJobs() {
     }
 
     return (
-        <Stack space="md" className="flex-1 p-4" testID="driver-jobs">
-            <Stack space="xs">
-                <Heading level={1}>{t('kitchen:driver.title')}</Heading>
-                <Text tone="secondary" variant="caption">
-                    {t('kitchen:driver.subtitle')}
-                </Text>
-            </Stack>
+        <Stack
+            space="md"
+            className="w-full max-w-[600px] flex-1 self-center p-4"
+            testID="driver-jobs"
+        >
+            <Heading level={1}>{t('kitchen:driver.title')}</Heading>
 
             {/*
              * A failed stamp is reported in exactly one place at a time: inside the dialog while it
@@ -358,8 +362,8 @@ function DriverJobs() {
                     {rows.length === 0 ? (
                         <EmptyState
                             testID="driver-jobs-empty"
+                            icon="truck"
                             title={t('kitchen:driver.emptyTitle')}
-                            body={t('kitchen:driver.emptyBody')}
                         />
                     ) : (
                         <Stack space="sm" testID="driver-jobs-list">
@@ -385,12 +389,13 @@ function DriverJobs() {
 
                     {available.length === 0 ? null : (
                         <Stack space="sm" testID="driver-jobs-available">
-                            <Stack space="xs">
+                            <Inline space="xs" align="center">
                                 <Heading level={2}>{t('kitchen:driver.availableTitle')}</Heading>
-                                <Text tone="secondary" variant="caption">
-                                    {t('kitchen:driver.availableHint')}
-                                </Text>
-                            </Stack>
+                                <InfoTip
+                                    label={t('kitchen:driver.availableTitle')}
+                                    text={t('kitchen:driver.availableHint')}
+                                />
+                            </Inline>
                             {available.map((job) => (
                                 <JobCard
                                     key={job.id}
@@ -408,7 +413,7 @@ function DriverJobs() {
                 </>
             )}
 
-            <Dialog
+            <DriverSheet
                 testID="driver-jobs-deliver-dialog"
                 open={delivering !== null}
                 onClose={closeDeliver}
@@ -439,6 +444,13 @@ function DriverJobs() {
                                 // The same fallback the card heading makes, so the dialog names the
                                 // job in the words the driver just read.
                                 reference: delivering.orderNumber ?? String(delivering.orderId),
+                            })}
+                        </Text>
+                    )}
+                    {delivering === null || owed === 0 ? null : (
+                        <Text variant="bodyStrong" testID="driver-jobs-deliver-due">
+                            {t('kitchen:driver.amountDue', {
+                                amount: moneyText(formatter, owed, delivering.currencyCode),
                             })}
                         </Text>
                     )}
@@ -486,9 +498,9 @@ function DriverJobs() {
                         </Text>
                     )}
                 </Stack>
-            </Dialog>
+            </DriverSheet>
 
-            <Dialog
+            <DriverSheet
                 testID="driver-jobs-fail-dialog"
                 open={failing !== null}
                 onClose={() => {
@@ -548,8 +560,80 @@ function DriverJobs() {
                         </Text>
                     )}
                 </Stack>
-            </Dialog>
+            </DriverSheet>
         </Stack>
+    );
+}
+
+interface DriverSheetProps {
+    readonly open: boolean;
+    readonly onClose: () => void;
+    readonly title: string;
+    readonly description: string;
+    readonly actions: ReactNode;
+    readonly children: ReactNode;
+    readonly testID: string;
+}
+
+/** A sheet in the thumb's reach on a phone, the ordinary dialog on anything wider. */
+function DriverSheet({
+    open,
+    onClose,
+    title,
+    description,
+    actions,
+    children,
+    testID,
+}: DriverSheetProps) {
+    const { atLeast } = useBreakpoint();
+
+    if (atLeast('md')) {
+        return (
+            <Dialog
+                testID={testID}
+                open={open}
+                onClose={onClose}
+                title={title}
+                description={description}
+                actions={actions}
+            >
+                {children}
+            </Dialog>
+        );
+    }
+
+    return (
+        <Drawer
+            testID={testID}
+            placement="bottom"
+            open={open}
+            onClose={onClose}
+            title={title}
+            footer={
+                <Inline space="sm" align="center" justify="end">
+                    {actions}
+                </Inline>
+            }
+        >
+            <Stack space="sm" className="p-2">
+                <Text variant="caption" tone="secondary">
+                    {description}
+                </Text>
+                {children}
+            </Stack>
+        </Drawer>
+    );
+}
+
+/** One fact on a card: a small tile for what it is, then the lines themselves. */
+function CardRow({ icon, children }: { readonly icon: IconName; readonly children: ReactNode }) {
+    return (
+        <Inline space="sm" align="start" wrap={false}>
+            <View className="h-8 w-8 items-center justify-center rounded-lg bg-surface-sunken">
+                <Icon name={icon} size="sm" className="text-content-secondary" />
+            </View>
+            <View className="min-w-0 flex-1">{children}</View>
+        </Inline>
     );
 }
 
@@ -629,23 +713,51 @@ function JobCard({ job, locale, disabled, action, onAction, onFail }: JobCardPro
     return (
         <Card padding="md" testID={testID}>
             <Stack space="sm">
-                <Text variant="caption" tone="secondary">
-                    {t('kitchen:driver.orderLabel')}
+                <Inline
+                    space="sm"
+                    align="start"
+                    justify="between"
+                    wrap={false}
+                    testID={`${testID}-statuses`}
+                >
+                    <Stack space="none" className="min-w-0 flex-1">
+                        <Text variant="caption" tone="secondary">
+                            {t('kitchen:driver.orderLabel')}
+                        </Text>
+                        {/*
+                         * The number printed on the bag, falling back to the identifier when the job
+                         * carries none — see the file header on why the fallback is here.
+                         */}
+                        <Heading level={2} className="text-xl tabular-nums" testID={`${testID}-order`}>
+                            {job.orderNumber ?? String(job.orderId)}
+                        </Heading>
+                    </Stack>
+                    <Badge
+                        testID={`${testID}-status`}
+                        tone={statusTone(job.status)}
+                        label={t(`kitchen:driver.status.${job.status}`)}
+                    />
+                </Inline>
+                <Text variant="caption" tone="secondary" testID={`${testID}-tracking`}>
+                    {t(`kitchen:driver.tracking.${job.trackingStatus}`)}
                 </Text>
-                {/*
-                 * The number printed on the bag, falling back to the identifier when the job
-                 * carries none — see the file header on why the fallback is here.
-                 */}
-                <Heading level={2} testID={`${testID}-order`}>
-                    {job.orderNumber ?? String(job.orderId)}
-                </Heading>
 
                 {amountToCollect(job) === 0 ? null : (
-                    <Text variant="bodyStrong" testID={`${testID}-amount-due`}>
-                        {t('kitchen:driver.amountDue', {
-                            amount: moneyText(formatter, amountToCollect(job), job.currencyCode),
-                        })}
-                    </Text>
+                    <View className="rounded-xl bg-surface-brand-subtle px-3 py-2.5">
+                        <Text
+                            variant="bodyStrong"
+                            className="font-display text-xl tabular-nums text-content-on-brand-subtle"
+                            testID={`${testID}-amount-due`}
+                        >
+                            {t('kitchen:driver.amountDue', {
+                                amount: moneyText(
+                                    formatter,
+                                    amountToCollect(job),
+                                    job.currencyCode,
+                                ),
+                            })}
+                        </Text>
+                    </View>
                 )}
 
                 {job.allergyAllergenCodes.length === 0 && job.allergyNote === null ? null : (
@@ -671,20 +783,6 @@ function JobCard({ job, locale, disabled, action, onAction, onFail }: JobCardPro
                     />
                 )}
 
-                <Inline space="xs" wrap testID={`${testID}-statuses`}>
-                    <Badge
-                        testID={`${testID}-status`}
-                        tone={statusTone(job.status)}
-                        label={t(`kitchen:driver.status.${job.status}`)}
-                    />
-                    <Badge
-                        testID={`${testID}-tracking`}
-                        tone="neutral"
-                        icon={null}
-                        label={t(`kitchen:driver.tracking.${job.trackingStatus}`)}
-                    />
-                </Inline>
-
                 {/*
                  * Where it is going. Every part is nullable and an absent one is simply not drawn —
                  * a labelled blank for a floor nobody recorded is noise in a stairwell.
@@ -694,48 +792,55 @@ function JobCard({ job, locale, disabled, action, onAction, onFail }: JobCardPro
                         {t('kitchen:driver.noAddress')}
                     </Text>
                 ) : (
-                    <Stack space="none" testID={`${testID}-address`}>
-                        {/* The first line drawn is the link to the map, never a second target beside it. */}
-                        {delivery.lineOne === null ? null : (
-                            <TextLink
-                                testID={`${testID}-address-line-one`}
-                                label={delivery.lineOne}
-                                accessibilityHint={t('kitchen:driver.openMap')}
-                                onPress={openMap}
-                            />
-                        )}
-                        {unitParts.length === 0 ? null : (
-                            <Text
-                                variant="caption"
-                                tone="secondary"
-                                testID={`${testID}-address-unit`}
-                            >
-                                {unitParts.join(t('kitchen:common.listSeparator'))}
-                            </Text>
-                        )}
-                        {areaName === null ? null : delivery.lineOne === null ? (
-                            <TextLink
-                                testID={`${testID}-address-area`}
-                                label={areaName}
-                                accessibilityHint={t('kitchen:driver.openMap')}
-                                onPress={openMap}
-                            />
-                        ) : (
-                            <Text
-                                variant="caption"
-                                tone="secondary"
-                                testID={`${testID}-address-area`}
-                            >
-                                {areaName}
-                            </Text>
-                        )}
-                    </Stack>
-                )}
-
-                {delivery.directions === null ? null : (
-                    <Text variant="caption" tone="secondary" testID={`${testID}-directions`}>
-                        {t('kitchen:driver.directions', { directions: delivery.directions })}
-                    </Text>
+                    <CardRow icon="mapPin">
+                        <Stack space="none" testID={`${testID}-address`}>
+                            {/* The first line drawn is the link to the map, never a second target beside it. */}
+                            {delivery.lineOne === null ? null : (
+                                <TextLink
+                                    testID={`${testID}-address-line-one`}
+                                    label={delivery.lineOne}
+                                    accessibilityHint={t('kitchen:driver.openMap')}
+                                    onPress={openMap}
+                                />
+                            )}
+                            {unitParts.length === 0 ? null : (
+                                <Text
+                                    variant="caption"
+                                    tone="secondary"
+                                    testID={`${testID}-address-unit`}
+                                >
+                                    {unitParts.join(t('kitchen:common.listSeparator'))}
+                                </Text>
+                            )}
+                            {areaName === null ? null : delivery.lineOne === null ? (
+                                <TextLink
+                                    testID={`${testID}-address-area`}
+                                    label={areaName}
+                                    accessibilityHint={t('kitchen:driver.openMap')}
+                                    onPress={openMap}
+                                />
+                            ) : (
+                                <Text
+                                    variant="caption"
+                                    tone="secondary"
+                                    testID={`${testID}-address-area`}
+                                >
+                                    {areaName}
+                                </Text>
+                            )}
+                            {delivery.directions === null ? null : (
+                                <Text
+                                    variant="caption"
+                                    tone="secondary"
+                                    testID={`${testID}-directions`}
+                                >
+                                    {t('kitchen:driver.directions', {
+                                        directions: delivery.directions,
+                                    })}
+                                </Text>
+                            )}
+                        </Stack>
+                    </CardRow>
                 )}
 
                 {/*
@@ -746,40 +851,52 @@ function JobCard({ job, locale, disabled, action, onAction, onFail }: JobCardPro
                  * already in a hurry.
                  */}
                 {delivery.customerName === null && delivery.phone === null ? null : (
-                    <Stack space="none" testID={`${testID}-contact`}>
-                        {delivery.customerName === null ? null : (
-                            <Text variant="bodyStrong" testID={`${testID}-customer`}>
-                                {t('kitchen:driver.customer', { name: delivery.customerName })}
-                            </Text>
-                        )}
-                        {delivery.phone === null ? null : (
-                            <Text testID={`${testID}-phone`}>
-                                {t('kitchen:driver.phone', { phone: delivery.phone })}
-                            </Text>
-                        )}
-                    </Stack>
+                    <CardRow icon="person">
+                        <Stack space="none" testID={`${testID}-contact`}>
+                            {delivery.customerName === null ? null : (
+                                <Text variant="bodyStrong" testID={`${testID}-customer`}>
+                                    {t('kitchen:driver.customer', { name: delivery.customerName })}
+                                </Text>
+                            )}
+                            {delivery.phone === null ? null : (
+                                <Text testID={`${testID}-phone`}>
+                                    {t('kitchen:driver.phone', { phone: delivery.phone })}
+                                </Text>
+                            )}
+                        </Stack>
+                    </CardRow>
                 )}
 
-                {job.assignedAt === null ? null : (
-                    <Text variant="caption" tone="secondary" testID={`${testID}-assigned-at`}>
-                        {t('kitchen:driver.assignedAt', {
-                            at: formatter.formatDate(job.assignedAt, { timeStyle: 'short' }),
-                        })}
-                    </Text>
-                )}
-
-                {job.pickedUpAt === null ? null : (
-                    <Text variant="caption" tone="secondary" testID={`${testID}-picked-up-at`}>
-                        {t('kitchen:driver.pickedUpAt', {
-                            at: formatter.formatDate(job.pickedUpAt, { timeStyle: 'short' }),
-                        })}
-                    </Text>
-                )}
+                <Inline space="sm" wrap>
+                    {job.assignedAt === null ? null : (
+                        <Text variant="caption" tone="secondary" testID={`${testID}-assigned-at`}>
+                            {t('kitchen:driver.assignedAt', {
+                                at: formatter.formatDate(job.assignedAt, { timeStyle: 'short' }),
+                            })}
+                        </Text>
+                    )}
+                    {job.pickedUpAt === null ? null : (
+                        <Text variant="caption" tone="secondary" testID={`${testID}-picked-up-at`}>
+                            {t('kitchen:driver.pickedUpAt', {
+                                at: formatter.formatDate(job.pickedUpAt, { timeStyle: 'short' }),
+                            })}
+                        </Text>
+                    )}
+                </Inline>
 
                 {action === 'pickUp' && job.readyAt === null ? (
-                    <Text tone="secondary" testID={`${testID}-waiting-for-kitchen`}>
-                        {t('kitchen:driver.waitingForKitchen')}
-                    </Text>
+                    <Inline
+                        space="xs"
+                        align="center"
+                        justify="center"
+                        wrap={false}
+                        className="min-h-touch rounded-full bg-surface-sunken px-3"
+                    >
+                        <Icon name="clock" size="sm" className="text-content-secondary" />
+                        <Text tone="secondary" testID={`${testID}-waiting-for-kitchen`}>
+                            {t('kitchen:driver.waitingForKitchen')}
+                        </Text>
+                    </Inline>
                 ) : (
                     <Button
                         testID={`${testID}-${action === 'pickUp' ? 'pick-up' : action}`}

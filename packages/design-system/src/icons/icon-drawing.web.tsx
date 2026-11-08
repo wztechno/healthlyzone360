@@ -108,6 +108,13 @@ const GRID_24_DRAWINGS: Partial<Record<IconName, ReactElement>> = {
             <path d="m9 9 6 6" />
         </>
     ),
+    printer: (
+        <>
+            <path d="M6 9V3h12v6" />
+            <rect x="3" y="9" width="18" height="8" rx="2" />
+            <path d="M7 14h10v7H7z" />
+        </>
+    ),
     truck: (
         <>
             <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" />

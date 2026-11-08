@@ -154,6 +154,7 @@ export const DRAWN_ICON_FALLBACKS = {
     circleCheck: 'check',
     circleX: 'error',
     truck: 'user',
+    printer: 'device',
     wallet: 'basket',
     utensils: 'plate',
     cookingPot: 'calendar',
