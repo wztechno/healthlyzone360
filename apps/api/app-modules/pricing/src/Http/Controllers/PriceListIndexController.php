@@ -131,10 +131,11 @@ final class PriceListIndexController
         return [
             'status_counts' => $statusCounts,
             'unpriced_count' => $query->clone()
-                ->whereDoesntHave(
-                    'entries',
-                    /** @param  Builder<PriceListItem>  $entries */
-                    static fn (Builder $entries) => $entries->confirmedOpenRows(),
+                // A list with no confirmed open row. Asked of `PriceListItem` itself so
+                // the scope is typed; `whereDoesntHave`'s closure sees a bare Builder.
+                ->whereNotIn(
+                    (new PriceList)->getQualifiedKeyName(),
+                    PriceListItem::query()->confirmedOpenRows()->select('price_list_id'),
                 )
                 ->toBase()
                 ->getCountForPagination(),
