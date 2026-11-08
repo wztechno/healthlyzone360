@@ -765,7 +765,10 @@ describe('the review queue screen', () => {
             /Nothing is resolved from this window/,
         );
 
-        const action = await getRecordAction('kitchen-review-window', 'kitchen-review-window-primary');
+        const action = await getRecordAction(
+            'kitchen-review-window',
+            'kitchen-review-window-primary',
+        );
         await act(async () => {
             fireEvent.press(action);
         });

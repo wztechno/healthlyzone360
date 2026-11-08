@@ -541,9 +541,9 @@ describe('consumption exceptions at desk width', () => {
             expect(screen.queryByTestId('kitchen-consumption-exceptions-window-note')).toBeNull();
 
             const action = await getRecordAction(
-                        'kitchen-consumption-exceptions-window',
-                        'kitchen-consumption-exceptions-window-fix',
-                    );
+                'kitchen-consumption-exceptions-window',
+                'kitchen-consumption-exceptions-window-fix',
+            );
             await act(async () => {
                 fireEvent.press(action);
             });

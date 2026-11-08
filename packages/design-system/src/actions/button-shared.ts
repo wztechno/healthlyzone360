@@ -21,7 +21,14 @@
  * primary-strength text on a full-weight border, while `ghost` has no box at all and belongs inside
  * dense rows where a border per control would be noise.
  */
-export const BUTTON_VARIANTS = ['primary', 'secondary', 'quiet', 'ghost', 'danger', 'sidebar'] as const;
+export const BUTTON_VARIANTS = [
+    'primary',
+    'secondary',
+    'quiet',
+    'ghost',
+    'danger',
+    'sidebar',
+] as const;
 export type ButtonVariant = (typeof BUTTON_VARIANTS)[number];
 
 export const BUTTON_SIZES = ['sm', 'md', 'lg'] as const;

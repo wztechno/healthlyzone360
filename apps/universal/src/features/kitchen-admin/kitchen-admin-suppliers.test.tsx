@@ -332,7 +332,10 @@ describe('suppliers list', () => {
         await untilVisible('kitchen-suppliers-view');
         expect(routerMock.__setParams).toHaveBeenLastCalledWith({ view: String(GULF.id) });
 
-        const action = await getRecordAction('kitchen-suppliers-view', 'kitchen-suppliers-view-primary');
+        const action = await getRecordAction(
+            'kitchen-suppliers-view',
+            'kitchen-suppliers-view-primary',
+        );
         await act(async () => {
             fireEvent.press(action);
         });
