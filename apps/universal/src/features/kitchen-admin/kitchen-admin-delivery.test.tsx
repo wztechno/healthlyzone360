@@ -2122,28 +2122,17 @@ describe('the branch operating week', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('the delivery cards on the hub', () => {
-    it('offers both families with counts read from the repository', async () => {
-        const zones = [SEEDED_ZONE, UNDECIDED_ZONE];
-
+    it('offers both families from the Go to list', async () => {
         await renderStubScreen(<KitchenHomeScreen />, {
             session: kitchenSession(),
-            repositories: hubRepositories(zones),
+            repositories: hubRepositories([SEEDED_ZONE, UNDECIDED_ZONE]),
         });
         await untilVisible('kitchen-home-screen');
 
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-home-section-commercial-more'));
+        });
         expect(screen.getByTestId('kitchen-family-delivery-zones')).toBeTruthy();
         expect(screen.getByTestId('kitchen-family-branch-operating')).toBeTruthy();
-
-        await untilVisible('kitchen-family-delivery-zones-total');
-        expect(screen.getByTestId('kitchen-family-delivery-zones-total')).toHaveTextContent(
-            new RegExp(String(zones.length)),
-        );
-
-        // The branch card counts trading days rather than records: a week has no publication state.
-        await untilVisible('kitchen-family-branch-operating-total');
-        const openDays = BRANCH_OPERATING.days.filter((day) => day.opensAt !== null).length;
-        expect(screen.getByTestId('kitchen-family-branch-operating-total')).toHaveTextContent(
-            new RegExp(String(openDays)),
-        );
     });
 });

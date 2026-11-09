@@ -210,6 +210,34 @@ export function bucketTickets(
     };
 }
 
+/** One dish on the All day list, in the two languages its lines carry. */
+export interface KdsAllDayLine {
+    readonly nameEn: string;
+    readonly nameAr: string;
+    readonly quantity: number;
+}
+
+/**
+ * What is still to cook, added up by dish, biggest first (the "All day" list).
+ *
+ * Only Incoming and In preparation count: what is Ready is cooked, and Upcoming is another day's
+ * work. Two lines are one dish when both of their names match; the options stay on the tickets.
+ */
+export function allDayTotals(board: KdsBoard): readonly KdsAllDayLine[] {
+    const totals = new Map<string, KdsAllDayLine>();
+    for (const order of [...board.incoming, ...board.preparing]) {
+        for (const line of order.lines) {
+            const key = `${line.nameEn}\u0000${line.nameAr}`;
+            totals.set(key, {
+                nameEn: line.nameEn,
+                nameAr: line.nameAr,
+                quantity: (totals.get(key)?.quantity ?? 0) + Number(line.quantity),
+            });
+        }
+    }
+    return [...totals.values()].sort((left, right) => right.quantity - left.quantity);
+}
+
 /** Upcoming tickets grouped by their requested day, earliest first, soonest due first within. */
 function byDay(orders: readonly KitchenOrder[]): readonly KdsUpcomingDay[] {
     const days = new Map<string, KitchenOrder[]>();

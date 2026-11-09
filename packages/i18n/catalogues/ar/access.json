@@ -77,6 +77,14 @@
         "open": "فتح {{area}}",
         "webShop": "المتجر الإلكتروني",
         "yourAccount": "حسابك",
-        "workingIn": "تعمل في"
+        "resume": "تابع من حيث توقفت",
+        "viewOnly": "عرض فقط",
+        "shopPages": "اكتشف · القائمة · المطابخ",
+        "toConfirm": "{{count}} بانتظار التأكيد",
+        "confirmed": "{{count}} مؤكد",
+        "live": "مباشر",
+        "onBoard": "{{count}} على الشاشة",
+        "waiting": "{{count}} بالانتظار",
+        "assignedOnRoad": "{{assigned}} مُسند · {{onRoad}} في الطريق"
     }
 }

@@ -604,6 +604,10 @@ describe('the kitchen hub', () => {
         await untilVisible('kitchen-home-screen');
 
         expect(screen.getByTestId('kitchen-family-ingredients')).toBeTruthy();
+        // The fifth module of a section waits behind "+N more".
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-home-section-catalogue-more'));
+        });
         expect(screen.getByTestId('kitchen-family-allergen-classes')).toBeTruthy();
         expect(screen.getByTestId('kitchen-home-section-catalogue')).toBeTruthy();
         expect(screen.getByTestId('kitchen-home-kpis')).toBeTruthy();

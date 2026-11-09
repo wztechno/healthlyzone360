@@ -968,6 +968,48 @@ export function useRecipeKindCountsQuery(enabled = true): UseQueryResult<RecipeK
     });
 }
 
+/**
+ * How much of each kind is on sale, for the overview's bars: for every kind, two numbered-page
+ * requests of one row each, reading `totalCount`, so nothing walks pages.
+ */
+export function useRecipeOnSaleByKindQuery(
+    enabled = true,
+): UseQueryResult<
+    Readonly<
+        Record<RecipeKind, { readonly total: number | null; readonly published: number | null }>
+    >
+> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.recipes({ derive: 'on-sale-by-kind' }),
+        enabled: enabled && repositories !== null,
+        queryFn: async () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            const counted = await Promise.all(
+                RECIPE_KINDS.map(async (kind) => {
+                    const [all, onSale] = await Promise.all([
+                        repositories.kitchenAdmin.listRecipes({ kind, page: 1, perPage: 1 }),
+                        repositories.kitchenAdmin.listRecipes({
+                            kind,
+                            sellingStatus: 'published',
+                            page: 1,
+                            perPage: 1,
+                        }),
+                    ]);
+                    return [kind, { total: all.totalCount, published: onSale.totalCount }] as const;
+                }),
+            );
+            return Object.fromEntries(counted) as Readonly<
+                Record<
+                    RecipeKind,
+                    { readonly total: number | null; readonly published: number | null }
+                >
+            >;
+        },
+    });
+}
+
 /* ── recipe writes ───────────────────────────────────────────────────────────────────────────── */
 
 /**

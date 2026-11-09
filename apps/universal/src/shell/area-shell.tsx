@@ -252,10 +252,22 @@ function GuardedAreaShell({
                         <Button
                             testID="sign-out"
                             size="sm"
-                            variant="primary"
+                            // The workspace page's bar is the quiet one its board draws.
+                            variant={pathname === '/workspace' ? 'secondary' : 'primary'}
                             label={t('common:action.signOut')}
                             loading={logout.isPending}
-                            className="self-center"
+                            {...(pathname === '/workspace'
+                                ? {
+                                      iconStart: (
+                                          <Icon
+                                              name="signOut"
+                                              size="sm"
+                                              className="text-content-primary"
+                                          />
+                                      ),
+                                      className: '!h-11 !min-h-0 self-center !rounded-full !px-4',
+                                  }
+                                : { className: 'self-center' })}
                             onPress={signOut}
                         />
                     )}

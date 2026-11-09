@@ -143,18 +143,25 @@ module.exports = {
         "tint": {
           "green": "rgb(var(--h360-color-tint-green) / <alpha-value>)",
           "green-on": "rgb(var(--h360-color-tint-green-on) / <alpha-value>)",
+          "green-fill": "rgb(var(--h360-color-tint-green-fill) / <alpha-value>)",
           "blue": "rgb(var(--h360-color-tint-blue) / <alpha-value>)",
           "blue-on": "rgb(var(--h360-color-tint-blue-on) / <alpha-value>)",
+          "blue-fill": "rgb(var(--h360-color-tint-blue-fill) / <alpha-value>)",
           "orange": "rgb(var(--h360-color-tint-orange) / <alpha-value>)",
           "orange-on": "rgb(var(--h360-color-tint-orange-on) / <alpha-value>)",
+          "orange-fill": "rgb(var(--h360-color-tint-orange-fill) / <alpha-value>)",
           "yellow": "rgb(var(--h360-color-tint-yellow) / <alpha-value>)",
           "yellow-on": "rgb(var(--h360-color-tint-yellow-on) / <alpha-value>)",
+          "yellow-fill": "rgb(var(--h360-color-tint-yellow-fill) / <alpha-value>)",
           "pink": "rgb(var(--h360-color-tint-pink) / <alpha-value>)",
           "pink-on": "rgb(var(--h360-color-tint-pink-on) / <alpha-value>)",
+          "pink-fill": "rgb(var(--h360-color-tint-pink-fill) / <alpha-value>)",
           "violet": "rgb(var(--h360-color-tint-violet) / <alpha-value>)",
           "violet-on": "rgb(var(--h360-color-tint-violet-on) / <alpha-value>)",
+          "violet-fill": "rgb(var(--h360-color-tint-violet-fill) / <alpha-value>)",
           "teal": "rgb(var(--h360-color-tint-teal) / <alpha-value>)",
-          "teal-on": "rgb(var(--h360-color-tint-teal-on) / <alpha-value>)"
+          "teal-on": "rgb(var(--h360-color-tint-teal-on) / <alpha-value>)",
+          "teal-fill": "rgb(var(--h360-color-tint-teal-fill) / <alpha-value>)"
         }
       },
       "spacing": {
