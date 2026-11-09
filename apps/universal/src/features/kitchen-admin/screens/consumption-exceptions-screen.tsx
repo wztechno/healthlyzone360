@@ -579,6 +579,8 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
               );
     const controls = useColumnControls(searched, columns, 'kitchen-consumption-exceptions-table');
     const failure = toFailure(exceptions.error);
+    /** Rows on screen: the toolbar card then runs on into the table rather than closing above it. */
+    const joined = !exceptions.isPending && failure === null && controls.rows.length > 0;
 
     const pickStatus = (next: StockGapStatus) => {
         setStatus(next);
@@ -699,144 +701,150 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
 
     return (
         <Cascade space="md" testID="kitchen-consumption-exceptions-screen">
-            {/* The Lens bar — figures, mix and query row as one object (`lens-bar.tsx`). */}
-            <LensBar
-                testID="kitchen-consumption-exceptions-toolbar"
-                label={t('kitchen:lens.label')}
-                {...(failure !== null
-                    ? { figures: [] }
-                    : gapsLens(
-                          {
-                              status,
-                              total: exceptions.isPending ? null : total,
-                              unresolved,
-                              resolved,
-                          },
-                          pickStatus,
-                          t,
-                      ))}
-                search={query}
-                onSearchChange={(next) => {
-                    setQuery(next);
-                    closeRecord();
-                }}
-                searchLabel={t('kitchen:toolbar.searchLabel')}
-                searchPlaceholder={t('kitchen:ops.exceptions.searchPlaceholder')}
-                result={
-                    exceptions.isPending
-                        ? null
-                        : t('kitchen:lens.result', {
-                              shown: shownSoFar,
-                              total: total ?? shownSoFar,
-                          })
-                }
-                clearLabel={t('kitchen:lens.clear')}
-                {...(filtered ? { onClear: clearFilters } : {})}
-                /*
-                 * The raised-between window, as the purchases ledger draws its own: two days with
-                 * "to" between, either bound open, and each picker keeps the other honest — From
-                 * cannot pass To, nor To precede From. The Period shortcut before it writes both
-                 * days, and All clears them.
-                 */
-                scope={
-                    <>
-                        <PeriodScope
-                            testID="kitchen-exceptions-filter-period"
-                            today={today}
-                            value={{ from, to }}
-                            allowAll
-                            onChange={(next) => {
-                                setFrom(next.from);
-                                setTo(next.to);
-                                refilter();
-                            }}
-                        />
-                        <View className="z-auto flex-row items-center gap-tight">
-                            <DatePickerButton
-                                testID="kitchen-exceptions-filter-from"
-                                label={t('kitchen:ops.exceptions.filterFrom')}
-                                value={from}
-                                max={to === '' ? undefined : to}
-                                placeholder={t('kitchen:ops.exceptions.fromPlaceholder')}
-                                onChange={(next) => {
-                                    setFrom(next);
-                                    refilter();
-                                }}
-                                onClear={() => {
-                                    setFrom('');
-                                    refilter();
-                                }}
-                            />
-                            <Text variant="caption" tone="secondary" aria-hidden>
-                                {t('kitchen:ops.requirements.windowTo')}
-                            </Text>
-                            <DatePickerButton
-                                testID="kitchen-exceptions-filter-to"
-                                label={t('kitchen:ops.exceptions.filterTo')}
-                                value={to}
-                                min={from === '' ? undefined : from}
-                                placeholder={t('kitchen:ops.exceptions.toPlaceholder')}
-                                onChange={(next) => {
-                                    setTo(next);
-                                    refilter();
-                                }}
-                                onClear={() => {
-                                    setTo('');
-                                    refilter();
-                                }}
-                            />
-                        </View>
-                    </>
-                }
-                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
-            />
-
-            {exceptions.isPending ? (
-                <TableSkeleton testID="kitchen-consumption-exceptions-loading" rows={8} />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-consumption-exceptions-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void exceptions.refetch();
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                {/* The Lens bar — figures, mix and query row as one object (`lens-bar.tsx`). */}
+                <LensBar
+                    testID="kitchen-consumption-exceptions-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    {...(failure !== null
+                        ? { figures: [] }
+                        : gapsLens(
+                              {
+                                  status,
+                                  total: exceptions.isPending ? null : total,
+                                  unresolved,
+                                  resolved,
+                              },
+                              pickStatus,
+                              t,
+                          ))}
+                    search={query}
+                    onSearchChange={(next) => {
+                        setQuery(next);
+                        closeRecord();
                     }}
-                    retrying={exceptions.isFetching}
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t('kitchen:ops.exceptions.searchPlaceholder')}
+                    result={
+                        exceptions.isPending
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  shown: shownSoFar,
+                                  total: total ?? shownSoFar,
+                              })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(filtered ? { onClear: clearFilters } : {})}
+                    /*
+                     * The raised-between window, as the purchases ledger draws its own: two days with
+                     * "to" between, either bound open, and each picker keeps the other honest — From
+                     * cannot pass To, nor To precede From. The Period shortcut before it writes both
+                     * days, and All clears them.
+                     */
+                    scope={
+                        <>
+                            <PeriodScope
+                                testID="kitchen-exceptions-filter-period"
+                                today={today}
+                                value={{ from, to }}
+                                allowAll
+                                onChange={(next) => {
+                                    setFrom(next.from);
+                                    setTo(next.to);
+                                    refilter();
+                                }}
+                            />
+                            <View className="z-auto flex-row items-center gap-tight">
+                                <DatePickerButton
+                                    testID="kitchen-exceptions-filter-from"
+                                    label={t('kitchen:ops.exceptions.filterFrom')}
+                                    value={from}
+                                    max={to === '' ? undefined : to}
+                                    placeholder={t('kitchen:ops.exceptions.fromPlaceholder')}
+                                    onChange={(next) => {
+                                        setFrom(next);
+                                        refilter();
+                                    }}
+                                    onClear={() => {
+                                        setFrom('');
+                                        refilter();
+                                    }}
+                                />
+                                <Text variant="caption" tone="secondary" aria-hidden>
+                                    {t('kitchen:ops.requirements.windowTo')}
+                                </Text>
+                                <DatePickerButton
+                                    testID="kitchen-exceptions-filter-to"
+                                    label={t('kitchen:ops.exceptions.filterTo')}
+                                    value={to}
+                                    min={from === '' ? undefined : from}
+                                    placeholder={t('kitchen:ops.exceptions.toPlaceholder')}
+                                    onChange={(next) => {
+                                        setTo(next);
+                                        refilter();
+                                    }}
+                                    onClear={() => {
+                                        setTo('');
+                                        refilter();
+                                    }}
+                                />
+                            </View>
+                        </>
+                    }
+                    trailing={<ColumnPicker {...controls.picker} compact />}
                 />
-            ) : rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-consumption-exceptions-empty"
-                    title={t('kitchen:ops.exceptions.emptyTitle')}
-                    body={t('kitchen:ops.exceptions.emptyBody')}
-                />
-            ) : controls.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-consumption-exceptions-filtered-empty"
-                    title={t('kitchen:ops.exceptions.filteredEmptyTitle')}
-                    body={t('kitchen:ops.exceptions.filteredEmptyBody')}
-                />
-            ) : (
-                <View className="flex-col gap-2.5">
-                    <CatalogueList<ConsumptionException>
-                        testID="kitchen-consumption-exceptions-table"
-                        label={t('kitchen:ops.exceptions.title')}
-                        columns={controls.columns}
-                        rows={controls.rows}
-                        rowKey={(row) => row.id}
-                        onRowPress={openRecord}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                    />
-                    <CataloguePager
-                        testID="kitchen-consumption-exceptions-pagination"
-                        page={page}
-                        totalPages={totalPages}
-                        onPageChange={(next) => {
-                            setPage(next);
-                            closeRecord();
+
+                {exceptions.isPending ? (
+                    <TableSkeleton testID="kitchen-consumption-exceptions-loading" rows={8} />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-consumption-exceptions-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void exceptions.refetch();
                         }}
-                        label={t('kitchen:catalogue.pagerLabel')}
+                        retrying={exceptions.isFetching}
                     />
-                </View>
-            )}
+                ) : rows.length === 0 ? (
+                    <EmptyState
+                        testID="kitchen-consumption-exceptions-empty"
+                        title={t('kitchen:ops.exceptions.emptyTitle')}
+                        body={t('kitchen:ops.exceptions.emptyBody')}
+                    />
+                ) : controls.rows.length === 0 ? (
+                    <EmptyState
+                        testID="kitchen-consumption-exceptions-filtered-empty"
+                        title={t('kitchen:ops.exceptions.filteredEmptyTitle')}
+                        body={t('kitchen:ops.exceptions.filteredEmptyBody')}
+                    />
+                ) : (
+                    <View className="flex-col gap-2.5">
+                        <CatalogueList<ConsumptionException>
+                            testID="kitchen-consumption-exceptions-table"
+                            joined
+                            label={t('kitchen:ops.exceptions.title')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => row.id}
+                            onRowPress={openRecord}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                        />
+                        <CataloguePager
+                            testID="kitchen-consumption-exceptions-pagination"
+                            page={page}
+                            totalPages={totalPages}
+                            onPageChange={(next) => {
+                                setPage(next);
+                                closeRecord();
+                            }}
+                            label={t('kitchen:catalogue.pagerLabel')}
+                        />
+                    </View>
+                )}
+            </View>
 
             <Dialog
                 testID="kitchen-exception-resolve-dialog"

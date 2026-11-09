@@ -17,6 +17,7 @@ import {
     Stack,
     Text,
     useToast,
+    cx,
 } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -512,7 +513,12 @@ export function SetupStep({
     return (
         <Card testID={testID} padding="sm">
             <View className="flex-row flex-wrap items-start gap-snug">
-                <View className="h-7 w-7 items-center justify-center rounded-full bg-surface-sunken">
+                <View
+                    className={cx(
+                        'h-7 w-7 items-center justify-center rounded-full',
+                        done ? 'bg-surface-brand-subtle' : 'bg-surface-sunken',
+                    )}
+                >
                     {done ? (
                         <Icon name="circleCheck" size="sm" className="text-success-strong" />
                     ) : (

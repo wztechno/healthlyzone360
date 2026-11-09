@@ -98,6 +98,7 @@ function KitchenSetup() {
                         <Button
                             testID={`${PAGE}-${step.key}-open`}
                             variant="secondary"
+                            size="sm"
                             label={t('kitchen:setup.open')}
                             onPress={() => {
                                 router.push(STEP_HREF[step.key] as never);

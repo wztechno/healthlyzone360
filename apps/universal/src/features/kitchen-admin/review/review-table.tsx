@@ -55,6 +55,8 @@ export interface ReviewTableProps {
     /** From {@link useReviewColumns} — held by the screen, so its toolbar carries the picker. */
     readonly controls: ReviewColumnControls;
     readonly onView: (item: ReviewItem) => void;
+    /** Closes the card a split Lens bar opens above it. */
+    readonly joined?: boolean | undefined;
     readonly testID: string;
 }
 
@@ -242,7 +244,7 @@ export function useReviewColumns({
     });
 }
 
-export function ReviewTable({ items, controls, onView, testID }: ReviewTableProps) {
+export function ReviewTable({ items, controls, onView, joined, testID }: ReviewTableProps) {
     const { t } = useTranslation();
 
     /**
@@ -268,6 +270,7 @@ export function ReviewTable({ items, controls, onView, testID }: ReviewTableProp
                 rowKey={(item) => `${item.familyKey}-${item.id}`}
                 onRowPress={onView}
                 rowActionsLabel={t('kitchen:list.rowActions')}
+                joined={joined}
             />
             <CataloguePager
                 testID={`${testID}-pagination`}
