@@ -346,6 +346,8 @@ export interface RecordCanopyHeroProps {
               readonly note?: string | undefined;
           }
         | undefined;
+    /** What a record on a route of its own can do, its way back first, at the inline end. */
+    readonly actions?: ReactNode | undefined;
     readonly testID: string;
 }
 
@@ -371,6 +373,7 @@ export function RecordCanopyHero({
     kindTestID,
     media,
     figure,
+    actions,
     testID,
 }: RecordCanopyHeroProps) {
     const isRtl = useIsRtl();
@@ -513,6 +516,15 @@ export function RecordCanopyHero({
                                 {figure.note}
                             </RNText>
                         )}
+                    </View>
+                )}
+
+                {actions === undefined ? null : (
+                    <View
+                        testID={`${testID}-actions`}
+                        className="z-auto ms-auto flex-row flex-wrap items-center gap-tight"
+                    >
+                        {actions}
                     </View>
                 )}
             </View>

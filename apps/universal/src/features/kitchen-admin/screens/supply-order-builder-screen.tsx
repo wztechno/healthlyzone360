@@ -386,12 +386,14 @@ function SupplyOrderBuilder() {
                                 </Text>
                                 {row.isOutOfStock ? (
                                     <Badge
+                                        icon={null}
                                         testID={`${testID}-out`}
                                         tone="danger"
                                         label={t('kitchen:ops.supplyOrders.outBadge')}
                                     />
                                 ) : row.isLow ? (
                                     <Badge
+                                        icon={null}
                                         testID={`${testID}-low`}
                                         tone="warning"
                                         label={t('kitchen:ops.supplyOrders.lowBadge')}
@@ -594,11 +596,12 @@ function SupplyOrderBuilder() {
                             <Badge
                                 testID={`${testID}-choose-supplier`}
                                 tone="warning"
-                                icon="warning"
+                                icon={null}
                                 label={t('kitchen:ops.supplyOrders.chooseSupplier')}
                             />
                         ) : current.isPreferred ? (
                             <Badge
+                                icon={null}
                                 testID={`${testID}-preferred`}
                                 tone="info"
                                 label={t('kitchen:ops.supplyOrders.preferredBadge')}
@@ -806,7 +809,7 @@ function SupplyOrderBuilder() {
                             <>
                                 <FormSection
                                     first
-                                    variant="card"
+                                    variant="panel"
                                     testID="kitchen-supply-order-needs"
                                     title={t('kitchen:ops.supplyOrders.needsTitle')}
                                     aside={
@@ -891,7 +894,7 @@ function SupplyOrderBuilder() {
                                 {unlinked.length === 0 ? null : (
                                     <FormSection
                                         first
-                                        variant="card"
+                                        variant="panel"
                                         testID="kitchen-supply-order-unlinked"
                                         title={t('kitchen:ops.supplyOrders.unlinkedTitle')}
                                         actions={
@@ -927,6 +930,7 @@ function SupplyOrderBuilder() {
 
                     {loaded ? (
                         <RecordSummaryAside
+                            variant="panel"
                             testID="kitchen-supply-order-preview"
                             title={t('kitchen:ops.supplyOrders.readyTitle')}
                             width={sideBySide ? ASIDE_WIDTH : null}

@@ -255,6 +255,7 @@ function AnalyticsDashboard() {
     const lens = (
         <LensBar
             testID="kitchen-analytics-toolbar"
+            layout="split"
             label={t('kitchen:lens.label')}
             figures={figures}
             scope={

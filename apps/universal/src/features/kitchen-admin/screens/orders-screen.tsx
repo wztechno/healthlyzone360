@@ -379,6 +379,7 @@ function Orders({ view }: { readonly view?: string | undefined }) {
             },
             render: (row) => (
                 <Badge
+                    icon={null}
                     testID={`${kitchenOrderRowTestId(String(row.id))}-status`}
                     tone={kitchenOrderStatusTone(row.status)}
                     label={t(kitchenOrderStatusKey(row.status))}
@@ -411,133 +412,156 @@ function Orders({ view }: { readonly view?: string | undefined }) {
 
     const pending = orders.isPending && rows.length === 0;
 
+    // The table closes the toolbar's card once the list has loaded.
+    const joined = !(orders.isPending && rows.length === 0) && listFailure === null;
+
     return (
         <Cascade space="md" testID="kitchen-orders-screen">
-            <LensBar
-                testID="kitchen-orders-toolbar"
-                label={t('kitchen:lens.label')}
-                // A failed read has no figures to state; they hold their placeholders over the error.
-                figures={lensFigures(
-                    rows,
-                    pending || listFailure !== null,
-                    status,
-                    t,
-                    changeStatus,
-                )}
-                {...(pending || listFailure !== null ? {} : lensMix(rows, status, t))}
-                search={query}
-                onSearchChange={(next) => {
-                    setQuery(next);
-                    setCursor(null);
-                    setCarried([]);
-                }}
-                searchLabel={t('kitchen:ops.orders.searchLabel')}
-                searchPlaceholder={t('kitchen:ops.orders.searchHint')}
-                tokens={lensTokens(
-                    status,
-                    deliveryDate,
-                    t,
-                    formatter,
-                    changeStatus,
-                    changeDeliveryDate,
-                )}
-                result={
-                    pending || listFailure !== null
-                        ? null
-                        : t('kitchen:lens.result', {
-                              shown: controls.rows.length,
-                              total: rows.length,
-                          })
-                }
-                clearLabel={t('kitchen:lens.clear')}
-                {...(unfiltered && !controls.filtered ? {} : { onClear: clearAll })}
-                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
-            />
-
-            {orders.isPending && rows.length === 0 ? (
-                <TableSkeleton testID="kitchen-orders-loading" partTestID="kitchen-orders" />
-            ) : listFailure !== null ? (
-                <ErrorState
-                    testID="kitchen-orders-error"
-                    title={t('kitchen:ops.orders.loadErrorTitle')}
-                    failure={listFailure}
-                    onRetry={() => {
-                        void orders.refetch();
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-orders-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    // A failed read has no figures to state; they hold their placeholders over the error.
+                    figures={lensFigures(
+                        rows,
+                        pending || listFailure !== null,
+                        status,
+                        t,
+                        changeStatus,
+                    )}
+                    {...(pending || listFailure !== null ? {} : lensMix(rows, status, t))}
+                    search={query}
+                    onSearchChange={(next) => {
+                        setQuery(next);
+                        setCursor(null);
+                        setCarried([]);
                     }}
-                    retrying={orders.isFetching}
-                />
-            ) : controls.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-orders-empty"
-                    title={t(
-                        unfiltered
-                            ? 'kitchen:ops.orders.emptyTitle'
-                            : 'kitchen:ops.orders.filteredEmptyTitle',
+                    searchLabel={t('kitchen:ops.orders.searchLabel')}
+                    searchPlaceholder={t('kitchen:ops.orders.searchHint')}
+                    tokens={lensTokens(
+                        status,
+                        deliveryDate,
+                        t,
+                        formatter,
+                        changeStatus,
+                        changeDeliveryDate,
                     )}
-                    body={t(
-                        unfiltered
-                            ? 'kitchen:ops.orders.emptyBody'
-                            : 'kitchen:ops.orders.filteredEmptyBody',
-                    )}
-                    actions={
-                        unfiltered ? undefined : (
-                            <Button
-                                testID="kitchen-orders-clear"
-                                variant="secondary"
-                                size="sm"
-                                label={t('kitchen:ops.orders.clearFilters')}
-                                onPress={clearAll}
-                            />
-                        )
+                    result={
+                        pending || listFailure !== null
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  shown: controls.rows.length,
+                                  total: rows.length,
+                              })
                     }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(unfiltered && !controls.filtered ? {} : { onClear: clearAll })}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                 />
-            ) : (
-                <Stack space="sm">
-                    <CatalogueList<KitchenOrder>
-                        testID="kitchen-orders-table"
-                        label={t('kitchen:ops.orders.caption')}
-                        columns={controls.columns}
-                        rows={controls.rows}
-                        rowKey={(row) => String(row.id)}
-                        density="sm"
-                        highlightedId={lastOpenedId}
-                        onRowPress={openRecord}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                        rowActions={(row): readonly MenuItem[] => [
-                            {
-                                key: 'view',
-                                label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
-                                testID: `${kitchenOrderRowTestId(String(row.id))}-view`,
-                                onSelect: () => {
-                                    openRecord(row);
-                                },
-                            },
-                        ]}
-                    />
 
-                    {page?.hasMore === true ? (
-                        <View className="flex-row justify-end">
-                            <Button
-                                testID="kitchen-orders-load-more"
-                                variant="secondary"
-                                size="sm"
-                                label={
-                                    orders.isFetching
-                                        ? t('kitchen:ops.orders.loadingMore')
-                                        : t('kitchen:ops.orders.loadMore')
+                {orders.isPending && rows.length === 0 ? (
+                    <TableSkeleton testID="kitchen-orders-loading" partTestID="kitchen-orders" />
+                ) : listFailure !== null ? (
+                    <ErrorState
+                        testID="kitchen-orders-error"
+                        title={t('kitchen:ops.orders.loadErrorTitle')}
+                        failure={listFailure}
+                        onRetry={() => {
+                            void orders.refetch();
+                        }}
+                        retrying={orders.isFetching}
+                    />
+                ) : controls.rows.length === 0 ? (
+                    <CatalogueList
+                        testID="kitchen-orders-empty-list"
+                        label={t('kitchen:lens.label')}
+                        columns={controls.columns}
+                        rows={[]}
+                        rowKey={() => ''}
+                        density="sm"
+                        joined
+                        frameEmpty
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        emptyState={
+                            <EmptyState
+                                shape="table"
+                                testID="kitchen-orders-empty"
+                                title={t(
+                                    unfiltered
+                                        ? 'kitchen:ops.orders.emptyTitle'
+                                        : 'kitchen:ops.orders.filteredEmptyTitle',
+                                )}
+                                body={t(
+                                    unfiltered
+                                        ? 'kitchen:ops.orders.emptyBody'
+                                        : 'kitchen:ops.orders.filteredEmptyBody',
+                                )}
+                                actions={
+                                    unfiltered ? undefined : (
+                                        <Button
+                                            testID="kitchen-orders-clear"
+                                            variant="secondary"
+                                            size="sm"
+                                            label={t('kitchen:ops.orders.clearFilters')}
+                                            onPress={clearAll}
+                                        />
+                                    )
                                 }
-                                disabled={orders.isFetching || page.nextCursor === null}
-                                onPress={() => {
-                                    if (page.nextCursor === null) return;
-                                    setCarried(rows);
-                                    setCursor(page.nextCursor);
-                                }}
                             />
-                        </View>
-                    ) : null}
-                </Stack>
-            )}
+                        }
+                    />
+                ) : (
+                    <Stack space="sm">
+                        <CatalogueList<KitchenOrder>
+                            testID="kitchen-orders-table"
+                            joined
+                            label={t('kitchen:ops.orders.caption')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => String(row.id)}
+                            density="sm"
+                            highlightedId={lastOpenedId}
+                            onRowPress={openRecord}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                            rowActions={(row): readonly MenuItem[] => [
+                                {
+                                    key: 'view',
+                                    label: t('kitchen:list.view'),
+                                    icon: CATALOGUE_ROW_ICONS.view,
+                                    testID: `${kitchenOrderRowTestId(String(row.id))}-view`,
+                                    onSelect: () => {
+                                        openRecord(row);
+                                    },
+                                },
+                            ]}
+                        />
+
+                        {page?.hasMore === true ? (
+                            <View className="flex-row justify-end">
+                                <Button
+                                    testID="kitchen-orders-load-more"
+                                    variant="secondary"
+                                    size="sm"
+                                    label={
+                                        orders.isFetching
+                                            ? t('kitchen:ops.orders.loadingMore')
+                                            : t('kitchen:ops.orders.loadMore')
+                                    }
+                                    disabled={orders.isFetching || page.nextCursor === null}
+                                    onPress={() => {
+                                        if (page.nextCursor === null) return;
+                                        setCarried(rows);
+                                        setCursor(page.nextCursor);
+                                    }}
+                                />
+                            </View>
+                        ) : null}
+                    </Stack>
+                )}
+            </View>
 
             {viewPopup}
         </Cascade>
@@ -616,6 +640,7 @@ function OrderLinesTable({
                         <Inline space="xs" wrap>
                             {line.allergens.map((allergen) => (
                                 <Badge
+                                    icon={null}
                                     key={allergen.allergenCode}
                                     tone={
                                         allergen.containment === 'contains' ? 'danger' : 'warning'
@@ -1255,6 +1280,8 @@ function OrderRecord({
         <>
             <RecordViewPage
                 testID="kitchen-orders-detail"
+                look="board"
+                eyebrow={t('kitchen:recordView.eyebrowOrders')}
                 banner={failureBanner}
                 onBack={onBack}
                 title={t('kitchen:ops.orders.detailTitle', { number })}

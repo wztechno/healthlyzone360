@@ -701,6 +701,9 @@
             "receiptsTitle": "Deliveries",
             "receiptNoDocumentRef": "No delivery note",
             "view": {
+                "stepDone": "Done",
+                "stepPartial": "Partial",
+                "stepClosedShort": "Closed short",
                 "historyLabel": "Where the order has got to",
                 "stepMade": "Made {{date}}",
                 "stepDeliveries_one": "{{date}} · {{count}} delivery",
@@ -1050,6 +1053,9 @@
             "emptyTitle": "Nothing to receive",
             "emptyBody": "No order is open for delivery at this branch. Issue one first.",
             "orderMissingTitle": "That order is not open for delivery",
+            "findOrderLabel": "Find an order",
+            "findOrderPlaceholder": "Find an order by number or supplier",
+            "columnIssued": "Issued",
             "orderMissingBody": "It may already be complete, or it belongs to another branch.",
             "fieldOrder": "Order",
             "fieldReceivedOn": "Date received",
@@ -4768,7 +4774,17 @@
         "eyebrowPriceLists": "Price lists",
         "eyebrowQuotations": "Quotations",
         "eyebrowPlans": "Plans",
-        "eyebrowZones": "Delivery zones"
+        "eyebrowZones": "Delivery zones",
+        "eyebrowSupplyOrders": "Supply orders",
+        "eyebrowSuppliers": "Suppliers",
+        "eyebrowProcurement": "Procurement",
+        "eyebrowLedger": "Purchases ledger",
+        "eyebrowQualityControl": "Quality control",
+        "eyebrowCostReport": "Cost report",
+        "eyebrowCustomers": "Customers",
+        "eyebrowOrders": "Orders",
+        "eyebrowStock": "Stock",
+        "eyebrowComplaints": "Complaints"
     },
     "search": {
         "label": "Search pages",

@@ -1192,7 +1192,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                         <View className="z-auto min-w-0 flex-1 flex-col gap-base">
                             <FormSection
                                 first
-                                variant="card"
+                                variant="panel"
                                 testID="kitchen-post-receipt-arrival-section"
                                 title={t('kitchen:ops.procurement.arrivalSection')}
                             >
@@ -1241,7 +1241,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
 
                             <FormSection
                                 first
-                                variant="card"
+                                variant="panel"
                                 testID="kitchen-post-receipt-details"
                                 title={t('kitchen:ops.procurement.receiptSection')}
                             >
@@ -1376,7 +1376,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
 
                             <FormSection
                                 first
-                                variant="card"
+                                variant="panel"
                                 testID="kitchen-post-receipt-lines"
                                 title={t('kitchen:ops.procurement.linesSection')}
                                 aside={
@@ -1574,6 +1574,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                         </View>
 
                         <RecordSummaryAside
+                            variant="panel"
                             testID="kitchen-post-receipt-summary"
                             title={t('kitchen:ops.procurement.summaryTitle')}
                             width={sideBySide ? ASIDE_WIDTH : null}

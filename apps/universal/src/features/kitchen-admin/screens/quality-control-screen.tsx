@@ -319,6 +319,7 @@ function QualityCheckList({
             },
             render: (row) => (
                 <Badge
+                    icon={null}
                     testID={`${qualityCheckRowTestId(String(row.id))}-status`}
                     tone={qualityCheckStatusTone(row.status)}
                     label={t(qualityCheckStatusKey(row.status))}
@@ -371,6 +372,8 @@ function QualityCheckList({
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-qc-view"
+                look="board"
+                eyebrow={t('kitchen:recordView.eyebrowQualityControl')}
                 onBack={() => {
                     setViewing(null);
                 }}
@@ -420,125 +423,148 @@ function QualityCheckList({
             />
         );
 
+    // The table closes the toolbar's card once the list has loaded.
+    const joined = !checks.isPending && failure === null;
+
     return (
         <Cascade space="md" testID="kitchen-qc-screen">
             {/* The Lens bar — figures, mix and query row as one object (`lens-bar.tsx`). */}
-            <LensBar
-                testID="kitchen-qc-toolbar"
-                label={t('kitchen:lens.label')}
-                {...(failure !== null
-                    ? { figures: [] }
-                    : qcLens(checks.isPending ? null : scopeRows, status, pickStatus, t))}
-                search={query}
-                onSearchChange={(next) => {
-                    setQuery(next);
-                    setViewing(null);
-                }}
-                searchLabel={t('kitchen:toolbar.searchLabel')}
-                searchPlaceholder={t('kitchen:ops.qc.searchPlaceholder')}
-                tokens={tokens}
-                result={
-                    checks.isPending
-                        ? null
-                        : t('kitchen:lens.result', {
-                              shown: controls.rows.length,
-                              total: checks.data?.length ?? 0,
-                          })
-                }
-                clearLabel={t('kitchen:lens.clear')}
-                {...(unfiltered ? {} : { onClear: clearFilters })}
-                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
-                actions={
-                    canManage ? (
-                        <Button
-                            testID="kitchen-qc-create"
-                            label={t('kitchen:ops.qc.create')}
-                            iconStart={<Icon name="plus" size="sm" />}
-                            onPress={onCreate}
-                        />
-                    ) : undefined
-                }
-            />
-
-            {checks.isPending ? (
-                <TableSkeleton testID="kitchen-qc-loading" />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-qc-error"
-                    title={t('kitchen:ops.qc.loadErrorTitle')}
-                    failure={failure}
-                    onRetry={() => {
-                        void checks.refetch();
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-qc-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    {...(failure !== null
+                        ? { figures: [] }
+                        : qcLens(checks.isPending ? null : scopeRows, status, pickStatus, t))}
+                    search={query}
+                    onSearchChange={(next) => {
+                        setQuery(next);
+                        setViewing(null);
                     }}
-                    retrying={checks.isFetching}
-                />
-            ) : controls.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-qc-empty"
-                    title={
-                        unfiltered
-                            ? t('kitchen:ops.qc.emptyTitle')
-                            : t('kitchen:ops.qc.filteredEmptyTitle')
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t('kitchen:ops.qc.searchPlaceholder')}
+                    tokens={tokens}
+                    result={
+                        checks.isPending
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  shown: controls.rows.length,
+                                  total: checks.data?.length ?? 0,
+                              })
                     }
-                    body={
-                        unfiltered
-                            ? t('kitchen:ops.qc.emptyBody')
-                            : t('kitchen:ops.qc.filteredEmptyBody')
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(unfiltered ? {} : { onClear: clearFilters })}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                    actions={
+                        canManage ? (
+                            <Button
+                                testID="kitchen-qc-create"
+                                label={t('kitchen:ops.qc.create')}
+                                iconStart={<Icon name="plus" size="sm" />}
+                                onPress={onCreate}
+                            />
+                        ) : undefined
                     }
                 />
-            ) : (
-                <Stack space="sm">
-                    <CatalogueList<QualityCheck>
-                        testID="kitchen-qc-checks"
-                        label={t('kitchen:ops.qc.checksHeading')}
-                        columns={controls.columns}
-                        rows={pageRows}
-                        rowKey={(row) => String(row.id)}
-                        highlightedId={lastOpenedId}
-                        onRowPress={openView}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                        rowActions={(row): readonly MenuItem[] => {
-                            const action = lifecycleAction(row);
-                            return [
-                                {
-                                    key: 'view',
-                                    label: t('kitchen:list.view'),
-                                    icon: CATALOGUE_ROW_ICONS.view,
-                                    testID: `${qualityCheckRowTestId(String(row.id))}-view`,
-                                    onSelect: () => {
-                                        openView(row);
-                                    },
-                                },
-                                ...(action === null
-                                    ? []
-                                    : [
-                                          {
-                                              key: action.key,
-                                              label: action.label,
-                                              icon:
-                                                  action.key === 'hold'
-                                                      ? ('warning' as const)
-                                                      : ('check' as const),
-                                              testID: `${qualityCheckRowTestId(String(row.id))}-${action.key}`,
-                                              onSelect: action.run,
-                                          },
-                                      ]),
-                            ];
-                        }}
-                    />
 
-                    <CataloguePager
-                        testID="kitchen-qc-pagination"
-                        page={currentPage}
-                        totalPages={totalPages}
-                        onPageChange={(next) => {
-                            setPage(next);
-                            setViewing(null);
+                {checks.isPending ? (
+                    <TableSkeleton testID="kitchen-qc-loading" />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-qc-error"
+                        title={t('kitchen:ops.qc.loadErrorTitle')}
+                        failure={failure}
+                        onRetry={() => {
+                            void checks.refetch();
                         }}
-                        label={t('kitchen:catalogue.pagerLabel')}
+                        retrying={checks.isFetching}
                     />
-                </Stack>
-            )}
+                ) : controls.rows.length === 0 ? (
+                    <CatalogueList
+                        testID="kitchen-qc-empty-list"
+                        label={t('kitchen:lens.label')}
+                        columns={controls.columns}
+                        rows={[]}
+                        rowKey={() => ''}
+                        density="sm"
+                        joined
+                        frameEmpty
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        emptyState={
+                            <EmptyState
+                                shape="table"
+                                testID="kitchen-qc-empty"
+                                title={
+                                    unfiltered
+                                        ? t('kitchen:ops.qc.emptyTitle')
+                                        : t('kitchen:ops.qc.filteredEmptyTitle')
+                                }
+                                body={
+                                    unfiltered
+                                        ? t('kitchen:ops.qc.emptyBody')
+                                        : t('kitchen:ops.qc.filteredEmptyBody')
+                                }
+                            />
+                        }
+                    />
+                ) : (
+                    <Stack space="sm">
+                        <CatalogueList<QualityCheck>
+                            testID="kitchen-qc-checks"
+                            joined
+                            label={t('kitchen:ops.qc.checksHeading')}
+                            columns={controls.columns}
+                            rows={pageRows}
+                            rowKey={(row) => String(row.id)}
+                            highlightedId={lastOpenedId}
+                            onRowPress={openView}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                            rowActions={(row): readonly MenuItem[] => {
+                                const action = lifecycleAction(row);
+                                return [
+                                    {
+                                        key: 'view',
+                                        label: t('kitchen:list.view'),
+                                        icon: CATALOGUE_ROW_ICONS.view,
+                                        testID: `${qualityCheckRowTestId(String(row.id))}-view`,
+                                        onSelect: () => {
+                                            openView(row);
+                                        },
+                                    },
+                                    ...(action === null
+                                        ? []
+                                        : [
+                                              {
+                                                  key: action.key,
+                                                  label: action.label,
+                                                  icon:
+                                                      action.key === 'hold'
+                                                          ? ('warning' as const)
+                                                          : ('check' as const),
+                                                  testID: `${qualityCheckRowTestId(String(row.id))}-${action.key}`,
+                                                  onSelect: action.run,
+                                              },
+                                          ]),
+                                ];
+                            }}
+                        />
+
+                        <CataloguePager
+                            testID="kitchen-qc-pagination"
+                            page={currentPage}
+                            totalPages={totalPages}
+                            onPageChange={(next) => {
+                                setPage(next);
+                                setViewing(null);
+                            }}
+                            label={t('kitchen:catalogue.pagerLabel')}
+                        />
+                    </Stack>
+                )}
+            </View>
 
             {viewPopup}
         </Cascade>

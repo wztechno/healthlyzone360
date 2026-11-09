@@ -701,6 +701,9 @@
       "receiptsTitle": "[[Ðéłíṽéŕíéš āēīō]]",
       "receiptNoDocumentRef": "[[Ñó ðéłíṽéŕý ñóţé āēīōūāē]]",
       "view": {
+        "stepDone": "[[Ðóñé ā]]",
+        "stepPartial": "[[Þáŕţíáļ āē]]",
+        "stepClosedShort": "[[Çļóšéð šĥóŕţ āēīō]]",
         "historyLabel": "[[Ŵĥéŕé ţĥé óŕðéŕ ĥáš ĝóţ ţó āēīōūāēīōūā]]",
         "stepMade": "[[Ṁáðé {{date}} āēīōūā]]",
         "stepDeliveries_one": "[[{{date}} · {{count}} ðéłíṽéŕý āēīōūāēīōūāē]]",
@@ -1050,6 +1053,9 @@
       "emptyTitle": "[[Ñóţĥíñĝ ţó ŕéçéíṽé āēīōūāēī]]",
       "emptyBody": "[[Ñó óŕðéŕ íš óþéñ ƒóŕ ðéłíṽéŕý áţ ţĥíš ƀŕáñçĥ. Íššúé óñé ƒíŕšţ. āēīōūāēīōūāēīōūāēīōūāēīōū]]",
       "orderMissingTitle": "[[Ţĥáţ óŕðéŕ íš ñóţ óþéñ ƒóŕ ðéłíṽéŕý āēīōūāēīōūāēīō]]",
+      "findOrderLabel": "[[Ƒíñð áñ óŕðéŕ āēīō]]",
+      "findOrderPlaceholder": "[[Ƒíñð áñ óŕðéŕ ƀý ñúḿƀéŕ óŕ šúþþļíéŕ āēīōūāēīōūā]]",
+      "columnIssued": "[[Íššúéð āē]]",
       "orderMissingBody": "[[Íţ ɱáý áłŕéáðý ƀé çóɱþłéţé, óŕ íţ ƀéłóñĝš ţó áñóţĥéŕ ƀŕáñçĥ. āēīōūāēīōūāēīōūāēīōūāēīō]]",
       "fieldOrder": "[[Óŕðéŕ āē]]",
       "fieldReceivedOn": "[[Ðáţé ŕéçéíṽéð āēīōūā]]",
@@ -4768,7 +4774,17 @@
     "eyebrowPriceLists": "[[Price lists āēīōū]]",
     "eyebrowQuotations": "[[Quotations āēīōū]]",
     "eyebrowPlans": "[[Plans āēīōū]]",
-    "eyebrowZones": "[[Delivery zones āēīōū]]"
+    "eyebrowZones": "[[Delivery zones āēīōū]]",
+    "eyebrowSupplyOrders": "[[Šúþþļý óŕðéŕš āēīōū]]",
+    "eyebrowSuppliers": "[[Šúþþļíéŕš āēī]]",
+    "eyebrowProcurement": "[[Þŕóçúŕéḿéñţ āēīō]]",
+    "eyebrowLedger": "[[Þúŕçĥášéš ļéðĝéŕ āēīōū]]",
+    "eyebrowQualityControl": "[[Ǫúáļíţý çóñţŕóļ āēīō]]",
+    "eyebrowCostReport": "[[Çóšţ ŕéþóŕţ āēī]]",
+    "eyebrowCustomers": "[[Çúšţóḿéŕš āē]]",
+    "eyebrowOrders": "[[Óŕðéŕš āē]]",
+    "eyebrowStock": "[[Šţóçķ ā]]",
+    "eyebrowComplaints": "[[Çóḿþļáíñţš āēī]]"
   },
   "search": {
     "label": "[[Šéáŕçĥ þáĝéš āēīōū]]",

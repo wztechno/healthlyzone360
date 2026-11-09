@@ -186,6 +186,7 @@ function CostReport() {
                     </Text>
                     {row.hasDataQualityFlag ? (
                         <Badge
+                            icon={null}
                             testID={`kitchen-cost-report-${row.month}-flag`}
                             tone="warning"
                             label={t('kitchen:ops.costReport.flagged')}
@@ -193,6 +194,7 @@ function CostReport() {
                     ) : null}
                     {row.isMarginWithheld ? (
                         <Badge
+                            icon={null}
                             testID={`kitchen-cost-report-${row.month}-withheld`}
                             tone="warning"
                             label={t('kitchen:ops.costReport.marginWithheld')}
@@ -347,6 +349,8 @@ function CostReport() {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-cost-report-window"
+                look="board"
+                eyebrow={t('kitchen:recordView.eyebrowCostReport')}
                 onBack={() => {
                     setViewing(null);
                 }}
@@ -449,6 +453,7 @@ function CostReport() {
     const lensBar = (
         <LensBar
             testID="kitchen-cost-report-toolbar"
+            layout="split"
             label={t('kitchen:lens.label')}
             figures={(
                 [
@@ -519,7 +524,7 @@ function CostReport() {
             clearLabel={t('kitchen:lens.clear')}
             {...(controls.filtered ? { onClear: controls.clearFilters } : {})}
             // Always the labelled button, "Columns 6 of 6", as on the other lists.
-            trailing={showsReport ? <ColumnPicker {...controls.picker} /> : undefined}
+            trailing={showsReport ? <ColumnPicker {...controls.picker} compact /> : undefined}
         />
     );
 

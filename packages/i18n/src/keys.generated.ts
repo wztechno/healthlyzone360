@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10514 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10530 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -6199,6 +6199,7 @@ export interface NamespaceKeys {
     | 'ops.receiving.closeShortHint'
     | 'ops.receiving.closeShortLabel'
     | 'ops.receiving.closeShortReasonPlaceholder'
+    | 'ops.receiving.columnIssued'
     | 'ops.receiving.confirmCloseShort'
     | 'ops.receiving.confirmComplete'
     | 'ops.receiving.confirmDate'
@@ -6232,6 +6233,8 @@ export interface NamespaceKeys {
     | 'ops.receiving.fieldReceivedOnHint'
     | 'ops.receiving.fieldTax'
     | 'ops.receiving.fieldVarianceNote'
+    | 'ops.receiving.findOrderLabel'
+    | 'ops.receiving.findOrderPlaceholder'
     | 'ops.receiving.hideCharges'
     | 'ops.receiving.invoiceRefPlaceholder'
     | 'ops.receiving.lineOverReceipt'
@@ -6764,8 +6767,11 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.view.leadTime'
     | 'ops.supplyOrders.view.nothingToCome'
     | 'ops.supplyOrders.view.ringLabel'
+    | 'ops.supplyOrders.view.stepClosedShort'
     | 'ops.supplyOrders.view.stepDeliveries'
+    | 'ops.supplyOrders.view.stepDone'
     | 'ops.supplyOrders.view.stepMade'
+    | 'ops.supplyOrders.view.stepPartial'
     | 'ops.supplyOrders.view.toComeLine'
     | 'ops.supplyOrders.viewBranch'
     | 'ops.supplyOrders.viewKind'
@@ -7617,12 +7623,22 @@ export interface NamespaceKeys {
     | 'recipes.yieldUnit'
     | 'recordView.details'
     | 'recordView.eyebrowAllergens'
+    | 'recordView.eyebrowComplaints'
+    | 'recordView.eyebrowCostReport'
+    | 'recordView.eyebrowCustomers'
+    | 'recordView.eyebrowLedger'
+    | 'recordView.eyebrowOrders'
     | 'recordView.eyebrowPackaging'
     | 'recordView.eyebrowPlans'
     | 'recordView.eyebrowPriceLists'
+    | 'recordView.eyebrowProcurement'
+    | 'recordView.eyebrowQualityControl'
     | 'recordView.eyebrowQuotations'
     | 'recordView.eyebrowRecipes'
     | 'recordView.eyebrowResale'
+    | 'recordView.eyebrowStock'
+    | 'recordView.eyebrowSuppliers'
+    | 'recordView.eyebrowSupplyOrders'
     | 'recordView.eyebrowZones'
     | 'recordView.metaSeparator'
     | 'recordView.pathSeparator'
@@ -16731,6 +16747,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.receiving.closeShortHint',
   'kitchen:ops.receiving.closeShortLabel',
   'kitchen:ops.receiving.closeShortReasonPlaceholder',
+  'kitchen:ops.receiving.columnIssued',
   'kitchen:ops.receiving.confirmCloseShort',
   'kitchen:ops.receiving.confirmComplete',
   'kitchen:ops.receiving.confirmDate',
@@ -16764,6 +16781,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.receiving.fieldReceivedOnHint',
   'kitchen:ops.receiving.fieldTax',
   'kitchen:ops.receiving.fieldVarianceNote',
+  'kitchen:ops.receiving.findOrderLabel',
+  'kitchen:ops.receiving.findOrderPlaceholder',
   'kitchen:ops.receiving.hideCharges',
   'kitchen:ops.receiving.invoiceRefPlaceholder',
   'kitchen:ops.receiving.lineOverReceipt',
@@ -17296,8 +17315,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.view.leadTime',
   'kitchen:ops.supplyOrders.view.nothingToCome',
   'kitchen:ops.supplyOrders.view.ringLabel',
+  'kitchen:ops.supplyOrders.view.stepClosedShort',
   'kitchen:ops.supplyOrders.view.stepDeliveries',
+  'kitchen:ops.supplyOrders.view.stepDone',
   'kitchen:ops.supplyOrders.view.stepMade',
+  'kitchen:ops.supplyOrders.view.stepPartial',
   'kitchen:ops.supplyOrders.view.toComeLine',
   'kitchen:ops.supplyOrders.viewBranch',
   'kitchen:ops.supplyOrders.viewKind',
@@ -18149,12 +18171,22 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.yieldUnit',
   'kitchen:recordView.details',
   'kitchen:recordView.eyebrowAllergens',
+  'kitchen:recordView.eyebrowComplaints',
+  'kitchen:recordView.eyebrowCostReport',
+  'kitchen:recordView.eyebrowCustomers',
+  'kitchen:recordView.eyebrowLedger',
+  'kitchen:recordView.eyebrowOrders',
   'kitchen:recordView.eyebrowPackaging',
   'kitchen:recordView.eyebrowPlans',
   'kitchen:recordView.eyebrowPriceLists',
+  'kitchen:recordView.eyebrowProcurement',
+  'kitchen:recordView.eyebrowQualityControl',
   'kitchen:recordView.eyebrowQuotations',
   'kitchen:recordView.eyebrowRecipes',
   'kitchen:recordView.eyebrowResale',
+  'kitchen:recordView.eyebrowStock',
+  'kitchen:recordView.eyebrowSuppliers',
+  'kitchen:recordView.eyebrowSupplyOrders',
   'kitchen:recordView.eyebrowZones',
   'kitchen:recordView.metaSeparator',
   'kitchen:recordView.pathSeparator',

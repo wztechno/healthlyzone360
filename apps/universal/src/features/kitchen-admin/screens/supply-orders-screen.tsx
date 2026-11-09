@@ -448,6 +448,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                 },
                 render: (row) => (
                     <Badge
+                        icon={null}
                         testID={`${purchaseOrderRowTestId(String(row.id))}-status`}
                         tone={purchaseOrderStatusTone(row.status)}
                         label={t(purchaseOrderStatusKey(row.status))}
@@ -473,11 +474,11 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
             render: (row) => {
                 const testID = supplyOrderRowTestId(String(row.stockItemId));
                 return (
-                    <View testID={testID} className="min-w-0 flex-row items-center gap-1.5">
+                    <View testID={testID} className="min-w-0 flex-col">
                         <Text variant="strong" numberOfLines={1} testID={`${testID}-name`}>
                             {row.itemNameEn}
                         </Text>
-                        <Text variant="mono" tone="secondary" testID={`${testID}-code`}>
+                        <Text variant="caption" tone="secondary" testID={`${testID}-code`}>
                             {row.itemCode}
                         </Text>
                     </View>
@@ -520,12 +521,14 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                         {/* A word and a tone, never colour alone. Out wins when a row is both. */}
                         {row.isOutOfStock ? (
                             <Badge
+                                icon={null}
                                 testID={`${testID}-out`}
                                 tone="danger"
                                 label={t('kitchen:ops.supplyOrders.outBadge')}
                             />
                         ) : row.isLow ? (
                             <Badge
+                                icon={null}
                                 testID={`${testID}-low`}
                                 tone="warning"
                                 label={t('kitchen:ops.supplyOrders.lowBadge')}
@@ -607,10 +610,15 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
         );
     }
 
+    // The table closes the toolbar's card only when it is drawn.
+    const bookJoined = !orders.isPending && ordersFailure === null;
+
     const viewPopup =
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-supply-orders-view"
+                look="board"
+                eyebrow={t('kitchen:recordView.eyebrowSupplyOrders')}
                 onBack={() => {
                     setViewing(null);
                 }}
@@ -665,167 +673,189 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
              * The Lens bar — the shortage and the page's orders as figures, the status scope and the
              * search on the query row, Prepare order at the end (`lens-bar.tsx`).
              */}
-            <LensBar
-                testID="kitchen-supply-orders-toolbar"
-                label={t('kitchen:lens.label')}
-                figures={lensFigures({
-                    outOfStock: needs.data?.outOfStockCount ?? null,
-                    low: needs.data?.lowStockCount ?? null,
-                    orders: orders.isPending || ordersFailure !== null ? null : controls.rows,
-                    status,
-                    t,
-                    showDrafts: () => {
-                        setStatus('draft');
-                        resetBook();
-                    },
-                })}
-                scope={
-                    <LensScope<StatusSegmentValue>
-                        testID="kitchen-supply-orders-toolbar-status"
-                        label={t('kitchen:toolbar.statusLabel')}
-                        value={status}
-                        options={statusOptions}
-                        onChange={(next) => {
-                            setStatus(next);
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={bookJoined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-supply-orders-toolbar"
+                    layout="split"
+                    joined={bookJoined}
+                    label={t('kitchen:lens.label')}
+                    figures={lensFigures({
+                        outOfStock: needs.data?.outOfStockCount ?? null,
+                        low: needs.data?.lowStockCount ?? null,
+                        orders: orders.isPending || ordersFailure !== null ? null : controls.rows,
+                        status,
+                        t,
+                        showDrafts: () => {
+                            setStatus('draft');
                             resetBook();
-                        }}
-                    />
-                }
-                search={query}
-                onSearchChange={(next) => {
-                    setQuery(next);
-                    setViewing(null);
-                }}
-                searchLabel={t('kitchen:ops.supplyOrders.searchLabel')}
-                searchPlaceholder={t('kitchen:ops.supplyOrders.searchPlaceholder')}
-                result={
-                    orders.data === undefined || ordersFailure !== null
-                        ? null
-                        : t('kitchen:lens.result', {
-                              shown: controls.rows.length,
-                              total: orders.data.items.length,
-                          })
-                }
-                clearLabel={t('kitchen:lens.clear')}
-                {...(trimmed === '' && supplier === null
-                    ? {}
-                    : {
-                          onClear: () => {
-                              setQuery('');
-                              if (supplier !== null) {
-                                  setSupplier(null);
-                                  resetBook();
-                              }
-                          },
-                      })}
-                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
-                actions={
-                    <Button
-                        testID="kitchen-supply-orders-prepare"
-                        label={t('kitchen:ops.supplyOrders.prepare')}
-                        onPress={prepare}
-                    />
-                }
-            />
-
-            {orders.isPending ? (
-                <TableSkeleton
-                    testID="kitchen-supply-orders-book-loading"
-                    partTestID="kitchen-supply-orders-book"
-                />
-            ) : ordersFailure !== null ? (
-                // Its own failure: the book failing to load is not a reason to hide the queue.
-                <ErrorState
-                    testID="kitchen-supply-orders-book-error"
-                    failure={ordersFailure}
-                    onRetry={() => {
-                        void orders.refetch();
+                        },
+                    })}
+                    scope={
+                        <LensScope<StatusSegmentValue>
+                            testID="kitchen-supply-orders-toolbar-status"
+                            label={t('kitchen:toolbar.statusLabel')}
+                            value={status}
+                            options={statusOptions}
+                            onChange={(next) => {
+                                setStatus(next);
+                                resetBook();
+                            }}
+                        />
+                    }
+                    search={query}
+                    onSearchChange={(next) => {
+                        setQuery(next);
+                        setViewing(null);
                     }}
-                    retrying={orders.isFetching}
-                />
-            ) : controls.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-supply-orders-book-empty"
-                    title={
-                        unfiltered
-                            ? t('kitchen:ops.supplyOrders.ordersEmptyTitle')
-                            : t('kitchen:ops.supplyOrders.ordersFilteredEmptyTitle')
+                    searchLabel={t('kitchen:ops.supplyOrders.searchLabel')}
+                    searchPlaceholder={t('kitchen:ops.supplyOrders.searchPlaceholder')}
+                    result={
+                        orders.data === undefined || ordersFailure !== null
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  shown: controls.rows.length,
+                                  total: orders.data.items.length,
+                              })
                     }
-                    body={
-                        unfiltered
-                            ? t('kitchen:ops.supplyOrders.ordersEmptyBody')
-                            : t('kitchen:ops.supplyOrders.ordersFilteredEmptyBody')
-                    }
-                    // The table — and the headers that narrowed it — is gone in this state, so the
-                    // way back has to be here.
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(trimmed === '' && supplier === null
+                        ? {}
+                        : {
+                              onClear: () => {
+                                  setQuery('');
+                                  if (supplier !== null) {
+                                      setSupplier(null);
+                                      resetBook();
+                                  }
+                              },
+                          })}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
-                        unfiltered ? undefined : (
-                            <Button
-                                testID="kitchen-supply-orders-book-clear"
-                                variant="secondary"
-                                size="sm"
-                                label={t('kitchen:toolbar.clearFilters')}
-                                onPress={() => {
-                                    setQuery('');
-                                    setStatus('all');
-                                    setSupplier(null);
-                                    resetBook();
-                                }}
-                            />
-                        )
+                        <Button
+                            testID="kitchen-supply-orders-prepare"
+                            label={t('kitchen:ops.supplyOrders.prepare')}
+                            onPress={prepare}
+                        />
                     }
                 />
-            ) : (
-                <Stack space="sm">
-                    <CatalogueList<PurchaseOrder>
-                        testID="kitchen-supply-orders-book-table"
-                        label={t('kitchen:ops.supplyOrders.ordersCaption')}
+
+                {orders.isPending ? (
+                    <TableSkeleton
+                        testID="kitchen-supply-orders-book-loading"
+                        partTestID="kitchen-supply-orders-book"
+                    />
+                ) : ordersFailure !== null ? (
+                    // Its own failure: the book failing to load is not a reason to hide the queue.
+                    <ErrorState
+                        testID="kitchen-supply-orders-book-error"
+                        failure={ordersFailure}
+                        onRetry={() => {
+                            void orders.refetch();
+                        }}
+                        retrying={orders.isFetching}
+                    />
+                ) : controls.rows.length === 0 ? (
+                    <CatalogueList
+                        testID="kitchen-supply-orders-book-empty-list"
+                        label={t('kitchen:lens.label')}
                         columns={controls.columns}
-                        rows={controls.rows}
-                        rowKey={(row) => String(row.id)}
+                        rows={[]}
+                        rowKey={() => ''}
                         density="sm"
-                        highlightedId={lastOpenedId}
-                        onRowPress={(row) => {
-                            rememberOpened(String(row.id));
-                            setViewing(row);
-                        }}
+                        joined
+                        frameEmpty
                         rowActionsLabel={t('kitchen:list.rowActions')}
-                        rowActions={(row): readonly MenuItem[] => [
-                            {
-                                key: 'view',
-                                label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
-                                testID: `${purchaseOrderRowTestId(String(row.id))}-view`,
-                                onSelect: () => {
-                                    rememberOpened(String(row.id));
-                                    setViewing(row);
-                                },
-                            },
-                            {
-                                key: 'open',
-                                label: t('kitchen:catalogue.edit'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
-                                testID: `${purchaseOrderRowTestId(String(row.id))}-open`,
-                                onSelect: () => {
-                                    openOrder(row);
-                                },
-                            },
-                        ]}
+                        emptyState={
+                            <EmptyState
+                                shape="table"
+                                testID="kitchen-supply-orders-book-empty"
+                                title={
+                                    unfiltered
+                                        ? t('kitchen:ops.supplyOrders.ordersEmptyTitle')
+                                        : t('kitchen:ops.supplyOrders.ordersFilteredEmptyTitle')
+                                }
+                                body={
+                                    unfiltered
+                                        ? t('kitchen:ops.supplyOrders.ordersEmptyBody')
+                                        : t('kitchen:ops.supplyOrders.ordersFilteredEmptyBody')
+                                }
+                                // The table — and the headers that narrowed it — is gone in this state, so the
+                                // way back has to be here.
+                                actions={
+                                    unfiltered ? undefined : (
+                                        <Button
+                                            testID="kitchen-supply-orders-book-clear"
+                                            variant="secondary"
+                                            size="sm"
+                                            label={t('kitchen:toolbar.clearFilters')}
+                                            onPress={() => {
+                                                setQuery('');
+                                                setStatus('all');
+                                                setSupplier(null);
+                                                resetBook();
+                                            }}
+                                        />
+                                    )
+                                }
+                            />
+                        }
                     />
-                    <CataloguePager
-                        testID="kitchen-supply-orders-book-pagination"
-                        page={page}
-                        totalPages={cursors.length}
-                        onPageChange={(next) => {
-                            setPage(next);
-                            setViewing(null);
-                        }}
-                        label={t('kitchen:catalogue.pagerLabel')}
-                    />
-                </Stack>
-            )}
+                ) : (
+                    <Stack space="sm">
+                        <CatalogueList<PurchaseOrder>
+                            testID="kitchen-supply-orders-book-table"
+                            joined
+                            label={t('kitchen:ops.supplyOrders.ordersCaption')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => String(row.id)}
+                            density="sm"
+                            highlightedId={lastOpenedId}
+                            onRowPress={(row) => {
+                                rememberOpened(String(row.id));
+                                setViewing(row);
+                            }}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                            rowActions={(row): readonly MenuItem[] => [
+                                {
+                                    key: 'view',
+                                    label: t('kitchen:list.view'),
+                                    icon: CATALOGUE_ROW_ICONS.view,
+                                    testID: `${purchaseOrderRowTestId(String(row.id))}-view`,
+                                    onSelect: () => {
+                                        rememberOpened(String(row.id));
+                                        setViewing(row);
+                                    },
+                                },
+                                {
+                                    key: 'open',
+                                    label: t('kitchen:catalogue.edit'),
+                                    icon: CATALOGUE_ROW_ICONS.edit,
+                                    testID: `${purchaseOrderRowTestId(String(row.id))}-open`,
+                                    onSelect: () => {
+                                        openOrder(row);
+                                    },
+                                },
+                            ]}
+                        />
+                        <CataloguePager
+                            testID="kitchen-supply-orders-book-pagination"
+                            page={page}
+                            totalPages={cursors.length}
+                            onPageChange={(next) => {
+                                setPage(next);
+                                setViewing(null);
+                            }}
+                            label={t('kitchen:catalogue.pagerLabel')}
+                        />
+                    </Stack>
+                )}
+            </View>
 
             <FormSection
+                first
+                variant="panel"
                 testID="kitchen-supply-orders-needs"
                 title={t('kitchen:ops.supplyOrders.previewTitle')}
                 // The count beside the title and the picker at the row's end, so both sit on the

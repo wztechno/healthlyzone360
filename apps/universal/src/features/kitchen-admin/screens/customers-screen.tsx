@@ -155,6 +155,7 @@ function CustomersList() {
                 render: (row) => (
                     <View className="flex-row">
                         <Badge
+                            icon={null}
                             testID={`${rowTestId(row.id)}-type`}
                             tone={customerTypeTone(row.type)}
                             label={t(customerTypeKey(row.type))}

@@ -1,27 +1,29 @@
 import type { PurchaseOrder } from '@healthy360/api-client/contracts';
-import { Icon, ProgressRing, Text } from '@healthy360/design-system';
+import { Badge, Text } from '@healthy360/design-system';
 import type { BadgeTone } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { RecordCanopy, RecordCanopyGlyph } from './catalogue/record-canopy.tsx';
+import { RecordCanopyHero } from './catalogue/record-canopy.tsx';
 import type { RecordCanopyStep, RecordCanopyTone } from './catalogue/record-canopy.tsx';
-import { RecordTile, RecordTileRow, TileEmpty, TileFacts } from './catalogue/record-tiles.tsx';
+import { useRecordSplit } from './catalogue/record-popup.tsx';
+import { RecordTile, TileEmpty } from './catalogue/record-tiles.tsx';
+import { BoardFieldRows } from './catalogue/record-view-page.tsx';
+import { RECORD_RAIL_MIN } from './desk-layout.ts';
 import { purchaseOrderStatusKey } from './ops-format.ts';
 
 /**
- * A supply order that can no longer be edited, read as a record — option C of the
- * `Minimal view page` canvas. The draft stays the builder it was; from `issued` on the lines are
- * frozen and the page is a document, so it opens on the canopy instead of a form's opening.
+ * A supply order that can no longer be edited, read as a record (the `Kitchen-ops-po-record`
+ * board). The draft stays the builder it was; from `issued` on the lines are frozen and the page is
+ * a document, so it opens on the canopy instead of a form's opening.
  *
  * ```
- * ┌ canopy: Order PO-4F7K2Q ◐ Partly received        [Back] [Print] [Receive delivery] ┐
- * │ ● Draft ─── ● Issued ─── ◐ Partly received ─── ○ Received                           │
- * └──────────────────────────────────────────────────────────────────────────────────────┘
- * ┌ Received ────────┐ ┌ Deliveries ──────┐ ┌ Supplier ───────────────────────────────┐
- * ┌ Items on this order ─────────────────────────────────────────────────────────────────┐
+ * ┌ canopy: Supplier · Branch · made … / Order PO-4F7K2Q / (Partly received)  [Back] [Print] ┐
+ * ┌ Where the order has got to ────────────┐  ┌ Received ───────────┐
+ * ┌ Items on this order ───────────────────┐  ┌ Deliveries ─────────┐
+ *                                             ┌ Supplier ───────────┐
  * ```
  *
  * Only what a `PurchaseOrder` carries. It has no money at any depth, no "sent" (a person issues
@@ -81,6 +83,7 @@ export function SupplyOrderRecord({
     const date = (value: string | null) =>
         value === null ? null : formatter.formatDate(value, { dateStyle: 'medium' });
     const quantity = (value: string) => formatter.formatNumber(Number(value));
+    const split = useRecordSplit();
 
     /* ── where it has got to ─────────────────────────────────────────────────────────────────── */
 
@@ -166,139 +169,194 @@ export function SupplyOrderRecord({
     );
 
     return (
-        <>
-            <RecordCanopy
+        <View className="z-auto flex-col gap-base">
+            <RecordCanopyHero
                 testID="kitchen-supply-order-detail-canopy"
+                kind={subtitle}
+                kindTestID="kitchen-supply-order-detail-subtitle"
                 title={title}
-                status={{
+                statusChip={{
                     label: t(purchaseOrderStatusKey(order.status)),
                     tone: canopyTone(statusTone),
                 }}
-                captions={[{ text: subtitle, testID: 'kitchen-supply-order-detail-subtitle' }]}
-                media={
-                    <RecordCanopyGlyph>
-                        <Icon name="clipboardList" className="text-content-on-canopy" />
-                    </RecordCanopyGlyph>
+                actions={
+                    <>
+                        {back}
+                        {actions}
+                    </>
                 }
-                back={back}
-                actions={actions}
-                steps={steps}
-                stepsLabel={t('kitchen:ops.supplyOrders.view.historyLabel')}
-                noValue={dash}
             />
 
-            <RecordTileRow testID="kitchen-supply-order-detail-tiles">
-                <RecordTile
-                    testID="kitchen-supply-order-detail-received"
-                    icon="packageCheck"
-                    title={t('kitchen:ops.supplyOrders.columnReceived')}
+            <View
+                testID="kitchen-supply-order-detail-tiles"
+                className={
+                    split ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
+                }
+            >
+                <View
+                    className="z-auto min-w-0 flex-col gap-base"
+                    style={split ? { flex: 21 } : undefined}
                 >
-                    <View className="flex-row items-center gap-base">
-                        <ProgressRing
-                            testID="kitchen-supply-order-detail-received-ring"
-                            size="sm"
-                            label={t('kitchen:ops.supplyOrders.view.ringLabel')}
-                            value={inFull}
-                            target={Math.max(lines.length, 1)}
-                            valueText={t('kitchen:ops.supplyOrders.view.inFull', {
-                                count: inFull,
-                                total: lines.length,
-                            })}
-                        />
-                        <View className="min-w-0 flex-1 flex-col gap-hair">
-                            <Text variant="label" tone="secondary">
+                    <RecordTile
+                        testID="kitchen-supply-order-detail-history"
+                        title={t('kitchen:ops.supplyOrders.view.historyLabel')}
+                    >
+                        <View className="flex-col">
+                            {steps.map((step) => (
+                                <View
+                                    key={step.key}
+                                    testID={`kitchen-supply-order-detail-history-${step.key}`}
+                                    className="min-h-8 flex-row items-center justify-between gap-snug"
+                                >
+                                    <Text tone="secondary">{step.label}</Text>
+                                    <View className="min-w-0 shrink flex-row items-center gap-tight">
+                                        <Text
+                                            variant={step.at === null ? 'body' : 'strong'}
+                                            tone={step.at === null ? 'secondary' : 'primary'}
+                                            className="tabular-nums"
+                                        >
+                                            {step.at ?? dash}
+                                        </Text>
+                                        {step.state === 'pending' ? null : (
+                                            <Badge
+                                                icon={null}
+                                                tone={
+                                                    step.key === 'cancelled'
+                                                        ? 'neutral'
+                                                        : step.state === 'done'
+                                                          ? 'success'
+                                                          : 'warning'
+                                                }
+                                                label={t(
+                                                    step.state === 'done'
+                                                        ? 'kitchen:ops.supplyOrders.view.stepDone'
+                                                        : step.key === 'received'
+                                                          ? 'kitchen:ops.supplyOrders.view.stepClosedShort'
+                                                          : 'kitchen:ops.supplyOrders.view.stepPartial',
+                                                )}
+                                            />
+                                        )}
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                    </RecordTile>
+
+                    <RecordTile
+                        testID="kitchen-supply-order-detail-lines"
+                        title={t('kitchen:ops.supplyOrders.linesTitle')}
+                        aside={
+                            <Text tone="secondary" testID="kitchen-supply-order-detail-line-count">
+                                {t('kitchen:ops.supplyOrders.receiptLineCount', {
+                                    count: lines.length,
+                                })}
+                            </Text>
+                        }
+                    >
+                        {table}
+                    </RecordTile>
+                </View>
+
+                <View
+                    className="z-auto min-w-0 flex-col gap-base"
+                    style={split ? { flex: 10, minWidth: RECORD_RAIL_MIN } : undefined}
+                >
+                    <RecordTile
+                        testID="kitchen-supply-order-detail-received"
+                        title={t('kitchen:ops.supplyOrders.columnReceived')}
+                    >
+                        <View className="min-h-8 flex-row items-center justify-between gap-snug">
+                            <Text tone="secondary">
+                                {t('kitchen:ops.supplyOrders.view.ringLabel')}
+                            </Text>
+                            <Text
+                                variant="strong"
+                                className="tabular-nums"
+                                testID="kitchen-supply-order-detail-received-ring"
+                            >
                                 {t('kitchen:ops.supplyOrders.view.inFull', {
                                     count: inFull,
                                     total: lines.length,
                                 })}
                             </Text>
-                            {order.status === 'cancelled' ? (
-                                <Text variant="body" tone="secondary">
-                                    {t('kitchen:ops.supplyOrders.cancelledNoticeTitle')}
-                                </Text>
-                            ) : closed && toCome.length > 0 ? (
-                                <Text variant="body" tone="warning">
-                                    {t('kitchen:ops.supplyOrders.closedShortTitle')}
-                                </Text>
-                            ) : (
-                                <>
-                                    <Text variant="label" tone="secondary">
-                                        {t('kitchen:ops.supplyOrders.columnOutstanding')}
-                                    </Text>
-                                    {toCome.length === 0 ? (
-                                        <Text variant="body" tone="secondary">
-                                            {t('kitchen:ops.supplyOrders.view.nothingToCome')}
-                                        </Text>
-                                    ) : (
-                                        toCome.map((line) => (
-                                            <Text
-                                                key={line.stockItemId}
-                                                testID={`kitchen-supply-order-detail-to-come-${line.stockItemId}`}
-                                                variant="strong"
-                                                tone={
-                                                    Number(line.receivedQuantity) > 0
-                                                        ? 'warning'
-                                                        : 'primary'
-                                                }
-                                                numberOfLines={1}
-                                            >
-                                                {t('kitchen:ops.supplyOrders.view.toComeLine', {
-                                                    quantity: quantity(line.outstandingQuantity),
-                                                    unit: line.unitCode,
-                                                    item: line.itemNameEn,
-                                                })}
-                                            </Text>
-                                        ))
-                                    )}
-                                </>
-                            )}
                         </View>
-                    </View>
-                </RecordTile>
+                        {order.status === 'cancelled' ? (
+                            <Text variant="caption" tone="secondary">
+                                {t('kitchen:ops.supplyOrders.cancelledNoticeTitle')}
+                            </Text>
+                        ) : closed && toCome.length > 0 ? (
+                            <Text variant="caption" tone="warning">
+                                {t('kitchen:ops.supplyOrders.closedShortTitle')}
+                            </Text>
+                        ) : (
+                            <View className="flex-col">
+                                <Text variant="caption" tone="secondary">
+                                    {t('kitchen:ops.supplyOrders.columnOutstanding')}
+                                </Text>
+                                {toCome.length === 0 ? (
+                                    <Text variant="caption" tone="secondary">
+                                        {t('kitchen:ops.supplyOrders.view.nothingToCome')}
+                                    </Text>
+                                ) : (
+                                    toCome.map((line) => (
+                                        <Text
+                                            key={line.stockItemId}
+                                            testID={`kitchen-supply-order-detail-to-come-${line.stockItemId}`}
+                                            variant="caption"
+                                            tone={
+                                                Number(line.receivedQuantity) > 0
+                                                    ? 'warning'
+                                                    : 'primary'
+                                            }
+                                            numberOfLines={1}
+                                        >
+                                            {t('kitchen:ops.supplyOrders.view.toComeLine', {
+                                                quantity: quantity(line.outstandingQuantity),
+                                                unit: line.unitCode,
+                                                item: line.itemNameEn,
+                                            })}
+                                        </Text>
+                                    ))
+                                )}
+                            </View>
+                        )}
+                    </RecordTile>
 
-                <RecordTile
-                    testID="kitchen-supply-order-detail-deliveries"
-                    icon="truck"
-                    title={t('kitchen:ops.supplyOrders.receiptsTitle')}
-                    aside={
-                        <Text variant="label" tone="secondary">
-                            {formatter.formatNumber(order.receipts.length)}
-                        </Text>
-                    }
-                >
-                    {order.receipts.length === 0 ? (
-                        <TileEmpty
-                            testID="kitchen-supply-order-detail-receipts-empty"
-                            text={t('kitchen:ops.supplyOrders.receiptsEmpty')}
-                        />
-                    ) : (
-                        <View
-                            testID="kitchen-supply-order-detail-receipts"
-                            role="list"
-                            className="flex-col gap-1.5"
-                        >
-                            {order.receipts.map((receipt) => (
-                                <View
-                                    key={String(receipt.id)}
-                                    testID={`kitchen-supply-order-detail-receipt-${String(receipt.id)}`}
-                                    role="listitem"
-                                    className="flex-row items-center gap-snug rounded-lg border border-stroke-subtle px-snug py-tight"
-                                >
+                    <RecordTile
+                        testID="kitchen-supply-order-detail-deliveries"
+                        title={t('kitchen:ops.supplyOrders.receiptsTitle')}
+                        aside={
+                            <Text tone="secondary">
+                                {formatter.formatNumber(order.receipts.length)}
+                            </Text>
+                        }
+                    >
+                        {order.receipts.length === 0 ? (
+                            <TileEmpty
+                                testID="kitchen-supply-order-detail-receipts-empty"
+                                text={t('kitchen:ops.supplyOrders.receiptsEmpty')}
+                            />
+                        ) : (
+                            <View
+                                testID="kitchen-supply-order-detail-receipts"
+                                role="list"
+                                className="flex-col"
+                            >
+                                {order.receipts.map((receipt) => (
                                     <View
-                                        aria-hidden
-                                        className="h-7 w-7 items-center justify-center rounded bg-surface-brand-subtle"
+                                        key={String(receipt.id)}
+                                        testID={`kitchen-supply-order-detail-receipt-${String(receipt.id)}`}
+                                        role="listitem"
+                                        className="min-h-8 flex-row items-center justify-between gap-snug"
                                     >
-                                        <Icon
-                                            name="check"
-                                            size="sm"
-                                            className="text-content-on-brand-subtle"
-                                        />
-                                    </View>
-                                    <View className="min-w-0 flex-1 flex-col">
-                                        <Text variant="strong">
+                                        <Text tone="secondary" className="tabular-nums">
                                             {date(receipt.receivedOn) ?? dash}
                                         </Text>
-                                        <Text variant="label" tone="secondary" numberOfLines={1}>
+                                        <Text
+                                            variant="strong"
+                                            numberOfLines={1}
+                                            className="min-w-0 shrink tabular-nums"
+                                        >
                                             {[
                                                 receipt.documentRef ??
                                                     t(
@@ -310,126 +368,100 @@ export function SupplyOrderRecord({
                                             ].join(separator)}
                                         </Text>
                                     </View>
-                                </View>
-                            ))}
-                        </View>
-                    )}
-                </RecordTile>
-
-                <RecordTile
-                    testID="kitchen-supply-order-detail-supplier"
-                    icon="store"
-                    title={t('kitchen:ops.supplyOrders.columnSupplier')}
-                    trailing={
-                        snapshot === null ? undefined : (
-                            <Text variant="label" tone="secondary">
-                                {t('kitchen:ops.supplyOrders.view.asIssued')}
-                            </Text>
-                        )
-                    }
-                >
-                    <View className="flex-col">
-                        <Text
-                            variant="strong"
-                            testID="kitchen-supply-order-detail-summary-supplier"
-                        >
-                            {supplierName}
-                        </Text>
-                        {snapshot === null ? null : (
-                            <Text variant="label" tone="secondary">
-                                {[snapshot.code, snapshot.address]
-                                    .filter((part): part is string => part !== null && part !== '')
-                                    .join(separator)}
-                            </Text>
+                                ))}
+                            </View>
                         )}
-                    </View>
-                    <TileFacts
-                        testID="kitchen-supply-order-detail-supplier-facts"
-                        facts={[
-                            {
-                                key: 'branch',
-                                label: t('kitchen:ops.supplyOrders.viewBranch'),
-                                value: branchName,
-                            },
-                            ...(snapshot === null
-                                ? []
-                                : [
-                                      {
-                                          key: 'terms',
-                                          label: t('kitchen:ops.supplyOrders.print.paymentTerms'),
-                                          value: snapshot.paymentTerms ?? dash,
-                                          empty: snapshot.paymentTerms === null,
-                                      },
-                                      {
-                                          key: 'lead-time',
-                                          label: t('kitchen:ops.supplyOrders.view.leadTime'),
-                                          value:
-                                              snapshot.leadTimeDays === null
-                                                  ? dash
-                                                  : t('kitchen:calendar.dayCount', {
-                                                        count: snapshot.leadTimeDays,
-                                                    }),
-                                          empty: snapshot.leadTimeDays === null,
-                                      },
-                                      {
-                                          key: 'office',
-                                          label: t('kitchen:ops.supplyOrders.print.generalContact'),
-                                          value:
-                                              office.length === 0 ? dash : office.join(separator),
-                                          empty: office.length === 0,
-                                      },
-                                      {
-                                          key: 'contact',
-                                          label: t('kitchen:ops.supplyOrders.view.contact'),
-                                          value:
-                                              primary === undefined
-                                                  ? dash
-                                                  : [primary.name, contactPhone]
-                                                        .filter(
-                                                            (part): part is string =>
-                                                                part !== null && part !== '',
-                                                        )
-                                                        .join(separator),
-                                          empty: primary === undefined,
-                                      },
-                                  ]),
-                        ]}
-                    />
-                    <View className="mt-auto flex-col gap-hair border-t border-stroke-subtle pt-snug">
-                        <Text variant="label" tone="secondary">
-                            {t('kitchen:ops.supplyOrders.notesTitle')}
+                    </RecordTile>
+
+                    <RecordTile
+                        testID="kitchen-supply-order-detail-supplier"
+                        title={t('kitchen:ops.supplyOrders.columnSupplier')}
+                    >
+                        <Text variant="caption" tone="secondary">
+                            {snapshot === null
+                                ? null
+                                : `${t('kitchen:ops.supplyOrders.view.asIssued')}${separator}`}
+                            <Text
+                                variant="caption"
+                                tone="secondary"
+                                testID="kitchen-supply-order-detail-summary-supplier"
+                            >
+                                {supplierName}
+                            </Text>
+                            {[snapshot?.code ?? null, snapshot?.address ?? null]
+                                .filter((part): part is string => part !== null && part !== '')
+                                .map((part) => `${separator}${part}`)
+                                .join('')}
                         </Text>
+                        <BoardFieldRows
+                            stacked
+                            testID="kitchen-supply-order-detail-supplier-facts"
+                            fields={[
+                                {
+                                    key: 'branch',
+                                    label: t('kitchen:ops.supplyOrders.viewBranch'),
+                                    value: branchName,
+                                },
+                                ...(snapshot === null
+                                    ? []
+                                    : [
+                                          {
+                                              key: 'terms',
+                                              label: t(
+                                                  'kitchen:ops.supplyOrders.print.paymentTerms',
+                                              ),
+                                              value: snapshot.paymentTerms ?? dash,
+                                          },
+                                          {
+                                              key: 'lead-time',
+                                              label: t('kitchen:ops.supplyOrders.view.leadTime'),
+                                              value:
+                                                  snapshot.leadTimeDays === null
+                                                      ? dash
+                                                      : t('kitchen:calendar.dayCount', {
+                                                            count: snapshot.leadTimeDays,
+                                                        }),
+                                          },
+                                          {
+                                              key: 'office',
+                                              label: t(
+                                                  'kitchen:ops.supplyOrders.print.generalContact',
+                                              ),
+                                              value:
+                                                  office.length === 0
+                                                      ? dash
+                                                      : office.join(separator),
+                                          },
+                                          {
+                                              key: 'contact',
+                                              label: t('kitchen:ops.supplyOrders.view.contact'),
+                                              value:
+                                                  primary === undefined
+                                                      ? dash
+                                                      : [primary.name, contactPhone]
+                                                            .filter(
+                                                                (part): part is string =>
+                                                                    part !== null && part !== '',
+                                                            )
+                                                            .join(separator),
+                                          },
+                                      ]),
+                            ]}
+                        />
                         <Text
-                            variant="body"
-                            tone={
-                                order.notes === null || order.notes === '' ? 'secondary' : 'primary'
-                            }
+                            variant="caption"
+                            tone="secondary"
                             testID="kitchen-supply-order-detail-notes-text"
                         >
-                            {order.notes === null || order.notes === ''
-                                ? t('kitchen:ops.supplyOrders.noNotes')
-                                : order.notes}
+                            {`${t('kitchen:ops.supplyOrders.notesTitle')}: ${
+                                order.notes === null || order.notes === ''
+                                    ? t('kitchen:ops.supplyOrders.noNotes')
+                                    : order.notes
+                            }`}
                         </Text>
-                    </View>
-                </RecordTile>
-            </RecordTileRow>
-
-            <RecordTile
-                testID="kitchen-supply-order-detail-lines"
-                icon="list"
-                title={t('kitchen:ops.supplyOrders.linesTitle')}
-                aside={
-                    <Text
-                        variant="label"
-                        tone="secondary"
-                        testID="kitchen-supply-order-detail-line-count"
-                    >
-                        {t('kitchen:ops.supplyOrders.receiptLineCount', { count: lines.length })}
-                    </Text>
-                }
-            >
-                {table}
-            </RecordTile>
-        </>
+                    </RecordTile>
+                </View>
+            </View>
+        </View>
     );
 }

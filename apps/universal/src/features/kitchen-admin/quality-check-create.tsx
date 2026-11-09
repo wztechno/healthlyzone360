@@ -490,7 +490,7 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
 
             <FormSection
                 first
-                variant="card"
+                variant="panel"
                 testID="kitchen-qc-create-states"
                 title={t('kitchen:ops.qc.statesTitle')}
             >
@@ -548,7 +548,7 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
                 <View className="flex-col gap-base">
                     <FormSection
                         first
-                        variant="card"
+                        variant="panel"
                         testID="kitchen-qc-create-subject"
                         // Where the tray's subject cards take the reader.
                         nativeID="kitchen-qc-create-subject"
@@ -643,7 +643,7 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
                         <>
                             <FormSection
                                 first
-                                variant="card"
+                                variant="panel"
                                 testID="kitchen-qc-create-cover"
                                 title={t(
                                     isReceipt
@@ -695,7 +695,7 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
 
                             <FormSection
                                 first
-                                variant="card"
+                                variant="panel"
                                 testID="kitchen-qc-create-start"
                                 title={t('kitchen:ops.qc.startSection')}
                             >

@@ -142,8 +142,8 @@ function StatusBadge({ member }: { readonly member: TeamMemberSummary }) {
         <Badge
             testID={testID}
             tone={tone}
-            // No mark on Working: it is the resting state, and the tick would sit on every row.
-            icon={tone === 'success' ? null : undefined}
+            // A pill on every status, as the board draws them.
+            icon={null}
             label={statusText(member, t)}
         />
     );
@@ -472,138 +472,161 @@ function TeamList() {
         router.push('/kitchen/team/new' as never);
     };
 
+    // The table closes the toolbar's card once the list has loaded.
+    const joined = !team.isPending && failure === null;
+
     return (
         <Cascade space="md" testID="kitchen-team-screen">
-            <LensBar
-                testID="kitchen-team-toolbar"
-                label={t('kitchen:lens.label')}
-                figures={lensFigures({
-                    total: team.isPending ? null : failure === null ? totalCount : undefined,
-                    rows: wholeTeam.isPending ? null : wholeTeam.data,
-                    invitations: invitations.isPending ? null : invitations.data?.length,
-                    t,
-                })}
-                scope={
-                    // Not figures: on Working the whole set is asked for active people only, so
-                    // there is no count of Everyone to draw beside it.
-                    <LensScope<TeamSegment>
-                        testID="kitchen-team-toolbar-status"
-                        label={t('accessAdmin:team.segmentLabel')}
-                        value={segment}
-                        onChange={setSegment}
-                        options={SEGMENTS.map(([value, labelKey]) => ({
-                            value,
-                            label: t(labelKey),
-                            testID: `kitchen-team-toolbar-status-${value}`,
-                        }))}
-                    />
-                }
-                search={query}
-                onSearchChange={setQuery}
-                searchLabel={t('accessAdmin:team.searchLabel')}
-                searchPlaceholder={
-                    totalPages > 1
-                        ? t('accessAdmin:team.searchPageHint')
-                        : t('accessAdmin:team.searchHint')
-                }
-                result={
-                    team.isPending
-                        ? null
-                        : failure !== null
-                          ? t('kitchen:list.noValue')
-                          : t('kitchen:lens.result', {
-                                // Rows up to the end of this page (18 of 61, then 36); a search
-                                // narrows the page in hand, so then it is the matches on it.
-                                shown: searchedOrFiltered
-                                    ? controls.rows.length
-                                    : Math.min(
-                                          page * TEAM_PAGE_SIZE,
-                                          totalCount ?? pageRows.length,
-                                      ),
-                                total: totalCount ?? pageRows.length,
-                            })
-                }
-                clearLabel={t('kitchen:lens.clear')}
-                {...(searchedOrFiltered
-                    ? {
-                          onClear: () => {
-                              setQuery('');
-                              controls.clearFilters();
-                          },
-                      }
-                    : {})}
-                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
-                actions={
-                    canAdd ? (
-                        <Button
-                            testID="kitchen-team-add"
-                            label={t('accessAdmin:team.add')}
-                            iconStart={<Icon name="plus" size="sm" />}
-                            onPress={addSomebody}
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-team-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={lensFigures({
+                        total: team.isPending ? null : failure === null ? totalCount : undefined,
+                        rows: wholeTeam.isPending ? null : wholeTeam.data,
+                        invitations: invitations.isPending ? null : invitations.data?.length,
+                        t,
+                    })}
+                    scope={
+                        // Not figures: on Working the whole set is asked for active people only, so
+                        // there is no count of Everyone to draw beside it.
+                        <LensScope<TeamSegment>
+                            testID="kitchen-team-toolbar-status"
+                            label={t('accessAdmin:team.segmentLabel')}
+                            value={segment}
+                            onChange={setSegment}
+                            options={SEGMENTS.map(([value, labelKey]) => ({
+                                value,
+                                label: t(labelKey),
+                                testID: `kitchen-team-toolbar-status-${value}`,
+                            }))}
                         />
-                    ) : undefined
-                }
-            />
+                    }
+                    search={query}
+                    onSearchChange={setQuery}
+                    searchLabel={t('accessAdmin:team.searchLabel')}
+                    searchPlaceholder={
+                        totalPages > 1
+                            ? t('accessAdmin:team.searchPageHint')
+                            : t('accessAdmin:team.searchHint')
+                    }
+                    result={
+                        team.isPending
+                            ? null
+                            : failure !== null
+                              ? t('kitchen:list.noValue')
+                              : t('kitchen:lens.result', {
+                                    // Rows up to the end of this page (18 of 61, then 36); a search
+                                    // narrows the page in hand, so then it is the matches on it.
+                                    shown: searchedOrFiltered
+                                        ? controls.rows.length
+                                        : Math.min(
+                                              page * TEAM_PAGE_SIZE,
+                                              totalCount ?? pageRows.length,
+                                          ),
+                                    total: totalCount ?? pageRows.length,
+                                })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(searchedOrFiltered
+                        ? {
+                              onClear: () => {
+                                  setQuery('');
+                                  controls.clearFilters();
+                              },
+                          }
+                        : {})}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                    actions={
+                        canAdd ? (
+                            <Button
+                                testID="kitchen-team-add"
+                                label={t('accessAdmin:team.add')}
+                                iconStart={<Icon name="plus" size="sm" />}
+                                onPress={addSomebody}
+                            />
+                        ) : undefined
+                    }
+                />
 
-            {team.isPending ? (
-                <TableSkeleton testID="kitchen-team-loading" partTestID="kitchen-team" />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-team-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void team.refetch();
-                    }}
-                    retrying={team.isFetching}
-                />
-            ) : controls.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-team-empty"
-                    title={
-                        unfiltered
-                            ? t('accessAdmin:team.emptyTitle')
-                            : t('accessAdmin:team.filteredEmptyTitle')
-                    }
-                    body={
-                        unfiltered
-                            ? t('accessAdmin:team.emptyBody')
-                            : t('accessAdmin:team.filteredEmptyBody')
-                    }
-                />
-            ) : (
-                <Stack space="sm">
-                    <CatalogueList<TeamMemberSummary>
-                        testID="kitchen-team-table"
-                        label={t('accessAdmin:team.caption')}
+                {team.isPending ? (
+                    <TableSkeleton testID="kitchen-team-loading" partTestID="kitchen-team" />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-team-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void team.refetch();
+                        }}
+                        retrying={team.isFetching}
+                    />
+                ) : controls.rows.length === 0 ? (
+                    <CatalogueList
+                        testID="kitchen-team-empty-list"
+                        label={t('kitchen:lens.label')}
                         columns={controls.columns}
-                        rows={controls.rows}
-                        rowKey={(row) => String(row.membershipId)}
+                        rows={[]}
+                        rowKey={() => ''}
                         density="sm"
-                        highlightedId={lastOpenedId}
-                        onRowPress={openMember}
+                        joined
+                        frameEmpty
                         rowActionsLabel={t('kitchen:list.rowActions')}
-                        rowActions={(row): readonly MenuItem[] => [
-                            {
-                                key: 'open',
-                                label: t('accessAdmin:team.open'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
-                                testID: `${teamRowTestId(String(row.membershipId))}-open`,
-                                onSelect: () => {
-                                    openMember(row);
+                        emptyState={
+                            <EmptyState
+                                shape="table"
+                                testID="kitchen-team-empty"
+                                title={
+                                    unfiltered
+                                        ? t('accessAdmin:team.emptyTitle')
+                                        : t('accessAdmin:team.filteredEmptyTitle')
+                                }
+                                body={
+                                    unfiltered
+                                        ? t('accessAdmin:team.emptyBody')
+                                        : t('accessAdmin:team.filteredEmptyBody')
+                                }
+                            />
+                        }
+                    />
+                ) : (
+                    <Stack space="sm">
+                        <CatalogueList<TeamMemberSummary>
+                            testID="kitchen-team-table"
+                            joined
+                            label={t('accessAdmin:team.caption')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => String(row.membershipId)}
+                            density="sm"
+                            highlightedId={lastOpenedId}
+                            onRowPress={openMember}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                            rowActions={(row): readonly MenuItem[] => [
+                                {
+                                    key: 'open',
+                                    label: t('accessAdmin:team.open'),
+                                    icon: CATALOGUE_ROW_ICONS.edit,
+                                    testID: `${teamRowTestId(String(row.membershipId))}-open`,
+                                    onSelect: () => {
+                                        openMember(row);
+                                    },
                                 },
-                            },
-                        ]}
-                    />
+                            ]}
+                        />
 
-                    <CataloguePager
-                        testID="kitchen-team-pagination"
-                        page={page}
-                        totalPages={totalPages}
-                        onPageChange={setPage}
-                        label={t('kitchen:catalogue.pagerLabel')}
-                    />
-                </Stack>
-            )}
+                        <CataloguePager
+                            testID="kitchen-team-pagination"
+                            page={page}
+                            totalPages={totalPages}
+                            onPageChange={setPage}
+                            label={t('kitchen:catalogue.pagerLabel')}
+                        />
+                    </Stack>
+                )}
+            </View>
 
             <PendingInvitations invitations={liveInvitations} />
         </Cascade>

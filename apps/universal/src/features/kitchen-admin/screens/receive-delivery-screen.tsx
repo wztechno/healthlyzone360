@@ -3,6 +3,7 @@ import {
     Badge,
     Button,
     Checkbox,
+    DataList,
     DateField,
     Dialog,
     EmptyState,
@@ -10,7 +11,6 @@ import {
     FormSection,
     Inline,
     IssueTrayFrame,
-    Select,
     Skeleton,
     Stack,
     Text,
@@ -18,12 +18,16 @@ import {
     useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type { IssueCardItem, IssueTrayContent } from '@healthy360/design-system';
+import type { DataListColumn, IssueCardItem, IssueTrayContent } from '@healthy360/design-system';
 import { PurchaseOrderId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
+
+/** An order with no issue date yet, in the pick list. */
+const EM_DASH_PICK = '—';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -247,14 +251,91 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
 
     const state = readiness(lines, confirmations, selectedOrder !== null);
 
-    const orderOptions = useMemo(
-        () =>
-            orderRows.map((row) => ({
-                value: String(row.id),
-                label: `${row.number} — ${row.supplier?.nameEn ?? t('kitchen:ops.procurement.noSupplier')}`,
-            })),
-        [orderRows, t],
-    );
+    /** The pick list's rows: the open orders, narrowed by number or supplier. */
+    const [orderQuery, setOrderQuery] = useState('');
+    const pickRows = useMemo(() => {
+        const needle = orderQuery.trim().toLocaleLowerCase();
+        return needle === ''
+            ? orderRows
+            : orderRows.filter((row) =>
+                  `${row.number} ${row.supplier?.nameEn ?? ''}`
+                      .toLocaleLowerCase()
+                      .includes(needle),
+              );
+    }, [orderRows, orderQuery]);
+    const pickColumns: readonly DataListColumn<ReceivableOrder>[] = [
+        {
+            key: 'pick',
+            label: '',
+            width: 40,
+            priority: 100,
+            grow: false,
+            render: (row) => {
+                const picked = String(row.id) === selectedOrderId;
+                return (
+                    <View
+                        role="radio"
+                        aria-checked={picked}
+                        aria-label={row.number}
+                        testID={`kitchen-receive-order-picker-${String(row.id)}`}
+                        className={`h-4 w-4 items-center justify-center rounded-full border-2 ${
+                            picked ? 'border-surface-brand' : 'border-stroke-strong'
+                        }`}
+                    >
+                        {picked ? <View className="h-2 w-2 rounded-full bg-surface-brand" /> : null}
+                    </View>
+                );
+            },
+        },
+        {
+            key: 'number',
+            label: t('kitchen:ops.supplyOrders.columnNumber'),
+            width: 130,
+            priority: 99,
+            grow: false,
+            render: (row) => <Text variant="mono">{row.number}</Text>,
+        },
+        {
+            key: 'supplier',
+            label: t('kitchen:ops.supplyOrders.columnSupplier'),
+            width: 200,
+            priority: 90,
+            render: (row) => (
+                <Text numberOfLines={1}>
+                    {row.supplier?.nameEn ?? t('kitchen:ops.procurement.noSupplier')}
+                </Text>
+            ),
+        },
+        {
+            key: 'issued',
+            label: t('kitchen:ops.receiving.columnIssued'),
+            width: 150,
+            priority: 60,
+            render: (row) => (
+                <Text tone="secondary" numberOfLines={1}>
+                    {row.issuedAt === null
+                        ? EM_DASH_PICK
+                        : t('kitchen:ops.procurement.awaitingIssued', {
+                              date: formatter.formatDate(row.issuedAt, { dateStyle: 'medium' }),
+                          })}
+                </Text>
+            ),
+        },
+        {
+            key: 'toCome',
+            label: t('kitchen:ops.supplyOrders.columnOutstanding'),
+            width: 140,
+            priority: 80,
+            align: 'end',
+            render: (row) => (
+                <Text className="tabular-nums">
+                    {t('kitchen:ops.procurement.awaitingLines', {
+                        count: row.outstandingLineCount,
+                    })}
+                </Text>
+            ),
+        },
+    ];
 
     function patchLine(index: number, patch: Partial<ReceiveLineDraft>) {
         setLines((current) =>
@@ -622,17 +703,35 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                         {order === undefined ? (
                             <FormSection
                                 first
+                                variant="panel"
                                 testID="kitchen-receive-order-section"
                                 title={t('kitchen:ops.receiving.sectionOrder')}
                             >
-                                <Select
-                                    testID="kitchen-receive-order-picker"
-                                    label={t('kitchen:ops.receiving.fieldOrder')}
-                                    options={orderOptions}
-                                    value={selectedOrderId}
-                                    onChange={setSelectedOrderId}
-                                    searchable
-                                />
+                                <Stack space="sm">
+                                    <TextInputField
+                                        testID="kitchen-receive-order-find"
+                                        id="kitchen-receive-order-find"
+                                        size="sm"
+                                        label={t('kitchen:ops.receiving.findOrderLabel')}
+                                        labelHidden
+                                        placeholder={t(
+                                            'kitchen:ops.receiving.findOrderPlaceholder',
+                                        )}
+                                        value={orderQuery}
+                                        onChangeText={setOrderQuery}
+                                    />
+                                    <DataList<ReceivableOrder>
+                                        testID="kitchen-receive-order-picker"
+                                        label={t('kitchen:ops.receiving.fieldOrder')}
+                                        columns={pickColumns}
+                                        rows={pickRows}
+                                        rowKey={(row) => String(row.id)}
+                                        density="sm"
+                                        onRowPress={(row) => {
+                                            setSelectedOrderId(String(row.id));
+                                        }}
+                                    />
+                                </Stack>
                             </FormSection>
                         ) : selectedOrder === null ? (
                             <EmptyState
@@ -646,6 +745,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                             <Stack space="none" testID="kitchen-receive-form">
                                 <FormSection
                                     first={order !== undefined}
+                                    variant="panel"
                                     testID="kitchen-receive-delivery-section"
                                     title={t('kitchen:ops.receiving.sectionDelivery')}
                                 >
@@ -713,6 +813,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                 </FormSection>
 
                                 <FormSection
+                                    variant="panel"
                                     testID="kitchen-receive-lines-section"
                                     title={t('kitchen:ops.receiving.linesTitle')}
                                 >
@@ -727,6 +828,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                             <Stack
                                                 key={line.key}
                                                 space="xs"
+                                                className="rounded-xl border border-stroke-subtle p-snug"
                                                 testID={`kitchen-receive-line-${String(index)}`}
                                             >
                                                 <Inline space="sm" align="center" wrap>
@@ -922,6 +1024,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                 </FormSection>
 
                                 <FormSection
+                                    variant="panel"
                                     testID="kitchen-receive-charges-section"
                                     title={t('kitchen:ops.receiving.sectionCharges')}
                                 >

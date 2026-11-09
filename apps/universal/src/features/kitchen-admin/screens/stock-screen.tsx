@@ -494,6 +494,7 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
             },
             render: (row) => (
                 <Badge
+                    icon={null}
                     testID={`${stockItemRowTestId(String(row.item.id))}-status`}
                     tone={STATE_TONE[row.state]}
                     label={t(STATE_LABEL[row.state])}
@@ -785,6 +786,8 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-stock-view"
+                look="board"
+                eyebrow={t('kitchen:recordView.eyebrowStock')}
                 media={
                     <RecordPhoto
                         assetId={stockPhotoId(viewing.item)}
@@ -853,100 +856,15 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
             />
         );
 
+    // The table closes the toolbar's card once the list has loaded.
+    const joined = !pending && failure === null;
+
     return (
         <Cascade space="md" testID="kitchen-stock-screen">
             {/*
              * The Lens bar — the levels as figures over the mix, the book and the search on the
              * query row, Import and Export at the end (`lens-bar.tsx`).
              */}
-            <LensBar
-                testID="kitchen-stock-toolbar"
-                label={t('kitchen:lens.label')}
-                figures={lens.figures}
-                mix={lens.mix}
-                mixLabel={lens.mixLabel}
-                scope={
-                    <SegmentedControl
-                        testID="kitchen-stock-kind"
-                        label={t('kitchen:ops.stock.kindLabel')}
-                        items={kindSegments.map((kindSegment) => ({
-                            value: kindSegment.value,
-                            label: kindSegment.label,
-                            testID: `kitchen-stock-kind-${kindSegment.value}`,
-                        }))}
-                        value={kind}
-                        onChange={(next) => {
-                            setKind(next);
-                            resetPage();
-                        }}
-                    />
-                }
-                search={query}
-                onSearchChange={(next) => {
-                    setQuery(next);
-                    resetPage();
-                }}
-                onSearchSubmit={() => {
-                    openScan({ data: query, symbology: null }, true);
-                }}
-                onScan={(scan) => {
-                    openScan(scan, false);
-                }}
-                searchLabel={t('kitchen:toolbar.searchLabel')}
-                searchPlaceholder={t('kitchen:ops.stock.searchPlaceholder')}
-                tokens={lens.tokens}
-                result={
-                    pending || failure !== null
-                        ? null
-                        : t('kitchen:lens.result', {
-                              // Rows up to the end of this page: 18 of 447 on the first.
-                              shown: Math.min(currentPage * PAGE_SIZE, controls.rows.length),
-                              total: controls.rows.length,
-                          })
-                }
-                clearLabel={t('kitchen:lens.clear')}
-                {...(unfiltered ? {} : { onClear: clearFilters })}
-                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
-                actions={
-                    canManage ? (
-                        <CatalogueTransferActions
-                            testID="kitchen-stock-toolbar"
-                            importGuide={STOCK_COUNT_IMPORT_GUIDE}
-                            exportMenu={{
-                                excel: {
-                                    load: (repositories) => repositories.kitchenAdmin.exportStock(),
-                                    fallbackName: 'stock-count.xlsx',
-                                },
-                                pdf: [
-                                    {
-                                        key: 'pdf',
-                                        label: t('kitchen:transfer.export.pdf'),
-                                        disabled: pending,
-                                        onSelect: () => {
-                                            print.start(
-                                                listPrintJob({
-                                                    resource: 'stock',
-                                                    title: t('kitchen:transfer.stock.printTitle'),
-                                                    // ponytail: Last purchase is read for the visible
-                                                    // page only (the 414 URL limit above), so every
-                                                    // other row would print "Loading…". Add a batch
-                                                    // purchase read if the printed column is wanted.
-                                                    columns: controls.columns.filter(
-                                                        (column) => column.key !== 'lastPurchase',
-                                                    ),
-                                                    // Already filtered and sorted as the list shows it.
-                                                    rows: controls.rows,
-                                                }),
-                                            );
-                                        },
-                                    },
-                                ],
-                            }}
-                        />
-                    ) : undefined
-                }
-            />
-
             {scanMessage === null ? null : (
                 <Callout
                     testID="kitchen-stock-scan-message"
@@ -956,75 +874,187 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
                 />
             )}
 
-            {pending ? (
-                <TableSkeleton testID="kitchen-stock-loading" partTestID="kitchen-stock" />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-stock-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void items.refetch();
-                        void levels.refetch();
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-stock-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={lens.figures}
+                    mix={lens.mix}
+                    mixLabel={lens.mixLabel}
+                    scope={
+                        <SegmentedControl
+                            testID="kitchen-stock-kind"
+                            label={t('kitchen:ops.stock.kindLabel')}
+                            items={kindSegments.map((kindSegment) => ({
+                                value: kindSegment.value,
+                                label: kindSegment.label,
+                                testID: `kitchen-stock-kind-${kindSegment.value}`,
+                            }))}
+                            value={kind}
+                            onChange={(next) => {
+                                setKind(next);
+                                resetPage();
+                            }}
+                        />
+                    }
+                    search={query}
+                    onSearchChange={(next) => {
+                        setQuery(next);
+                        resetPage();
                     }}
-                    retrying={items.isFetching || levels.isFetching}
+                    onSearchSubmit={() => {
+                        openScan({ data: query, symbology: null }, true);
+                    }}
+                    onScan={(scan) => {
+                        openScan(scan, false);
+                    }}
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t('kitchen:ops.stock.searchPlaceholder')}
+                    tokens={lens.tokens}
+                    result={
+                        pending || failure !== null
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  // Rows up to the end of this page: 18 of 447 on the first.
+                                  shown: Math.min(currentPage * PAGE_SIZE, controls.rows.length),
+                                  total: controls.rows.length,
+                              })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(unfiltered ? {} : { onClear: clearFilters })}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                    actions={
+                        canManage ? (
+                            <CatalogueTransferActions
+                                testID="kitchen-stock-toolbar"
+                                importGuide={STOCK_COUNT_IMPORT_GUIDE}
+                                exportMenu={{
+                                    excel: {
+                                        load: (repositories) =>
+                                            repositories.kitchenAdmin.exportStock(),
+                                        fallbackName: 'stock-count.xlsx',
+                                    },
+                                    pdf: [
+                                        {
+                                            key: 'pdf',
+                                            label: t('kitchen:transfer.export.pdf'),
+                                            disabled: pending,
+                                            onSelect: () => {
+                                                print.start(
+                                                    listPrintJob({
+                                                        resource: 'stock',
+                                                        title: t(
+                                                            'kitchen:transfer.stock.printTitle',
+                                                        ),
+                                                        // ponytail: Last purchase is read for the visible
+                                                        // page only (the 414 URL limit above), so every
+                                                        // other row would print "Loading…". Add a batch
+                                                        // purchase read if the printed column is wanted.
+                                                        columns: controls.columns.filter(
+                                                            (column) =>
+                                                                column.key !== 'lastPurchase',
+                                                        ),
+                                                        // Already filtered and sorted as the list shows it.
+                                                        rows: controls.rows,
+                                                    }),
+                                                );
+                                            },
+                                        },
+                                    ],
+                                }}
+                            />
+                        ) : undefined
+                    }
                 />
-            ) : controls.rows.length === 0 ? (
-                <EmptyState
-                    testID={
-                        bookRows.length === 0
-                            ? `kitchen-stock-${kind}-empty`
-                            : 'kitchen-stock-filtered-empty'
-                    }
-                    title={
-                        bookRows.length === 0
-                            ? t(
-                                  kind === 'ingredients'
-                                      ? 'kitchen:ops.stock.ingredientsEmptyTitle'
-                                      : 'kitchen:ops.stock.productsEmptyTitle',
-                              )
-                            : t('kitchen:list.filteredEmptyTitle')
-                    }
-                    body={
-                        bookRows.length === 0
-                            ? t(
-                                  kind === 'ingredients'
-                                      ? 'kitchen:ops.stock.ingredientsEmptyBody'
-                                      : 'kitchen:ops.stock.productsEmptyBody',
-                              )
-                            : t('kitchen:ops.stock.filteredEmptyBody')
-                    }
-                />
-            ) : (
-                <Stack space="sm">
-                    <CatalogueList<StockRow>
-                        testID="kitchen-stock-table"
-                        label={t(
-                            kind === 'ingredients'
-                                ? 'kitchen:ops.stock.kindIngredients'
-                                : 'kitchen:ops.stock.kindProducts',
-                        )}
-                        columns={controls.columns}
-                        rows={visible}
-                        rowKey={(row) => String(row.item.id)}
-                        density="sm"
-                        highlightedId={lastOpenedId}
-                        onRowPress={openView}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                        rowActions={rowActions}
-                    />
 
-                    <CataloguePager
-                        testID="kitchen-stock-pagination"
-                        page={currentPage}
-                        totalPages={totalPages}
-                        onPageChange={(next) => {
-                            setPaging({ key: controls.key, page: next });
-                            setViewing(null);
+                {pending ? (
+                    <TableSkeleton testID="kitchen-stock-loading" partTestID="kitchen-stock" />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-stock-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void items.refetch();
+                            void levels.refetch();
                         }}
-                        label={t('kitchen:catalogue.pagerLabel')}
+                        retrying={items.isFetching || levels.isFetching}
                     />
-                </Stack>
-            )}
+                ) : controls.rows.length === 0 ? (
+                    <CatalogueList
+                        testID="kitchen-stock-empty-list"
+                        label={t('kitchen:lens.label')}
+                        columns={controls.columns}
+                        rows={[]}
+                        rowKey={() => ''}
+                        density="sm"
+                        joined
+                        frameEmpty
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        emptyState={
+                            <EmptyState
+                                shape="table"
+                                testID={
+                                    bookRows.length === 0
+                                        ? `kitchen-stock-${kind}-empty`
+                                        : 'kitchen-stock-filtered-empty'
+                                }
+                                title={
+                                    bookRows.length === 0
+                                        ? t(
+                                              kind === 'ingredients'
+                                                  ? 'kitchen:ops.stock.ingredientsEmptyTitle'
+                                                  : 'kitchen:ops.stock.productsEmptyTitle',
+                                          )
+                                        : t('kitchen:list.filteredEmptyTitle')
+                                }
+                                body={
+                                    bookRows.length === 0
+                                        ? t(
+                                              kind === 'ingredients'
+                                                  ? 'kitchen:ops.stock.ingredientsEmptyBody'
+                                                  : 'kitchen:ops.stock.productsEmptyBody',
+                                          )
+                                        : t('kitchen:ops.stock.filteredEmptyBody')
+                                }
+                            />
+                        }
+                    />
+                ) : (
+                    <Stack space="sm">
+                        <CatalogueList<StockRow>
+                            testID="kitchen-stock-table"
+                            joined
+                            label={t(
+                                kind === 'ingredients'
+                                    ? 'kitchen:ops.stock.kindIngredients'
+                                    : 'kitchen:ops.stock.kindProducts',
+                            )}
+                            columns={controls.columns}
+                            rows={visible}
+                            rowKey={(row) => String(row.item.id)}
+                            density="sm"
+                            highlightedId={lastOpenedId}
+                            onRowPress={openView}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                            rowActions={rowActions}
+                        />
+
+                        <CataloguePager
+                            testID="kitchen-stock-pagination"
+                            page={currentPage}
+                            totalPages={totalPages}
+                            onPageChange={(next) => {
+                                setPaging({ key: controls.key, page: next });
+                                setViewing(null);
+                            }}
+                            label={t('kitchen:catalogue.pagerLabel')}
+                        />
+                    </Stack>
+                )}
+            </View>
 
             {viewPopup}
         </Cascade>
@@ -1481,7 +1511,7 @@ function StockMovementEditor({
                 <View className="z-auto min-w-0 flex-1 flex-col gap-base">
                     <FormSection
                         first
-                        variant="card"
+                        variant="panel"
                         testID="kitchen-stock-threshold-section"
                         title={t('kitchen:ops.stock.sectionThreshold')}
                         description={t('kitchen:ops.stock.thresholdNote')}
@@ -1522,7 +1552,7 @@ function StockMovementEditor({
 
                     <FormSection
                         first
-                        variant="card"
+                        variant="panel"
                         testID="kitchen-stock-movement-section"
                         title={t('kitchen:ops.stock.sectionMovement')}
                         description={t('kitchen:ops.stock.ledgerNote')}
@@ -1616,6 +1646,7 @@ function StockMovementEditor({
                 </View>
 
                 <RecordSummaryAside
+                    variant="panel"
                     testID="kitchen-stock-editor-summary"
                     title={t('kitchen:ops.stock.summaryTitle')}
                     width={sideBySide ? ASIDE_WIDTH : null}

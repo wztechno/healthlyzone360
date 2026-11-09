@@ -15,6 +15,7 @@ import {
     FormSkeleton,
     IssueTrayFrame,
     Select,
+    FormSection,
     Stack,
     Text,
     useIssueTrayController,
@@ -618,115 +619,131 @@ function TeamMemberEditor() {
                 {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
                 <View className="z-auto flex-col">
                     {step !== 'roles' ? null : (
-                        <Stack space="sm">
-                            <Text variant="caption" tone="secondary">
-                                {t('accessAdmin:member.rolesHint')}
-                            </Text>
-                            <RoleChoiceList
-                                testID="kitchen-team-member-roles"
-                                itemTestID="kitchen-team-member-role"
-                                id="kitchen-team-member-roles"
-                                {...(server.errorFor('roles') === undefined
-                                    ? server.flag('roles.*.role_id')
-                                    : server.flag('roles'))}
-                                label={stepLabels.roles}
-                                roles={roles.data ?? []}
-                                mode="multiple"
-                                selected={held}
-                                disabled={!canAssignRoles}
-                                noteFor={(roleId) => {
-                                    const note = assignmentNote(assignments.get(roleId));
-                                    return note === null
-                                        ? null
-                                        : t(
-                                              note === 'scheduled'
-                                                  ? 'accessAdmin:member.assignmentScheduled'
-                                                  : 'accessAdmin:member.assignmentExpired',
-                                          );
-                                }}
-                                onChange={(next) => {
-                                    setSelected(next);
-                                    guard.markDirty();
-                                }}
-                            />
-                        </Stack>
+                        <FormSection
+                            first
+                            variant="panel"
+                            title={stepLabels.roles}
+                            description={t('accessAdmin:member.rolesHint')}
+                        >
+                            <Stack space="sm">
+                                <RoleChoiceList
+                                    testID="kitchen-team-member-roles"
+                                    itemTestID="kitchen-team-member-role"
+                                    id="kitchen-team-member-roles"
+                                    {...(server.errorFor('roles') === undefined
+                                        ? server.flag('roles.*.role_id')
+                                        : server.flag('roles'))}
+                                    label={stepLabels.roles}
+                                    roles={roles.data ?? []}
+                                    mode="multiple"
+                                    selected={held}
+                                    disabled={!canAssignRoles}
+                                    noteFor={(roleId) => {
+                                        const note = assignmentNote(assignments.get(roleId));
+                                        return note === null
+                                            ? null
+                                            : t(
+                                                  note === 'scheduled'
+                                                      ? 'accessAdmin:member.assignmentScheduled'
+                                                      : 'accessAdmin:member.assignmentExpired',
+                                              );
+                                    }}
+                                    onChange={(next) => {
+                                        setSelected(next);
+                                        guard.markDirty();
+                                    }}
+                                />
+                            </Stack>
+                        </FormSection>
                     )}
 
                     {step !== 'scope' ? null : (
-                        <Stack space="sm" testID="kitchen-team-member-scope">
-                            <Text variant="caption" tone="secondary">
-                                {t('accessAdmin:member.scopeHint')}
-                            </Text>
-                            {/*
-                             * The vocabulary comes from `meta.branches` on the membership read and
-                             * from nowhere else: the kitchen workspace cannot list its own branches,
-                             * and the session is no help because an organisation-wide membership has
-                             * no branches of its own. With no options there is no decision, so the
-                             * step says so rather than drawing an empty picker.
-                             */}
-                            {branches.length === 0 ? (
-                                <Text tone="secondary" testID="kitchen-team-member-scope-single">
-                                    {t('accessAdmin:member.scopeSingleBranch')}
-                                </Text>
-                            ) : (
-                                <FormGrid testID="kitchen-team-member-scope-grid">
-                                    <Select
-                                        testID="kitchen-team-member-scope-select"
-                                        id="kitchen-team-member-scope-select"
-                                        {...server.flag('branch_id')}
-                                        label={stepLabels.scope}
-                                        disabled={!canUpdate}
-                                        options={[
-                                            // A branch-bound administrator may place people in
-                                            // their own branch only; the server refuses the rest.
-                                            ...(branchBound
-                                                ? []
-                                                : [
-                                                      {
-                                                          value: WHOLE_KITCHEN,
-                                                          label: t(
-                                                              'accessAdmin:member.scopeWholeKitchen',
-                                                          ),
-                                                      },
-                                                  ]),
-                                            ...branches.map((branch) => ({
-                                                value: String(branch.id),
-                                                label: branch.name,
-                                            })),
-                                        ]}
-                                        value={chosenScope ?? WHOLE_KITCHEN}
-                                        onChange={(next) => {
-                                            setScope(next === WHOLE_KITCHEN ? null : next);
-                                            guard.markDirty();
-                                        }}
-                                    />
-                                </FormGrid>
-                            )}
-                        </Stack>
+                        <FormSection
+                            first
+                            variant="panel"
+                            testID="kitchen-team-member-scope"
+                            title={stepLabels.scope}
+                            description={t('accessAdmin:member.scopeHint')}
+                        >
+                            <Stack space="sm">
+                                {/*
+                                 * The vocabulary comes from `meta.branches` on the membership read and
+                                 * from nowhere else: the kitchen workspace cannot list its own branches,
+                                 * and the session is no help because an organisation-wide membership has
+                                 * no branches of its own. With no options there is no decision, so the
+                                 * step says so rather than drawing an empty picker.
+                                 */}
+                                {branches.length === 0 ? (
+                                    <Text
+                                        tone="secondary"
+                                        testID="kitchen-team-member-scope-single"
+                                    >
+                                        {t('accessAdmin:member.scopeSingleBranch')}
+                                    </Text>
+                                ) : (
+                                    <FormGrid testID="kitchen-team-member-scope-grid">
+                                        <Select
+                                            testID="kitchen-team-member-scope-select"
+                                            id="kitchen-team-member-scope-select"
+                                            {...server.flag('branch_id')}
+                                            label={stepLabels.scope}
+                                            disabled={!canUpdate}
+                                            options={[
+                                                // A branch-bound administrator may place people in
+                                                // their own branch only; the server refuses the rest.
+                                                ...(branchBound
+                                                    ? []
+                                                    : [
+                                                          {
+                                                              value: WHOLE_KITCHEN,
+                                                              label: t(
+                                                                  'accessAdmin:member.scopeWholeKitchen',
+                                                              ),
+                                                          },
+                                                      ]),
+                                                ...branches.map((branch) => ({
+                                                    value: String(branch.id),
+                                                    label: branch.name,
+                                                })),
+                                            ]}
+                                            value={chosenScope ?? WHOLE_KITCHEN}
+                                            onChange={(next) => {
+                                                setScope(next === WHOLE_KITCHEN ? null : next);
+                                                guard.markDirty();
+                                            }}
+                                        />
+                                    </FormGrid>
+                                )}
+                            </Stack>
+                        </FormSection>
                     )}
 
                     {step !== 'permissions' ? null : (
-                        <Stack space="sm">
-                            <Text variant="caption" tone="secondary">
-                                {t('accessAdmin:member.permissionsHint')}
-                            </Text>
-                            {record.permissions.length === 0 ? (
-                                <Text
-                                    tone="secondary"
-                                    testID="kitchen-team-member-permissions-none"
-                                >
-                                    {t('accessAdmin:member.permissionsNone')}
-                                </Text>
-                            ) : (
-                                <RolePermissionsTab
-                                    testID="kitchen-team-member-permissions"
-                                    domains={permissionDomains}
-                                    codes={new Set(record.permissions)}
-                                    readOnly
-                                    onChange={() => undefined}
-                                />
-                            )}
-                        </Stack>
+                        <FormSection
+                            first
+                            variant="panel"
+                            title={stepLabels.permissions}
+                            description={t('accessAdmin:member.permissionsHint')}
+                        >
+                            <Stack space="sm">
+                                {record.permissions.length === 0 ? (
+                                    <Text
+                                        tone="secondary"
+                                        testID="kitchen-team-member-permissions-none"
+                                    >
+                                        {t('accessAdmin:member.permissionsNone')}
+                                    </Text>
+                                ) : (
+                                    <RolePermissionsTab
+                                        testID="kitchen-team-member-permissions"
+                                        domains={permissionDomains}
+                                        codes={new Set(record.permissions)}
+                                        readOnly
+                                        onChange={() => undefined}
+                                    />
+                                )}
+                            </Stack>
+                        </FormSection>
                     )}
                 </View>
             </Cascade>

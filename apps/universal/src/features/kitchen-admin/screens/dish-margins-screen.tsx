@@ -164,6 +164,7 @@ function DishMarginsPage() {
             render: (row) =>
                 row.withheldReason !== null ? (
                     <Badge
+                        icon={null}
                         tone="warning"
                         label={t(`kitchen:ops.dishMargins.withheld.${row.withheldReason}`)}
                     />

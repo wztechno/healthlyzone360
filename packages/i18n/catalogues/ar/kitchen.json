@@ -764,6 +764,9 @@
             "receiptsTitle": "التوصيلات",
             "receiptNoDocumentRef": "لا يوجد سند تسليم",
             "view": {
+                "stepDone": "تم",
+                "stepPartial": "جزئي",
+                "stepClosedShort": "أُغلق ناقصًا",
                 "historyLabel": "أين وصل الطلب",
                 "stepMade": "أُنشئ {{date}}",
                 "stepDeliveries_zero": "{{date}} · {{count}} تسليم",
@@ -1205,6 +1208,9 @@
             "emptyTitle": "لا يوجد ما يُستلم",
             "emptyBody": "لا يوجد طلب مفتوح للتوصيل في هذا الفرع. أصدر طلبًا أولًا.",
             "orderMissingTitle": "هذا الطلب ليس مفتوحًا للتوصيل",
+            "findOrderLabel": "ابحث عن طلب",
+            "findOrderPlaceholder": "ابحث عن طلب برقمه أو بالمورد",
+            "columnIssued": "الإصدار",
             "orderMissingBody": "قد يكون مكتملًا بالفعل، أو يخص فرعًا آخر.",
             "fieldOrder": "الطلب",
             "fieldReceivedOn": "تاريخ الاستلام",
@@ -5439,7 +5445,17 @@
         "eyebrowPriceLists": "قوائم الأسعار",
         "eyebrowQuotations": "عروض الأسعار",
         "eyebrowPlans": "الخطط",
-        "eyebrowZones": "مناطق التوصيل"
+        "eyebrowZones": "مناطق التوصيل",
+        "eyebrowSupplyOrders": "طلبات التوريد",
+        "eyebrowSuppliers": "الموردون",
+        "eyebrowProcurement": "المشتريات",
+        "eyebrowLedger": "سجل المشتريات",
+        "eyebrowQualityControl": "مراقبة الجودة",
+        "eyebrowCostReport": "تقرير التكاليف",
+        "eyebrowCustomers": "العملاء",
+        "eyebrowOrders": "الطلبات",
+        "eyebrowStock": "المخزون",
+        "eyebrowComplaints": "الشكاوى"
     },
     "search": {
         "label": "البحث في الصفحات",

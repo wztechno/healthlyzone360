@@ -229,6 +229,7 @@ function UnpricedReceipts() {
                         </Text>
                         {row.valuationPendingCount > 0 ? (
                             <Badge
+                                icon={null}
                                 tone="warning"
                                 testID={`kitchen-unpriced-${String(row.id)}-pending-fx`}
                                 label={t('kitchen:ops.unpricedReceipts.pendingFxBadge', {
@@ -249,6 +250,7 @@ function UnpricedReceipts() {
                 value: (row) => t(receiptCostStatusKey(row.costStatus)),
                 render: (row) => (
                     <Badge
+                        icon={null}
                         tone={receiptCostStatusTone(row.costStatus)}
                         testID={`kitchen-unpriced-${String(row.id)}-status`}
                         label={t(receiptCostStatusKey(row.costStatus))}
@@ -260,6 +262,8 @@ function UnpricedReceipts() {
     const controls = useColumnControls(filtered, columns, 'kitchen-unpriced-receipts');
     const failure = toFailure(queue.error);
     const unfiltered = trimmed === '' && state === 'all' && supplier === null;
+    // The table closes the toolbar's card only when it is drawn.
+    const joined = !queue.isPending && failure === null;
 
     function clearFilters() {
         setQuery('');
@@ -295,95 +299,118 @@ function UnpricedReceipts() {
     return (
         <Cascade space="md" testID="kitchen-unpriced-screen">
             {/* The Lens bar — figures, mix and query row as one object (`lens-bar.tsx`). */}
-            <LensBar
-                testID="kitchen-unpriced-toolbar"
-                label={t('kitchen:lens.label')}
-                {...lens}
-                search={query}
-                onSearchChange={setQuery}
-                searchLabel={t('kitchen:toolbar.searchLabel')}
-                searchPlaceholder={t('kitchen:ops.procurement.searchPlaceholder')}
-                tokens={tokens}
-                result={
-                    queue.isPending
-                        ? null
-                        : t('kitchen:lens.result', {
-                              shown: controls.rows.length,
-                              total: rows.length,
-                          })
-                }
-                clearLabel={t('kitchen:lens.clear')}
-                {...(unfiltered ? {} : { onClear: clearFilters })}
-                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
-            />
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-unpriced-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    {...lens}
+                    search={query}
+                    onSearchChange={setQuery}
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t('kitchen:ops.procurement.searchPlaceholder')}
+                    tokens={tokens}
+                    result={
+                        queue.isPending
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  shown: controls.rows.length,
+                                  total: rows.length,
+                              })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(unfiltered ? {} : { onClear: clearFilters })}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                />
 
-            {queue.isPending ? (
-                <TableSkeleton testID="kitchen-unpriced-loading" partTestID="kitchen-unpriced" />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-unpriced-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void queue.refetch();
-                    }}
-                    retrying={queue.isFetching}
-                />
-            ) : controls.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-unpriced-empty"
-                    title={
-                        unfiltered
-                            ? t('kitchen:ops.unpricedReceipts.emptyTitle')
-                            : t('kitchen:list.filteredEmptyTitle')
-                    }
-                    body={
-                        unfiltered
-                            ? t('kitchen:ops.unpricedReceipts.emptyBody')
-                            : t('kitchen:ops.procurement.filteredEmptyBody')
-                    }
-                    // The table — and the Supplier header that narrowed it — is gone in this state,
-                    // so the way back has to be here.
-                    actions={
-                        unfiltered ? undefined : (
-                            <Button
-                                testID="kitchen-unpriced-clear"
-                                variant="secondary"
-                                size="sm"
-                                label={t('kitchen:toolbar.clearFilters')}
-                                onPress={clearFilters}
+                {queue.isPending ? (
+                    <TableSkeleton
+                        testID="kitchen-unpriced-loading"
+                        partTestID="kitchen-unpriced"
+                    />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-unpriced-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void queue.refetch();
+                        }}
+                        retrying={queue.isFetching}
+                    />
+                ) : controls.rows.length === 0 ? (
+                    <CatalogueList
+                        testID="kitchen-unpriced-empty-list"
+                        label={t('kitchen:lens.label')}
+                        columns={controls.columns}
+                        rows={[]}
+                        rowKey={() => ''}
+                        density="sm"
+                        joined
+                        frameEmpty
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        emptyState={
+                            <EmptyState
+                                shape="table"
+                                testID="kitchen-unpriced-empty"
+                                title={
+                                    unfiltered
+                                        ? t('kitchen:ops.unpricedReceipts.emptyTitle')
+                                        : t('kitchen:list.filteredEmptyTitle')
+                                }
+                                body={
+                                    unfiltered
+                                        ? t('kitchen:ops.unpricedReceipts.emptyBody')
+                                        : t('kitchen:ops.procurement.filteredEmptyBody')
+                                }
+                                // The table — and the Supplier header that narrowed it — is gone in this state,
+                                // so the way back has to be here.
+                                actions={
+                                    unfiltered ? undefined : (
+                                        <Button
+                                            testID="kitchen-unpriced-clear"
+                                            variant="secondary"
+                                            size="sm"
+                                            label={t('kitchen:toolbar.clearFilters')}
+                                            onPress={clearFilters}
+                                        />
+                                    )
+                                }
                             />
-                        )
-                    }
-                />
-            ) : (
-                <CatalogueList<UnpricedReceipt>
-                    testID="kitchen-unpriced-table"
-                    label={t('kitchen:ops.unpricedReceipts.title')}
-                    columns={controls.columns}
-                    rows={controls.rows}
-                    rowKey={(row) => String(row.id)}
-                    density="sm"
-                    highlightedId={lastOpenedId}
-                    initialPage={memory.initial.page}
-                    onPageChange={(page) => {
-                        memory.remember({ page });
-                    }}
-                    onRowPress={openReceipt}
-                    rowActionsLabel={t('kitchen:list.rowActions')}
-                    // The one thing to do with a row here is finish its prices.
-                    rowActions={(row): readonly MenuItem[] => [
-                        {
-                            key: 'open',
-                            label: t('kitchen:catalogue.edit'),
-                            icon: CATALOGUE_ROW_ICONS.edit,
-                            testID: `kitchen-unpriced-${String(row.id)}-open`,
-                            onSelect: () => {
-                                openReceipt(row);
+                        }
+                    />
+                ) : (
+                    <CatalogueList<UnpricedReceipt>
+                        testID="kitchen-unpriced-table"
+                        joined
+                        label={t('kitchen:ops.unpricedReceipts.title')}
+                        columns={controls.columns}
+                        rows={controls.rows}
+                        rowKey={(row) => String(row.id)}
+                        density="sm"
+                        highlightedId={lastOpenedId}
+                        initialPage={memory.initial.page}
+                        onPageChange={(page) => {
+                            memory.remember({ page });
+                        }}
+                        onRowPress={openReceipt}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        // The one thing to do with a row here is finish its prices.
+                        rowActions={(row): readonly MenuItem[] => [
+                            {
+                                key: 'open',
+                                label: t('kitchen:catalogue.edit'),
+                                icon: CATALOGUE_ROW_ICONS.edit,
+                                testID: `kitchen-unpriced-${String(row.id)}-open`,
+                                onSelect: () => {
+                                    openReceipt(row);
+                                },
                             },
-                        },
-                    ]}
-                />
-            )}
+                        ]}
+                    />
+                )}
+            </View>
         </Cascade>
     );
 }

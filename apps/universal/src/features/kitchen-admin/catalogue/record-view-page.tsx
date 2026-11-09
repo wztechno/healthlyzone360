@@ -430,12 +430,17 @@ function SplitBody({
 /** Past this a value is a sentence, not a figure: it takes the whole line. */
 const LONG_VALUE_LENGTH = 48;
 
-/** The board's fields: a muted label and a bold value on one line, two to a row where they fit. */
-function BoardFieldRows({
+/**
+ * The board's fields: a muted label and a bold value on one line, two to a row where they fit.
+ * `stacked` keeps one to a line, for a rail too narrow to hold two.
+ */
+export function BoardFieldRows({
     fields,
+    stacked = false,
     testID,
 }: {
     readonly fields: readonly RecordWindowField[];
+    readonly stacked?: boolean | undefined;
     readonly testID: string;
 }) {
     return (
@@ -446,7 +451,8 @@ function BoardFieldRows({
                     testID={`${testID}-${field.key}`}
                     className="min-h-8 min-w-0 flex-row items-center justify-between gap-snug"
                     style={{
-                        flexBasis: field.value.length > LONG_VALUE_LENGTH ? '100%' : '45%',
+                        flexBasis:
+                            stacked || field.value.length > LONG_VALUE_LENGTH ? '100%' : '45%',
                         // eslint-disable-next-line no-restricted-syntax -- one read-only pair in a wrapping run: two to a line at most, and a sentence takes the whole line.
                         flexGrow: 1,
                     }}
