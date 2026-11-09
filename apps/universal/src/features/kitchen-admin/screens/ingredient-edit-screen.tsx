@@ -63,7 +63,7 @@ import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -96,7 +96,6 @@ import { createSessionDraftStore } from '../../../navigation/session-draft.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { BilingualField } from '../bilingual-field.tsx';
 import { returnCrumbLabel } from '../came-from.ts';
-import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { DerivedPanel } from '../catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../catalogue/derived-panel.tsx';
 import { ingredientStockPhotoId } from '../catalogue/ingredient-photo.ts';
@@ -1632,6 +1631,7 @@ function IngredientEditor({
      * with every receipt, so a margin against it would change without anybody editing this record.
      */
     const margin = marginPercent(b2bPriceValue, unitPriceValue);
+    const marginB2c = marginPercent(b2cPriceValue, unitPriceValue);
 
     /* ── saving ──────────────────────────────────────────────────────────────────────────────── */
 
@@ -2293,6 +2293,7 @@ function IngredientEditor({
     const unitFields = [
         <Select
             key="purchase-unit"
+            {...(family.food ? {} : { span: 2 })}
             testID="kitchen-ingredient-purchase-unit"
             id="kitchen-ingredient-purchase-unit"
             {...server.flag('purchase_unit_id')}
@@ -2326,6 +2327,7 @@ function IngredientEditor({
         />,
         <Select
             key="unit"
+            {...(family.food ? {} : { span: 2 })}
             testID="kitchen-ingredient-unit"
             id="kitchen-ingredient-unit"
             {...server.flag('default_unit_id')}
@@ -2678,6 +2680,33 @@ function IngredientEditor({
             : {}),
     };
 
+    /*
+     * A food record is one card with its sections ruled off, as the Ingredient edit board draws it;
+     * packaging's board draws a flat card per section. `z-auto` down the column either way: see
+     * `FormSection` on why a View would trap a dropdown.
+     */
+    const sectionVariant = family.food ? ('ruled' as const) : ('panel' as const);
+    const sectionsClass = family.food
+        ? 'z-auto flex-col rounded-[22px] border border-stroke-subtle bg-surface-raised px-6 pb-2 pt-1'
+        : 'z-auto flex-col gap-loose';
+    const headerCategory = categoryOptions.find(
+        (option) => option.value === details.categoryCode,
+    )?.label;
+    const headerChanged =
+        data === undefined
+            ? undefined
+            : data.meta.updatedByName === null
+              ? t('kitchen:editor.lastUpdatedBySeed', {
+                    when: formatter.formatRelativeTime(data.meta.updatedAt),
+                })
+              : t('kitchen:editor.lastUpdatedBy', {
+                    when: formatter.formatRelativeTime(data.meta.updatedAt),
+                    name: data.meta.updatedByName,
+                });
+    const headerMeta = [headerCategory, headerChanged]
+        .filter((part): part is string => part !== undefined && part !== '')
+        .join(t('kitchen:recordView.metaSeparator'));
+
     return (
         <IssueTrayFrame tray={trayContent} controller={issueTray}>
             <Cascade space="md" testID="kitchen-ingredient-editor-screen">
@@ -2686,84 +2715,123 @@ function IngredientEditor({
                  * inline end, the banners under it and one rule closing it. No trail here —
                  * `KitchenOpsShell` draws it, and this screen names its last crumb instead.
                  */}
-                <Stack space="sm">
-                    <CataloguePageHeader
-                        testID="kitchen-ingredient-editor-screen-header"
-                        titleTestID="kitchen-ingredient-editor-screen-title"
-                        title={title}
-                        titleAside={
-                            <Inline
-                                space="xs"
-                                align="center"
-                                wrap
-                                testID="kitchen-ingredient-editor-screen-meta"
+                <View
+                    testID="kitchen-ingredient-editor-screen-header"
+                    className="z-auto flex-row flex-wrap items-end justify-between gap-base"
+                >
+                    <View className="min-w-0 shrink flex-col gap-1">
+                        <View className="flex-row flex-wrap items-center gap-2.5">
+                            <RNText
+                                testID="kitchen-ingredient-editor-screen-title"
+                                accessibilityRole="header"
+                                aria-level={1}
+                                className="font-display text-3xl font-bold text-content-primary text-start"
                             >
+                                {title}
+                            </RNText>
+                            {/* Wrapped: `Badge` pins itself `self-start`, off the title's middle. */}
+                            <View>
                                 <Badge
-                                    variant="caps"
                                     testID="kitchen-ingredient-editor-screen-status"
+                                    {...(family.food ? {} : { variant: 'caps' as const })}
                                     tone={statusTone(data?.meta.status ?? 'draft')}
                                     icon={null}
                                     label={t(statusKey(data?.meta.status ?? 'draft'))}
                                 />
+                            </View>
+                            {family.food || reference === '' ? null : (
+                                <Text
+                                    testID="kitchen-ingredient-editor-screen-identity"
+                                    tone="secondary"
+                                    variant="label"
+                                    className="tabular-nums"
+                                >
+                                    {reference}
+                                </Text>
+                            )}
+                            {!family.food && guard.isDirty ? (
+                                <Badge
+                                    testID="kitchen-ingredient-editor-screen-dirty"
+                                    tone="warning"
+                                    icon="warning"
+                                    label={t('kitchen:editor.unsaved')}
+                                />
+                            ) : null}
+                        </View>
+                        {family.food ? (
+                            <View
+                                testID="kitchen-ingredient-editor-screen-meta"
+                                className="flex-row flex-wrap items-center gap-1"
+                            >
                                 {reference === '' ? null : (
                                     <Text
                                         testID="kitchen-ingredient-editor-screen-identity"
                                         tone="secondary"
-                                        variant="mono"
+                                        variant="label"
+                                        className="tabular-nums"
                                     >
                                         {reference}
                                     </Text>
                                 )}
-                                {guard.isDirty ? (
-                                    <Badge
+                                {headerMeta === '' ? null : (
+                                    <Text
+                                        testID="kitchen-ingredient-editor-screen-changed"
+                                        tone="secondary"
                                         variant="label"
-                                        testID="kitchen-ingredient-editor-screen-dirty"
-                                        tone="warning"
-                                        icon="warning"
-                                        label={t('kitchen:editor.unsaved')}
-                                    />
-                                ) : null}
-                            </Inline>
-                        }
-                        primaryAction={
-                            <Inline space="xs" align="center">
-                                {/*
-                                 * Both `md`, matching the list page's `Import` and `New ingredient`
-                                 * pair — an editor's Cancel and Save are the same decision at the same
-                                 * weight. Save is hidden rather than permanently disabled on a record
-                                 * this caller cannot write: the callout below says why.
-                                 */}
-                                <Button
-                                    testID="kitchen-ingredient-editor-screen-back"
-                                    variant="secondary"
-                                    label={t('kitchen:editor.cancel')}
-                                    onPress={() => {
-                                        leaveWithoutKeeping(goBack);
-                                    }}
-                                />
-                                {platformNotice ? null : (
-                                    <Button
-                                        testID="kitchen-ingredient-editor-screen-save"
-                                        label={t('kitchen:editor.save')}
-                                        loading={busy}
-                                        // Pressable over an unconfirmed match: the notice says so.
-                                        disabled={!editable || currencyMissing || busy}
-                                        onPress={save}
-                                    />
+                                    >
+                                        {reference === ''
+                                            ? headerMeta
+                                            : `${t('kitchen:recordView.metaSeparator')}${headerMeta}`}
+                                    </Text>
                                 )}
-                            </Inline>
-                        }
-                    />
-
-                    <View className="border-b border-stroke" />
-                </Stack>
+                            </View>
+                        ) : null}
+                    </View>
+                    <Inline space="xs" align="center">
+                        {family.food && guard.isDirty ? (
+                            <View
+                                testID="kitchen-ingredient-editor-screen-dirty"
+                                className="flex-row items-center gap-1.5"
+                            >
+                                <View
+                                    aria-hidden
+                                    className="h-2 w-2 rounded-full bg-warning-border"
+                                />
+                                <Text variant="label" tone="warning">
+                                    {t('kitchen:editor.unsaved')}
+                                </Text>
+                            </View>
+                        ) : null}
+                        <Button
+                            testID="kitchen-ingredient-editor-screen-back"
+                            variant="secondary"
+                            {...(family.food ? {} : { size: 'sm' as const })}
+                            label={t('kitchen:editor.cancel')}
+                            onPress={() => {
+                                leaveWithoutKeeping(goBack);
+                            }}
+                        />
+                        {/* Hidden rather than always disabled on a record this caller cannot write. */}
+                        {platformNotice ? null : (
+                            <Button
+                                testID="kitchen-ingredient-editor-screen-save"
+                                label={t('kitchen:editor.save')}
+                                iconStart={<Icon name="check" size="sm" />}
+                                loading={busy}
+                                // Pressable over an unconfirmed match: the notice says so.
+                                disabled={!editable || currencyMissing || busy}
+                                onPress={save}
+                            />
+                        )}
+                    </Inline>
+                </View>
 
                 {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
-                <View className="z-auto flex-col gap-loose">
+                <View className={sectionsClass}>
                     {/* ── identity ─────────────────────────────────────────────────────────────── */}
                     <FormSection
                         first
-                        variant="card"
+                        variant={sectionVariant}
                         testID="kitchen-ingredient-identity"
                         title={t('kitchen:forms.description')}
                     >
@@ -2778,6 +2846,7 @@ function IngredientEditor({
                                     testID="kitchen-ingredient-image"
                                     uri={photo}
                                     fallback={stockPhoto}
+                                    size={120}
                                     disabled={!editable}
                                     onChange={(next) => {
                                         // Clearing takes the stock picture off as well as an upload;
@@ -2959,8 +3028,7 @@ function IngredientEditor({
 
                     {/* ── measurement & cost / pack ────────────────────────────────────────────── */}
                     <FormSection
-                        first
-                        variant="card"
+                        variant={sectionVariant}
                         testID="kitchen-ingredient-measurement"
                         title={t(
                             family.food
@@ -3051,8 +3119,7 @@ function IngredientEditor({
                     {/* ── cost (packaging) ─────────────────────────────────────────────────────── */}
                     {family.food ? null : (
                         <FormSection
-                            first
-                            variant="card"
+                            variant={sectionVariant}
                             testID="kitchen-ingredient-cost"
                             title={t('kitchen:forms.cost')}
                         >
@@ -3126,8 +3193,7 @@ function IngredientEditor({
                     {/* ── sale (food) ──────────────────────────────────────────────────────────── */}
                     {!family.food ? null : (
                         <FormSection
-                            first
-                            variant="card"
+                            variant={sectionVariant}
                             testID="kitchen-ingredient-sale"
                             title={t('kitchen:sale.title')}
                         >
@@ -3181,29 +3247,62 @@ function IngredientEditor({
                                             }}
                                         />
                                         {/*
-                                         * Empty rather than a stand-in figure when the sum cannot be
-                                         * stated: the placeholder's em dash says "not calculable",
-                                         * where a `0.0` would claim the margin is nil.
+                                         * A dash rather than a stand-in figure when the sum cannot
+                                         * be stated: a `0.0` would claim the margin is nil.
                                          */}
-                                        <QuantityInput
+                                        <View
                                             testID="kitchen-ingredient-margin"
-                                            id="kitchen-ingredient-margin"
-                                            size="sm"
-                                            readOnly
-                                            label={t('kitchen:sale.margin')}
-                                            unit="%"
-                                            placeholder={t('kitchen:sale.marginUnavailable')}
-                                            value={
-                                                margin === null
-                                                    ? ''
-                                                    : formatter.formatNumber(margin, {
-                                                          minimumFractionDigits: 1,
-                                                          maximumFractionDigits: 1,
-                                                          signDisplay: 'exceptZero',
-                                                      })
-                                            }
-                                            onChangeText={() => undefined}
-                                        />
+                                            className="flex-col gap-1"
+                                        >
+                                            <Text variant="label" tone="secondary">
+                                                {t('kitchen:sale.margin')}
+                                            </Text>
+                                            <View className="h-control-sm flex-row items-center gap-4">
+                                                {(
+                                                    [
+                                                        [
+                                                            'b2b',
+                                                            t('kitchen:sale.marginB2b'),
+                                                            margin,
+                                                        ],
+                                                        [
+                                                            'b2c',
+                                                            t('kitchen:sale.marginB2c'),
+                                                            marginB2c,
+                                                        ],
+                                                    ] as const
+                                                ).map(([key, label, value]) => (
+                                                    <View
+                                                        key={key}
+                                                        className="flex-row items-baseline gap-1.5"
+                                                    >
+                                                        <Text variant="caption" tone="secondary">
+                                                            {label}
+                                                        </Text>
+                                                        <Text
+                                                            testID={`kitchen-ingredient-margin-${key}`}
+                                                            variant="strong"
+                                                            tone={
+                                                                value === null
+                                                                    ? 'secondary'
+                                                                    : 'primary'
+                                                            }
+                                                            className="tabular-nums"
+                                                        >
+                                                            {value === null
+                                                                ? t(
+                                                                      'kitchen:sale.marginUnavailable',
+                                                                  )
+                                                                : `${formatter.formatNumber(value, {
+                                                                      minimumFractionDigits: 1,
+                                                                      maximumFractionDigits: 1,
+                                                                      signDisplay: 'exceptZero',
+                                                                  })}%`}
+                                                        </Text>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        </View>
                                     </FormGrid>
                                 ) : null}
                             </Stack>
@@ -3213,8 +3312,7 @@ function IngredientEditor({
                     {/* ── nutrition · 100 g (food) ─────────────────────────────────────────────── */}
                     {!family.food ? null : (
                         <FormSection
-                            first
-                            variant="card"
+                            variant={sectionVariant}
                             testID="kitchen-ingredient-nutrition"
                             nativeID={SECTION_ID.nutrition}
                             title={t('kitchen:forms.nutritionTitle')}
@@ -3278,7 +3376,7 @@ function IngredientEditor({
                                      */}
                                     <DerivedPanel
                                         testID="kitchen-ingredient-nutrition-grid"
-                                        variant="outline"
+                                        variant="tiles"
                                         figures={figures}
                                         emptyValue={t('kitchen:sale.marginUnavailable')}
                                     />
@@ -3330,7 +3428,7 @@ function IngredientEditor({
                             ) : (
                                 <DerivedPanel
                                     testID="kitchen-ingredient-nutrition-panel"
-                                    variant="outline"
+                                    variant="tiles"
                                     figures={figures}
                                     emptyValue={t('kitchen:sale.marginUnavailable')}
                                 />
@@ -3341,8 +3439,7 @@ function IngredientEditor({
                     {/* ── allergens (food) ─────────────────────────────────────────────────────── */}
                     {!family.food ? null : (
                         <FormSection
-                            first
-                            variant="card"
+                            variant={sectionVariant}
                             testID="kitchen-ingredient-allergens"
                             nativeID={SECTION_ID.allergens}
                             title={t('kitchen:forms.allergensTitle')}
@@ -3526,6 +3623,7 @@ function IngredientEditor({
                             ingredientId={parsed}
                             defaultUnit={details.measurementUnit}
                             canManage={canManage}
+                            variant={sectionVariant}
                         />
                     )}
                 </View>

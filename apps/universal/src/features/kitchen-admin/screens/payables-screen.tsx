@@ -142,6 +142,7 @@ function Payables() {
         {
             key: 'amount',
             role: 'metric',
+            align: 'end',
             label: t('kitchen:ops.payables.columnAmount'),
             width: 150,
             priority: 95,
@@ -180,6 +181,7 @@ function Payables() {
         },
         {
             key: 'action',
+            align: 'end',
             label: t('kitchen:ops.payables.columnAction'),
             width: 130,
             priority: 99,
@@ -225,6 +227,7 @@ function Payables() {
         {
             key: 'amount',
             role: 'metric',
+            align: 'end',
             label: t('kitchen:ops.payables.columnAmount'),
             width: 150,
             priority: 95,
@@ -274,16 +277,18 @@ function Payables() {
                 />
             ) : data === undefined ? null : (
                 <View className="flex-col gap-loose">
-                    <Text variant="section" accessibilityRole="header">
-                        {t('kitchen:ops.payables.owedHeading')}
-                    </Text>
-                    {data.totals.length === 0 ? null : (
-                        <Text variant="caption" tone="secondary" testID="kitchen-payables-totals">
-                            {`${t('kitchen:ops.payables.totalsLabel')}: ${data.totals
-                                .map((total) => names.money(total.amount, total.currencyCode))
-                                .join(' · ')}`}
+                    <View className="flex-row flex-wrap items-baseline gap-x-snug">
+                        <Text accessibilityRole="header" variant="title" className="font-display">
+                            {t('kitchen:ops.payables.owedHeading')}
                         </Text>
-                    )}
+                        {data.totals.length === 0 ? null : (
+                            <Text tone="secondary" testID="kitchen-payables-totals">
+                                {`${t('kitchen:ops.payables.totalsLabel')}: ${data.totals
+                                    .map((total) => names.money(total.amount, total.currencyCode))
+                                    .join(' · ')}`}
+                            </Text>
+                        )}
+                    </View>
                     {data.unpaid.length === 0 ? (
                         <EmptyState
                             testID="kitchen-payables-owed-empty"
@@ -300,7 +305,7 @@ function Payables() {
                         />
                     )}
 
-                    <Text variant="section" accessibilityRole="header">
+                    <Text accessibilityRole="header" variant="title" className="font-display">
                         {t('kitchen:ops.payables.paidHeading')}
                     </Text>
                     {data.paid.length === 0 ? (

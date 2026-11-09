@@ -61,3 +61,10 @@ const { clearAllSessionDrafts } = require('./src/navigation/session-draft.ts');
 afterEach(() => {
     clearAllSessionDrafts();
 });
+
+/**
+ * A table row's actions, drawn flat rather than behind their `⋯`, so a screen's test can press the
+ * action it is about without opening a menu first. The menu itself is exercised for real in
+ * `row-actions-menu.test.tsx`.
+ */
+jest.mock('./src/features/kitchen-admin/catalogue/row-actions-menu.tsx');

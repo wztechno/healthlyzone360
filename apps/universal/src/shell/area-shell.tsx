@@ -8,7 +8,6 @@ import {
     IssueTrayButton,
     OfflineIndicator,
     RailAccount,
-    ShellRailButton,
     useBreakpoint,
 } from '@healthy360/design-system';
 import type { AppShellVariant, NavigationItem } from '@healthy360/design-system';
@@ -277,19 +276,12 @@ function GuardedAreaShell({
 
     const identity = accountIdentity(me);
     /*
-     * The rail's foot (avatar option B, 2026-11-07): Workspaces as a rail glyph, then the avatar,
-     * whose card holds who is signed in and Sign out — nothing else.
+     * The rail's foot: the avatar alone, whose card holds who is signed in and Sign out — nothing
+     * else. Workspaces left the rail on 2026-11-09 so every module icon fits without scrolling; the
+     * top bar's Workspaces button is the way back to the workspace page.
      */
     const railEnd = !railPresent ? undefined : (
         <>
-            {showWorkspacesButton ? (
-                <ShellRailButton
-                    testID="workspaces-rail"
-                    label={workspacesLabel}
-                    icon="gridDots"
-                    onPress={toWorkspace}
-                />
-            ) : null}
             <RailAccount
                 testID="account"
                 name={identity.name || t('designSystem:shell.account')}

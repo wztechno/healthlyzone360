@@ -20,6 +20,7 @@ import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -182,6 +183,8 @@ function Complaints({ view }: { readonly view: string | undefined }) {
             <>
                 <RecordViewPage
                     testID="kitchen-complaints-view"
+                    look="board"
+                    eyebrow={t('kitchen:recordView.eyebrowComplaints')}
                     onBack={() => {
                         setViewing(null);
                     }}
@@ -294,89 +297,112 @@ function Complaints({ view }: { readonly view: string | undefined }) {
             </>
         );
 
+    // The table closes the toolbar's card once the list has loaded.
+    const joined = !complaints.isPending && failure === null;
+
     return (
         <Cascade space="md" testID="kitchen-complaints-screen">
-            <LensBar
-                testID="kitchen-complaints-toolbar"
-                label={t('kitchen:lens.label')}
-                {...(failure !== null
-                    ? { figures: [] }
-                    : lens(complaints.isPending ? null : scope, state, setState, t))}
-                search={query}
-                onSearchChange={setQuery}
-                searchLabel={t('kitchen:toolbar.searchLabel')}
-                searchPlaceholder={t('kitchen:complaints.searchPlaceholder')}
-                tokens={[]}
-                result={
-                    complaints.isPending
-                        ? null
-                        : t('kitchen:lens.result', {
-                              shown: controls.rows.length,
-                              total: complaints.data?.length ?? 0,
-                          })
-                }
-                clearLabel={t('kitchen:lens.clear')}
-                {...(unfiltered
-                    ? {}
-                    : {
-                          onClear: () => {
-                              setQuery('');
-                              controls.clearFilters();
-                              setState('all');
-                          },
-                      })}
-            />
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-complaints-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    {...(failure !== null
+                        ? { figures: [] }
+                        : lens(complaints.isPending ? null : scope, state, setState, t))}
+                    search={query}
+                    onSearchChange={setQuery}
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t('kitchen:complaints.searchPlaceholder')}
+                    tokens={[]}
+                    result={
+                        complaints.isPending
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  shown: controls.rows.length,
+                                  total: complaints.data?.length ?? 0,
+                              })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(unfiltered
+                        ? {}
+                        : {
+                              onClear: () => {
+                                  setQuery('');
+                                  controls.clearFilters();
+                                  setState('all');
+                              },
+                          })}
+                />
 
-            {complaints.isPending ? (
-                <TableSkeleton testID="kitchen-complaints-loading" />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-complaints-error"
-                    title={t('kitchen:complaints.loadErrorTitle')}
-                    failure={failure}
-                    onRetry={() => {
-                        void complaints.refetch();
-                    }}
-                    retrying={complaints.isFetching}
-                />
-            ) : controls.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-complaints-empty"
-                    title={t('kitchen:complaints.emptyTitle')}
-                    body={t('kitchen:complaints.emptyBody')}
-                />
-            ) : (
-                <Stack space="sm">
-                    <CatalogueList<OrderComplaint>
-                        testID="kitchen-complaints-list"
-                        label={t('kitchen:families.complaints.name')}
+                {complaints.isPending ? (
+                    <TableSkeleton testID="kitchen-complaints-loading" />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-complaints-error"
+                        title={t('kitchen:complaints.loadErrorTitle')}
+                        failure={failure}
+                        onRetry={() => {
+                            void complaints.refetch();
+                        }}
+                        retrying={complaints.isFetching}
+                    />
+                ) : controls.rows.length === 0 ? (
+                    <CatalogueList
+                        testID="kitchen-complaints-empty-list"
+                        label={t('kitchen:lens.label')}
                         columns={controls.columns}
-                        rows={pageRows}
-                        rowKey={(row) => row.id}
-                        highlightedId={lastOpenedId}
-                        onRowPress={openRecord}
+                        rows={[]}
+                        rowKey={() => ''}
+                        density="sm"
+                        joined
+                        frameEmpty
                         rowActionsLabel={t('kitchen:list.rowActions')}
-                        rowActions={(row): readonly MenuItem[] => [
-                            {
-                                key: 'view',
-                                label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
-                                testID: `kitchen-complaints-row-${row.id}-view`,
-                                onSelect: () => {
-                                    openRecord(row);
+                        emptyState={
+                            <EmptyState
+                                shape="table"
+                                testID="kitchen-complaints-empty"
+                                title={t('kitchen:complaints.emptyTitle')}
+                                body={t('kitchen:complaints.emptyBody')}
+                            />
+                        }
+                    />
+                ) : (
+                    <Stack space="sm">
+                        <CatalogueList<OrderComplaint>
+                            testID="kitchen-complaints-list"
+                            joined
+                            label={t('kitchen:families.complaints.name')}
+                            columns={controls.columns}
+                            rows={pageRows}
+                            rowKey={(row) => row.id}
+                            highlightedId={lastOpenedId}
+                            onRowPress={openRecord}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                            rowActions={(row): readonly MenuItem[] => [
+                                {
+                                    key: 'view',
+                                    label: t('kitchen:list.view'),
+                                    icon: CATALOGUE_ROW_ICONS.view,
+                                    testID: `kitchen-complaints-row-${row.id}-view`,
+                                    onSelect: () => {
+                                        openRecord(row);
+                                    },
                                 },
-                            },
-                        ]}
-                    />
-                    <CataloguePager
-                        testID="kitchen-complaints-pagination"
-                        page={currentPage}
-                        totalPages={totalPages}
-                        onPageChange={setPage}
-                        label={t('kitchen:catalogue.pagerLabel')}
-                    />
-                </Stack>
-            )}
+                            ]}
+                        />
+                        <CataloguePager
+                            testID="kitchen-complaints-pagination"
+                            page={currentPage}
+                            totalPages={totalPages}
+                            onPageChange={setPage}
+                            label={t('kitchen:catalogue.pagerLabel')}
+                        />
+                    </Stack>
+                )}
+            </View>
 
             {viewPopup}
         </Cascade>

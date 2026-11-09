@@ -368,6 +368,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                 heading={
                     <>
                         <Badge
+                            icon={null}
                             testID="kitchen-production-batch-status"
                             tone={productionStatusTone(batch.status)}
                             label={t(productionStatusKey(batch.status))}

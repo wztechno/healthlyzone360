@@ -215,113 +215,138 @@ function RolesList() {
         router.push('/kitchen/roles/new' as never);
     };
 
+    // The table closes the toolbar's card once the list has loaded.
+    const joined = !roles.isPending && failure === null;
+
     return (
         <Cascade space="md" testID="kitchen-roles-screen">
-            <LensBar
-                testID="kitchen-roles-toolbar"
-                label={t('kitchen:lens.label')}
-                figures={lensFigures(roles.data, roles.isPending, t)}
-                search={query}
-                onSearchChange={setQuery}
-                searchLabel={t('accessAdmin:roles.searchLabel')}
-                searchPlaceholder={t('accessAdmin:roles.searchHint')}
-                result={
-                    roles.isPending
-                        ? null
-                        : failure !== null
-                          ? t('kitchen:list.noValue')
-                          : t('kitchen:lens.result', {
-                                shown: controls.rows.length,
-                                total: roles.data?.length ?? 0,
-                            })
-                }
-                clearLabel={t('kitchen:lens.clear')}
-                {...(unfiltered
-                    ? {}
-                    : {
-                          onClear: () => {
-                              setQuery('');
-                              controls.clearFilters();
-                          },
-                      })}
-                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
-                actions={
-                    canManage ? (
-                        <Button
-                            testID="kitchen-roles-create"
-                            label={t('accessAdmin:roles.create')}
-                            iconStart={<Icon name="plus" size="sm" />}
-                            onPress={createRole}
-                        />
-                    ) : undefined
-                }
-            />
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-roles-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={lensFigures(roles.data, roles.isPending, t)}
+                    search={query}
+                    onSearchChange={setQuery}
+                    searchLabel={t('accessAdmin:roles.searchLabel')}
+                    searchPlaceholder={t('accessAdmin:roles.searchHint')}
+                    result={
+                        roles.isPending
+                            ? null
+                            : failure !== null
+                              ? t('kitchen:list.noValue')
+                              : t('kitchen:lens.result', {
+                                    shown: controls.rows.length,
+                                    total: roles.data?.length ?? 0,
+                                })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(unfiltered
+                        ? {}
+                        : {
+                              onClear: () => {
+                                  setQuery('');
+                                  controls.clearFilters();
+                              },
+                          })}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                    actions={
+                        canManage ? (
+                            <Button
+                                testID="kitchen-roles-create"
+                                label={t('accessAdmin:roles.create')}
+                                iconStart={<Icon name="plus" size="sm" />}
+                                onPress={createRole}
+                            />
+                        ) : undefined
+                    }
+                />
 
-            {roles.isPending ? (
-                <TableSkeleton testID="kitchen-roles-loading" partTestID="kitchen-roles" />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-roles-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void roles.refetch();
-                    }}
-                    retrying={roles.isFetching}
-                />
-            ) : controls.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-roles-empty"
-                    title={t('accessAdmin:roles.filteredEmptyTitle')}
-                    body={t('accessAdmin:roles.filteredEmptyBody')}
-                />
-            ) : (
-                <CatalogueList<OrganisationRoleSummary>
-                    testID="kitchen-roles-table"
-                    label={t('accessAdmin:roles.caption')}
-                    columns={controls.columns}
-                    rows={controls.rows}
-                    rowKey={(row) => String(row.id)}
-                    density="sm"
-                    highlightedId={lastOpenedId}
-                    initialPage={memory.initial.page}
-                    onPageChange={(page) => {
-                        memory.remember({ page });
-                    }}
-                    onRowPress={openRole}
-                    rowActionsLabel={t('kitchen:list.rowActions')}
-                    rowActions={(row): readonly MenuItem[] => [
-                        /*
-                         * Edit on every role for somebody who may manage them; Open — the
-                         * read-only editor — for everybody else. Copy starts a new role from
-                         * this one.
-                         */
-                        {
-                            key: 'open',
-                            label: canManage
-                                ? t('accessAdmin:roles.edit')
-                                : t('accessAdmin:roles.open'),
-                            icon: canManage ? CATALOGUE_ROW_ICONS.edit : CATALOGUE_ROW_ICONS.view,
-                            testID: `${roleRowTestId(String(row.id))}-open`,
-                            onSelect: () => {
-                                openRole(row);
+                {roles.isPending ? (
+                    <TableSkeleton testID="kitchen-roles-loading" partTestID="kitchen-roles" />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-roles-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void roles.refetch();
+                        }}
+                        retrying={roles.isFetching}
+                    />
+                ) : controls.rows.length === 0 ? (
+                    <CatalogueList
+                        testID="kitchen-roles-empty-list"
+                        label={t('kitchen:lens.label')}
+                        columns={controls.columns}
+                        rows={[]}
+                        rowKey={() => ''}
+                        density="sm"
+                        joined
+                        frameEmpty
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        emptyState={
+                            <EmptyState
+                                shape="table"
+                                testID="kitchen-roles-empty"
+                                title={t('accessAdmin:roles.filteredEmptyTitle')}
+                                body={t('accessAdmin:roles.filteredEmptyBody')}
+                            />
+                        }
+                    />
+                ) : (
+                    <CatalogueList<OrganisationRoleSummary>
+                        testID="kitchen-roles-table"
+                        joined
+                        label={t('accessAdmin:roles.caption')}
+                        columns={controls.columns}
+                        rows={controls.rows}
+                        rowKey={(row) => String(row.id)}
+                        density="sm"
+                        highlightedId={lastOpenedId}
+                        initialPage={memory.initial.page}
+                        onPageChange={(page) => {
+                            memory.remember({ page });
+                        }}
+                        onRowPress={openRole}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        rowActions={(row): readonly MenuItem[] => [
+                            /*
+                             * Edit on every role for somebody who may manage them; Open — the
+                             * read-only editor — for everybody else. Copy starts a new role from
+                             * this one.
+                             */
+                            {
+                                key: 'open',
+                                label: canManage
+                                    ? t('accessAdmin:roles.edit')
+                                    : t('accessAdmin:roles.open'),
+                                icon: canManage
+                                    ? CATALOGUE_ROW_ICONS.edit
+                                    : CATALOGUE_ROW_ICONS.view,
+                                testID: `${roleRowTestId(String(row.id))}-open`,
+                                onSelect: () => {
+                                    openRole(row);
+                                },
                             },
-                        },
-                        ...(canManage
-                            ? [
-                                  {
-                                      key: 'copy',
-                                      label: t('accessAdmin:roles.copy'),
-                                      icon: 'layers' as const,
-                                      testID: `${roleRowTestId(String(row.id))}-copy`,
-                                      onSelect: () => {
-                                          copyRole(row);
+                            ...(canManage
+                                ? [
+                                      {
+                                          key: 'copy',
+                                          label: t('accessAdmin:roles.copy'),
+                                          icon: 'layers' as const,
+                                          testID: `${roleRowTestId(String(row.id))}-copy`,
+                                          onSelect: () => {
+                                              copyRole(row);
+                                          },
                                       },
-                                  },
-                              ]
-                            : []),
-                    ]}
-                />
-            )}
+                                  ]
+                                : []),
+                        ]}
+                    />
+                )}
+            </View>
         </Cascade>
     );
 }

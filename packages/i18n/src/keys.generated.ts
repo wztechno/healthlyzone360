@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10492 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10530 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3434,10 +3434,13 @@ export interface NamespaceKeys {
     | 'allergenAssessment.confirm'
     | 'allergenAssessment.noRecipe'
     | 'allergenAssessment.notAssessed'
+    | 'allergenBoard.choiceNo'
     | 'allergenBoard.diets'
-    | 'allergenBoard.freeFrom'
     | 'allergenBoard.listLabel'
-    | 'allergenBoard.pillLabel'
+    | 'allergenBoard.mayContain'
+    | 'allergenBoard.summaryContains'
+    | 'allergenBoard.summaryJoin'
+    | 'allergenBoard.summaryNone'
     | 'allergenLookup.barcode'
     | 'allergenLookup.barcodeHint'
     | 'allergenLookup.barcodeShort'
@@ -4626,9 +4629,14 @@ export interface NamespaceKeys {
     | 'hub.today.sales'
     | 'hub.today.title'
     | 'ingredientDetail.aliasesLabel'
-    | 'ingredientDetail.allergensDietsTitle'
+    | 'ingredientDetail.boughtIn'
+    | 'ingredientDetail.checkedLabel'
+    | 'ingredientDetail.checkedNo'
+    | 'ingredientDetail.checkedReview'
+    | 'ingredientDetail.checkedYes'
     | 'ingredientDetail.energyFrom'
     | 'ingredientDetail.energyShare'
+    | 'ingredientDetail.energyShareOfRi'
     | 'ingredientDetail.energySplitLabel'
     | 'ingredientDetail.fieldCapacity'
     | 'ingredientDetail.fieldPackCost'
@@ -4637,13 +4645,11 @@ export interface NamespaceKeys {
     | 'ingredientDetail.identificationSubtitle'
     | 'ingredientDetail.identificationTitle'
     | 'ingredientDetail.kpiMarginOnCost'
-    | 'ingredientDetail.namesTitle'
     | 'ingredientDetail.nutrientValue'
     | 'ingredientDetail.nutritionEmpty'
     | 'ingredientDetail.nutritionSubtitle'
     | 'ingredientDetail.perUnitCaption'
     | 'ingredientDetail.perUnitValue'
-    | 'ingredientDetail.priceLadderLabel'
     | 'ingredientDetail.pricesTitle'
     | 'ingredientDetail.sellableNo'
     | 'ingredientDetail.sellableYes'
@@ -6193,6 +6199,7 @@ export interface NamespaceKeys {
     | 'ops.receiving.closeShortHint'
     | 'ops.receiving.closeShortLabel'
     | 'ops.receiving.closeShortReasonPlaceholder'
+    | 'ops.receiving.columnIssued'
     | 'ops.receiving.confirmCloseShort'
     | 'ops.receiving.confirmComplete'
     | 'ops.receiving.confirmDate'
@@ -6226,6 +6233,8 @@ export interface NamespaceKeys {
     | 'ops.receiving.fieldReceivedOnHint'
     | 'ops.receiving.fieldTax'
     | 'ops.receiving.fieldVarianceNote'
+    | 'ops.receiving.findOrderLabel'
+    | 'ops.receiving.findOrderPlaceholder'
     | 'ops.receiving.hideCharges'
     | 'ops.receiving.invoiceRefPlaceholder'
     | 'ops.receiving.lineOverReceipt'
@@ -6758,8 +6767,11 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.view.leadTime'
     | 'ops.supplyOrders.view.nothingToCome'
     | 'ops.supplyOrders.view.ringLabel'
+    | 'ops.supplyOrders.view.stepClosedShort'
     | 'ops.supplyOrders.view.stepDeliveries'
+    | 'ops.supplyOrders.view.stepDone'
     | 'ops.supplyOrders.view.stepMade'
+    | 'ops.supplyOrders.view.stepPartial'
     | 'ops.supplyOrders.view.toComeLine'
     | 'ops.supplyOrders.viewBranch'
     | 'ops.supplyOrders.viewKind'
@@ -7610,6 +7622,24 @@ export interface NamespaceKeys {
     | 'recipes.yieldRequired'
     | 'recipes.yieldUnit'
     | 'recordView.details'
+    | 'recordView.eyebrowAllergens'
+    | 'recordView.eyebrowComplaints'
+    | 'recordView.eyebrowCostReport'
+    | 'recordView.eyebrowCustomers'
+    | 'recordView.eyebrowLedger'
+    | 'recordView.eyebrowOrders'
+    | 'recordView.eyebrowPackaging'
+    | 'recordView.eyebrowPlans'
+    | 'recordView.eyebrowPriceLists'
+    | 'recordView.eyebrowProcurement'
+    | 'recordView.eyebrowQualityControl'
+    | 'recordView.eyebrowQuotations'
+    | 'recordView.eyebrowRecipes'
+    | 'recordView.eyebrowResale'
+    | 'recordView.eyebrowStock'
+    | 'recordView.eyebrowSuppliers'
+    | 'recordView.eyebrowSupplyOrders'
+    | 'recordView.eyebrowZones'
     | 'recordView.metaSeparator'
     | 'recordView.pathSeparator'
     | 'recordView.statusTitle'
@@ -7700,6 +7730,8 @@ export interface NamespaceKeys {
     | 'sale.b2cPrice'
     | 'sale.currencyUnknown'
     | 'sale.margin'
+    | 'sale.marginB2b'
+    | 'sale.marginB2c'
     | 'sale.marginNoBasis'
     | 'sale.marginUnavailable'
     | 'sale.priceInvalid'
@@ -7748,14 +7780,20 @@ export interface NamespaceKeys {
     | 'serviceTimings.savedToast'
     | 'serviceTimings.title'
     | 'serviceTimings.unit'
+    | 'setup.allSet'
     | 'setup.goLive'
     | 'setup.goLiveError'
     | 'setup.liveBody'
     | 'setup.liveTitle'
     | 'setup.liveToast'
+    | 'setup.next'
     | 'setup.notOpenBody'
     | 'setup.notOpenTitle'
+    | 'setup.ofTotal'
     | 'setup.open'
+    | 'setup.optional'
+    | 'setup.readyTitle'
+    | 'setup.requiredCount'
     | 'setup.step.delivery.body'
     | 'setup.step.delivery.title'
     | 'setup.step.hours.body'
@@ -13944,10 +13982,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:allergenAssessment.confirm',
   'kitchen:allergenAssessment.noRecipe',
   'kitchen:allergenAssessment.notAssessed',
+  'kitchen:allergenBoard.choiceNo',
   'kitchen:allergenBoard.diets',
-  'kitchen:allergenBoard.freeFrom',
   'kitchen:allergenBoard.listLabel',
-  'kitchen:allergenBoard.pillLabel',
+  'kitchen:allergenBoard.mayContain',
+  'kitchen:allergenBoard.summaryContains',
+  'kitchen:allergenBoard.summaryJoin',
+  'kitchen:allergenBoard.summaryNone',
   'kitchen:allergenLookup.barcode',
   'kitchen:allergenLookup.barcodeHint',
   'kitchen:allergenLookup.barcodeShort',
@@ -15136,9 +15177,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.today.sales',
   'kitchen:hub.today.title',
   'kitchen:ingredientDetail.aliasesLabel',
-  'kitchen:ingredientDetail.allergensDietsTitle',
+  'kitchen:ingredientDetail.boughtIn',
+  'kitchen:ingredientDetail.checkedLabel',
+  'kitchen:ingredientDetail.checkedNo',
+  'kitchen:ingredientDetail.checkedReview',
+  'kitchen:ingredientDetail.checkedYes',
   'kitchen:ingredientDetail.energyFrom',
   'kitchen:ingredientDetail.energyShare',
+  'kitchen:ingredientDetail.energyShareOfRi',
   'kitchen:ingredientDetail.energySplitLabel',
   'kitchen:ingredientDetail.fieldCapacity',
   'kitchen:ingredientDetail.fieldPackCost',
@@ -15147,13 +15193,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ingredientDetail.identificationSubtitle',
   'kitchen:ingredientDetail.identificationTitle',
   'kitchen:ingredientDetail.kpiMarginOnCost',
-  'kitchen:ingredientDetail.namesTitle',
   'kitchen:ingredientDetail.nutrientValue',
   'kitchen:ingredientDetail.nutritionEmpty',
   'kitchen:ingredientDetail.nutritionSubtitle',
   'kitchen:ingredientDetail.perUnitCaption',
   'kitchen:ingredientDetail.perUnitValue',
-  'kitchen:ingredientDetail.priceLadderLabel',
   'kitchen:ingredientDetail.pricesTitle',
   'kitchen:ingredientDetail.sellableNo',
   'kitchen:ingredientDetail.sellableYes',
@@ -16703,6 +16747,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.receiving.closeShortHint',
   'kitchen:ops.receiving.closeShortLabel',
   'kitchen:ops.receiving.closeShortReasonPlaceholder',
+  'kitchen:ops.receiving.columnIssued',
   'kitchen:ops.receiving.confirmCloseShort',
   'kitchen:ops.receiving.confirmComplete',
   'kitchen:ops.receiving.confirmDate',
@@ -16736,6 +16781,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.receiving.fieldReceivedOnHint',
   'kitchen:ops.receiving.fieldTax',
   'kitchen:ops.receiving.fieldVarianceNote',
+  'kitchen:ops.receiving.findOrderLabel',
+  'kitchen:ops.receiving.findOrderPlaceholder',
   'kitchen:ops.receiving.hideCharges',
   'kitchen:ops.receiving.invoiceRefPlaceholder',
   'kitchen:ops.receiving.lineOverReceipt',
@@ -17268,8 +17315,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.view.leadTime',
   'kitchen:ops.supplyOrders.view.nothingToCome',
   'kitchen:ops.supplyOrders.view.ringLabel',
+  'kitchen:ops.supplyOrders.view.stepClosedShort',
   'kitchen:ops.supplyOrders.view.stepDeliveries',
+  'kitchen:ops.supplyOrders.view.stepDone',
   'kitchen:ops.supplyOrders.view.stepMade',
+  'kitchen:ops.supplyOrders.view.stepPartial',
   'kitchen:ops.supplyOrders.view.toComeLine',
   'kitchen:ops.supplyOrders.viewBranch',
   'kitchen:ops.supplyOrders.viewKind',
@@ -18120,6 +18170,24 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.yieldRequired',
   'kitchen:recipes.yieldUnit',
   'kitchen:recordView.details',
+  'kitchen:recordView.eyebrowAllergens',
+  'kitchen:recordView.eyebrowComplaints',
+  'kitchen:recordView.eyebrowCostReport',
+  'kitchen:recordView.eyebrowCustomers',
+  'kitchen:recordView.eyebrowLedger',
+  'kitchen:recordView.eyebrowOrders',
+  'kitchen:recordView.eyebrowPackaging',
+  'kitchen:recordView.eyebrowPlans',
+  'kitchen:recordView.eyebrowPriceLists',
+  'kitchen:recordView.eyebrowProcurement',
+  'kitchen:recordView.eyebrowQualityControl',
+  'kitchen:recordView.eyebrowQuotations',
+  'kitchen:recordView.eyebrowRecipes',
+  'kitchen:recordView.eyebrowResale',
+  'kitchen:recordView.eyebrowStock',
+  'kitchen:recordView.eyebrowSuppliers',
+  'kitchen:recordView.eyebrowSupplyOrders',
+  'kitchen:recordView.eyebrowZones',
   'kitchen:recordView.metaSeparator',
   'kitchen:recordView.pathSeparator',
   'kitchen:recordView.statusTitle',
@@ -18210,6 +18278,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:sale.b2cPrice',
   'kitchen:sale.currencyUnknown',
   'kitchen:sale.margin',
+  'kitchen:sale.marginB2b',
+  'kitchen:sale.marginB2c',
   'kitchen:sale.marginNoBasis',
   'kitchen:sale.marginUnavailable',
   'kitchen:sale.priceInvalid',
@@ -18258,14 +18328,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:serviceTimings.savedToast',
   'kitchen:serviceTimings.title',
   'kitchen:serviceTimings.unit',
+  'kitchen:setup.allSet',
   'kitchen:setup.goLive',
   'kitchen:setup.goLiveError',
   'kitchen:setup.liveBody',
   'kitchen:setup.liveTitle',
   'kitchen:setup.liveToast',
+  'kitchen:setup.next',
   'kitchen:setup.notOpenBody',
   'kitchen:setup.notOpenTitle',
+  'kitchen:setup.ofTotal',
   'kitchen:setup.open',
+  'kitchen:setup.optional',
+  'kitchen:setup.readyTitle',
+  'kitchen:setup.requiredCount',
   'kitchen:setup.step.delivery.body',
   'kitchen:setup.step.delivery.title',
   'kitchen:setup.step.hours.body',

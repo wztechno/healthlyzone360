@@ -563,7 +563,7 @@ function StaffCreateForm() {
                     {step !== 'signIn' ? null : (
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-staff-create-access"
                             title={stepLabels.signIn}
                             description={t(
@@ -702,7 +702,7 @@ function StaffCreateForm() {
                     {step !== 'person' || mode !== 'create' ? null : (
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-staff-create-person"
                             title={stepLabels.person}
                         >
@@ -738,7 +738,7 @@ function StaffCreateForm() {
                     {step !== 'role' ? null : (
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-staff-create-role-section"
                             title={stepLabels.role}
                         >

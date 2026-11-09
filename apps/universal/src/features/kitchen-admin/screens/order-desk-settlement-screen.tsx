@@ -119,7 +119,6 @@ function OrderDeskSettlement() {
         },
         {
             key: 'runs',
-            align: 'end',
             label: t('kitchen:ops.settlement.columnRuns'),
             width: 80,
             priority: 80,
@@ -131,7 +130,6 @@ function OrderDeskSettlement() {
         },
         {
             key: 'amount',
-            align: 'end',
             role: 'metric',
             label: t('kitchen:ops.settlement.columnCollected'),
             width: 140,
@@ -174,7 +172,6 @@ function OrderDeskSettlement() {
         },
         {
             key: 'runs',
-            align: 'end',
             label: t('kitchen:ops.settlement.columnRuns'),
             width: 80,
             priority: 80,
@@ -186,7 +183,6 @@ function OrderDeskSettlement() {
         },
         {
             key: 'due',
-            align: 'end',
             role: 'metric',
             label: t('kitchen:ops.settlement.columnDue'),
             width: 140,
@@ -195,7 +191,6 @@ function OrderDeskSettlement() {
         },
         {
             key: 'fee',
-            align: 'end',
             label: t('kitchen:ops.settlement.columnFee'),
             width: 120,
             priority: 70,
@@ -207,7 +202,6 @@ function OrderDeskSettlement() {
         },
         {
             key: 'expense',
-            align: 'end',
             label: t('kitchen:ops.settlement.columnExpense'),
             width: 140,
             priority: 65,
@@ -265,7 +259,6 @@ function OrderDeskSettlement() {
         },
         {
             key: 'handed',
-            align: 'end',
             role: 'metric',
             label: t('kitchen:ops.settlement.columnHandedIn'),
             width: 140,

@@ -1,12 +1,4 @@
-import {
-    AppShell,
-    Icon,
-    Inline,
-    RailAccount,
-    ShellRailButton,
-    Stack,
-    Text,
-} from '@healthy360/design-system';
+import { AppShell, Icon, Inline, RailAccount, Stack, Text } from '@healthy360/design-system';
 import type { NavigationItem } from '@healthy360/design-system';
 import { useState } from 'react';
 import { Text as RNText, View } from 'react-native';
@@ -84,12 +76,6 @@ export function AdminFrameShowcaseScreen() {
                     sidebarStartCollapsed={<AreaRailTop testID="frame-rail-top" />}
                     railEnd={
                         <>
-                            <ShellRailButton
-                                testID="frame-workspaces-rail"
-                                label="Workspaces"
-                                icon="gridDots"
-                                onPress={() => undefined}
-                            />
                             <RailAccount
                                 testID="frame-account"
                                 name="Hala"

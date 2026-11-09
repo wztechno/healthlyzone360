@@ -114,11 +114,11 @@ function ContactCell({ row }: { readonly row: Supplier }) {
     }
 
     return (
-        <View testID={`${testID}-contact`} className="min-w-0 flex-row items-center gap-1.5">
-            <Text variant="strong" numberOfLines={1} testID={`${testID}-contact-name`}>
+        <View testID={`${testID}-contact`} className="min-w-0 flex-col">
+            <Text numberOfLines={1} testID={`${testID}-contact-name`}>
                 {contact.name}
             </Text>
-            <Text tone="secondary" numberOfLines={1}>
+            <Text variant="caption" tone="secondary" numberOfLines={1}>
                 {contact.phone ?? t('kitchen:ops.suppliers.noContactPhone')}
             </Text>
         </View>
@@ -232,23 +232,23 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
             render: (row) => {
                 const testID = supplierRowTestId(String(row.id));
                 return (
-                    <View
-                        testID={testID}
-                        className="min-w-0 flex-row flex-wrap items-center gap-1.5"
-                    >
-                        <Text variant="strong" numberOfLines={1} testID={`${testID}-name`}>
-                            {displayName(row.name, locale).value}
-                        </Text>
-                        <Text variant="mono" tone="secondary" testID={`${testID}-code`}>
+                    <View testID={testID} className="min-w-0 flex-col">
+                        <View className="min-w-0 flex-row flex-wrap items-center gap-1.5">
+                            <Text variant="strong" numberOfLines={1} testID={`${testID}-name`}>
+                                {displayName(row.name, locale).value}
+                            </Text>
+                            {row.archivedAt === null ? null : (
+                                <Badge
+                                    icon={null}
+                                    testID={`${testID}-archived`}
+                                    tone="neutral"
+                                    label={t('kitchen:ops.suppliers.archivedBadge')}
+                                />
+                            )}
+                        </View>
+                        <Text variant="caption" tone="secondary" testID={`${testID}-code`}>
                             {row.code}
                         </Text>
-                        {row.archivedAt === null ? null : (
-                            <Badge
-                                testID={`${testID}-archived`}
-                                tone="neutral"
-                                label={t('kitchen:ops.suppliers.archivedBadge')}
-                            />
-                        )}
                     </View>
                 );
             },
@@ -346,10 +346,15 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
         },
     ];
 
+    // The table closes the toolbar's card only when it is drawn.
+    const joined = !suppliers.isPending && failure === null;
+
     const viewPopup =
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-suppliers-view"
+                look="board"
+                eyebrow={t('kitchen:recordView.eyebrowSuppliers')}
                 onBack={() => {
                     setViewing(null);
                 }}
@@ -409,129 +414,155 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
              * The Lens bar — the book's figures, the archive scope and the search on one object
              * over the list (`lens-bar.tsx`).
              */}
-            <LensBar
-                testID="kitchen-suppliers-toolbar"
-                label={t('kitchen:lens.label')}
-                figures={lensFigures(
-                    failure === null ? (suppliers.data ?? null) : null,
-                    includeArchived,
-                    t,
-                )}
-                scope={
-                    <LensScope<ArchiveSegment>
-                        testID="kitchen-suppliers-toolbar-status"
-                        label={t('kitchen:ops.suppliers.segmentLabel')}
-                        value={segment}
-                        options={segments}
-                        onChange={(next) => {
-                            setSegment(next);
-                            setViewing(null);
-                        }}
-                    />
-                }
-                search={query}
-                onSearchChange={(next) => {
-                    setQuery(next);
-                    setViewing(null);
-                }}
-                searchLabel={t('kitchen:ops.suppliers.searchLabel')}
-                searchPlaceholder={t('kitchen:ops.suppliers.searchHint')}
-                result={
-                    suppliers.data === undefined || failure !== null
-                        ? null
-                        : t('kitchen:lens.result', {
-                              shown: controls.rows.length,
-                              total: suppliers.data.length,
-                          })
-                }
-                clearLabel={t('kitchen:lens.clear')}
-                {...(searchedOrFiltered
-                    ? {
-                          onClear: () => {
-                              setQuery('');
-                              controls.clearFilters();
-                          },
-                      }
-                    : {})}
-                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
-                actions={
-                    canManage ? (
-                        <Button
-                            testID="kitchen-suppliers-toolbar-create"
-                            label={t('kitchen:ops.suppliers.create')}
-                            iconStart={<Icon name="plus" size="sm" />}
-                            onPress={() => {
-                                router.push('/kitchen/suppliers/new' as never);
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-suppliers-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={lensFigures(
+                        failure === null ? (suppliers.data ?? null) : null,
+                        includeArchived,
+                        t,
+                    )}
+                    scope={
+                        <LensScope<ArchiveSegment>
+                            testID="kitchen-suppliers-toolbar-status"
+                            label={t('kitchen:ops.suppliers.segmentLabel')}
+                            value={segment}
+                            options={segments}
+                            onChange={(next) => {
+                                setSegment(next);
+                                setViewing(null);
                             }}
                         />
-                    ) : undefined
-                }
-            />
+                    }
+                    search={query}
+                    onSearchChange={(next) => {
+                        setQuery(next);
+                        setViewing(null);
+                    }}
+                    searchLabel={t('kitchen:ops.suppliers.searchLabel')}
+                    searchPlaceholder={t('kitchen:ops.suppliers.searchHint')}
+                    result={
+                        suppliers.data === undefined || failure !== null
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  shown: controls.rows.length,
+                                  total: suppliers.data.length,
+                              })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(searchedOrFiltered
+                        ? {
+                              onClear: () => {
+                                  setQuery('');
+                                  controls.clearFilters();
+                              },
+                          }
+                        : {})}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                    actions={
+                        canManage ? (
+                            <Button
+                                testID="kitchen-suppliers-toolbar-create"
+                                label={t('kitchen:ops.suppliers.create')}
+                                iconStart={<Icon name="plus" size="sm" />}
+                                onPress={() => {
+                                    router.push('/kitchen/suppliers/new' as never);
+                                }}
+                            />
+                        ) : undefined
+                    }
+                />
 
-            {suppliers.isPending ? (
-                <TableSkeleton testID="kitchen-suppliers-loading" partTestID="kitchen-suppliers" />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-suppliers-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void suppliers.refetch();
-                    }}
-                    retrying={suppliers.isFetching}
-                />
-            ) : controls.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-suppliers-empty"
-                    title={
-                        unfiltered
-                            ? t('kitchen:ops.suppliers.emptyTitle')
-                            : t('kitchen:ops.suppliers.filteredEmptyTitle')
-                    }
-                    body={
-                        unfiltered
-                            ? t('kitchen:ops.suppliers.emptyBody')
-                            : t('kitchen:ops.suppliers.filteredEmptyBody')
-                    }
-                />
-            ) : (
-                <CatalogueList<Supplier>
-                    testID="kitchen-suppliers-table"
-                    label={t('kitchen:ops.suppliers.caption')}
-                    columns={controls.columns}
-                    rows={controls.rows}
-                    rowKey={(row) => String(row.id)}
-                    density="sm"
-                    highlightedId={lastOpenedId}
-                    initialPage={memory.initial.page}
-                    onPageChange={(page) => {
-                        memory.remember({ page });
-                    }}
-                    onRowPress={openRecord}
-                    rowActionsLabel={t('kitchen:list.rowActions')}
-                    // View and Open. Archive lives on the record, behind its confirmation.
-                    rowActions={(row): readonly MenuItem[] => [
-                        {
-                            key: 'view',
-                            label: t('kitchen:list.view'),
-                            icon: CATALOGUE_ROW_ICONS.view,
-                            testID: `${supplierRowTestId(String(row.id))}-view`,
-                            onSelect: () => {
-                                rememberOpened(String(row.id));
-                                setViewing(row);
+                {suppliers.isPending ? (
+                    <TableSkeleton
+                        testID="kitchen-suppliers-loading"
+                        partTestID="kitchen-suppliers"
+                    />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-suppliers-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void suppliers.refetch();
+                        }}
+                        retrying={suppliers.isFetching}
+                    />
+                ) : controls.rows.length === 0 ? (
+                    <CatalogueList
+                        testID="kitchen-suppliers-empty-list"
+                        label={t('kitchen:lens.label')}
+                        columns={controls.columns}
+                        rows={[]}
+                        rowKey={() => ''}
+                        density="sm"
+                        joined
+                        frameEmpty
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        emptyState={
+                            <EmptyState
+                                shape="table"
+                                testID="kitchen-suppliers-empty"
+                                title={
+                                    unfiltered
+                                        ? t('kitchen:ops.suppliers.emptyTitle')
+                                        : t('kitchen:ops.suppliers.filteredEmptyTitle')
+                                }
+                                body={
+                                    unfiltered
+                                        ? t('kitchen:ops.suppliers.emptyBody')
+                                        : t('kitchen:ops.suppliers.filteredEmptyBody')
+                                }
+                            />
+                        }
+                    />
+                ) : (
+                    <CatalogueList<Supplier>
+                        testID="kitchen-suppliers-table"
+                        joined
+                        label={t('kitchen:ops.suppliers.caption')}
+                        columns={controls.columns}
+                        rows={controls.rows}
+                        rowKey={(row) => String(row.id)}
+                        density="sm"
+                        highlightedId={lastOpenedId}
+                        initialPage={memory.initial.page}
+                        onPageChange={(page) => {
+                            memory.remember({ page });
+                        }}
+                        onRowPress={(row) => {
+                            rememberOpened(String(row.id));
+                            setViewing(row);
+                        }}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        // View and Open. Archive lives on the record, behind its confirmation.
+                        rowActions={(row): readonly MenuItem[] => [
+                            {
+                                key: 'view',
+                                label: t('kitchen:list.view'),
+                                icon: CATALOGUE_ROW_ICONS.view,
+                                testID: `${supplierRowTestId(String(row.id))}-view`,
+                                onSelect: () => {
+                                    rememberOpened(String(row.id));
+                                    setViewing(row);
+                                },
                             },
-                        },
-                        {
-                            key: 'open',
-                            label: t('kitchen:catalogue.edit'),
-                            icon: CATALOGUE_ROW_ICONS.edit,
-                            testID: `${supplierRowTestId(String(row.id))}-open`,
-                            onSelect: () => {
-                                openRecord(row);
+                            {
+                                key: 'open',
+                                label: t('kitchen:catalogue.edit'),
+                                icon: CATALOGUE_ROW_ICONS.edit,
+                                testID: `${supplierRowTestId(String(row.id))}-open`,
+                                onSelect: () => {
+                                    openRecord(row);
+                                },
                             },
-                        },
-                    ]}
-                />
-            )}
+                        ]}
+                    />
+                )}
+            </View>
 
             {viewPopup}
         </Cascade>

@@ -209,10 +209,22 @@ export function LensBar({
                                 placeholder={searchPlaceholder}
                                 size="sm"
                                 className="!h-desk-toolbar !rounded-full !border-transparent !bg-surface-sunken"
+                                {...(onSearchSubmit === undefined
+                                    ? {}
+                                    : {
+                                          onSubmitEditing: onSearchSubmit,
+                                          blurOnSubmit: false,
+                                          autoCorrect: false,
+                                          autoCapitalize: 'none' as const,
+                                      })}
                                 testID={`${testID}-search`}
                             />
                         </View>
                     )}
+                    {onScan === undefined ? null : (
+                        <CameraScanButton testID={`${testID}-camera`} onScan={onScan} />
+                    )}
+                    <LensTokens tokens={tokens} testID={testID} />
                     {result === null ? (
                         <Skeleton heightClassName="h-4" widthClassName="w-16" />
                     ) : (
@@ -337,27 +349,7 @@ export function LensBar({
                 {onScan === undefined ? null : (
                     <CameraScanButton testID={`${testID}-camera`} onScan={onScan} />
                 )}
-                {tokens.map((token) => (
-                    <View
-                        key={token.key}
-                        testID={`${testID}-token-${token.key}`}
-                        className="h-control-sm flex-row items-center gap-1 rounded bg-surface-brand-subtle pe-1 ps-2.5"
-                    >
-                        <Text variant="label" tone="brand" numberOfLines={1}>
-                            {token.label}
-                        </Text>
-                        <Pressable
-                            testID={`${testID}-token-${token.key}-remove`}
-                            role="button"
-                            accessibilityRole="button"
-                            accessibilityLabel={token.removeLabel}
-                            onPress={token.onRemove}
-                            className="h-6 w-6 items-center justify-center rounded-sm hover:bg-brand-100"
-                        >
-                            <Icon name="close" size="sm" className="text-content-on-brand-subtle" />
-                        </Pressable>
-                    </View>
-                ))}
+                <LensTokens tokens={tokens} testID={testID} />
                 <View className="flex-row items-center gap-tight">
                     {result === null ? (
                         <Skeleton heightClassName="h-4" widthClassName="w-16" />
@@ -396,6 +388,41 @@ export function LensBar({
                 )}
             </View>
         </View>
+    );
+}
+
+/** The filters in force, each removable on its own — in either layout's query row. */
+function LensTokens({
+    tokens,
+    testID,
+}: {
+    readonly tokens: readonly LensToken[];
+    readonly testID: string;
+}) {
+    return (
+        <>
+            {tokens.map((token) => (
+                <View
+                    key={token.key}
+                    testID={`${testID}-token-${token.key}`}
+                    className="h-control-sm flex-row items-center gap-1 rounded bg-surface-brand-subtle pe-1 ps-2.5"
+                >
+                    <Text variant="label" tone="brand" numberOfLines={1}>
+                        {token.label}
+                    </Text>
+                    <Pressable
+                        testID={`${testID}-token-${token.key}-remove`}
+                        role="button"
+                        accessibilityRole="button"
+                        accessibilityLabel={token.removeLabel}
+                        onPress={token.onRemove}
+                        className="h-6 w-6 items-center justify-center rounded-sm hover:bg-brand-100"
+                    >
+                        <Icon name="close" size="sm" className="text-content-on-brand-subtle" />
+                    </Pressable>
+                </View>
+            ))}
+        </>
     );
 }
 
@@ -472,7 +499,7 @@ function SplitLens({
             <View className="z-auto flex-row flex-wrap items-center gap-tight">
                 <View
                     testID={`${testID}-figures`}
-                    className="flex-row flex-wrap items-center gap-1.5"
+                    className="min-w-0 shrink flex-row flex-wrap items-center gap-1.5"
                 >
                     {figures.map((figure) => (
                         <LensFigureCell

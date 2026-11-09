@@ -425,7 +425,7 @@ export function recipeColumns({
                         <Badge
                             testID={`${rowID(row)}-missing-arabic`}
                             tone="warning"
-                            icon="warning"
+                            icon={null}
                             label={t('kitchen:list.missingArabic')}
                         />
                     ) : null}
@@ -573,7 +573,7 @@ export function recipeColumns({
                 <Badge
                     testID={`${rowID(row)}-on-sale`}
                     tone={statusTone(state)}
-                    icon={state === 'published' ? null : undefined}
+                    icon={null}
                     label={t(statusShortKey(state))}
                 />
             );
@@ -595,8 +595,8 @@ export function recipeColumns({
             <Badge
                 testID={`${rowID(row)}-status`}
                 tone={statusTone(row.meta.status)}
-                // No mark on Published — see the note in `ingredient-columns.tsx`.
-                icon={row.meta.status === 'published' ? null : undefined}
+                // A pill and its word, as the Recipes board draws it.
+                icon={null}
                 label={t(statusShortKey(row.meta.status))}
             />
         ),

@@ -196,11 +196,14 @@ function CustomerView({
     return (
         <RecordViewPage
             testID="kitchen-customer-view"
+            look="board"
+            eyebrow={t('kitchen:recordView.eyebrowCustomers')}
             title={customerName(detail, t)}
             kind={t('kitchen:ops.customers.viewKind')}
             reference={detail.accountNumber}
             titleAside={
                 <Badge
+                    icon={null}
                     tone={customerTypeTone(detail.type)}
                     label={t(customerTypeKey(detail.type))}
                 />
@@ -336,7 +339,7 @@ function ContactList({ contacts }: { readonly contacts: readonly KitchenCustomer
                     </Text>
                     {contact.label === null ? null : <Text tone="secondary">{contact.label}</Text>}
                     {contact.isPrimary ? (
-                        <Badge tone="brand" label={t('kitchen:ops.customers.contactPrimary')} />
+                        <Badge tone="success" label={t('kitchen:ops.customers.contactPrimary')} />
                     ) : null}
                     {contact.verified ? (
                         <Badge tone="success" label={t('kitchen:ops.customers.contactVerified')} />
@@ -390,7 +393,10 @@ function AddressList({ addresses }: { readonly addresses: readonly KitchenCustom
                                     : t('kitchen:ops.customers.addressDelivery'))}
                         </Text>
                         {address.isDefault ? (
-                            <Badge tone="brand" label={t('kitchen:ops.customers.addressDefault')} />
+                            <Badge
+                                tone="success"
+                                label={t('kitchen:ops.customers.addressDefault')}
+                            />
                         ) : null}
                     </Inline>
                     <Text>{addressLine(address, locale, t)}</Text>

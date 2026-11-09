@@ -3,7 +3,7 @@ import {
     Callout,
     EmptyState,
     ErrorState,
-    Heading,
+    FormSection,
     RecordSkeleton,
     Stack,
     Text,
@@ -147,9 +147,13 @@ function ProductionBatchSheet({ order }: ProductionBatchSheetScreenProps) {
                         title={t('kitchen:ops.production.sheetLive')}
                     />
 
-                    <Stack space="sm" testID="kitchen-production-batch-sheet-basis">
-                        <Heading level={2}>{t('kitchen:ops.production.sheetBasisHeading')}</Heading>
-                        <View className="flex-row flex-wrap gap-x-8 gap-y-3">
+                    <FormSection
+                        first
+                        variant="panel"
+                        testID="kitchen-production-batch-sheet-basis"
+                        title={t('kitchen:ops.production.sheetBasisHeading')}
+                    >
+                        <View className="flex-row flex-wrap gap-tight">
                             <SheetFigure
                                 testID="kitchen-production-batch-sheet-confirmed"
                                 label={t('kitchen:ops.production.confirmedAtLabel')}
@@ -170,11 +174,15 @@ function ProductionBatchSheet({ order }: ProductionBatchSheetScreenProps) {
                                 }
                             />
                         </View>
-                    </Stack>
+                    </FormSection>
 
-                    <Stack space="sm" testID="kitchen-production-batch-sheet-yield">
-                        <Heading level={2}>{t('kitchen:ops.production.headingYield')}</Heading>
-                        <View className="flex-row flex-wrap gap-x-8 gap-y-3">
+                    <FormSection
+                        first
+                        variant="panel"
+                        testID="kitchen-production-batch-sheet-yield"
+                        title={t('kitchen:ops.production.headingYield')}
+                    >
+                        <View className="flex-row flex-wrap gap-tight">
                             <SheetFigure
                                 testID="kitchen-production-batch-sheet-yield-planned"
                                 label={t('kitchen:ops.production.yieldPlanned')}
@@ -201,25 +209,28 @@ function ProductionBatchSheet({ order }: ProductionBatchSheetScreenProps) {
                                 value={sheet.yield.varianceQuantity ?? noValue}
                             />
                         </View>
-                    </Stack>
+                    </FormSection>
 
                     <BatchLinesPanel
                         testID="kitchen-production-batch-sheet-lines"
+                        panel
                         lines={sheet.lines}
                         costsVisible={sheet.costsVisible}
                         withOutcome={sheet.yield.producedQuantity !== null}
                     />
 
-                    <Stack space="sm" testID="kitchen-production-batch-sheet-nutrition">
-                        <Heading level={2}>
-                            {t('kitchen:ops.production.sheetNutritionHeading')}
-                        </Heading>
+                    <FormSection
+                        first
+                        variant="panel"
+                        testID="kitchen-production-batch-sheet-nutrition"
+                        title={t('kitchen:ops.production.sheetNutritionHeading')}
+                    >
                         {nutrition.length === 0 ? (
                             <Text tone="secondary">
                                 {t('kitchen:ops.production.sheetNutritionEmpty')}
                             </Text>
                         ) : (
-                            <View className="flex-row flex-wrap gap-x-8 gap-y-3">
+                            <View className="flex-row flex-wrap gap-tight">
                                 {nutrition.map(([nutrient, value]) => (
                                     <SheetFigure
                                         key={nutrient}
@@ -236,7 +247,7 @@ function ProductionBatchSheet({ order }: ProductionBatchSheetScreenProps) {
                                 ))}
                             </View>
                         )}
-                    </Stack>
+                    </FormSection>
                 </>
             )}
         </Stack>
@@ -253,11 +264,12 @@ function SheetFigure({
     readonly value: string;
 }) {
     return (
-        <View className="min-w-32 flex-col gap-0.5">
-            <Text variant="caption" tone="secondary">
+        // The board's figure tile: a quiet label over the value, on the sunken ground.
+        <View className="min-w-32 flex-col gap-0.5 rounded-lg bg-surface-sunken px-snug py-tight">
+            <Text variant="micro" tone="secondary" className="uppercase tracking-wide">
                 {label}
             </Text>
-            <Text variant="mono" testID={testID} numberOfLines={1}>
+            <Text variant="mono" className="font-bold" testID={testID} numberOfLines={1}>
                 {value}
             </Text>
         </View>

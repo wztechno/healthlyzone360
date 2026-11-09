@@ -22,6 +22,7 @@ import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -210,6 +211,7 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                         </Text>
                         {name.isFallback ? (
                             <Badge
+                                icon={null}
                                 testID={`${testID}-missing-arabic`}
                                 tone="warning"
                                 label={t('kitchen:list.missingArabic')}
@@ -346,6 +348,12 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
             value: (row) => t(statusShortKey(row.meta.status)),
             // The status the request already carries, so the header and the segments are one
             // filter: narrowing the loaded page instead would misreport every page after it.
+            sort: (left, right, direction) =>
+                compareText(
+                    t(statusShortKey(left.meta.status)),
+                    t(statusShortKey(right.meta.status)),
+                    direction,
+                ),
             filter: {
                 values: () =>
                     ZONE_STATUS_FILTERS.map((value) => ({
@@ -362,6 +370,7 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
             },
             render: (row) => (
                 <Badge
+                    icon={null}
                     testID={`${zoneRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
                     label={t(statusShortKey(row.meta.status))}
@@ -394,10 +403,16 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
         pending: wholeSet.isPending || kitchenWindows.isPending,
     });
 
+    // The list carries a count of areas; the board names them, so the open zone is read on its own.
+    const viewedZone = useAdminZoneQuery(viewing?.id ?? null);
+    const viewedAreas = viewedZone.data?.areas ?? viewing?.areas ?? [];
+
     const viewPopup =
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-zones-view"
+                look="board"
+                eyebrow={t('kitchen:recordView.eyebrowZones')}
                 onBack={() => {
                     setViewing(null);
                 }}
@@ -449,9 +464,9 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                 ]}
                 chipsLabel={t('kitchen:zones.columnAreas')}
                 chips={
-                    viewing.areas.length === 0
+                    viewedAreas.length === 0
                         ? [{ key: 'count', label: areasText(viewing, t) }]
-                        : viewing.areas.map((area) => ({
+                        : viewedAreas.map((area) => ({
                               key: String(area.id),
                               label: displayName(area.name, locale).value,
                           }))
@@ -465,134 +480,146 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
             />
         );
 
+    // The table closes the toolbar's card only when it is drawn.
+    const joined = !zones.isPending && controls.rows.length > 0;
+
     return (
         <Cascade space="md" testID="kitchen-zones-screen">
             {/*
              * The Lens bar — figures, mix, query row and actions as one object directly over the
              * list it narrows (`lens-bar.tsx`), as on the product list.
              */}
-            <LensBar
-                testID="kitchen-zones-toolbar"
-                label={t('kitchen:lens.label')}
-                figures={figures}
-                mix={statusLensMix(lens, t).mix}
-                mixLabel={t('kitchen:lens.zoneMix', {
-                    published: statusCounts.published,
-                    draft: statusCounts.draft,
-                    archived: statusCounts.retired,
-                })}
-                search={query}
-                onSearchChange={(next) => {
-                    setQuery(next);
-                    setViewing(null);
-                }}
-                searchLabel={t('kitchen:toolbar.searchLabel')}
-                searchPlaceholder={t('kitchen:zones.searchPlaceholder')}
-                tokens={statusLensTokens(lens, t)}
-                result={
-                    total === null
-                        ? null
-                        : t('kitchen:lens.result', {
-                              shown: Math.min(page * KITCHEN_PAGE_SIZE, total),
-                              total,
-                          })
-                }
-                clearLabel={t('kitchen:lens.clear')}
-                {...(unfiltered
-                    ? {}
-                    : {
-                          onClear: () => {
-                              setQuery('');
-                              setStatus('all');
-                              setViewing(null);
-                          },
-                      })}
-                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
-                actions={
-                    canManage ? (
-                        <Button
-                            testID="kitchen-zones-toolbar-create"
-                            label={t('kitchen:zones.create')}
-                            iconStart={<Icon name="plus" size="sm" />}
-                            onPress={() => {
-                                router.push('/kitchen/delivery-zones/new' as never);
-                            }}
-                        />
-                    ) : undefined
-                }
-            />
-
-            {zones.isPending ? (
-                <TableSkeleton testID="kitchen-zones-loading" partTestID="kitchen-zones" />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-zones-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void zones.refetch();
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-zones-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={figures}
+                    mix={statusLensMix(lens, t).mix}
+                    mixLabel={t('kitchen:lens.zoneMix', {
+                        published: statusCounts.published,
+                        draft: statusCounts.draft,
+                        archived: statusCounts.retired,
+                    })}
+                    search={query}
+                    onSearchChange={(next) => {
+                        setQuery(next);
+                        setViewing(null);
                     }}
-                    retrying={zones.isFetching}
-                />
-            ) : controls.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-zones-empty"
-                    title={
-                        unfiltered
-                            ? t('kitchen:zones.emptyTitle')
-                            : t('kitchen:zones.filteredEmptyTitle')
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t('kitchen:zones.searchPlaceholder')}
+                    tokens={statusLensTokens(lens, t)}
+                    result={
+                        total === null
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  shown: Math.min(page * KITCHEN_PAGE_SIZE, total),
+                                  total,
+                              })
                     }
-                    body={
-                        unfiltered
-                            ? t('kitchen:zones.emptyBody')
-                            : t('kitchen:zones.filteredEmptyBody')
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(unfiltered
+                        ? {}
+                        : {
+                              onClear: () => {
+                                  setQuery('');
+                                  setStatus('all');
+                                  setViewing(null);
+                              },
+                          })}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                    actions={
+                        canManage ? (
+                            <Button
+                                testID="kitchen-zones-toolbar-create"
+                                label={t('kitchen:zones.create')}
+                                iconStart={<Icon name="plus" size="sm" />}
+                                onPress={() => {
+                                    router.push('/kitchen/delivery-zones/new' as never);
+                                }}
+                            />
+                        ) : undefined
                     }
                 />
-            ) : (
-                <Stack space="sm">
-                    <CatalogueList<DeliveryZoneAdmin>
-                        testID="kitchen-zones-table"
-                        label={t('kitchen:zones.caption')}
-                        columns={controls.columns}
-                        rows={controls.rows}
-                        rowKey={(row) => String(row.id)}
-                        density="sm"
-                        highlightedId={lastOpenedId}
-                        onRowPress={openEditor}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                        rowActions={(row): readonly MenuItem[] => [
-                            {
-                                key: 'view',
-                                label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
-                                testID: `${zoneRowTestId(String(row.id))}-view`,
-                                onSelect: () => {
-                                    rememberOpened(String(row.id));
-                                    setViewing(row);
-                                },
-                            },
-                            {
-                                key: 'edit',
-                                label: t('kitchen:catalogue.edit'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
-                                testID: `${zoneRowTestId(String(row.id))}-open`,
-                                onSelect: () => {
-                                    openEditor(row);
-                                },
-                            },
-                        ]}
-                    />
-                    <CataloguePager
-                        testID="kitchen-zones-pagination"
-                        page={page}
-                        totalPages={totalPages}
-                        onPageChange={(next) => {
-                            setPage(next);
-                            setViewing(null);
+
+                {zones.isPending ? (
+                    <TableSkeleton testID="kitchen-zones-loading" partTestID="kitchen-zones" />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-zones-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void zones.refetch();
                         }}
-                        label={t('kitchen:catalogue.pagerLabel')}
+                        retrying={zones.isFetching}
                     />
-                </Stack>
-            )}
+                ) : controls.rows.length === 0 ? (
+                    <EmptyState
+                        testID="kitchen-zones-empty"
+                        title={
+                            unfiltered
+                                ? t('kitchen:zones.emptyTitle')
+                                : t('kitchen:zones.filteredEmptyTitle')
+                        }
+                        body={
+                            unfiltered
+                                ? t('kitchen:zones.emptyBody')
+                                : t('kitchen:zones.filteredEmptyBody')
+                        }
+                    />
+                ) : (
+                    <Stack space="sm">
+                        <CatalogueList<DeliveryZoneAdmin>
+                            testID="kitchen-zones-table"
+                            joined
+                            label={t('kitchen:zones.caption')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => String(row.id)}
+                            density="sm"
+                            highlightedId={lastOpenedId}
+                            onRowPress={(row) => {
+                                rememberOpened(String(row.id));
+                                setViewing(row);
+                            }}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                            rowActions={(row): readonly MenuItem[] => [
+                                {
+                                    key: 'view',
+                                    label: t('kitchen:list.view'),
+                                    icon: CATALOGUE_ROW_ICONS.view,
+                                    testID: `${zoneRowTestId(String(row.id))}-view`,
+                                    onSelect: () => {
+                                        rememberOpened(String(row.id));
+                                        setViewing(row);
+                                    },
+                                },
+                                {
+                                    key: 'edit',
+                                    label: t('kitchen:catalogue.edit'),
+                                    icon: CATALOGUE_ROW_ICONS.edit,
+                                    testID: `${zoneRowTestId(String(row.id))}-open`,
+                                    onSelect: () => {
+                                        openEditor(row);
+                                    },
+                                },
+                            ]}
+                        />
+                        <CataloguePager
+                            testID="kitchen-zones-pagination"
+                            page={page}
+                            totalPages={totalPages}
+                            onPageChange={(next) => {
+                                setPage(next);
+                                setViewing(null);
+                            }}
+                            label={t('kitchen:catalogue.pagerLabel')}
+                        />
+                    </Stack>
+                )}
+            </View>
 
             {viewPopup}
         </Cascade>

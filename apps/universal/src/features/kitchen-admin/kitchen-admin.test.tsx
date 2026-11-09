@@ -2664,9 +2664,9 @@ describe('composition and allergens', () => {
             },
         });
 
-        await untilVisible('kitchen-ingredient-mapping-milk-control');
+        await untilVisible('kitchen-ingredient-mapping-milk-contains');
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-milk-control'));
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-milk-contains'));
         });
 
         // The page counts it as unsaved…
@@ -2698,9 +2698,9 @@ describe('composition and allergens', () => {
             },
         });
 
-        await untilVisible('kitchen-ingredient-mapping-milk-control');
+        await untilVisible('kitchen-ingredient-mapping-milk-contains');
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-milk-control'));
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-milk-contains'));
         });
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-save'));

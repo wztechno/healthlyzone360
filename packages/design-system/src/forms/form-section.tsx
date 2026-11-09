@@ -24,6 +24,8 @@ export interface FormSectionProps {
     readonly title: string;
     /** Guidance the section genuinely needs, behind an (i) beside the title — see `InfoTip`. */
     readonly description?: string | undefined;
+    /** Prints the description under the title instead, where the section's board draws it there. */
+    readonly printDescription?: boolean | undefined;
     /**
      * Sits immediately after the title, on its baseline — a `From database` badge, or the one line
      * of eyebrow copy the Catalogue's Sale section carries.
@@ -52,8 +54,11 @@ export interface FormSectionProps {
      * inset `Card density="compact" tone="raised"` draws — so each section reads as its own object
      * on the page. Every kitchen record editor draws its sections this way. It does not clip: a
      * dropdown opened in the last field still has to escape the panel.
+     *
+     * `ruled` is one section of a form drawn as a single card: the caller draws the card, and each
+     * section is a heavier title with a hairline over it, none over the `first`.
      */
-    readonly variant?: 'divided' | 'underlined' | 'card' | 'panel' | undefined;
+    readonly variant?: 'divided' | 'underlined' | 'card' | 'panel' | 'ruled' | undefined;
     readonly children: ReactNode;
     readonly className?: string | undefined;
     /**
@@ -67,6 +72,7 @@ export interface FormSectionProps {
 export function FormSection({
     title,
     description,
+    printDescription = false,
     aside,
     actions,
     first = false,
@@ -79,6 +85,7 @@ export function FormSection({
     const card = variant === 'card';
     // The admin canvas's flat card: no cast, no rule under the title, a heavier title.
     const panel = variant === 'panel';
+    const ruled = variant === 'ruled';
     const underlined = variant === 'underlined' || card;
 
     return (
@@ -94,10 +101,12 @@ export function FormSection({
                 card
                     ? 'rounded border border-stroke-subtle bg-surface-raised p-base shadow-elevation-card'
                     : null,
+                ruled ? 'pb-5 pt-[18px]' : null,
+                ruled && !first ? 'border-t border-stroke-subtle' : null,
                 className,
             )}
         >
-            {first || underlined || panel ? null : <Separator className="mb-loose" />}
+            {first || underlined || panel || ruled ? null : <Separator className="mb-loose" />}
 
             <View
                 className={cx(
@@ -118,7 +127,7 @@ export function FormSection({
                             accessibilityRole="header"
                             aria-level={3}
                             className={cx(
-                                panel ? 'text-[15px] font-bold' : 'text-role-section',
+                                panel || ruled ? 'text-[15px] font-bold' : 'text-role-section',
                                 'text-content-primary text-start',
                             )}
                         >
@@ -129,7 +138,7 @@ export function FormSection({
                          * a sentence there pushed every section's fields down by a line and read
                          * as fine print. See `InfoTip`.
                          */}
-                        {description === undefined ? null : (
+                        {description === undefined || printDescription ? null : (
                             <View className="self-center">
                                 <InfoTip
                                     label={title}
@@ -142,6 +151,14 @@ export function FormSection({
                     </View>
                     {actions}
                 </View>
+                {description === undefined || !printDescription ? null : (
+                    <RNText
+                        testID={testID === undefined ? undefined : `${testID}-description`}
+                        className="text-[13px] font-medium text-content-secondary text-start"
+                    >
+                        {description}
+                    </RNText>
+                )}
             </View>
 
             {/*

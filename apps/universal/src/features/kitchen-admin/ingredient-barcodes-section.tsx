@@ -44,12 +44,15 @@ export interface IngredientBarcodesSectionProps {
     /** The ingredient's default unit — what a pack size is counted in. */
     readonly defaultUnit: MeasureUnit;
     readonly canManage: boolean;
+    /** `ruled` inside a form drawn as one card; `panel` a flat card of its own. */
+    readonly variant?: 'card' | 'ruled' | 'panel' | undefined;
 }
 
 export function IngredientBarcodesSection({
     ingredientId,
     defaultUnit,
     canManage,
+    variant = 'card',
 }: IngredientBarcodesSectionProps) {
     const { t } = useTranslation();
     const { locale } = useLocale();
@@ -98,7 +101,7 @@ export function IngredientBarcodesSection({
 
     return (
         <FormSection
-            variant="card"
+            variant={variant}
             testID="kitchen-ingredient-barcodes"
             title={t('kitchen:barcodes.title')}
             description={t('kitchen:barcodes.description')}
@@ -119,13 +122,21 @@ export function IngredientBarcodesSection({
         >
             <Stack space="sm">
                 {rows.length === 0 ? (
-                    <Text
-                        testID="kitchen-ingredient-barcodes-empty"
-                        variant="caption"
-                        tone="secondary"
-                    >
-                        {t('kitchen:barcodes.empty')}
-                    </Text>
+                    <View className="flex-row items-center gap-2.5 rounded-[14px] border border-dashed border-stroke p-3">
+                        <View
+                            aria-hidden
+                            className="h-10 w-10 items-center justify-center rounded-xl bg-surface-sunken"
+                        >
+                            <Icon name="scanBarcode" className="text-content-secondary" />
+                        </View>
+                        <Text
+                            testID="kitchen-ingredient-barcodes-empty"
+                            variant="strong"
+                            tone="secondary"
+                        >
+                            {t('kitchen:barcodes.empty')}
+                        </Text>
+                    </View>
                 ) : (
                     // Two field tracks and their gap: a code's badges and actions stay beside it
                     // instead of drifting to the far edge of a wide card.

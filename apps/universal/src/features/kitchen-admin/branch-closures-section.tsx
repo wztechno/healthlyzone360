@@ -88,10 +88,11 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
 
     return (
         <FormSection
-            variant="card"
+            variant="panel"
             testID="kitchen-branch-closures"
             title={t('kitchen:branchClosures.title')}
             description={t('kitchen:branchClosures.description')}
+            printDescription
             actions={
                 canManage ? (
                     <Button
@@ -158,7 +159,7 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
                             testID={`kitchen-branch-closures-row-${closure.id}`}
                         >
                             <Inline space="sm" align="center">
-                                <Badge tone="warning" label={rangeOf(closure)} />
+                                <Badge icon={null} tone="warning" label={rangeOf(closure)} />
                                 {closure.note === null ? null : (
                                     <Text variant="caption" tone="secondary">
                                         {closure.note}

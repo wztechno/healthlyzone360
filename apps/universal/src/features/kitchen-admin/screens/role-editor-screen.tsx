@@ -654,7 +654,7 @@ function RoleEditor() {
                     {step !== 'details' ? null : (
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-role-editor-details"
                             title={t('accessAdmin:role.tabs.details')}
                         >
@@ -753,26 +753,30 @@ function RoleEditor() {
                      * matrix's own header row is the first thing under it.
                      */}
                     {step !== 'pages' ? null : (
-                        <RolePagesTab
-                            testID="kitchen-role-editor-pages"
-                            codes={current.codes}
-                            disabled={readOnly}
-                            onChange={(codes) => {
-                                edit({ codes });
-                            }}
-                        />
+                        <View className="z-auto rounded-[18px] border border-stroke-subtle bg-surface-raised p-4">
+                            <RolePagesTab
+                                testID="kitchen-role-editor-pages"
+                                codes={current.codes}
+                                disabled={readOnly}
+                                onChange={(codes) => {
+                                    edit({ codes });
+                                }}
+                            />
+                        </View>
                     )}
 
                     {step !== 'advanced' ? null : (
-                        <RolePermissionsTab
-                            testID="kitchen-role-editor-advanced"
-                            domains={catalogue.data ?? []}
-                            codes={current.codes}
-                            disabled={readOnly}
-                            onChange={(codes) => {
-                                edit({ codes });
-                            }}
-                        />
+                        <View className="z-auto rounded-[18px] border border-stroke-subtle bg-surface-raised p-4">
+                            <RolePermissionsTab
+                                testID="kitchen-role-editor-advanced"
+                                domains={catalogue.data ?? []}
+                                codes={current.codes}
+                                disabled={readOnly}
+                                onChange={(codes) => {
+                                    edit({ codes });
+                                }}
+                            />
+                        </View>
                     )}
                 </View>
             </Cascade>

@@ -105,24 +105,22 @@ export function RecipeVersionMenu({
                                     isSelected ? 'bg-surface-sunken' : null,
                                 )}
                             >
-                                <View
-                                    aria-hidden
-                                    className={cx('h-2 w-2 rounded-full', dotClass(version.status))}
-                                />
                                 <View className="min-w-0 flex-1 flex-col">
                                     <View className="flex-row flex-wrap items-center gap-1.5">
+                                        <Badge
+                                            testID={`${rowTestId}-status`}
+                                            tone={statusTone(version.status)}
+                                            icon={null}
+                                            label={t(statusKey(version.status))}
+                                        />
                                         <Text variant="bodyStrong">
                                             {t('kitchen:recipes.versionNumber', {
                                                 number: version.versionNumber,
                                             })}
                                         </Text>
-                                        <Badge
-                                            testID={`${rowTestId}-status`}
-                                            tone={statusTone(version.status)}
-                                            label={t(statusKey(version.status))}
-                                        />
                                         {version.isCurrent ? (
                                             <Badge
+                                                icon={null}
                                                 testID={`${rowTestId}-current`}
                                                 tone="info"
                                                 label={t('kitchen:recipes.currentVersion')}

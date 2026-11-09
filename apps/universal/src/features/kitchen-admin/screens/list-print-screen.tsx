@@ -58,14 +58,16 @@ export function ListPrintScreen({ resource }: ListPrintScreenProps) {
         <Stack space="lg" testID="kitchen-list-print-screen">
             {/* Screen-only: the print block hides it by test id. */}
             <Stack space="sm" testID="kitchen-list-print-toolbar">
-                <Heading level={1} testID="kitchen-list-print-title">
-                    {job.title}
-                </Heading>
-
-                <Inline space="sm" align="center" justify="between" wrap>
-                    <Text tone="secondary" testID="kitchen-list-print-count">
-                        {t('kitchen:transfer.print.rowCount', { count: job.rows.length })}
-                    </Text>
+                {/* The board's one bar: the title and its row count, then Back and Print. */}
+                <View className="z-auto flex-row flex-wrap items-end justify-between gap-snug rounded-panel border border-stroke-subtle bg-surface-raised p-snug">
+                    <View className="flex-col">
+                        <Heading level={2} testID="kitchen-list-print-title">
+                            {job.title}
+                        </Heading>
+                        <Text tone="secondary" testID="kitchen-list-print-count">
+                            {t('kitchen:transfer.print.rowCount', { count: job.rows.length })}
+                        </Text>
+                    </View>
 
                     <Inline space="sm" align="center" wrap>
                         {backButton}
@@ -77,7 +79,7 @@ export function ListPrintScreen({ resource }: ListPrintScreenProps) {
                             />
                         ) : null}
                     </Inline>
-                </Inline>
+                </View>
 
                 {sheet.mode === 'browser' ? null : (
                     <Callout

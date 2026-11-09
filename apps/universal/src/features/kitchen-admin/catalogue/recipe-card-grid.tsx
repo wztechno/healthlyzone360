@@ -1,5 +1,5 @@
 import type { RecipeAdminSummary } from '@healthy360/api-client/contracts';
-import { Badge, Icon, IconButton, Inline, Text } from '@healthy360/design-system';
+import { Badge, Inline, Text } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { KitchenId } from '@healthy360/domain-types';
 import type { TFunction } from 'i18next';
@@ -10,7 +10,14 @@ import { BrowseCard } from '../../../ui/browse-card.tsx';
 import { CardGrid, CardGridItem } from '../../marketplace/section-header.tsx';
 import { displayName, recipeRowTestId, statusShortKey, statusTone } from '../format.ts';
 import { allergenLabel } from '../ops-format.ts';
-import { kindsLabel, recipeCategoryLabel, recipeHandle, recipePhotoId } from './recipe-columns.tsx';
+import {
+    kindsLabel,
+    kitchenCategoryPair,
+    recipeCategoryLabel,
+    recipeHandle,
+    recipePhotoId,
+} from './recipe-columns.tsx';
+import { RowActionsMenu } from './row-actions-menu.tsx';
 
 /**
  * The recipe book as cards — the other half of the Table / Cards switch on the recipes screen.
@@ -31,9 +38,8 @@ import { kindsLabel, recipeCategoryLabel, recipeHandle, recipePhotoId } from './
  * kind is a chip rather than a meta word because on the All tab it is what tells one card from the
  * next, and the meta line is already the kitchen and the filing word.
  *
- * The card is not one pressable target. Its footer carries the row's own actions — View, Edit,
- * Withdraw, Archive, as the table draws them — and a card-wide press around several buttons is a
- * nested control. The title is the link that opens the editor, as a row press does, and the
+ * The card is not one pressable target. Its footer carries the row's own actions behind the same
+ * ⋯ the table draws, and a card-wide press around a button is a nested control. The title is the link that opens the editor, as a row press does, and the
  * picture opens it too without adding a tab stop (`BrowseCard`'s `mediaAction`).
  */
 
@@ -70,7 +76,8 @@ export function RecipeCardGrid({
                 const kinds = kindsLabel(row, t);
                 const meta = [
                     kitchenName(row.kitchenId),
-                    recipeCategoryLabel(row.recipeCategory, t),
+                    recipeCategoryLabel(row.recipeCategory, t) ??
+                        kitchenCategoryPair(row.soldAs?.[0]),
                 ]
                     .filter((part): part is string => part !== null && part !== '')
                     .join(' · ');
@@ -112,7 +119,7 @@ export function RecipeCardGrid({
                                 <Badge
                                     testID={`${cardID}-status`}
                                     tone={statusTone(row.meta.status)}
-                                    icon={row.meta.status === 'published' ? null : undefined}
+                                    icon={null}
                                     label={t(statusShortKey(row.meta.status))}
                                 />
                             }
@@ -141,34 +148,11 @@ export function RecipeCardGrid({
                                             number: row.currentVersionNumber,
                                         })}
                                     </Text>
-                                    <View
-                                        accessibilityLabel={rowActionsLabel}
-                                        aria-label={rowActionsLabel}
-                                        className="flex-row items-center gap-hair"
-                                    >
-                                        {rowActions(row).map((action) => (
-                                            <IconButton
-                                                key={action.key}
-                                                label={action.label}
-                                                variant="ghost"
-                                                size="sm"
-                                                {...(action.tone === undefined
-                                                    ? {}
-                                                    : { tone: action.tone })}
-                                                {...(action.disabled === undefined
-                                                    ? {}
-                                                    : { disabled: action.disabled })}
-                                                icon={
-                                                    <Icon name={action.icon ?? 'more'} size="sm" />
-                                                }
-                                                onPress={action.onSelect}
-                                                testID={
-                                                    action.testID ??
-                                                    `${cardID}-action-${action.key}`
-                                                }
-                                            />
-                                        ))}
-                                    </View>
+                                    <RowActionsMenu
+                                        actions={rowActions(row)}
+                                        label={rowActionsLabel}
+                                        testID={`${cardID}-actions`}
+                                    />
                                 </View>
                             }
                         >
@@ -178,7 +162,7 @@ export function RecipeCardGrid({
                                         <Badge
                                             testID={`${cardID}-missing-arabic`}
                                             tone="warning"
-                                            icon="languages"
+                                            icon={null}
                                             label={t('kitchen:list.missingArabic')}
                                         />
                                     ) : null}

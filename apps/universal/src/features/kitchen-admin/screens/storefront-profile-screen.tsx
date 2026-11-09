@@ -178,7 +178,7 @@ function StorefrontProfileSection() {
     return (
         <>
             <FormSection
-                variant="card"
+                variant="panel"
                 testID="kitchen-storefront-profile"
                 title={t('kitchen:storefrontProfile.title')}
                 description={t('kitchen:storefrontProfile.description')}

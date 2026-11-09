@@ -1005,21 +1005,11 @@ export function PriceEntriesCard({
                             }}
                         />
                         {lockedMeal ? (
-                            <Text
-                                testID={`${base}-set-on-meal`}
-                                variant="micro"
-                                tone="secondary"
-                                align="end"
-                            >
+                            <Text testID={`${base}-set-on-meal`} variant="micro" tone="secondary">
                                 {t('kitchen:priceLists.setOnMeal')}
                             </Text>
                         ) : !confirmed ? (
-                            <Text
-                                testID={`${base}-no-amount`}
-                                variant="micro"
-                                tone="secondary"
-                                align="end"
-                            >
+                            <Text testID={`${base}-no-amount`} variant="micro" tone="secondary">
                                 {row.priceStatus === 'placeholder'
                                     ? t('kitchen:priceLists.notOnSale')
                                     : t('kitchen:priceLists.setAtCounter')}
@@ -1029,7 +1019,6 @@ export function PriceEntriesCard({
                                 testID={`${base}-was`}
                                 variant="micro"
                                 tone={was.large ? 'danger' : 'warning'}
-                                align="end"
                             >
                                 {was.text}
                             </Text>
@@ -1185,7 +1174,7 @@ export function PriceEntriesCard({
                     {headerCell(t('kitchen:priceLists.basisLabel'))}
                 </View>
                 <View role="columnheader" style={fixedTrack(TRACK.amount)}>
-                    {headerCell(t('kitchen:priceLists.amountLabel', { currency }), 'end')}
+                    {headerCell(t('kitchen:priceLists.amountLabel', { currency }))}
                 </View>
                 <View role="columnheader" style={fixedTrack(TRACK.from)}>
                     {headerCell(t('kitchen:priceLists.effectiveFromLabel'))}
@@ -1236,7 +1225,7 @@ export function PriceEntriesCard({
     return (
         <View
             testID={`${testID}-entries-card`}
-            className="rounded border border-stroke-subtle bg-surface-raised shadow-elevation-card"
+            className="rounded-[22px] border border-stroke-subtle bg-surface-raised"
         >
             <View
                 testID={`${testID}-entries-toolbar`}

@@ -556,7 +556,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
               {
                   key: 'outstanding',
                   label: t('kitchen:ops.supplyOrders.columnOutstanding'),
-                  width: 104,
+                  width: 124,
                   priority: 60,
                   render: (line) => (
                       <Text
@@ -982,7 +982,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                     <View className="z-auto min-w-0 flex-1 flex-col gap-base">
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-supply-order-detail-lines"
                             title={t('kitchen:ops.supplyOrders.linesTitle')}
                             aside={
@@ -1063,7 +1063,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
 
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-supply-order-detail-notes"
                             title={t('kitchen:ops.supplyOrders.notesTitle')}
                         >
@@ -1100,6 +1100,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                      * purchases ledger is where a cost holder reads it.
                      */}
                     <RecordSummaryAside
+                        variant="panel"
                         testID="kitchen-supply-order-detail-summary"
                         title={t('kitchen:ops.supplyOrders.detailSummaryTitle')}
                         width={sideBySide ? ASIDE_WIDTH : null}

@@ -161,35 +161,38 @@ function ProductionBatchLabel({ order }: ProductionBatchLabelScreenProps) {
         <Stack space="lg" testID="kitchen-production-label-screen">
             {/* Screen-only: the print block hides this whole block by test id. */}
             <Stack space="sm" testID="kitchen-production-label-toolbar">
-                <Heading level={1} testID="kitchen-production-label-title">
-                    {t('kitchen:ops.production.printLabel')}
-                </Heading>
+                {/* The board's one bar: the title at the start, copies and the two buttons at the end. */}
+                <View className="z-auto flex-row flex-wrap items-end justify-between gap-snug rounded-panel border border-stroke-subtle bg-surface-raised p-snug">
+                    <Heading level={2} testID="kitchen-production-label-title">
+                        {t('kitchen:ops.production.printLabel')}
+                    </Heading>
 
-                <Inline space="sm" align="end" justify="between" wrap>
-                    <View className="w-32">
-                        <QuantityInput
-                            testID="kitchen-production-label-copies"
-                            id="kitchen-production-label-copies"
-                            label={t('kitchen:ops.production.labelCopies')}
-                            // Emptied, the sheet prints the batch's own count — so that is what
-                            // the empty box shows, rather than a number it will not print.
-                            placeholder={String(labelCopies(batch, null))}
-                            value={typedCopies ?? String(copies)}
-                            onChangeText={setTypedCopies}
-                        />
-                    </View>
-
-                    <Inline space="sm" align="center" wrap>
-                        {backButton}
-                        {sheet.mode === 'browser' ? (
-                            <Button
-                                testID="kitchen-production-label-print"
-                                label={t('kitchen:ops.production.printLabel')}
-                                onPress={sheet.print}
+                    <Inline space="sm" align="end" wrap>
+                        <View className="w-32">
+                            <QuantityInput
+                                testID="kitchen-production-label-copies"
+                                id="kitchen-production-label-copies"
+                                label={t('kitchen:ops.production.labelCopies')}
+                                // Emptied, the sheet prints the batch's own count — so that is what
+                                // the empty box shows, rather than a number it will not print.
+                                placeholder={String(labelCopies(batch, null))}
+                                value={typedCopies ?? String(copies)}
+                                onChangeText={setTypedCopies}
                             />
-                        ) : null}
+                        </View>
+
+                        <Inline space="sm" align="center" wrap>
+                            {backButton}
+                            {sheet.mode === 'browser' ? (
+                                <Button
+                                    testID="kitchen-production-label-print"
+                                    label={t('kitchen:ops.production.printLabel')}
+                                    onPress={sheet.print}
+                                />
+                            ) : null}
+                        </Inline>
                     </Inline>
-                </Inline>
+                </View>
 
                 {sheet.mode === 'browser' ? null : (
                     <Callout
@@ -253,34 +256,41 @@ function LabelCopy({
             testID={testID}
             className="w-56 gap-1 rounded-lg border border-stroke-subtle bg-surface-raised p-2"
         >
+            {/* The board's label: a large name, then the facts as rows, the use-by boxed last. */}
             <View className="flex-row flex-wrap gap-x-2">
-                <Text variant="bodyStrong" testID={`${testID}-name`}>
+                <Text variant="title" className="font-display" testID={`${testID}-name`}>
                     {batch.productionItemNameEn ?? noValue}
                 </Text>
                 {nameAr === null ? null : (
-                    <Text variant="bodyStrong" testID={`${testID}-name-ar`}>
+                    <Text variant="title" testID={`${testID}-name-ar`}>
                         {nameAr}
                     </Text>
                 )}
             </View>
 
-            <View className="flex-row gap-x-1">
-                <Text variant="caption">{t('kitchen:ops.production.lotLabel')}</Text>
+            <View className="flex-row justify-between gap-x-1 border-t border-stroke-subtle pt-1">
+                <Text variant="caption" tone="secondary">
+                    {t('kitchen:ops.production.lotLabel')}
+                </Text>
                 <Text variant="mono" testID={`${testID}-lot`}>
                     {formatLot(lot)}
                 </Text>
             </View>
 
-            <View testID={`${testID}-dates`} className="flex-row flex-wrap justify-between gap-x-2">
-                <View className="flex-row gap-x-1">
-                    <Text variant="caption">{t('kitchen:ops.production.productionDateLabel')}</Text>
+            <View testID={`${testID}-dates`} className="flex-col gap-1">
+                <View className="flex-row justify-between gap-x-1 border-t border-stroke-subtle pt-1">
+                    <Text variant="caption" tone="secondary">
+                        {t('kitchen:ops.production.productionDateLabel')}
+                    </Text>
                     <Text variant="bodyStrong" testID={`${testID}-made`}>
                         {batch.productionDate === null ? noValue : day(batch.productionDate)}
                     </Text>
                 </View>
-                <View className="flex-row gap-x-1">
-                    <Text variant="caption">{t('kitchen:ops.production.expiryDateLabel')}</Text>
-                    <Text variant="bodyStrong" testID={`${testID}-use-by`}>
+                <View className="flex-row items-baseline justify-between gap-x-1 rounded border-2 border-content-primary px-2 py-1">
+                    <Text variant="micro" className="uppercase tracking-wide">
+                        {t('kitchen:ops.production.expiryDateLabel')}
+                    </Text>
+                    <Text variant="strong" testID={`${testID}-use-by`}>
                         {batch.expiryDate === null
                             ? t('kitchen:ops.production.noExpiry')
                             : day(batch.expiryDate)}

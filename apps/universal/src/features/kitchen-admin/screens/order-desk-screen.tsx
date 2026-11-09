@@ -1462,7 +1462,6 @@ function OrderDeskQueueList() {
             key: 'total',
             role: 'metric',
             label: t('kitchen:desk.columnTotal'),
-            align: 'end',
             width: 100,
             priority: 85,
             sort: (left, right, direction) =>

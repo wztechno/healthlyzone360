@@ -649,7 +649,7 @@ function ProductionBatchNew() {
                         <View className="relative z-raised">
                             <FormSection
                                 first
-                                variant="card"
+                                variant="panel"
                                 testID="kitchen-production-batch-new-batch-section"
                                 title={t('kitchen:ops.production.batchSection')}
                             >
@@ -1103,7 +1103,7 @@ function NextSteps() {
     return (
         <FormSection
             first
-            variant="card"
+            variant="panel"
             testID="kitchen-production-batch-new-steps"
             title={t('kitchen:ops.production.stepsTitle')}
         >

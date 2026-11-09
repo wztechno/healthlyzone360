@@ -1,10 +1,12 @@
 import type { ChannelAvailability, LocalisedText } from '@healthy360/api-client/contracts';
 import {
     Checkbox,
+    DATA_LIST_HEAD_TEXT_CLASS,
     DataList,
     DateField,
     Icon,
     IconButton,
+    InfoTip,
     Select,
     Stack,
     Switch,
@@ -21,7 +23,7 @@ import type { MeasureUnit } from '@healthy360/nutrition';
 import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 
 import {
     UNIT_DIMENSIONS,
@@ -91,6 +93,9 @@ export interface PackEditorProps {
     /** A server refusal of one column of one row — under that column, not the row's code. */
     readonly fieldError?: ((row: PackDraft, column: PackColumn) => string | undefined) | undefined;
     readonly canManage: boolean;
+    /** Said inside the empty box: a save was refused because there is no pack. */
+    readonly emptyError?: string | undefined;
+    readonly emptyErrorTestID?: string | undefined;
     readonly testID: string;
 }
 
@@ -169,6 +174,8 @@ export function PackVariantEditor({
     errors,
     fieldError,
     canManage,
+    emptyError,
+    emptyErrorTestID,
     testID,
 }: PackEditorProps) {
     const { t } = useTranslation();
@@ -364,9 +371,16 @@ export function PackVariantEditor({
         // there is nothing to draw, so the two never share one.
         <Stack space="sm" {...(rows.length === 0 ? { testID } : {})}>
             {rows.length === 0 ? (
-                <Text testID={`${testID}-empty`} tone="secondary">
-                    {t('kitchen:products.packsEmpty')}
-                </Text>
+                <View className="items-center gap-1 rounded-[14px] border border-dashed border-stroke p-base">
+                    <Text testID={`${testID}-empty`} tone="secondary">
+                        {t('kitchen:products.packsEmpty')}
+                    </Text>
+                    {emptyError === undefined ? null : (
+                        <Text testID={emptyErrorTestID} variant="caption" tone="danger">
+                            {emptyError}
+                        </Text>
+                    )}
+                </View>
             ) : (
                 <>
                     <DataList<PackDraft>
@@ -540,19 +554,18 @@ export function ChannelAvailabilityEditor({
 
                 return (
                     /*
-                     * A tinted cell rather than a `Card` per channel.
-                     *
-                     * Eight bordered panels for eight checkboxes is eight rectangles carrying one
-                     * bit each, and stacked one per row it was the tallest section on the page. The
-                     * fill is the *selected* state — it reads at a glance which routes are live —
-                     * and it is never the only signal: the checkbox itself is checked beside it.
+                     * A bordered tile, as the Resale board draws it. The fill is the *selected* state — it
+                     * reads at a glance which routes are live — and it is never the only signal: the
+                     * checkbox itself is checked beside it.
                      */
                     <View
                         key={channel}
                         testID={rowTestId}
                         className={cx(
-                            'w-[220px] flex-row items-center gap-tight rounded-sm px-control-md py-1',
-                            row.isAvailable ? 'bg-surface-brand-subtle' : null,
+                            'min-h-11 w-[220px] flex-col justify-center rounded-xl border px-3 py-1',
+                            row.isAvailable
+                                ? 'border-stroke bg-surface-brand-subtle'
+                                : 'border-stroke-subtle',
                         )}
                     >
                         <Checkbox
@@ -571,9 +584,10 @@ export function ChannelAvailabilityEditor({
                          * "B2C" is the contract's word and not everybody reading this form speaks
                          * it; the other seven need no gloss. It follows the label rather than
                          * sitting at the cell's far edge, where it read as a label of its own.
+                         * Under the label, aligned with the words past the box, as the board draws it.
                          */}
                         {channel === 'b2c' ? (
-                            <Text variant="caption" tone="secondary">
+                            <Text variant="caption" tone="secondary" className="ps-7">
                                 {t('kitchen:channels.consumerTag')}
                             </Text>
                         ) : null}
@@ -765,6 +779,18 @@ export function MealAvailabilityEditor({
         {
             key: 'remaining',
             label: t('kitchen:availability.remainingHeader'),
+            // The board's (i) on the header: what an empty box means, said once for the column.
+            renderHeader: () => (
+                <View className="flex-row items-center gap-hair">
+                    <RNText numberOfLines={1} className={DATA_LIST_HEAD_TEXT_CLASS}>
+                        {t('kitchen:availability.remainingHeader')}
+                    </RNText>
+                    <InfoTip
+                        label={t('kitchen:availability.remainingHeader')}
+                        text={t('kitchen:availability.remainingHint')}
+                    />
+                </View>
+            ),
             width: ANSWER_TRACK,
             priority: UNDROPPABLE_PRIORITY,
             fill: true,
@@ -792,6 +818,18 @@ export function MealAvailabilityEditor({
         {
             key: 'cutoff',
             label: t('kitchen:availability.cutOffHeader'),
+            // The board's (i) on the header: what an empty box means, said once for the column.
+            renderHeader: () => (
+                <View className="flex-row items-center gap-hair">
+                    <RNText numberOfLines={1} className={DATA_LIST_HEAD_TEXT_CLASS}>
+                        {t('kitchen:availability.cutOffHeader')}
+                    </RNText>
+                    <InfoTip
+                        label={t('kitchen:availability.cutOffHeader')}
+                        text={t('kitchen:availability.cutOffHint')}
+                    />
+                </View>
+            ),
             width: ANSWER_TRACK,
             priority: UNDROPPABLE_PRIORITY,
             fill: true,

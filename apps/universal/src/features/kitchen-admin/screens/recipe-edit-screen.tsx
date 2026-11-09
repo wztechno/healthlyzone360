@@ -3198,7 +3198,7 @@ function RecipeEditor({
                                         variant="label"
                                         testID="kitchen-recipe-editor-screen-dirty"
                                         tone="warning"
-                                        icon="warning"
+                                        icon={null}
                                         label={t('kitchen:editor.unsaved')}
                                     />
                                 ) : allSaved ? (
@@ -3208,7 +3208,7 @@ function RecipeEditor({
                                         variant="label"
                                         testID="kitchen-recipe-editor-screen-saved"
                                         tone="success"
-                                        icon="check"
+                                        icon={null}
                                         label={t('kitchen:recipes.allSavedBadge')}
                                     />
                                 ) : null}
@@ -3370,7 +3370,7 @@ function RecipeEditor({
                          */}
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-recipe-identity"
                             title={t('kitchen:recipes.sectionIdentity')}
                         >
@@ -3533,7 +3533,7 @@ function RecipeEditor({
                          */}
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-recipe-yield"
                             title={t('kitchen:forms.yieldAndWaste')}
                         >
@@ -3613,7 +3613,7 @@ function RecipeEditor({
                         </FormSection>
 
                         <FormSection
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-recipe-lines"
                             nativeID="kitchen-recipe-lines"
                             title={t('kitchen:recipes.sectionRawMaterials')}
@@ -3685,7 +3685,7 @@ function RecipeEditor({
                     <View className="relative z-raised flex-col gap-loose">
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-recipe-packaging-coefficients"
                             title={t('kitchen:forms.expiryAndWaste')}
                         >
@@ -3743,7 +3743,7 @@ function RecipeEditor({
                         <View className="relative z-sticky">
                             <FormSection
                                 first
-                                variant="card"
+                                variant="panel"
                                 testID="kitchen-recipe-packaging"
                                 title={t('kitchen:recipes.sectionPackaging')}
                             >
@@ -3785,22 +3785,28 @@ function RecipeEditor({
                     <View className="relative z-raised flex-col gap-loose">
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-recipe-cost-cascade"
                             nativeID="kitchen-recipe-cost-cascade"
                             title={t('kitchen:recipes.sectionCostCascade')}
-                            // Kept where the design drops its subtitles: it says which price the
-                            // figures are built on, so a number that moves tomorrow can be traced.
-                            description={t('kitchen:recipes.costCascadeHint')}
                             aside={
                                 <Badge
                                     variant="label"
                                     tone="danger"
-                                    icon="eyeOff"
+                                    icon={null}
                                     label={t('kitchen:recipes.confidential')}
                                 />
                             }
                         >
+                            {/* Printed, as the board has it: it says which price the figures are
+                                built on, so a number that moves tomorrow can be traced. */}
+                            <Text
+                                variant="body"
+                                tone="secondary"
+                                testID="kitchen-recipe-cost-cascade-note"
+                            >
+                                {t('kitchen:recipes.costCascadeHint')}
+                            </Text>
                             {canViewCosts ? (
                                 <Stack space="sm">
                                     <CostCascade
@@ -3832,7 +3838,7 @@ function RecipeEditor({
                          */}
                         {!canViewCosts ? null : (
                             <FormSection
-                                variant="card"
+                                variant="panel"
                                 testID="kitchen-recipe-package-costs"
                                 title={t('kitchen:recipes.sectionPackageCosts')}
                             >
@@ -3886,7 +3892,7 @@ function RecipeEditor({
                              */}
                             <FormSection
                                 first
-                                variant="card"
+                                variant="panel"
                                 testID="kitchen-recipe-sheet-summary"
                                 title={t('kitchen:recipes.sheetTitle')}
                             >
@@ -3915,11 +3921,12 @@ function RecipeEditor({
 
                             <FormSection
                                 first
-                                variant="card"
+                                variant="panel"
                                 testID="kitchen-recipe-composition"
                                 title={t('kitchen:forms.nutritionTitle')}
                                 aside={
                                     <Badge
+                                        icon={null}
                                         variant="label"
                                         tone="info"
                                         label={t('kitchen:composition.fromDatabase')}
@@ -3966,11 +3973,12 @@ function RecipeEditor({
                              * derivation by definition — so nothing here claims a hand-declared entry.
                              */}
                             <FormSection
-                                variant="card"
+                                variant="panel"
                                 testID="kitchen-recipe-allergens"
                                 title={t('kitchen:forms.allergensTitle')}
                                 aside={
                                     <Badge
+                                        icon={null}
                                         variant="label"
                                         tone="info"
                                         label={t('kitchen:composition.fromDatabase')}
@@ -4033,7 +4041,7 @@ function RecipeEditor({
                              * is no version to snapshot until the recipe exists.
                              */}
                             <FormSection
-                                variant="card"
+                                variant="panel"
                                 testID="kitchen-recipe-sheet"
                                 title={t('kitchen:recipes.sheetPrintTitle')}
                             >

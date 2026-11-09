@@ -120,6 +120,7 @@ export function PlanVariantRows({
                                 title={t('kitchen:plans.variantNumber', { number: index + 1 })}
                                 badge={
                                     <Badge
+                                        icon={null}
                                         testID={`${rowTestId}-badge`}
                                         tone={row.isActive ? 'success' : 'neutral'}
                                         label={

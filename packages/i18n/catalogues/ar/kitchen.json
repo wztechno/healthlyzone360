@@ -764,6 +764,9 @@
             "receiptsTitle": "التوصيلات",
             "receiptNoDocumentRef": "لا يوجد سند تسليم",
             "view": {
+                "stepDone": "تم",
+                "stepPartial": "جزئي",
+                "stepClosedShort": "أُغلق ناقصًا",
                 "historyLabel": "أين وصل الطلب",
                 "stepMade": "أُنشئ {{date}}",
                 "stepDeliveries_zero": "{{date}} · {{count}} تسليم",
@@ -1205,6 +1208,9 @@
             "emptyTitle": "لا يوجد ما يُستلم",
             "emptyBody": "لا يوجد طلب مفتوح للتوصيل في هذا الفرع. أصدر طلبًا أولًا.",
             "orderMissingTitle": "هذا الطلب ليس مفتوحًا للتوصيل",
+            "findOrderLabel": "ابحث عن طلب",
+            "findOrderPlaceholder": "ابحث عن طلب برقمه أو بالمورد",
+            "columnIssued": "الإصدار",
             "orderMissingBody": "قد يكون مكتملًا بالفعل، أو يخص فرعًا آخر.",
             "fieldOrder": "الطلب",
             "fieldReceivedOn": "تاريخ الاستلام",
@@ -1933,7 +1939,7 @@
             "retryNextProblemToast": "الطلب {{order}}: تم إصلاح ذلك، لكنه متوقف الآن بسبب «{{reason}}».",
             "actionFailedToast": "لم تتم العملية. حاول مرة أخرى.",
             "resolveTitle": "قبول نقص المخزون هذا؟",
-            "resolveBody": "الحل يقبل فجوة المخزون نهائيًا: لا يُخصم شيء لهذا البند ويبقى المخزون كما هو. أعد المحاولة بدلًا من ذلك إن أُصلح السبب.",
+            "resolveBody": "الحل يقبل فجوة المخزون نهائيًا: لا يُخصم شيء لهذا البند ويبقى المخزون كما هو.",
             "resolveConfirm": "قبول النقص",
             "window": {
                 "title": "الطلب {{order}}",
@@ -3086,7 +3092,7 @@
         },
         "consumptionExceptions": {
             "name": "نواقص المخزون",
-            "description": "مبيعات لم يتمكّن طلب مؤكَّد من خصمها من المخزون بأمانة — راجِع كلّاً منها وأعد المحاولة أو احسمها."
+            "description": "مبيعات لم يتمكّن طلب مؤكَّد من خصمها من المخزون بأمانة — راجِع كلّاً منها أو احسمها."
         },
         "orderDesk": {
             "name": "مكتب الطلبات",
@@ -5340,7 +5346,9 @@
         "marginNoBasis": "يتطلّب سعر شركات وسعر وحدة",
         "marginUnavailable": "—",
         "priceInvalid": "أدخل مبلغًا، أو اتركه فارغًا.",
-        "currencyUnknown": "لا توجد عملة مسجّلة لهذا المطبخ بعد، لذا لا يمكن حفظ سعر."
+        "currencyUnknown": "لا توجد عملة مسجّلة لهذا المطبخ بعد، لذا لا يمكن حفظ سعر.",
+        "marginB2b": "B2B",
+        "marginB2c": "B2C"
     },
     "composition": {
         "title": "التركيب ومسبّبات الحساسية",
@@ -5396,22 +5404,28 @@
         "nutrientValue": "{{value}} {{unit}} · {{percent}} ٪ من المدخول المرجعي",
         "usedInTitle": "مستخدم في الوصفات",
         "usedInSubtitle": "الوجبات المنشورة التي تستخدم هذا المكوّن",
-        "allergensDietsTitle": "مسببات الحساسية والأنظمة الغذائية",
         "sourcingTitle": "العبوة والتوريد",
         "pricesTitle": "الأسعار",
         "perUnitCaption": "لكل {{unit}}",
-        "priceLadderLabel": "سعر الوحدة {{unit}}، سعر الشركات {{b2b}}، سعر المستهلك {{b2c}}",
         "energyFrom": "مصدر الطاقة",
         "energyShare": "{{nutrient}} {{percent}} ٪",
         "energySplitLabel": "مصدر الطاقة: الدهون {{fat}} ٪، الكربوهيدرات {{carbohydrate}} ٪، البروتين {{protein}} ٪",
         "aliasesLabel": "يُعرف أيضًا باسم",
-        "namesTitle": "الاسم والتعريف"
+        "boughtIn": "وحدة الشراء",
+        "checkedLabel": "تم التحقق",
+        "checkedYes": "نعم",
+        "checkedReview": "يحتاج إلى مراجعة",
+        "checkedNo": "ليس بعد",
+        "energyShareOfRi": "{{percent}} % من الكمية المرجعية"
     },
     "allergenBoard": {
-        "freeFrom": "خالٍ من",
         "diets": "الأنظمة الغذائية",
         "listLabel": "مسببات الحساسية",
-        "pillLabel": "{{state}}: {{allergen}}"
+        "mayContain": "قد يحتوي على {{allergen}}",
+        "choiceNo": "لا",
+        "summaryContains": "يحتوي على {{names}}",
+        "summaryNone": "لا شيء",
+        "summaryJoin": "، "
     },
     "frozenMeals": {
         "create": "وجبة مجمّدة جديدة",
@@ -5423,7 +5437,25 @@
         "statusTitle": "حالة السجل",
         "version": "الإصدار {{version}}",
         "metaSeparator": " · ",
-        "pathSeparator": " › "
+        "pathSeparator": " › ",
+        "eyebrowPackaging": "التغليف",
+        "eyebrowResale": "إعادة بيع",
+        "eyebrowRecipes": "الوصفات",
+        "eyebrowAllergens": "أصناف مسببات الحساسية",
+        "eyebrowPriceLists": "قوائم الأسعار",
+        "eyebrowQuotations": "عروض الأسعار",
+        "eyebrowPlans": "الخطط",
+        "eyebrowZones": "مناطق التوصيل",
+        "eyebrowSupplyOrders": "طلبات التوريد",
+        "eyebrowSuppliers": "الموردون",
+        "eyebrowProcurement": "المشتريات",
+        "eyebrowLedger": "سجل المشتريات",
+        "eyebrowQualityControl": "مراقبة الجودة",
+        "eyebrowCostReport": "تقرير التكاليف",
+        "eyebrowCustomers": "العملاء",
+        "eyebrowOrders": "الطلبات",
+        "eyebrowStock": "المخزون",
+        "eyebrowComplaints": "الشكاوى"
     },
     "search": {
         "label": "البحث في الصفحات",
@@ -5875,6 +5907,12 @@
         "notOpenTitle": "لم يفتح بعد",
         "notOpenBody": "لا يمكن للزبائن الطلب حتى تبدأ التشغيل. ويمكن لمكتب الطلبات أخذ البيع.",
         "open": "فتح",
+        "readyTitle": "جاهز للفتح",
+        "next": "التالي",
+        "allSet": "كل شيء جاهز",
+        "optional": "اختياري",
+        "ofTotal": "من {{total}}",
+        "requiredCount": "{{done}} من {{total}} من الخطوات المطلوبة مكتملة",
         "goLive": "بدء التشغيل",
         "goLiveError": "تعذّر بدء تشغيل المطبخ",
         "liveToast": "المطبخ مفتوح للطلبات.",

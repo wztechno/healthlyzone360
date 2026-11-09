@@ -215,20 +215,28 @@ export interface ChannelPricesSectionProps {
           }
         | undefined;
     readonly testID?: string | undefined;
+    /**
+     * `panel` is the Resale board's: a flat card with the hint printed under the title. Elsewhere
+     * the section is a raised card with the hint behind an (i).
+     */
+    readonly look?: 'card' | 'panel' | undefined;
 }
 
 export function ChannelPricesSection({
     itemId,
     draft,
     testID = 'kitchen-channel-prices',
+    look = 'card',
 }: ChannelPricesSectionProps) {
     const canView = useCan(PRICE_LIST_VIEW_PERMISSION);
     if (!canView) return null;
     if (itemId === null) {
-        return draft === undefined ? null : <ChannelPricesDraft draft={draft} testID={testID} />;
+        return draft === undefined ? null : (
+            <ChannelPricesDraft draft={draft} look={look} testID={testID} />
+        );
     }
 
-    return <ChannelPricesEditor itemId={itemId} testID={testID} />;
+    return <ChannelPricesEditor itemId={itemId} look={look} testID={testID} />;
 }
 
 function useCanManagePrices(): boolean {
@@ -241,9 +249,11 @@ function useCanManagePrices(): boolean {
 /** A new item: the rows only — the host form's Save writes them once the item exists. */
 function ChannelPricesDraft({
     draft,
+    look,
     testID,
 }: {
     readonly draft: NonNullable<ChannelPricesSectionProps['draft']>;
+    readonly look: 'card' | 'panel';
     readonly testID: string;
 }) {
     const { t } = useTranslation();
@@ -252,11 +262,16 @@ function ChannelPricesDraft({
     return (
         <FormSection
             first
-            variant="card"
+            variant={look}
             testID={testID}
             title={t('kitchen:channelPrices.title')}
-            description={t('kitchen:channelPrices.hint')}
+            {...(look === 'panel' ? {} : { description: t('kitchen:channelPrices.hint') })}
         >
+            {look === 'panel' ? (
+                <Text variant="body" tone="secondary" testID={`${testID}-hint`}>
+                    {t('kitchen:channelPrices.hint')}
+                </Text>
+            ) : null}
             <ChannelPriceRows
                 rows={draft.value}
                 onChange={draft.onChange}
@@ -272,9 +287,11 @@ function ChannelPricesDraft({
 
 function ChannelPricesEditor({
     itemId,
+    look,
     testID,
 }: {
     readonly itemId: ProductId | MealId;
+    readonly look: 'card' | 'panel';
     readonly testID: string;
 }) {
     const { t } = useTranslation();
@@ -342,10 +359,10 @@ function ChannelPricesEditor({
     return (
         <FormSection
             first
-            variant="card"
+            variant={look}
             testID={testID}
             title={t('kitchen:channelPrices.title')}
-            description={t('kitchen:channelPrices.hint')}
+            {...(look === 'panel' ? {} : { description: t('kitchen:channelPrices.hint') })}
             actions={
                 canManage ? (
                     <Button
@@ -360,6 +377,11 @@ function ChannelPricesEditor({
                 ) : undefined
             }
         >
+            {look === 'panel' ? (
+                <Text variant="body" tone="secondary" testID={`${testID}-hint`}>
+                    {t('kitchen:channelPrices.hint')}
+                </Text>
+            ) : null}
             <ChannelPriceRows
                 rows={rows}
                 onChange={setRows}

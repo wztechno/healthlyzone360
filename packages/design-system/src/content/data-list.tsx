@@ -269,6 +269,11 @@ export interface DataListProps<Row> {
      */
     readonly framed?: boolean | undefined;
     /**
+     * The frame's top edge runs straight on from a toolbar card above it, so its top corners are
+     * square and a curved header would leave white showing behind them.
+     */
+    readonly flushTop?: boolean | undefined;
+    /**
      * Rows fade and rise into place as they mount, cascading down the list — when its data lands,
      * and again for each page the pager brings in. The header does not move: it is the frame the
      * rows arrive into, and the skeleton before it already drew one in the same place.
@@ -375,6 +380,7 @@ export function DataList<Row>({
     onRowPress,
     emptyState,
     framed = false,
+    flushTop = false,
     rowEntrance = false,
     className,
     testID,
@@ -510,7 +516,7 @@ export function DataList<Row>({
                         // The table's quiet band. Opaque, which the sticky header needs so rows do
                         // not show through.
                         'bg-surface-sunken web:sticky web:top-0',
-                        framed ? 'rounded-t-panel' : null,
+                        framed && !flushTop ? 'rounded-t-panel' : null,
                     )}
                 >
                     {visible.map((column, columnIndex) => (

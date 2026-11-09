@@ -48,6 +48,8 @@ export interface BatchLinesPanelProps {
     readonly first?: boolean | undefined;
     /** The table alone, with no heading or picker — under the batch page's Record lens. */
     readonly bare?: boolean | undefined;
+    /** The flat panel a board draws around the table. */
+    readonly panel?: boolean | undefined;
 }
 
 type LineColumn = ControlledColumn<ProductionOrderLine, CatalogueColumn<ProductionOrderLine>>;
@@ -59,6 +61,7 @@ export function BatchLinesPanel({
     withOutcome,
     first = false,
     bare = false,
+    panel = false,
 }: BatchLinesPanelProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -235,6 +238,7 @@ export function BatchLinesPanel({
         <ProductionTable<ProductionOrderLine>
             first={first}
             bare={bare}
+            panel={panel}
             sectionTestID={testID}
             testID={`${testID}-table`}
             title={t('kitchen:ops.production.headingLines')}

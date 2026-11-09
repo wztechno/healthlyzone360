@@ -44,6 +44,8 @@ export interface ImageSlotProps {
     readonly fallback?: ImageRequireSource | null | undefined;
     readonly onChange: (uri: string | null) => void;
     readonly disabled?: boolean | undefined;
+    /** The slot's side. 168 unless a form draws a smaller one. */
+    readonly size?: number | undefined;
     readonly testID: string;
 }
 
@@ -55,6 +57,7 @@ export function ImageSlot({
     fallback = null,
     onChange,
     disabled = false,
+    size = SLOT_SIZE,
     testID,
 }: ImageSlotProps) {
     const { t } = useTranslation();
@@ -104,7 +107,7 @@ export function ImageSlot({
         <View
             ref={node}
             testID={testID}
-            style={{ width: SLOT_SIZE, height: SLOT_SIZE }}
+            style={{ width: size, height: size }}
             className={
                 !filled
                     ? 'shrink-0 overflow-hidden rounded-md border border-dashed border-stroke bg-surface-sunken'

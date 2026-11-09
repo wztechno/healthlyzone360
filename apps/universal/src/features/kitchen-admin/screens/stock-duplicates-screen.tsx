@@ -13,6 +13,7 @@ import type { MenuItem } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -207,6 +208,14 @@ function StockDuplicatesList() {
             width: 320,
             priority: 90,
             value: (row) => t(`kitchen:stockDuplicates.reason.${row.reason}`),
+            // The reason is what the reader decides on, so it wraps rather than ending in an ellipsis.
+            render: (row) => (
+                <View className="min-w-0 flex-1 py-1">
+                    <Text numberOfLines={3}>
+                        {t(`kitchen:stockDuplicates.reason.${row.reason}`)}
+                    </Text>
+                </View>
+            ),
         },
         {
             key: 'shelves',
@@ -215,6 +224,13 @@ function StockDuplicatesList() {
             width: 320,
             priority: 80,
             value: shelvesOf,
+            render: (row) => (
+                <View className="min-w-0 flex-1 py-1">
+                    <Text tone="secondary" numberOfLines={3}>
+                        {shelvesOf(row)}
+                    </Text>
+                </View>
+            ),
         },
     ];
 
@@ -247,7 +263,6 @@ function StockDuplicatesList() {
                     columns={columns}
                     rows={rows}
                     rowKey={(row) => row.name}
-                    density="sm"
                     rowActionsLabel={t('kitchen:list.rowActions')}
                     rowActions={canManage ? rowActions : undefined}
                 />

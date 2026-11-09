@@ -33,6 +33,7 @@ import {
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
 import { ORDER_VIEW_PERMISSION } from '../entity-registry.ts';
+import { RecordTile } from '../catalogue/record-tiles.tsx';
 import { WorkbenchSectionHeading } from '../workbench-parts.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
@@ -255,6 +256,7 @@ function AnalyticsDashboard() {
     const lens = (
         <LensBar
             testID="kitchen-analytics-toolbar"
+            layout="split"
             label={t('kitchen:lens.label')}
             figures={figures}
             scope={
@@ -356,15 +358,19 @@ function AnalyticsDashboard() {
                 <Cascade space="md">
                     {/* One chart per line: side by side, the trend's bars had no room between them. */}
                     <View className="flex-col gap-loose">
-                        <View className="flex-col gap-snug">
-                            <WorkbenchSectionHeading
-                                title={t('kitchen:analytics.charts.unitsTrend')}
-                                aside={t(
-                                    weekly
-                                        ? 'kitchen:analytics.charts.perWeek'
-                                        : 'kitchen:analytics.charts.perDay',
-                                )}
-                            />
+                        <RecordTile
+                            testID="kitchen-analytics-tile-1"
+                            title={t('kitchen:analytics.charts.unitsTrend')}
+                            trailing={
+                                <Text variant="caption" tone="secondary">
+                                    {t(
+                                        weekly
+                                            ? 'kitchen:analytics.charts.perWeek'
+                                            : 'kitchen:analytics.charts.perDay',
+                                    )}
+                                </Text>
+                            }
+                        >
                             <TrendBars
                                 testID="kitchen-analytics-trend"
                                 values={buckets.map((bucket) => bucket.units)}
@@ -402,11 +408,11 @@ function AnalyticsDashboard() {
                                     });
                                 }}
                             />
-                        </View>
-                        <View className="flex-col gap-snug">
-                            <WorkbenchSectionHeading
-                                title={t('kitchen:analytics.charts.channelVolume')}
-                            />
+                        </RecordTile>
+                        <RecordTile
+                            testID="kitchen-analytics-tile-2"
+                            title={t('kitchen:analytics.charts.channelVolume')}
+                        >
                             <RatioBars
                                 testID="kitchen-analytics-channels"
                                 labelWidth={110}
@@ -418,10 +424,12 @@ function AnalyticsDashboard() {
                                     share: channel.orders / channelMax,
                                 }))}
                             />
-                        </View>
+                        </RecordTile>
                     </View>
-                    <View className="flex-col gap-2.5">
-                        <WorkbenchSectionHeading title={t('kitchen:analytics.charts.outcomeMix')} />
+                    <RecordTile
+                        testID="kitchen-analytics-tile-3"
+                        title={t('kitchen:analytics.charts.outcomeMix')}
+                    >
                         <StatMix
                             testID="kitchen-analytics-mix"
                             formatPercent={(pct) =>
@@ -440,7 +448,7 @@ function AnalyticsDashboard() {
                                 tone,
                             }))}
                         />
-                    </View>
+                    </RecordTile>
                     <View className="flex-col">
                         <WorkbenchSectionHeading title={t('kitchen:analytics.table.title')} />
                         <CatalogueList<KitchenAnalyticsItem>

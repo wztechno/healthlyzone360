@@ -156,7 +156,6 @@ export function CorporateDashboardScreen() {
             role: 'metric',
             label: t('business:programme.columnHeadcount'),
             width: 90,
-            align: 'end',
             priority: 85,
             value: (programme) => formatter.formatNumber(programme.headcount),
             sort: (left, right, direction) =>
@@ -175,7 +174,6 @@ export function CorporateDashboardScreen() {
             role: 'meta',
             label: t('business:programme.columnSubsidy'),
             width: 130,
-            align: 'end',
             priority: 80,
             value: (programme) =>
                 programme.employeeSubsidy === null
@@ -203,7 +201,6 @@ export function CorporateDashboardScreen() {
             role: 'meta',
             label: t('business:programme.columnLines'),
             width: 110,
-            align: 'end',
             priority: 75,
             sort: false,
             value: () => '',
@@ -558,7 +555,6 @@ function RecentQuotations({
             role: 'meta',
             label: t('business:quotations.columnLines'),
             width: 80,
-            align: 'end',
             priority: 60,
             value: (row) => formatter.formatNumber(row.lines.length),
         },

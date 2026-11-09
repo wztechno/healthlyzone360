@@ -701,6 +701,9 @@
             "receiptsTitle": "Deliveries",
             "receiptNoDocumentRef": "No delivery note",
             "view": {
+                "stepDone": "Done",
+                "stepPartial": "Partial",
+                "stepClosedShort": "Closed short",
                 "historyLabel": "Where the order has got to",
                 "stepMade": "Made {{date}}",
                 "stepDeliveries_one": "{{date}} · {{count}} delivery",
@@ -1050,6 +1053,9 @@
             "emptyTitle": "Nothing to receive",
             "emptyBody": "No order is open for delivery at this branch. Issue one first.",
             "orderMissingTitle": "That order is not open for delivery",
+            "findOrderLabel": "Find an order",
+            "findOrderPlaceholder": "Find an order by number or supplier",
+            "columnIssued": "Issued",
             "orderMissingBody": "It may already be complete, or it belongs to another branch.",
             "fieldOrder": "Order",
             "fieldReceivedOn": "Date received",
@@ -1710,7 +1716,7 @@
             "retryNextProblemToast": "Order {{order}}: that is fixed, but it is now blocked by “{{reason}}”.",
             "actionFailedToast": "That did not go through. Try again.",
             "resolveTitle": "Accept this stock gap?",
-            "resolveBody": "Resolving accepts the stock gap for good: nothing is deducted for this line, and stock stays as it is. Retry instead if the cause has been fixed.",
+            "resolveBody": "Resolving accepts the stock gap for good: nothing is deducted for this line, and stock stays as it is.",
             "resolveConfirm": "Accept the gap",
             "window": {
                 "title": "Order {{order}}",
@@ -2775,7 +2781,7 @@
         },
         "consumptionExceptions": {
             "name": "Stock gaps",
-            "description": "Sales a confirmed order could not deduct from stock honestly — review, retry, or resolve each one."
+            "description": "Sales a confirmed order could not deduct from stock honestly — review or resolve each one."
         },
         "orderDesk": {
             "name": "Order desk",
@@ -4669,7 +4675,9 @@
         "marginNoBasis": "Needs a B2B price and a unit price",
         "marginUnavailable": "—",
         "priceInvalid": "Enter an amount, or leave it empty.",
-        "currencyUnknown": "No currency is recorded for this kitchen yet, so a price cannot be saved."
+        "currencyUnknown": "No currency is recorded for this kitchen yet, so a price cannot be saved.",
+        "marginB2b": "B2B",
+        "marginB2c": "B2C"
     },
     "composition": {
         "title": "Composition & allergens",
@@ -4725,22 +4733,28 @@
         "nutrientValue": "{{value}} {{unit}} · {{percent}} % RI",
         "usedInTitle": "Used in recipes",
         "usedInSubtitle": "Live meals drawing on this ingredient",
-        "allergensDietsTitle": "Allergens & diets",
         "sourcingTitle": "Pack & sourcing",
         "pricesTitle": "Prices",
         "perUnitCaption": "per {{unit}}",
-        "priceLadderLabel": "Unit price {{unit}}, B2B price {{b2b}}, B2C price {{b2c}}",
         "energyFrom": "Energy from",
         "energyShare": "{{nutrient}} {{percent}} %",
         "energySplitLabel": "Energy from fat {{fat}} %, carbohydrate {{carbohydrate}} %, protein {{protein}} %",
         "aliasesLabel": "Also called",
-        "namesTitle": "Names & what it is"
+        "boughtIn": "Bought in",
+        "checkedLabel": "Checked",
+        "checkedYes": "Yes",
+        "checkedReview": "Needs review",
+        "checkedNo": "Not yet",
+        "energyShareOfRi": "{{percent}} % RI"
     },
     "allergenBoard": {
-        "freeFrom": "Free from",
         "diets": "Diets",
         "listLabel": "Allergens",
-        "pillLabel": "{{state}}: {{allergen}}"
+        "mayContain": "May contain {{allergen}}",
+        "choiceNo": "No",
+        "summaryContains": "Contains {{names}}",
+        "summaryNone": "None",
+        "summaryJoin": ", "
     },
     "frozenMeals": {
         "create": "New frozen meal",
@@ -4752,7 +4766,25 @@
         "statusTitle": "Record status",
         "version": "Version {{version}}",
         "metaSeparator": " · ",
-        "pathSeparator": " › "
+        "pathSeparator": " › ",
+        "eyebrowPackaging": "Packaging",
+        "eyebrowResale": "Resale",
+        "eyebrowRecipes": "Recipes",
+        "eyebrowAllergens": "Allergen classes",
+        "eyebrowPriceLists": "Price lists",
+        "eyebrowQuotations": "Quotations",
+        "eyebrowPlans": "Plans",
+        "eyebrowZones": "Delivery zones",
+        "eyebrowSupplyOrders": "Supply orders",
+        "eyebrowSuppliers": "Suppliers",
+        "eyebrowProcurement": "Procurement",
+        "eyebrowLedger": "Purchases ledger",
+        "eyebrowQualityControl": "Quality control",
+        "eyebrowCostReport": "Cost report",
+        "eyebrowCustomers": "Customers",
+        "eyebrowOrders": "Orders",
+        "eyebrowStock": "Stock",
+        "eyebrowComplaints": "Complaints"
     },
     "search": {
         "label": "Search pages",
@@ -5168,6 +5200,12 @@
         "notOpenTitle": "Not open yet",
         "notOpenBody": "Customers cannot order until you go live. The order desk can still take a sale.",
         "open": "Open",
+        "readyTitle": "Ready to open",
+        "next": "Next",
+        "allSet": "All set",
+        "optional": "Optional",
+        "ofTotal": "of {{total}}",
+        "requiredCount": "{{done}} of {{total}} required steps done",
         "goLive": "Go live",
         "goLiveError": "The kitchen could not go live",
         "liveToast": "The kitchen is open for orders.",

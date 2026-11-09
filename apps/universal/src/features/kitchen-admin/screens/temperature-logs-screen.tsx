@@ -151,6 +151,7 @@ function TemperatureLogs() {
                 ),
             render: (row) => (
                 <Badge
+                    icon={null}
                     tone={row.outOfRange ? 'danger' : 'success'}
                     label={t(
                         row.outOfRange
@@ -269,6 +270,7 @@ function TemperatureLogs() {
                 t(row.active ? 'kitchen:temperature.active' : 'kitchen:temperature.retired'),
             render: (row) => (
                 <Badge
+                    icon={null}
                     tone={row.active ? 'success' : 'neutral'}
                     label={t(
                         row.active ? 'kitchen:temperature.active' : 'kitchen:temperature.retired',

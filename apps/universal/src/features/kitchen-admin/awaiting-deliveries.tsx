@@ -1,4 +1,4 @@
-import { Button, FormSection, Stack, Text } from '@healthy360/design-system';
+import { Button, FormSection, Text } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,10 @@ import { useAccessState } from '../../session/session-provider.tsx';
 const SHOWN_ORDERS = 5;
 
 const RECEIVE_ROUTE = '/kitchen/procurement/receive';
+
+/** The rows' tracks, so the orders line up as a table. */
+const ORDER_TRACK = 120;
+const FACT_TRACK = 150;
 
 /**
  * What the Procurement book is expecting: the branch's open orders, oldest first, each one press from
@@ -34,7 +38,7 @@ export function AwaitingDeliveries() {
     return (
         <FormSection
             first
-            variant="card"
+            variant="panel"
             testID="kitchen-procurement-awaiting"
             title={t('kitchen:ops.procurement.awaitingTitle')}
             {...(rows.length > SHOWN_ORDERS
@@ -55,51 +59,63 @@ export function AwaitingDeliveries() {
                   }
                 : {})}
         >
-            <Stack space="xs">
-                {rows.slice(0, SHOWN_ORDERS).map((order) => {
+            <View className="flex-col rounded-lg border border-stroke-subtle">
+                {rows.slice(0, SHOWN_ORDERS).map((order, index) => {
                     const id = String(order.id);
                     return (
                         <View
                             key={id}
                             testID={`kitchen-procurement-awaiting-${id}`}
-                            className="flex-row flex-wrap items-center gap-x-base gap-y-hair"
+                            className={`min-h-12 flex-row flex-wrap items-center gap-x-snug px-snug py-tight ${
+                                index === 0 ? '' : 'border-t border-stroke-subtle'
+                            }`}
                         >
-                            <Text variant="mono" numberOfLines={1}>
-                                {order.number}
-                            </Text>
+                            <View style={{ width: ORDER_TRACK }}>
+                                <Text variant="mono" numberOfLines={1}>
+                                    {order.number}
+                                </Text>
+                            </View>
                             <View className="min-w-0 flex-1">
                                 <Text numberOfLines={1}>
                                     {order.supplier?.nameEn ??
                                         t('kitchen:ops.procurement.noSupplier')}
                                 </Text>
                             </View>
-                            {order.issuedAt === null ? null : (
-                                <Text variant="caption" tone="secondary">
-                                    {t('kitchen:ops.procurement.awaitingIssued', {
-                                        date: formatter.formatDate(order.issuedAt, {
-                                            dateStyle: 'medium',
-                                        }),
+                            <View style={{ width: FACT_TRACK }}>
+                                {order.issuedAt === null ? null : (
+                                    <Text tone="secondary" numberOfLines={1}>
+                                        {t('kitchen:ops.procurement.awaitingIssued', {
+                                            date: formatter.formatDate(order.issuedAt, {
+                                                dateStyle: 'medium',
+                                            }),
+                                        })}
+                                    </Text>
+                                )}
+                            </View>
+                            <View style={{ width: FACT_TRACK }}>
+                                <Text tone="secondary" numberOfLines={1}>
+                                    {t('kitchen:ops.procurement.awaitingLines', {
+                                        count: order.outstandingLineCount,
                                     })}
                                 </Text>
-                            )}
-                            <Text variant="caption" tone="secondary">
-                                {t('kitchen:ops.procurement.awaitingLines', {
-                                    count: order.outstandingLineCount,
-                                })}
-                            </Text>
-                            <Button
-                                testID={`kitchen-procurement-awaiting-${id}-receive`}
-                                size="sm"
-                                variant="secondary"
-                                label={t('kitchen:ops.procurement.awaitingReceive')}
-                                onPress={() => {
-                                    router.push(withQuery(RECEIVE_ROUTE, { order: id }) as never);
-                                }}
-                            />
+                            </View>
+                            <View className="ms-auto">
+                                <Button
+                                    testID={`kitchen-procurement-awaiting-${id}-receive`}
+                                    size="sm"
+                                    variant="secondary"
+                                    label={t('kitchen:ops.procurement.awaitingReceive')}
+                                    onPress={() => {
+                                        router.push(
+                                            withQuery(RECEIVE_ROUTE, { order: id }) as never,
+                                        );
+                                    }}
+                                />
+                            </View>
                         </View>
                     );
                 })}
-            </Stack>
+            </View>
         </FormSection>
     );
 }

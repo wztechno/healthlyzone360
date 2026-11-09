@@ -567,6 +567,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
             },
             render: (row) => (
                 <Badge
+                    icon={null}
                     testID={`kitchen-ledger-${row.id}-state`}
                     tone={LINE_STATE_TONES[ledgerLineState(row)]}
                     label={t(LINE_STATE_KEYS[ledgerLineState(row)])}
@@ -667,6 +668,10 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
 
     const viewingState = viewing === null ? null : ledgerLineState(viewing);
 
+    // The table closes the toolbar's card only when it is drawn.
+    const joined =
+        !pending && failure === null && (isDetail ? controls.rows.length > 0 : periods.length > 0);
+
     const openOrderActions = useReceiptOpenOrderActions(
         viewing?.purchaseOrderId ?? null,
         'kitchen-ledger-view-open-order',
@@ -675,6 +680,8 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
         viewing === null || viewingState === null ? null : (
             <RecordViewPage
                 testID="kitchen-purchases-ledger-view"
+                look="board"
+                eyebrow={t('kitchen:recordView.eyebrowLedger')}
                 onBack={() => {
                     setViewing(null);
                 }}
@@ -780,184 +787,220 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
              * The Lens bar — figures, mix and query row as one object over the list
              * (`lens-bar.tsx`). The figures count the detail page in hand; a summary has none.
              */}
-            <LensBar
-                testID="kitchen-ledger-toolbar"
-                label={t('kitchen:lens.label')}
-                {...lens}
-                /* A period has no item or supplier to find, so only the lines are searched. */
-                {...(isDetail
-                    ? {
-                          search: query,
-                          onSearchChange: (next: string) => {
-                              setQuery(next);
-                              setViewing(null);
-                          },
-                          searchLabel: t('kitchen:toolbar.searchLabel'),
-                          searchPlaceholder: t('kitchen:ops.ledger.searchPlaceholder'),
-                      }
-                    : {})}
-                tokens={tokens}
-                result={
-                    pending
-                        ? null
-                        : t('kitchen:lens.result', {
-                              shown: isDetail ? controls.rows.length : shownPeriods.length,
-                              total: isDetail ? pageRows.length : periods.length,
-                          })
-                }
-                clearLabel={t('kitchen:lens.clear')}
-                {...(filtered ? { onClear: clearFilters } : {})}
-                /*
-                 * The read-as mode — three buttons, every choice in sight — then the
-                 * received-between window: the one filter with no column to live on. Two days with
-                 * "to" between, either bound open, and each picker keeps the other honest — From
-                 * cannot pass To, nor To precede From.
-                 */
-                scope={
-                    <>
-                        <Text variant="body" tone="secondary" aria-hidden>
-                            {t('kitchen:ops.ledger.modeLabel')}
-                        </Text>
-                        <SegmentedControl<LedgerMode>
-                            testID="kitchen-ledger-mode"
-                            label={t('kitchen:ops.ledger.modeLabel')}
-                            value={activeMode}
-                            onChange={(next) => {
-                                setActiveMode(next);
-                                setViewing(null);
-                            }}
-                            items={modeOptions.map((option) => ({
-                                ...option,
-                                testID: `kitchen-ledger-mode-${option.value}`,
-                            }))}
-                        />
-                        <View aria-hidden className="mx-1 h-5 w-px bg-brand-100" />
-                        <View className="flex-row items-center gap-tight">
-                            <DatePickerButton
-                                testID="kitchen-ledger-filter-from"
-                                label={t('kitchen:ops.ledger.filterFrom')}
-                                value={from}
-                                max={to === '' ? undefined : to}
-                                placeholder={
-                                    summaryBound('from') ?? t('kitchen:ops.ledger.fromPlaceholder')
-                                }
-                                onChange={(value) => {
-                                    setFrom(value);
-                                    resetCursor();
-                                }}
-                                onClear={() => {
-                                    setFrom('');
-                                    resetCursor();
-                                }}
-                            />
-                            <Text variant="caption" tone="secondary" aria-hidden>
-                                {t('kitchen:ops.requirements.windowTo')}
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-ledger-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    {...lens}
+                    /* A period has no item or supplier to find, so only the lines are searched. */
+                    {...(isDetail
+                        ? {
+                              search: query,
+                              onSearchChange: (next: string) => {
+                                  setQuery(next);
+                                  setViewing(null);
+                              },
+                              searchLabel: t('kitchen:toolbar.searchLabel'),
+                              searchPlaceholder: t('kitchen:ops.ledger.searchPlaceholder'),
+                          }
+                        : {})}
+                    tokens={tokens}
+                    result={
+                        pending
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  shown: isDetail ? controls.rows.length : shownPeriods.length,
+                                  total: isDetail ? pageRows.length : periods.length,
+                              })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(filtered ? { onClear: clearFilters } : {})}
+                    /*
+                     * The read-as mode — three buttons, every choice in sight — then the
+                     * received-between window: the one filter with no column to live on. Two days with
+                     * "to" between, either bound open, and each picker keeps the other honest — From
+                     * cannot pass To, nor To precede From.
+                     */
+                    scope={
+                        <>
+                            <Text variant="body" tone="secondary" aria-hidden>
+                                {t('kitchen:ops.ledger.modeLabel')}
                             </Text>
-                            <DatePickerButton
-                                testID="kitchen-ledger-filter-to"
-                                label={t('kitchen:ops.ledger.filterTo')}
-                                value={to}
-                                min={from === '' ? undefined : from}
-                                placeholder={
-                                    summaryBound('to') ?? t('kitchen:ops.ledger.toPlaceholder')
-                                }
-                                onChange={(value) => {
-                                    setTo(value);
-                                    resetCursor();
+                            <SegmentedControl<LedgerMode>
+                                testID="kitchen-ledger-mode"
+                                label={t('kitchen:ops.ledger.modeLabel')}
+                                value={activeMode}
+                                onChange={(next) => {
+                                    setActiveMode(next);
+                                    setViewing(null);
                                 }}
-                                onClear={() => {
-                                    setTo('');
-                                    resetCursor();
-                                }}
+                                items={modeOptions.map((option) => ({
+                                    ...option,
+                                    testID: `kitchen-ledger-mode-${option.value}`,
+                                }))}
                             />
-                        </View>
-                    </>
-                }
-                trailing={(narrow) => (
-                    <ColumnPicker
-                        {...(isDetail ? controls.picker : summaryControls.picker)}
-                        compact={narrow}
-                    />
-                )}
-            />
+                            <View aria-hidden className="mx-1 h-5 w-px bg-brand-100" />
+                            <View className="flex-row items-center gap-tight">
+                                <DatePickerButton
+                                    testID="kitchen-ledger-filter-from"
+                                    label={t('kitchen:ops.ledger.filterFrom')}
+                                    value={from}
+                                    max={to === '' ? undefined : to}
+                                    placeholder={
+                                        summaryBound('from') ??
+                                        t('kitchen:ops.ledger.fromPlaceholder')
+                                    }
+                                    onChange={(value) => {
+                                        setFrom(value);
+                                        resetCursor();
+                                    }}
+                                    onClear={() => {
+                                        setFrom('');
+                                        resetCursor();
+                                    }}
+                                />
+                                <Text variant="caption" tone="secondary" aria-hidden>
+                                    {t('kitchen:ops.requirements.windowTo')}
+                                </Text>
+                                <DatePickerButton
+                                    testID="kitchen-ledger-filter-to"
+                                    label={t('kitchen:ops.ledger.filterTo')}
+                                    value={to}
+                                    min={from === '' ? undefined : from}
+                                    placeholder={
+                                        summaryBound('to') ?? t('kitchen:ops.ledger.toPlaceholder')
+                                    }
+                                    onChange={(value) => {
+                                        setTo(value);
+                                        resetCursor();
+                                    }}
+                                    onClear={() => {
+                                        setTo('');
+                                        resetCursor();
+                                    }}
+                                />
+                            </View>
+                        </>
+                    }
+                    trailing={(narrow) => (
+                        <ColumnPicker
+                            {...(isDetail ? controls.picker : summaryControls.picker)}
+                            compact={narrow}
+                        />
+                    )}
+                />
 
-            {pending ? (
-                <TableSkeleton
-                    testID="kitchen-purchases-ledger-loading"
-                    partTestID="kitchen-purchases-ledger"
-                />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-purchases-ledger-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void (isDetail ? ledger.refetch() : summary.refetch());
-                    }}
-                    retrying={isDetail ? ledger.isFetching : summary.isFetching}
-                />
-            ) : isDetail ? (
-                controls.rows.length === 0 ? (
-                    <EmptyState
-                        testID="kitchen-purchases-ledger-empty"
-                        title={t('kitchen:ops.ledger.emptyTitle')}
-                        body={t('kitchen:ops.ledger.emptyBody')}
+                {pending ? (
+                    <TableSkeleton
+                        testID="kitchen-purchases-ledger-loading"
+                        partTestID="kitchen-purchases-ledger"
+                    />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-purchases-ledger-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void (isDetail ? ledger.refetch() : summary.refetch());
+                        }}
+                        retrying={isDetail ? ledger.isFetching : summary.isFetching}
+                    />
+                ) : isDetail ? (
+                    controls.rows.length === 0 ? (
+                        <CatalogueList
+                            testID="kitchen-purchases-ledger-empty-list"
+                            label={t('kitchen:lens.label')}
+                            columns={controls.columns}
+                            rows={[]}
+                            rowKey={() => ''}
+                            density="sm"
+                            joined
+                            frameEmpty
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                            emptyState={
+                                <EmptyState
+                                    shape="table"
+                                    testID="kitchen-purchases-ledger-empty"
+                                    title={t('kitchen:ops.ledger.emptyTitle')}
+                                    body={t('kitchen:ops.ledger.emptyBody')}
+                                />
+                            }
+                        />
+                    ) : (
+                        <Stack space="sm">
+                            <CatalogueList<PurchaseLedgerLine>
+                                testID="kitchen-purchases-ledger-table"
+                                joined
+                                label={t('kitchen:ops.ledger.title')}
+                                columns={controls.columns}
+                                rows={controls.rows}
+                                rowKey={(row) => row.id}
+                                density="sm"
+                                highlightedId={lastOpenedId}
+                                onRowPress={openView}
+                                rowActionsLabel={t('kitchen:list.rowActions')}
+                                // View only: there is nothing to write from a ledger.
+                                rowActions={(row): readonly MenuItem[] => [
+                                    {
+                                        key: 'view',
+                                        label: t('kitchen:list.view'),
+                                        icon: CATALOGUE_ROW_ICONS.view,
+                                        testID: `kitchen-ledger-${row.id}-view`,
+                                        onSelect: () => {
+                                            openView(row);
+                                        },
+                                    },
+                                ]}
+                            />
+                            <CataloguePager
+                                testID="kitchen-purchases-ledger-pagination"
+                                page={page}
+                                totalPages={cursors.length}
+                                onPageChange={(next) => {
+                                    setPage(next);
+                                    setViewing(null);
+                                }}
+                                label={t('kitchen:catalogue.pagerLabel')}
+                            />
+                        </Stack>
+                    )
+                ) : periods.length === 0 ? (
+                    <CatalogueList
+                        testID="kitchen-purchases-ledger-summary-empty-list"
+                        label={t('kitchen:lens.label')}
+                        columns={summaryControls.columns}
+                        rows={[]}
+                        rowKey={() => ''}
+                        density="sm"
+                        joined
+                        frameEmpty
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        emptyState={
+                            <EmptyState
+                                shape="table"
+                                testID="kitchen-purchases-ledger-summary-empty"
+                                title={t('kitchen:ops.ledger.summaryEmptyTitle')}
+                            />
+                        }
                     />
                 ) : (
-                    <Stack space="sm">
-                        <CatalogueList<PurchaseLedgerLine>
-                            testID="kitchen-purchases-ledger-table"
-                            label={t('kitchen:ops.ledger.title')}
-                            columns={controls.columns}
-                            rows={controls.rows}
-                            rowKey={(row) => row.id}
-                            density="sm"
-                            highlightedId={lastOpenedId}
-                            onRowPress={openView}
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                            // View only: there is nothing to write from a ledger.
-                            rowActions={(row): readonly MenuItem[] => [
-                                {
-                                    key: 'view',
-                                    label: t('kitchen:list.view'),
-                                    icon: CATALOGUE_ROW_ICONS.view,
-                                    testID: `kitchen-ledger-${row.id}-view`,
-                                    onSelect: () => {
-                                        openView(row);
-                                    },
-                                },
-                            ]}
-                        />
-                        <CataloguePager
-                            testID="kitchen-purchases-ledger-pagination"
-                            page={page}
-                            totalPages={cursors.length}
-                            onPageChange={(next) => {
-                                setPage(next);
-                                setViewing(null);
-                            }}
-                            label={t('kitchen:catalogue.pagerLabel')}
-                        />
-                    </Stack>
-                )
-            ) : periods.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-purchases-ledger-summary-empty"
-                    title={t('kitchen:ops.ledger.summaryEmptyTitle')}
-                />
-            ) : (
-                <CatalogueList<SpendSummaryPeriod>
-                    testID="kitchen-purchases-ledger-summary"
-                    label={t(
-                        activeMode === 'weekly'
-                            ? 'kitchen:ops.ledger.summaryWeeklyLabel'
-                            : 'kitchen:ops.ledger.summaryMonthlyLabel',
-                    )}
-                    columns={summaryControls.columns}
-                    rows={summaryControls.rows}
-                    rowKey={(row) => row.period}
-                    rowActionsLabel={t('kitchen:list.rowActions')}
-                />
-            )}
+                    <CatalogueList<SpendSummaryPeriod>
+                        testID="kitchen-purchases-ledger-summary"
+                        joined
+                        label={t(
+                            activeMode === 'weekly'
+                                ? 'kitchen:ops.ledger.summaryWeeklyLabel'
+                                : 'kitchen:ops.ledger.summaryMonthlyLabel',
+                        )}
+                        columns={summaryControls.columns}
+                        rows={summaryControls.rows}
+                        rowKey={(row) => row.period}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                    />
+                )}
+            </View>
 
             {viewPopup}
         </Cascade>
@@ -1344,7 +1387,7 @@ function PeriodStatusCell({ period }: { readonly period: SpendSummaryPeriod }) {
             <Badge
                 testID={`${testID}-state`}
                 tone="success"
-                icon="check"
+                icon={null}
                 label={t('kitchen:ops.ledger.completeBadge')}
             />
         );
@@ -1367,12 +1410,13 @@ function PeriodStatusCell({ period }: { readonly period: SpendSummaryPeriod }) {
                 <Badge
                     testID={`${testID}-unpriced`}
                     tone="warning"
-                    icon="warning"
+                    icon={null}
                     label={t('kitchen:ops.ledger.unpricedBadge', { count: unpriced })}
                 />
             ) : null}
             {pendingFx > 0 ? (
                 <Badge
+                    icon={null}
                     testID={`${testID}-pending-fx`}
                     tone="info"
                     label={t('kitchen:ops.ledger.pendingFxBadge', { count: pendingFx })}
