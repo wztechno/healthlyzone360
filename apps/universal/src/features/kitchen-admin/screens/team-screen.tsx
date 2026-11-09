@@ -204,6 +204,30 @@ function PendingInvitations({ invitations }: { readonly invitations: readonly St
                 </Text>
             ),
         },
+        ...(canRevoke
+            ? [
+                  {
+                      key: 'revoke',
+                      role: 'actions' as const,
+                      label: '',
+                      width: 120,
+                      priority: 99,
+                      align: 'end' as const,
+                      render: (row: StaffInvitation) => (
+                          <Button
+                              testID={`kitchen-team-invitation-${row.id}-revoke`}
+                              variant="ghost"
+                              size="sm"
+                              label={t('accessAdmin:team.invitations.revoke')}
+                              disabled={revoke.isPending}
+                              onPress={() => {
+                                  revoke.mutate(row.id);
+                              }}
+                          />
+                      ),
+                  },
+              ]
+            : []),
     ];
 
     return (
@@ -223,23 +247,6 @@ function PendingInvitations({ invitations }: { readonly invitations: readonly St
                 rowKey={(row) => row.id}
                 density="sm"
                 rowActionsLabel={t('kitchen:list.rowActions')}
-                {...(canRevoke
-                    ? {
-                          rowActions: (row: StaffInvitation): readonly MenuItem[] => [
-                              {
-                                  key: 'revoke',
-                                  label: t('accessAdmin:team.invitations.revoke'),
-                                  icon: 'close',
-                                  tone: 'danger',
-                                  disabled: revoke.isPending,
-                                  testID: `kitchen-team-invitation-${row.id}-revoke`,
-                                  onSelect: () => {
-                                      revoke.mutate(row.id);
-                                  },
-                              },
-                          ],
-                      }
-                    : {})}
             />
         </Stack>
     );

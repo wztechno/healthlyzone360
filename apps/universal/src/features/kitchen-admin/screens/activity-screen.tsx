@@ -6,9 +6,8 @@ import {
     DatePickerButton,
     EmptyState,
     ErrorState,
-    FilterChip,
-    Inline,
     Stack,
+    SegmentedControl,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
@@ -110,19 +109,18 @@ function Activity() {
                 figures={[]}
                 scope={
                     <>
-                        <Inline space="xs" wrap testID="kitchen-activity-views">
-                            {(['stock', 'audit'] as const).map((candidate) => (
-                                <FilterChip
-                                    key={candidate}
-                                    testID={`kitchen-activity-view-${candidate}`}
-                                    label={t(`kitchen:ops.activity.view.${candidate}`)}
-                                    selected={view === candidate}
-                                    onChange={() => {
-                                        setView(candidate);
-                                    }}
-                                />
-                            ))}
-                        </Inline>
+                        <SegmentedControl<ActivityView>
+                            testID="kitchen-activity-views"
+                            label={t('kitchen:lens.label')}
+                            value={view}
+                            onChange={setView}
+                            items={(['stock', 'audit'] as const).map((candidate) => ({
+                                value: candidate,
+                                label: t(`kitchen:ops.activity.view.${candidate}`),
+                                testID: `kitchen-activity-view-${candidate}`,
+                            }))}
+                        />
+                        <View aria-hidden className="mx-1 h-5 w-px bg-brand-100" />
                         <PeriodScope
                             testID="kitchen-activity-period"
                             today={today}

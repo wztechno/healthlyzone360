@@ -21,8 +21,8 @@ import { toFailure } from '../../../data/hooks.ts';
 import { useKitchenCustomersQuery } from '../../../data/kitchen-customers-hooks.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
+import type { LensScopeOption } from '../catalogue/lens-bar.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import {
     compareNumber,
@@ -229,34 +229,29 @@ function CustomersList() {
     const failure = toFailure(customers.error);
     const unfiltered = settledQuery === '' && segment === 'all' && !controls.filtered;
 
-    const segments: readonly CatalogueStatusSegment<TypeSegment>[] = [
-        { value: 'all', label: t('kitchen:ops.customers.segmentAll') },
-        { value: 'b2c', label: t('kitchen:ops.customers.typeB2c') },
-        { value: 'b2b', label: t('kitchen:ops.customers.typeB2b') },
-        { value: 'guest', label: t('kitchen:ops.customers.typeGuest') },
-    ];
+    const segments: readonly LensScopeOption<TypeSegment>[] = (
+        [
+            ['all', 'kitchen:ops.customers.segmentAll'],
+            ['b2c', 'kitchen:ops.customers.typeB2c'],
+            ['b2b', 'kitchen:ops.customers.typeB2b'],
+            ['guest', 'kitchen:ops.customers.typeGuest'],
+        ] as const
+    ).map(([value, key]) => ({
+        value,
+        label: t(key),
+        testID: `kitchen-customers-toolbar-status-${value}`,
+    }));
 
     const openRecord = (row: KitchenCustomer) => {
         rememberOpened(row.id);
         router.push(`/kitchen/customers/${row.id}` as never);
     };
 
+    // The table closes the toolbar's card once the list has loaded.
+    const joined = !customers.isPending && failure === null;
+
     return (
         <Cascade space="md" testID="kitchen-customers-screen">
-            <CatalogueToolbar<TypeSegment>
-                testID="kitchen-customers-toolbar"
-                search={query}
-                onSearchChange={setQuery}
-                searchLabel={t('kitchen:ops.customers.searchLabel')}
-                searchPlaceholder={t('kitchen:ops.customers.searchHint')}
-                statusLabel={t('kitchen:ops.customers.segmentLabel')}
-                statusSegments={segments}
-                status={segment}
-                onStatusChange={setSegment}
-            >
-                <ColumnPicker {...controls.picker} />
-            </CatalogueToolbar>
-
             {customers.data?.truncated === true ? (
                 <Callout
                     testID="kitchen-customers-truncated"
@@ -268,48 +263,109 @@ function CustomersList() {
                 />
             ) : null}
 
-            {customers.isPending ? (
-                <TableSkeleton testID="kitchen-customers-loading" partTestID="kitchen-customers" />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-customers-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void customers.refetch();
-                    }}
-                    retrying={customers.isFetching}
-                />
-            ) : controls.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-customers-empty"
-                    title={
-                        unfiltered
-                            ? t('kitchen:ops.customers.emptyTitle')
-                            : t('kitchen:ops.customers.filteredEmptyTitle')
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-customers-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={[]}
+                    scope={
+                        <LensScope<TypeSegment>
+                            testID="kitchen-customers-toolbar-status"
+                            label={t('kitchen:ops.customers.segmentLabel')}
+                            value={segment}
+                            options={segments}
+                            onChange={setSegment}
+                        />
                     }
-                    body={
-                        unfiltered
-                            ? t('kitchen:ops.customers.emptyBody')
-                            : t('kitchen:ops.customers.filteredEmptyBody')
+                    search={query}
+                    onSearchChange={setQuery}
+                    searchLabel={t('kitchen:ops.customers.searchLabel')}
+                    searchPlaceholder={t('kitchen:ops.customers.searchHint')}
+                    result={
+                        customers.data === undefined || failure !== null
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  shown: controls.rows.length,
+                                  total: customers.data.rows.length,
+                              })
                     }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(unfiltered
+                        ? {}
+                        : {
+                              onClear: () => {
+                                  setQuery('');
+                                  setSegment('all');
+                                  controls.clearFilters();
+                              },
+                          })}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                 />
-            ) : (
-                <CatalogueList<KitchenCustomer>
-                    testID="kitchen-customers-table"
-                    label={t('kitchen:ops.customers.caption')}
-                    columns={controls.columns}
-                    rows={controls.rows}
-                    rowKey={(row) => row.id}
-                    density="sm"
-                    highlightedId={lastOpenedId}
-                    initialPage={memory.initial.page}
-                    onPageChange={(page) => {
-                        memory.remember({ page });
-                    }}
-                    onRowPress={openRecord}
-                    rowActionsLabel={t('kitchen:list.rowActions')}
-                />
-            )}
+
+                {customers.isPending ? (
+                    <TableSkeleton
+                        testID="kitchen-customers-loading"
+                        partTestID="kitchen-customers"
+                    />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-customers-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void customers.refetch();
+                        }}
+                        retrying={customers.isFetching}
+                    />
+                ) : controls.rows.length === 0 ? (
+                    <CatalogueList
+                        testID="kitchen-customers-empty-list"
+                        label={t('kitchen:lens.label')}
+                        columns={controls.columns}
+                        rows={[]}
+                        rowKey={() => ''}
+                        density="sm"
+                        joined
+                        frameEmpty
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        emptyState={
+                            <EmptyState
+                                shape="table"
+                                testID="kitchen-customers-empty"
+                                title={
+                                    unfiltered
+                                        ? t('kitchen:ops.customers.emptyTitle')
+                                        : t('kitchen:ops.customers.filteredEmptyTitle')
+                                }
+                                body={
+                                    unfiltered
+                                        ? t('kitchen:ops.customers.emptyBody')
+                                        : t('kitchen:ops.customers.filteredEmptyBody')
+                                }
+                            />
+                        }
+                    />
+                ) : (
+                    <CatalogueList<KitchenCustomer>
+                        testID="kitchen-customers-table"
+                        joined
+                        label={t('kitchen:ops.customers.caption')}
+                        columns={controls.columns}
+                        rows={controls.rows}
+                        rowKey={(row) => row.id}
+                        density="sm"
+                        highlightedId={lastOpenedId}
+                        initialPage={memory.initial.page}
+                        onPageChange={(page) => {
+                            memory.remember({ page });
+                        }}
+                        onRowPress={openRecord}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                    />
+                )}
+            </View>
         </Cascade>
     );
 }
