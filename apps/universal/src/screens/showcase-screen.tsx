@@ -4,7 +4,6 @@ import {
     ActionSheet,
     AppShell,
     RailAccount,
-    ShellRailButton,
     Avatar,
     Badge,
     BADGE_TONES,
@@ -2717,15 +2716,10 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         variant="workspace"
                         title="Kitchen workspace"
                         sidebarWidth={240}
-                        // The rail's foot, as the staff areas fill it: Workspaces and the avatar.
+                        // The rail's foot, as the staff areas fill it: the avatar alone.
                         // The whole frame has its own page, `/showcase-admin-frame`.
                         railEnd={
                             <>
-                                <ShellRailButton
-                                    label="Workspaces"
-                                    icon="gridDots"
-                                    onPress={() => undefined}
-                                />
                                 <RailAccount
                                     name="Hala"
                                     detail="Owner · Main kitchen"
