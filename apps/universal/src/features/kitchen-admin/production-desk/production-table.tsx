@@ -48,6 +48,8 @@ export interface ProductionTableProps<Row> {
     readonly empty?: ReactNode | undefined;
     /** The list alone: no section, no heading, no picker. `title` still names it for a reader. */
     readonly bare?: boolean | undefined;
+    /** The flat panel a board draws around the table. */
+    readonly panel?: boolean | undefined;
 }
 
 export function ProductionTable<Row>(props: ProductionTableProps<Row>) {
@@ -82,6 +84,7 @@ export function ProductionTableSection<Row>({
     controls,
     picker = false,
     bare = false,
+    panel = false,
 }: ProductionTableSectionProps<Row>) {
     const { t } = useTranslation();
 
@@ -106,7 +109,8 @@ export function ProductionTableSection<Row>({
 
     return (
         <FormSection
-            first={first}
+            first={first || panel}
+            {...(panel ? { variant: 'panel' as const } : {})}
             testID={sectionTestID ?? `${testID}-section`}
             title={title}
             aside={aside}
