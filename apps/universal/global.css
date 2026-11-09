@@ -178,6 +178,33 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
     width: 100%;
 }
 
+/* An open row menu: every row is a stacking context, so the row holding it goes above the later ones. */
+[role='row']:has([aria-haspopup='menu'][aria-expanded='true']),
+[data-testid$='-entrance']:has([aria-haspopup='menu'][aria-expanded='true']) {
+    z-index: 30;
+}
+
+/* The Setup road's next stop breathes, so the eye lands on what to do next. */
+[data-setup-road='next'] {
+    animation: setup-road-pulse 2s infinite;
+}
+
+@keyframes setup-road-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgb(var(--h360-color-brand-surface) / 0.4);
+    }
+    70%,
+    100% {
+        box-shadow: 0 0 0 16px rgb(var(--h360-color-brand-surface) / 0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-setup-road='next'] {
+        animation: none;
+    }
+}
+
 /* ================================================================================================
    Print / Save PDF — the Phase 1 export (supplier plan §7, SUP7).
 
@@ -212,12 +239,6 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
    which looks like a four-page order that mysteriously prints one page. So the chain from the
    document root down to the sheets is unwound: auto height, visible overflow, no flex.
    ============================================================================================== */
-/* An open row menu: every row is a stacking context, so the row holding it goes above the later ones. */
-[role='row']:has([aria-haspopup='menu'][aria-expanded='true']),
-[data-testid$='-entrance']:has([aria-haspopup='menu'][aria-expanded='true']) {
-    z-index: 30;
-}
-
 @media print {
     @page {
         size: A4;

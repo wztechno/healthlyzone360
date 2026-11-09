@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10492 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10498 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -7748,14 +7748,20 @@ export interface NamespaceKeys {
     | 'serviceTimings.savedToast'
     | 'serviceTimings.title'
     | 'serviceTimings.unit'
+    | 'setup.allSet'
     | 'setup.goLive'
     | 'setup.goLiveError'
     | 'setup.liveBody'
     | 'setup.liveTitle'
     | 'setup.liveToast'
+    | 'setup.next'
     | 'setup.notOpenBody'
     | 'setup.notOpenTitle'
+    | 'setup.ofTotal'
     | 'setup.open'
+    | 'setup.optional'
+    | 'setup.readyTitle'
+    | 'setup.requiredCount'
     | 'setup.step.delivery.body'
     | 'setup.step.delivery.title'
     | 'setup.step.hours.body'
@@ -18258,14 +18264,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:serviceTimings.savedToast',
   'kitchen:serviceTimings.title',
   'kitchen:serviceTimings.unit',
+  'kitchen:setup.allSet',
   'kitchen:setup.goLive',
   'kitchen:setup.goLiveError',
   'kitchen:setup.liveBody',
   'kitchen:setup.liveTitle',
   'kitchen:setup.liveToast',
+  'kitchen:setup.next',
   'kitchen:setup.notOpenBody',
   'kitchen:setup.notOpenTitle',
+  'kitchen:setup.ofTotal',
   'kitchen:setup.open',
+  'kitchen:setup.optional',
+  'kitchen:setup.readyTitle',
+  'kitchen:setup.requiredCount',
   'kitchen:setup.step.delivery.body',
   'kitchen:setup.step.delivery.title',
   'kitchen:setup.step.hours.body',
