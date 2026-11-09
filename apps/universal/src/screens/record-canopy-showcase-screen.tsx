@@ -6,10 +6,9 @@ import type { NutritionFacts } from '@healthy360/nutrition';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import {
-    AllergenBoard,
-    AllergenBoardKey,
-} from '../features/kitchen-admin/catalogue/allergen-board.tsx';
+import { AllergenChoiceRow } from '../features/kitchen-admin/allergen-choice-row.tsx';
+import type { AllergenChoice } from '../features/kitchen-admin/allergen-choice-row.tsx';
+import { AllergenChip } from '../features/kitchen-admin/catalogue/allergen-chip.tsx';
 import { IngredientDetail } from '../features/kitchen-admin/catalogue/ingredient-detail.tsx';
 import {
     RecordCanopy,
@@ -151,6 +150,7 @@ function noop(): void {}
  */
 export function RecordCanopyShowcaseScreen() {
     const [open, setOpen] = useState<'tahini' | 'product' | 'blank' | null>(null);
+    const [choice, setChoice] = useState<AllergenChoice>('contains');
     const close = () => {
         setOpen(null);
     };
@@ -202,11 +202,14 @@ export function RecordCanopyShowcaseScreen() {
                             categoryName={categoryName}
                             onBack={close}
                             onEdit={noop}
+                            onPrintLabel={noop}
                         />
                     )}
                     {open !== 'product' ? null : (
                         <RecordViewPage
                             testID="record-canopy-showcase-product"
+                            look="board"
+                            eyebrow="Resale"
                             title="Hummus, 250 g tub"
                             kind="Product"
                             reference="PR-0031"
@@ -260,6 +263,7 @@ export function RecordCanopyShowcaseScreen() {
                             ingredient={BLANK}
                             categoryName={categoryName}
                             onBack={close}
+                            onPrintLabel={noop}
                         />
                     )}
 
@@ -322,17 +326,20 @@ export function RecordCanopyShowcaseScreen() {
                     <RecordTileRow>
                         <RecordTile
                             testID="record-canopy-showcase-clear"
-                            icon="shield"
-                            title="Allergens & diets — checked clear"
-                            trailing={<AllergenBoardKey />}
+                            title="Allergens — chips and the editor's row"
                             weight={7}
                         >
-                            <AllergenBoard
-                                testID="record-canopy-showcase-clear-board"
-                                mappings={[]}
-                                assessedClear
-                                diets={['Vegan']}
-                                noValue={DASH}
+                            <View className="flex-row flex-wrap gap-1.5">
+                                <AllergenChip code="sesame" containment="contains" />
+                                <AllergenChip code="peanut" containment="may_contain" />
+                                <AllergenChip code="sesame" containment="contains" size="md" />
+                                <AllergenChip code="peanut" containment="may_contain" size="md" />
+                            </View>
+                            <AllergenChoiceRow
+                                testID="record-canopy-showcase-choice"
+                                name="Sesame"
+                                value={choice}
+                                onChange={setChoice}
                             />
                         </RecordTile>
                         <RecordTile

@@ -106,7 +106,7 @@ export function quotationLineColumns({
         {
             key: 'quantity',
             label: t('kitchen:ops.quotations.lineQuantity'),
-            width: 80,
+            width: 110,
             priority: 80,
             sort: (left, right, direction) =>
                 compareNumber(Number(left.quantity), Number(right.quantity), direction),

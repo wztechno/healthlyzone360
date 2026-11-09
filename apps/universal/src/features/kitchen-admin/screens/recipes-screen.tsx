@@ -7,12 +7,11 @@ import {
     Inline,
     IssueTrayFrame,
     Menu,
-    SegmentedControl,
     Stack,
     Text,
     useToast,
 } from '@healthy360/design-system';
-import type { IconName, IssueTrayContent, MenuItem } from '@healthy360/design-system';
+import type { IssueTrayContent, MenuItem } from '@healthy360/design-system';
 import { RECIPE_KINDS } from '@healthy360/api-client/contracts';
 import type {
     PublishableStatus,
@@ -28,6 +27,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import {
@@ -172,15 +172,6 @@ const DEFAULT_COLUMNS: readonly string[] = [
     'onSale',
     'status',
 ];
-
-/** The mark each kind is drawn with, on the strip and in the New menu. */
-const KIND_ICONS: Readonly<Record<RecipeKind, IconName>> = {
-    meal: 'utensils',
-    sauce: 'droplet',
-    dressing: 'salad',
-    frozen_meal: 'snowflake',
-    preparation: 'cookingPot',
-};
 
 /** The plural each kind is browsed under — the strip's tabs. */
 const KIND_TAB_LABEL_KEYS: Readonly<Record<RecipeKind, string>> = {
@@ -348,6 +339,10 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
     const mayCreate = (kind: RecipeKind): boolean =>
         kind === 'preparation' ? canManage : canManage && canManageCatalogue && list.sells;
 
+    // The table closes the toolbar's card; the cards stand a gap below it.
+    const joined =
+        layout === 'table' && !list.isPending && list.failure === null && list.rows.length > 0;
+
     const viewed = list.viewing;
     const viewedAllergens = viewedDetail.data?.currentVersion.allergens ?? [];
 
@@ -360,6 +355,8 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
         viewed === null ? null : (
             <RecordViewPage
                 testID="kitchen-recipes-view"
+                look="board"
+                eyebrow={t('kitchen:recordView.eyebrowRecipes')}
                 media={
                     <RecordPhoto
                         assetId={recipePhotoId(viewed)}
@@ -396,12 +393,19 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                                   : [frozenLabelSection(viewedMeal.data?.allergens, t)]),
                           ]
                 }
+                // Always drawn, as the board draws it: an empty set says so.
+                chipsLabel={t('kitchen:recipes.columnAllergens')}
+                chipsSourceBadge={t('kitchen:recipes.viewAllergensSource')}
+                chipsCaption={t('kitchen:recipes.viewAllergensCaption')}
                 {...(viewedAllergens.length === 0
-                    ? {}
+                    ? {
+                          chipsContent: (
+                              <Text tone="secondary" testID="kitchen-recipes-view-allergens-none">
+                                  {t('kitchen:recipes.noAllergens')}
+                              </Text>
+                          ),
+                      }
                     : {
-                          chipsLabel: t('kitchen:recipes.columnAllergens'),
-                          chipsSourceBadge: t('kitchen:recipes.viewAllergensSource'),
-                          chipsCaption: t('kitchen:recipes.viewAllergensCaption'),
                           chips: viewedAllergens.map((declaration) => ({
                               key: declaration.allergenCode,
                               label: declaration.allergenCode,
@@ -434,67 +438,73 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                  * list it narrows (`lens-bar.tsx`). It replaced the stat cards, the toolbar and the
                  * kind strip; the kind is now the query row's scope picker.
                  */}
-                <LensBar
-                    testID="kitchen-recipes-toolbar"
-                    label={t('kitchen:lens.label')}
-                    figures={lensFigures(list, t)}
-                    {...statusLensMix(list, t)}
-                    scope={
-                        list.sells ? (
-                            <RecipeKindScope
-                                value={list.kind}
-                                onChange={list.setKind}
-                                counts={kindCounts.data}
-                            />
-                        ) : undefined
-                    }
-                    search={list.query}
-                    onSearchChange={list.setQuery}
-                    searchLabel={t('kitchen:toolbar.searchLabel')}
-                    searchPlaceholder={t('kitchen:toolbar.searchRecipes')}
-                    tokens={lensTokens(list, t, locale)}
-                    result={
-                        list.total === null
-                            ? null
-                            : t('kitchen:lens.result', { shown: list.shown, total: list.total })
-                    }
-                    clearLabel={t('kitchen:lens.clear')}
-                    // The kind is the scope the reader stands in, so Clear leaves it.
-                    {...(list.trimmed === '' &&
-                    list.statuses.length === 0 &&
-                    list.allergen === null &&
-                    list.category === null &&
-                    list.sellingStatus === null
-                        ? {}
-                        : {
-                              onClear: () => {
-                                  list.setQuery('');
-                                  list.setStatuses([]);
-                                  list.setAllergen(null);
-                                  list.setCategory(null);
-                                  list.setSellingStatus(null);
-                              },
-                          })}
-                    // Beside the issue tray the bar is narrow, and both controls become glyphs so
-                    // the query row stays one line.
-                    trailing={(narrow) => {
-                        const layoutOptions = [
-                            {
-                                value: 'table' as const,
-                                label: t('kitchen:list.layoutTable'),
-                                icon: 'list' as const,
-                                testID: 'kitchen-recipes-layout-table',
-                            },
-                            {
-                                value: 'cards' as const,
-                                label: t('kitchen:list.layoutCards'),
-                                icon: 'layoutGrid' as const,
-                                testID: 'kitchen-recipes-layout-cards',
-                            },
-                        ];
-                        return (
-                            <Inline space="xs" align="center">
-                                {narrow ? (
+                {list.sells ? (
+                    <UnformulatedItems testID="kitchen-recipes-unformulated" kind={list.kind} />
+                ) : null}
+
+                {/* One block, so the toolbar card runs straight on into the table. */}
+                <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                    <LensBar
+                        testID="kitchen-recipes-toolbar"
+                        layout="split"
+                        joined={joined}
+                        label={t('kitchen:lens.label')}
+                        figures={lensFigures(list, t)}
+                        {...statusLensMix(list, t)}
+                        scope={
+                            list.sells ? (
+                                <RecipeKindScope
+                                    value={list.kind}
+                                    onChange={list.setKind}
+                                    counts={kindCounts.data}
+                                />
+                            ) : undefined
+                        }
+                        search={list.query}
+                        onSearchChange={list.setQuery}
+                        searchLabel={t('kitchen:toolbar.searchLabel')}
+                        searchPlaceholder={t('kitchen:toolbar.searchRecipes')}
+                        tokens={lensTokens(list, t, locale)}
+                        result={
+                            list.total === null
+                                ? null
+                                : t('kitchen:lens.result', { shown: list.shown, total: list.total })
+                        }
+                        clearLabel={t('kitchen:lens.clear')}
+                        // The kind is the scope the reader stands in, so Clear leaves it.
+                        {...(list.trimmed === '' &&
+                        list.statuses.length === 0 &&
+                        list.allergen === null &&
+                        list.category === null &&
+                        list.sellingStatus === null
+                            ? {}
+                            : {
+                                  onClear: () => {
+                                      list.setQuery('');
+                                      list.setStatuses([]);
+                                      list.setAllergen(null);
+                                      list.setCategory(null);
+                                      list.setSellingStatus(null);
+                                  },
+                              })}
+                        // Glyphs at every width, as the board draws them.
+                        trailing={() => {
+                            const layoutOptions = [
+                                {
+                                    value: 'table' as const,
+                                    label: t('kitchen:list.layoutTable'),
+                                    icon: 'list' as const,
+                                    testID: 'kitchen-recipes-layout-table',
+                                },
+                                {
+                                    value: 'cards' as const,
+                                    label: t('kitchen:list.layoutCards'),
+                                    icon: 'layoutGrid' as const,
+                                    testID: 'kitchen-recipes-layout-cards',
+                                },
+                            ];
+                            return (
+                                <Inline space="xs" align="center">
                                     <LensViewSwitch<RecipeLayout>
                                         testID="kitchen-recipes-layout"
                                         label={t('kitchen:list.layoutLabel')}
@@ -502,138 +512,143 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                                         onChange={setLayout}
                                         options={layoutOptions}
                                     />
-                                ) : (
-                                    <SegmentedControl<RecipeLayout>
-                                        testID="kitchen-recipes-layout"
-                                        label={t('kitchen:list.layoutLabel')}
-                                        value={layout}
-                                        onChange={setLayout}
-                                        items={layoutOptions}
-                                    />
-                                )}
-                                {/* Columns are a table's question; a card draws every field it has. */}
-                                {layout === 'table' ? (
-                                    <ColumnPicker {...controls.picker} compact={narrow} />
-                                ) : null}
-                            </Inline>
-                        );
-                    }}
-                    actions={
-                        canManage ? (
-                            <Inline space="xs" align="center">
-                                <CatalogueTransferActions
-                                    testID="kitchen-recipes-toolbar"
-                                    importGuide={RECIPE_IMPORT_GUIDE}
-                                    exportMenu={{
-                                        excel: {
-                                            load: (repositories) =>
-                                                repositories.kitchenAdmin.exportRecipes(
-                                                    list.filter,
-                                                ),
-                                            fallbackName: 'recipes.xlsx',
-                                        },
-                                        pdf: [
-                                            {
-                                                key: 'pdf-table',
-                                                label: t('kitchen:transfer.export.pdfTable'),
-                                                disabled: list.countsPending,
-                                                // `everyRow` is already in the list's sort. The
-                                                // reader's columns hold under the cards layout too.
-                                                onSelect: () => {
-                                                    print.start(
-                                                        listPrintJob({
-                                                            resource: 'recipes',
-                                                            title: t(
-                                                                'kitchen:transfer.recipes.printTitle',
-                                                            ),
-                                                            columns: controls.columns,
-                                                            rows: list.everyRow,
-                                                        }),
-                                                    );
+                                    {/* Columns are a table's question; a card draws every field it has. */}
+                                    {layout === 'table' ? (
+                                        <ColumnPicker {...controls.picker} compact />
+                                    ) : null}
+                                </Inline>
+                            );
+                        }}
+                        actions={
+                            canManage ? (
+                                <Inline space="xs" align="center">
+                                    <CatalogueTransferActions
+                                        testID="kitchen-recipes-toolbar"
+                                        importGuide={RECIPE_IMPORT_GUIDE}
+                                        exportMenu={{
+                                            excel: {
+                                                load: (repositories) =>
+                                                    repositories.kitchenAdmin.exportRecipes(
+                                                        list.filter,
+                                                    ),
+                                                fallbackName: 'recipes.xlsx',
+                                            },
+                                            pdf: [
+                                                {
+                                                    key: 'pdf-table',
+                                                    label: t('kitchen:transfer.export.pdfTable'),
+                                                    disabled: list.countsPending,
+                                                    // `everyRow` is already in the list's sort. The
+                                                    // reader's columns hold under the cards layout too.
+                                                    onSelect: () => {
+                                                        print.start(
+                                                            listPrintJob({
+                                                                resource: 'recipes',
+                                                                title: t(
+                                                                    'kitchen:transfer.recipes.printTitle',
+                                                                ),
+                                                                columns: controls.columns,
+                                                                rows: list.everyRow,
+                                                            }),
+                                                        );
+                                                    },
                                                 },
-                                            },
-                                            {
-                                                key: 'pdf-sheets',
-                                                label: t('kitchen:transfer.export.pdfSheets'),
-                                                disabled:
-                                                    list.countsPending ||
-                                                    list.everyRow.length === 0,
-                                                onSelect: openTechnicalSheets,
-                                            },
-                                        ],
-                                    }}
-                                />
-                                <RecipeCreateControl
-                                    kind={list.kind}
-                                    mayCreate={mayCreate}
-                                    onCreate={list.createNew}
-                                />
-                            </Inline>
-                        ) : undefined
-                    }
-                />
+                                                {
+                                                    key: 'pdf-sheets',
+                                                    label: t('kitchen:transfer.export.pdfSheets'),
+                                                    disabled:
+                                                        list.countsPending ||
+                                                        list.everyRow.length === 0,
+                                                    onSelect: openTechnicalSheets,
+                                                },
+                                            ],
+                                        }}
+                                    />
+                                    <RecipeCreateControl
+                                        kind={list.kind}
+                                        mayCreate={mayCreate}
+                                        onCreate={list.createNew}
+                                    />
+                                </Inline>
+                            ) : undefined
+                        }
+                    />
 
-                {list.sells ? (
-                    <UnformulatedItems testID="kitchen-recipes-unformulated" kind={list.kind} />
-                ) : null}
-
-                <CatalogueListBody
-                    testID="kitchen-recipes"
-                    list={list}
-                    empty={{
-                        title: t('kitchen:recipes.emptyTitle'),
-                        body: t('kitchen:recipes.emptyBody'),
-                    }}
-                    filteredEmpty={{
-                        title: t('kitchen:recipes.filteredEmptyTitle'),
-                        body: t('kitchen:recipes.filteredEmptyBody'),
-                    }}
-                    create={
-                        mayCreate(emptyKind)
-                            ? {
-                                  label: t(CREATE_LABEL_KEYS[emptyKind]),
-                                  onPress: () => {
-                                      list.createNew(emptyKind);
-                                  },
-                              }
-                            : undefined
-                    }
-                >
-                    {layout === 'cards' ? (
-                        <RecipeCardGrid
-                            testID="kitchen-recipes-cards"
-                            rows={list.rows}
-                            t={t}
-                            locale={locale}
-                            kitchenName={kitchenName}
-                            onOpen={(row) => {
-                                list.openEditor(String(row.id));
-                            }}
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                            rowActions={(row) =>
-                                rowActions(row, list, t, toast, canManage, canWithdraw, switchOff)
-                            }
-                        />
-                    ) : (
-                        <CatalogueList
-                            testID="kitchen-recipes-table"
-                            label={t('kitchen:recipes.caption')}
-                            columns={controls.columns}
-                            rows={list.rows}
-                            rowKey={(row) => String(row.id)}
-                            // Fixed, not switchable: the S/M/L control is gone.
-                            density="sm"
-                            highlightedId={list.lastOpenedId}
-                            onRowPress={(row) => {
-                                list.openView(row);
-                            }}
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                            rowActions={(row) =>
-                                rowActions(row, list, t, toast, canManage, canWithdraw, switchOff)
-                            }
-                        />
-                    )}
-                </CatalogueListBody>
+                    <CatalogueListBody
+                        testID="kitchen-recipes"
+                        list={list}
+                        empty={{
+                            title: t('kitchen:recipes.emptyTitle'),
+                            body: t('kitchen:recipes.emptyBody'),
+                        }}
+                        filteredEmpty={{
+                            title: t('kitchen:recipes.filteredEmptyTitle'),
+                            body: t('kitchen:recipes.filteredEmptyBody'),
+                        }}
+                        create={
+                            mayCreate(emptyKind)
+                                ? {
+                                      label: t(CREATE_LABEL_KEYS[emptyKind]),
+                                      onPress: () => {
+                                          list.createNew(emptyKind);
+                                      },
+                                  }
+                                : undefined
+                        }
+                    >
+                        {layout === 'cards' ? (
+                            <RecipeCardGrid
+                                testID="kitchen-recipes-cards"
+                                rows={list.rows}
+                                t={t}
+                                locale={locale}
+                                kitchenName={kitchenName}
+                                onOpen={(row) => {
+                                    list.openEditor(String(row.id));
+                                }}
+                                rowActionsLabel={t('kitchen:list.rowActions')}
+                                rowActions={(row) =>
+                                    rowActions(
+                                        row,
+                                        list,
+                                        t,
+                                        toast,
+                                        canManage,
+                                        canWithdraw,
+                                        switchOff,
+                                    )
+                                }
+                            />
+                        ) : (
+                            <CatalogueList
+                                testID="kitchen-recipes-table"
+                                joined
+                                label={t('kitchen:recipes.caption')}
+                                columns={controls.columns}
+                                rows={list.rows}
+                                rowKey={(row) => String(row.id)}
+                                // Fixed, not switchable: the S/M/L control is gone.
+                                density="sm"
+                                highlightedId={list.lastOpenedId}
+                                onRowPress={(row) => {
+                                    list.openView(row);
+                                }}
+                                rowActionsLabel={t('kitchen:list.rowActions')}
+                                rowActions={(row) =>
+                                    rowActions(
+                                        row,
+                                        list,
+                                        t,
+                                        toast,
+                                        canManage,
+                                        canWithdraw,
+                                        switchOff,
+                                    )
+                                }
+                            />
+                        )}
+                    </CatalogueListBody>
+                </View>
 
                 {/*
                  * Retiring *is* the archive: the contract has no `archiveRecipe`, and nothing is
@@ -769,14 +784,12 @@ function RecipeKindScope({
                 {
                     value: 'all',
                     label: t('kitchen:toolbar.statusAll'),
-                    icon: 'bookOpen',
                     count: all,
                     testID: 'kitchen-recipes-kind-all',
                 },
                 ...RECIPE_KINDS.map((kind) => ({
                     value: kind,
                     label: t(KIND_TAB_LABEL_KEYS[kind]),
-                    icon: KIND_ICONS[kind],
                     count: counts?.[kind] ?? undefined,
                     testID: `kitchen-recipes-kind-${kind}`,
                 })),
@@ -828,7 +841,6 @@ function RecipeCreateControl({
                     items: creatable.map((option) => ({
                         key: option,
                         label: t(CREATE_LABEL_KEYS[option]),
-                        icon: KIND_ICONS[option],
                         testID: `kitchen-recipes-toolbar-create-${option}`,
                         onSelect: () => {
                             onCreate(option);
@@ -1010,7 +1022,7 @@ function lensFigures(list: RecipeListState, t: TFunction): readonly LensFigure[]
                       label: t('kitchen:recipes.columnOnSale'),
                       value: counted(list.onSaleCount),
                       icon: 'eye' as const,
-                      separated: !packaged,
+                      separated: true,
                       active: onSaleActive,
                       onPress: () => {
                           list.setSellingStatus(onSaleActive ? null : 'published');

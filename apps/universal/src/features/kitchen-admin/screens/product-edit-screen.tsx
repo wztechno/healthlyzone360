@@ -1449,6 +1449,8 @@ function ProductEditor({
             { key: 'failed', title: t('kitchen:tray.groupFailed'), items: failedCards },
         ],
         notes: importNotes,
+        // Under "All set", as the board has it: where the record stands.
+        ...(data?.meta.status === 'published' ? { doneLabel: t(statusKey('published')) } : {}),
     };
 
     /* ── loading, refusal and not-found ──────────────────────────────────────────────────────── */
@@ -1811,7 +1813,7 @@ function ProductEditor({
                 {/* ── description ──────────────────────────────────────────────────────────── */}
                 <FormSection
                     first
-                    variant="card"
+                    variant="panel"
                     testID="kitchen-product-details"
                     // On a recipe's Selling tab this is the customer-facing listing, not a second
                     // copy of the recipe's own Description tab — so it says so.
@@ -1825,6 +1827,7 @@ function ProductEditor({
                             <ImageSlot
                                 testID="kitchen-product-image"
                                 uri={photo}
+                                size={136}
                                 disabled={!canManage}
                                 onChange={(next) => {
                                     setPhoto(next);
@@ -1841,10 +1844,9 @@ function ProductEditor({
                 {/* ── packs ────────────────────────────────────────────────────────────────── */}
                 <FormSection
                     first
-                    variant="card"
+                    variant="panel"
                     testID="kitchen-product-packs"
                     title={t('kitchen:products.sectionPacks')}
-                    description={t('kitchen:products.packsCaption')}
                     actions={
                         canManage ? (
                             <Button
@@ -1865,6 +1867,9 @@ function ProductEditor({
                      * focus. A product with no pack is a record no price list can point at and no
                      * order line can measure, so the save refuses it.
                      */}
+                    <Text variant="body" tone="secondary" testID="kitchen-product-packs-caption">
+                        {t('kitchen:products.packsCaption')}
+                    </Text>
                     <View nativeID={PACKS_ANCHOR} className="z-auto gap-tight">
                         <PackVariantEditor
                             testID={PACK_EDITOR_TEST_ID}
@@ -1872,25 +1877,23 @@ function ProductEditor({
                             errors={shownPackErrors}
                             fieldError={packFieldError}
                             canManage={canManage}
+                            {...(shows('packs') && packsMissing
+                                ? {
+                                      emptyError: t('kitchen:forms.required'),
+                                      emptyErrorTestID: 'kitchen-product-packs-required',
+                                  }
+                                : {})}
                             onChange={(next) => {
                                 edit({ packs: next });
                             }}
                         />
-                        {shows('packs') && packsMissing ? (
-                            <Text
-                                testID="kitchen-product-packs-required"
-                                variant="caption"
-                                tone="danger"
-                            >
-                                {t('kitchen:forms.required')}
-                            </Text>
-                        ) : null}
                     </View>
                 </FormSection>
 
                 {/* ── B2B / B2C weight and price ──────────────────────────────────────────── */}
                 {isCreating ? (
                     <ChannelPricesSection
+                        look="panel"
                         itemId={null}
                         draft={{
                             value: channelPriceDraft,
@@ -1905,107 +1908,110 @@ function ProductEditor({
                         }}
                     />
                 ) : data === undefined ? null : (
-                    <ChannelPricesSection itemId={data.id} />
+                    <ChannelPricesSection look="panel" itemId={data.id} />
                 )}
 
                 {/* ── sale ─────────────────────────────────────────────────────────────────── */}
                 <FormSection
                     first
-                    variant="card"
+                    variant="panel"
                     testID="kitchen-product-sale"
                     title={t('kitchen:sale.title')}
                 >
                     <Stack space="sm">
-                        {/*
-                         * Read-only: what the kitchen last paid, per the unit it was bought in, and
-                         * from whom (the hint). Not on a new item, and not for a member who may not
-                         * see costs. Not on a recipe's Selling tab either: a cooked item is made,
-                         * not bought, so its cost is the recipe's Costing tab and its prices are
-                         * the channels' B2B and B2C above — a purchase price there reads as a third.
-                         */}
-                        {isCreating || !canViewCosts || embedded ? null : (
-                            <FormGrid track="half" testID="kitchen-product-last-price-grid">
-                                <QuantityInput
-                                    testID="kitchen-product-unit-price"
-                                    id="kitchen-product-unit-price"
-                                    size="sm"
-                                    readOnly
-                                    label={t('kitchen:fields.unitPrice')}
-                                    placeholder={lastPricePlaceholder}
-                                    value={lastPriceValue}
-                                    {...(latestPurchase === null ||
-                                    latestPurchase.unitPriceAmount === null
-                                        ? {}
-                                        : {
-                                              unit: t('kitchen:fields.unitPricePer', {
-                                                  currency: latestPurchase.costCurrencyCode ?? '',
-                                                  unit: latestPurchase.unitCode ?? '',
-                                              }),
-                                              hint: lastPriceSource,
-                                          })}
-                                    onChangeText={() => {}}
-                                />
-                            </FormGrid>
-                        )}
-
-                        {/*
-                         * What one sold unit takes off the shelf (PROD1), on the half track — a
-                         * figure and its unit, each one cell.
-                         *
-                         * Every family on this screen sells from **finished stock**. Where that
-                         * shelf is counted in kilograms or litres, a sold unit has to say how much
-                         * of it it is, or the sale is refused rather than guessed at. A shelf
-                         * counted in pieces needs none, which is why this is offered rather than
-                         * demanded: this screen holds no ingredient link and so cannot tell which
-                         * kind of shelf it is. The server can, and its refusal names this field.
-                         */}
-                        {canReadUnits ? (
-                            <Stack space="xs">
-                                <FormGrid track="half" testID="kitchen-product-sale-grid">
+                        <View className="z-auto flex-row flex-wrap items-start gap-base">
+                            {/*
+                             * Read-only: what the kitchen last paid, per the unit it was bought in, and
+                             * from whom (the hint). Not on a new item, and not for a member who may not
+                             * see costs. Not on a recipe's Selling tab either: a cooked item is made,
+                             * not bought, so its cost is the recipe's Costing tab and its prices are
+                             * the channels' B2B and B2C above — a purchase price there reads as a third.
+                             */}
+                            {isCreating || !canViewCosts || embedded ? null : (
+                                <FormGrid track="half" testID="kitchen-product-last-price-grid">
                                     <QuantityInput
-                                        testID="kitchen-product-net-content"
-                                        id="kitchen-product-net-content"
+                                        testID="kitchen-product-unit-price"
+                                        id="kitchen-product-unit-price"
                                         size="sm"
-                                        label={t('kitchen:products.netContentLabel')}
-                                        hint={t('kitchen:products.netContentHint')}
-                                        placeholder={t('kitchen:fields.quantityPlaceholder')}
-                                        value={details.netContentQuantity}
-                                        disabled={!canManage}
-                                        {...(shows('net-content')
-                                            ? { error: t('kitchen:products.netContentInvalid') }
-                                            : {})}
-                                        {...server.flag('net_content_quantity')}
-                                        onChangeText={(next) => {
-                                            edit({ netContentQuantity: next });
-                                        }}
-                                    />
-                                    <Select
-                                        testID="kitchen-product-net-content-unit"
-                                        id="kitchen-product-net-content-unit"
-                                        label={t('kitchen:products.netContentUnitLabel')}
-                                        placeholder={t('kitchen:fields.unitPlaceholder')}
-                                        searchable
-                                        disabled={!canManage}
-                                        options={unitOptions}
-                                        value={details.netContentUnitId ?? ''}
-                                        {...(shows('net-content-unit')
-                                            ? { error: t('kitchen:forms.required') }
-                                            : {})}
-                                        {...server.flag('net_content_unit_id')}
-                                        onChange={(next) => {
-                                            edit({ netContentUnitId: next });
-                                        }}
+                                        readOnly
+                                        label={t('kitchen:fields.unitPrice')}
+                                        placeholder={lastPricePlaceholder}
+                                        value={lastPriceValue}
+                                        {...(latestPurchase === null ||
+                                        latestPurchase.unitPriceAmount === null
+                                            ? {}
+                                            : {
+                                                  unit: t('kitchen:fields.unitPricePer', {
+                                                      currency:
+                                                          latestPurchase.costCurrencyCode ?? '',
+                                                      unit: latestPurchase.unitCode ?? '',
+                                                  }),
+                                                  hint: lastPriceSource,
+                                              })}
+                                        onChangeText={() => {}}
                                     />
                                 </FormGrid>
-                            </Stack>
-                        ) : details.netContentQuantity === '' ? null : (
-                            <Callout
-                                testID="kitchen-product-net-content-unavailable"
-                                tone="info"
-                                title={t('kitchen:products.netContentLabel')}
-                                body={t('kitchen:products.netContentUnitsForbidden')}
-                            />
-                        )}
+                            )}
+
+                            {/*
+                             * What one sold unit takes off the shelf (PROD1), on the half track — a
+                             * figure and its unit, each one cell.
+                             *
+                             * Every family on this screen sells from **finished stock**. Where that
+                             * shelf is counted in kilograms or litres, a sold unit has to say how much
+                             * of it it is, or the sale is refused rather than guessed at. A shelf
+                             * counted in pieces needs none, which is why this is offered rather than
+                             * demanded: this screen holds no ingredient link and so cannot tell which
+                             * kind of shelf it is. The server can, and its refusal names this field.
+                             */}
+                            {canReadUnits ? (
+                                <Stack space="xs">
+                                    <FormGrid track="half" testID="kitchen-product-sale-grid">
+                                        <QuantityInput
+                                            testID="kitchen-product-net-content"
+                                            id="kitchen-product-net-content"
+                                            size="sm"
+                                            label={t('kitchen:products.netContentLabel')}
+                                            hint={t('kitchen:products.netContentHint')}
+                                            placeholder={t('kitchen:fields.quantityPlaceholder')}
+                                            value={details.netContentQuantity}
+                                            disabled={!canManage}
+                                            {...(shows('net-content')
+                                                ? { error: t('kitchen:products.netContentInvalid') }
+                                                : {})}
+                                            {...server.flag('net_content_quantity')}
+                                            onChangeText={(next) => {
+                                                edit({ netContentQuantity: next });
+                                            }}
+                                        />
+                                        <Select
+                                            testID="kitchen-product-net-content-unit"
+                                            id="kitchen-product-net-content-unit"
+                                            label={t('kitchen:products.netContentUnitLabel')}
+                                            placeholder={t('kitchen:fields.unitPlaceholder')}
+                                            searchable
+                                            disabled={!canManage}
+                                            options={unitOptions}
+                                            value={details.netContentUnitId ?? ''}
+                                            {...(shows('net-content-unit')
+                                                ? { error: t('kitchen:forms.required') }
+                                                : {})}
+                                            {...server.flag('net_content_unit_id')}
+                                            onChange={(next) => {
+                                                edit({ netContentUnitId: next });
+                                            }}
+                                        />
+                                    </FormGrid>
+                                </Stack>
+                            ) : details.netContentQuantity === '' ? null : (
+                                <Callout
+                                    testID="kitchen-product-net-content-unavailable"
+                                    tone="info"
+                                    title={t('kitchen:products.netContentLabel')}
+                                    body={t('kitchen:products.netContentUnitsForbidden')}
+                                />
+                            )}
+                        </View>
 
                         {/*
                          * Two flags, two words each. `isMarketPriced` is not decoration: a product
@@ -2049,7 +2055,7 @@ function ProductEditor({
                  */}
                 <FormSection
                     first
-                    variant="card"
+                    variant="panel"
                     testID="kitchen-product-channels"
                     nativeID="kitchen-product-channels"
                     title={t('kitchen:channels.sectionTitle')}
@@ -2069,7 +2075,7 @@ function ProductEditor({
                 {/* ── diet classifications, read-only ──────────────────────────────────────── */}
                 <FormSection
                     first
-                    variant="card"
+                    variant="panel"
                     testID="kitchen-product-diets"
                     title={t('kitchen:products.dietsLabel')}
                     aside={
@@ -2081,7 +2087,7 @@ function ProductEditor({
                         />
                     }
                     actions={
-                        embedded || details.recipeId === null ? undefined : (
+                        details.recipeId === null ? undefined : (
                             <Button
                                 testID="kitchen-product-recipe-open"
                                 size="sm"
@@ -2125,7 +2131,7 @@ function ProductEditor({
                 (data.composition === null && data.kitchenCategory === null) ? null : (
                     <FormSection
                         first
-                        variant="card"
+                        variant="panel"
                         testID="kitchen-product-composition"
                         title={t('kitchen:fields.composition')}
                     >

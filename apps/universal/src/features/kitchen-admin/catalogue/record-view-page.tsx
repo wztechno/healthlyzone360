@@ -6,6 +6,7 @@ import {
     RecordWindowFieldGrid,
     Stack,
     TagRow,
+    Text,
 } from '@healthy360/design-system';
 import type { BadgeTone, IconName, RecordWindowField, TagRowItem } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
@@ -13,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { RECORD_RAIL_MIN } from '../desk-layout.ts';
-import { RecordCanopy } from './record-canopy.tsx';
+import { RecordCanopy, RecordCanopyHero } from './record-canopy.tsx';
 import { RecordPopup, useRecordSplit } from './record-popup.tsx';
 import type { RecordAction, RecordPrimaryAction } from './record-popup.tsx';
 import type { RecordCanopyCaption, RecordCanopyTone } from './record-canopy.tsx';
@@ -133,6 +134,14 @@ export interface RecordViewPageProps {
     readonly primaryAction?: RecordPrimaryAction | undefined;
     /** Every other action the record has, behind ⋯ after the primary, in order. */
     readonly actions?: readonly RecordAction[] | undefined;
+    /**
+     * `board` is the Catalogue boards' drawing: the large canopy with the status as a pill, tiles
+     * with a title and no glyph, and fields as label-and-value rows. Every other View page keeps
+     * the default until its own boards are applied.
+     */
+    readonly look?: 'default' | 'board' | undefined;
+    /** Translated. The window's upper label, where it is not the record's `kind`. */
+    readonly eyebrow?: string | undefined;
     readonly testID: string;
 }
 
@@ -169,9 +178,12 @@ export function RecordViewPage({
     media,
     primaryAction,
     actions,
+    look = 'default',
+    eyebrow,
     testID,
 }: RecordViewPageProps) {
     const { t } = useTranslation();
+    const board = look === 'board';
 
     const separator = t('kitchen:recordView.metaSeparator');
     const hasChips =
@@ -204,28 +216,72 @@ export function RecordViewPage({
         ...(footNote === undefined ? [] : [{ text: footNote, testID: `${testID}-foot-note` }]),
     ];
 
+    const chipsBadge =
+        chipsSourceBadge === undefined ? undefined : (
+            <Badge
+                tone="neutral"
+                icon={board ? null : undefined}
+                label={chipsSourceBadge}
+                testID={`${testID}-chips-source`}
+            />
+        );
+    const chipsTip =
+        chipsCaption === undefined || chipsLabel === undefined ? undefined : (
+            <InfoTip label={chipsLabel} text={chipsCaption} />
+        );
+
     return (
         <RecordPopup
             title={title}
-            kind={kind}
+            kind={eyebrow ?? kind}
             onClose={onBack}
             primaryAction={primaryAction}
             actions={actions}
             testID={testID}
         >
             <Cascade space="md" testID={testID}>
-                <RecordCanopy
-                    testID={`${testID}-header`}
-                    titleTestID={`${testID}-title`}
-                    statusTestID={`${testID}-status`}
-                    title={title}
-                    {...(status === undefined
-                        ? {}
-                        : { status: { label: status.label, tone: canopyTone(status.tone) } })}
-                    titleBadges={titleAside}
-                    captions={captions}
-                    noValue={t('kitchen:list.noValue')}
-                />
+                {board ? (
+                    <RecordCanopyHero
+                        testID={`${testID}-header`}
+                        titleTestID={`${testID}-title`}
+                        statusTestID={`${testID}-status`}
+                        referenceTestID={`${testID}-reference`}
+                        kindTestID={`${testID}-kind`}
+                        title={title}
+                        reference={reference}
+                        kind={kind}
+                        {...(status === undefined
+                            ? {}
+                            : {
+                                  statusChip: {
+                                      label: status.label,
+                                      tone: canopyTone(status.tone),
+                                  },
+                              })}
+                        captionLines={[
+                            ...statusLines.map((line, index) => ({
+                                text: line,
+                                testID: `${testID}-status-line-${String(index)}`,
+                            })),
+                            ...(footNote === undefined
+                                ? []
+                                : [{ text: footNote, testID: `${testID}-foot-note` }]),
+                        ]}
+                    />
+                ) : (
+                    <RecordCanopy
+                        testID={`${testID}-header`}
+                        titleTestID={`${testID}-title`}
+                        statusTestID={`${testID}-status`}
+                        title={title}
+                        {...(status === undefined
+                            ? {}
+                            : { status: { label: status.label, tone: canopyTone(status.tone) } })}
+                        titleBadges={titleAside}
+                        captions={captions}
+                        noValue={t('kitchen:list.noValue')}
+                    />
+                )}
 
                 {banner}
 
@@ -247,7 +303,7 @@ export function RecordViewPage({
                             >
                                 <RecordTile
                                     testID={`${testID}-details`}
-                                    icon="list"
+                                    {...(board ? {} : { icon: 'list' as const })}
                                     title={detailsTitle}
                                     trailing={
                                         fieldsSubtitle === undefined ? undefined : (
@@ -255,16 +311,24 @@ export function RecordViewPage({
                                         )
                                     }
                                 >
-                                    <RecordWindowFieldGrid
-                                        fields={fields}
-                                        testID={`${testID}-field`}
-                                    />
+                                    {board ? (
+                                        <BoardFieldRows
+                                            fields={fields}
+                                            testID={`${testID}-field`}
+                                        />
+                                    ) : (
+                                        <RecordWindowFieldGrid
+                                            fields={fields}
+                                            testID={`${testID}-field`}
+                                        />
+                                    )}
                                 </RecordTile>
 
                                 {sections.map((section) => (
                                     <SectionTile
                                         key={section.key}
                                         section={section}
+                                        board={board}
                                         testID={testID}
                                     />
                                 ))}
@@ -272,7 +336,7 @@ export function RecordViewPage({
                                 {lines === undefined ? null : (
                                     <RecordTile
                                         testID={`${testID}-lines`}
-                                        icon="layers"
+                                        {...(board ? {} : { icon: 'layers' as const })}
                                         title={linesTitle}
                                     >
                                         {lines}
@@ -293,7 +357,7 @@ export function RecordViewPage({
                                     {statusContent === undefined ? null : (
                                         <RecordTile
                                             testID={`${testID}-record-status`}
-                                            icon="infoCircle"
+                                            {...(board ? {} : { icon: 'infoCircle' as const })}
                                             title={t('kitchen:recordView.statusTitle')}
                                         >
                                             {statusContent}
@@ -303,25 +367,12 @@ export function RecordViewPage({
                                     {hasChips ? (
                                         <RecordTile
                                             testID={`${testID}-chips`}
-                                            icon="tag"
+                                            {...(board ? {} : { icon: 'tag' as const })}
                                             title={chipsLabel}
-                                            aside={
-                                                chipsSourceBadge === undefined ? undefined : (
-                                                    <Badge
-                                                        tone="neutral"
-                                                        label={chipsSourceBadge}
-                                                        testID={`${testID}-chips-source`}
-                                                    />
-                                                )
-                                            }
-                                            trailing={
-                                                chipsCaption === undefined ? undefined : (
-                                                    <InfoTip
-                                                        label={chipsLabel}
-                                                        text={chipsCaption}
-                                                    />
-                                                )
-                                            }
+                                            // The board has the (i) beside the title and the source
+                                            // badge at the end; the default has them the other way.
+                                            aside={board ? chipsTip : chipsBadge}
+                                            trailing={board ? chipsBadge : chipsTip}
                                         >
                                             <Stack space="sm">
                                                 {chipsContent ??
@@ -340,6 +391,7 @@ export function RecordViewPage({
                                         <SectionTile
                                             key={section.key}
                                             section={section}
+                                            board={board}
                                             testID={testID}
                                         />
                                     ))}
@@ -375,17 +427,67 @@ function SplitBody({
     );
 }
 
+/** Past this a value is a sentence, not a figure: it takes the whole line. */
+const LONG_VALUE_LENGTH = 48;
+
+/** The board's fields: a muted label and a bold value on one line, two to a row where they fit. */
+function BoardFieldRows({
+    fields,
+    testID,
+}: {
+    readonly fields: readonly RecordWindowField[];
+    readonly testID: string;
+}) {
+    return (
+        <View testID={testID} className="flex-row flex-wrap gap-x-6">
+            {fields.map((field) => (
+                <View
+                    key={field.key}
+                    testID={`${testID}-${field.key}`}
+                    className="min-h-8 min-w-0 flex-row items-center justify-between gap-snug"
+                    style={{
+                        flexBasis: field.value.length > LONG_VALUE_LENGTH ? '100%' : '45%',
+                        // eslint-disable-next-line no-restricted-syntax -- one read-only pair in a wrapping run: two to a line at most, and a sentence takes the whole line.
+                        flexGrow: 1,
+                    }}
+                >
+                    <View className="shrink-0">
+                        <Text
+                            variant="body"
+                            tone="secondary"
+                            testID={`${testID}-${field.key}-label`}
+                        >
+                            {field.label}
+                        </Text>
+                    </View>
+                    <View className="min-w-0 shrink">
+                        <Text
+                            variant="strong"
+                            className="tabular-nums text-end"
+                            testID={`${testID}-${field.key}-value`}
+                        >
+                            {field.value}
+                        </Text>
+                    </View>
+                </View>
+            ))}
+        </View>
+    );
+}
+
 function SectionTile({
     section,
+    board = false,
     testID,
 }: {
     readonly section: RecordViewSection;
+    readonly board?: boolean | undefined;
     readonly testID: string;
 }) {
     return (
         <RecordTile
             testID={`${testID}-section-${section.key}`}
-            icon={section.icon ?? 'layers'}
+            {...(board ? {} : { icon: section.icon ?? ('layers' as const) })}
             title={section.title}
             tone={section.tone ?? 'raised'}
             trailing={

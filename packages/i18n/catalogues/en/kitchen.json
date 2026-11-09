@@ -4669,7 +4669,9 @@
         "marginNoBasis": "Needs a B2B price and a unit price",
         "marginUnavailable": "—",
         "priceInvalid": "Enter an amount, or leave it empty.",
-        "currencyUnknown": "No currency is recorded for this kitchen yet, so a price cannot be saved."
+        "currencyUnknown": "No currency is recorded for this kitchen yet, so a price cannot be saved.",
+        "marginB2b": "B2B",
+        "marginB2c": "B2C"
     },
     "composition": {
         "title": "Composition & allergens",
@@ -4725,22 +4727,28 @@
         "nutrientValue": "{{value}} {{unit}} · {{percent}} % RI",
         "usedInTitle": "Used in recipes",
         "usedInSubtitle": "Live meals drawing on this ingredient",
-        "allergensDietsTitle": "Allergens & diets",
         "sourcingTitle": "Pack & sourcing",
         "pricesTitle": "Prices",
         "perUnitCaption": "per {{unit}}",
-        "priceLadderLabel": "Unit price {{unit}}, B2B price {{b2b}}, B2C price {{b2c}}",
         "energyFrom": "Energy from",
         "energyShare": "{{nutrient}} {{percent}} %",
         "energySplitLabel": "Energy from fat {{fat}} %, carbohydrate {{carbohydrate}} %, protein {{protein}} %",
         "aliasesLabel": "Also called",
-        "namesTitle": "Names & what it is"
+        "boughtIn": "Bought in",
+        "checkedLabel": "Checked",
+        "checkedYes": "Yes",
+        "checkedReview": "Needs review",
+        "checkedNo": "Not yet",
+        "energyShareOfRi": "{{percent}} % RI"
     },
     "allergenBoard": {
-        "freeFrom": "Free from",
         "diets": "Diets",
         "listLabel": "Allergens",
-        "pillLabel": "{{state}}: {{allergen}}"
+        "mayContain": "May contain {{allergen}}",
+        "choiceNo": "No",
+        "summaryContains": "Contains {{names}}",
+        "summaryNone": "None",
+        "summaryJoin": ", "
     },
     "frozenMeals": {
         "create": "New frozen meal",
@@ -4752,7 +4760,15 @@
         "statusTitle": "Record status",
         "version": "Version {{version}}",
         "metaSeparator": " · ",
-        "pathSeparator": " › "
+        "pathSeparator": " › ",
+        "eyebrowPackaging": "Packaging",
+        "eyebrowResale": "Resale",
+        "eyebrowRecipes": "Recipes",
+        "eyebrowAllergens": "Allergen classes",
+        "eyebrowPriceLists": "Price lists",
+        "eyebrowQuotations": "Quotations",
+        "eyebrowPlans": "Plans",
+        "eyebrowZones": "Delivery zones"
     },
     "search": {
         "label": "Search pages",

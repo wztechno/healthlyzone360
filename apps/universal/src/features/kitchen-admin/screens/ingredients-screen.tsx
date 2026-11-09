@@ -2,9 +2,11 @@ import { Button, Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy3
 import type { MenuItem } from '@healthy360/design-system';
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import { useFormatter, useLocale } from '@healthy360/i18n';
+import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
@@ -117,6 +119,10 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
     const list = useIngredientList(view);
     const print = useListPrint();
+    const router = useRouter();
+    // The table closes the toolbar's card only when it is drawn: loading, empty and failed lists
+    // bring their own frames.
+    const joined = !list.isPending && list.failure === null && list.rows.length > 0;
 
     /**
      * Code → the catalogue's own name for it, for both levels of the tree.
@@ -173,6 +179,9 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                 ingredient={viewing}
                 categoryName={categoryName}
                 onBack={list.closeView}
+                onPrintLabel={() => {
+                    router.push(`/kitchen/ingredients/${String(viewing.id)}/label`);
+                }}
                 {...(canManage ? { onEdit: () => list.openEditor(String(viewing.id)) } : {})}
             />
         );
@@ -180,205 +189,221 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
     return (
         <Cascade space="md" testID="kitchen-ingredients-screen">
             {/*
-             * The Lens bar — the figures, the mix, the query row and the actions as one object
-             * directly over the list it narrows (`lens-bar.tsx`). It replaced four stat cards and
-             * the toolbar under them.
+             * One block, so the toolbar card runs straight on into the table: the figures and the
+             * actions stand on the page, and the query row is the top of the list's card
+             * (`LensBar` `layout="split"`), as the Ingredients board draws it.
              */}
-            <LensBar
-                testID="kitchen-ingredients-toolbar"
-                label={t('kitchen:lens.label')}
-                figures={lensFigures(list, t)}
-                {...statusLensMix(list, t)}
-                scope={
-                    <LensScope<string>
-                        testID="kitchen-ingredients-category"
-                        label={t('kitchen:toolbar.categoryLabel')}
-                        value={list.category ?? ALL_SCOPE}
-                        onChange={(next) => {
-                            list.setCategory(next === ALL_SCOPE ? null : next);
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-ingredients-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={lensFigures(list, t)}
+                    {...statusLensMix(list, t)}
+                    scope={
+                        <LensScope<string>
+                            testID="kitchen-ingredients-category"
+                            label={t('kitchen:toolbar.categoryLabel')}
+                            value={list.category ?? ALL_SCOPE}
+                            onChange={(next) => {
+                                list.setCategory(next === ALL_SCOPE ? null : next);
+                            }}
+                            options={[
+                                { value: ALL_SCOPE, label: t('kitchen:toolbar.statusAll') },
+                                ...list.categories.map((entry) => ({
+                                    value: entry.code,
+                                    label: categoryName(entry.code),
+                                })),
+                            ]}
+                        />
+                    }
+                    search={list.query}
+                    onSearchChange={list.setQuery}
+                    // A camera read goes into the search box: the server matches a code there as well
+                    // as a name, which is also how a keyboard-wedge scan already works.
+                    onScan={(scan) => {
+                        list.setQuery(scan.data);
+                    }}
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t('kitchen:toolbar.searchIngredients')}
+                    tokens={lensTokens(list, t, locale)}
+                    result={
+                        list.total === null
+                            ? null
+                            : t('kitchen:lens.result', { shown: list.shown, total: list.total })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    // The category is the scope the reader stands in, so Clear leaves it.
+                    {...(list.trimmed === '' &&
+                    list.statuses.length === 0 &&
+                    list.allergen === null &&
+                    !list.uncosted
+                        ? {}
+                        : {
+                              onClear: () => {
+                                  list.setQuery('');
+                                  list.setStatuses([]);
+                                  list.setAllergen(null);
+                                  list.setUncosted(false);
+                              },
+                          })}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                    actions={
+                        <Inline space="xs" align="center">
+                            {canManage ? (
+                                <CatalogueTransferActions
+                                    testID="kitchen-ingredients-toolbar"
+                                    importGuide={ingredientImportGuide(
+                                        list.categories.map((entry) => entry.code),
+                                    )}
+                                    exportMenu={{
+                                        excel: {
+                                            load: (repositories) =>
+                                                repositories.kitchenAdmin.exportIngredients(
+                                                    list.filter,
+                                                ),
+                                            fallbackName: 'ingredients.xlsx',
+                                        },
+                                        pdf: [
+                                            {
+                                                key: 'pdf',
+                                                label: t('kitchen:transfer.export.pdf'),
+                                                disabled: list.countsPending,
+                                                onSelect: () => {
+                                                    print.start(
+                                                        listPrintJob({
+                                                            resource: 'ingredients',
+                                                            title: t(
+                                                                'kitchen:transfer.ingredients.printTitle',
+                                                            ),
+                                                            columns: controls.columns,
+                                                            rows: list.everyRow,
+                                                            // The whole-set read drops the sort, so it is
+                                                            // put back here, by every column the header
+                                                            // could have sorted on.
+                                                            sort: {
+                                                                key: list.sortKey,
+                                                                direction: list.sortDirection,
+                                                                from: columns,
+                                                            },
+                                                        }),
+                                                    );
+                                                },
+                                            },
+                                        ],
+                                    }}
+                                />
+                            ) : null}
+                            {canManage ? (
+                                <Button
+                                    testID="kitchen-ingredients-toolbar-create"
+                                    label={t('kitchen:toolbar.create')}
+                                    iconStart={<Icon name="plus" size="sm" />}
+                                    onPress={list.createNew}
+                                />
+                            ) : null}
+                        </Inline>
+                    }
+                />
+
+                <CatalogueListBody
+                    testID="kitchen-ingredients"
+                    list={list}
+                    empty={{
+                        title: t('kitchen:list.emptyTitle'),
+                        body: t('kitchen:list.emptyBody'),
+                    }}
+                    filteredEmpty={{
+                        title: t('kitchen:list.filteredEmptyTitle'),
+                        body: t('kitchen:list.filteredEmptyBody'),
+                    }}
+                    create={
+                        canManage
+                            ? { label: t('kitchen:toolbar.create'), onPress: list.createNew }
+                            : undefined
+                    }
+                >
+                    <CatalogueList
+                        testID="kitchen-ingredients-table"
+                        joined
+                        label={t('kitchen:list.caption')}
+                        columns={controls.columns}
+                        rows={list.rows}
+                        rowKey={(row) => String(row.id)}
+                        // Fixed, not switchable: the S/M/L control is gone.
+                        density="sm"
+                        highlightedId={list.lastOpenedId}
+                        onRowPress={(row) => {
+                            list.openView(row);
                         }}
-                        options={[
-                            { value: ALL_SCOPE, label: t('kitchen:toolbar.statusAll') },
-                            ...list.categories.map((entry) => ({
-                                value: entry.code,
-                                label: categoryName(entry.code),
-                            })),
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        // View, Edit, Archive, in the design's order, behind the row's ⋯.
+                        rowActions={(row): readonly MenuItem[] => [
+                            {
+                                key: 'view',
+                                label: t('kitchen:list.view'),
+                                icon: CATALOGUE_ROW_ICONS.view,
+                                testID: `${ingredientRowTestId(row.id)}-view`,
+                                onSelect: () => {
+                                    list.openView(row);
+                                },
+                            },
+                            {
+                                key: 'edit',
+                                label: t('kitchen:catalogue.edit'),
+                                icon: CATALOGUE_ROW_ICONS.edit,
+                                testID: `${ingredientRowTestId(row.id)}-open`,
+                                onSelect: () => {
+                                    list.openEditor(String(row.id));
+                                },
+                            },
+                            // The label page says for itself when there is no kitchen code to print.
+                            {
+                                key: 'print-label',
+                                label: t('kitchen:barcodes.printLabel'),
+                                icon: 'tag',
+                                testID: `${ingredientRowTestId(row.id)}-print-label`,
+                                onSelect: () => {
+                                    router.push(`/kitchen/ingredients/${String(row.id)}/label`);
+                                },
+                            },
+                            /*
+                             * Archive is *drawn* wherever the reader could plausibly want it and
+                             * *enabled* only where the server would accept it.
+                             *
+                             * It used to be omitted entirely on a row the server would refuse —
+                             * every platform-library row, which is most of the 306 — so the action
+                             * column held two buttons on some rows and three on others and a reader
+                             * had no way to tell whether Archive was missing because this row
+                             * cannot be archived or because the feature was not there. Rendering it
+                             * disabled answers that: the control is where it always is, and it does
+                             * not fire a request the server will 403.
+                             *
+                             * The permission is still a hard gate, because an action a role cannot
+                             * perform at all is not a disabled control, it is somebody else's
+                             * button.
+                             */
+                            ...(canManage
+                                ? [
+                                      {
+                                          key: 'archive',
+                                          label: t('kitchen:list.archive'),
+                                          icon: CATALOGUE_ROW_ICONS.archive,
+                                          tone: 'danger' as const,
+                                          disabled:
+                                              !row.isEditable || row.meta.status === 'retired',
+                                          testID: `${ingredientRowTestId(row.id)}-archive`,
+                                          onSelect: () => {
+                                              list.askToArchive(row);
+                                          },
+                                      },
+                                  ]
+                                : []),
                         ]}
                     />
-                }
-                search={list.query}
-                onSearchChange={list.setQuery}
-                // A camera read goes into the search box: the server matches a code there as well
-                // as a name, which is also how a keyboard-wedge scan already works.
-                onScan={(scan) => {
-                    list.setQuery(scan.data);
-                }}
-                searchLabel={t('kitchen:toolbar.searchLabel')}
-                searchPlaceholder={t('kitchen:toolbar.searchIngredients')}
-                tokens={lensTokens(list, t, locale)}
-                result={
-                    list.total === null
-                        ? null
-                        : t('kitchen:lens.result', { shown: list.shown, total: list.total })
-                }
-                clearLabel={t('kitchen:lens.clear')}
-                // The category is the scope the reader stands in, so Clear leaves it.
-                {...(list.trimmed === '' &&
-                list.statuses.length === 0 &&
-                list.allergen === null &&
-                !list.uncosted
-                    ? {}
-                    : {
-                          onClear: () => {
-                              list.setQuery('');
-                              list.setStatuses([]);
-                              list.setAllergen(null);
-                              list.setUncosted(false);
-                          },
-                      })}
-                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
-                actions={
-                    <Inline space="xs" align="center">
-                        {canManage ? (
-                            <CatalogueTransferActions
-                                testID="kitchen-ingredients-toolbar"
-                                importGuide={ingredientImportGuide(
-                                    list.categories.map((entry) => entry.code),
-                                )}
-                                exportMenu={{
-                                    excel: {
-                                        load: (repositories) =>
-                                            repositories.kitchenAdmin.exportIngredients(
-                                                list.filter,
-                                            ),
-                                        fallbackName: 'ingredients.xlsx',
-                                    },
-                                    pdf: [
-                                        {
-                                            key: 'pdf',
-                                            label: t('kitchen:transfer.export.pdf'),
-                                            disabled: list.countsPending,
-                                            onSelect: () => {
-                                                print.start(
-                                                    listPrintJob({
-                                                        resource: 'ingredients',
-                                                        title: t(
-                                                            'kitchen:transfer.ingredients.printTitle',
-                                                        ),
-                                                        columns: controls.columns,
-                                                        rows: list.everyRow,
-                                                        // The whole-set read drops the sort, so it is
-                                                        // put back here, by every column the header
-                                                        // could have sorted on.
-                                                        sort: {
-                                                            key: list.sortKey,
-                                                            direction: list.sortDirection,
-                                                            from: columns,
-                                                        },
-                                                    }),
-                                                );
-                                            },
-                                        },
-                                    ],
-                                }}
-                            />
-                        ) : null}
-                        {canManage ? (
-                            <Button
-                                testID="kitchen-ingredients-toolbar-create"
-                                label={t('kitchen:toolbar.create')}
-                                iconStart={<Icon name="plus" size="sm" />}
-                                onPress={list.createNew}
-                            />
-                        ) : null}
-                    </Inline>
-                }
-            />
-
-            <CatalogueListBody
-                testID="kitchen-ingredients"
-                list={list}
-                empty={{
-                    title: t('kitchen:list.emptyTitle'),
-                    body: t('kitchen:list.emptyBody'),
-                }}
-                filteredEmpty={{
-                    title: t('kitchen:list.filteredEmptyTitle'),
-                    body: t('kitchen:list.filteredEmptyBody'),
-                }}
-                create={
-                    canManage
-                        ? { label: t('kitchen:toolbar.create'), onPress: list.createNew }
-                        : undefined
-                }
-            >
-                <CatalogueList
-                    testID="kitchen-ingredients-table"
-                    label={t('kitchen:list.caption')}
-                    columns={controls.columns}
-                    rows={list.rows}
-                    rowKey={(row) => String(row.id)}
-                    // Fixed, not switchable: the S/M/L control is gone.
-                    density="sm"
-                    highlightedId={list.lastOpenedId}
-                    onRowPress={(row) => {
-                        list.openView(row);
-                    }}
-                    rowActionsLabel={t('kitchen:list.rowActions')}
-                    // View, Edit, Archive, in the design's order, behind the row's ⋯.
-                    rowActions={(row): readonly MenuItem[] => [
-                        {
-                            key: 'view',
-                            label: t('kitchen:list.view'),
-                            icon: CATALOGUE_ROW_ICONS.view,
-                            testID: `${ingredientRowTestId(row.id)}-view`,
-                            onSelect: () => {
-                                list.openView(row);
-                            },
-                        },
-                        {
-                            key: 'edit',
-                            label: t('kitchen:catalogue.edit'),
-                            icon: CATALOGUE_ROW_ICONS.edit,
-                            testID: `${ingredientRowTestId(row.id)}-open`,
-                            onSelect: () => {
-                                list.openEditor(String(row.id));
-                            },
-                        },
-                        /*
-                         * Archive is *drawn* wherever the reader could plausibly want it and
-                         * *enabled* only where the server would accept it.
-                         *
-                         * It used to be omitted entirely on a row the server would refuse —
-                         * every platform-library row, which is most of the 306 — so the action
-                         * column held two buttons on some rows and three on others and a reader
-                         * had no way to tell whether Archive was missing because this row
-                         * cannot be archived or because the feature was not there. Rendering it
-                         * disabled answers that: the control is where it always is, and it does
-                         * not fire a request the server will 403.
-                         *
-                         * The permission is still a hard gate, because an action a role cannot
-                         * perform at all is not a disabled control, it is somebody else's
-                         * button.
-                         */
-                        ...(canManage
-                            ? [
-                                  {
-                                      key: 'archive',
-                                      label: t('kitchen:list.archive'),
-                                      icon: CATALOGUE_ROW_ICONS.archive,
-                                      tone: 'danger' as const,
-                                      disabled: !row.isEditable || row.meta.status === 'retired',
-                                      testID: `${ingredientRowTestId(row.id)}-archive`,
-                                      onSelect: () => {
-                                          list.askToArchive(row);
-                                      },
-                                  },
-                              ]
-                            : []),
-                    ]}
-                />
-            </CatalogueListBody>
+                </CatalogueListBody>
+            </View>
 
             <Dialog
                 testID="kitchen-ingredients-archive-dialog"

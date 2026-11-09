@@ -301,10 +301,11 @@ function DeliveryWindowsEditor() {
             ) : (
                 <FormSection
                     first
-                    variant="card"
+                    variant="panel"
                     testID="kitchen-windows-section"
                     title={title}
                     description={t('kitchen:deliveryWindows.intro')}
+                    printDescription
                 >
                     <DeliveryWindowRows
                         testID="kitchen-windows-rows"

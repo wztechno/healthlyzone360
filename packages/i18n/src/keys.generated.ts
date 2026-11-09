@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10498 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10514 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3434,10 +3434,13 @@ export interface NamespaceKeys {
     | 'allergenAssessment.confirm'
     | 'allergenAssessment.noRecipe'
     | 'allergenAssessment.notAssessed'
+    | 'allergenBoard.choiceNo'
     | 'allergenBoard.diets'
-    | 'allergenBoard.freeFrom'
     | 'allergenBoard.listLabel'
-    | 'allergenBoard.pillLabel'
+    | 'allergenBoard.mayContain'
+    | 'allergenBoard.summaryContains'
+    | 'allergenBoard.summaryJoin'
+    | 'allergenBoard.summaryNone'
     | 'allergenLookup.barcode'
     | 'allergenLookup.barcodeHint'
     | 'allergenLookup.barcodeShort'
@@ -4626,9 +4629,14 @@ export interface NamespaceKeys {
     | 'hub.today.sales'
     | 'hub.today.title'
     | 'ingredientDetail.aliasesLabel'
-    | 'ingredientDetail.allergensDietsTitle'
+    | 'ingredientDetail.boughtIn'
+    | 'ingredientDetail.checkedLabel'
+    | 'ingredientDetail.checkedNo'
+    | 'ingredientDetail.checkedReview'
+    | 'ingredientDetail.checkedYes'
     | 'ingredientDetail.energyFrom'
     | 'ingredientDetail.energyShare'
+    | 'ingredientDetail.energyShareOfRi'
     | 'ingredientDetail.energySplitLabel'
     | 'ingredientDetail.fieldCapacity'
     | 'ingredientDetail.fieldPackCost'
@@ -4637,13 +4645,11 @@ export interface NamespaceKeys {
     | 'ingredientDetail.identificationSubtitle'
     | 'ingredientDetail.identificationTitle'
     | 'ingredientDetail.kpiMarginOnCost'
-    | 'ingredientDetail.namesTitle'
     | 'ingredientDetail.nutrientValue'
     | 'ingredientDetail.nutritionEmpty'
     | 'ingredientDetail.nutritionSubtitle'
     | 'ingredientDetail.perUnitCaption'
     | 'ingredientDetail.perUnitValue'
-    | 'ingredientDetail.priceLadderLabel'
     | 'ingredientDetail.pricesTitle'
     | 'ingredientDetail.sellableNo'
     | 'ingredientDetail.sellableYes'
@@ -7610,6 +7616,14 @@ export interface NamespaceKeys {
     | 'recipes.yieldRequired'
     | 'recipes.yieldUnit'
     | 'recordView.details'
+    | 'recordView.eyebrowAllergens'
+    | 'recordView.eyebrowPackaging'
+    | 'recordView.eyebrowPlans'
+    | 'recordView.eyebrowPriceLists'
+    | 'recordView.eyebrowQuotations'
+    | 'recordView.eyebrowRecipes'
+    | 'recordView.eyebrowResale'
+    | 'recordView.eyebrowZones'
     | 'recordView.metaSeparator'
     | 'recordView.pathSeparator'
     | 'recordView.statusTitle'
@@ -7700,6 +7714,8 @@ export interface NamespaceKeys {
     | 'sale.b2cPrice'
     | 'sale.currencyUnknown'
     | 'sale.margin'
+    | 'sale.marginB2b'
+    | 'sale.marginB2c'
     | 'sale.marginNoBasis'
     | 'sale.marginUnavailable'
     | 'sale.priceInvalid'
@@ -13950,10 +13966,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:allergenAssessment.confirm',
   'kitchen:allergenAssessment.noRecipe',
   'kitchen:allergenAssessment.notAssessed',
+  'kitchen:allergenBoard.choiceNo',
   'kitchen:allergenBoard.diets',
-  'kitchen:allergenBoard.freeFrom',
   'kitchen:allergenBoard.listLabel',
-  'kitchen:allergenBoard.pillLabel',
+  'kitchen:allergenBoard.mayContain',
+  'kitchen:allergenBoard.summaryContains',
+  'kitchen:allergenBoard.summaryJoin',
+  'kitchen:allergenBoard.summaryNone',
   'kitchen:allergenLookup.barcode',
   'kitchen:allergenLookup.barcodeHint',
   'kitchen:allergenLookup.barcodeShort',
@@ -15142,9 +15161,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:hub.today.sales',
   'kitchen:hub.today.title',
   'kitchen:ingredientDetail.aliasesLabel',
-  'kitchen:ingredientDetail.allergensDietsTitle',
+  'kitchen:ingredientDetail.boughtIn',
+  'kitchen:ingredientDetail.checkedLabel',
+  'kitchen:ingredientDetail.checkedNo',
+  'kitchen:ingredientDetail.checkedReview',
+  'kitchen:ingredientDetail.checkedYes',
   'kitchen:ingredientDetail.energyFrom',
   'kitchen:ingredientDetail.energyShare',
+  'kitchen:ingredientDetail.energyShareOfRi',
   'kitchen:ingredientDetail.energySplitLabel',
   'kitchen:ingredientDetail.fieldCapacity',
   'kitchen:ingredientDetail.fieldPackCost',
@@ -15153,13 +15177,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ingredientDetail.identificationSubtitle',
   'kitchen:ingredientDetail.identificationTitle',
   'kitchen:ingredientDetail.kpiMarginOnCost',
-  'kitchen:ingredientDetail.namesTitle',
   'kitchen:ingredientDetail.nutrientValue',
   'kitchen:ingredientDetail.nutritionEmpty',
   'kitchen:ingredientDetail.nutritionSubtitle',
   'kitchen:ingredientDetail.perUnitCaption',
   'kitchen:ingredientDetail.perUnitValue',
-  'kitchen:ingredientDetail.priceLadderLabel',
   'kitchen:ingredientDetail.pricesTitle',
   'kitchen:ingredientDetail.sellableNo',
   'kitchen:ingredientDetail.sellableYes',
@@ -18126,6 +18148,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.yieldRequired',
   'kitchen:recipes.yieldUnit',
   'kitchen:recordView.details',
+  'kitchen:recordView.eyebrowAllergens',
+  'kitchen:recordView.eyebrowPackaging',
+  'kitchen:recordView.eyebrowPlans',
+  'kitchen:recordView.eyebrowPriceLists',
+  'kitchen:recordView.eyebrowQuotations',
+  'kitchen:recordView.eyebrowRecipes',
+  'kitchen:recordView.eyebrowResale',
+  'kitchen:recordView.eyebrowZones',
   'kitchen:recordView.metaSeparator',
   'kitchen:recordView.pathSeparator',
   'kitchen:recordView.statusTitle',
@@ -18216,6 +18246,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:sale.b2cPrice',
   'kitchen:sale.currencyUnknown',
   'kitchen:sale.margin',
+  'kitchen:sale.marginB2b',
+  'kitchen:sale.marginB2c',
   'kitchen:sale.marginNoBasis',
   'kitchen:sale.marginUnavailable',
   'kitchen:sale.priceInvalid',

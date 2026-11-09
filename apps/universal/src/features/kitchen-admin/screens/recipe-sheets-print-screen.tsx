@@ -214,11 +214,9 @@ function RecipeSheetsPrint({ recipes }: RecipeSheetsPrintScreenProps) {
                     return (
                         <View key={id} testID={`kitchen-recipe-sheets-print-sheet-${id}`}>
                             <Stack space="sm">
-                                <Heading level={2}>
-                                    {displayName(bundle.recipe.name, locale).value}
-                                </Heading>
                                 <TechnicalSheetPanel
                                     testID={`kitchen-recipe-sheets-print-panel-${id}`}
+                                    headline={displayName(bundle.recipe.name, locale).value}
                                     recipe={bundle.recipe}
                                     version={bundle.recipe.currentVersion}
                                     sheet={bundle.sheet}

@@ -91,6 +91,9 @@ export interface PackEditorProps {
     /** A server refusal of one column of one row — under that column, not the row's code. */
     readonly fieldError?: ((row: PackDraft, column: PackColumn) => string | undefined) | undefined;
     readonly canManage: boolean;
+    /** Said inside the empty box: a save was refused because there is no pack. */
+    readonly emptyError?: string | undefined;
+    readonly emptyErrorTestID?: string | undefined;
     readonly testID: string;
 }
 
@@ -169,6 +172,8 @@ export function PackVariantEditor({
     errors,
     fieldError,
     canManage,
+    emptyError,
+    emptyErrorTestID,
     testID,
 }: PackEditorProps) {
     const { t } = useTranslation();
@@ -364,9 +369,16 @@ export function PackVariantEditor({
         // there is nothing to draw, so the two never share one.
         <Stack space="sm" {...(rows.length === 0 ? { testID } : {})}>
             {rows.length === 0 ? (
-                <Text testID={`${testID}-empty`} tone="secondary">
-                    {t('kitchen:products.packsEmpty')}
-                </Text>
+                <View className="items-center gap-1 rounded-[14px] border border-dashed border-stroke p-base">
+                    <Text testID={`${testID}-empty`} tone="secondary">
+                        {t('kitchen:products.packsEmpty')}
+                    </Text>
+                    {emptyError === undefined ? null : (
+                        <Text testID={emptyErrorTestID} variant="caption" tone="danger">
+                            {emptyError}
+                        </Text>
+                    )}
+                </View>
             ) : (
                 <>
                     <DataList<PackDraft>
@@ -540,19 +552,18 @@ export function ChannelAvailabilityEditor({
 
                 return (
                     /*
-                     * A tinted cell rather than a `Card` per channel.
-                     *
-                     * Eight bordered panels for eight checkboxes is eight rectangles carrying one
-                     * bit each, and stacked one per row it was the tallest section on the page. The
-                     * fill is the *selected* state — it reads at a glance which routes are live —
-                     * and it is never the only signal: the checkbox itself is checked beside it.
+                     * A bordered tile, as the Resale board draws it. The fill is the *selected* state — it
+                     * reads at a glance which routes are live — and it is never the only signal: the
+                     * checkbox itself is checked beside it.
                      */
                     <View
                         key={channel}
                         testID={rowTestId}
                         className={cx(
-                            'w-[220px] flex-row items-center gap-tight rounded-sm px-control-md py-1',
-                            row.isAvailable ? 'bg-surface-brand-subtle' : null,
+                            'min-h-11 w-[220px] flex-col justify-center rounded-xl border px-3 py-1',
+                            row.isAvailable
+                                ? 'border-stroke bg-surface-brand-subtle'
+                                : 'border-stroke-subtle',
                         )}
                     >
                         <Checkbox
@@ -571,9 +582,10 @@ export function ChannelAvailabilityEditor({
                          * "B2C" is the contract's word and not everybody reading this form speaks
                          * it; the other seven need no gloss. It follows the label rather than
                          * sitting at the cell's far edge, where it read as a label of its own.
+                         * Under the label, aligned with the words past the box, as the board draws it.
                          */}
                         {channel === 'b2c' ? (
-                            <Text variant="caption" tone="secondary">
+                            <Text variant="caption" tone="secondary" className="ps-7">
                                 {t('kitchen:channels.consumerTag')}
                             </Text>
                         ) : null}

@@ -3789,18 +3789,24 @@ function RecipeEditor({
                             testID="kitchen-recipe-cost-cascade"
                             nativeID="kitchen-recipe-cost-cascade"
                             title={t('kitchen:recipes.sectionCostCascade')}
-                            // Kept where the design drops its subtitles: it says which price the
-                            // figures are built on, so a number that moves tomorrow can be traced.
-                            description={t('kitchen:recipes.costCascadeHint')}
                             aside={
                                 <Badge
                                     variant="label"
                                     tone="danger"
-                                    icon="eyeOff"
+                                    icon={null}
                                     label={t('kitchen:recipes.confidential')}
                                 />
                             }
                         >
+                            {/* Printed, as the board has it: it says which price the figures are
+                                built on, so a number that moves tomorrow can be traced. */}
+                            <Text
+                                variant="body"
+                                tone="secondary"
+                                testID="kitchen-recipe-cost-cascade-note"
+                            >
+                                {t('kitchen:recipes.costCascadeHint')}
+                            </Text>
                             {canViewCosts ? (
                                 <Stack space="sm">
                                     <CostCascade

@@ -56,7 +56,8 @@ const TILE_TONE_CLASS: Readonly<Record<RecordTileTone, string>> = {
 };
 
 export interface RecordTileProps {
-    readonly icon: IconName;
+    /** The glyph beside the title. Omitted, the title stands alone, as the Ingredient board draws it. */
+    readonly icon?: IconName | undefined;
     /** Translated. Omitted, the tile has no head — a table that names itself. */
     readonly title?: string | undefined;
     readonly tone?: RecordTileTone | undefined;
@@ -92,12 +93,14 @@ export function RecordTile({
         >
             {title === undefined ? null : (
                 <View className="z-auto flex-row flex-wrap items-center gap-tight">
-                    <View
-                        aria-hidden
-                        className="h-6 w-6 items-center justify-center rounded bg-surface-brand-subtle"
-                    >
-                        <Icon name={icon} size="sm" className="text-content-on-brand-subtle" />
-                    </View>
+                    {icon === undefined ? null : (
+                        <View
+                            aria-hidden
+                            className="h-6 w-6 items-center justify-center rounded bg-surface-brand-subtle"
+                        >
+                            <Icon name={icon} size="sm" className="text-content-on-brand-subtle" />
+                        </View>
+                    )}
                     <Text variant="strong" testID={`${testID}-title`}>
                         {title}
                     </Text>

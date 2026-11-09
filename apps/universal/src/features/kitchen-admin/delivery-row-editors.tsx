@@ -544,7 +544,7 @@ export function DayToggle({
 
 /** The time tracks: wide enough for a 12-hour value with its clock glyph. */
 const TIME_TRACK = 120;
-const CUT_OFF_TRACK = 148;
+const CUT_OFF_TRACK = 172;
 
 export interface OperatingWeekRowsProps {
     readonly rows: readonly OperatingDayDraft[];
@@ -633,6 +633,7 @@ export function OperatingWeekRows({
         label,
         width,
         priority,
+        grow: false,
         render: (day) => {
             const issue = issues.get(day.weekday);
             return (
@@ -669,6 +670,7 @@ export function OperatingWeekRows({
             label: t('kitchen:branchHours.columnDay'),
             width: 128,
             priority: 100,
+            grow: false,
             render: (day) => {
                 const dayID = `${testID}-day-${String(day.weekday)}`;
                 return (
@@ -692,6 +694,7 @@ export function OperatingWeekRows({
             label: t('kitchen:branchHours.columnTrading'),
             width: 112,
             priority: 95,
+            grow: false,
             render: (day) => {
                 const dayID = `${testID}-day-${String(day.weekday)}`;
                 return (
@@ -757,8 +760,6 @@ export function OperatingWeekRows({
                       label: t('kitchen:list.actionHeader'),
                       width: 168,
                       priority: 80,
-                      grow: false,
-                      align: 'end',
                       sortable: false,
                       filterable: false,
                       // Only on an open day: a closed day has no times to copy.

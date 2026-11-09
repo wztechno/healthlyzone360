@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -219,6 +220,7 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
                         )}
                         {name.isFallback ? (
                             <Badge
+                                icon={null}
                                 testID={`${testID}-missing-arabic`}
                                 tone="warning"
                                 label={t('kitchen:list.missingArabic')}
@@ -312,6 +314,12 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
             width: 96,
             priority: 70,
             value: (row) => t(statusShortKey(row.meta.status)),
+            sort: (left, right, direction) =>
+                compareText(
+                    t(statusShortKey(left.meta.status)),
+                    t(statusShortKey(right.meta.status)),
+                    direction,
+                ),
             // The status the request already carries — the segments' own filter, so Archived is
             // reachable here without spending a segment on it.
             filter: {
@@ -330,6 +338,7 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
             },
             render: (row) => (
                 <Badge
+                    icon={null}
                     testID={`${planRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
                     label={t(statusShortKey(row.meta.status))}
@@ -382,6 +391,8 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-plans-view"
+                look="board"
+                eyebrow={t('kitchen:recordView.eyebrowPlans')}
                 onBack={() => {
                     setViewing(null);
                 }}
@@ -429,126 +440,135 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
             />
         );
 
+    // The table closes the toolbar's card only when it is drawn.
+    const joined = !plans.isPending && controls.rows.length > 0;
+
     return (
         <Cascade space="md" testID="kitchen-plans-screen">
-            <LensBar
-                testID="kitchen-plans-toolbar"
-                label={t('kitchen:lens.label')}
-                figures={statusLensFigures(lens, t, {
-                    allLabel: t('kitchen:lens.allPlans'),
-                })}
-                {...statusLensMix(lens, t)}
-                search={query}
-                onSearchChange={(next) => {
-                    setQuery(next);
-                    setViewing(null);
-                }}
-                searchLabel={t('kitchen:toolbar.searchLabel')}
-                searchPlaceholder={t('kitchen:plans.searchPlaceholder')}
-                tokens={statusLensTokens(lens, t)}
-                result={
-                    total === null || failure !== null
-                        ? null
-                        : t('kitchen:lens.result', { shown: shownSoFar, total })
-                }
-                clearLabel={t('kitchen:lens.clear')}
-                {...(unfiltered
-                    ? {}
-                    : {
-                          onClear: () => {
-                              setQuery('');
-                              setStatus('all');
-                          },
-                      })}
-                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
-                actions={
-                    canManage ? (
-                        <Button
-                            testID="kitchen-plans-toolbar-create"
-                            label={t('kitchen:plans.create')}
-                            iconStart={<Icon name="plus" size="sm" />}
-                            onPress={() => {
-                                router.push('/kitchen/plans/new' as never);
-                            }}
-                        />
-                    ) : undefined
-                }
-            />
-
-            {plans.isPending ? (
-                <TableSkeleton testID="kitchen-plans-loading" partTestID="kitchen-plans" />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-plans-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void plans.refetch();
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-plans-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={statusLensFigures(lens, t, {
+                        allLabel: t('kitchen:lens.allPlans'),
+                    })}
+                    {...statusLensMix(lens, t)}
+                    search={query}
+                    onSearchChange={(next) => {
+                        setQuery(next);
+                        setViewing(null);
                     }}
-                    retrying={plans.isFetching}
-                />
-            ) : controls.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-plans-empty"
-                    title={
-                        unfiltered
-                            ? t('kitchen:plans.emptyTitle')
-                            : t('kitchen:plans.filteredEmptyTitle')
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t('kitchen:plans.searchPlaceholder')}
+                    tokens={statusLensTokens(lens, t)}
+                    result={
+                        total === null || failure !== null
+                            ? null
+                            : t('kitchen:lens.result', { shown: shownSoFar, total })
                     }
-                    body={
-                        unfiltered
-                            ? t('kitchen:plans.emptyBody')
-                            : t('kitchen:plans.filteredEmptyBody')
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(unfiltered
+                        ? {}
+                        : {
+                              onClear: () => {
+                                  setQuery('');
+                                  setStatus('all');
+                              },
+                          })}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                    actions={
+                        canManage ? (
+                            <Button
+                                testID="kitchen-plans-toolbar-create"
+                                label={t('kitchen:plans.create')}
+                                iconStart={<Icon name="plus" size="sm" />}
+                                onPress={() => {
+                                    router.push('/kitchen/plans/new' as never);
+                                }}
+                            />
+                        ) : undefined
                     }
                 />
-            ) : (
-                <Stack space="sm">
-                    <CatalogueList<PlanAdmin>
-                        testID="kitchen-plans-table"
-                        label={t('kitchen:plans.caption')}
-                        columns={controls.columns}
-                        rows={controls.rows}
-                        rowKey={(row) => String(row.id)}
-                        density="sm"
-                        highlightedId={lastOpenedId}
-                        onRowPress={(row) => {
-                            rememberOpened(String(row.id));
-                            setViewing(row);
+
+                {plans.isPending ? (
+                    <TableSkeleton testID="kitchen-plans-loading" partTestID="kitchen-plans" />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-plans-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void plans.refetch();
                         }}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                        rowActions={(row): readonly MenuItem[] => [
-                            {
-                                key: 'view',
-                                label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
-                                testID: `${planRowTestId(String(row.id))}-view`,
-                                onSelect: () => {
-                                    rememberOpened(String(row.id));
-                                    setViewing(row);
-                                },
-                            },
-                            {
-                                key: 'edit',
-                                label: t('kitchen:catalogue.edit'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
-                                testID: `${planRowTestId(String(row.id))}-open`,
-                                onSelect: () => {
-                                    openEditor(row);
-                                },
-                            },
-                        ]}
+                        retrying={plans.isFetching}
                     />
-                    <CataloguePager
-                        testID="kitchen-plans-pagination"
-                        page={page}
-                        totalPages={totalPages}
-                        onPageChange={(next) => {
-                            setPage(next);
-                            setViewing(null);
-                        }}
-                        label={t('kitchen:catalogue.pagerLabel')}
+                ) : controls.rows.length === 0 ? (
+                    <EmptyState
+                        testID="kitchen-plans-empty"
+                        title={
+                            unfiltered
+                                ? t('kitchen:plans.emptyTitle')
+                                : t('kitchen:plans.filteredEmptyTitle')
+                        }
+                        body={
+                            unfiltered
+                                ? t('kitchen:plans.emptyBody')
+                                : t('kitchen:plans.filteredEmptyBody')
+                        }
                     />
-                </Stack>
-            )}
+                ) : (
+                    <Stack space="sm">
+                        <CatalogueList<PlanAdmin>
+                            testID="kitchen-plans-table"
+                            joined
+                            label={t('kitchen:plans.caption')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => String(row.id)}
+                            density="sm"
+                            highlightedId={lastOpenedId}
+                            onRowPress={(row) => {
+                                rememberOpened(String(row.id));
+                                setViewing(row);
+                            }}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                            rowActions={(row): readonly MenuItem[] => [
+                                {
+                                    key: 'view',
+                                    label: t('kitchen:list.view'),
+                                    icon: CATALOGUE_ROW_ICONS.view,
+                                    testID: `${planRowTestId(String(row.id))}-view`,
+                                    onSelect: () => {
+                                        rememberOpened(String(row.id));
+                                        setViewing(row);
+                                    },
+                                },
+                                {
+                                    key: 'edit',
+                                    label: t('kitchen:catalogue.edit'),
+                                    icon: CATALOGUE_ROW_ICONS.edit,
+                                    testID: `${planRowTestId(String(row.id))}-open`,
+                                    onSelect: () => {
+                                        openEditor(row);
+                                    },
+                                },
+                            ]}
+                        />
+                        <CataloguePager
+                            testID="kitchen-plans-pagination"
+                            page={page}
+                            totalPages={totalPages}
+                            onPageChange={(next) => {
+                                setPage(next);
+                                setViewing(null);
+                            }}
+                            label={t('kitchen:catalogue.pagerLabel')}
+                        />
+                    </Stack>
+                )}
+            </View>
 
             {viewPopup}
         </Cascade>

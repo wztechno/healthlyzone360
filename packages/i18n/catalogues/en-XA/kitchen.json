@@ -4669,7 +4669,9 @@
     "marginNoBasis": "[[Ñééðš á Ɓ2Ɓ þŕíçé áñð á úñíţ þŕíçé āēīōūāēīōūāēīō]]",
     "marginUnavailable": "[[— ā]]",
     "priceInvalid": "[[Éñţéŕ áñ áɱóúñţ, óŕ łéáṽé íţ éɱþţý. āēīōūāēīōūāēīō]]",
-    "currencyUnknown": "[[Ñó çúŕŕéñçý íš ŕéçóŕðéð ƒóŕ ţĥíš ķíţçĥéñ ýéţ, šó á þŕíçé çáññóţ ƀé šáṽéð. āēīōūāēīōūāēīōūāēīōūāēīōūāēīōū]]"
+    "currencyUnknown": "[[Ñó çúŕŕéñçý íš ŕéçóŕðéð ƒóŕ ţĥíš ķíţçĥéñ ýéţ, šó á þŕíçé çáññóţ ƀé šáṽéð. āēīōūāēīōūāēīōūāēīōūāēīōūāēīōū]]",
+    "marginB2b": "[[Ɓ2Ɓ āēīōū]]",
+    "marginB2c": "[[Ɓ2Ç āēīōū]]"
   },
   "composition": {
     "title": "[[Çóɱþóšíţíóñ & áłłéŕĝéñš āēīōūāēīōū]]",
@@ -4725,22 +4727,28 @@
     "nutrientValue": "[[{{value}} {{unit}} · {{percent}} % ŔÍ āēīōūāēīōūāēīōū]]",
     "usedInTitle": "[[Úšéð íñ ŕéçíþéš āēīōūā]]",
     "usedInSubtitle": "[[Łíṽé ɱéáłš ðŕáŵíñĝ óñ ţĥíš íñĝŕéðíéñţ āēīōūāēīōūāēīōū]]",
-    "allergensDietsTitle": "[[Áłłéŕĝéñš & ðíéţš āēīōūāē]]",
     "sourcingTitle": "[[Þáçķ & šóúŕçíñĝ āēīōūā]]",
     "pricesTitle": "[[Þŕíçéš āēī]]",
     "perUnitCaption": "[[þéŕ {{unit}} āēīōū]]",
-    "priceLadderLabel": "[[Úñíţ þŕíçé {{unit}}, Ɓ2Ɓ þŕíçé {{b2b}}, Ɓ2Ç þŕíçé {{b2c}} āēīōūāēīōūāēīōūāēīōūāēī]]",
     "energyFrom": "[[Éñéŕĝý ƒŕóɱ āēīōū]]",
     "energyShare": "[[{{nutrient}} {{percent}} % āēīōūāēīōūā]]",
     "energySplitLabel": "[[Éñéŕĝý ƒŕóɱ ƒáţ {{fat}} %, çáŕƀóĥýðŕáţé {{carbohydrate}} %, þŕóţéíñ {{protein}} % āēīōūāēīōūāēīōūāēīōūāēīōūāēīōūāēī]]",
     "aliasesLabel": "[[Áłšó çáłłéð āēīōū]]",
-    "namesTitle": "[[Ñáɱéš & ŵĥáţ íţ íš āēīōūāēī]]"
+    "boughtIn": "[[Ɓóúĝĥţ íñ āēīōū]]",
+    "checkedLabel": "[[Çĥéçkéd āēīōū]]",
+    "checkedYes": "[[Ýéš āēīōū]]",
+    "checkedReview": "[[Ñéédš ŕévíéŵ āēīōū]]",
+    "checkedNo": "[[Ñóţ yéţ āēīōū]]",
+    "energyShareOfRi": "[[{{percent}} % RI āēīōū]]"
   },
   "allergenBoard": {
-    "freeFrom": "[[Ƒŕéé ƒŕóɱ āēīō]]",
     "diets": "[[Ðíéţš āē]]",
     "listLabel": "[[Áłłéŕĝéñš āēīō]]",
-    "pillLabel": "[[{{state}}: {{allergen}} āēīōūāēīōū]]"
+    "mayContain": "[[Ṁáy çóñţáíñ {{allergen}} āēīōū]]",
+    "choiceNo": "[[Ñó āēīōū]]",
+    "summaryContains": "[[Çóñţáíñš {{names}} āēīōū]]",
+    "summaryNone": "[[Ñóñé āēīōū]]",
+    "summaryJoin": "[[,  āēīōū]]"
   },
   "frozenMeals": {
     "create": "[[Ñéŵ ƒŕóžéñ ɱéáł āēīōūā]]",
@@ -4752,7 +4760,15 @@
     "statusTitle": "[[Ŕéçóŕð šţáţúš āēīōūā]]",
     "version": "[[Ṽéŕšíóñ {{version}} āēīōūāēī]]",
     "metaSeparator": "[[ ·  āē]]",
-    "pathSeparator": "[[ ›  āē]]"
+    "pathSeparator": "[[ ›  āē]]",
+    "eyebrowPackaging": "[[Ƥáçķáĝíñĝ āēīōū]]",
+    "eyebrowResale": "[[Ŕéšáļé āēīōū]]",
+    "eyebrowRecipes": "[[Ŕéçípéš āēīōū]]",
+    "eyebrowAllergens": "[[Áļļéŕĝéñ çļáššéš āēīōū]]",
+    "eyebrowPriceLists": "[[Price lists āēīōū]]",
+    "eyebrowQuotations": "[[Quotations āēīōū]]",
+    "eyebrowPlans": "[[Plans āēīōū]]",
+    "eyebrowZones": "[[Delivery zones āēīōū]]"
   },
   "search": {
     "label": "[[Šéáŕçĥ þáĝéš āēīōū]]",

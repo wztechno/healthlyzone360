@@ -81,8 +81,9 @@ export function allergenColumns({
             // Keyed `regulation` so the header sorts through the list hook's own regulation order.
             key: 'regulation',
             label: t('kitchen:list.columnReference'),
-            width: 96,
-            min: 84,
+            // Wide enough for "EU 1169/2011 Annex II 1", which the board holds on one line.
+            width: 180,
+            min: 120,
             priority: CATALOGUE_PRIORITY.reference,
             role: 'meta',
             mono: true,
@@ -116,6 +117,7 @@ export function allergenColumns({
                             <Badge
                                 testID={`${testID}-severe`}
                                 tone="danger"
+                                icon={null}
                                 // One word on the row. `classes.severe` is the sentence — "trace
                                 // exposure can be dangerous" — and it is what the View panel says;
                                 // a badge beside a name has room for the label, not the reason.
@@ -155,6 +157,7 @@ export function allergenColumns({
                                 key={market}
                                 testID={`${testID}-market-${market}`}
                                 tone="info"
+                                icon={null}
                                 label={market}
                             />
                         ))}
@@ -171,12 +174,15 @@ export function allergenColumns({
             // The row's headline figure: what a kitchen is actually looking up when it opens this
             // page is the amount at which a class becomes declarable.
             role: 'metric',
-            mono: true,
             sortable: true,
             sortType: 'number',
             value: (entry) => thresholdLabel(entry, t, formatter),
+            // Plain text; "any amount" is quiet because it is the common answer.
             render: (entry) => (
-                <Text testID={`${allergenRowTestId(String(entry.code))}-threshold`} variant="mono">
+                <Text
+                    testID={`${allergenRowTestId(String(entry.code))}-threshold`}
+                    tone={entry.declarationThreshold === null ? 'secondary' : 'primary'}
+                >
                     {thresholdLabel(entry, t, formatter)}
                 </Text>
             ),
@@ -198,10 +204,7 @@ export function allergenColumns({
                     <Badge
                         testID={`${allergenRowTestId(String(entry.code))}-active`}
                         tone="brand"
-                        // No mark on the settled state, the call every Catalogue status column
-                        // makes about Published: the word needs no help, and a row of ticks down a
-                        // fourteen-row page is noise. Inactive keeps its ⚠, because that is the one
-                        // a reader is scanning for.
+                        // A pill and its word, as the board draws both states.
                         icon={null}
                         label={t('kitchen:classes.active')}
                     />
@@ -209,6 +212,7 @@ export function allergenColumns({
                     <Badge
                         testID={`${allergenRowTestId(String(entry.code))}-inactive`}
                         tone="warning"
+                        icon={null}
                         label={t('kitchen:classes.inactive')}
                     />
                 ),

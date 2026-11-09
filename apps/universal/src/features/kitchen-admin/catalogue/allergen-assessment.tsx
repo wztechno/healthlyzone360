@@ -33,7 +33,7 @@ export function AssessmentBadges({
                 <Badge
                     testID={`${testID}-not-assessed`}
                     tone="danger"
-                    icon="warning"
+                    icon={null}
                     label={t('kitchen:allergenAssessment.notAssessed')}
                 />
             ) : null}
@@ -41,7 +41,7 @@ export function AssessmentBadges({
                 <Badge
                     testID={`${testID}-no-recipe`}
                     tone="warning"
-                    icon="warning"
+                    icon={null}
                     label={t('kitchen:allergenAssessment.noRecipe')}
                 />
             ) : null}

@@ -1295,7 +1295,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                         variant="label"
                                         testID="kitchen-plan-editor-screen-dirty"
                                         tone="warning"
-                                        icon="warning"
+                                        icon={null}
                                         label={t('kitchen:editor.unsaved')}
                                     />
                                 ) : null}
@@ -1367,7 +1367,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                     <View testID="kitchen-plan-details" className="z-auto flex-col gap-loose">
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-plan-identity"
                             nativeID={PLAN_STEP_SECTIONS.plan}
                             title={t('kitchen:forms.description')}
@@ -1481,7 +1481,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
 
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-plan-diets-section"
                             title={t('kitchen:plans.dietsLabel')}
                         >
@@ -1519,7 +1519,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                     {form.current !== 'matrix' ? null : (
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-plan-matrix"
                             nativeID={PLAN_STEP_SECTIONS.matrix}
                             title={t('kitchen:plans.tabMatrix')}
@@ -1547,7 +1547,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                     {form.current !== 'variants' ? null : (
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-plan-variants-section"
                             nativeID={PLAN_STEP_SECTIONS.variants}
                             title={t('kitchen:plans.variantsTitle')}
@@ -1617,7 +1617,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                     {form.current !== 'durations' ? null : (
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-plan-durations"
                             nativeID={PLAN_STEP_SECTIONS.durations}
                             title={t('kitchen:plans.sectionDurations')}
@@ -1685,46 +1685,10 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                     {form.current !== 'plan' || isCreating ? null : (
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-plan-prices"
                             title={t('kitchen:plans.sectionPrices')}
-                        >
-                            <Stack space="sm">
-                                {coverage === null ? (
-                                    <Text testID="kitchen-plan-prices-pending" tone="secondary">
-                                        {t('kitchen:plans.pricesPending')}
-                                    </Text>
-                                ) : (
-                                    <Inline space="xs" wrap testID="kitchen-plan-prices-summary">
-                                        <Badge
-                                            testID="kitchen-plan-prices-confirmed"
-                                            tone={coverage.confirmed === 0 ? 'warning' : 'success'}
-                                            {...(coverage.confirmed === 0
-                                                ? { icon: 'warning' as const }
-                                                : {})}
-                                            label={t('kitchen:plans.confirmedPriceCount', {
-                                                count: coverage.confirmed,
-                                            })}
-                                        />
-                                        <Badge
-                                            testID="kitchen-plan-prices-placeholder"
-                                            tone={
-                                                coverage.placeholder === 0 ? 'neutral' : 'warning'
-                                            }
-                                            label={t('kitchen:plans.placeholderPriceCount', {
-                                                count: coverage.placeholder,
-                                            })}
-                                        />
-                                        <Badge
-                                            testID="kitchen-plan-prices-unpriced"
-                                            tone="neutral"
-                                            label={t('kitchen:plans.unpricedCount', {
-                                                count: coverage.unpriced,
-                                            })}
-                                        />
-                                    </Inline>
-                                )}
-
+                            actions={
                                 <Button
                                     testID="kitchen-plan-prices-open"
                                     size="sm"
@@ -1736,6 +1700,46 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                         });
                                     }}
                                 />
+                            }
+                        >
+                            <Stack space="sm">
+                                {coverage === null ? (
+                                    <Text testID="kitchen-plan-prices-pending" tone="secondary">
+                                        {t('kitchen:plans.pricesPending')}
+                                    </Text>
+                                ) : (
+                                    <Inline space="xs" wrap testID="kitchen-plan-prices-summary">
+                                        <Badge
+                                            icon={null}
+                                            testID="kitchen-plan-prices-confirmed"
+                                            tone={coverage.confirmed === 0 ? 'warning' : 'success'}
+                                            {...(coverage.confirmed === 0
+                                                ? { icon: 'warning' as const }
+                                                : {})}
+                                            label={t('kitchen:plans.confirmedPriceCount', {
+                                                count: coverage.confirmed,
+                                            })}
+                                        />
+                                        <Badge
+                                            icon={null}
+                                            testID="kitchen-plan-prices-placeholder"
+                                            tone={
+                                                coverage.placeholder === 0 ? 'neutral' : 'warning'
+                                            }
+                                            label={t('kitchen:plans.placeholderPriceCount', {
+                                                count: coverage.placeholder,
+                                            })}
+                                        />
+                                        <Badge
+                                            icon={null}
+                                            testID="kitchen-plan-prices-unpriced"
+                                            tone="neutral"
+                                            label={t('kitchen:plans.unpricedCount', {
+                                                count: coverage.unpriced,
+                                            })}
+                                        />
+                                    </Inline>
+                                )}
                             </Stack>
                         </FormSection>
                     )}

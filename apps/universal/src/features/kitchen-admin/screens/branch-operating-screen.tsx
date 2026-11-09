@@ -373,6 +373,7 @@ function BranchOperatingEditor() {
                             <Button
                                 testID="kitchen-branch-new"
                                 variant="secondary"
+                                size="sm"
                                 label={t('kitchen:branchClosures.newBranch')}
                                 onPress={() => {
                                     setAddingBranch(true);
@@ -421,10 +422,11 @@ function BranchOperatingEditor() {
                 <View className="z-auto min-w-0 flex-1 flex-col gap-base">
                     <FormSection
                         first
-                        variant="card"
+                        variant="panel"
                         testID="kitchen-branch-hours-week"
                         title={t('kitchen:branchHours.weekTitle')}
                         description={t('kitchen:branchHours.cutOffHint')}
+                        printDescription
                     >
                         <OperatingWeekRows
                             testID="kitchen-branch-hours-rows"
@@ -464,6 +466,7 @@ function BranchOperatingEditor() {
                  */}
                 <RecordSummaryAside
                     testID="kitchen-branch-hours-summary"
+                    variant="panel"
                     title={t('kitchen:branchHours.summaryTitle')}
                     width={sideBySide ? ASIDE_WIDTH : null}
                     rows={[
@@ -740,10 +743,11 @@ function ServiceTimingsSection({
     return (
         <>
             <FormSection
-                variant="card"
+                variant="panel"
                 testID="kitchen-service-timings"
                 title={t('kitchen:serviceTimings.title')}
                 description={t('kitchen:serviceTimings.description')}
+                printDescription
                 actions={
                     <Button
                         testID="kitchen-service-timings-save"

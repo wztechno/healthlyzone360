@@ -910,7 +910,7 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                 {form.current !== 'zone' ? null : (
                     <FormSection
                         first
-                        variant="card"
+                        variant="panel"
                         testID="kitchen-zone-details"
                         title={t('kitchen:zones.sectionDetails')}
                     >
@@ -1089,7 +1089,7 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                 {form.current !== 'areas' ? null : (
                     <FormSection
                         first
-                        variant="card"
+                        variant="panel"
                         testID="kitchen-zone-areas"
                         nativeID="kitchen-zone-areas"
                         title={t('kitchen:zones.sectionAreas')}
@@ -1133,7 +1133,7 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                 {form.current !== 'windows' ? null : (
                     <FormSection
                         first
-                        variant="card"
+                        variant="panel"
                         testID="kitchen-zone-windows"
                         nativeID="kitchen-zone-windows"
                         title={t('kitchen:zones.sectionWindows')}

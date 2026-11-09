@@ -311,6 +311,215 @@ export function RecordCanopy({
     );
 }
 
+export interface RecordCanopyHeroProps {
+    /** Translated record name. */
+    readonly title: string;
+    /** The name in the other language, under the title. Omitted when there is none to show. */
+    readonly titleAside?: string | undefined;
+    readonly titleAsideLang?: string | undefined;
+    /** The record's handle, first on the line over the title. */
+    readonly reference?: string | null | undefined;
+    /** Translated. Second on that line. Omit where `kind` or `statusChip` says it instead. */
+    readonly status?: string | undefined;
+    /** Translated. Second on that line, in place of `status`: "PKG-001 • Packaging item". */
+    readonly kind?: string | undefined;
+    /** The status as the first pill, for a record with no figure beside its name. */
+    readonly statusChip?: { readonly label: string; readonly tone: RecordCanopyTone } | undefined;
+    /** Filing, unit — translated, one pill each. */
+    readonly chips?: readonly string[] | undefined;
+    /** One quiet line under the chips: who changed it last. */
+    readonly caption?: string | undefined;
+    /** Further quiet lines, each with an id of its own. */
+    readonly captionLines?:
+        readonly { readonly text: string; readonly testID: string }[] | undefined;
+    /** Overrides for a page whose suites already name these. */
+    readonly titleTestID?: string | undefined;
+    readonly statusTestID?: string | undefined;
+    readonly referenceTestID?: string | undefined;
+    readonly kindTestID?: string | undefined;
+    readonly media?: ReactNode | undefined;
+    /** The one figure the record is opened for, large at the inline end. */
+    readonly figure?:
+        | {
+              readonly label: string;
+              readonly value: string;
+              readonly note?: string | undefined;
+          }
+        | undefined;
+    readonly testID: string;
+}
+
+/**
+ * The Ingredient view board's canopy: handle and status over a large name, the filing as pills, and
+ * one large figure at the inline end. A page with one figure to lead with draws this; the band and
+ * its gradients are {@link RecordCanopy}'s, and every other View page keeps that compact head.
+ */
+export function RecordCanopyHero({
+    title,
+    titleAside,
+    titleAsideLang,
+    reference,
+    status,
+    kind,
+    statusChip,
+    chips = [],
+    caption,
+    captionLines = [],
+    titleTestID,
+    statusTestID,
+    referenceTestID,
+    kindTestID,
+    media,
+    figure,
+    testID,
+}: RecordCanopyHeroProps) {
+    const isRtl = useIsRtl();
+    const scrimStart = isRtl ? { x: 1, y: 0 } : { x: 0, y: 0 };
+    const scrimEnd = isRtl ? { x: 0, y: 0 } : { x: 1, y: 0 };
+
+    return (
+        <View
+            testID={testID}
+            role="region"
+            aria-label={title}
+            className="z-10 overflow-hidden rounded-xl shadow-elevation-card"
+        >
+            <LinearGradient
+                colors={gradients.canopy.colours}
+                locations={gradients.canopy.locations}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+            />
+            <LinearGradient
+                colors={gradients.canopyScrim.colours}
+                start={scrimStart}
+                end={scrimEnd}
+                style={StyleSheet.absoluteFill}
+            />
+
+            <View className="flex-row flex-wrap items-end justify-between gap-6 p-6">
+                <View className="min-w-0 shrink flex-row flex-wrap items-center gap-5">
+                    {media}
+                    <View className="min-w-0 shrink flex-col">
+                        <View className="flex-row flex-wrap items-center gap-2">
+                            {reference === undefined ||
+                            reference === null ||
+                            reference === '' ? null : (
+                                <>
+                                    <RNText
+                                        testID={referenceTestID ?? `${testID}-reference`}
+                                        className="text-role-label font-semibold tabular-nums text-content-on-canopy text-start"
+                                    >
+                                        {reference}
+                                    </RNText>
+                                    <View
+                                        aria-hidden
+                                        className="h-1 w-1 rounded-full bg-content-on-canopy"
+                                    />
+                                </>
+                            )}
+                            {status === undefined ? null : (
+                                <RNText
+                                    testID={statusTestID ?? `${testID}-status`}
+                                    className="text-role-label font-semibold text-content-on-canopy text-start"
+                                >
+                                    {status}
+                                </RNText>
+                            )}
+                            {kind === undefined ? null : (
+                                <RNText
+                                    testID={kindTestID ?? `${testID}-kind`}
+                                    className="text-role-label font-semibold text-content-on-canopy text-start"
+                                >
+                                    {kind}
+                                </RNText>
+                            )}
+                        </View>
+                        <RNText
+                            testID={titleTestID ?? `${testID}-title`}
+                            accessibilityRole="header"
+                            aria-level={1}
+                            className="mt-2 font-display text-3xl font-bold text-content-on-canopy text-start lg:text-4xl"
+                        >
+                            {title}
+                        </RNText>
+                        {titleAside === undefined || titleAside === '' ? null : (
+                            <RNText
+                                testID={`${testID}-title-aside`}
+                                {...(titleAsideLang === undefined ? {} : { lang: titleAsideLang })}
+                                className="mt-1 text-base font-semibold text-content-on-canopy-muted text-start"
+                            >
+                                {titleAside}
+                            </RNText>
+                        )}
+                        {chips.length === 0 && statusChip === undefined ? null : (
+                            <View className="mt-[14px] flex-row flex-wrap gap-1.5">
+                                {statusChip === undefined ? null : (
+                                    <View
+                                        testID={statusTestID ?? `${testID}-status`}
+                                        className={`h-7 flex-row items-center rounded-full px-3 ${PILL_CLASS[statusChip.tone]}`}
+                                    >
+                                        <RNText className="text-role-label font-semibold text-content-on-canopy">
+                                            {statusChip.label}
+                                        </RNText>
+                                    </View>
+                                )}
+                                {chips.map((chip) => (
+                                    <View
+                                        key={chip}
+                                        className="h-7 flex-row items-center rounded-full bg-content-on-canopy/20 px-3"
+                                    >
+                                        <RNText className="text-role-label font-semibold text-content-on-canopy">
+                                            {chip}
+                                        </RNText>
+                                    </View>
+                                ))}
+                            </View>
+                        )}
+                        {caption === undefined ? null : (
+                            <RNText
+                                testID={`${testID}-caption`}
+                                className="mt-2.5 text-role-label text-content-on-canopy-muted text-start"
+                            >
+                                {caption}
+                            </RNText>
+                        )}
+                        {captionLines.map((line, index) => (
+                            <RNText
+                                key={line.testID}
+                                testID={line.testID}
+                                className={`${index === 0 ? 'mt-2.5' : 'mt-0.5'} text-role-label text-content-on-canopy-muted text-start`}
+                            >
+                                {line.text}
+                            </RNText>
+                        ))}
+                    </View>
+                </View>
+
+                {figure === undefined ? null : (
+                    <View testID={`${testID}-figure`} className="ms-auto flex-col items-end">
+                        <RNText className="text-role-label font-semibold text-content-on-canopy">
+                            {figure.label}
+                        </RNText>
+                        <RNText
+                            testID={`${testID}-figure-value`}
+                            className="my-0.5 font-display text-3xl font-bold tabular-nums text-content-on-canopy lg:text-4xl"
+                        >
+                            {figure.value}
+                        </RNText>
+                        {figure.note === undefined ? null : (
+                            <RNText className="text-role-label font-semibold text-content-on-canopy">
+                                {figure.note}
+                            </RNText>
+                        )}
+                    </View>
+                )}
+            </View>
+        </View>
+    );
+}
+
 /** A record's glyph in the canopy's media slot, for a record that has no picture. */
 export function RecordCanopyGlyph({ children }: { readonly children: ReactNode }) {
     return (

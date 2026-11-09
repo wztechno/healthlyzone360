@@ -21,7 +21,7 @@ import { PriceListId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -837,6 +837,8 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
                             <>
                                 <Badge
                                     testID={`${PAGE_ID}-status`}
+                                    variant="caps"
+                                    icon={null}
                                     tone={statusTone(data.meta.status)}
                                     label={t(statusKey(data.meta.status))}
                                 />
@@ -949,13 +951,19 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
                 {changes.total === 0 || !canManage ? null : (
                     <View
                         testID={`${PAGE_ID}-save-bar`}
-                        className="z-sticky flex-row flex-wrap items-center gap-snug rounded border border-stroke-subtle bg-surface-raised px-base py-snug shadow-elevation-3 web:sticky web:bottom-0"
+                        className="z-sticky flex-row flex-wrap items-center gap-snug rounded-[18px] bg-surface-canopy-deep px-base py-snug shadow-elevation-3 web:sticky web:bottom-0"
                     >
                         <View className="min-w-0 flex-1 gap-0.5" style={{ flexBasis: 320 }}>
-                            <Text testID={`${PAGE_ID}-changes-title`} variant="strong">
+                            <RNText
+                                testID={`${PAGE_ID}-changes-title`}
+                                className="text-role-strong font-bold text-content-on-canopy text-start"
+                            >
                                 {t('kitchen:priceLists.changesTitle', { count: changes.total })}
-                            </Text>
-                            <Text testID={`${PAGE_ID}-changes-body`} tone="secondary">
+                            </RNText>
+                            <RNText
+                                testID={`${PAGE_ID}-changes-body`}
+                                className="text-role-label text-content-on-canopy-muted text-start"
+                            >
                                 {isPublished
                                     ? t('kitchen:priceLists.changesBodyPublished', {
                                           changes: changeParts,
@@ -963,17 +971,19 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
                                     : t('kitchen:priceLists.changesBodyDraft', {
                                           changes: changeParts,
                                       })}
-                            </Text>
+                            </RNText>
                         </View>
                         <Button
                             testID={`${PAGE_ID}-discard`}
                             variant="secondary"
+                            size="sm"
                             label={t('kitchen:priceLists.discardChanges')}
                             onPress={discard}
                         />
                         {/* The frame's own save id, so the guard and conflict flows find it. */}
                         <Button
                             testID={`${SCREEN_ID}-save`}
+                            size="sm"
                             label={
                                 isPublished
                                     ? t('kitchen:priceLists.saveAndCharge')

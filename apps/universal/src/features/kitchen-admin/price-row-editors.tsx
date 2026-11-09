@@ -1225,7 +1225,7 @@ export function PriceEntriesCard({
     return (
         <View
             testID={`${testID}-entries-card`}
-            className="rounded border border-stroke-subtle bg-surface-raised shadow-elevation-card"
+            className="rounded-[22px] border border-stroke-subtle bg-surface-raised"
         >
             <View
                 testID={`${testID}-entries-toolbar`}

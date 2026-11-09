@@ -5340,7 +5340,9 @@
         "marginNoBasis": "يتطلّب سعر شركات وسعر وحدة",
         "marginUnavailable": "—",
         "priceInvalid": "أدخل مبلغًا، أو اتركه فارغًا.",
-        "currencyUnknown": "لا توجد عملة مسجّلة لهذا المطبخ بعد، لذا لا يمكن حفظ سعر."
+        "currencyUnknown": "لا توجد عملة مسجّلة لهذا المطبخ بعد، لذا لا يمكن حفظ سعر.",
+        "marginB2b": "B2B",
+        "marginB2c": "B2C"
     },
     "composition": {
         "title": "التركيب ومسبّبات الحساسية",
@@ -5396,22 +5398,28 @@
         "nutrientValue": "{{value}} {{unit}} · {{percent}} ٪ من المدخول المرجعي",
         "usedInTitle": "مستخدم في الوصفات",
         "usedInSubtitle": "الوجبات المنشورة التي تستخدم هذا المكوّن",
-        "allergensDietsTitle": "مسببات الحساسية والأنظمة الغذائية",
         "sourcingTitle": "العبوة والتوريد",
         "pricesTitle": "الأسعار",
         "perUnitCaption": "لكل {{unit}}",
-        "priceLadderLabel": "سعر الوحدة {{unit}}، سعر الشركات {{b2b}}، سعر المستهلك {{b2c}}",
         "energyFrom": "مصدر الطاقة",
         "energyShare": "{{nutrient}} {{percent}} ٪",
         "energySplitLabel": "مصدر الطاقة: الدهون {{fat}} ٪، الكربوهيدرات {{carbohydrate}} ٪، البروتين {{protein}} ٪",
         "aliasesLabel": "يُعرف أيضًا باسم",
-        "namesTitle": "الاسم والتعريف"
+        "boughtIn": "وحدة الشراء",
+        "checkedLabel": "تم التحقق",
+        "checkedYes": "نعم",
+        "checkedReview": "يحتاج إلى مراجعة",
+        "checkedNo": "ليس بعد",
+        "energyShareOfRi": "{{percent}} % من الكمية المرجعية"
     },
     "allergenBoard": {
-        "freeFrom": "خالٍ من",
         "diets": "الأنظمة الغذائية",
         "listLabel": "مسببات الحساسية",
-        "pillLabel": "{{state}}: {{allergen}}"
+        "mayContain": "قد يحتوي على {{allergen}}",
+        "choiceNo": "لا",
+        "summaryContains": "يحتوي على {{names}}",
+        "summaryNone": "لا شيء",
+        "summaryJoin": "، "
     },
     "frozenMeals": {
         "create": "وجبة مجمّدة جديدة",
@@ -5423,7 +5431,15 @@
         "statusTitle": "حالة السجل",
         "version": "الإصدار {{version}}",
         "metaSeparator": " · ",
-        "pathSeparator": " › "
+        "pathSeparator": " › ",
+        "eyebrowPackaging": "التغليف",
+        "eyebrowResale": "إعادة بيع",
+        "eyebrowRecipes": "الوصفات",
+        "eyebrowAllergens": "أصناف مسببات الحساسية",
+        "eyebrowPriceLists": "قوائم الأسعار",
+        "eyebrowQuotations": "عروض الأسعار",
+        "eyebrowPlans": "الخطط",
+        "eyebrowZones": "مناطق التوصيل"
     },
     "search": {
         "label": "البحث في الصفحات",

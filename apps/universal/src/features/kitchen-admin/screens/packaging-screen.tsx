@@ -6,6 +6,7 @@ import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
@@ -115,6 +116,8 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
 
     const list = usePackagingList(view);
+    // The table closes the toolbar's card only when it is drawn.
+    const joined = !list.isPending && list.failure === null && list.rows.length > 0;
 
     /**
      * Code → the taxonomy's own name for it.
@@ -160,6 +163,8 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-packaging-view"
+                look="board"
+                eyebrow={t('kitchen:recordView.eyebrowPackaging')}
                 media={
                     <RecordPhoto
                         assetId={`ingredient-${viewing.slug}`}
@@ -197,129 +202,136 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
              * The Lens bar — figures, mix, query row and actions as one object directly over the
              * list it narrows (`lens-bar.tsx`), as on the product list.
              */}
-            <LensBar
-                testID="kitchen-packaging-toolbar"
-                label={t('kitchen:lens.label')}
-                figures={lensFigures(list, t)}
-                {...statusLensMix(list, t)}
-                search={list.query}
-                onSearchChange={list.setQuery}
-                searchLabel={t('kitchen:toolbar.searchLabel')}
-                searchPlaceholder={t('kitchen:packaging.searchPlaceholder')}
-                tokens={statusLensTokens(list, t)}
-                result={
-                    list.total === null
-                        ? null
-                        : t('kitchen:lens.result', { shown: list.shown, total: list.total })
-                }
-                clearLabel={t('kitchen:lens.clear')}
-                {...(list.isUnfiltered ? {} : { onClear: list.clearFilters })}
-                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
-                actions={
-                    canManage ? (
-                        <Inline space="xs" align="center">
-                            <CatalogueTransferActions testID="kitchen-packaging-toolbar" />
-                            {/*
-                             * `/kitchen/packaging/new` — the same form a row's Edit opens,
-                             * handed the packaging series and the packaging category. A new
-                             * record therefore arrives already filed where this list looks,
-                             * which is what stops a successful save from producing a row the
-                             * page that created it cannot show.
-                             */}
-                            <Button
-                                testID="kitchen-packaging-toolbar-create"
-                                label={t('kitchen:packaging.create')}
-                                iconStart={<Icon name="plus" size="sm" />}
-                                onPress={() => {
-                                    list.openEditor('new');
-                                }}
-                            />
-                        </Inline>
-                    ) : undefined
-                }
-            />
-
-            <CatalogueListBody
-                testID="kitchen-packaging"
-                list={list}
-                empty={{
-                    title: t('kitchen:packaging.emptyTitle'),
-                    body: t('kitchen:packaging.emptyBody'),
-                }}
-                filteredEmpty={{
-                    title: t('kitchen:list.filteredEmptyTitle'),
-                    body: t('kitchen:list.filteredEmptyBody'),
-                }}
-            >
-                <CatalogueList
-                    testID="kitchen-packaging-table"
-                    label={t('kitchen:packaging.caption')}
-                    columns={controls.columns}
-                    rows={list.rows}
-                    rowKey={(row) => String(row.id)}
-                    density="sm"
-                    highlightedId={list.lastOpenedId}
-                    // The row body opens the panel, not the editor. Reading is what this page
-                    // is for — what a box costs and how many a batch needs — so the cheap
-                    // answer is the one a click lands on, and Edit is one control away.
-                    onRowPress={(row) => {
-                        list.openView(row);
-                    }}
-                    rowActionsLabel={t('kitchen:list.rowActions')}
-                    // View, Edit, Archive, in the design's order, behind the row's ⋯.
-                    rowActions={(row): readonly MenuItem[] => [
-                        {
-                            key: 'view',
-                            label: t('kitchen:list.view'),
-                            icon: CATALOGUE_ROW_ICONS.view,
-                            testID: `${packagingRowTestId(row.id)}-view`,
-                            onSelect: () => {
-                                list.openView(row);
-                            },
-                        },
-                        // Edit opens `/kitchen/packaging/{item}` — the ingredient form, which
-                        // can edit these rows because they are ingredients, wearing this
-                        // family's series, category and back-link.
-                        {
-                            key: 'edit',
-                            label: t('kitchen:catalogue.edit'),
-                            icon: CATALOGUE_ROW_ICONS.edit,
-                            testID: `${packagingRowTestId(row.id)}-open`,
-                            onSelect: () => {
-                                list.openEditor(String(row.id));
-                            },
-                        },
-                        /*
-                         * Archive is *drawn* for anyone who may manage the catalogue and
-                         * *enabled* only where the server would accept it — the ingredient
-                         * list's rule, and for the same reason.
-                         *
-                         * It used to be omitted on any row the server would refuse, and every
-                         * seeded packaging row is a platform-library row, so a kitchen saw no
-                         * Archive anywhere on the page and could not tell "this row cannot be
-                         * archived" from "this list has no archive". Disabled answers that and
-                         * still never fires the request that would 403. The permission stays a
-                         * hard gate: an action a role cannot perform at all is not a disabled
-                         * control, it is somebody else's button.
-                         */
-                        ...(canManage
-                            ? [
-                                  {
-                                      key: 'archive',
-                                      label: t('kitchen:list.archive'),
-                                      icon: CATALOGUE_ROW_ICONS.archive,
-                                      tone: 'danger' as const,
-                                      disabled: !row.isEditable || row.meta.status === 'retired',
-                                      testID: `${packagingRowTestId(row.id)}-archive`,
-                                      onSelect: () => {
-                                          list.askToArchive(row);
-                                      },
-                                  },
-                              ]
-                            : []),
-                    ]}
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-packaging-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={lensFigures(list, t)}
+                    {...statusLensMix(list, t)}
+                    search={list.query}
+                    onSearchChange={list.setQuery}
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t('kitchen:packaging.searchPlaceholder')}
+                    tokens={statusLensTokens(list, t)}
+                    result={
+                        list.total === null
+                            ? null
+                            : t('kitchen:lens.result', { shown: list.shown, total: list.total })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(list.isUnfiltered ? {} : { onClear: list.clearFilters })}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                    actions={
+                        canManage ? (
+                            <Inline space="xs" align="center">
+                                <CatalogueTransferActions testID="kitchen-packaging-toolbar" />
+                                {/*
+                                 * `/kitchen/packaging/new` — the same form a row's Edit opens,
+                                 * handed the packaging series and the packaging category. A new
+                                 * record therefore arrives already filed where this list looks,
+                                 * which is what stops a successful save from producing a row the
+                                 * page that created it cannot show.
+                                 */}
+                                <Button
+                                    testID="kitchen-packaging-toolbar-create"
+                                    label={t('kitchen:packaging.create')}
+                                    iconStart={<Icon name="plus" size="sm" />}
+                                    onPress={() => {
+                                        list.openEditor('new');
+                                    }}
+                                />
+                            </Inline>
+                        ) : undefined
+                    }
                 />
-            </CatalogueListBody>
+
+                <CatalogueListBody
+                    testID="kitchen-packaging"
+                    list={list}
+                    empty={{
+                        title: t('kitchen:packaging.emptyTitle'),
+                        body: t('kitchen:packaging.emptyBody'),
+                    }}
+                    filteredEmpty={{
+                        title: t('kitchen:list.filteredEmptyTitle'),
+                        body: t('kitchen:list.filteredEmptyBody'),
+                    }}
+                >
+                    <CatalogueList
+                        testID="kitchen-packaging-table"
+                        joined
+                        label={t('kitchen:packaging.caption')}
+                        columns={controls.columns}
+                        rows={list.rows}
+                        rowKey={(row) => String(row.id)}
+                        density="sm"
+                        highlightedId={list.lastOpenedId}
+                        // The row body opens the panel, not the editor. Reading is what this page
+                        // is for — what a box costs and how many a batch needs — so the cheap
+                        // answer is the one a click lands on, and Edit is one control away.
+                        onRowPress={(row) => {
+                            list.openView(row);
+                        }}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        // View, Edit, Archive, in the design's order, behind the row's ⋯.
+                        rowActions={(row): readonly MenuItem[] => [
+                            {
+                                key: 'view',
+                                label: t('kitchen:list.view'),
+                                icon: CATALOGUE_ROW_ICONS.view,
+                                testID: `${packagingRowTestId(row.id)}-view`,
+                                onSelect: () => {
+                                    list.openView(row);
+                                },
+                            },
+                            // Edit opens `/kitchen/packaging/{item}` — the ingredient form, which
+                            // can edit these rows because they are ingredients, wearing this
+                            // family's series, category and back-link.
+                            {
+                                key: 'edit',
+                                label: t('kitchen:catalogue.edit'),
+                                icon: CATALOGUE_ROW_ICONS.edit,
+                                testID: `${packagingRowTestId(row.id)}-open`,
+                                onSelect: () => {
+                                    list.openEditor(String(row.id));
+                                },
+                            },
+                            /*
+                             * Archive is *drawn* for anyone who may manage the catalogue and
+                             * *enabled* only where the server would accept it — the ingredient
+                             * list's rule, and for the same reason.
+                             *
+                             * It used to be omitted on any row the server would refuse, and every
+                             * seeded packaging row is a platform-library row, so a kitchen saw no
+                             * Archive anywhere on the page and could not tell "this row cannot be
+                             * archived" from "this list has no archive". Disabled answers that and
+                             * still never fires the request that would 403. The permission stays a
+                             * hard gate: an action a role cannot perform at all is not a disabled
+                             * control, it is somebody else's button.
+                             */
+                            ...(canManage
+                                ? [
+                                      {
+                                          key: 'archive',
+                                          label: t('kitchen:list.archive'),
+                                          icon: CATALOGUE_ROW_ICONS.archive,
+                                          tone: 'danger' as const,
+                                          disabled:
+                                              !row.isEditable || row.meta.status === 'retired',
+                                          testID: `${packagingRowTestId(row.id)}-archive`,
+                                          onSelect: () => {
+                                              list.askToArchive(row);
+                                          },
+                                      },
+                                  ]
+                                : []),
+                        ]}
+                    />
+                </CatalogueListBody>
+            </View>
 
             {/*
              * Archiving takes the item out of use. The dialog says what that costs — a recipe that
