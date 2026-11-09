@@ -2,6 +2,7 @@ import type { DishOptionDraft, KitchenDishOption } from '@healthy360/api-client/
 import {
     Badge,
     Button,
+    DataList,
     FormSection,
     Icon,
     IconButton,
@@ -12,7 +13,7 @@ import {
     TextInputField,
     useToast,
 } from '@healthy360/design-system';
-import type { SelectOption } from '@healthy360/design-system';
+import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
@@ -35,6 +36,12 @@ import { allergenLabel } from './ops-format.ts';
  * product editor uses. A choice saved before the link existed stays unlinked, and unoffered, until
  * somebody picks its recipe here; Save waits for every choice to have one.
  */
+/** A row with its place in the list, which every edit addresses. */
+interface IndexedOption {
+    readonly row: DishOptionDraft;
+    readonly index: number;
+}
+
 export function DishOptionsSection({
     itemId,
     canManage,
@@ -74,6 +81,136 @@ export function DishOptionsSection({
     );
     const failure = toFailure(replace.error);
 
+    const dash = (
+        <Text tone="secondary" aria-hidden>
+            {t('kitchen:list.noValue')}
+        </Text>
+    );
+    const columns: readonly DataListColumn<IndexedOption>[] = [
+        {
+            key: 'kind',
+            label: t('kitchen:dishOptions.kind'),
+            width: 150,
+            priority: 100,
+            grow: false,
+            render: ({ row, index }) => (
+                <View
+                    testID={`kitchen-dish-option-${String(index)}`}
+                    className="z-auto w-full py-tight"
+                >
+                    <Select
+                        testID={`kitchen-dish-option-${String(index)}-kind`}
+                        label={t('kitchen:dishOptions.kind')}
+                        labelHidden
+                        size="sm"
+                        disabled={!canManage}
+                        value={row.kind}
+                        options={[
+                            { value: 'remove', label: t('kitchen:dishOptions.kindRemove') },
+                            { value: 'choice', label: t('kitchen:dishOptions.kindChoice') },
+                        ]}
+                        onChange={(kind) => {
+                            edit(index, { kind });
+                        }}
+                    />
+                </View>
+            ),
+        },
+        ...(
+            [
+                ['nameEn', 'kitchen:dishOptions.nameEn', 'name-en', false],
+                ['nameAr', 'kitchen:dishOptions.nameAr', 'name-ar', false],
+                ['groupEn', 'kitchen:dishOptions.groupEn', 'group-en', true],
+                ['groupAr', 'kitchen:dishOptions.groupAr', 'group-ar', true],
+            ] as const
+        ).map(([field, labelKey, suffix, choiceOnly]): DataListColumn<IndexedOption> => ({
+            key: field,
+            label: t(labelKey),
+            width: 140,
+            priority: choiceOnly ? 80 : 95,
+            render: ({ row, index }) =>
+                choiceOnly && row.kind === 'remove' ? (
+                    dash
+                ) : (
+                    <View className="z-auto w-full py-tight">
+                        <TextInputField
+                            testID={`kitchen-dish-option-${String(index)}-${suffix}`}
+                            id={`kitchen-dish-option-${String(index)}-${suffix}`}
+                            label={t(labelKey)}
+                            labelHidden
+                            size="sm"
+                            disabled={!canManage}
+                            value={row[field] ?? ''}
+                            onChangeText={(next) => {
+                                edit(index, { [field]: next });
+                            }}
+                        />
+                    </View>
+                ),
+        })),
+        {
+            key: 'recipe',
+            label: t('kitchen:dishOptions.recipe'),
+            width: 220,
+            priority: 90,
+            fill: true,
+            render: ({ row, index }) =>
+                row.kind === 'remove' ? (
+                    dash
+                ) : (
+                    <View className="z-auto w-full gap-hair py-tight">
+                        <Select
+                            testID={`kitchen-dish-option-${String(index)}-recipe`}
+                            id={`kitchen-dish-option-${String(index)}-recipe`}
+                            label={t('kitchen:dishOptions.recipe')}
+                            labelHidden
+                            placeholder={t('kitchen:dishOptions.recipePlaceholder')}
+                            size="sm"
+                            searchable
+                            loading={recipes.isPending}
+                            disabled={!canManage}
+                            options={recipeOptions}
+                            value={row.recipeId}
+                            onChange={(recipeId) => {
+                                // The label is the saved recipe's until this saves.
+                                edit(index, { recipeId, allergens: null });
+                            }}
+                        />
+                        <ChoiceAllergens
+                            testID={`kitchen-dish-option-${String(index)}-allergens`}
+                            row={row}
+                            saved={read.data?.find((option) => option.id === row.id)}
+                            t={t}
+                        />
+                    </View>
+                ),
+        },
+        ...(canManage
+            ? [
+                  {
+                      key: 'remove',
+                      label: '',
+                      width: 48,
+                      priority: 99,
+                      grow: false,
+                      align: 'end' as const,
+                      render: ({ index }: IndexedOption) => (
+                          <IconButton
+                              testID={`kitchen-dish-option-${String(index)}-remove`}
+                              icon={<Icon name="close" size="sm" />}
+                              variant="ghost"
+                              size="sm"
+                              label={t('kitchen:dishOptions.removeRow')}
+                              onPress={() => {
+                                  setRows(rows.filter((_, at) => at !== index));
+                              }}
+                          />
+                      ),
+                  },
+              ]
+            : []),
+    ];
+
     return (
         <FormSection
             variant="panel"
@@ -82,128 +219,21 @@ export function DishOptionsSection({
             description={t('kitchen:dishOptions.aside')}
         >
             <Stack space="sm">
-                {rows.map((row, index) => (
-                    <View
-                        key={row.id ?? `new-${String(index)}`}
-                        testID={`kitchen-dish-option-${String(index)}`}
-                        className="flex-row flex-wrap items-end gap-tight border-b border-stroke-subtle pb-tight"
-                    >
-                        <View className="w-40">
-                            <Select
-                                testID={`kitchen-dish-option-${String(index)}-kind`}
-                                label={t('kitchen:dishOptions.kind')}
-                                size="sm"
-                                disabled={!canManage}
-                                value={row.kind}
-                                options={[
-                                    { value: 'remove', label: t('kitchen:dishOptions.kindRemove') },
-                                    { value: 'choice', label: t('kitchen:dishOptions.kindChoice') },
-                                ]}
-                                onChange={(kind) => {
-                                    edit(index, { kind });
-                                }}
-                            />
-                        </View>
-                        {row.kind === 'remove' ? null : (
-                            <>
-                                <View className="w-32">
-                                    <TextInputField
-                                        testID={`kitchen-dish-option-${String(index)}-group-en`}
-                                        id={`kitchen-dish-option-${String(index)}-group-en`}
-                                        label={t('kitchen:dishOptions.groupEn')}
-                                        size="sm"
-                                        disabled={!canManage}
-                                        value={row.groupEn ?? ''}
-                                        onChangeText={(groupEn) => {
-                                            edit(index, { groupEn });
-                                        }}
-                                    />
-                                </View>
-                                <View className="w-32">
-                                    <TextInputField
-                                        testID={`kitchen-dish-option-${String(index)}-group-ar`}
-                                        id={`kitchen-dish-option-${String(index)}-group-ar`}
-                                        label={t('kitchen:dishOptions.groupAr')}
-                                        size="sm"
-                                        disabled={!canManage}
-                                        value={row.groupAr ?? ''}
-                                        onChangeText={(groupAr) => {
-                                            edit(index, { groupAr });
-                                        }}
-                                    />
-                                </View>
-                            </>
-                        )}
-                        <View className="w-40">
-                            <TextInputField
-                                testID={`kitchen-dish-option-${String(index)}-name-en`}
-                                id={`kitchen-dish-option-${String(index)}-name-en`}
-                                label={t('kitchen:dishOptions.nameEn')}
-                                size="sm"
-                                disabled={!canManage}
-                                value={row.nameEn}
-                                onChangeText={(nameEn) => {
-                                    edit(index, { nameEn });
-                                }}
-                            />
-                        </View>
-                        <View className="w-40">
-                            <TextInputField
-                                testID={`kitchen-dish-option-${String(index)}-name-ar`}
-                                id={`kitchen-dish-option-${String(index)}-name-ar`}
-                                label={t('kitchen:dishOptions.nameAr')}
-                                size="sm"
-                                disabled={!canManage}
-                                value={row.nameAr}
-                                onChangeText={(nameAr) => {
-                                    edit(index, { nameAr });
-                                }}
-                            />
-                        </View>
-                        {row.kind === 'remove' ? null : (
-                            <View className="w-56">
-                                <Select
-                                    testID={`kitchen-dish-option-${String(index)}-recipe`}
-                                    id={`kitchen-dish-option-${String(index)}-recipe`}
-                                    label={t('kitchen:dishOptions.recipe')}
-                                    placeholder={t('kitchen:dishOptions.recipePlaceholder')}
-                                    size="sm"
-                                    searchable
-                                    loading={recipes.isPending}
-                                    disabled={!canManage}
-                                    options={recipeOptions}
-                                    value={row.recipeId}
-                                    onChange={(recipeId) => {
-                                        // The label is the saved recipe's until this saves.
-                                        edit(index, { recipeId, allergens: null });
-                                    }}
-                                />
-                            </View>
-                        )}
-                        {canManage ? (
-                            <IconButton
-                                testID={`kitchen-dish-option-${String(index)}-remove`}
-                                icon={<Icon name="close" size="sm" />}
-                                variant="secondary"
-                                size="sm"
-                                label={t('kitchen:dishOptions.removeRow')}
-                                onPress={() => {
-                                    setRows(rows.filter((_, at) => at !== index));
-                                }}
-                            />
-                        ) : null}
-                        {row.kind === 'remove' ? null : (
-                            <View className="w-full">
-                                <ChoiceAllergens
-                                    testID={`kitchen-dish-option-${String(index)}-allergens`}
-                                    row={row}
-                                    saved={read.data?.find((option) => option.id === row.id)}
-                                    t={t}
-                                />
-                            </View>
-                        )}
-                    </View>
-                ))}
+                {/*
+                 * The board's table: one line per change, headed Kind, Name, Name in Arabic, Group,
+                 * Group in Arabic, Recipe. A removal has no group or recipe, so those cells are a
+                 * quiet dash; a choice's allergens sit under its recipe.
+                 */}
+                {rows.length === 0 ? null : (
+                    <DataList<IndexedOption>
+                        testID="kitchen-dish-options-table"
+                        label={t('kitchen:dishOptions.title')}
+                        columns={columns}
+                        rows={rows.map((row, index) => ({ row, index }))}
+                        rowKey={({ row, index }) => row.id ?? `new-${String(index)}`}
+                        density="sm"
+                    />
+                )}
 
                 {failure === null ? null : (
                     <Text variant="caption" tone="danger" testID="kitchen-dish-options-error">

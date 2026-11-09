@@ -10,9 +10,9 @@ import {
     Button,
     Callout,
     Dialog,
-    EmptyState,
     ErrorState,
     FilterChip,
+    FormGrid,
     FormSection,
     FormSkeleton,
     Icon,
@@ -1019,23 +1019,77 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
             actionsPlacement="header"
             headerVariant="plain"
             embedded
-            rail={
-                /*
-                 * Two cards: what the recipe decided, and the number nobody outside the kitchen
-                 * sees. Both render on an unsaved meal too — two empty states say more about what
-                 * this record still needs than a blank column does. What stops publication is in the
-                 * page's issue tray.
-                 */
-                <Stack space="md">
+            primaryAction={
+                <Inline space="xs" wrap justify="end">
+                    {/*
+                     * The proof, offered where it is useful. In this world the marketplace reads
+                     * the same catalogue, so this link goes to the page a customer sees — which is
+                     * the only way the person who pressed Publish can check what they published.
+                     */}
+                    {isPublished && data !== undefined ? (
+                        <Button
+                            testID="kitchen-meal-view-public"
+                            variant="quiet"
+                            label={t('kitchen:meals.viewPublic')}
+                            onPress={() => {
+                                guard.intercept(() => {
+                                    // With the way back to this page, which the shop offers
+                                    // staff above its trail.
+                                    router.push(
+                                        withReturnTo(
+                                            `/meals/${String(data.id)}`,
+                                            returnHref,
+                                        ) as never,
+                                    );
+                                });
+                            }}
+                        />
+                    ) : null}
+                    {!canManage ? null : isPublished ? (
+                        <Button
+                            testID="kitchen-meal-retire"
+                            variant="secondary"
+                            label={t('kitchen:meals.retire')}
+                            onPress={() => {
+                                setShowRetire(true);
+                            }}
+                        />
+                    ) : (
+                        <Button
+                            testID="kitchen-meal-publish"
+                            label={t('kitchen:publish.action')}
+                            // Visibly disabled while any check in the tray fails. The dialog's
+                            // confirm keeps the same guard.
+                            disabled={publishBlockers.length > 0 || quarantined}
+                            onPress={() => {
+                                setShowPublish(true);
+                            }}
+                        />
+                    )}
+                </Inline>
+            }
+        >
+            {/*
+             * Each section is its own card (`FormSection variant="panel"`), as on every record
+             * editor. `EditorFrame` draws no panel around them, so these are the only rectangles.
+             * `loose` between cards, the ingredient editor's gap.
+             */}
+            <View className="z-auto flex-col gap-loose">
+                {/*
+                 * What the recipe decided and the confidential margin, in one strip on top. Both
+                 * render on an unsaved meal too: two empty states say more about what this record
+                 * still needs than a blank strip does. What stops publication is in the issue tray.
+                 */}
+                <View
+                    testID="kitchen-meal-summary"
+                    className="z-auto flex-row flex-wrap items-start gap-base rounded-[18px] border border-stroke-subtle bg-surface-raised p-4"
+                >
                     {/*
                      * Derived and frozen — see the module note. The provenance line stays because
                      * "which version of the recipe is this label from?" is the question a person has
                      * when the label and the recipe disagree.
                      */}
-                    <View
-                        testID="kitchen-meal-allergens"
-                        className="gap-2 rounded-panel border border-stroke-subtle bg-surface-raised p-4"
-                    >
+                    <View testID="kitchen-meal-allergens" className="min-w-0 flex-1 gap-2">
                         <Inline space="xs" align="center" wrap>
                             <Text variant="micro" tone="secondary">
                                 {t('kitchen:meals.allergensRailTitle')}
@@ -1097,7 +1151,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
 
                     <View
                         testID="kitchen-meal-confidential"
-                        className="gap-2 rounded-panel border border-stroke-subtle bg-surface-raised p-4"
+                        className="gap-2 border-s border-stroke-subtle ps-base"
                     >
                         <Inline space="xs" align="center" wrap>
                             <Text variant="micro" tone="secondary">
@@ -1127,64 +1181,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                             </Text>
                         )}
                     </View>
-                </Stack>
-            }
-            primaryAction={
-                <Inline space="xs" wrap justify="end">
-                    {/*
-                     * The proof, offered where it is useful. In this world the marketplace reads
-                     * the same catalogue, so this link goes to the page a customer sees — which is
-                     * the only way the person who pressed Publish can check what they published.
-                     */}
-                    {isPublished && data !== undefined ? (
-                        <Button
-                            testID="kitchen-meal-view-public"
-                            variant="quiet"
-                            label={t('kitchen:meals.viewPublic')}
-                            onPress={() => {
-                                guard.intercept(() => {
-                                    // With the way back to this page, which the shop offers
-                                    // staff above its trail.
-                                    router.push(
-                                        withReturnTo(
-                                            `/meals/${String(data.id)}`,
-                                            returnHref,
-                                        ) as never,
-                                    );
-                                });
-                            }}
-                        />
-                    ) : null}
-                    {!canManage ? null : isPublished ? (
-                        <Button
-                            testID="kitchen-meal-retire"
-                            variant="secondary"
-                            label={t('kitchen:meals.retire')}
-                            onPress={() => {
-                                setShowRetire(true);
-                            }}
-                        />
-                    ) : (
-                        <Button
-                            testID="kitchen-meal-publish"
-                            label={t('kitchen:publish.action')}
-                            // Visibly disabled while any check in the tray fails. The dialog's
-                            // confirm keeps the same guard.
-                            disabled={publishBlockers.length > 0 || quarantined}
-                            onPress={() => {
-                                setShowPublish(true);
-                            }}
-                        />
-                    )}
-                </Inline>
-            }
-        >
-            {/*
-             * Each section is its own card (`FormSection variant="panel"`), as on every record
-             * editor. `EditorFrame` draws no panel around them, so these are the only rectangles.
-             * `loose` between cards, the ingredient editor's gap.
-             */}
-            <View className="z-auto flex-col gap-loose">
+                </View>
                 {/* ── identity ─────────────────────────────────────────────────────────────── */}
                 <FormSection
                     variant="panel"
@@ -1194,10 +1191,11 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                     // what the customer reads — a different name and record.
                     title={t('kitchen:forms.menuListing')}
                 >
-                    <Stack space="md">
+                    <FormGrid track="half" maxColumns={4} testID="kitchen-meal-details-grid">
                         <BilingualField
+                            span={4}
                             testID="kitchen-meal-name"
-                            layout="fill"
+                            layout="row"
                             fieldLabel={t('kitchen:fields.name')}
                             value={details.name}
                             placeholder={{
@@ -1220,6 +1218,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                         />
 
                         <BilingualField
+                            span={4}
                             testID="kitchen-meal-description"
                             layout="fill"
                             fieldLabel={t('kitchen:meals.descriptionLabel')}
@@ -1247,6 +1246,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                          * shelf and carries half its nutrition.
                          */}
                         <TextInputField
+                            span={1}
                             testID="kitchen-meal-portion"
                             id="kitchen-meal-portion"
                             label={t('kitchen:meals.portionLabel')}
@@ -1265,9 +1265,8 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                 markDetailsDirty();
                             }}
                         />
-                    </Stack>
+                    </FormGrid>
                 </FormSection>
-
                 {/* ── production and finished stock ────────────────────────────────────────── */}
                 {/*
                  * The chain the server checks, in the order it checks it (PROD1). A meal sells one
@@ -1288,49 +1287,46 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                     title={t('kitchen:meals.sectionProduction')}
                 >
                     <Stack space="md">
-                        <View className="z-auto flex-col gap-base md:flex-row">
-                            <View className="z-auto min-w-0 flex-1">
-                                <Select
-                                    testID="kitchen-meal-production-mode"
-                                    id="kitchen-meal-production-mode"
-                                    label={t('kitchen:meals.productionModeLabel')}
-                                    hint={t('kitchen:meals.productionModeHint')}
-                                    disabled={!canManage}
-                                    options={productionModeOptions}
-                                    value={details.productionMode ?? NO_MODE}
-                                    {...server.flag('production_mode')}
-                                    onChange={(next) => {
-                                        setDetails({
-                                            ...details,
-                                            productionMode:
-                                                next === NO_MODE ? null : (next as ProductionMode),
-                                        });
-                                        markDetailsDirty();
-                                    }}
-                                />
-                            </View>
-
-                            <View className="z-auto min-w-0 flex-1">
-                                <Select
-                                    testID="kitchen-meal-produced-ingredient"
-                                    id="kitchen-meal-produced-ingredient"
-                                    label={t('kitchen:meals.producedIngredientLabel')}
-                                    hint={t('kitchen:meals.producedIngredientHint')}
-                                    searchable
-                                    disabled={!canManage}
-                                    options={ingredientOptions}
-                                    value={details.ingredientId ?? NO_INGREDIENT}
-                                    {...server.flag('ingredient_id')}
-                                    onChange={(next) => {
-                                        setDetails({
-                                            ...details,
-                                            ingredientId: next === NO_INGREDIENT ? null : next,
-                                        });
-                                        markDetailsDirty();
-                                    }}
-                                />
-                            </View>
-                        </View>
+                        <FormGrid track="half" maxColumns={4} testID="kitchen-meal-production-grid">
+                            <Select
+                                span={2}
+                                testID="kitchen-meal-production-mode"
+                                id="kitchen-meal-production-mode"
+                                label={t('kitchen:meals.productionModeLabel')}
+                                hint={t('kitchen:meals.productionModeHint')}
+                                disabled={!canManage}
+                                options={productionModeOptions}
+                                value={details.productionMode ?? NO_MODE}
+                                {...server.flag('production_mode')}
+                                onChange={(next) => {
+                                    setDetails({
+                                        ...details,
+                                        productionMode:
+                                            next === NO_MODE ? null : (next as ProductionMode),
+                                    });
+                                    markDetailsDirty();
+                                }}
+                            />
+                            <Select
+                                span={2}
+                                testID="kitchen-meal-produced-ingredient"
+                                id="kitchen-meal-produced-ingredient"
+                                label={t('kitchen:meals.producedIngredientLabel')}
+                                hint={t('kitchen:meals.producedIngredientHint')}
+                                searchable
+                                disabled={!canManage}
+                                options={ingredientOptions}
+                                value={details.ingredientId ?? NO_INGREDIENT}
+                                {...server.flag('ingredient_id')}
+                                onChange={(next) => {
+                                    setDetails({
+                                        ...details,
+                                        ingredientId: next === NO_INGREDIENT ? null : next,
+                                    });
+                                    markDetailsDirty();
+                                }}
+                            />
+                        </FormGrid>
 
                         <Switch
                             testID="kitchen-meal-finished-stock"
@@ -1372,55 +1368,55 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                 body={t('kitchen:meals.netContentUnitsForbidden')}
                             />
                         ) : (
-                            <View className="z-auto flex-col gap-base md:flex-row">
-                                <View className="z-auto min-w-0 flex-1">
-                                    <TextInputField
-                                        testID="kitchen-meal-net-content"
-                                        id="kitchen-meal-net-content"
-                                        label={t('kitchen:meals.netContentLabel')}
-                                        hint={t('kitchen:meals.netContentHint')}
-                                        placeholder={t('kitchen:fields.quantityPlaceholder')}
-                                        value={details.netContentQuantity}
-                                        inputMode="decimal"
-                                        required={producedShelfWeighed}
-                                        disabled={!canManage}
-                                        {...(netContentInvalid
-                                            ? { error: t('kitchen:meals.netContentInvalid') }
-                                            : netContentRequired
-                                              ? { error: t('kitchen:meals.netContentRequired') }
-                                              : {})}
-                                        {...server.flag('net_content_quantity')}
-                                        onChangeText={(next) => {
-                                            setDetails({ ...details, netContentQuantity: next });
-                                            markDetailsDirty();
-                                        }}
-                                    />
-                                </View>
-
-                                <View className="z-auto min-w-0 flex-1">
-                                    <Select
-                                        testID="kitchen-meal-net-content-unit"
-                                        id="kitchen-meal-net-content-unit"
-                                        label={t('kitchen:meals.netContentUnitLabel')}
-                                        searchable
-                                        disabled={!canManage}
-                                        options={unitOptions}
-                                        value={details.netContentUnitId ?? ''}
-                                        {...(netContentUnitMissing
-                                            ? { error: t('kitchen:meals.netContentUnitMissing') }
-                                            : {})}
-                                        {...server.flag('net_content_unit_id')}
-                                        onChange={(next) => {
-                                            setDetails({ ...details, netContentUnitId: next });
-                                            markDetailsDirty();
-                                        }}
-                                    />
-                                </View>
-                            </View>
+                            <FormGrid
+                                track="half"
+                                maxColumns={4}
+                                testID="kitchen-meal-net-content-grid"
+                            >
+                                <TextInputField
+                                    span={1}
+                                    testID="kitchen-meal-net-content"
+                                    id="kitchen-meal-net-content"
+                                    label={t('kitchen:meals.netContentLabel')}
+                                    hint={t('kitchen:meals.netContentHint')}
+                                    placeholder={t('kitchen:fields.quantityPlaceholder')}
+                                    value={details.netContentQuantity}
+                                    inputMode="decimal"
+                                    required={producedShelfWeighed}
+                                    disabled={!canManage}
+                                    {...(netContentInvalid
+                                        ? { error: t('kitchen:meals.netContentInvalid') }
+                                        : netContentRequired
+                                          ? { error: t('kitchen:meals.netContentRequired') }
+                                          : {})}
+                                    {...server.flag('net_content_quantity')}
+                                    onChangeText={(next) => {
+                                        setDetails({ ...details, netContentQuantity: next });
+                                        markDetailsDirty();
+                                    }}
+                                />
+                                <Select
+                                    span={1}
+                                    testID="kitchen-meal-net-content-unit"
+                                    id="kitchen-meal-net-content-unit"
+                                    label={t('kitchen:meals.netContentUnitLabel')}
+                                    searchable
+                                    disabled={!canManage}
+                                    options={unitOptions}
+                                    value={details.netContentUnitId ?? ''}
+                                    {...(netContentUnitMissing
+                                        ? { error: t('kitchen:meals.netContentUnitMissing') }
+                                        : {})}
+                                    {...server.flag('net_content_unit_id')}
+                                    onChange={(next) => {
+                                        setDetails({ ...details, netContentUnitId: next });
+                                        markDetailsDirty();
+                                    }}
+                                />
+                            </FormGrid>
                         )}
                     </Stack>
                 </FormSection>
-
                 {/* ── where it sits in the day ──────────────────────────────────────────────── */}
                 {/*
                  * Chips rather than a multi-select: the vocabulary is a short, closed platform enum
@@ -1456,12 +1452,9 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                         ))}
                     </Inline>
                 </FormSection>
-
                 <DishOptionsSection itemId={String(meal)} canManage={canManage} />
-
                 {/* ── B2B / B2C weight and price ──────────────────────────────────────────── */}
                 <ChannelPricesSection itemId={meal} />
-
                 {/* ── service days ──────────────────────────────────────────────────────────── */}
                 <FormSection
                     variant="panel"
@@ -1497,11 +1490,20 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                 >
                     <Stack space="md">
                         {days.length === 0 ? (
-                            <EmptyState
+                            /*
+                             * The board's small dashed box rather than the large empty state: an
+                             * empty table inside a section, with what to do behind the (i).
+                             */
+                            <View
                                 testID="kitchen-meal-availability-empty"
-                                title={t('kitchen:availability.emptyTitle')}
-                                body={t('kitchen:availability.emptyBody')}
-                            />
+                                className="flex-row items-center gap-hair rounded-lg border border-dashed border-stroke px-base py-snug"
+                            >
+                                <Text variant="strong">{t('kitchen:availability.emptyTitle')}</Text>
+                                <InfoTip
+                                    label={t('kitchen:availability.emptyTitle')}
+                                    text={t('kitchen:availability.emptyBody')}
+                                />
+                            </View>
                         ) : (
                             <MealAvailabilityEditor
                                 testID="kitchen-meal-availability-editor"
@@ -1535,7 +1537,6 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                         )}
                     </Stack>
                 </FormSection>
-
                 {/* ── source transcription ──────────────────────────────────────────────────── */}
                 {data?.composition == null && data?.kitchenCategory == null ? null : (
                     <FormSection

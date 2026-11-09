@@ -1,10 +1,12 @@
 import type { ChannelAvailability, LocalisedText } from '@healthy360/api-client/contracts';
 import {
     Checkbox,
+    DATA_LIST_HEAD_TEXT_CLASS,
     DataList,
     DateField,
     Icon,
     IconButton,
+    InfoTip,
     Select,
     Stack,
     Switch,
@@ -21,7 +23,7 @@ import type { MeasureUnit } from '@healthy360/nutrition';
 import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 
 import {
     UNIT_DIMENSIONS,
@@ -777,6 +779,18 @@ export function MealAvailabilityEditor({
         {
             key: 'remaining',
             label: t('kitchen:availability.remainingHeader'),
+            // The board's (i) on the header: what an empty box means, said once for the column.
+            renderHeader: () => (
+                <View className="flex-row items-center gap-hair">
+                    <RNText numberOfLines={1} className={DATA_LIST_HEAD_TEXT_CLASS}>
+                        {t('kitchen:availability.remainingHeader')}
+                    </RNText>
+                    <InfoTip
+                        label={t('kitchen:availability.remainingHeader')}
+                        text={t('kitchen:availability.remainingHint')}
+                    />
+                </View>
+            ),
             width: ANSWER_TRACK,
             priority: UNDROPPABLE_PRIORITY,
             fill: true,
@@ -804,6 +818,18 @@ export function MealAvailabilityEditor({
         {
             key: 'cutoff',
             label: t('kitchen:availability.cutOffHeader'),
+            // The board's (i) on the header: what an empty box means, said once for the column.
+            renderHeader: () => (
+                <View className="flex-row items-center gap-hair">
+                    <RNText numberOfLines={1} className={DATA_LIST_HEAD_TEXT_CLASS}>
+                        {t('kitchen:availability.cutOffHeader')}
+                    </RNText>
+                    <InfoTip
+                        label={t('kitchen:availability.cutOffHeader')}
+                        text={t('kitchen:availability.cutOffHint')}
+                    />
+                </View>
+            ),
             width: ANSWER_TRACK,
             priority: UNDROPPABLE_PRIORITY,
             fill: true,
