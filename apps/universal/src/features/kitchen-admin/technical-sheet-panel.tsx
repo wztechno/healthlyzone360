@@ -378,9 +378,14 @@ export function TechnicalSheetPanel({
                         <Stack space="xs" testID={`${testID}-cost`}>
                             <Inline space="sm">
                                 <Heading level={3}>{t('kitchen:recipes.sheetCostSaved')}</Heading>
-                                <Badge tone="warning" label={t('kitchen:rollup.confidential')} />
+                                <Badge
+                                    icon={null}
+                                    tone="warning"
+                                    label={t('kitchen:rollup.confidential')}
+                                />
                                 {figures.basisMismatch ? (
                                     <Badge
+                                        icon={null}
                                         tone="warning"
                                         testID={`${testID}-cost-mismatch`}
                                         label={t('kitchen:recipes.sheetBasisMismatch')}
@@ -518,6 +523,7 @@ export function TechnicalSheetPanel({
 
                                     {weekly.block.hasCarriedForwardPrices ? (
                                         <Badge
+                                            icon={null}
                                             tone="warning"
                                             label={t('kitchen:recipes.sheetWeeklyCarried')}
                                             testID={`${testID}-weekly-carried-forward`}
@@ -526,6 +532,7 @@ export function TechnicalSheetPanel({
 
                                     {weekly.needingPrice > 0 ? (
                                         <Badge
+                                            icon={null}
                                             tone="warning"
                                             label={t('kitchen:recipes.sheetWeeklyNeedsPrice', {
                                                 count: weekly.needingPrice,

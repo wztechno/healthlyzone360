@@ -76,14 +76,10 @@ export function DishOptionsSection({
 
     return (
         <FormSection
-            variant="card"
+            variant="panel"
             testID="kitchen-dish-options"
             title={t('kitchen:dishOptions.title')}
-            aside={
-                <Text variant="caption" tone="secondary">
-                    {t('kitchen:dishOptions.aside')}
-                </Text>
-            }
+            description={t('kitchen:dishOptions.aside')}
         >
             <Stack space="sm">
                 {rows.map((row, index) => (
@@ -316,6 +312,7 @@ function ChoiceAllergens({
         <Inline space="xs" wrap testID={testID}>
             {row.allergens.map(({ code }) => (
                 <Badge
+                    icon={null}
                     key={code}
                     testID={`${testID}-${code}`}
                     tone="danger"

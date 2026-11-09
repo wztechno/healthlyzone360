@@ -120,6 +120,7 @@ export function RecipeVersionMenu({
                                         </Text>
                                         {version.isCurrent ? (
                                             <Badge
+                                                icon={null}
                                                 testID={`${rowTestId}-current`}
                                                 tone="info"
                                                 label={t('kitchen:recipes.currentVersion')}

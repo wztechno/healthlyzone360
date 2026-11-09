@@ -1034,7 +1034,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                      */}
                     <View
                         testID="kitchen-meal-allergens"
-                        className="gap-2 rounded-panel border border-stroke-subtle bg-surface-raised p-4 shadow-elevation-card"
+                        className="gap-2 rounded-panel border border-stroke-subtle bg-surface-raised p-4"
                     >
                         <Inline space="xs" align="center" wrap>
                             <Text variant="micro" tone="secondary">
@@ -1054,6 +1054,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                 />
                             )}
                             <Badge
+                                icon={null}
                                 testID="kitchen-meal-allergens-source"
                                 tone="neutral"
                                 label={t('kitchen:meals.allergensFromRecipe')}
@@ -1077,6 +1078,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                             <Inline space="xs" wrap>
                                 {data.allergens.map((code) => (
                                     <Badge
+                                        icon={null}
                                         key={code}
                                         testID={`kitchen-meal-allergen-${String(code)}`}
                                         tone="danger"
@@ -1095,7 +1097,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
 
                     <View
                         testID="kitchen-meal-confidential"
-                        className="gap-2 rounded-panel border border-stroke-subtle bg-surface-raised p-4 shadow-elevation-card"
+                        className="gap-2 rounded-panel border border-stroke-subtle bg-surface-raised p-4"
                     >
                         <Inline space="xs" align="center" wrap>
                             <Text variant="micro" tone="secondary">
@@ -1104,7 +1106,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                             <Badge
                                 testID="kitchen-meal-confidential-badge"
                                 tone="danger"
-                                icon="eyeOff"
+                                icon={null}
                                 label={t('kitchen:meals.confidential')}
                             />
                         </Inline>
@@ -1178,14 +1180,14 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
             }
         >
             {/*
-             * Each section is its own card (`FormSection variant="card"`), as on every record
+             * Each section is its own card (`FormSection variant="panel"`), as on every record
              * editor. `EditorFrame` draws no panel around them, so these are the only rectangles.
              * `loose` between cards, the ingredient editor's gap.
              */}
             <View className="z-auto flex-col gap-loose">
                 {/* ── identity ─────────────────────────────────────────────────────────────── */}
                 <FormSection
-                    variant="card"
+                    variant="panel"
                     first
                     testID="kitchen-meal-details"
                     // Not "Identity": the recipe's own first card is called that, and this one is
@@ -1280,7 +1282,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                  * two fields somebody has to find again.
                  */}
                 <FormSection
-                    variant="card"
+                    variant="panel"
                     testID="kitchen-meal-production"
                     nativeID="kitchen-meal-production"
                     title={t('kitchen:meals.sectionProduction')}
@@ -1428,7 +1430,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                  * to lie about the interaction.
                  */}
                 <FormSection
-                    variant="card"
+                    variant="panel"
                     testID="kitchen-meal-types-section"
                     title={t('kitchen:meals.sectionWhen')}
                 >
@@ -1457,40 +1459,12 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
 
                 <DishOptionsSection itemId={String(meal)} canManage={canManage} />
 
-                {/* ── source transcription ──────────────────────────────────────────────────── */}
-                {data?.composition == null && data?.kitchenCategory == null ? null : (
-                    <FormSection
-                        variant="card"
-                        testID="kitchen-meal-composition"
-                        title={t('kitchen:fields.composition')}
-                    >
-                        <Stack space="xs">
-                            {data.kitchenCategory === null ? null : (
-                                <Text
-                                    testID="kitchen-meal-composition-category"
-                                    variant="caption"
-                                    tone="secondary"
-                                >
-                                    {data.kitchenSubcategory === null
-                                        ? data.kitchenCategory
-                                        : `${data.kitchenCategory} / ${data.kitchenSubcategory}`}
-                                </Text>
-                            )}
-                            {data.composition === null ? null : (
-                                <Text testID="kitchen-meal-composition-text">
-                                    {data.composition}
-                                </Text>
-                            )}
-                        </Stack>
-                    </FormSection>
-                )}
-
                 {/* ── B2B / B2C weight and price ──────────────────────────────────────────── */}
                 <ChannelPricesSection itemId={meal} />
 
                 {/* ── service days ──────────────────────────────────────────────────────────── */}
                 <FormSection
-                    variant="card"
+                    variant="panel"
                     testID="kitchen-meal-availability"
                     nativeID="kitchen-meal-availability"
                     title={t('kitchen:availability.sectionServiceDays')}
@@ -1561,6 +1535,34 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                         )}
                     </Stack>
                 </FormSection>
+
+                {/* ── source transcription ──────────────────────────────────────────────────── */}
+                {data?.composition == null && data?.kitchenCategory == null ? null : (
+                    <FormSection
+                        variant="panel"
+                        testID="kitchen-meal-composition"
+                        title={t('kitchen:fields.composition')}
+                    >
+                        <Stack space="xs">
+                            {data.kitchenCategory === null ? null : (
+                                <Text
+                                    testID="kitchen-meal-composition-category"
+                                    variant="caption"
+                                    tone="secondary"
+                                >
+                                    {data.kitchenSubcategory === null
+                                        ? data.kitchenCategory
+                                        : `${data.kitchenCategory} / ${data.kitchenSubcategory}`}
+                                </Text>
+                            )}
+                            {data.composition === null ? null : (
+                                <Text testID="kitchen-meal-composition-text">
+                                    {data.composition}
+                                </Text>
+                            )}
+                        </Stack>
+                    </FormSection>
+                )}
             </View>
 
             {/* ── publish ──────────────────────────────────────────────────────────────────── */}
@@ -1634,6 +1636,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                             <Inline space="xs" wrap>
                                 {data.allergens.map((code) => (
                                     <Badge
+                                        icon={null}
                                         key={code}
                                         testID={`kitchen-meal-publish-allergen-${String(code)}`}
                                         tone="danger"

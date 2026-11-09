@@ -203,11 +203,12 @@ export function EditorFrame({
                 <Badge
                     testID={`${testID}-status`}
                     tone="neutral"
-                    icon="dot"
+                    icon={null}
                     label={t('kitchen:status.draft')}
                 />
             ) : 'status' in meta ? (
                 <Badge
+                    icon={null}
                     testID={`${testID}-status`}
                     tone={statusTone(meta.status)}
                     label={t(statusKey(meta.status))}
@@ -217,7 +218,7 @@ export function EditorFrame({
                 <Badge
                     testID={`${testID}-dirty`}
                     tone="warning"
-                    icon="warning"
+                    icon={null}
                     label={t('kitchen:editor.unsaved')}
                 />
             ) : null}
@@ -268,6 +269,7 @@ export function EditorFrame({
                         titleAside={
                             titleChip === undefined ? undefined : (
                                 <Badge
+                                    icon={null}
                                     testID={`${testID}-chip`}
                                     tone={titleChip.tone}
                                     label={titleChip.label}
