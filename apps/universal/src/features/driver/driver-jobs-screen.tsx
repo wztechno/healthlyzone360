@@ -728,7 +728,11 @@ function JobCard({ job, locale, disabled, action, onAction, onFail }: JobCardPro
                          * The number printed on the bag, falling back to the identifier when the job
                          * carries none — see the file header on why the fallback is here.
                          */}
-                        <Heading level={2} className="text-xl tabular-nums" testID={`${testID}-order`}>
+                        <Heading
+                            level={2}
+                            className="text-xl tabular-nums"
+                            testID={`${testID}-order`}
+                        >
                             {job.orderNumber ?? String(job.orderId)}
                         </Heading>
                     </Stack>
