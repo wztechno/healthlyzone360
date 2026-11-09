@@ -1,12 +1,4 @@
-import {
-    DataList,
-    Icon,
-    IconButton,
-    Inline,
-    Text,
-    fitColumns,
-    useBreakpoint,
-} from '@healthy360/design-system';
+import { DataList, Inline, Text, fitColumns, useBreakpoint } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { RowDensity } from '@healthy360/design-tokens';
 import type { ReactNode, RefObject } from 'react';
@@ -19,6 +11,7 @@ import { CATALOGUE_PRIORITY, columnFloor, columnForRole } from './catalogue-colu
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 import { useCataloguePort } from './catalogue-nav.tsx';
 import { CATALOGUE_PAGE_SIZE, CataloguePager } from './catalogue-pager.tsx';
+import { ROW_ACTIONS_WIDTH, RowActionsMenu } from './row-actions-menu.tsx';
 import { RowThumbnail } from './row-thumbnail.tsx';
 
 /**
@@ -204,6 +197,7 @@ function CatalogueTable<Row>({
     frameEmpty = false,
     testID,
 }: CatalogueListProps<Row>) {
+    const { t } = useTranslation();
     const frameClass = joined ? JOINED_FRAME_CLASS : FRAME_CLASS;
     const { atLeast } = useBreakpoint();
     const port = useCataloguePort();
@@ -268,7 +262,16 @@ function CatalogueTable<Row>({
     const withActions =
         rowActions === undefined
             ? drawn
-            : [...drawn, actionColumn<Row>(rowActions, rows, rowActionsLabel, rowKey, testID)];
+            : [
+                  ...drawn,
+                  actionColumn<Row>(
+                      rowActions,
+                      rowActionsLabel,
+                      t('kitchen:list.actionHeader'),
+                      rowKey,
+                      testID,
+                  ),
+              ];
 
     // `columnFloor` is the fitting currency; the tracks `DataList` draws are still `width`. Fitting
     // on a floor and drawing on a width is the whole reason the spec carries both.
@@ -322,6 +325,7 @@ function CatalogueTable<Row>({
                     onRowPress={onRowPress}
                     emptyState={emptyState}
                     framed={rows.length > 0 || frameEmpty}
+                    flushTop={joined}
                     rowEntrance={rowEntrance}
                     testID={testID}
                 />
@@ -479,131 +483,40 @@ function metaEntries<Row>(
 }
 
 /**
- * The row-action column — the three controls drawn flat, at the priority that keeps them reachable.
+ * The row-action column: one `⋯` holding whatever the caller's `MenuItem[]` says, at every width, so
+ * a row reads as its data and its actions appear when asked for (the admin canvas, 2026-11-09).
  *
- * ## Three buttons, not one `⋯`
- *
- * §4.1 specified a single overflow menu holding View · Edit · Archive, and that is the right shape
- * on a phone, where a row has space for exactly one affordance — which is why
- * {@link CatalogueListItem} still draws it that way below `md`. It is the wrong shape on a desk.
- * Three named actions behind a menu is two presses and a mouse round-trip for the thing a user came
- * to do, on a surface with a pointer and 100px to spare, and it hides Archive — the one action
- * worth being able to *see* is guarded — behind a control that reveals nothing until you open it.
- *
- * So the wide row spends the width: the same `MenuItem[]` the caller already supplies is rendered
- * as one `IconButton` per action, in order, tone included. The caller's API does not change, and
- * the narrow row keeps the menu, so one array feeds both shapes exactly as the column spec does.
- *
- * ## The track is measured, not assumed
- *
- * It used to be the sum for exactly three buttons, which was true of the one caller there was and
- * silently clipped the fourth as soon as there were two. `actionTrack` charges the widest row on
- * the page instead: the ingredient list still returns three and still gets the same 108px, and a
- * recipe row that adds New draft against an immutable version gets the width to draw it. Measured
- * per page rather than per row because a column has one track — a row that offers three actions
- * inside a page whose widest offers four leaves 32px of end padding, which is the correct answer to
- * a ragged set.
- *
- * ## The buttons must swallow their own click on the web
- *
- * The row is itself a `Pressable` that opens the editor. On the web a nested `<button>`'s click
- * bubbles, so pressing Archive would run the archive *and* navigate away from the list behind the
- * dialog. React Native's responder system hands the touch to the innermost target and never
- * bubbles, so the stop is `Platform.OS === 'web'` only — spread rather than declared, because
- * `onClick` is a DOM prop React Native does not type. Same technique, same reason, as
- * `GRID_CONTENT_ATTR` above.
- *
- * `sortable` is left off deliberately: §4.3 says a column with nothing to sort or filter renders a
- * plain, non-interactive header, because emitting the focusable wrapper anyway leaves a keyboard
- * user tabbing onto a target that does nothing.
+ * `sortable` is left off deliberately: a column with nothing to sort or filter renders a plain,
+ * non-interactive header.
  */
 function actionColumn<Row>(
     rowActions: (row: Row) => readonly MenuItem[],
-    rows: readonly Row[],
     label: string,
+    header: string,
     rowKey: (row: Row) => string,
     testID: string,
 ): CatalogueColumn<Row> {
-    const track = actionTrack(rowActions, rows);
-
     return {
         key: 'actions',
-        // Blank, which is what the design draws over this track — a box holding the header row's
-        // height and no text. "Row actions" set in 10px caps does not fit the track, so it wrapped
-        // to two lines and clipped mid-word ("ROW ACTIO / NS") while saying nothing the buttons
-        // below it do not. The names are not lost: each button carries its own.
-        label: '',
-        width: track,
-        min: track,
+        label: header,
+        width: ROW_ACTIONS_WIDTH,
+        min: ROW_ACTIONS_WIDTH,
         priority: CATALOGUE_PRIORITY.actions,
         align: 'end',
         // The one column whose width is its content. `DataList` shares the port's leftover width
-        // out over the other tracks so the row fills the page; giving this one a share of it would
-        // only push the buttons off the edge they are anchored to and spend on padding the width
-        // the designation column needs to finish its words.
+        // out over the other tracks; a share here would only spend it on padding.
         grow: false,
         role: 'actions',
         render: (row) => (
-            <View
-                accessibilityLabel={label}
-                aria-label={label}
-                className="flex-row items-center gap-hair"
-                {...(Platform.OS === 'web'
-                    ? {
-                          onClick: (event: { stopPropagation: () => void }) => {
-                              event.stopPropagation();
-                          },
-                      }
-                    : {})}
-            >
-                {rowActions(row).map((action) => (
-                    <IconButton
-                        key={action.key}
-                        label={action.label}
-                        variant="ghost"
-                        size="sm"
-                        {...(action.tone === undefined ? {} : { tone: action.tone })}
-                        {...(action.disabled === undefined ? {} : { disabled: action.disabled })}
-                        icon={
-                            <Icon
-                                name={action.icon ?? 'more'}
-                                size="sm"
-                                className={
-                                    action.tone === 'danger' ? undefined : 'text-content-secondary'
-                                }
-                            />
-                        }
-                        onPress={action.onSelect}
-                        // The item's own id where it has one, so a spec that used to click the
-                        // menu entry clicks the button instead and nothing else has to change.
-                        testID={
-                            action.testID ?? `${testID}-row-${rowKey(row)}-action-${action.key}`
-                        }
-                    />
-                ))}
-            </View>
+            <RowActionsMenu
+                actions={rowActions(row).map((action) => ({
+                    ...action,
+                    // The item's own id where it has one, else one derived from the row.
+                    testID: action.testID ?? `${testID}-row-${rowKey(row)}-action-${action.key}`,
+                }))}
+                label={label}
+                testID={`${testID}-row-${rowKey(row)}-actions`}
+            />
         ),
     };
-}
-
-/**
- * The action column's track: as many 28px buttons as the busiest row on the page needs.
- *
- * `MIN_ACTION_SLOTS` is two — the View / Edit pair the admin canvas draws on its rows —
- * so a page whose rows all happen to hide Archive does not draw a narrower column than the page
- * before it and shuffle every other track sideways. Empty pages take the same floor for the same
- * reason.
- *
- * Stated as the sum — buttons, the gaps between them, the cell's own inset — rather than a round
- * number, so the track cannot silently stop fitting its contents when the control ladder moves.
- */
-const MIN_ACTION_SLOTS = 2;
-
-function actionTrack<Row>(
-    rowActions: (row: Row) => readonly MenuItem[],
-    rows: readonly Row[],
-): number {
-    let slots = MIN_ACTION_SLOTS;
-    for (const row of rows) slots = Math.max(slots, rowActions(row).length);
-    return slots * 28 + (slots - 1) * 4 + 2 * 8;
 }

@@ -557,7 +557,10 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                         rowKey={(row) => String(row.id)}
                         density="sm"
                         highlightedId={lastOpenedId}
-                        onRowPress={openEditor}
+                        onRowPress={(row) => {
+                            rememberOpened(String(row.id));
+                            setViewing(row);
+                        }}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         rowActions={(row): readonly MenuItem[] => [
                             {

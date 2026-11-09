@@ -213,7 +213,6 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
             role: 'meta',
             label: t('business:quotations.columnLines'),
             width: 80,
-            align: 'end',
             priority: 60,
             value: (row) => formatter.formatNumber(row.lines.length),
         },
@@ -222,7 +221,6 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
             role: 'metric',
             label: t('business:quotations.columnTotal'),
             width: 150,
-            align: 'end',
             priority: 85,
             value: totalText,
             render: (row) =>
@@ -645,7 +643,6 @@ function QuotationLines({ quotation }: { readonly quotation: Quotation }) {
             role: 'meta',
             label: t('business:quotations.columnQuantity'),
             width: 90,
-            align: 'end',
             priority: 90,
             value: (line) => formatter.formatNumber(line.quantity),
         },
@@ -654,7 +651,6 @@ function QuotationLines({ quotation }: { readonly quotation: Quotation }) {
             role: 'metric',
             label: t('business:quotations.columnLineTotal'),
             width: 150,
-            align: 'end',
             priority: 95,
             value: (line) =>
                 line.quotedTotal === null

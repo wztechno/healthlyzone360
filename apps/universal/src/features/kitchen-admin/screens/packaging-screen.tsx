@@ -266,9 +266,7 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                         list.openView(row);
                     }}
                     rowActionsLabel={t('kitchen:list.rowActions')}
-                    // View, Edit, Archive, the order every other Catalogue list draws them in.
-                    // Above `md` they are flat icon buttons on the row; below it the same array
-                    // becomes the overflow menu, because a narrow row fits one control.
+                    // View, Edit, Archive, in the design's order, behind the row's ⋯.
                     rowActions={(row): readonly MenuItem[] => [
                         {
                             key: 'view',

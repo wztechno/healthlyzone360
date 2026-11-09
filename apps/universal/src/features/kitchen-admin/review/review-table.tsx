@@ -1,13 +1,14 @@
-import { Icon, IconButton, Text } from '@healthy360/design-system';
+import { Text } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { useMemo, useState } from 'react';
-import { Platform, View } from 'react-native';
+import { View } from 'react-native';
 
 import { displayName, statusKey } from '../format.ts';
 import { reviewFamilyKey, reviewReasonKey, reviewRowTestId } from '../review-queue.ts';
 import type { ReviewItem } from '../review-queue.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { ROW_ACTIONS_WIDTH, RowActionsMenu } from '../catalogue/row-actions-menu.tsx';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ColumnControls, ControlledColumn } from '../catalogue/use-column-controls.tsx';
@@ -56,15 +57,6 @@ export interface ReviewTableProps {
     readonly onView: (item: ReviewItem) => void;
     readonly testID: string;
 }
-
-const SWALLOW_CLICK =
-    Platform.OS === 'web'
-        ? {
-              onClick: (event: { stopPropagation: () => void }) => {
-                  event.stopPropagation();
-              },
-          }
-        : {};
 
 /**
  * The table's columns under the Catalogue's controls — sort, header filters and the Show columns
@@ -207,7 +199,7 @@ export function useReviewColumns({
             key: 'actions',
             role: 'actions',
             label: t('kitchen:list.actionHeader'),
-            width: 96,
+            width: ROW_ACTIONS_WIDTH,
             priority: 95,
             align: 'end',
             grow: false,
@@ -216,28 +208,30 @@ export function useReviewColumns({
             render: (item) => {
                 const id = reviewRowTestId(item.familyKey, item.id);
                 return (
-                    <View className="flex-row items-center gap-hair" {...SWALLOW_CLICK}>
-                        <IconButton
-                            testID={`${id}-view`}
-                            variant="ghost"
-                            size="sm"
-                            label={t('kitchen:list.view')}
-                            icon={<Icon name="eye" size="sm" />}
-                            onPress={() => {
-                                onView(item);
-                            }}
-                        />
-                        <IconButton
-                            testID={`${id}-open`}
-                            variant="ghost"
-                            size="sm"
-                            label={t('kitchen:catalogue.edit')}
-                            icon={<Icon name="pen" size="sm" />}
-                            onPress={() => {
-                                onOpen(item);
-                            }}
-                        />
-                    </View>
+                    <RowActionsMenu
+                        label={t('kitchen:list.rowActions')}
+                        testID={`${id}-actions`}
+                        actions={[
+                            {
+                                key: 'view',
+                                label: t('kitchen:list.view'),
+                                icon: 'eye',
+                                testID: `${id}-view`,
+                                onSelect: () => {
+                                    onView(item);
+                                },
+                            },
+                            {
+                                key: 'open',
+                                label: t('kitchen:catalogue.edit'),
+                                icon: 'pen',
+                                testID: `${id}-open`,
+                                onSelect: () => {
+                                    onOpen(item);
+                                },
+                            },
+                        ]}
+                    />
                 );
             },
         },

@@ -322,12 +322,10 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                     density="sm"
                     highlightedId={list.lastOpenedId}
                     onRowPress={(row) => {
-                        list.openEditor(String(row.id));
+                        list.openView(row);
                     }}
                     rowActionsLabel={t('kitchen:list.rowActions')}
-                    // View, Edit, Archive, in the design's order. Above `md` these are three
-                    // flat icon buttons on the row; below it the same array becomes the overflow
-                    // menu, because a narrow row has space for exactly one control.
+                    // View, Edit, Archive, in the design's order, behind the row's ⋯.
                     rowActions={(row): readonly MenuItem[] => [
                         {
                             key: 'view',

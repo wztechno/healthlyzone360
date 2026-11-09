@@ -1008,7 +1008,7 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
                         rowKey={(row) => String(row.item.id)}
                         density="sm"
                         highlightedId={lastOpenedId}
-                        onRowPress={canManage ? openEditor : openView}
+                        onRowPress={openView}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         rowActions={rowActions}
                     />

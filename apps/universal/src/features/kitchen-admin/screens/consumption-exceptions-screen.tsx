@@ -56,6 +56,7 @@ import {
     RECIPE_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { ROW_ACTIONS_WIDTH } from '../catalogue/row-actions-menu.tsx';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { useListPage } from '../use-list-page.ts';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
@@ -545,14 +546,9 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
             key: 'actions',
             role: 'actions',
             label: t('kitchen:list.actionHeader'),
-            /*
-             * Up to two — the fix, Accept gap — on one line from the start edge, the fix in a track
-             * of its own width (`FIX_SLOT_WIDTH`), so Accept gap starts in the same place on every
-             * row. Its width is its content: a share of the port's leftover would only open a gap
-             * after the buttons.
-             */
-            width: 240,
-            min: 240,
+            width: ROW_ACTIONS_WIDTH,
+            min: ROW_ACTIONS_WIDTH,
+            align: 'end',
             priority: 95,
             grow: false,
             sortable: false,

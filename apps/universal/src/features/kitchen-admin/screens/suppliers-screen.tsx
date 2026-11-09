@@ -506,7 +506,10 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
                     onPageChange={(page) => {
                         memory.remember({ page });
                     }}
-                    onRowPress={openRecord}
+                    onRowPress={(row) => {
+                        rememberOpened(String(row.id));
+                        setViewing(row);
+                    }}
                     rowActionsLabel={t('kitchen:list.rowActions')}
                     // View and Open. Archive lives on the record, behind its confirmation.
                     rowActions={(row): readonly MenuItem[] => [

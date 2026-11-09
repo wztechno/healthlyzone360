@@ -785,7 +785,10 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                         rowKey={(row) => String(row.id)}
                         density="sm"
                         highlightedId={lastOpenedId}
-                        onRowPress={openOrder}
+                        onRowPress={(row) => {
+                            rememberOpened(String(row.id));
+                            setViewing(row);
+                        }}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         rowActions={(row): readonly MenuItem[] => [
                             {

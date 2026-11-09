@@ -625,7 +625,7 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                             density="sm"
                             highlightedId={list.lastOpenedId}
                             onRowPress={(row) => {
-                                list.openEditor(String(row.id));
+                                list.openView(row);
                             }}
                             rowActionsLabel={t('kitchen:list.rowActions')}
                             rowActions={(row) =>

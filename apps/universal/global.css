@@ -212,6 +212,12 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
    which looks like a four-page order that mysteriously prints one page. So the chain from the
    document root down to the sheets is unwound: auto height, visible overflow, no flex.
    ============================================================================================== */
+/* An open row menu: every row is a stacking context, so the row holding it goes above the later ones. */
+[role='row']:has([aria-haspopup='menu'][aria-expanded='true']),
+[data-testid$='-entrance']:has([aria-haspopup='menu'][aria-expanded='true']) {
+    z-index: 30;
+}
+
 @media print {
     @page {
         size: A4;

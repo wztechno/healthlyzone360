@@ -83,7 +83,6 @@ const COLUMNS: readonly CatalogueColumn<SampleRow>[] = [
         label: 'Total',
         width: 100,
         priority: 85,
-        align: 'end',
         value: (row) => row.total,
     },
 ];

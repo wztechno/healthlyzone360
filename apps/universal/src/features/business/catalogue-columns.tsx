@@ -82,7 +82,6 @@ export function catalogueColumns(
             role: 'metric',
             label: t('business:catalogue.columnPrice'),
             width: 170,
-            align: 'end',
             priority: CATALOGUE_PRIORITY.metric,
             value: priceText,
             // Unpriced last both ways. Across currencies the order is by minor units within each
@@ -111,7 +110,6 @@ export function catalogueColumns(
             role: 'meta',
             label: t('business:catalogue.columnMinimum'),
             width: 90,
-            align: 'end',
             priority: CATALOGUE_PRIORITY.unitPrice,
             value: (item) => formatter.formatNumber(item.minimumOrderQuantity),
             sort: (left, right, direction) =>
@@ -127,7 +125,6 @@ export function catalogueColumns(
             role: 'meta',
             label: t('business:catalogue.columnLeadTime'),
             width: 100,
-            align: 'end',
             priority: CATALOGUE_PRIORITY.unit,
             value: (item) => t('business:catalogue.days', { count: item.leadTimeDays }),
             sort: (left, right, direction) =>

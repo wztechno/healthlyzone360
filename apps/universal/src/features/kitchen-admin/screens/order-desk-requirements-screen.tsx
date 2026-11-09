@@ -190,7 +190,6 @@ function OrderDeskRequirements() {
         },
         {
             key: 'required',
-            align: 'end',
             label: t('kitchen:ops.requirements.columnRequired'),
             width: 100,
             priority: 95,
@@ -204,7 +203,6 @@ function OrderDeskRequirements() {
         },
         {
             key: 'onHand',
-            align: 'end',
             label: t('kitchen:ops.requirements.columnOnHand'),
             width: 100,
             priority: 55,
@@ -218,7 +216,6 @@ function OrderDeskRequirements() {
         },
         {
             key: 'reserved',
-            align: 'end',
             label: t('kitchen:ops.requirements.columnReserved'),
             width: 100,
             priority: 60,
@@ -236,7 +233,6 @@ function OrderDeskRequirements() {
         },
         {
             key: 'available',
-            align: 'end',
             label: t('kitchen:ops.requirements.columnAvailable'),
             width: 100,
             priority: 80,
@@ -250,7 +246,6 @@ function OrderDeskRequirements() {
         },
         {
             key: 'short',
-            align: 'end',
             role: 'metric',
             label: t('kitchen:ops.requirements.columnShort'),
             width: 100,
@@ -269,7 +264,6 @@ function OrderDeskRequirements() {
         },
         {
             key: 'suggestedBuy',
-            align: 'end',
             label: t('kitchen:ops.requirements.columnSuggestedBuy'),
             width: 110,
             priority: 70,

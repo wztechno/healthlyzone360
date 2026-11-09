@@ -506,7 +506,10 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                         rowKey={(row) => String(row.id)}
                         density="sm"
                         highlightedId={lastOpenedId}
-                        onRowPress={openEditor}
+                        onRowPress={(row) => {
+                            rememberOpened(String(row.id));
+                            setViewing(row);
+                        }}
                         rowActionsLabel={t('kitchen:list.rowActions')}
                         // View and Edit. No Archive: the contract publishes no retire (§6.1).
                         rowActions={(row): readonly MenuItem[] => [

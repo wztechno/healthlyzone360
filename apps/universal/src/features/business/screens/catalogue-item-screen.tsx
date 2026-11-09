@@ -304,7 +304,6 @@ function VolumeTiers({ item, t, formatter }: PartProps) {
             role: 'metric',
             label: t('business:item.tierPrice'),
             width: 140,
-            align: 'end',
             priority: 90,
             value: (tier) => formatMoney(formatter, tier.unitPrice),
             render: (tier) => (
@@ -318,7 +317,6 @@ function VolumeTiers({ item, t, formatter }: PartProps) {
             role: 'meta',
             label: t('business:item.tierLeadTime'),
             width: 110,
-            align: 'end',
             priority: 80,
             value: (tier) => t('business:catalogue.days', { count: tier.leadTimeDays }),
         },

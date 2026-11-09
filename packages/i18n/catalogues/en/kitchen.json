@@ -1710,7 +1710,7 @@
             "retryNextProblemToast": "Order {{order}}: that is fixed, but it is now blocked by “{{reason}}”.",
             "actionFailedToast": "That did not go through. Try again.",
             "resolveTitle": "Accept this stock gap?",
-            "resolveBody": "Resolving accepts the stock gap for good: nothing is deducted for this line, and stock stays as it is. Retry instead if the cause has been fixed.",
+            "resolveBody": "Resolving accepts the stock gap for good: nothing is deducted for this line, and stock stays as it is.",
             "resolveConfirm": "Accept the gap",
             "window": {
                 "title": "Order {{order}}",
@@ -2775,7 +2775,7 @@
         },
         "consumptionExceptions": {
             "name": "Stock gaps",
-            "description": "Sales a confirmed order could not deduct from stock honestly — review, retry, or resolve each one."
+            "description": "Sales a confirmed order could not deduct from stock honestly — review or resolve each one."
         },
         "orderDesk": {
             "name": "Order desk",

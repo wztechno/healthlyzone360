@@ -110,7 +110,6 @@ function OrderDeskClose() {
         },
         {
             key: 'counter',
-            align: 'end',
             label: t('kitchen:ops.dailyClose.columnCounter'),
             width: 140,
             priority: 95,
@@ -125,7 +124,6 @@ function OrderDeskClose() {
         },
         {
             key: 'handedIn',
-            align: 'end',
             label: t('kitchen:ops.dailyClose.columnHandedIn'),
             width: 140,
             priority: 90,
@@ -140,7 +138,6 @@ function OrderDeskClose() {
         },
         {
             key: 'refunds',
-            align: 'end',
             label: t('kitchen:ops.dailyClose.columnRefunds'),
             width: 140,
             priority: 85,
@@ -209,7 +206,6 @@ function OrderDeskClose() {
         },
         {
             key: 'float',
-            align: 'end',
             label: t('kitchen:ops.dailyClose.columnFloat'),
             width: 120,
             priority: 70,
@@ -224,7 +220,6 @@ function OrderDeskClose() {
         },
         {
             key: 'expected',
-            align: 'end',
             label: t('kitchen:ops.dailyClose.columnExpected'),
             width: 120,
             priority: 90,
@@ -239,7 +234,6 @@ function OrderDeskClose() {
         },
         {
             key: 'counted',
-            align: 'end',
             role: 'metric',
             label: t('kitchen:ops.dailyClose.columnCounted'),
             width: 120,
@@ -347,7 +341,6 @@ function OrderDeskClose() {
         },
         ...totalFigures.map(([key, label, amount, priority]): CatalogueColumn<DailyCloseTotal> => ({
             key,
-            ...(key === 'variance' ? {} : { align: 'end' as const }),
             ...(key === 'counted' ? { role: 'metric' as const } : {}),
             label: t(`kitchen:ops.dailyClose.${label}`),
             width: 130,
