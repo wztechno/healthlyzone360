@@ -14,11 +14,9 @@ import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { dishOptionsLine } from '../../../ui/dish-choices.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import {
-    CompactField,
     CompactRecordPopup,
     CompactSection,
 } from '../catalogue/compact-record-popup.tsx';
-import type { CompactFact } from '../catalogue/compact-record-popup.tsx';
 import {
     ORDER_CREATE_ON_BEHALF_PERMISSION,
     ORDER_MANAGE_PERMISSION,
@@ -53,7 +51,6 @@ import type { BookRow } from './order-book.ts';
 import {
     NEXT_STEP_KEYS,
     driverText,
-    longDay,
     orderStatusLabel,
     orderStatusTone,
     relativeDay,
@@ -61,6 +58,7 @@ import {
 } from './order-columns.tsx';
 import { useDayOrders, useDeliveryWindows } from './use-order-book.ts';
 import type { OrderSteps } from './use-order-steps.tsx';
+import { CardLine, InfoCard, StageTrack, orderStages } from './order-popup-parts.tsx';
 
 /**
  * One order, from any tab — the order desk's pop-up and the order book's, merged into one, on the
@@ -234,68 +232,41 @@ export function OrderRecordPopup({
         (job.status === 'pending' || job.status === 'assigned');
     const driver = driverCell(shown, driverName);
 
-    const facts: CompactFact[] = [
-        {
-            key: 'when',
-            icon: 'calendarDays',
-            text: [
-                isRelative
-                    ? `${relative}, ${shortDay(theDay, formatter)}`
-                    : shortDay(theDay, formatter),
-                [slotName, hours].filter((part): part is string => part !== null).join(' '),
-            ].join(' · '),
-            testID: 'kitchen-orders-record-when',
-        },
-        {
-            key: 'customer',
-            icon: 'person',
-            text: shown.customer?.displayName ?? EM_DASH,
-            testID: 'kitchen-orders-record-customer',
-        },
-        ...(shown.customer?.phone == null
-            ? []
-            : [
-                  {
-                      key: 'phone',
-                      icon: 'smartphone' as const,
-                      text: shown.customer.phone,
-                      testID: 'kitchen-orders-record-phone',
-                  },
-              ]),
-        {
-            key: 'where',
-            icon: 'mapPin',
-            text: isDelivery
-                ? (shown.delivery.areaNameEn ??
-                  shown.delivery.city ??
-                  t('kitchen:common.notRecorded'))
-                : t('kitchen:orders.record.atCounter'),
-        },
-        {
-            key: 'money',
-            icon: 'banknote',
-            testID: 'kitchen-orders-record-money',
-            ...(shown.status === 'cancelled'
-                ? { text: t('kitchen:orders.status.cancelled') }
-                : owed === null
-                  ? { text: t(kitchenOrderPaymentMethodKey(shown.paymentMethod)) }
-                  : owed > 0
-                    ? {
-                          text: t('kitchen:orders.payment.toCollect', { amount: money(owed) }),
-                          tone: 'warning' as const,
-                      }
-                    : {
-                          text: t('kitchen:orders.record.paidBy', {
-                              method: t(
-                                  kitchenOrderPaymentMethodKey(
-                                      shown.payment?.method ?? shown.paymentMethod,
-                                  ),
+    /** The money card's headline — what the old line of facts said about money. */
+    const moneyHeadline: { readonly text: string; readonly tone?: 'warning' | 'success' } =
+        shown.status === 'cancelled'
+            ? { text: t('kitchen:orders.status.cancelled') }
+            : owed === null
+              ? { text: t(kitchenOrderPaymentMethodKey(shown.paymentMethod)) }
+              : owed > 0
+                ? {
+                      text: t('kitchen:orders.payment.toCollect', { amount: money(owed) }),
+                      tone: 'warning',
+                  }
+                : {
+                      text: t('kitchen:orders.record.paidBy', {
+                          method: t(
+                              kitchenOrderPaymentMethodKey(
+                                  shown.payment?.method ?? shown.paymentMethod,
                               ),
-                          }),
-                          tone: 'success' as const,
+                          ),
                       }),
-        },
-    ];
+                      tone: 'success',
+                  };
+    const stages = orderStages(shown, t);
+    const nextButton =
+        !stepReady || step === null ? undefined : (
+            <DeskButton
+                testID={`kitchen-orders-record-${step}`}
+                variant="primary"
+                label={t(NEXT_STEP_KEYS[step])}
+                loading={steps.pendingId === String(shown.id)}
+                disabled={steps.pendingId === String(shown.id)}
+                onPress={() => {
+                    steps.run(shown, step);
+                }}
+            />
+        );
 
     const footer = (
         <>
@@ -418,21 +389,6 @@ export function OrderRecordPopup({
                 </>
             }
             figure={{ label: t('kitchen:ops.orders.total'), value: money(shown.totalMinor) }}
-            facts={facts}
-            primary={
-                !stepReady || step === null ? undefined : (
-                    <DeskButton
-                        testID={`kitchen-orders-record-${step}`}
-                        variant="primary"
-                        label={t(NEXT_STEP_KEYS[step])}
-                        loading={steps.pendingId === String(shown.id)}
-                        disabled={steps.pendingId === String(shown.id)}
-                        onPress={() => {
-                            steps.run(shown, step);
-                        }}
-                    />
-                )
-            }
             banner={
                 <>
                     {failure === null ? null : (
@@ -446,12 +402,182 @@ export function OrderRecordPopup({
                             retrying={detail.isFetching}
                         />
                     )}
+                    {stages === null ? (
+                        nextButton === undefined ? null : (
+                            <View className="flex-row justify-end">{nextButton}</View>
+                        )
+                    ) : (
+                        <StageTrack
+                            testID="kitchen-orders-record-stages"
+                            label={t('kitchen:orders.stage.label')}
+                            stages={stages}
+                            next={nextButton}
+                        />
+                    )}
                     {shown.allergy === null ? null : (
                         <Callout
                             {...allergyBanner(shown.allergy, shown.lines, locale, t)}
                             testID="kitchen-orders-record-allergy"
                         />
                     )}
+                    <View className="flex-row flex-wrap gap-3" testID="kitchen-orders-record-facts">
+                        <InfoCard
+                            icon="person"
+                            title={t('kitchen:orders.column.customer')}
+                            testID="kitchen-orders-record-customer-card"
+                        >
+                            <Text variant="strong" testID="kitchen-orders-record-customer">
+                                {shown.customer?.displayName ?? EM_DASH}
+                            </Text>
+                            {shown.customer?.phone == null ? null : (
+                                <Text
+                                    variant="caption"
+                                    tone="secondary"
+                                    className="tabular-nums"
+                                    testID="kitchen-orders-record-phone"
+                                >
+                                    {shown.customer.phone}
+                                </Text>
+                            )}
+                            <CardLine label={t('kitchen:orders.record.ordered')}>
+                                <Text variant="caption" tone="secondary">
+                                    {formatter.formatDate(shown.placedAt, STEP_TIME)}
+                                </Text>
+                            </CardLine>
+                        </InfoCard>
+
+                        <InfoCard
+                            icon={isDelivery ? 'truck' : 'mapPin'}
+                            title={t(
+                                isDelivery
+                                    ? 'kitchen:orders.record.delivery'
+                                    : 'kitchen:orders.record.pickup',
+                            )}
+                            testID="kitchen-orders-record-delivery"
+                            action={
+                                !canDriver ? undefined : (
+                                    <DeskButton
+                                        testID="kitchen-orders-record-driver-open"
+                                        variant="quiet"
+                                        label={t(
+                                            job?.driverUserId == null
+                                                ? 'kitchen:orders.step.driver'
+                                                : 'kitchen:orders.record.change',
+                                        )}
+                                        onPress={() => {
+                                            steps.open('driver', shown);
+                                        }}
+                                    />
+                                )
+                            }
+                        >
+                            <Text variant="strong" testID="kitchen-orders-record-when">
+                                {[
+                                    isRelative
+                                        ? `${relative}, ${shortDay(theDay, formatter)}`
+                                        : shortDay(theDay, formatter),
+                                    [slotName, hours]
+                                        .filter((part): part is string => part !== null)
+                                        .join(' '),
+                                ].join(' · ')}
+                            </Text>
+                            {isDelivery ? (
+                                <>
+                                    <Text variant="caption" tone="secondary">
+                                        {addressText(shown, t)}
+                                    </Text>
+                                    <CardLine
+                                        label={t('kitchen:orders.column.driver')}
+                                        testID="kitchen-orders-record-driver"
+                                    >
+                                        <Text
+                                            variant="label"
+                                            className="!font-semibold"
+                                            {...(driver.kind === 'needed'
+                                                ? { tone: 'warning' as const }
+                                                : {})}
+                                        >
+                                            {driverText(shown, t, driverName)}
+                                        </Text>
+                                        {run === null ? null : (
+                                            <Text variant="caption" tone="secondary">
+                                                {runState(shown, t)}
+                                            </Text>
+                                        )}
+                                    </CardLine>
+                                </>
+                            ) : (
+                                <CardLine label={t('kitchen:orders.record.whereItIs')}>
+                                    <Text variant="label" className="!font-semibold">
+                                        {t(
+                                            shown.status === 'fulfilled'
+                                                ? 'kitchen:orders.status.pickedUp'
+                                                : shown.status === 'cancelled'
+                                                  ? 'kitchen:orders.status.cancelled'
+                                                  : 'kitchen:orders.record.waitingAtCounter',
+                                        )}
+                                    </Text>
+                                </CardLine>
+                            )}
+                        </InfoCard>
+
+                        <InfoCard
+                            icon="banknote"
+                            title={t('kitchen:orders.record.payment')}
+                            warn={owed !== null && owed > 0}
+                            testID="kitchen-orders-record-payment"
+                            action={
+                                !canPay ? undefined : (
+                                    <DeskButton
+                                        testID="kitchen-orders-record-payment-open"
+                                        variant="quiet"
+                                        label={t('kitchen:desk.recordPayment.open')}
+                                        onPress={() => {
+                                            steps.open('payment', shown);
+                                        }}
+                                    />
+                                )
+                            }
+                        >
+                            <Text
+                                variant="strong"
+                                testID="kitchen-orders-record-money"
+                                {...(moneyHeadline.tone === undefined
+                                    ? {}
+                                    : { tone: moneyHeadline.tone })}
+                            >
+                                {moneyHeadline.text}
+                            </Text>
+                            <CardLine label={t('kitchen:orders.record.payingBy')}>
+                                <Text variant="label">
+                                    {t(
+                                        kitchenOrderPaymentMethodKey(
+                                            shown.payment?.method ?? shown.paymentMethod,
+                                        ),
+                                    )}
+                                </Text>
+                            </CardLine>
+                            <CardLine label={t('kitchen:orders.record.received')}>
+                                <Text variant="label" testID="kitchen-orders-record-received">
+                                    {shown.payment === undefined
+                                        ? EM_DASH
+                                        : money(shown.payment.receivedMinor)}
+                                </Text>
+                            </CardLine>
+                            <CardLine label={t('kitchen:orders.record.toCollect')}>
+                                <Text
+                                    variant="label"
+                                    className="!font-semibold"
+                                    testID="kitchen-orders-record-owed"
+                                    {...(owed !== null && owed > 0
+                                        ? { tone: 'warning' as const }
+                                        : {})}
+                                >
+                                    {owed === null || owed === 0 ? EM_DASH : money(owed)}
+                                </Text>
+                            </CardLine>
+                        </InfoCard>
+                    </View>
                 </>
             }
             main={
@@ -480,136 +606,6 @@ export function OrderRecordPopup({
             }
             side={
                 <>
-                    <CompactSection
-                        title={t(
-                            isDelivery
-                                ? 'kitchen:orders.record.delivery'
-                                : 'kitchen:orders.record.pickup',
-                        )}
-                        testID="kitchen-orders-record-delivery"
-                    >
-                        <CompactField label={t('kitchen:orders.record.day')}>
-                            <Text variant="strong">
-                                {isRelative
-                                    ? t('kitchen:orders.record.dayWithRelative', {
-                                          day: longDay(theDay, formatter),
-                                          relative,
-                                      })
-                                    : longDay(theDay, formatter)}
-                            </Text>
-                        </CompactField>
-                        <CompactField label={t('kitchen:orders.record.slot')}>
-                            <Text variant="strong">
-                                {[slotName, hours]
-                                    .filter((part): part is string => part !== null)
-                                    .join(', ')}
-                            </Text>
-                        </CompactField>
-                        <CompactField label={t('kitchen:orders.record.ordered')}>
-                            <Text variant="strong">
-                                {formatter.formatDate(shown.placedAt, STEP_TIME)}
-                            </Text>
-                        </CompactField>
-                        {isDelivery ? (
-                            <>
-                                <CompactField label={t('kitchen:ops.orders.deliveryAddress')}>
-                                    <Text variant="strong">{addressText(shown, t)}</Text>
-                                </CompactField>
-                                <CompactField
-                                    label={t('kitchen:orders.column.driver')}
-                                    testID="kitchen-orders-record-driver"
-                                    action={
-                                        !canDriver ? undefined : (
-                                            <DeskButton
-                                                testID="kitchen-orders-record-driver-open"
-                                                variant="quiet"
-                                                label={t(
-                                                    job?.driverUserId == null
-                                                        ? 'kitchen:orders.step.driver'
-                                                        : 'kitchen:orders.record.change',
-                                                )}
-                                                onPress={() => {
-                                                    steps.open('driver', shown);
-                                                }}
-                                            />
-                                        )
-                                    }
-                                >
-                                    <Text
-                                        variant="strong"
-                                        {...(driver.kind === 'needed'
-                                            ? { tone: 'warning' as const }
-                                            : {})}
-                                    >
-                                        {driverText(shown, t, driverName)}
-                                    </Text>
-                                    {run === null ? null : (
-                                        <Text variant="caption" tone="secondary">
-                                            {runState(shown, t)}
-                                        </Text>
-                                    )}
-                                </CompactField>
-                            </>
-                        ) : (
-                            <CompactField label={t('kitchen:orders.record.whereItIs')}>
-                                <Text variant="strong">
-                                    {t(
-                                        shown.status === 'fulfilled'
-                                            ? 'kitchen:orders.status.pickedUp'
-                                            : shown.status === 'cancelled'
-                                              ? 'kitchen:orders.status.cancelled'
-                                              : 'kitchen:orders.record.waitingAtCounter',
-                                    )}
-                                </Text>
-                            </CompactField>
-                        )}
-                    </CompactSection>
-
-                    <CompactSection
-                        title={t('kitchen:orders.record.payment')}
-                        testID="kitchen-orders-record-payment"
-                    >
-                        <CompactField label={t('kitchen:orders.record.payingBy')}>
-                            <Text variant="strong">
-                                {t(
-                                    kitchenOrderPaymentMethodKey(
-                                        shown.payment?.method ?? shown.paymentMethod,
-                                    ),
-                                )}
-                            </Text>
-                        </CompactField>
-                        <CompactField label={t('kitchen:orders.record.received')}>
-                            <Text variant="strong" testID="kitchen-orders-record-received">
-                                {shown.payment === undefined
-                                    ? EM_DASH
-                                    : money(shown.payment.receivedMinor)}
-                            </Text>
-                        </CompactField>
-                        <CompactField
-                            label={t('kitchen:orders.record.toCollect')}
-                            action={
-                                !canPay ? undefined : (
-                                    <DeskButton
-                                        testID="kitchen-orders-record-payment-open"
-                                        variant="quiet"
-                                        label={t('kitchen:desk.recordPayment.open')}
-                                        onPress={() => {
-                                            steps.open('payment', shown);
-                                        }}
-                                    />
-                                )
-                            }
-                        >
-                            <Text
-                                variant="strong"
-                                testID="kitchen-orders-record-owed"
-                                {...(owed !== null && owed > 0 ? { tone: 'warning' as const } : {})}
-                            >
-                                {owed === null || owed === 0 ? EM_DASH : money(owed)}
-                            </Text>
-                        </CompactField>
-                    </CompactSection>
-
                     <CompactSection title={t('kitchen:orders.record.history')}>
                         <OrderHistory order={shown} formatter={formatter} t={t} />
                     </CompactSection>

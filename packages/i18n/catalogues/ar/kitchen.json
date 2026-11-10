@@ -6550,6 +6550,10 @@
             "paidBy": "مدفوع · {{method}}",
             "change": "تغيير"
         },
+        "stage": {
+            "label": "مراحل الطلب",
+            "placed": "تم الطلب"
+        },
         "history": {
             "placed": "تم تقديم الطلب",
             "confirmed": "تم التأكيد",

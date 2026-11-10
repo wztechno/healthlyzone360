@@ -1,14 +1,15 @@
 import { Icon, Text } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
-import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
 import { CompactRecordPopup } from '../features/kitchen-admin/catalogue/compact-record-popup.tsx';
 import { DeskButton, DeskChip } from '../features/kitchen-admin/desk-kit/index.ts';
+import { InfoCard, StageTrack } from '../features/kitchen-admin/orders/order-popup-parts.tsx';
+import type { OrderStage } from '../features/kitchen-admin/orders/order-popup-parts.tsx';
 
 /**
- * Proposal B for the order pop-up (2026-11-10) — on `/showcase-orders` only, for the user to compare
- * with the pop-up in use and keep or discard. Nothing in the app draws it.
+ * Layout B of the order pop-up (proposed 2026-11-10, chosen 2026-11-11) with sample data — the app
+ * draws the same parts (`orders/order-popup-parts.tsx`) in `OrderRecordPopup`.
  *
  * ```
  * ┌───────────────────────────────────────────────────────────────────────────────┐
@@ -35,11 +36,7 @@ import { DeskButton, DeskChip } from '../features/kitchen-admin/desk-kit/index.t
  * end in their totals, like the ticket.
  */
 
-export interface ProposalStage {
-    readonly key: string;
-    readonly label: string;
-    readonly state: 'done' | 'now' | 'later';
-}
+export type ProposalStage = OrderStage;
 
 export interface ProposalLine {
     readonly key: string;
@@ -74,15 +71,21 @@ export function OrderPopupProposal({
             figure={{ label: 'Total', value: '$16.00' }}
             banner={
                 <View className="flex-col gap-3">
-                    <StageTrack stages={stages} next={<DeskButton label="Mark delivered" />} />
+                    <StageTrack
+                        label="Where the order is"
+                        stages={stages}
+                        next={<DeskButton label="Mark delivered" />}
+                    />
                     <View className="flex-row flex-wrap gap-3">
-                        <InfoCard icon="person" title="Customer" action="Call">
+                        <InfoCard icon="person" title="Customer"
+                            action={<DeskButton variant="quiet" label="Call" />}>
                             <Text variant="strong">Karim Saleh</Text>
                             <Text variant="caption" tone="secondary" className="tabular-nums">
                                 +961 71 552 019
                             </Text>
                         </InfoCard>
-                        <InfoCard icon="truck" title="Delivery" action="Change driver">
+                        <InfoCard icon="truck" title="Delivery"
+                            action={<DeskButton variant="quiet" label="Change driver" />}>
                             <Text variant="strong">Today · Lunch, 12:00–14:00</Text>
                             <Text variant="caption" tone="secondary">
                                 Achrafieh, Building 12, 3rd floor
@@ -91,7 +94,8 @@ export function OrderPopupProposal({
                                 Driver: Hadi Rizk
                             </Text>
                         </InfoCard>
-                        <InfoCard icon="banknote" title="Money" action="Record a payment" warn>
+                        <InfoCard icon="banknote" title="Money"
+                            action={<DeskButton variant="quiet" label="Record a payment" />} warn>
                             <Text variant="strong" tone="warning">
                                 To collect $16.00
                             </Text>
@@ -159,85 +163,6 @@ export function OrderPopupProposal({
             footerEnd={<DeskButton variant="dangerOutline" label="Cancel order" />}
             onClose={onClose}
         />
-    );
-}
-
-/** Where the order is, left to right, with its next step at the end of the track. */
-function StageTrack({
-    stages,
-    next,
-}: {
-    readonly stages: readonly ProposalStage[];
-    readonly next: ReactNode;
-}) {
-    return (
-        <View className="flex-row flex-wrap items-center gap-2 rounded-2xl bg-surface-sunken px-3 py-2.5">
-            {stages.map((stage, index) => (
-                <View key={stage.key} className="flex-row items-center gap-2">
-                    {index === 0 ? null : (
-                        <View
-                            className={`h-0.5 w-6 rounded-full ${
-                                stage.state === 'later' ? 'bg-stroke' : 'bg-surface-brand'
-                            }`}
-                        />
-                    )}
-                    <View
-                        className={`h-5 w-5 items-center justify-center rounded-full ${
-                            stage.state === 'done'
-                                ? 'bg-surface-brand'
-                                : stage.state === 'now'
-                                  ? 'border-2 border-surface-brand bg-surface-raised'
-                                  : 'border border-stroke bg-surface-raised'
-                        }`}
-                    >
-                        {stage.state === 'done' ? (
-                            <Icon name="check" size="sm" className="text-content-on-brand" />
-                        ) : null}
-                    </View>
-                    <Text
-                        variant="label"
-                        tone={stage.state === 'later' ? 'secondary' : 'primary'}
-                        className={stage.state === 'now' ? '!font-bold' : '!font-semibold'}
-                    >
-                        {stage.label}
-                    </Text>
-                </View>
-            ))}
-            <View className="ms-auto">{next}</View>
-        </View>
-    );
-}
-
-function InfoCard({
-    icon,
-    title,
-    action,
-    warn = false,
-    children,
-}: {
-    readonly icon: IconName;
-    readonly title: string;
-    readonly action: string;
-    readonly warn?: boolean;
-    readonly children: ReactNode;
-}) {
-    return (
-        <View
-            className={`min-w-[220px] flex-1 flex-col gap-1 rounded-2xl border p-3 ${
-                warn ? 'border-warning-border bg-warning-subtle' : 'border-stroke-subtle bg-surface-raised'
-            }`}
-        >
-            <View className="flex-row items-center gap-1.5">
-                <Icon name={icon} size="sm" className="text-content-secondary" />
-                <Text variant="micro" tone="secondary" className="font-bold uppercase tracking-wider">
-                    {title}
-                </Text>
-            </View>
-            {children}
-            <View className="pt-1">
-                <DeskButton variant="quiet" label={action} />
-            </View>
-        </View>
     );
 }
 

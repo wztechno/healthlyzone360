@@ -390,7 +390,7 @@ export function OrdersShowcaseScreen() {
                         />
                     </View>
 
-                    <Text variant="title">Order pop-up — proposal B (not in the app)</Text>
+                    <Text variant="title">Order pop-up — layout B (in the app since 2026-11-11)</Text>
                     <Text variant="label" tone="secondary">
                         A progress track with the next step, three cards (customer, delivery, money)
                         each with one action, allergies and the note lifted out, items ending in totals
@@ -399,7 +399,7 @@ export function OrdersShowcaseScreen() {
                         <DeskButton
                             testID="showcase-orders-open-popup-b"
                             variant="secondary"
-                            label="Open proposal B"
+                            label="Open layout B"
                             onPress={() => {
                                 setOpenB(true);
                             }}

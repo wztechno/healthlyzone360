@@ -5807,6 +5807,10 @@
             "paidBy": "Paid · {{method}}",
             "change": "Change"
         },
+        "stage": {
+            "label": "Where the order is",
+            "placed": "Placed"
+        },
         "history": {
             "placed": "Order placed",
             "confirmed": "Confirmed",
