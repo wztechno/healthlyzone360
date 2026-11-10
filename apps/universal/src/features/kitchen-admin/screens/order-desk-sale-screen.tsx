@@ -13,17 +13,13 @@ import type {
 import { ORDER_DESK_FULFILMENT_TYPES } from '@healthy360/api-client/contracts';
 import { OrderId } from '@healthy360/domain-types';
 import {
-    Badge,
-    Button,
     Callout,
     Checkbox,
-    Drawer,
     EmptyState,
     ErrorState,
     Dropdown,
     FormSection,
     Icon,
-    IconButton,
     InfoTip,
     SearchInput,
     Select,
@@ -51,7 +47,6 @@ import {
 import { useKitchenOrderQuery } from '../../../data/kitchen-orders-hooks.ts';
 import {
     useAmendOrderDeskOrderMutation,
-    useDishChoicesQuery,
     useOrderDeskDeliveryWindowsQuery,
     useOrderDeskDriversQuery,
     useOrderDeskQuoteQuery,
@@ -81,11 +76,11 @@ import { displayName } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs } from '../record-form-opening.tsx';
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
-import { DeskButton, DeskChip, MiniMonthPicker } from '../desk-kit/index.ts';
+import { DeskButton, DeskChip, DeskIconButton, MiniMonthPicker } from '../desk-kit/index.ts';
 import { allergenLabel, kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import type { BasketLine } from '../order-desk/basket.ts';
-import { DishChoiceFields, dishOptionsLine } from '../../../ui/dish-choices.tsx';
-import type { DishChoiceValue } from '../../../ui/dish-choices.tsx';
+import { dishOptionsLine } from '../../../ui/dish-choices.tsx';
+import { DishChoicesDialog } from '../order-desk/dish-choices-dialog.tsx';
 import {
     MAX_LINE_QUANTITY,
     addItem,
@@ -122,6 +117,7 @@ import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { isPlannerDate } from '../../planner/format.ts';
 import { relativeDay, shortDay } from '../orders/order-columns.tsx';
 import { landingHref, ordersHref } from '../orders/orders-url.ts';
+import { BackPill } from '../../../ui/back-pill.tsx';
 
 /**
  * `/kitchen/order-desk/sale` — ringing up a counter, collection or telephone sale. Kitchen v2 `4f`.
@@ -772,10 +768,8 @@ function Sale() {
                 title={t('kitchen:desk.edit.notAmendableTitle')}
                 body={t('kitchen:desk.edit.notAmendableBody')}
                 actions={
-                    <Button
+                    <BackPill
                         testID="kitchen-order-desk-sale-not-amendable-back"
-                        size="sm"
-                        variant="secondary"
                         label={t('kitchen:ops.orders.backToOrders')}
                         onPress={back.leave}
                     />
@@ -831,25 +825,17 @@ function Sale() {
                 )}
                 <View className="ms-auto flex-row">
                     {stage === 'checkout' ? (
-                        <Button
+                        <BackPill
                             testID="kitchen-order-desk-sale-back"
-                            size="sm"
-                            variant="secondary"
-                            className="!rounded-[10px]"
                             label={t('kitchen:desk.sale.backToMenu')}
-                            iconStart={<Icon name="chevronBackward" size="sm" />}
                             onPress={() => {
                                 setStage('menu');
                             }}
                         />
                     ) : (
-                        <Button
+                        <BackPill
                             testID="kitchen-order-desk-sale-back-to-desk"
-                            size="sm"
-                            variant="secondary"
-                            className="!rounded-[10px]"
                             label={t('kitchen:ops.orders.backToOrders')}
-                            iconStart={<Icon name="chevronBackward" size="sm" />}
                             onPress={back.leave}
                         />
                     )}
@@ -918,9 +904,8 @@ function Sale() {
                                                 : 'kitchen:desk.sale.addressTitle',
                                         )}
                                         actions={
-                                            <Button
+                                            <DeskButton
                                                 testID="kitchen-order-desk-sale-edit-address-toggle"
-                                                size="sm"
                                                 variant="secondary"
                                                 label={t(
                                                     changingAddress
@@ -1508,11 +1493,9 @@ function ConflictBand({
                     ) : (
                         <View className="flex-row flex-wrap gap-1">
                             {names.map((name) => (
-                                <Badge
+                                <DeskChip
                                     key={name}
                                     tone="warning"
-                                    icon={null}
-                                    className="!rounded-full"
                                     label={name}
                                 />
                             ))}
@@ -1720,9 +1703,8 @@ function MenuGrid({
                                         }}
                                     />
                                     {canSwitch ? (
-                                        <Button
+                                        <DeskButton
                                             testID={`kitchen-order-desk-sale-tile-${tile.id}-off-today`}
-                                            size="sm"
                                             variant="quiet"
                                             block
                                             label={t(
@@ -1867,9 +1849,9 @@ function MenuTileButton({
                     {refused ? null : (
                         <View
                             aria-hidden
-                            className="h-8 w-8 items-center justify-center rounded-[10px] bg-surface-canopy"
+                            className="h-8 w-8 items-center justify-center rounded-full bg-surface-brand"
                         >
-                            <Icon name="plus" size="sm" className="text-brand-300" />
+                            <Icon name="plus" size="sm" className="text-content-on-brand" />
                         </View>
                     )}
                 </View>
@@ -2218,11 +2200,9 @@ function Ticket({
                                                 </Text>
                                             </View>
                                             <View className="flex-row items-center gap-hair">
-                                                <IconButton
+                                                <DeskIconButton
                                                     testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-options`}
                                                     icon={<Icon name="pen" size="sm" />}
-                                                    variant="secondary"
-                                                    size="sm"
                                                     label={t('kitchen:dishOptions.lineAction', {
                                                         name,
                                                     })}
@@ -2230,11 +2210,9 @@ function Ticket({
                                                         setChoosing(key);
                                                     }}
                                                 />
-                                                <IconButton
+                                                <DeskIconButton
                                                     testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-decrement`}
                                                     icon={<Icon name="minus" size="sm" />}
-                                                    variant="secondary"
-                                                    size="sm"
                                                     label={t(
                                                         'designSystem:numberStepper.decrease',
                                                         {
@@ -2245,11 +2223,9 @@ function Ticket({
                                                         step(quantity - 1);
                                                     }}
                                                 />
-                                                <IconButton
+                                                <DeskIconButton
                                                     testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-increment`}
                                                     icon={<Icon name="plus" size="sm" />}
-                                                    variant="secondary"
-                                                    size="sm"
                                                     label={t(
                                                         'designSystem:numberStepper.increase',
                                                         {
@@ -2303,10 +2279,10 @@ function Ticket({
                     )}
 
                     {choosingLine === undefined ? null : (
-                        <DishChoicesDrawer
+                        <DishChoicesDialog
                             key={lineKey(choosingLine)}
                             line={choosingLine}
-                            money={money}
+                            money={(portion) => money(portion.unitPriceMinor, portion.currencyCode)}
                             onClose={() => {
                                 setChoosing(null);
                             }}
@@ -2479,9 +2455,8 @@ function Ticket({
                             title={t('kitchen:ops.orders.conflictTitle')}
                             body={t('kitchen:ops.orders.conflictBody')}
                             actions={
-                                <Button
+                                <DeskButton
                                     testID="kitchen-order-desk-sale-conflict-reload"
-                                    size="sm"
                                     variant="secondary"
                                     label={t('kitchen:ops.orders.conflictRefresh')}
                                     onPress={onReload}
@@ -2790,92 +2765,5 @@ function PaymentMethods({
                 );
             })}
         </View>
-    );
-}
-
-/**
- * One row's portion, free options and note. Portions are packs, so the row's quote prices the
- * choice; nothing here works out a price.
- */
-function DishChoicesDrawer({
-    line,
-    money,
-    onClose,
-    onSave,
-}: {
-    readonly line: BasketLine;
-    readonly money: (amount: number, currency: OrderDeskQuote['currencyCode']) => string;
-    readonly onClose: () => void;
-    readonly onSave: (change: Parameters<typeof changeLine>[2]) => void;
-}) {
-    const { t } = useTranslation();
-    const { locale } = useLocale();
-    const read = useDishChoicesQuery(line.catalogueItemId);
-    const [value, setValue] = useState<DishChoiceValue>({
-        catalogueItemVariantId: line.catalogueItemVariantId,
-        optionIds: line.options?.map((option) => option.id) ?? [],
-    });
-    const [note, setNote] = useState(line.note ?? '');
-
-    const options = read.data?.options ?? [];
-    const portions = read.data?.portions ?? [];
-    const portion = portions.find(
-        (candidate) => candidate.catalogueItemVariantId === value.catalogueItemVariantId,
-    );
-
-    return (
-        <Drawer
-            testID="kitchen-order-desk-sale-choices"
-            open
-            onClose={onClose}
-            title={t('kitchen:dishOptions.drawerTitle')}
-            footer={
-                <Button
-                    testID="kitchen-order-desk-sale-choices-save"
-                    label={t('kitchen:dishOptions.apply')}
-                    onPress={() => {
-                        onSave({
-                            catalogueItemVariantId: value.catalogueItemVariantId,
-                            variantLabel:
-                                portion === undefined
-                                    ? line.variantLabel
-                                    : displayName(
-                                          { en: portion.nameEn, ar: portion.nameAr },
-                                          locale,
-                                      ).value,
-                            options: options.filter((option) =>
-                                value.optionIds.includes(option.id),
-                            ),
-                            note: note.trim(),
-                        });
-                    }}
-                />
-            }
-        >
-            <View className="flex-col gap-snug">
-                {options.length === 0 && portions.length === 0 ? null : (
-                    <DishChoiceFields
-                        testID="kitchen-order-desk-sale-choices-fields"
-                        size="sm"
-                        options={options}
-                        portions={portions}
-                        value={value}
-                        onChange={setValue}
-                        formatPrice={(choice) => money(choice.unitPriceMinor, choice.currencyCode)}
-                    />
-                )}
-                <TextInputField
-                    testID="kitchen-order-desk-sale-choices-note"
-                    id="kitchen-order-desk-sale-choices-note"
-                    label={t('kitchen:dishOptions.noteLabel')}
-                    size="sm"
-                    multiline
-                    numberOfLines={2}
-                    maxLength={300}
-                    value={note}
-                    onChangeText={setNote}
-                />
-            </View>
-        </Drawer>
     );
 }
