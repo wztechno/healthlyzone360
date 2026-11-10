@@ -2060,7 +2060,16 @@
             "weeklyClearWithHoles_few": "مغطى — لكن {{count}} أيام فيها طلب تعذّر حسابه. راجع القائمة أدناه.",
             "weeklyClearWithHoles_many": "مغطى — لكن {{count}} يومًا فيها طلب تعذّر حسابه. راجع القائمة أدناه.",
             "weeklyClearWithHoles_other": "مغطى — لكن {{count}} يوم فيها طلب تعذّر حسابه. راجع القائمة أدناه.",
-            "weeklyShowWindow": "عرض ذلك الأسبوع"
+            "weeklyShowWindow": "عرض ذلك الأسبوع",
+            "showLabel": "العرض",
+            "showAll": "الكل",
+            "showShort": "ناقص",
+            "showCovered": "متوفّر",
+            "unitAll": "الكل",
+            "searchLabel": "البحث في المكوّنات",
+            "searchPlaceholder": "المكوّن أو الرمز",
+            "viewIngredient": "عرض المكوّن",
+            "editIngredient": "تعديل المكوّن"
         },
         "cashReport": {
             "title": "المبالغ المستلمة",
@@ -3345,6 +3354,7 @@
         "close": "إغلاق",
         "columnSort": "رتّب حسب {{column}}",
         "columnsButton": "عرض الأعمدة · {{shown}} من {{max}}",
+        "columnsCount": "{{shown}} من {{max}}",
         "columnsClear": "إلغاء تحديد الكل",
         "columnsHint": "اختر الأعمدة التي تظهر في الجدول، حتى {{max}} في المرة الواحدة.",
         "columnsLabel": "اختر الأعمدة المعروضة",

@@ -1809,7 +1809,16 @@
             "weeklyClearBody": "The orders and subscriptions booked for that week were covered by the shelf.",
             "weeklyClearWithHoles_one": "Covered — but {{count}} day had demand nobody could work out. See the list below.",
             "weeklyClearWithHoles_other": "Covered — but {{count}} days had demand nobody could work out. See the list below.",
-            "weeklyShowWindow": "Show that week"
+            "weeklyShowWindow": "Show that week",
+            "showLabel": "Show",
+            "showAll": "All",
+            "showShort": "Short",
+            "showCovered": "Covered",
+            "unitAll": "All",
+            "searchLabel": "Search ingredients",
+            "searchPlaceholder": "Ingredient or code",
+            "viewIngredient": "View ingredient",
+            "editIngredient": "Edit ingredient"
         },
         "cashReport": {
             "title": "Cash taken",
@@ -3002,6 +3011,7 @@
         "close": "Close",
         "columnSort": "Sort by {{column}}",
         "columnsButton": "Show columns · {{shown}} of {{max}}",
+        "columnsCount": "{{shown}} of {{max}}",
         "columnsClear": "Clear all",
         "columnsHint": "Choose which columns appear in the table. Up to {{max}} at a time.",
         "columnsLabel": "Choose the columns to show",

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10689 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10699 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3781,6 +3781,7 @@ export interface NamespaceKeys {
     | 'catalogue.columnUpdated'
     | 'catalogue.columnsButton'
     | 'catalogue.columnsClear'
+    | 'catalogue.columnsCount'
     | 'catalogue.columnsHeading'
     | 'catalogue.columnsHint'
     | 'catalogue.columnsLabel'
@@ -6279,6 +6280,7 @@ export interface NamespaceKeys {
     | 'ops.requirements.columnUnit'
     | 'ops.requirements.coveredBadge'
     | 'ops.requirements.createOrder'
+    | 'ops.requirements.editIngredient'
     | 'ops.requirements.emptyBody'
     | 'ops.requirements.emptyTitle'
     | 'ops.requirements.filterFrom'
@@ -6306,13 +6308,21 @@ export interface NamespaceKeys {
     | 'ops.requirements.reason.unit_conversion_unsupported'
     | 'ops.requirements.reason.unquantified_recipe_line'
     | 'ops.requirements.reasonEntry'
+    | 'ops.requirements.searchLabel'
+    | 'ops.requirements.searchPlaceholder'
     | 'ops.requirements.shortBadge'
     | 'ops.requirements.shortfallCount'
+    | 'ops.requirements.showAll'
+    | 'ops.requirements.showCovered'
+    | 'ops.requirements.showLabel'
+    | 'ops.requirements.showShort'
     | 'ops.requirements.subtitle'
     | 'ops.requirements.summaryIngredients'
     | 'ops.requirements.summaryReadOnly'
     | 'ops.requirements.summaryShort'
     | 'ops.requirements.title'
+    | 'ops.requirements.unitAll'
+    | 'ops.requirements.viewIngredient'
     | 'ops.requirements.weeklyClearBody'
     | 'ops.requirements.weeklyClearTitle'
     | 'ops.requirements.weeklyClearWithHoles'
@@ -14488,6 +14498,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:catalogue.columnUpdated',
   'kitchen:catalogue.columnsButton',
   'kitchen:catalogue.columnsClear',
+  'kitchen:catalogue.columnsCount',
   'kitchen:catalogue.columnsHeading',
   'kitchen:catalogue.columnsHint',
   'kitchen:catalogue.columnsLabel',
@@ -16986,6 +16997,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.requirements.columnUnit',
   'kitchen:ops.requirements.coveredBadge',
   'kitchen:ops.requirements.createOrder',
+  'kitchen:ops.requirements.editIngredient',
   'kitchen:ops.requirements.emptyBody',
   'kitchen:ops.requirements.emptyTitle',
   'kitchen:ops.requirements.filterFrom',
@@ -17013,13 +17025,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.requirements.reason.unit_conversion_unsupported',
   'kitchen:ops.requirements.reason.unquantified_recipe_line',
   'kitchen:ops.requirements.reasonEntry',
+  'kitchen:ops.requirements.searchLabel',
+  'kitchen:ops.requirements.searchPlaceholder',
   'kitchen:ops.requirements.shortBadge',
   'kitchen:ops.requirements.shortfallCount',
+  'kitchen:ops.requirements.showAll',
+  'kitchen:ops.requirements.showCovered',
+  'kitchen:ops.requirements.showLabel',
+  'kitchen:ops.requirements.showShort',
   'kitchen:ops.requirements.subtitle',
   'kitchen:ops.requirements.summaryIngredients',
   'kitchen:ops.requirements.summaryReadOnly',
   'kitchen:ops.requirements.summaryShort',
   'kitchen:ops.requirements.title',
+  'kitchen:ops.requirements.unitAll',
+  'kitchen:ops.requirements.viewIngredient',
   'kitchen:ops.requirements.weeklyClearBody',
   'kitchen:ops.requirements.weeklyClearTitle',
   'kitchen:ops.requirements.weeklyClearWithHoles',

@@ -1,16 +1,15 @@
 import type { OrderDeskRequirement } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     Cascade,
-    DatePickerButton,
     EmptyState,
     ErrorState,
+    Icon,
     IssueTrayFrame,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { IssueTrayContent } from '@healthy360/design-system';
+import type { IssueTrayContent, MenuItem } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -37,12 +36,13 @@ import {
 } from '../entity-registry.ts';
 import { unitCodeLabel } from '../format.ts';
 import { WeeklyStockCheckBanner } from '../weekly-stock-check.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { pathnameOf } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import { ORDERS_HREF } from '../orders/orders-url.ts';
+import { shortDay } from '../orders/order-columns.tsx';
+import { DeskButton, DeskColumnPicker, DeskSelect, MiniMonthPicker } from '../desk-kit/index.ts';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 
 /**
@@ -102,7 +102,16 @@ import type { LensFigure } from '../catalogue/lens-bar.tsx';
  *
  * Rows the shelf cannot cover are emphasised with a `Badge` **and** a tone — never colour alone, the
  * platform's standing rule, and the badge carries a word rather than a dot for exactly that reason.
+ *
+ * ## The desk's toolbar (2026-11-11)
+ *
+ * Drawn in the Orders page's kit: the window is two mini-month pills, Show (all / short / covered)
+ * and Unit are desk dropdowns, a search narrows by ingredient or code, every column sorts from its
+ * header, Show columns is the desk pill with its count, and each row's `⋯` opens the ingredient.
  */
+
+type ShowFilter = 'all' | 'short' | 'covered';
+const ALL_UNITS = '\u0000all';
 
 /** What a shelf with no resolved unit renders as — the workspace's one character for an unknown. */
 const EM_DASH = '—';
@@ -130,6 +139,10 @@ function OrderDeskRequirements() {
     const canOrder = useCan(INVENTORY_ORDER_SUPPLIES_PERMISSION);
 
     const branchId = access.branch?.id ?? null;
+    const today = todayIso();
+    const [show, setShow] = useState<ShowFilter>('all');
+    const [unit, setUnit] = useState<string>(ALL_UNITS);
+    const [query, setQuery] = useState('');
 
     // `?from=&to=` opens on a span another page asked about — the Orders calendar's "Open
     // requirements" for one day.
@@ -297,14 +310,8 @@ function OrderDeskRequirements() {
             label: t('kitchen:ops.requirements.columnUnit'),
             width: 70,
             priority: 60,
-            filter: {
-                values: (loaded) =>
-                    [...new Set(loaded.map((row) => row.unitCode ?? EM_DASH))].map((unit) => ({
-                        key: unit,
-                        label: unit === EM_DASH ? EM_DASH : unitCodeLabel(unit, t),
-                    })),
-                match: (row, value) => (row.unitCode ?? EM_DASH) === value,
-            },
+            sort: (left, right, direction) =>
+                compareText(unitText(left), unitText(right), direction),
             render: (row) => (
                 <Text variant="mono" tone="secondary" testID={`${rowTestId(row)}-unit`}>
                     {/* The one genuine unknown on this row. A shelf with no resolved unit still has
@@ -314,6 +321,10 @@ function OrderDeskRequirements() {
             ),
         },
     ];
+
+    function unitText(row: OrderDeskRequirement): string {
+        return row.unitCode === null ? EM_DASH : unitCodeLabel(row.unitCode, t);
+    }
 
     /** Quantities are decimal strings on the wire and stay strings until they are rendered. */
     function quantity(value: string): string {
@@ -342,12 +353,54 @@ function OrderDeskRequirements() {
 
     const failure = toFailure(requirements.error);
     const rows = requirements.data?.requirements ?? [];
+    const units = [...new Set(rows.map((row) => row.unitCode ?? EM_DASH))].sort();
+    const needle = query.trim().toLocaleLowerCase();
+    const narrowed = rows.filter(
+        (row) =>
+            (show === 'all' || (show === 'short') === isShort(row)) &&
+            (unit === ALL_UNITS || (row.unitCode ?? EM_DASH) === unit) &&
+            (needle === '' ||
+                row.nameEn.toLocaleLowerCase().includes(needle) ||
+                row.code.toLocaleLowerCase().includes(needle)),
+    );
+    const toolbarFiltered = show !== 'all' || unit !== ALL_UNITS || needle !== '';
+    /** View and Edit for the ingredient behind a row, coming back here. */
+    const rowActions = (row: OrderDeskRequirement): readonly MenuItem[] => {
+        const here = withQuery('/kitchen/order-desk/requirements', { from, to });
+        return [
+            {
+                key: 'view',
+                label: t('kitchen:ops.requirements.viewIngredient'),
+                icon: 'eye',
+                primary: true,
+                onSelect: () => {
+                    router.push(
+                        withReturnTo(
+                            withQuery('/kitchen/ingredients', { view: row.ingredientId }),
+                            here,
+                        ) as never,
+                    );
+                },
+            },
+            {
+                key: 'edit',
+                label: t('kitchen:ops.requirements.editIngredient'),
+                icon: 'pen',
+                onSelect: () => {
+                    router.push(
+                        withReturnTo(`/kitchen/ingredients/${row.ingredientId}`, here) as never,
+                    );
+                },
+            },
+        ];
+    };
     /*
      * The catalogue's six, like every admin table. Reserved and Available are the two left out:
      * Available is On hand less Reserved, so the row still reads, and a quantity without its Unit
      * would not. The picker swaps them in.
      */
-    const controls = useColumnControls(rows, columns, 'kitchen-order-desk-requirements-table', {
+    const controls = useColumnControls(narrowed, columns, 'kitchen-order-desk-requirements-table', {
+        menuLook: 'card',
         picker: {
             defaults: ['ingredient', 'required', 'onHand', 'short', 'suggestedBuy', 'unit'],
         },
@@ -396,6 +449,7 @@ function OrderDeskRequirements() {
                     <LensBar
                         testID="kitchen-order-desk-requirements-toolbar"
                         layout="split"
+                        compactSearch
                         joined={joined}
                         label={t('kitchen:lens.label')}
                         figures={(() => {
@@ -455,25 +509,72 @@ function OrderDeskRequirements() {
                               })}
                         scope={
                             <>
-                                <DatePickerButton
+                                <MiniMonthPicker
                                     testID="kitchen-order-desk-requirements-from"
                                     label={t('kitchen:ops.requirements.filterFrom')}
-                                    value={from}
+                                    value={isIsoDate(from) ? from : today}
+                                    valueLabel={isIsoDate(from) ? shortDay(from, formatter) : from}
+                                    today={today}
+                                    {...(isIsoDate(to) ? { max: to } : {})}
                                     onChange={setFrom}
-                                    max={to}
                                 />
                                 <Text variant="caption" tone="secondary" aria-hidden>
                                     {t('kitchen:ops.requirements.windowTo')}
                                 </Text>
-                                <DatePickerButton
+                                <MiniMonthPicker
                                     testID="kitchen-order-desk-requirements-to"
                                     label={t('kitchen:ops.requirements.filterTo')}
-                                    value={to}
+                                    value={isIsoDate(to) ? to : today}
+                                    valueLabel={isIsoDate(to) ? shortDay(to, formatter) : to}
+                                    today={today}
+                                    {...(isIsoDate(from) ? { min: from } : {})}
                                     onChange={setTo}
-                                    min={from}
+                                />
+                                <DeskSelect<ShowFilter>
+                                    testID="kitchen-order-desk-requirements-show"
+                                    label={t('kitchen:ops.requirements.showLabel')}
+                                    value={show}
+                                    onChange={setShow}
+                                    options={[
+                                        {
+                                            value: 'all',
+                                            label: t('kitchen:ops.requirements.showAll'),
+                                        },
+                                        {
+                                            value: 'short',
+                                            label: t('kitchen:ops.requirements.showShort'),
+                                            count: shortCount,
+                                        },
+                                        {
+                                            value: 'covered',
+                                            label: t('kitchen:ops.requirements.showCovered'),
+                                            count: rows.length - shortCount,
+                                        },
+                                    ]}
+                                />
+                                <DeskSelect<string>
+                                    testID="kitchen-order-desk-requirements-unit"
+                                    label={t('kitchen:ops.requirements.columnUnit')}
+                                    value={unit}
+                                    onChange={setUnit}
+                                    options={[
+                                        {
+                                            value: ALL_UNITS,
+                                            label: t('kitchen:ops.requirements.unitAll'),
+                                        },
+                                        ...units.map((code) => ({
+                                            value: code,
+                                            label:
+                                                code === EM_DASH ? EM_DASH : unitCodeLabel(code, t),
+                                        })),
+                                    ]}
                                 />
                             </>
                         }
+                        search={query}
+                        onSearchChange={setQuery}
+                        searchLabel={t('kitchen:ops.requirements.searchLabel')}
+                        searchPlaceholder={t('kitchen:ops.requirements.searchPlaceholder')}
                         result={
                             requirements.isPending && branchId !== null && filters !== null
                                 ? null
@@ -483,15 +584,30 @@ function OrderDeskRequirements() {
                                   })
                         }
                         clearLabel={t('kitchen:lens.clear')}
-                        {...(controls.filtered ? { onClear: controls.clearFilters } : {})}
-                        trailing={<ColumnPicker {...controls.picker} compact />}
+                        {...(controls.filtered || toolbarFiltered
+                            ? {
+                                  onClear: () => {
+                                      controls.clearFilters();
+                                      setShow('all');
+                                      setUnit(ALL_UNITS);
+                                      setQuery('');
+                                  },
+                              }
+                            : {})}
+                        trailing={<DeskColumnPicker {...controls.picker} />}
                         {...(canOrder && shortCount > 0
                             ? {
                                   actions: (
-                                      <Button
+                                      <DeskButton
                                           testID="kitchen-order-desk-requirements-create-order"
-                                          size="sm"
                                           label={t('kitchen:ops.requirements.createOrder')}
+                                          iconStart={
+                                              <Icon
+                                                  name="plus"
+                                                  size="md"
+                                                  className="text-content-on-brand"
+                                              />
+                                          }
                                           onPress={createOrder}
                                       />
                                   ),
@@ -567,7 +683,9 @@ function OrderDeskRequirements() {
                                     columns={controls.columns}
                                     rows={controls.rows}
                                     rowKey={(row) => row.stockItemId}
+                                    rowActions={rowActions}
                                     rowActionsLabel={t('kitchen:list.rowActions')}
+                                    rowActionsLook="desk"
                                     joined
                                 />
                             )}
