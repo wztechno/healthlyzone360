@@ -137,6 +137,7 @@ html:lang(ar) * {
 }
 
 [data-testid$='-sidebar-scroll']::-webkit-scrollbar-thumb {
+    border: 0;
     background: transparent;
     border-radius: 9999px;
 }
@@ -147,52 +148,65 @@ html:lang(ar) * {
 }
 
 /* ================================================================================================
-   The thin scrollbar — the compact pop-up's (Orders redesign, 2026-11-10), for any scroller.
+   The thin scrollbar — the compact pop-up's (Orders redesign, 2026-11-10), for every scroller in
+   the web app since the same day: the shell's page, a pop-up, a list, a menu.
 
-   Give a ScrollView a test id ending in `-thin-scroll` and it wears a thin, rounded bar that stays
-   quiet in the border's ink and turns brand green when the pointer reaches for it, with no arrow
-   buttons — in place of the platform's grey slab. The gutter is kept, so content does not jump when
-   the bar appears. Keyed on the test id for the rail's reason: react-native-web's classes are
-   hashed per build.
+   A thin, rounded bar that stays quiet in the border's ink and turns brand green when the pointer
+   reaches for it, with no arrow buttons — in place of the platform's grey slab. Written under
+   `:where(*)`, which weighs nothing, so a scroller with a bar of its own (the sidebar rail's, above)
+   still wins. A ScrollView whose test id ends in `-thin-scroll` also keeps its gutter, so its
+   content does not jump when the bar appears.
    ============================================================================================== */
 [data-testid$='-thin-scroll'] {
     scrollbar-gutter: stable;
 }
 
 @supports not selector(::-webkit-scrollbar) {
-    [data-testid$='-thin-scroll'] {
+    :where(*) {
         scrollbar-width: thin;
         scrollbar-color: rgb(var(--h360-color-border-strong)) transparent;
     }
 }
 
-[data-testid$='-thin-scroll']::-webkit-scrollbar {
+:where(*)::-webkit-scrollbar {
     width: 12px;
     height: 12px;
 }
 
-[data-testid$='-thin-scroll']::-webkit-scrollbar-track {
+:where(*)::-webkit-scrollbar-track {
     background: transparent;
+}
+
+:where(*)::-webkit-scrollbar-track:vertical {
     margin: 10px 0;
 }
 
-[data-testid$='-thin-scroll']::-webkit-scrollbar-thumb {
+:where(*)::-webkit-scrollbar-track:horizontal {
+    margin: 0 10px;
+}
+
+:where(*)::-webkit-scrollbar-thumb {
     min-height: 40px;
+    min-width: 40px;
     border: 4px solid transparent;
     border-radius: 9999px;
     background-color: rgb(var(--h360-color-border-strong));
     background-clip: content-box;
 }
 
-[data-testid$='-thin-scroll']::-webkit-scrollbar-thumb:hover {
+:where(*)::-webkit-scrollbar-thumb:hover {
     border-width: 3px;
     background-color: rgb(var(--h360-color-brand-surface));
 }
 
-[data-testid$='-thin-scroll']::-webkit-scrollbar-button {
+:where(*)::-webkit-scrollbar-button {
     display: none;
     width: 0;
     height: 0;
+}
+
+:where(*)::-webkit-scrollbar-corner {
+    background: transparent;
 }
 
 /* ================================================================================================
