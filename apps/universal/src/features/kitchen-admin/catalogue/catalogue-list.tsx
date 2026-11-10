@@ -2,7 +2,7 @@ import { DataList, Inline, Text, fitColumns, useBreakpoint } from '@healthy360/d
 import type { MenuItem } from '@healthy360/design-system';
 import type { RowDensity } from '@healthy360/design-tokens';
 import type { ReactNode, RefObject } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, View } from 'react-native';
 
@@ -124,6 +124,8 @@ export interface CatalogueListProps<Row> {
     readonly joined?: boolean | undefined;
     /** Keeps the frame when empty: for an `emptyState` drawn in the table's `table` or `row` shape. */
     readonly frameEmpty?: boolean | undefined;
+    /** A heading row before a row — `DataList`'s `sectionHeader`, at both widths. */
+    readonly sectionHeader?: ((row: Row, previous: Row | undefined) => ReactNode) | undefined;
     readonly testID: string;
 }
 
@@ -195,6 +197,7 @@ function CatalogueTable<Row>({
     highlightedId,
     joined = false,
     frameEmpty = false,
+    sectionHeader,
     testID,
 }: CatalogueListProps<Row>) {
     const { t } = useTranslation();
@@ -228,26 +231,31 @@ function CatalogueTable<Row>({
                 {rows.length === 0
                     ? emptyState
                     : rows.map((row, index) => (
-                          <CatalogueListItem
-                              key={rowKey(row)}
-                              title={cellText(columnForRole(columns, 'title'), row)}
-                              media={narrowThumbnail(columns, row, rowKey, testID)}
-                              status={renderRole(columns, 'status', row)}
-                              metric={renderRole(columns, 'metric', row)}
-                              meta={metaEntries(columns, row)}
-                              actions={rowActions?.(row)}
-                              actionsLabel={rowActionsLabel}
-                              onPress={
-                                  onRowPress === undefined
-                                      ? undefined
-                                      : () => {
-                                            onRowPress(row);
-                                        }
-                              }
-                              divider={index < rows.length - 1}
-                              highlighted={row === highlighted}
-                              testID={`${testID}-row-${rowKey(row)}`}
-                          />
+                          <Fragment key={rowKey(row)}>
+                              {sectionHeader === undefined ? null : (
+                                  <NarrowSection heading={sectionHeader(row, rows[index - 1])} />
+                              )}
+                              <CatalogueListItem
+                                  key={rowKey(row)}
+                                  title={cellText(columnForRole(columns, 'title'), row)}
+                                  media={narrowThumbnail(columns, row, rowKey, testID)}
+                                  status={renderRole(columns, 'status', row)}
+                                  metric={renderRole(columns, 'metric', row)}
+                                  meta={metaEntries(columns, row)}
+                                  actions={rowActions?.(row)}
+                                  actionsLabel={rowActionsLabel}
+                                  onPress={
+                                      onRowPress === undefined
+                                          ? undefined
+                                          : () => {
+                                                onRowPress(row);
+                                            }
+                                  }
+                                  divider={index < rows.length - 1}
+                                  highlighted={row === highlighted}
+                                  testID={`${testID}-row-${rowKey(row)}`}
+                              />
+                          </Fragment>
                       ))}
             </View>
         );
@@ -327,6 +335,7 @@ function CatalogueTable<Row>({
                     framed={rows.length > 0 || frameEmpty}
                     flushTop={joined}
                     rowEntrance={rowEntrance}
+                    sectionHeader={sectionHeader}
                     testID={testID}
                 />
             </View>
@@ -378,6 +387,12 @@ function useRevealRow(
             row.style.backgroundColor = '';
         };
     });
+}
+
+/** The heading row of the two-line list, which brings its own ground. Nothing when there is none. */
+function NarrowSection({ heading }: { readonly heading: ReactNode }) {
+    if (heading === null || heading === undefined || heading === false) return null;
+    return <View>{heading}</View>;
 }
 
 function cellText<Row>(column: CatalogueColumn<Row> | undefined, row: Row): string {

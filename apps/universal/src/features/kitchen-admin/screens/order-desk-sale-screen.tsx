@@ -118,6 +118,9 @@ import {
     withWalkIn,
 } from '../order-desk/sale-state.ts';
 import { useDebouncedValue } from '../order-desk/use-debounced-value.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { isPlannerDate } from '../../planner/format.ts';
+import { landingHref, ordersHref } from '../orders/orders-url.ts';
 
 /**
  * `/kitchen/order-desk/sale` — ringing up a counter, collection or telephone sale. Kitchen v2 `4f`.
@@ -369,7 +372,20 @@ function Sale() {
     const toast = useToast();
     const { locale } = useLocale();
 
-    const [state, setState] = useState<SaleState>(initialSaleState);
+    /*
+     * `?day=` is the day the Orders page sent a New order from — the day on its stepper, or the
+     * calendar's chosen day — so the sale starts on it. `?returnTo=` is that page as it was, and
+     * placing or saving lands back there, on the order's own day, with the order lit up.
+     */
+    const entry = useLocalSearchParams<{ day?: string; returnTo?: string }>();
+    const back = useReturnTo(entry.returnTo, ordersHref({ tab: 'today' }));
+    const [state, setState] = useState<SaleState>(() => {
+        const initial = initialSaleState();
+        const day = typeof entry.day === 'string' ? entry.day : undefined;
+        return isPlannerDate(day) && day >= todayIso()
+            ? { ...initial, requestedDeliveryDate: day }
+            : initial;
+    });
     /** Picking the food, or — after Charge — saying how it leaves and taking the money. */
     const [stage, setStage] = useState<SaleStage>('menu');
     /**
@@ -462,6 +478,10 @@ function Sale() {
         editOrder === null
             ? t('kitchen:desk.sale.title')
             : t('kitchen:desk.edit.title', { number: editOrder.orderNumber }),
+        () => {
+            back.leave();
+        },
+        t('kitchen:families.orders.name'),
     );
 
     /*
@@ -613,7 +633,7 @@ function Sale() {
                         tone: 'success',
                         message: t('kitchen:desk.edit.savedToast', { number: order.orderNumber }),
                     });
-                    router.replace('/kitchen/order-desk');
+                    router.dismissTo(landingHref(back.returnTo, order, todayIso()) as never);
                 },
             },
         );
@@ -700,7 +720,7 @@ function Sale() {
                         tone: 'success',
                         message: t(toastKey, { number: order.orderNumber }),
                     });
-                    router.replace('/kitchen/order-desk');
+                    router.dismissTo(landingHref(back.returnTo, order, todayIso()) as never);
                 },
             },
         );
@@ -755,10 +775,8 @@ function Sale() {
                         testID="kitchen-order-desk-sale-not-amendable-back"
                         size="sm"
                         variant="secondary"
-                        label={t('kitchen:desk.edit.backToDesk')}
-                        onPress={() => {
-                            router.replace('/kitchen/order-desk');
-                        }}
+                        label={t('kitchen:ops.orders.backToOrders')}
+                        onPress={back.leave}
                     />
                 }
             />
@@ -828,11 +846,9 @@ function Sale() {
                             size="sm"
                             variant="secondary"
                             className="!rounded-[10px]"
-                            label={t('kitchen:desk.sale.backToDesk')}
+                            label={t('kitchen:ops.orders.backToOrders')}
                             iconStart={<Icon name="chevronBackward" size="sm" />}
-                            onPress={() => {
-                                router.push('/kitchen/order-desk');
-                            }}
+                            onPress={back.leave}
                         />
                     )}
                 </View>

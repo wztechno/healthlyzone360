@@ -6320,5 +6320,226 @@
             "allergy": "حساسية",
             "anaphylaxis": "مهددة للحياة"
         }
+    },
+    "orders": {
+        "tab": {
+            "label": "عروض الطلبات",
+            "today": "اليوم",
+            "calendar": "التقويم",
+            "all": "كل الطلبات"
+        },
+        "newOrder": "طلب جديد",
+        "newForDay": "طلب جديد لهذا اليوم",
+        "clearFilters": "مسح عوامل التصفية",
+        "caption": "الطلبات",
+        "late": "متأخر",
+        "loadErrorTitle": "تعذّر تحميل الطلبات",
+        "openOrder": "فتح الطلب {{number}}",
+        "showing": "المعروض: {{figure}}",
+        "count_zero": "لا طلبات",
+        "count_one": "طلب واحد",
+        "count_two": "طلبان",
+        "count_few": "{{count}} طلبات",
+        "count_many": "{{count}} طلبًا",
+        "count_other": "{{count}} طلب",
+        "figure": {
+            "confirm": "بانتظار التأكيد",
+            "late": "متأخرة",
+            "driver": "تحتاج سائقًا",
+            "collect": "مبالغ للتحصيل",
+            "more": "+{{count}}",
+            "show": "عرض فقط: {{figure}}"
+        },
+        "filter": {
+            "all": "الكل",
+            "both": "كلاهما",
+            "slot": "الموعد",
+            "kind": "توصيل أو استلام",
+            "dates": "التواريخ",
+            "status": "الحالة"
+        },
+        "dates": {
+            "week": "هذا الأسبوع",
+            "next7": "الأيام السبعة القادمة",
+            "last7": "آخر سبعة أيام",
+            "month": "هذا الشهر"
+        },
+        "kind": {
+            "delivery": "توصيل",
+            "pickup": "استلام",
+            "counter": "بيع على الكاونتر"
+        },
+        "search": {
+            "label": "البحث عن طلب",
+            "placeholder": "رقم الطلب أو الاسم أو الهاتف",
+            "numberPlaceholder": "رقم الطلب"
+        },
+        "empty": {
+            "filtered": "لا شيء يطابق عوامل التصفية هذه",
+            "day": "لا طلبات في {{day}}",
+            "book": "لا طلبات بعد"
+        },
+        "group": {
+            "late": "متأخرة من أيام سابقة",
+            "lateSub": "ما زالت مفتوحة",
+            "lateAll": "عرض الكل"
+        },
+        "status": {
+            "toConfirm": "بانتظار التأكيد",
+            "confirmed": "مؤكَّد",
+            "delivered": "تم التوصيل",
+            "pickedUp": "تم الاستلام",
+            "sold": "تم البيع",
+            "cancelled": "ملغى",
+            "done": "تم التوصيل أو الاستلام"
+        },
+        "step": {
+            "confirm": "تأكيد",
+            "driver": "اختيار سائق",
+            "deliver": "تأكيد التوصيل",
+            "pickup": "تأكيد الاستلام",
+            "payment": "تسجيل دفعة"
+        },
+        "day": {
+            "today": "اليوم",
+            "tomorrow": "غدًا",
+            "yesterday": "أمس",
+            "past": "يوم سابق",
+            "coming": "قادم",
+            "previous": "اليوم السابق",
+            "next": "اليوم التالي",
+            "pick": "اختيار يوم",
+            "backToToday": "العودة إلى اليوم"
+        },
+        "slot": {
+            "none": "بلا موعد"
+        },
+        "column": {
+            "order": "الطلب",
+            "customer": "العميل",
+            "when": "اليوم والموعد",
+            "status": "الحالة",
+            "driver": "السائق",
+            "payment": "الدفع",
+            "total": "المجموع",
+            "next": "الخطوة التالية"
+        },
+        "driver": {
+            "needed": "يحتاج سائقًا",
+            "pickup": "استلام",
+            "counter": "على الكاونتر",
+            "giveTo": "تسليمه إلى {{name}}"
+        },
+        "payment": {
+            "paid": "مدفوع",
+            "toCollect": "للتحصيل {{amount}}",
+            "dialogDescription": "الطلب {{number}} · ما زال للتحصيل {{outstanding}}"
+        },
+        "toast": {
+            "pickedUp": "تم استلام الطلب {{number}}.",
+            "changed": "تغيّر الطلب {{number}} أثناء عرضه. راجعه وحاول مجددًا.",
+            "failed": "تعذّر تحديث الطلب {{number}}."
+        },
+        "calendar": {
+            "label": "التقويم",
+            "modeLabel": "عرض التقويم",
+            "month": "شهر",
+            "week": "أسبوع",
+            "previousMonth": "الشهر السابق",
+            "nextMonth": "الشهر التالي",
+            "previousWeek": "الأسبوع السابق",
+            "nextWeek": "الأسبوع التالي",
+            "weekRange": "{{from}} – {{to}}",
+            "monthCount_zero": "لا طلبات هذا الشهر",
+            "monthCount_one": "طلب واحد هذا الشهر",
+            "monthCount_two": "طلبان هذا الشهر",
+            "monthCount_few": "{{count}} طلبات هذا الشهر",
+            "monthCount_many": "{{count}} طلبًا هذا الشهر",
+            "monthCount_other": "{{count}} طلب هذا الشهر",
+            "weekCount_zero": "لا طلبات هذا الأسبوع",
+            "weekCount_one": "طلب واحد هذا الأسبوع",
+            "weekCount_two": "طلبان هذا الأسبوع",
+            "weekCount_few": "{{count}} طلبات هذا الأسبوع",
+            "weekCount_many": "{{count}} طلبًا هذا الأسبوع",
+            "weekCount_other": "{{count}} طلب هذا الأسبوع",
+            "dayA11y_zero": "{{day}}، لا طلبات",
+            "dayA11y_one": "{{day}}، طلب واحد",
+            "dayA11y_two": "{{day}}، طلبان",
+            "dayA11y_few": "{{day}}، {{count}} طلبات",
+            "dayA11y_many": "{{day}}، {{count}} طلبًا",
+            "dayA11y_other": "{{day}}، {{count}} طلب",
+            "plan_zero": "لا وجبات اشتراك",
+            "plan_one": "وجبة اشتراك واحدة",
+            "plan_two": "وجبتا اشتراك",
+            "plan_few": "{{count}} وجبات اشتراك",
+            "plan_many": "{{count}} وجبة اشتراك",
+            "plan_other": "{{count}} وجبة اشتراك",
+            "planExpected_zero": "لا وجبات اشتراك متوقعة",
+            "planExpected_one": "نحو وجبة اشتراك واحدة",
+            "planExpected_two": "نحو وجبتَي اشتراك",
+            "planExpected_few": "نحو {{count}} وجبات اشتراك",
+            "planExpected_many": "نحو {{count}} وجبة اشتراك",
+            "planExpected_other": "نحو {{count}} وجبة اشتراك",
+            "planShort": "{{count}} اشتراك",
+            "planMore_zero": "+ لا وجبات اشتراك",
+            "planMore_one": "+ وجبة اشتراك واحدة",
+            "planMore_two": "+ وجبتا اشتراك",
+            "planMore_few": "+ {{count}} وجبات اشتراك",
+            "planMore_many": "+ {{count}} وجبة اشتراك",
+            "planMore_other": "+ {{count}} وجبة اشتراك",
+            "toConfirm": "{{count}} بانتظار التأكيد",
+            "late": "{{count}} متأخر",
+            "noOrders": "لا طلبات",
+            "noOrdersOnDay": "لا طلبات في هذا اليوم"
+        },
+        "panel": {
+            "orders": "الطلبات",
+            "plan": "وجبات الاشتراك",
+            "sales": "المبيعات",
+            "cook": "ما يجب طهيه",
+            "requirements": "فتح المتطلبات",
+            "times": "× {{count}}",
+            "openDay": "فتح هذا اليوم"
+        },
+        "record": {
+            "loading": "طلب",
+            "day": "اليوم",
+            "dayWithRelative": "{{day}} ({{relative}})",
+            "slot": "الموعد",
+            "ordered": "تاريخ الطلب",
+            "phone": "الهاتف",
+            "allergies": "الحساسية",
+            "none": "لا شيء",
+            "payment": "الدفع",
+            "payingBy": "طريقة الدفع",
+            "received": "المستلَم",
+            "toCollect": "ما زال للتحصيل",
+            "delivery": "التوصيل",
+            "pickup": "الاستلام",
+            "runState": "أين هو الآن",
+            "whereItIs": "أين هو الآن",
+            "waitingAtCounter": "بانتظار الاستلام عند الكاونتر",
+            "history": "السجل",
+            "statusLate": "{{status}} · متأخر",
+            "deliveryOrder": "طلب توصيل",
+            "pickupOrder": "طلب استلام",
+            "atCounter": "الاستلام عند الكاونتر",
+            "paidBy": "مدفوع · {{method}}",
+            "change": "تغيير"
+        },
+        "history": {
+            "placed": "تم تقديم الطلب",
+            "confirmed": "تم التأكيد",
+            "preparing": "بدأ الطهي",
+            "ready": "جاهز",
+            "given": "سُلّم إلى {{name}}",
+            "onTheWay": "في الطريق",
+            "failed": "فشل التوصيل"
+        }
+    },
+    "compactPopup": {
+        "previous": "السابق",
+        "next": "التالي",
+        "position": "{{index}} من {{count}}"
     }
 }

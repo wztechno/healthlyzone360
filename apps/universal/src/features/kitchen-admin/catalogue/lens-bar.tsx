@@ -123,6 +123,11 @@ export interface LensBarProps {
     readonly joined?: boolean | undefined;
     /** Split only: banners between the figures and the card — a paused kitchen, a capped list. */
     readonly notice?: ReactNode | undefined;
+    /**
+     * Split only: the search holds a 300px pill and the count moves to the row's end (the Orders
+     * canvas's `.srch.sm`), instead of the search absorbing the row.
+     */
+    readonly compactSearch?: boolean | undefined;
     readonly testID: string;
 }
 
@@ -171,6 +176,7 @@ export function LensBar({
     layout = 'bar',
     joined = false,
     notice,
+    compactSearch = false,
     testID,
 }: LensBarProps) {
     const split = layout === 'split';
@@ -200,8 +206,11 @@ export function LensBar({
                         </View>
                     )}
                     {onSearchChange === undefined ? null : (
-                        // eslint-disable-next-line no-restricted-syntax -- the search absorbs the row; the exempt case.
-                        <View className="flex-1" style={{ minWidth: SPLIT_SEARCH_MIN_WIDTH }}>
+                        <View
+                            // eslint-disable-next-line no-restricted-syntax -- the search absorbs the row; the exempt case.
+                            className={compactSearch ? 'w-field shrink' : 'flex-1'}
+                            style={{ minWidth: SPLIT_SEARCH_MIN_WIDTH }}
+                        >
                             <SearchInput
                                 value={search ?? ''}
                                 onChangeText={onSearchChange}
@@ -209,6 +218,7 @@ export function LensBar({
                                 placeholder={searchPlaceholder}
                                 size="sm"
                                 className="!h-desk-toolbar !rounded-full !border-transparent !bg-surface-sunken"
+                                lens={compactSearch}
                                 {...(onSearchSubmit === undefined
                                     ? {}
                                     : {
@@ -233,7 +243,9 @@ export function LensBar({
                             variant="label"
                             tone="secondary"
                             role="status"
-                            className="!text-[13px] font-semibold tabular-nums"
+                            className={`!text-[13px] font-semibold tabular-nums ${
+                                compactSearch ? 'ms-auto' : ''
+                            }`}
                         >
                             {result}
                         </Text>
@@ -730,7 +742,11 @@ export function LensFigureCell({
                 variant="label"
                 tone={active ? 'primary' : 'secondary'}
                 numberOfLines={1}
-                className={chip ? '!text-sm font-semibold' : ''}
+                className={
+                    chip
+                        ? `!text-sm font-semibold ${active ? '!text-content-on-brand-subtle' : ''}`
+                        : ''
+                }
             >
                 {figure.label}
             </Text>
@@ -748,7 +764,9 @@ export function LensFigureCell({
                     variant="label"
                     tone={alarm ? 'danger' : zero ? 'secondary' : 'primary'}
                     className={
-                        chip ? '!text-sm font-bold tabular-nums' : 'font-semibold tabular-nums'
+                        chip
+                            ? `!text-sm font-bold tabular-nums ${active ? '!text-content-on-brand-subtle' : ''}`
+                            : 'font-semibold tabular-nums'
                     }
                 >
                     {figure.display ?? String(value)}
@@ -764,7 +782,7 @@ export function LensFigureCell({
         );
 
     const cellClass = chip
-        ? `h-10 flex-row items-center gap-2 rounded-xl border px-3.5 ${
+        ? `h-10 flex-row items-center gap-2 rounded-xl border px-[14px] web:transition-colors ${
               active
                   ? 'border-surface-brand bg-surface-brand-subtle'
                   : 'border-stroke-subtle bg-surface-raised'
@@ -809,7 +827,7 @@ export function LensFigureCell({
                     accessibilityState={{ selected: active }}
                     onPress={figure.onPress}
                     className={`${cellClass} ${
-                        active ? '' : chip ? 'hover:border-brand-300' : 'hover:bg-surface-sunken'
+                        active ? '' : chip ? 'hover:border-stroke' : 'hover:bg-surface-sunken'
                     }`}
                 >
                     {body}

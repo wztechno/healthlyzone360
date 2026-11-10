@@ -71,7 +71,7 @@ describe('the kitchen home Today card', () => {
         expect(screen.getByText('Returned 1 · wasted 2 · other 0')).toBeTruthy();
 
         fireEvent.press(screen.getByTestId('kitchen-home-today-figures-late'));
-        expect(mockPush).toHaveBeenCalledWith('/kitchen/order-desk?lens=past_due');
+        expect(mockPush).toHaveBeenCalledWith('/kitchen/orders?tab=all&quick=late');
     });
 
     it('opens the Cash page on its Daily close tab from Cash to collect', async () => {

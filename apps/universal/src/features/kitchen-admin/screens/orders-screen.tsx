@@ -1,1969 +1,976 @@
 import { OrderId } from '@healthy360/domain-types';
-import type {
-    DeliveryFailureReason,
-    KitchenOrder,
-    KitchenOrderCancellationDisposition,
-    KitchenOrderFilters,
-    KitchenOrderLine,
-    KitchenOrderPickableCancellationReason,
-    KitchenOrderStatus,
-} from '@healthy360/api-client/contracts';
 import {
-    DELIVERY_FAILURE_REASONS,
-    KITCHEN_ORDER_CANCELLATION_DISPOSITIONS,
-    KITCHEN_ORDER_PICKABLE_CANCELLATION_REASONS,
-    KITCHEN_ORDER_STATUSES,
-} from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Button,
-    Callout,
     Cascade,
-    DatePickerButton,
-    Dialog,
     EmptyState,
     ErrorState,
-    FilterChip,
-    Inline,
-    Select,
-    Stack,
-    Table,
+    Icon,
+    IssueTrayFrame,
     TableSkeleton,
-    Text,
-    TextInputField,
-    useToast,
 } from '@healthy360/design-system';
-import type { MenuItem, RecordWindowField, TableColumn } from '@healthy360/design-system';
-import { useFormatter, useLocale } from '@healthy360/i18n';
-import type { TFunction } from 'i18next';
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import type { IssueTrayContent } from '@healthy360/design-system';
+import { useFormatter } from '@healthy360/i18n';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { dishOptionsLine } from '../../../ui/dish-choices.tsx';
 import { Gate, useCan } from '../../../access/gate.tsx';
-import { useWindowName } from '../order-desk/use-window-name.ts';
-import { toFailure } from '../../../data/hooks.ts';
-import {
-    useCancelOrderMutation,
-    useCloseFailedDeliveryMutation,
-    useConfirmOrderMutation,
-    useFailDeliveryMutation,
-    useFulfilOrderMutation,
-    useKitchenOrderQuery,
-    useKitchenOrdersQuery,
-    useRedeliverOrderMutation,
-} from '../../../data/kitchen-orders-hooks.ts';
-import { useOrderDeskDeliveryWindowsQuery } from '../../../data/order-desk-hooks.ts';
-import { useOnlineStatus } from '../../../online/online-status.tsx';
-import { formatMoney } from '../../marketplace/format.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
+import { useOrderDeskDriversQuery } from '../../../data/order-desk-hooks.ts';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
+import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { PlanDayMeals, isPlanDayLine, visibleOrderLines } from '../plan-day-meals.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import { CATALOGUE_PAGE_SIZE, CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensMixPart, LensToken, LensTone } from '../catalogue/lens-bar.tsx';
-import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import type { RecordViewSection } from '../catalogue/record-view-page.tsx';
-import type { RecordAction } from '../catalogue/record-popup.tsx';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
 import {
     ORDER_CREATE_ON_BEHALF_PERMISSION,
     ORDER_MANAGE_PERMISSION,
-    ORDER_SUPERVISE_PERMISSION,
     ORDER_VIEW_PERMISSION,
+    SUBSCRIPTION_VIEW_PERMISSION,
 } from '../entity-registry.ts';
-import { humaniseCode } from '../format.ts';
-import { OrderComplaintAction } from '../order-complaint-action.tsx';
-import { OrderRefundsSection } from '../order-refunds-section.tsx';
+import { kitchenOrderStatusKey } from '../ops-format.ts';
+import { DeskButton, DeskSelect, DeskTabs, ListGroupRow } from '../desk-kit/index.ts';
+import { KitchenPauseBanner, KitchenPauseButton } from '../order-desk/kitchen-pause.tsx';
+import { useWindowName } from '../order-desk/use-window-name.ts';
+import { useListPage } from '../use-list-page.ts';
+import { CalendarTab, SlotScope, useSlotHours, useSlotName } from '../orders/orders-calendar.tsx';
+import { DayStepper } from '../orders/day-stepper.tsx';
+import { longDay, orderColumns, shortDay } from '../orders/order-columns.tsx';
+import type { OrderColumnContext } from '../orders/order-columns.tsx';
 import {
-    canCancelKitchenOrder,
-    canConfirmKitchenOrder,
-    canFulfilKitchenOrder,
-    deliveryFailureReasonKey,
-    kitchenOrderCancellationDispositionKey,
-    kitchenOrderCancellationReasonKey,
-    kitchenOrderFulfilmentTypeKey,
-    kitchenOrderRowTestId,
-    kitchenOrderStatusKey,
-    kitchenOrderStatusTone,
-    allergenLabel,
-    allergyBanner,
-} from '../ops-format.ts';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
+    DATES_FILTERS,
+    compareByDue,
+    datesSpan,
+    inSpan,
+    localToday,
+    matchesKind,
+    matchesQuick,
+    matchesSearch,
+    matchesSlot,
+    orderDay,
+    slotKeyOf,
+} from '../orders/order-book.ts';
+import type {
+    BookRow,
+    DatesFilter,
+    KindFilter,
+    QuickFilter,
+    StatusFilter,
+} from '../orders/order-book.ts';
+import { OrderRecordPopup } from '../orders/order-record-popup.tsx';
+import { ORDERS_HREF, ordersParams, readOrdersQuery } from '../orders/orders-url.ts';
+import type { OrdersQuery, OrdersTab } from '../orders/orders-url.ts';
 import {
-    useListMemory,
-    useRememberedFilter,
-    useRememberedOpened,
-    useRememberedQuery,
-} from '../list-memory.ts';
-import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
-import { ORDER_DESK_POLL_MS } from './order-desk-screen.tsx';
-
-/** The order `?view=` names, read on its own when the loaded page does not hold it. */
-function useOrderById(id: string | null) {
-    const parsed = OrderId.safeParse(id);
-    const record = useKitchenOrderQuery(parsed);
-    return parsed === null ? RECORD_NOT_FOUND : record;
-}
+    ORDERS_POLL_MS,
+    useDayOrders,
+    useDeliveryWindows,
+    useLateOrders,
+    useNeedsDriverOrders,
+    useToCollectOrders,
+    useToConfirmOrders,
+    useBookPage,
+} from '../orders/use-order-book.ts';
+import type { BookRead } from '../orders/use-order-book.ts';
+import { useOrderSteps } from '../orders/use-order-steps.tsx';
 
 /**
- * `/kitchen/orders` — the order book (O6), drawn as the Operations handoff draws it: the Catalogue
- * list (stat cards, toolbar, `CatalogueList`, View window) and an order record page (`edOrder`).
+ * `/kitchen/orders` — every order the kitchen has, on one page with three tabs (the Orders
+ * redesign, Option A, 2026-11-10). It replaces the Order desk, the Orders book and the Order
+ * calendar, which now redirect here.
  *
- * ```
- * ┌ LOADED ┐ ┌ AWAITING ┐ ┌ CONFIRMED ┐ ┌ FULFILLED ┐
- * [ ⌕ order number ]            [ All | Placed | Confirmed | Fulfilled | Cancelled ]
- * ORDER            PLACED    DELIVERY           ITEMS  TOTAL    STATUS   ⋯
- * Newest first. Cancelling is final and needs a reason.            [ Load more ]
- * ```
+ * - **Today** — one day at a time, grouped by slot, the late ones from earlier days first.
+ * - **Calendar** — a month or a week; a day opens beside the grid with its orders and what to cook.
+ * - **All orders** — the whole book, newest first, narrowed by dates, status, slot and kind.
  *
- * ## Why the record is a mode of this screen and not a route
+ * Above the tabs' lists, four figures say what needs somebody: To confirm, Late, Needs a driver and
+ * Money to collect. Pressing one opens All orders on just those, with a chip to take it off.
  *
- * A kitchen works the list: read the next ticket, confirm it, go back, read the one after. A route
- * would lose the filter and the pages already loaded on the way in. The record replaces the list in
- * place while the list's state stays held here, so "Back to orders" lands exactly where it left.
+ * Every row says the day, the customer, the status, the driver and the money, and ends in the one
+ * button for its next step, so nobody has to open another page to find a fact. The row opens the
+ * order's pop-up — the same one from every tab — which holds everything else.
  *
- * ## Why the record re-reads the order it was opened from
- *
- * The row in the list carries a `lockVersion`, and the record deliberately does not use it. The
- * three actions send `If-Match`, and the version a list row was rendered from can be minutes old —
- * another tablet confirming the same order makes it stale. So the record reads the order on its own
- * (`useKitchenOrderQuery`), and each write's response is seeded straight back into that entry by
- * the hook, which is what lets "Mark fulfilled" fire immediately after "Confirm".
- *
- * ## Paging is accumulated here rather than in the hook
- *
- * `useKitchenOrdersQuery` is a plain query over one keyset page, so "Load more" carries the page it
- * already has into local state and asks for the next cursor. A keyset has no page count, which is
- * why this list keeps Load more rather than `CataloguePager`. Every filter change resets both, in
- * the setter rather than in an effect: a filter change is a *new list*.
- *
- * ## Stat cards count the rows in hand
- *
- * As the design's `CARDS` do. The endpoint publishes no totals, so "Loaded" is honest about being
- * the pages read so far, not the book.
- *
- * ## What the action buttons decide from
- *
- * `canConfirmKitchenOrder` / `canFulfilKitchenOrder` / `canCancelKitchenOrder` (`../ops-format.ts`)
- * are the same table the endpoint enforces. A button offering an illegal transition would be a
- * conflict this screen manufactured on somebody's behalf.
- *
- * ## What the design shows that has no data
- *
- * The design names the customer beside the order number. `KitchenOrder` carries no customer, so the
- * row does not either.
+ * Everything on the page is in the address (`orders-url.ts`), so New order and Edit order come back
+ * to the view they left, on the order's own day, with the order lit up.
  */
 
-type StatusFilter = KitchenOrderStatus | 'all';
-
-/** The admin's one date style — "Oct 12, 2026", as every other kitchen page reads. */
-const MEDIUM_DATE: Intl.DateTimeFormatOptions = { dateStyle: 'medium' };
-/** A timeline step: the day and the minute, because "when did it leave" is a time question. */
-const STEP_TIME: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };
-
-export function OrdersScreen({ view }: { readonly view?: string | undefined }) {
+export function OrdersScreen() {
     return (
         <Gate
             area="kitchen"
             requirement={{ allOf: [ORDER_VIEW_PERMISSION] }}
             testID="kitchen-orders"
         >
-            <Orders view={view} />
+            <OrdersPage />
         </Gate>
     );
 }
 
-function Orders({ view }: { readonly view?: string | undefined }) {
-    const { t } = useTranslation();
-    const formatter = useFormatter();
-
-    // The filters and the order last opened survive leaving the list. The pages already loaded do
-    // not: they are a snapshot of a live queue, and the list re-reads from its first page.
-    const memory = useListMemory('kitchen.orders');
-    const [status, setStatus] = useRememberedFilter<StatusFilter>(memory, 'status', 'all');
-    /** The requested delivery day the Delivery header narrows to — sent as `requestedDeliveryDate`. */
-    const [deliveryDate, setDeliveryDate] = useRememberedFilter<string | null>(
-        memory,
-        'deliveryDate',
-        null,
-    );
-    const [query, setQuery] = useRememberedQuery(memory);
-    const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
-    const [cursor, setCursor] = useState<string | null>(null);
-    /** The pages already read for the active filter. The current page is appended at render. */
-    const [carried, setCarried] = useState<readonly KitchenOrder[]>([]);
-
-    const trimmed = query.trim();
-    const filters = useMemo<KitchenOrderFilters>(
-        () => ({
-            ...(status === 'all' ? {} : { status }),
-            ...(deliveryDate === null ? {} : { requestedDeliveryDate: deliveryDate }),
-            ...(trimmed === '' ? {} : { query: trimmed }),
-            ...(cursor === null ? {} : { cursor }),
-        }),
-        [status, deliveryDate, trimmed, cursor],
-    );
-
-    // Polled like the desk queue, so an order placed while the book is open appears on its own.
-    // Offline the interval stops, as the desk's does.
-    const { online } = useOnlineStatus();
-    const orders = useKitchenOrdersQuery(filters, true, online ? ORDER_DESK_POLL_MS : false);
-    const page = orders.data ?? null;
-    const rows = useMemo(() => [...carried, ...(page?.items ?? [])], [carried, page]);
-    // The open order is an address, `?view=`, so Back and a refresh keep it open.
-    const { viewing: selected, setViewing: setSelected } = useViewedRecord(
-        view,
-        rows,
-        (row) => String(row.id),
-        orders.isSuccess && !orders.isFetching,
-        { useLookup: useOrderById },
-    );
-
-    /** A filter change is a new list: the cursor and everything carried under the old one go. */
-    function changeStatus(next: StatusFilter) {
-        setStatus(next);
-        setCursor(null);
-        setCarried([]);
-    }
-
-    function changeDeliveryDate(next: string | null) {
-        setDeliveryDate(next);
-        setCursor(null);
-        setCarried([]);
-    }
-
-    function openRecord(row: KitchenOrder) {
-        rememberOpened(String(row.id));
-        setSelected(row);
-    }
-
-    const columns: readonly ControlledColumn<KitchenOrder, CatalogueColumn<KitchenOrder>>[] = [
-        {
-            key: 'number',
-            role: 'title',
-            label: t('kitchen:ops.orders.columnNumber'),
-            width: 180,
-            priority: 100,
-            value: (row) => row.orderNumber,
-            sort: (left, right, direction) =>
-                compareText(left.orderNumber, right.orderNumber, direction),
-            render: (row) => (
-                <Text
-                    variant="strong"
-                    numberOfLines={1}
-                    testID={`${kitchenOrderRowTestId(String(row.id))}-number`}
-                >
-                    {row.orderNumber}
-                </Text>
-            ),
-        },
-        {
-            key: 'placed',
-            role: 'meta',
-            label: t('kitchen:ops.orders.columnPlaced'),
-            width: 130,
-            priority: 70,
-            value: (row) => formatter.formatDate(row.placedAt, MEDIUM_DATE),
-            sort: (left, right, direction) => compareText(left.placedAt, right.placedAt, direction),
-            render: (row) => (
-                <Text
-                    variant="caption"
-                    tone="secondary"
-                    numberOfLines={1}
-                    testID={`${kitchenOrderRowTestId(String(row.id))}-placed`}
-                >
-                    {formatter.formatDate(row.placedAt, MEDIUM_DATE)}
-                </Text>
-            ),
-        },
-        {
-            key: 'delivery',
-            label: t('kitchen:ops.orders.columnDelivery'),
-            width: 190,
-            priority: 60,
-            value: (row) => deliveryText(row, t, formatter),
-            // Screen-owned: the day travels as `requestedDeliveryDate`, so the whole book narrows
-            // rather than the pages already loaded. The days offered are the ones in hand, plus
-            // the chosen one so it can always be unticked.
-            filter: {
-                values: (loaded) =>
-                    [
-                        ...new Set([
-                            ...(deliveryDate === null ? [] : [deliveryDate]),
-                            ...loaded
-                                .map((row) => row.delivery.requestedDate)
-                                .filter((day): day is string => day !== null),
-                        ]),
-                    ]
-                        .sort((left, right) => left.localeCompare(right))
-                        .map((day) => ({
-                            key: day,
-                            label: formatter.formatDate(day, MEDIUM_DATE),
-                        })),
-                external: { value: deliveryDate, onChange: changeDeliveryDate },
-            },
-            render: (row) => (
-                <Stack space="none">
-                    <Text
-                        numberOfLines={1}
-                        testID={`${kitchenOrderRowTestId(String(row.id))}-delivery`}
-                    >
-                        {deliveryText(row, t, formatter)}
-                    </Text>
-                    <Text variant="caption" tone="secondary" numberOfLines={1}>
-                        {whereText(row, t)}
-                    </Text>
-                </Stack>
-            ),
-        },
-        {
-            key: 'items',
-            role: 'metric',
-            label: t('kitchen:ops.orders.columnItems'),
-            width: 70,
-            priority: 50,
-            value: (row) => formatter.formatNumber(row.lineCount),
-            sort: (left, right, direction) =>
-                compareNumber(left.lineCount, right.lineCount, direction),
-            render: (row) => (
-                <Text testID={`${kitchenOrderRowTestId(String(row.id))}-items`}>
-                    {formatter.formatNumber(row.lineCount)}
-                </Text>
-            ),
-        },
-        {
-            key: 'total',
-            role: 'metric',
-            label: t('kitchen:ops.orders.columnTotal'),
-            width: 110,
-            priority: 85,
-            value: (row) => money(formatter, row.totalMinor, row.currencyCode),
-            sort: (left, right, direction) =>
-                compareNumber(left.totalMinor, right.totalMinor, direction),
-            render: (row) => (
-                <Text variant="strong" testID={`${kitchenOrderRowTestId(String(row.id))}-total`}>
-                    {money(formatter, row.totalMinor, row.currencyCode)}
-                </Text>
-            ),
-        },
-        {
-            key: 'status',
-            role: 'status',
-            label: t('kitchen:ops.orders.columnStatus'),
-            width: 100,
-            priority: 80,
-            value: (row) => t(kitchenOrderStatusKey(row.status)),
-            // The same server-side status the toolbar's segments send, reached from the column.
-            filter: {
-                values: () =>
-                    KITCHEN_ORDER_STATUSES.map((value) => ({
-                        key: value,
-                        label: t(kitchenOrderStatusKey(value)),
-                    })),
-                external: {
-                    value: status === 'all' ? null : status,
-                    onChange: (next) => {
-                        changeStatus(
-                            KITCHEN_ORDER_STATUSES.find((value) => value === next) ?? 'all',
-                        );
-                    },
-                },
-            },
-            render: (row) => (
-                <Badge
-                    icon={null}
-                    testID={`${kitchenOrderRowTestId(String(row.id))}-status`}
-                    tone={kitchenOrderStatusTone(row.status)}
-                    label={t(kitchenOrderStatusKey(row.status))}
-                />
-            ),
-        },
-        {
-            // The order's next move as a button on the row, so a kitchen confirms and fulfils
-            // down the list without opening a menu or the order (2026-11-10).
-            key: 'next',
-            label: t('kitchen:ops.orders.columnNext'),
-            width: 160,
-            priority: 90,
-            value: (row) => {
-                const step = nextOrderStep(row);
-                return step === null ? '' : t(NEXT_STEP_LABEL[step]);
-            },
-            render: (row) => (
-                <OrderNextStep
-                    row={row}
-                    onOpen={openRecord}
-                    onChanged={(next) => {
-                        setCarried((held) =>
-                            held.map((candidate) => (candidate.id === next.id ? next : candidate)),
-                        );
-                    }}
-                />
-            ),
-        },
-    ];
-
-    const controls = useColumnControls(rows, columns, 'kitchen-orders');
-
-    const viewPopup =
-        selected === null ? null : (
-            <OrderRecord
-                seed={selected}
-                onBack={() => {
-                    setSelected(null);
-                }}
-            />
-        );
-
-    const listFailure = toFailure(orders.error);
-    const unfiltered = status === 'all' && deliveryDate === null && trimmed === '';
-
-    function clearAll() {
-        setQuery('');
-        setDeliveryDate(null);
-        changeStatus('all');
-        controls.clearFilters();
-    }
-
-    const pending = orders.isPending && rows.length === 0;
-
-    // The table closes the toolbar's card once the list has loaded.
-    const joined = !(orders.isPending && rows.length === 0) && listFailure === null;
-
-    return (
-        <Cascade space="md" testID="kitchen-orders-screen">
-            {/* One block, so the toolbar card runs straight on into the table. */}
-            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
-                <LensBar
-                    testID="kitchen-orders-toolbar"
-                    layout="split"
-                    joined={joined}
-                    label={t('kitchen:lens.label')}
-                    // A failed read has no figures to state; they hold their placeholders over the error.
-                    figures={lensFigures(
-                        rows,
-                        pending || listFailure !== null,
-                        status,
-                        t,
-                        changeStatus,
-                    )}
-                    {...(pending || listFailure !== null ? {} : lensMix(rows, status, t))}
-                    search={query}
-                    onSearchChange={(next) => {
-                        setQuery(next);
-                        setCursor(null);
-                        setCarried([]);
-                    }}
-                    searchLabel={t('kitchen:ops.orders.searchLabel')}
-                    searchPlaceholder={t('kitchen:ops.orders.searchHint')}
-                    tokens={lensTokens(
-                        status,
-                        deliveryDate,
-                        t,
-                        formatter,
-                        changeStatus,
-                        changeDeliveryDate,
-                    )}
-                    result={
-                        pending || listFailure !== null
-                            ? null
-                            : t('kitchen:lens.result', {
-                                  shown: controls.rows.length,
-                                  total: rows.length,
-                              })
-                    }
-                    clearLabel={t('kitchen:lens.clear')}
-                    {...(unfiltered && !controls.filtered ? {} : { onClear: clearAll })}
-                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
-                />
-
-                {orders.isPending && rows.length === 0 ? (
-                    <TableSkeleton testID="kitchen-orders-loading" partTestID="kitchen-orders" />
-                ) : listFailure !== null ? (
-                    <ErrorState
-                        testID="kitchen-orders-error"
-                        title={t('kitchen:ops.orders.loadErrorTitle')}
-                        failure={listFailure}
-                        onRetry={() => {
-                            void orders.refetch();
-                        }}
-                        retrying={orders.isFetching}
-                    />
-                ) : controls.rows.length === 0 ? (
-                    <CatalogueList
-                        testID="kitchen-orders-empty-list"
-                        label={t('kitchen:lens.label')}
-                        columns={controls.columns}
-                        rows={[]}
-                        rowKey={() => ''}
-                        density="sm"
-                        joined
-                        frameEmpty
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                        emptyState={
-                            <EmptyState
-                                shape="table"
-                                testID="kitchen-orders-empty"
-                                title={t(
-                                    unfiltered
-                                        ? 'kitchen:ops.orders.emptyTitle'
-                                        : 'kitchen:ops.orders.filteredEmptyTitle',
-                                )}
-                                body={t(
-                                    unfiltered
-                                        ? 'kitchen:ops.orders.emptyBody'
-                                        : 'kitchen:ops.orders.filteredEmptyBody',
-                                )}
-                                actions={
-                                    unfiltered ? undefined : (
-                                        <Button
-                                            testID="kitchen-orders-clear"
-                                            variant="secondary"
-                                            size="sm"
-                                            label={t('kitchen:ops.orders.clearFilters')}
-                                            onPress={clearAll}
-                                        />
-                                    )
-                                }
-                            />
-                        }
-                    />
-                ) : (
-                    <Stack space="sm">
-                        <CatalogueList<KitchenOrder>
-                            testID="kitchen-orders-table"
-                            joined
-                            label={t('kitchen:ops.orders.caption')}
-                            columns={controls.columns}
-                            rows={controls.rows}
-                            rowKey={(row) => String(row.id)}
-                            density="sm"
-                            highlightedId={lastOpenedId}
-                            onRowPress={openRecord}
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                            rowActions={(row): readonly MenuItem[] => [
-                                {
-                                    key: 'view',
-                                    label: t('kitchen:list.view'),
-                                    icon: CATALOGUE_ROW_ICONS.view,
-                                    testID: `${kitchenOrderRowTestId(String(row.id))}-view`,
-                                    onSelect: () => {
-                                        openRecord(row);
-                                    },
-                                },
-                            ]}
-                        />
-
-                        {page?.hasMore === true ? (
-                            <View className="flex-row justify-end">
-                                <Button
-                                    testID="kitchen-orders-load-more"
-                                    variant="secondary"
-                                    size="sm"
-                                    label={
-                                        orders.isFetching
-                                            ? t('kitchen:ops.orders.loadingMore')
-                                            : t('kitchen:ops.orders.loadMore')
-                                    }
-                                    disabled={orders.isFetching || page.nextCursor === null}
-                                    onPress={() => {
-                                        if (page.nextCursor === null) return;
-                                        setCarried(rows);
-                                        setCursor(page.nextCursor);
-                                    }}
-                                />
-                            </View>
-                        ) : null}
-                    </Stack>
-                )}
-            </View>
-
-            {viewPopup}
-        </Cascade>
-    );
+/** A clock that moves with the poll, so a slot passing turns its orders late without a reload. */
+function useTickingNow(intervalMs: number): Date {
+    const [now, setNow] = useState(() => new Date());
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setNow(new Date());
+        }, intervalMs);
+        return () => {
+            clearInterval(timer);
+        };
+    }, [intervalMs]);
+    return now;
 }
 
-/* ── the order record (`edOrder`) ────────────────────────────────────────────────────────────── */
-
-/** One labelled fact. Never a table: these are pairs, not a dataset. */
-function FactRow({
-    testID,
-    label,
-    value,
-    strong = false,
-}: {
-    readonly testID: string;
-    readonly label: string;
-    readonly value: string;
-    readonly strong?: boolean | undefined;
-}) {
-    return (
-        <Inline space="sm" align="start" justify="between" wrap>
-            <Text tone="secondary" variant="caption">
-                {label}
-            </Text>
-            <Text testID={testID} variant={strong ? 'strong' : 'body'}>
-                {value}
-            </Text>
-        </Inline>
-    );
-}
-
-function OrderLinesTable({
-    order,
-    testID,
-}: {
-    readonly order: KitchenOrder;
-    readonly testID: string;
-}) {
-    const { t } = useTranslation();
-    const formatter = useFormatter();
-
-    const lineColumns: readonly TableColumn<KitchenOrderLine>[] = [
-        {
-            key: 'name',
-            header: t('kitchen:ops.orders.lineItem'),
-            rowHeader: true,
-            flex: 2,
-            render: (line) => (
-                <Stack space="none">
-                    <Text variant="strong">{line.nameEn}</Text>
-                    {line.variantLabel === null ? null : (
-                        <Text variant="caption" tone="secondary">
-                            {line.variantLabel}
-                        </Text>
-                    )}
-                    {dishOptionsLine(line.options, 'en', t) === null ? null : (
-                        <Text variant="caption" testID={`${testID}-options`}>
-                            {dishOptionsLine(line.options, 'en', t)}
-                        </Text>
-                    )}
-                    {line.note == null ? null : (
-                        <Text variant="caption" testID={`${testID}-note`}>
-                            {t('kitchen:dishOptions.lineNote', { note: line.note })}
-                        </Text>
-                    )}
-                    {/* A subscription day: which dish is for which sitting, under the plan. */}
-                    {isPlanDayLine(order, line) ? (
-                        <PlanDayMeals order={order} testID={`${testID}-plan-day`} />
-                    ) : null}
-                    {line.allergens.length === 0 ? (
-                        <Text variant="caption" tone="secondary">
-                            {t('kitchen:ops.orders.noAllergens')}
-                        </Text>
-                    ) : (
-                        <Inline space="xs" wrap>
-                            {line.allergens.map((allergen) => (
-                                <Badge
-                                    icon={null}
-                                    key={allergen.allergenCode}
-                                    tone={
-                                        allergen.containment === 'contains' ? 'danger' : 'warning'
-                                    }
-                                    label={allergenLabel(allergen.allergenCode, t)}
-                                />
-                            ))}
-                        </Inline>
-                    )}
-                </Stack>
-            ),
-        },
-        {
-            key: 'quantity',
-            width: 104,
-            header: t('kitchen:ops.orders.lineQuantity'),
-            numeric: true,
-            render: (line) => <Text>{formatter.formatNumber(Number(line.quantity))}</Text>,
-        },
-        {
-            key: 'unitPrice',
-            width: 104,
-            header: t('kitchen:ops.orders.lineUnitPrice'),
-            numeric: true,
-            render: (line) => (
-                <Text tone="secondary">
-                    {money(formatter, line.unitPriceMinor, line.currencyCode)}
-                </Text>
-            ),
-        },
-        {
-            key: 'lineTotal',
-            width: 104,
-            header: t('kitchen:ops.orders.lineTotal'),
-            numeric: true,
-            render: (line) => (
-                <Text>{money(formatter, line.lineTotalMinor, line.currencyCode)}</Text>
-            ),
-        },
-    ];
-
-    return (
-        <Table<KitchenOrderLine>
-            testID={testID}
-            caption={t('kitchen:ops.orders.linesHeading')}
-            captionHidden
-            columns={lineColumns}
-            rows={visibleOrderLines(order)}
-            rowKey={(line) => line.id}
-        />
-    );
-}
-
-type OrderStep = 'confirm' | 'fulfil' | 'deliver';
-
-const NEXT_STEP_LABEL: Readonly<Record<OrderStep, string>> = {
-    confirm: 'kitchen:ops.orders.confirm',
-    fulfil: 'kitchen:ops.orders.fulfil',
-    deliver: 'kitchen:ops.orders.markDelivered',
+const QUICK_KEYS: Readonly<Record<QuickFilter, string>> = {
+    confirm: 'kitchen:orders.figure.confirm',
+    late: 'kitchen:orders.figure.late',
+    driver: 'kitchen:orders.figure.driver',
+    collect: 'kitchen:orders.figure.collect',
 };
 
-/**
- * What the order's next move is, by the same rules the record's own button follows. A delivery
- * is marked delivered only once it is ready and its run has not failed, and only behind the
- * record's confirmation (it also ends the driver's run), so its step opens the record.
- */
-function nextOrderStep(order: KitchenOrder): OrderStep | null {
-    if (canConfirmKitchenOrder(order.status)) return 'confirm';
-    if (!canFulfilKitchenOrder(order.status)) return null;
-    if (order.fulfilmentType !== 'delivery') return 'fulfil';
-    const ready = (order.readyAt ?? null) !== null;
-    return ready && order.deliveryRun?.status !== 'failed' ? 'deliver' : null;
-}
+const DATES_KEYS: Readonly<Record<DatesFilter, string>> = {
+    all: 'kitchen:orders.filter.all',
+    week: 'kitchen:orders.dates.week',
+    next7: 'kitchen:orders.dates.next7',
+    last7: 'kitchen:orders.dates.last7',
+    month: 'kitchen:orders.dates.month',
+};
 
-/**
- * The row's next-step button. It sends the row's `lockVersion`, which can be older than the
- * record's re-read: when somebody else moved the order first the server refuses, the toast says so,
- * and the list's refetch shows where it stands.
- */
-function OrderNextStep({
-    row,
-    onOpen,
-    onChanged,
-}: {
-    readonly row: KitchenOrder;
-    readonly onOpen: (row: KitchenOrder) => void;
-    readonly onChanged: (next: KitchenOrder) => void;
-}) {
+function OrdersPage() {
     const { t } = useTranslation();
-    const toast = useToast();
-    const canManage = useCan(ORDER_MANAGE_PERMISSION);
-    const confirmOrder = useConfirmOrderMutation();
-    const fulfilOrder = useFulfilOrderMutation();
-
-    const step = nextOrderStep(row);
-    if (!canManage || step === null) return null;
-
-    const testID = `${kitchenOrderRowTestId(String(row.id))}-next`;
-    const pending = confirmOrder.isPending || fulfilOrder.isPending;
-    const request = { id: row.id, lockVersion: row.lockVersion };
-    const callbacks = {
-        onSuccess: (next: KitchenOrder) => {
-            onChanged(next);
-            toast.show({
-                testID: `kitchen-orders-${step === 'confirm' ? 'confirm' : 'fulfil'}ed-toast`,
-                tone: 'success',
-                message: t(
-                    step === 'confirm'
-                        ? 'kitchen:ops.orders.confirmedToast'
-                        : 'kitchen:ops.orders.fulfilledToast',
-                    { number: next.orderNumber },
-                ),
-            });
-        },
-        onError: (error: unknown) => {
-            toast.show({
-                testID: `${testID}-error`,
-                tone: 'danger',
-                message: t(
-                    toFailure(error)?.code === 'resource.conflict'
-                        ? 'kitchen:ops.orders.conflictTitle'
-                        : 'kitchen:ops.orders.saveFailed',
-                ),
-            });
-        },
-    };
-
-    return (
-        <Button
-            testID={testID}
-            variant={step === 'deliver' ? 'secondary' : 'primary'}
-            size="sm"
-            label={t(NEXT_STEP_LABEL[step])}
-            loading={pending}
-            disabled={pending}
-            onPress={() => {
-                if (step === 'deliver') onOpen(row);
-                else if (step === 'confirm') confirmOrder.mutate(request, callbacks);
-                else fulfilOrder.mutate(request, callbacks);
-            }}
-        />
-    );
-}
-
-function OrderRecord({
-    seed,
-    onBack,
-}: {
-    /** The list row it was opened from — for the title only; every fact is re-read. */
-    readonly seed: KitchenOrder;
-    readonly onBack: () => void;
-}) {
-    const { t } = useTranslation();
-    const windowName = useWindowName();
     const formatter = useFormatter();
-    const { locale } = useLocale();
-    const toast = useToast();
     const router = useRouter();
+    const params = useLocalSearchParams();
+    const query = readOrdersQuery(params);
+    const currentHref = useCurrentHref();
+    const now = useTickingNow(ORDERS_POLL_MS);
+    const today = localToday(now);
+    const windows = useDeliveryWindows();
+    const windowName = useWindowName();
     const canManage = useCan(ORDER_MANAGE_PERMISSION);
     const canSell = useCan(ORDER_CREATE_ON_BEHALF_PERMISSION);
-    const canSupervise = useCan(ORDER_SUPERVISE_PERMISSION);
+    const canCalendar = useCan(SUBSCRIPTION_VIEW_PERMISSION);
 
-    const detail = useKitchenOrderQuery(seed.id);
-    const confirmOrder = useConfirmOrderMutation();
-    const fulfilOrder = useFulfilOrderMutation();
-    const cancelOrder = useCancelOrderMutation();
-
-    const [cancelling, setCancelling] = useState(false);
-    const [reason, setReason] = useState<KitchenOrderPickableCancellationReason | null>(null);
-    const [disposition, setDisposition] = useState<KitchenOrderCancellationDisposition | null>(
-        null,
-    );
-    const [delivering, setDelivering] = useState(false);
-    const [deliveryAction, setDeliveryAction] = useState<DeliveryAction | null>(null);
-
-    const order = detail.data ?? null;
-    // A delivery order's normal end is the driver's Mark delivered (HA-19). Closing it here is
-    // the escape hatch, offered once it is ready and behind a confirmation, because it also ends
-    // the driver's run (HA-29).
-    const isDelivery = order?.fulfilmentType === 'delivery';
-    // Cooking has started, so cancelling takes a manager and an answer about the food. Once it has
-    // been picked up nobody can cancel it: it ends as delivered or failed.
-    const started = (order?.preparingAt ?? order?.readyAt ?? null) !== null;
-    const pickedUp = (order?.delivery.pickedUpAt ?? null) !== null;
-    const run = order?.deliveryRun ?? null;
-    const remakeOf = order?.remakeOf ?? null;
-    // A failed run waits for a manager, and is not marked delivered until it has been sent out again.
-    const failed = run?.status === 'failed';
-    const courierName = run?.courierName ?? null;
-    const withCourier = run?.status === 'in_transit' && courierName !== null;
-    const detailFailure = toFailure(detail.error);
-    const actionPending = confirmOrder.isPending || fulfilOrder.isPending || cancelOrder.isPending;
-    const actionFailure =
-        toFailure(confirmOrder.error) ??
-        toFailure(fulfilOrder.error) ??
-        toFailure(cancelOrder.error);
-    const isConflict = actionFailure?.code === 'resource.conflict';
-
-    function clearActionState() {
-        confirmOrder.reset();
-        fulfilOrder.reset();
-        cancelOrder.reset();
+    function update(patch: Partial<OrdersQuery>) {
+        router.setParams(ordersParams({ ...query, ...patch }) as never);
     }
 
-    function transition(action: 'confirm' | 'fulfil') {
-        if (order === null) return;
-        const request = { id: order.id, lockVersion: order.lockVersion };
-        const onSuccess = (next: KitchenOrder) => {
-            toast.show({
-                testID: `kitchen-orders-${action}ed-toast`,
-                tone: 'success',
-                message: t(
-                    action === 'confirm'
-                        ? 'kitchen:ops.orders.confirmedToast'
-                        : isDelivery
-                          ? 'kitchen:ops.orders.deliveredToast'
-                          : 'kitchen:ops.orders.fulfilledToast',
-                    { number: next.orderNumber },
-                ),
-            });
-        };
-        if (action === 'confirm') confirmOrder.mutate(request, { onSuccess });
-        else
-            fulfilOrder.mutate(request, {
-                onSuccess,
-                onSettled: () => {
-                    setDelivering(false);
-                },
-            });
+    const day = query.day ?? today;
+    const dayRead = useDayOrders(day);
+    const lateRead = useLateOrders();
+    const confirmRead = useToConfirmOrders();
+    const driverRead = useNeedsDriverOrders(today);
+    const collectRead = useToCollectOrders(today);
+
+    const drivers = useOrderDeskDriversQuery(canManage);
+    const driverName = (userId: string): string | null =>
+        drivers.data?.rows.find((driver) => driver.userId === userId)?.displayName ?? null;
+
+    const steps = useOrderSteps({
+        onRefresh: () => {
+            dayRead.refetch();
+            lateRead.refetch();
+        },
+        refreshing: dayRead.fetching,
+    });
+
+    const tab: OrdersTab = query.tab === 'calendar' && !canCalendar ? 'today' : query.tab;
+
+    /** Pressing a figure opens All orders on just those; pressing it again takes it off. */
+    function pickQuick(quick: QuickFilter) {
+        if (query.quick === quick) {
+            update({ quick: null });
+            return;
+        }
+        update({
+            tab: 'all',
+            quick,
+            dates: 'all',
+            status: 'all',
+            slot: 'all',
+            kind: 'all',
+            q: '',
+            hl: null,
+        });
     }
 
-    function closeCancel() {
-        setCancelling(false);
-        setReason(null);
-        setDisposition(null);
-    }
+    const figureOf = (
+        quick: QuickFilter,
+        read: BookRead,
+        count: number | null,
+        tone: LensFigure['tone'],
+    ): LensFigure => ({
+        key: quick,
+        label: t(QUICK_KEYS[quick]),
+        value: read.pending ? null : count,
+        ...(count === null || read.pending
+            ? {}
+            : {
+                  display: read.truncated
+                      ? t('kitchen:orders.figure.more', { count })
+                      : formatter.formatNumber(count),
+              }),
+        tone,
+        active: query.quick === quick,
+        accessibilityLabel: t('kitchen:orders.figure.show', { figure: t(QUICK_KEYS[quick]) }),
+        onPress: () => {
+            pickQuick(quick);
+        },
+    });
 
-    function submitCancellation() {
-        if (order === null || reason === null) return;
-        cancelOrder.mutate(
-            {
-                id: order.id,
-                lockVersion: order.lockVersion,
-                reason,
-                ...(disposition === null ? {} : { disposition }),
-            },
-            {
-                onSuccess: (next) => {
-                    closeCancel();
-                    toast.show({
-                        testID: 'kitchen-orders-cancelled-toast',
-                        tone: 'success',
-                        message: t('kitchen:ops.orders.cancelledToast', {
-                            number: next.orderNumber,
-                        }),
-                    });
-                },
-            },
-        );
-    }
-
-    const number = order?.orderNumber ?? seed.orderNumber;
-
-    // The list row draws the page at once; the re-read replaces it, so every fact is current.
-    const shown = order ?? seed;
-
-    /*
-     * A confirm, fulfil or cancel the server turned down, at the head of the pop-up — a tray
-     * beside the page would sit behind its backdrop. A stale version is its own banner, whose way
-     * out is to read the order again; anything else keeps the server's own words.
-     */
-    const failureBanner =
-        actionFailure === null ? undefined : isConflict ? (
-            <Callout
-                testID="kitchen-orders-conflict"
-                tone="warning"
-                role="alert"
-                title={t('kitchen:ops.orders.conflictTitle')}
-                actions={
-                    <Button
-                        testID="kitchen-orders-conflict-refresh"
-                        variant="secondary"
-                        size="sm"
-                        label={t('kitchen:ops.orders.conflictRefresh')}
-                        loading={detail.isFetching}
-                        onPress={() => {
-                            clearActionState();
-                            void detail.refetch();
-                        }}
-                    />
-                }
-            />
-        ) : (
-            <Callout
-                testID="kitchen-orders-action-error"
-                tone="danger"
-                role="alert"
-                title={t('kitchen:ops.orders.saveFailed')}
-                {...(actionFailure.message === undefined || actionFailure.message === null
-                    ? {}
-                    : { body: actionFailure.message })}
-            />
-        );
-
-    // What the status tile says — no tile at all when there is nothing to say, now that its
-    // buttons are behind the pop-up's ⋯.
-    const runNote = order !== null && isDelivery && canFulfilKitchenOrder(order.status);
-    const cancelNote =
-        canManage &&
-        order !== null &&
-        (!canCancelKitchenOrder(order.status) || (!pickedUp && started && !canSupervise));
-    const actionContent =
-        !runNote && !cancelNote ? undefined : (
-            <Stack space="sm">
-                {order === null || !isDelivery || !canFulfilKitchenOrder(order.status) ? null : (
-                    // Where the run stands, in the kitchen display's words.
-                    <Text
-                        variant="caption"
-                        tone="secondary"
-                        testID="kitchen-orders-detail-run-state"
-                    >
-                        {failed
-                            ? [
-                                  t('kitchen:ops.orders.deliveryFailedNote', {
-                                      reason: t(
-                                          deliveryFailureReasonKey(run.failureReason ?? 'other'),
-                                      ),
-                                  }),
-                                  run.failureNote,
-                              ]
-                                  .filter((part) => part !== null && part !== undefined)
-                                  .join(t('kitchen:common.listSeparator'))
-                            : withCourier
-                              ? t('kitchen:ops.orders.withCourier', { name: courierName })
-                              : t(
-                                    (order.readyAt ?? null) === null
-                                        ? 'kitchen:ops.orders.notReadyYet'
-                                        : (order.deliveryRun?.pickedUpAt ?? null) === null
-                                          ? 'kitchen:kds.waitingForDriver'
-                                          : 'kitchen:kds.withDriver',
-                                )}
-                    </Text>
-                )}
-                {!canManage || order === null ? null : !canCancelKitchenOrder(order.status) ? (
-                    <Text variant="caption" tone="secondary" testID="kitchen-orders-detail-closed">
-                        {t('kitchen:ops.orders.nothingToDo')}
-                    </Text>
-                ) : pickedUp ? null : started && !canSupervise ? (
-                    <Text variant="caption" tone="secondary" testID="kitchen-orders-cancel-manager">
-                        {t('kitchen:ops.orders.cancelNeedsManager')}
-                    </Text>
-                ) : null}
-            </Stack>
-        );
-
-    // Every other action the order has left, behind the pop-up's ⋯. Its forward move and Cancel
-    // are buttons on the header (`headerActions`).
-    const orderActions: RecordAction[] = [
-        ...(order === null
-            ? []
-            : [
-                  {
-                      key: 'print-ticket',
-                      label: t('kitchen:kds.print'),
-                      icon: 'fileText' as const,
-                      testID: 'kitchen-orders-print-ticket',
-                      onSelect: () => {
-                          router.push(
-                              `/kitchen/orders/ticket?order=${encodeURIComponent(String(order.id))}` as never,
-                          );
-                      },
-                  },
-              ]),
-        // A complaint's remake links back to the order complained about.
-        ...(remakeOf === null
-            ? []
-            : [
-                  {
-                      key: 'remake-of',
-                      label: t('kitchen:ops.orders.remakeOf', { number: remakeOf.number }),
-                      icon: 'chevronBackward' as const,
-                      testID: 'kitchen-orders-remake-of',
-                      onSelect: () => {
-                          router.push(
-                              `/kitchen/orders?view=${encodeURIComponent(String(remakeOf.id))}` as never,
-                          );
-                      },
-                  },
-              ]),
-        ...(order === null || !failed || !canSupervise
-            ? []
-            : [
-                  {
-                      key: 'redeliver',
-                      label: t('kitchen:ops.orders.redeliver'),
-                      icon: 'truck' as const,
-                      testID: 'kitchen-orders-redeliver',
-                      disabled: actionPending,
-                      onSelect: () => {
-                          setDeliveryAction('redeliver');
-                      },
-                  },
-                  {
-                      key: 'close-failed',
-                      label: t('kitchen:ops.orders.closeFailed'),
-                      icon: 'circleX' as const,
-                      testID: 'kitchen-orders-close-failed',
-                      disabled: actionPending,
-                      onSelect: () => {
-                          setDeliveryAction('close');
-                      },
-                  },
-              ]),
-        ...(order === null || !withCourier || !canManage
-            ? []
-            : [
-                  {
-                      key: 'fail-delivery',
-                      label: t('kitchen:ops.orders.failDelivery'),
-                      icon: 'alert' as const,
-                      testID: 'kitchen-orders-fail-delivery',
-                      disabled: actionPending,
-                      onSelect: () => {
-                          setDeliveryAction('fail');
-                      },
-                  },
-              ]),
-        // Cancel is on the header with the forward button — see `headerActions` below.
-        // The server's `amendable` decides; the desk's sale page edits it.
-        ...(order === null || !order.amendable || !canSell
-            ? []
-            : [
-                  {
-                      key: 'edit',
-                      label: t('kitchen:desk.edit.open'),
-                      icon: 'pen' as const,
-                      testID: 'kitchen-orders-edit',
-                      separated: true,
-                      onSelect: () => {
-                          router.push(
-                              `/kitchen/order-desk/sale?order=${encodeURIComponent(String(order.id))}`,
-                          );
-                      },
-                  },
-              ]),
+    const figures: readonly LensFigure[] = [
+        figureOf('confirm', confirmRead, confirmRead.rows.length, 'warning'),
+        figureOf('late', lateRead, lateRead.count ?? lateRead.rows.length, 'danger'),
+        figureOf('driver', driverRead, driverRead.rows.length, 'warning'),
+        figureOf('collect', collectRead, collectRead.rows.length, 'info'),
     ];
 
-    const sections: RecordViewSection[] = [
-        // Right under the details, as the view drew it: what was ordered comes before where it goes.
-        {
-            key: 'items',
-            title: t('kitchen:ops.orders.linesHeading'),
-            content: (
-                <View testID="kitchen-orders-detail-lines" className="flex-col gap-snug">
-                    {shown.allergy === null ? null : (
-                        <Callout
-                            {...allergyBanner(shown.allergy, shown.lines, locale, t)}
-                            testID="kitchen-orders-detail-allergy"
-                        />
-                    )}
-                    <OrderLinesTable order={shown} testID="kitchen-orders-detail-lines-table" />
-                </View>
-            ),
-        },
-        {
-            key: 'delivery',
-            title: t('kitchen:ops.orders.deliveryHeading'),
-            content: (
-                <Stack space="xs" testID="kitchen-orders-detail-delivery">
-                    <FactRow
-                        testID="kitchen-orders-detail-delivery-date"
-                        label={t('kitchen:ops.orders.deliveryDate')}
-                        value={
-                            shown.delivery.requestedDate === null
-                                ? t('kitchen:common.notRecorded')
-                                : formatter.formatDate(shown.delivery.requestedDate, MEDIUM_DATE)
-                        }
-                    />
-                    <FactRow
-                        testID="kitchen-orders-detail-delivery-window"
-                        label={t('kitchen:ops.orders.deliveryWindow')}
-                        value={
-                            shown.delivery.windowCode === null
-                                ? t('kitchen:common.notRecorded')
-                                : windowName(shown.delivery.windowCode)
-                        }
-                    />
-                    <FactRow
-                        testID="kitchen-orders-detail-delivery-area"
-                        label={t('kitchen:ops.orders.deliveryArea')}
-                        value={
-                            shown.delivery.areaNameEn ??
-                            shown.delivery.city ??
-                            t('kitchen:common.notRecorded')
-                        }
-                    />
-                    <FactRow
-                        testID="kitchen-orders-detail-delivery-zone"
-                        label={t('kitchen:ops.orders.deliveryZone')}
-                        value={zoneName(shown, locale) ?? t('kitchen:common.notRecorded')}
-                    />
-                    <FactRow
-                        testID="kitchen-orders-detail-delivery-address"
-                        label={t('kitchen:ops.orders.deliveryAddress')}
-                        value={addressText(shown, t)}
-                    />
-                </Stack>
-            ),
-        },
-        {
-            key: 'timeline',
-            title: t('kitchen:ops.orders.timelineHeading'),
-            content: (
-                <Stack space="xs" testID="kitchen-orders-detail-timeline">
-                    <FactRow
-                        testID="kitchen-orders-detail-placed-at"
-                        label={t('kitchen:ops.orders.placedAt')}
-                        value={formatter.formatDate(shown.placedAt, STEP_TIME)}
-                    />
-                    {/* The design states every step, recorded or not. */}
-                    <FactRow
-                        testID="kitchen-orders-detail-confirmed-at"
-                        label={t('kitchen:ops.orders.confirmedAt')}
-                        value={stamp(shown.confirmedAt, t, formatter)}
-                    />
-                    <FactRow
-                        testID="kitchen-orders-detail-preparing-at"
-                        label={t('kitchen:ops.orders.preparingAt')}
-                        value={stamp(shown.preparingAt ?? null, t, formatter)}
-                    />
-                    <FactRow
-                        testID="kitchen-orders-detail-ready-at"
-                        label={t('kitchen:ops.orders.readyAt')}
-                        value={stamp(shown.readyAt ?? null, t, formatter)}
-                    />
-                    {/*
-                     * A delivery's drive (HA-19): who has it, when they collected it and when they
-                     * handed it over. A pickup or counter order has no run and no rows for one.
-                     */}
-                    {shown.fulfilmentType !== 'delivery' ? null : (
-                        <>
-                            <FactRow
-                                testID="kitchen-orders-detail-driver"
-                                label={t('kitchen:ops.orders.driver')}
-                                value={
-                                    shown.deliveryRun?.courierName ??
-                                    shown.deliveryRun?.driverName ??
-                                    t('kitchen:ops.orders.driverNone')
-                                }
-                            />
-                            <FactRow
-                                testID="kitchen-orders-detail-picked-up-at"
-                                label={t('kitchen:ops.orders.pickedUpAt')}
-                                value={stamp(shown.deliveryRun?.pickedUpAt ?? null, t, formatter)}
-                            />
-                            <FactRow
-                                testID="kitchen-orders-detail-delivered-at"
-                                label={t('kitchen:ops.orders.deliveredAt')}
-                                value={stamp(shown.deliveryRun?.deliveredAt ?? null, t, formatter)}
-                            />
-                        </>
-                    )}
-                    <FactRow
-                        testID="kitchen-orders-detail-fulfilled-at"
-                        label={t('kitchen:ops.orders.fulfilledAt')}
-                        value={stamp(shown.fulfilledAt, t, formatter)}
-                    />
-                    {shown.cancelledAt === null ? null : (
-                        <FactRow
-                            testID="kitchen-orders-detail-cancelled-at"
-                            label={t('kitchen:ops.orders.cancelledAt')}
-                            value={formatter.formatDate(shown.cancelledAt, STEP_TIME)}
-                        />
-                    )}
-                    {shown.cancellationReason === null ? null : (
-                        <FactRow
-                            testID="kitchen-orders-detail-cancellation-reason"
-                            label={t('kitchen:ops.orders.cancellationReason')}
-                            value={t(kitchenOrderCancellationReasonKey(shown.cancellationReason))}
-                        />
-                    )}
-                    {(shown.cancelledByName ?? null) === null ? null : (
-                        <FactRow
-                            testID="kitchen-orders-detail-cancelled-by"
-                            label={t('kitchen:ops.orders.cancelledBy')}
-                            value={shown.cancelledByName ?? ''}
-                        />
-                    )}
-                    {(shown.cancellationDisposition ?? null) === null ? null : (
-                        <FactRow
-                            testID="kitchen-orders-detail-cancellation-disposition"
-                            label={t('kitchen:ops.orders.dispositionLabel')}
-                            value={t(
-                                kitchenOrderCancellationDispositionKey(
-                                    shown.cancellationDisposition ?? 'returned',
-                                ),
-                            )}
-                        />
-                    )}
-                </Stack>
-            ),
-        },
-    ];
-    if (detailFailure !== null) {
-        sections.unshift({
-            key: 'error',
-            title: t('kitchen:ops.orders.detailLoadErrorTitle'),
-            tone: 'warning',
-            content: (
-                <ErrorState
-                    testID="kitchen-orders-detail-error"
-                    title={t('kitchen:ops.orders.detailLoadErrorTitle')}
-                    failure={detailFailure}
-                    onRetry={() => {
-                        void detail.refetch();
-                    }}
-                    retrying={detail.isFetching}
-                />
-            ),
-        });
-    }
-
-    if (order !== null && canSupervise) {
-        sections.push({
-            key: 'refunds',
-            title: t('kitchen:ops.orders.refunds.heading'),
-            content: <OrderRefundsSection order={order} />,
-        });
-        sections.push({
-            key: 'complaint',
-            title: t('kitchen:complaints.sectionTitle'),
-            content: <OrderComplaintAction order={order} />,
-        });
-    }
-
-    const totals: RecordViewSection = {
-        key: 'totals',
-        title: t('kitchen:ops.orders.totalsHeading'),
-        content: (
-            <Stack space="xs" testID="kitchen-orders-detail-totals">
-                <FactRow
-                    testID="kitchen-orders-detail-subtotal"
-                    label={t('kitchen:ops.orders.subtotal')}
-                    value={money(formatter, shown.subtotalMinor, shown.currencyCode)}
-                />
-                <FactRow
-                    testID="kitchen-orders-detail-delivery-fee"
-                    label={t('kitchen:ops.orders.deliveryFee')}
-                    // `null` is not zero: a free delivery and an un-zoned address are different
-                    // facts, and the contract keeps them apart on purpose.
-                    value={
-                        shown.deliveryFeeMinor === null
-                            ? t('kitchen:ops.orders.noDeliveryFee')
-                            : money(formatter, shown.deliveryFeeMinor, shown.currencyCode)
-                    }
-                />
-                <FactRow
-                    testID="kitchen-orders-detail-total"
-                    label={t('kitchen:ops.orders.total')}
-                    value={money(formatter, shown.totalMinor, shown.currencyCode)}
-                    strong
-                />
-            </Stack>
-        ),
+    const columnContext: OrderColumnContext = {
+        t,
+        formatter,
+        today,
+        now,
+        windows,
+        windowName,
+        driverName,
+        onStep: canManage
+            ? (order, step) => {
+                  steps.run(order, step);
+              }
+            : null,
+        pendingId: steps.pendingId,
     };
 
-    // The status card's one button moves the order forward; Cancel sits above it.
-    const forward =
-        order === null || !canManage
-            ? undefined
-            : canConfirmKitchenOrder(order.status)
-              ? {
-                    label: t('kitchen:ops.orders.confirm'),
-                    icon: null,
-                    testID: 'kitchen-orders-confirm',
-                    loading: confirmOrder.isPending,
-                    disabled: actionPending,
-                    onPress: () => {
-                        transition('confirm');
-                    },
-                }
-              : canFulfilKitchenOrder(order.status) && isDelivery
-                ? (order.readyAt ?? null) === null || failed
-                    ? undefined
-                    : {
-                          label: t('kitchen:ops.orders.markDelivered'),
-                          icon: null,
-                          testID: 'kitchen-orders-mark-delivered',
-                          loading: fulfilOrder.isPending,
-                          disabled: actionPending,
-                          onPress: () => {
-                              clearActionState();
-                              setDelivering(true);
-                          },
-                      }
-                : canFulfilKitchenOrder(order.status)
-                  ? {
-                        label: t('kitchen:ops.orders.fulfil'),
-                        icon: null,
-                        testID: 'kitchen-orders-fulfil',
-                        loading: fulfilOrder.isPending,
-                        disabled: actionPending,
-                        onPress: () => {
-                            transition('fulfil');
-                        },
-                    }
-                  : undefined;
+    /**
+     * The row an order was opened from — drawn in its pop-up while the order is re-read — and the
+     * list it was in, which the pop-up's ‹ › step through.
+     */
+    const [opened, setOpened] = useState<{
+        readonly row: BookRow;
+        readonly list: readonly BookRow[];
+    } | null>(null);
 
-    const cancelAllowed =
-        canManage &&
-        order !== null &&
-        canCancelKitchenOrder(order.status) &&
-        !pickedUp &&
-        (!started || canSupervise);
+    function openOrder(order: BookRow, list: readonly BookRow[] = []) {
+        setOpened({ row: order, list });
+        update({ view: String(order.id), hl: String(order.id) });
+    }
 
-    // The order's moves on the header band, not behind ⋯: the reason an order is opened is to
-    // move it on (2026-11-10). The forward button is the rail's own active pill.
-    const headerActions =
-        forward === undefined && !cancelAllowed ? undefined : (
-            <>
-                {!cancelAllowed ? null : (
-                    <Button
-                        testID="kitchen-orders-cancel"
-                        variant="secondary"
-                        size="sm"
-                        label={t('kitchen:ops.orders.cancel')}
-                        disabled={actionPending}
-                        onPress={() => {
-                            clearActionState();
-                            setCancelling(true);
+    /** New order — for a day when one is given — and back to exactly here afterwards. */
+    function newOrder(forDay: string | null) {
+        const sale =
+            forDay === null
+                ? '/kitchen/order-desk/sale'
+                : withQuery('/kitchen/order-desk/sale', { day: forDay });
+        router.push(withReturnTo(sale, withQuery(currentHref, { view: null })) as never);
+    }
+
+    function openRequirements(forDay: string) {
+        router.push(
+            withReturnTo(
+                withQuery('/kitchen/order-desk/requirements', { from: forDay, to: forDay }),
+                currentHref,
+            ) as never,
+        );
+    }
+
+    const dayCount = dayRead.pending
+        ? undefined
+        : dayRead.rows.filter((row) => row.status !== 'cancelled').length;
+
+    const tabs = [
+        {
+            value: 'today' as const,
+            label: day === today ? t('kitchen:orders.tab.today') : shortDay(day, formatter),
+            ...(dayCount === undefined ? {} : { count: dayCount }),
+            testID: 'kitchen-orders-tab-today',
+        },
+        ...(canCalendar
+            ? [
+                  {
+                      value: 'calendar' as const,
+                      label: t('kitchen:orders.tab.calendar'),
+                      testID: 'kitchen-orders-tab-calendar',
+                  },
+              ]
+            : []),
+        {
+            value: 'all' as const,
+            label: t('kitchen:orders.tab.all'),
+            testID: 'kitchen-orders-tab-all',
+        },
+    ];
+
+    const actions = (
+        <View className="z-auto flex-row items-center gap-2">
+            <KitchenPauseButton />
+            {canSell ? (
+                <DeskButton
+                    testID="kitchen-orders-new"
+                    variant="primary"
+                    label={t('kitchen:orders.newOrder')}
+                    iconStart={<Icon name="plus" size="md" className="text-content-on-brand" />}
+                    onPress={() => {
+                        newOrder(
+                            tab === 'today' && day >= today
+                                ? day
+                                : tab === 'calendar' && query.sel !== null && query.sel >= today
+                                  ? query.sel
+                                  : null,
+                        );
+                    }}
+                />
+            ) : null}
+        </View>
+    );
+
+    const tray: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-orders-tray',
+        hideWhenClear: true,
+        groups: [],
+    };
+
+    return (
+        <IssueTrayFrame tray={tray}>
+            <Cascade space="md" testID="kitchen-orders-screen">
+                <View className="z-20 flex-row flex-wrap items-center gap-3">
+                    <DeskTabs<OrdersTab>
+                        testID="kitchen-orders-tabs"
+                        label={t('kitchen:orders.tab.label')}
+                        value={tab}
+                        onChange={(next) => {
+                            update({ tab: next, quick: null, view: null, hl: null });
+                        }}
+                        items={tabs}
+                    />
+                    <View className="z-auto ms-auto">{actions}</View>
+                </View>
+                <KitchenPauseBanner />
+
+                {tab === 'today' ? (
+                    <TodayTab
+                        query={query}
+                        update={update}
+                        day={day}
+                        today={today}
+                        dayRead={dayRead}
+                        lateRead={lateRead}
+                        figures={figures}
+                        columns={columnContext}
+                        canSell={canSell}
+                        onOpenOrder={openOrder}
+                        onNewOrder={newOrder}
+                    />
+                ) : tab === 'calendar' ? (
+                    <CalendarTab
+                        query={query}
+                        update={update}
+                        today={today}
+                        now={now}
+                        figures={figures}
+                        onOpenOrder={openOrder}
+                        onNewOrder={newOrder}
+                        onOpenRequirements={openRequirements}
+                    />
+                ) : (
+                    <AllOrdersTab
+                        query={query}
+                        update={update}
+                        today={today}
+                        now={now}
+                        figures={figures}
+                        columns={columnContext}
+                        quickReads={{
+                            confirm: confirmRead,
+                            late: lateRead,
+                            driver: driverRead,
+                            collect: collectRead,
+                        }}
+                        onOpenOrder={openOrder}
+                    />
+                )}
+
+                {query.view === null ? null : (
+                    <OrderRecordPopup
+                        orderId={OrderId.unsafe(query.view)}
+                        steps={steps}
+                        now={now}
+                        today={today}
+                        windowName={windowName}
+                        driverName={driverName}
+                        returnTo={withQuery(currentHref, { view: null })}
+                        seed={opened?.row ?? null}
+                        siblings={opened?.list ?? []}
+                        onOpen={(row) => {
+                            openOrder(row, opened?.list ?? []);
+                        }}
+                        onClose={() => {
+                            update({ view: null });
                         }}
                     />
                 )}
-                {forward === undefined ? null : (
-                    <Button
-                        testID={forward.testID}
-                        variant="sidebar"
-                        size="sm"
-                        label={forward.label}
-                        loading={forward.loading}
-                        disabled={forward.disabled}
-                        onPress={forward.onPress}
-                    />
-                )}
-            </>
-        );
-
-    return (
-        <>
-            <RecordViewPage
-                testID="kitchen-orders-detail"
-                look="board"
-                eyebrow={t('kitchen:recordView.eyebrowOrders')}
-                banner={failureBanner}
-                onBack={onBack}
-                title={t('kitchen:ops.orders.detailTitle', { number })}
-                kind={t('kitchen:ops.orders.viewKind')}
-                status={{
-                    label: t(kitchenOrderStatusKey(shown.status)),
-                    tone: kitchenOrderStatusTone(shown.status),
-                }}
-                titleAside={
-                    <Text variant="caption" tone="secondary">
-                        {t(kitchenOrderFulfilmentTypeKey(shown.fulfilmentType))}
-                    </Text>
-                }
-                {...(shown.status === 'placed'
-                    ? { note: t('kitchen:ops.orders.viewPlacedNote') }
-                    : {})}
-                fields={viewFields(shown, t, formatter)}
-                sections={sections}
-                rail={[totals]}
-                statusContent={actionContent}
-                footNote={t('kitchen:ops.orders.cancelFinal')}
-                headerActions={headerActions}
-                actions={orderActions}
-            />
-
-            <Dialog
-                testID="kitchen-orders-mark-delivered-dialog"
-                open={delivering && order !== null}
-                onClose={() => {
-                    setDelivering(false);
-                }}
-                title={t('kitchen:ops.orders.markDeliveredTitle', { number })}
-                description={t('kitchen:ops.orders.markDeliveredBody')}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-orders-mark-delivered-dismiss"
-                            variant="quiet"
-                            label={t('kitchen:ops.orders.markDeliveredDismiss')}
-                            onPress={() => {
-                                setDelivering(false);
-                            }}
-                        />
-                        <Button
-                            testID="kitchen-orders-mark-delivered-confirm"
-                            label={t('kitchen:ops.orders.markDelivered')}
-                            loading={fulfilOrder.isPending}
-                            disabled={actionPending}
-                            onPress={() => {
-                                transition('fulfil');
-                            }}
-                        />
-                    </>
-                }
-            />
-
-            <Dialog
-                testID="kitchen-orders-cancel-dialog"
-                open={cancelling && order !== null}
-                onClose={closeCancel}
-                title={t('kitchen:ops.orders.cancelTitle', { number })}
-                description={t('kitchen:ops.orders.cancelBody')}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-orders-cancel-dismiss"
-                            variant="quiet"
-                            label={t('kitchen:ops.orders.cancelDismiss')}
-                            onPress={closeCancel}
-                        />
-                        <Button
-                            testID="kitchen-orders-cancel-confirm"
-                            variant="danger"
-                            label={t('kitchen:ops.orders.cancelConfirm')}
-                            loading={cancelOrder.isPending}
-                            disabled={
-                                reason === null ||
-                                (started && disposition === null) ||
-                                actionPending
-                            }
-                            onPress={submitCancellation}
-                        />
-                    </>
-                }
-            >
-                <Stack space="sm">
-                    <Text variant="strong">{t('kitchen:ops.orders.cancelReasonLabel')}</Text>
-                    {/*
-                     * Chips rather than a `Select`: the reason is required, there are exactly four
-                     * a person can pick and the enum is closed, so every option can be on screen at
-                     * the moment of the decision instead of behind a second modal.
-                     */}
-                    <Inline space="xs" wrap testID="kitchen-orders-cancel-reasons">
-                        {KITCHEN_ORDER_PICKABLE_CANCELLATION_REASONS.map((candidate) => (
-                            <FilterChip
-                                key={candidate}
-                                testID={`kitchen-orders-cancel-reason-${candidate}`}
-                                label={t(kitchenOrderCancellationReasonKey(candidate))}
-                                selected={reason === candidate}
-                                onChange={() => {
-                                    setReason(candidate);
-                                }}
-                            />
-                        ))}
-                    </Inline>
-                    {!started ? null : (
-                        <>
-                            <Text variant="strong">{t('kitchen:ops.orders.dispositionLabel')}</Text>
-                            <Inline space="xs" wrap testID="kitchen-orders-cancel-dispositions">
-                                {KITCHEN_ORDER_CANCELLATION_DISPOSITIONS.map((candidate) => (
-                                    <FilterChip
-                                        key={candidate}
-                                        testID={`kitchen-orders-cancel-disposition-${candidate}`}
-                                        label={t(kitchenOrderCancellationDispositionKey(candidate))}
-                                        selected={disposition === candidate}
-                                        onChange={() => {
-                                            setDisposition(candidate);
-                                        }}
-                                    />
-                                ))}
-                            </Inline>
-                        </>
-                    )}
-                    {cancelOrder.error === null ? null : (
-                        <Text testID="kitchen-orders-cancel-error" tone="danger">
-                            {toFailure(cancelOrder.error)?.message ??
-                                t('kitchen:ops.orders.saveFailed')}
-                        </Text>
-                    )}
-                </Stack>
-            </Dialog>
-
-            {deliveryAction === null || order === null ? null : (
-                <DeliveryActionDialog
-                    action={deliveryAction}
-                    order={order}
-                    onClose={() => {
-                        setDeliveryAction(null);
-                    }}
-                />
-            )}
-        </>
+                {steps.dialogs}
+            </Cascade>
+        </IssueTrayFrame>
     );
 }
 
-type DeliveryAction = 'fail' | 'redeliver' | 'close';
+/* ── shared parts ────────────────────────────────────────────────────────────────────────────── */
 
-/** The empty choice in the window picker: the order keeps the one it has. */
-const KEEP_WINDOW = '';
+const KIND_FILTERS: readonly KindFilter[] = ['all', 'delivery', 'pickup', 'counter'];
 
-/**
- * What the kitchen does about a run: say a courier's delivery failed, send a failed one out again,
- * or close it. Mounted only while open, so every opening starts clean.
- */
-function DeliveryActionDialog({
-    action,
-    order,
-    onClose,
+function KindScope({
+    value,
+    onChange,
+    testID,
 }: {
-    readonly action: DeliveryAction;
-    readonly order: KitchenOrder;
-    readonly onClose: () => void;
+    readonly value: KindFilter;
+    readonly onChange: (kind: KindFilter) => void;
+    readonly testID: string;
 }) {
     const { t } = useTranslation();
-    const { locale } = useLocale();
-    const toast = useToast();
-    // Open to the desk and to supervisors. Anyone else can still move the day.
-    const canBook = useCan(ORDER_CREATE_ON_BEHALF_PERMISSION);
-    const canSupervise = useCan(ORDER_SUPERVISE_PERMISSION);
-    const windows = useOrderDeskDeliveryWindowsQuery(
-        action === 'redeliver' && (canBook || canSupervise),
+    return (
+        <DeskSelect<KindFilter>
+            testID={testID}
+            label={t('kitchen:orders.filter.kind')}
+            value={value}
+            onChange={onChange}
+            options={KIND_FILTERS.map((kind) => ({
+                value: kind,
+                label: t(
+                    kind === 'all' ? 'kitchen:orders.filter.both' : `kitchen:orders.kind.${kind}`,
+                ),
+                testID: `${testID}-${kind}`,
+            }))}
+        />
     );
+}
 
-    const failDelivery = useFailDeliveryMutation();
-    const redeliver = useRedeliverOrderMutation();
-    const closeFailed = useCloseFailedDeliveryMutation();
-
-    const [reason, setReason] = useState<DeliveryFailureReason | null>(null);
-    const [note, setNote] = useState('');
-    const [date, setDate] = useState('');
-    const [window, setWindow] = useState(KEEP_WINDOW);
-    const [disposition, setDisposition] = useState<KitchenOrderCancellationDisposition | null>(
-        null,
+/** The heading over a slot's orders — or over the late ones carried in from earlier days. */
+function GroupHeading({
+    title,
+    sub,
+    count,
+    late = false,
+    action,
+    testID,
+}: {
+    readonly title: string;
+    readonly sub: string | null;
+    readonly count: number;
+    readonly late?: boolean | undefined;
+    /** A way on from the heading — the late group's "See all". */
+    readonly action?: ReactNode;
+    readonly testID: string;
+}) {
+    const { t } = useTranslation();
+    return (
+        <ListGroupRow
+            testID={testID}
+            tone={late ? 'danger' : 'neutral'}
+            title={title}
+            sub={sub}
+            count={t('kitchen:orders.count', { count })}
+            action={action}
+        />
     );
+}
 
-    const pending = failDelivery.isPending || redeliver.isPending || closeFailed.isPending;
-    const failure =
-        toFailure(failDelivery.error) ?? toFailure(redeliver.error) ?? toFailure(closeFailed.error);
-    const ready =
-        action === 'fail' ? reason !== null : action === 'close' ? disposition !== null : true;
-    const number = order.orderNumber;
+/** The table, its loading and its empty states — the same for Today and All orders. */
+function OrdersTable({
+    read,
+    rows,
+    columns,
+    highlighted,
+    onOpenOrder,
+    sectionHeader,
+    empty,
+    paged,
+    testID,
+}: {
+    readonly read: Pick<BookRead, 'pending' | 'failure' | 'fetching' | 'refetch'>;
+    readonly rows: readonly BookRow[];
+    readonly columns: OrderColumnContext;
+    readonly highlighted: string | null;
+    readonly onOpenOrder: (order: BookRow, list?: readonly BookRow[]) => void;
+    readonly sectionHeader?:
+        ((row: BookRow, previous: BookRow | undefined) => ReactNode) | undefined;
+    readonly empty: ReactNode;
+    readonly paged?: ReactNode;
+    readonly testID: string;
+}) {
+    const { t } = useTranslation();
+    if (read.pending) {
+        return <TableSkeleton testID={`${testID}-loading`} partTestID={testID} rows={8} />;
+    }
+    if (read.failure !== null) {
+        return (
+            <ErrorState
+                testID={`${testID}-error`}
+                title={t('kitchen:orders.loadErrorTitle')}
+                failure={read.failure}
+                onRetry={read.refetch}
+                retrying={read.fetching}
+            />
+        );
+    }
+    return (
+        <View className="flex-col gap-3">
+            <CatalogueList<BookRow>
+                testID={testID}
+                joined
+                frameEmpty
+                label={t('kitchen:orders.caption')}
+                columns={orderColumns(columns)}
+                rows={rows}
+                rowKey={(row) => String(row.id)}
+                density="sm"
+                highlightedId={highlighted}
+                onRowPress={(row) => {
+                    onOpenOrder(row, rows);
+                }}
+                rowActionsLabel={t('kitchen:list.rowActions')}
+                sectionHeader={sectionHeader}
+                emptyState={empty}
+            />
+            {paged}
+        </View>
+    );
+}
 
-    function done(message: string) {
-        onClose();
-        toast.show({ testID: 'kitchen-orders-delivery-toast', tone: 'success', message });
+/* ── Today ───────────────────────────────────────────────────────────────────────────────────── */
+
+const LATE_GROUP = 'late';
+
+/**
+ * How many late orders from earlier days Today shows before its own: the oldest few, so today's
+ * slots stay on the first page. The heading says how many there are and opens them all.
+ */
+const LATE_ON_TODAY = 5;
+
+function TodayTab({
+    query,
+    update,
+    day,
+    today,
+    dayRead,
+    lateRead,
+    figures,
+    columns,
+    canSell,
+    onOpenOrder,
+    onNewOrder,
+}: {
+    readonly query: OrdersQuery;
+    readonly update: (patch: Partial<OrdersQuery>) => void;
+    readonly day: string;
+    readonly today: string;
+    readonly dayRead: BookRead;
+    readonly lateRead: BookRead;
+    readonly figures: readonly LensFigure[];
+    readonly columns: OrderColumnContext;
+    readonly canSell: boolean;
+    readonly onOpenOrder: (order: BookRow, list?: readonly BookRow[]) => void;
+    readonly onNewOrder: (day: string | null) => void;
+}) {
+    const { t } = useTranslation();
+    const { formatter } = columns;
+    const slotName = useSlotName();
+    const slotHours = useSlotHours();
+
+    const passes = (row: BookRow) =>
+        matchesSlot(row, query.slot) && matchesKind(row, query.kind) && matchesSearch(row, query.q);
+
+    const late = useMemo(
+        () =>
+            day === today
+                ? lateRead.rows
+                      .filter((row) => orderDay(row) < today && passes(row))
+                      .sort(compareByDue)
+                : [],
+        // `passes` reads only the query, which the list below names.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [day, today, lateRead.rows, query.slot, query.kind, query.q],
+    );
+    const lateIds = new Set(late.map((row) => String(row.id)));
+    const dayRows = dayRead.rows
+        .filter((row) => !lateIds.has(String(row.id)) && passes(row))
+        .sort(compareByDue);
+    const rows = [...late.slice(0, LATE_ON_TODAY), ...dayRows];
+
+    const groupOf = (row: BookRow) => (lateIds.has(String(row.id)) ? LATE_GROUP : slotKeyOf(row));
+    const groupCounts = new Map<string, number>([[LATE_GROUP, late.length]]);
+    for (const row of dayRows) {
+        groupCounts.set(groupOf(row), (groupCounts.get(groupOf(row)) ?? 0) + 1);
     }
 
-    function submit() {
-        const version = { id: order.id, lockVersion: order.lockVersion };
-        if (action === 'fail' && reason !== null) {
-            failDelivery.mutate(
-                { id: order.id, reason, note },
-                { onSuccess: () => done(t('kitchen:ops.orders.failedToast', { number })) },
-            );
-        } else if (action === 'close' && disposition !== null) {
-            closeFailed.mutate(
-                { ...version, disposition },
-                { onSuccess: () => done(t('kitchen:ops.orders.closedFailedToast', { number })) },
-            );
-        } else if (action === 'redeliver') {
-            redeliver.mutate(
-                {
-                    ...version,
-                    ...(date === '' ? {} : { date }),
-                    ...(window === KEEP_WINDOW ? {} : { window }),
-                },
-                { onSuccess: () => done(t('kitchen:ops.orders.redeliveredToast', { number })) },
-            );
-        }
-    }
+    const filtered = query.slot !== 'all' || query.kind !== 'all' || query.q.trim() !== '';
+    const read = {
+        pending: dayRead.pending,
+        failure: dayRead.failure,
+        fetching: dayRead.fetching,
+        refetch: dayRead.refetch,
+    };
 
     return (
-        <Dialog
-            testID="kitchen-orders-delivery-dialog"
-            open
-            onClose={onClose}
-            title={t(`kitchen:ops.orders.deliveryAction.${action}Title`, { number })}
-            description={t(`kitchen:ops.orders.deliveryAction.${action}Body`)}
-            actions={
-                <>
-                    <Button
-                        testID="kitchen-orders-delivery-dismiss"
-                        variant="quiet"
-                        label={t('kitchen:common.cancel')}
-                        onPress={onClose}
-                    />
-                    <Button
-                        testID="kitchen-orders-delivery-confirm"
-                        {...(action === 'redeliver' ? {} : { variant: 'danger' as const })}
-                        label={t(`kitchen:ops.orders.deliveryAction.${action}Confirm`)}
-                        loading={pending}
-                        disabled={!ready || pending}
-                        onPress={submit}
-                    />
-                </>
-            }
-        >
-            <Stack space="sm">
-                {action !== 'fail' ? null : (
+        <View className="z-10">
+            <LensBar
+                testID="kitchen-orders-today-toolbar"
+                layout="split"
+                compactSearch
+                joined={!dayRead.pending && dayRead.failure === null}
+                label={t('kitchen:orders.tab.today')}
+                figures={figures}
+                scope={
                     <>
-                        <Text variant="strong">{t('kitchen:driver.failReasonLabel')}</Text>
-                        <Inline space="xs" wrap testID="kitchen-orders-delivery-reasons">
-                            {DELIVERY_FAILURE_REASONS.map((candidate) => (
-                                <FilterChip
-                                    key={candidate}
-                                    testID={`kitchen-orders-delivery-reason-${candidate}`}
-                                    label={t(deliveryFailureReasonKey(candidate))}
-                                    selected={reason === candidate}
-                                    onChange={() => {
-                                        setReason(candidate);
-                                    }}
-                                />
-                            ))}
-                        </Inline>
-                        <TextInputField
-                            testID="kitchen-orders-delivery-note"
-                            id="kitchen-orders-delivery-note"
-                            label={t('kitchen:driver.failNoteLabel')}
-                            value={note}
-                            onChangeText={setNote}
-                            multiline
-                            maxLength={1000}
-                        />
-                    </>
-                )}
-                {action !== 'redeliver' ? null : (
-                    <>
-                        <DatePickerButton
-                            testID="kitchen-orders-delivery-date"
-                            label={t('kitchen:ops.orders.deliveryAction.dateLabel')}
-                            labelVisible
-                            placeholder={t('kitchen:ops.orders.deliveryAction.keepDate')}
-                            value={date}
-                            onChange={setDate}
-                            onClear={() => {
-                                setDate('');
+                        <DayStepper
+                            testID="kitchen-orders-day"
+                            day={day}
+                            today={today}
+                            onChange={(next) => {
+                                update({ day: next === today ? null : next, hl: null });
                             }}
                         />
-                        {(windows.data ?? []).length === 0 ? null : (
-                            <Select<string>
-                                testID="kitchen-orders-delivery-window"
-                                label={t('kitchen:ops.orders.deliveryWindow')}
-                                size="sm"
-                                value={window}
-                                onChange={setWindow}
-                                options={[
-                                    {
-                                        value: KEEP_WINDOW,
-                                        label: t('kitchen:ops.orders.deliveryAction.keepWindow'),
-                                    },
-                                    ...(windows.data ?? []).map((candidate) => ({
-                                        value: candidate.code,
-                                        label: locale.toLowerCase().startsWith('ar')
-                                            ? candidate.nameAr
-                                            : candidate.nameEn,
-                                    })),
-                                ]}
-                            />
-                        )}
+                        <SlotScope
+                            testID="kitchen-orders-today-slot"
+                            value={query.slot}
+                            onChange={(slot) => {
+                                update({ slot });
+                            }}
+                        />
+                        <KindScope
+                            testID="kitchen-orders-today-kind"
+                            value={query.kind}
+                            onChange={(kind) => {
+                                update({ kind });
+                            }}
+                        />
                     </>
-                )}
-                {action !== 'close' ? null : (
-                    <>
-                        <Text variant="strong">{t('kitchen:ops.orders.dispositionLabel')}</Text>
-                        <Inline space="xs" wrap testID="kitchen-orders-delivery-dispositions">
-                            {KITCHEN_ORDER_CANCELLATION_DISPOSITIONS.map((candidate) => (
-                                <FilterChip
-                                    key={candidate}
-                                    testID={`kitchen-orders-delivery-disposition-${candidate}`}
-                                    label={t(kitchenOrderCancellationDispositionKey(candidate))}
-                                    selected={disposition === candidate}
-                                    onChange={() => {
-                                        setDisposition(candidate);
+                }
+                search={query.q}
+                onSearchChange={(q) => {
+                    update({ q });
+                }}
+                searchLabel={t('kitchen:orders.search.label')}
+                searchPlaceholder={t('kitchen:orders.search.placeholder')}
+                result={
+                    dayRead.pending
+                        ? null
+                        : t('kitchen:orders.count', { count: late.length + dayRows.length })
+                }
+                clearLabel={t('kitchen:orders.clearFilters')}
+                {...(filtered
+                    ? {
+                          onClear: () => {
+                              update({ slot: 'all', kind: 'all', q: '' });
+                          },
+                      }
+                    : {})}
+            />
+            <OrdersTable
+                testID="kitchen-orders-today-table"
+                read={read}
+                rows={rows}
+                columns={columns}
+                highlighted={query.hl}
+                onOpenOrder={onOpenOrder}
+                sectionHeader={(row, previous) => {
+                    const group = groupOf(row);
+                    if (previous !== undefined && groupOf(previous) === group) return null;
+                    return group === LATE_GROUP ? (
+                        <GroupHeading
+                            testID="kitchen-orders-group-late"
+                            late
+                            title={t('kitchen:orders.group.late')}
+                            sub={t('kitchen:orders.group.lateSub')}
+                            count={groupCounts.get(group) ?? 0}
+                            action={
+                                late.length > LATE_ON_TODAY ? (
+                                    <DeskButton
+                                        testID="kitchen-orders-group-late-all"
+                                        variant="quiet"
+                                        label={t('kitchen:orders.group.lateAll')}
+                                        onPress={() => {
+                                            update({
+                                                tab: 'all',
+                                                quick: 'late',
+                                                dates: 'all',
+                                                status: 'all',
+                                                slot: query.slot,
+                                                kind: query.kind,
+                                                q: '',
+                                            });
+                                        }}
+                                    />
+                                ) : undefined
+                            }
+                        />
+                    ) : (
+                        <GroupHeading
+                            testID={`kitchen-orders-group-${group}`}
+                            title={slotName(group)}
+                            sub={slotHours(group)}
+                            count={groupCounts.get(group) ?? 0}
+                        />
+                    );
+                }}
+                empty={
+                    <EmptyState
+                        testID="kitchen-orders-today-empty"
+                        shape="table"
+                        icon={filtered ? 'searchLens' : 'receipt'}
+                        title={
+                            filtered
+                                ? t('kitchen:orders.empty.filtered')
+                                : t('kitchen:orders.empty.day', { day: longDay(day, formatter) })
+                        }
+                        actions={
+                            filtered ? (
+                                <DeskButton
+                                    testID="kitchen-orders-today-clear"
+                                    variant="secondary"
+                                    label={t('kitchen:orders.clearFilters')}
+                                    onPress={() => {
+                                        update({ slot: 'all', kind: 'all', q: '' });
                                     }}
                                 />
-                            ))}
-                        </Inline>
+                            ) : canSell && day >= today ? (
+                                <DeskButton
+                                    testID="kitchen-orders-today-new"
+                                    variant="secondary"
+                                    label={t('kitchen:orders.newForDay')}
+                                    onPress={() => {
+                                        onNewOrder(day);
+                                    }}
+                                />
+                            ) : undefined
+                        }
+                    />
+                }
+            />
+        </View>
+    );
+}
+
+/* ── All orders ──────────────────────────────────────────────────────────────────────────────── */
+
+const STATUS_FILTERS: readonly StatusFilter[] = [
+    'all',
+    'placed',
+    'confirmed',
+    'fulfilled',
+    'cancelled',
+];
+
+function AllOrdersTab({
+    query,
+    update,
+    today,
+    now,
+    figures,
+    columns,
+    quickReads,
+    onOpenOrder,
+}: {
+    readonly query: OrdersQuery;
+    readonly update: (patch: Partial<OrdersQuery>) => void;
+    readonly today: string;
+    readonly now: Date;
+    readonly figures: readonly LensFigure[];
+    readonly columns: OrderColumnContext;
+    readonly quickReads: Readonly<Record<QuickFilter, BookRead>>;
+    readonly onOpenOrder: (order: BookRow, list?: readonly BookRow[]) => void;
+}) {
+    const { t } = useTranslation();
+    const quick = query.quick;
+    const resetKey = `${query.dates}|${query.status}|${query.slot}|${query.kind}|${query.q}`;
+    const [page, setPage] = useListPage(resetKey);
+    const book = useBookPage(
+        {
+            dates: query.dates,
+            status: query.status,
+            slot: query.slot,
+            kind: query.kind,
+            query: query.q,
+            today,
+            page,
+            perPage: CATALOGUE_PAGE_SIZE,
+        },
+        quick === null,
+    );
+
+    /*
+     * A figure's own list: the read behind the figure, narrowed here by the same filters. These are
+     * small — the open, the late, the owed — so they are held whole and the table pages them.
+     */
+    const quickRows = useMemo(() => {
+        if (quick === null) return [];
+        const span = datesSpan(query.dates, today);
+        return quickReads[quick].rows
+            .filter(
+                (row) =>
+                    matchesQuick(row, quick, now, columns.windows) &&
+                    inSpan(orderDay(row), span) &&
+                    (query.status === 'all' || row.status === query.status) &&
+                    matchesSlot(row, query.slot) &&
+                    matchesKind(row, query.kind) &&
+                    matchesSearch(row, query.q),
+            )
+            .sort((left, right) => -compareByDue(left, right));
+    }, [quick, quickReads, query, today, now, columns.windows]);
+
+    const read = quick === null ? book : quickReads[quick];
+    const rows = quick === null ? book.rows : quickRows;
+    const total = quick === null ? book.totalCount : quickRows.length;
+    const filtered =
+        quick !== null ||
+        query.dates !== 'all' ||
+        query.status !== 'all' ||
+        query.slot !== 'all' ||
+        query.kind !== 'all' ||
+        query.q.trim() !== '';
+
+    function clearAll() {
+        update({ quick: null, dates: 'all', status: 'all', slot: 'all', kind: 'all', q: '' });
+    }
+
+    const tokens: readonly LensToken[] =
+        quick === null
+            ? []
+            : [
+                  {
+                      key: 'quick',
+                      label: t('kitchen:orders.showing', { figure: t(QUICK_KEYS[quick]) }),
+                      removeLabel: t('kitchen:toolbar.removeFilter', {
+                          filter: t(QUICK_KEYS[quick]),
+                      }),
+                      onRemove: () => {
+                          update({ quick: null });
+                      },
+                  },
+              ];
+
+    return (
+        <View className="z-10">
+            <LensBar
+                testID="kitchen-orders-all-toolbar"
+                layout="split"
+                compactSearch
+                joined={!read.pending && read.failure === null}
+                label={t('kitchen:orders.tab.all')}
+                figures={figures}
+                scope={
+                    <>
+                        <DeskSelect<DatesFilter>
+                            testID="kitchen-orders-all-dates"
+                            label={t('kitchen:orders.filter.dates')}
+                            value={query.dates}
+                            onChange={(dates) => {
+                                update({ dates });
+                            }}
+                            options={DATES_FILTERS.map((dates) => ({
+                                value: dates,
+                                label: t(DATES_KEYS[dates]),
+                                testID: `kitchen-orders-all-dates-${dates}`,
+                            }))}
+                        />
+                        <DeskSelect<StatusFilter>
+                            testID="kitchen-orders-all-status"
+                            label={t('kitchen:orders.filter.status')}
+                            value={query.status}
+                            onChange={(status) => {
+                                update({ status });
+                            }}
+                            options={STATUS_FILTERS.map((status) => ({
+                                value: status,
+                                label:
+                                    status === 'all'
+                                        ? t('kitchen:orders.filter.all')
+                                        : status === 'placed'
+                                          ? t('kitchen:orders.status.toConfirm')
+                                          : status === 'fulfilled'
+                                            ? t('kitchen:orders.status.done')
+                                            : t(kitchenOrderStatusKey(status)),
+                                testID: `kitchen-orders-all-status-${status}`,
+                            }))}
+                        />
+                        <SlotScope
+                            testID="kitchen-orders-all-slot"
+                            value={query.slot}
+                            onChange={(slot) => {
+                                update({ slot });
+                            }}
+                        />
+                        <KindScope
+                            testID="kitchen-orders-all-kind"
+                            value={query.kind}
+                            onChange={(kind) => {
+                                update({ kind });
+                            }}
+                        />
                     </>
+                }
+                search={query.q}
+                onSearchChange={(q) => {
+                    update({ q });
+                }}
+                searchLabel={t('kitchen:orders.search.label')}
+                searchPlaceholder={t(
+                    quick === null
+                        ? 'kitchen:orders.search.numberPlaceholder'
+                        : 'kitchen:orders.search.placeholder',
                 )}
-                {failure === null ? null : (
-                    <Text testID="kitchen-orders-delivery-error" tone="danger" role="alert">
-                        {failure.message}
-                    </Text>
-                )}
-            </Stack>
-        </Dialog>
+                tokens={tokens}
+                result={
+                    read.pending || total === null
+                        ? null
+                        : t('kitchen:orders.count', { count: total })
+                }
+                clearLabel={t('kitchen:orders.clearFilters')}
+                {...(filtered ? { onClear: clearAll } : {})}
+            />
+            <OrdersTable
+                testID="kitchen-orders-all-table"
+                read={read}
+                rows={rows}
+                columns={columns}
+                highlighted={query.hl}
+                onOpenOrder={onOpenOrder}
+                paged={
+                    quick === null && book.totalPages > 1 ? (
+                        <CataloguePager
+                            testID="kitchen-orders-all-pagination"
+                            page={page}
+                            totalPages={book.totalPages}
+                            onPageChange={setPage}
+                            label={t('kitchen:catalogue.pagerLabel')}
+                        />
+                    ) : null
+                }
+                empty={
+                    <EmptyState
+                        testID="kitchen-orders-all-empty"
+                        shape="table"
+                        icon={filtered ? 'searchLens' : 'receipt'}
+                        title={t(
+                            filtered
+                                ? 'kitchen:orders.empty.filtered'
+                                : 'kitchen:orders.empty.book',
+                        )}
+                        actions={
+                            filtered ? (
+                                <DeskButton
+                                    testID="kitchen-orders-all-clear"
+                                    variant="secondary"
+                                    label={t('kitchen:orders.clearFilters')}
+                                    onPress={clearAll}
+                                />
+                            ) : undefined
+                        }
+                    />
+                }
+            />
+        </View>
     );
 }
 
-/* ── formatting ──────────────────────────────────────────────────────────────────────────────── */
-
-type Formatter = ReturnType<typeof useFormatter>;
-
-function viewFields(
-    row: KitchenOrder,
-    t: TFunction,
-    formatter: Formatter,
-): readonly RecordWindowField[] {
-    return [
-        {
-            key: 'reference',
-            label: t('kitchen:ops.orders.columnNumber'),
-            value: row.orderNumber,
-            mono: true,
-        },
-        {
-            key: 'placed',
-            label: t('kitchen:ops.orders.columnPlaced'),
-            value: formatter.formatDate(row.placedAt, MEDIUM_DATE),
-            mono: true,
-        },
-        {
-            key: 'delivery',
-            label: t('kitchen:ops.orders.columnDelivery'),
-            value: `${deliveryText(row, t, formatter)} · ${whereText(row, t)}`,
-        },
-        {
-            key: 'items',
-            label: t('kitchen:ops.orders.columnItems'),
-            value: formatter.formatNumber(row.lineCount),
-            mono: true,
-        },
-        {
-            key: 'total',
-            label: t('kitchen:ops.orders.columnTotal'),
-            value: money(formatter, row.totalMinor, row.currencyCode),
-            mono: true,
-        },
-    ];
-}
-
-function money(
-    formatter: Formatter,
-    amount: number,
-    currency: KitchenOrder['currencyCode'],
-): string {
-    return formatMoney(formatter, { amount, currency });
-}
-
-/**
- * The zone the order fell into, by name in the reader's language or the other one (HA-21). Never
- * the identifier: a kitchen reads "Inner city", and a code on the page reads as a fault.
- */
-function zoneName(order: KitchenOrder, locale: string): string | null {
-    const arabic = locale.toLowerCase().startsWith('ar');
-    const preferred = arabic ? order.delivery.zoneNameAr : order.delivery.zoneNameEn;
-    const other = arabic ? order.delivery.zoneNameEn : order.delivery.zoneNameAr;
-    return preferred ?? other ?? null;
-}
-
-function stamp(value: string | null, t: TFunction, formatter: Formatter): string {
-    return value === null
-        ? t('kitchen:common.notRecorded')
-        : formatter.formatDate(value, STEP_TIME);
-}
-
-/** "Delivery · 2026-09-14" — how it leaves and the day asked for. */
-function deliveryText(row: KitchenOrder, t: TFunction, formatter: Formatter): string {
-    const day =
-        row.delivery.requestedDate === null
-            ? t('kitchen:common.notRecorded')
-            : formatter.formatDate(row.delivery.requestedDate, MEDIUM_DATE);
-    return `${t(kitchenOrderFulfilmentTypeKey(row.fulfilmentType))} · ${day}`;
-}
-
-/** The window and the area, whichever are recorded. */
-function whereText(row: KitchenOrder, t: TFunction): string {
-    const parts = [
-        row.delivery.windowCode === null ? null : humaniseCode(row.delivery.windowCode),
-        row.delivery.areaNameEn ?? row.delivery.city,
-    ].filter((part): part is string => part !== null && part !== '');
-    return parts.length === 0 ? t('kitchen:common.notRecorded') : parts.join(' · ');
-}
-
-function addressText(order: KitchenOrder, t: TFunction): string {
-    const parts = [order.delivery.lineOne, order.delivery.lineTwo].filter(
-        (part): part is string => part !== null && part !== '',
-    );
-    return parts.length === 0
-        ? t('kitchen:common.notRecorded')
-        : parts.join(t('kitchen:common.listSeparator'));
-}
-
-const STATUS_LENS_TONES: Readonly<Record<KitchenOrderStatus, LensTone>> = {
-    placed: 'warning',
-    confirmed: 'info',
-    fulfilled: 'success',
-    cancelled: 'neutral',
-};
-
-/**
- * The Lens bar's figures: All, then one per status. Counted over the rows in hand, as the design's
- * `CARDS` are — this endpoint answers no total.
- */
-function lensFigures(
-    rows: readonly KitchenOrder[],
-    pending: boolean,
-    status: StatusFilter,
-    t: TFunction,
-    narrow: (status: StatusFilter) => void,
-): readonly LensFigure[] {
-    const count = (value: KitchenOrderStatus) =>
-        pending ? null : rows.filter((row) => row.status === value).length;
-    return [
-        {
-            key: 'all',
-            label: t('kitchen:lens.allOrders'),
-            value: pending ? null : rows.length,
-            active: status === 'all',
-            onPress: () => {
-                narrow('all');
-            },
-            accessibilityLabel: t('kitchen:lens.allAction'),
-        },
-        ...KITCHEN_ORDER_STATUSES.map((value, index): LensFigure => ({
-            key: value,
-            label: t(kitchenOrderStatusKey(value)),
-            value: count(value),
-            tone: STATUS_LENS_TONES[value],
-            separated: index === 0,
-            active: status === value,
-            onPress: () => {
-                narrow(value);
-            },
-            accessibilityLabel: t('kitchen:lens.showOnlyStatus', {
-                status: t(kitchenOrderStatusKey(value)),
-            }),
-        })),
-    ];
-}
-
-/** How the rows in hand divide between the statuses, and the same in words. */
-function lensMix(
-    rows: readonly KitchenOrder[],
-    status: StatusFilter,
-    t: TFunction,
-): { readonly mix: readonly LensMixPart[]; readonly mixLabel: string } {
-    const count = (value: KitchenOrderStatus) => rows.filter((row) => row.status === value).length;
-    return {
-        mix: KITCHEN_ORDER_STATUSES.map((value) => ({
-            key: value,
-            value: count(value),
-            tone: STATUS_LENS_TONES[value],
-            dimmed: status !== 'all' && status !== value,
-        })),
-        mixLabel: t('kitchen:lens.ordersMix', {
-            placed: count('placed'),
-            confirmed: count('confirmed'),
-            fulfilled: count('fulfilled'),
-            cancelled: count('cancelled'),
-        }),
-    };
-}
-
-/** The status and the delivery day in force, each removable on its own. */
-function lensTokens(
-    status: StatusFilter,
-    deliveryDate: string | null,
-    t: TFunction,
-    formatter: Formatter,
-    changeStatus: (next: StatusFilter) => void,
-    changeDeliveryDate: (next: string | null) => void,
-): readonly LensToken[] {
-    const token = (key: string, label: string, onRemove: () => void): LensToken => ({
-        key,
-        label,
-        removeLabel: t('kitchen:toolbar.removeFilter', { filter: label }),
-        onRemove,
-    });
-    return [
-        ...(status === 'all'
-            ? []
-            : [
-                  token(
-                      'status',
-                      t('kitchen:lens.token', {
-                          label: t('kitchen:ops.orders.statusFilterLabel'),
-                          value: t(kitchenOrderStatusKey(status)),
-                      }),
-                      () => {
-                          changeStatus('all');
-                      },
-                  ),
-              ]),
-        ...(deliveryDate === null
-            ? []
-            : [
-                  token(
-                      'delivery',
-                      t('kitchen:lens.token', {
-                          label: t('kitchen:ops.orders.columnDelivery'),
-                          value: formatter.formatDate(deliveryDate, MEDIUM_DATE),
-                      }),
-                      () => {
-                          changeDeliveryDate(null);
-                      },
-                  ),
-              ]),
-    ];
-}
+export { ORDERS_HREF };

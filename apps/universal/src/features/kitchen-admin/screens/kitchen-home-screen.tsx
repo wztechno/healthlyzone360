@@ -66,6 +66,7 @@ import type { EntityFamily } from '../entity-registry.ts';
 import { formatMoney } from '../format.ts';
 import { GROUP_LABEL_KEYS } from '../kitchen-nav.ts';
 import { buildReviewQueue } from '../review-queue.ts';
+import { ordersHref } from '../orders/orders-url.ts';
 
 /**
  * `/kitchen` — the overview: what needs someone today, then every module one press away.
@@ -959,7 +960,7 @@ export function KitchenHomeScreen() {
                                         onPress={open('/kitchen/supply-orders/new')}
                                     />
                                 ) : null}
-                                {permitted.has('order-desk') ? (
+                                {permitted.has('orders') ? (
                                     <Button
                                         testID="kitchen-home-new-order"
                                         label={t('kitchen:hub.newSale')}
@@ -1100,7 +1101,7 @@ export function KitchenHomeScreen() {
                                             }
                                             link={{
                                                 label: t('kitchen:hub.allOrders'),
-                                                onPress: open('/kitchen/orders'),
+                                                onPress: open(ordersHref({ tab: 'all' })),
                                             }}
                                         >
                                             {confirmFailure === null ? null : (

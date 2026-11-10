@@ -499,6 +499,8 @@ export function useAssignDeliveryJobMutation(): UseMutationResult<
             repositories.orderDesk.assignDeliveryJob(request),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
+            // The order book's rows carry the run too (the Orders page reads them).
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders.all() });
         },
     });
 }

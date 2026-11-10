@@ -147,6 +147,55 @@ html:lang(ar) * {
 }
 
 /* ================================================================================================
+   The thin scrollbar — the compact pop-up's (Orders redesign, 2026-11-10), for any scroller.
+
+   Give a ScrollView a test id ending in `-thin-scroll` and it wears a thin, rounded bar that stays
+   quiet in the border's ink and turns brand green when the pointer reaches for it, with no arrow
+   buttons — in place of the platform's grey slab. The gutter is kept, so content does not jump when
+   the bar appears. Keyed on the test id for the rail's reason: react-native-web's classes are
+   hashed per build.
+   ============================================================================================== */
+[data-testid$='-thin-scroll'] {
+    scrollbar-gutter: stable;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+    [data-testid$='-thin-scroll'] {
+        scrollbar-width: thin;
+        scrollbar-color: rgb(var(--h360-color-border-strong)) transparent;
+    }
+}
+
+[data-testid$='-thin-scroll']::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+[data-testid$='-thin-scroll']::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 10px 0;
+}
+
+[data-testid$='-thin-scroll']::-webkit-scrollbar-thumb {
+    min-height: 40px;
+    border: 4px solid transparent;
+    border-radius: 9999px;
+    background-color: rgb(var(--h360-color-border-strong));
+    background-clip: content-box;
+}
+
+[data-testid$='-thin-scroll']::-webkit-scrollbar-thumb:hover {
+    border-width: 3px;
+    background-color: rgb(var(--h360-color-brand-surface));
+}
+
+[data-testid$='-thin-scroll']::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+/* ================================================================================================
    PickerField (design-system `forms/picker-field.web.tsx`) — Workbench handoff §1b.
 
    The browser's own picker indicator is made invisible and stretched over the 28px at the field's

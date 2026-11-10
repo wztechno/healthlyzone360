@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10531 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10673 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3867,6 +3867,9 @@ export interface NamespaceKeys {
     | 'common.saving'
     | 'common.undo'
     | 'common.yes'
+    | 'compactPopup.next'
+    | 'compactPopup.position'
+    | 'compactPopup.previous'
     | 'complaints.cause.foreign_object'
     | 'complaints.cause.late'
     | 'complaints.cause.missing_item'
@@ -6824,6 +6827,145 @@ export interface NamespaceKeys {
     | 'ops.unpricedReceipts.statTypedCaption'
     | 'ops.unpricedReceipts.statTypedLabel'
     | 'ops.unpricedReceipts.title'
+    | 'orders.calendar.dayA11y'
+    | 'orders.calendar.label'
+    | 'orders.calendar.late'
+    | 'orders.calendar.modeLabel'
+    | 'orders.calendar.month'
+    | 'orders.calendar.monthCount'
+    | 'orders.calendar.nextMonth'
+    | 'orders.calendar.nextWeek'
+    | 'orders.calendar.noOrders'
+    | 'orders.calendar.noOrdersOnDay'
+    | 'orders.calendar.plan'
+    | 'orders.calendar.planExpected'
+    | 'orders.calendar.planMore'
+    | 'orders.calendar.planShort'
+    | 'orders.calendar.previousMonth'
+    | 'orders.calendar.previousWeek'
+    | 'orders.calendar.toConfirm'
+    | 'orders.calendar.week'
+    | 'orders.calendar.weekCount'
+    | 'orders.calendar.weekRange'
+    | 'orders.caption'
+    | 'orders.clearFilters'
+    | 'orders.column.customer'
+    | 'orders.column.driver'
+    | 'orders.column.next'
+    | 'orders.column.order'
+    | 'orders.column.payment'
+    | 'orders.column.status'
+    | 'orders.column.total'
+    | 'orders.column.when'
+    | 'orders.count'
+    | 'orders.dates.last7'
+    | 'orders.dates.month'
+    | 'orders.dates.next7'
+    | 'orders.dates.week'
+    | 'orders.day.backToToday'
+    | 'orders.day.coming'
+    | 'orders.day.next'
+    | 'orders.day.past'
+    | 'orders.day.pick'
+    | 'orders.day.previous'
+    | 'orders.day.today'
+    | 'orders.day.tomorrow'
+    | 'orders.day.yesterday'
+    | 'orders.driver.counter'
+    | 'orders.driver.giveTo'
+    | 'orders.driver.needed'
+    | 'orders.driver.pickup'
+    | 'orders.empty.book'
+    | 'orders.empty.day'
+    | 'orders.empty.filtered'
+    | 'orders.figure.collect'
+    | 'orders.figure.confirm'
+    | 'orders.figure.driver'
+    | 'orders.figure.late'
+    | 'orders.figure.more'
+    | 'orders.figure.show'
+    | 'orders.filter.all'
+    | 'orders.filter.both'
+    | 'orders.filter.dates'
+    | 'orders.filter.kind'
+    | 'orders.filter.slot'
+    | 'orders.filter.status'
+    | 'orders.group.late'
+    | 'orders.group.lateAll'
+    | 'orders.group.lateSub'
+    | 'orders.history.confirmed'
+    | 'orders.history.failed'
+    | 'orders.history.given'
+    | 'orders.history.onTheWay'
+    | 'orders.history.placed'
+    | 'orders.history.preparing'
+    | 'orders.history.ready'
+    | 'orders.kind.counter'
+    | 'orders.kind.delivery'
+    | 'orders.kind.pickup'
+    | 'orders.late'
+    | 'orders.loadErrorTitle'
+    | 'orders.newForDay'
+    | 'orders.newOrder'
+    | 'orders.openOrder'
+    | 'orders.panel.cook'
+    | 'orders.panel.openDay'
+    | 'orders.panel.orders'
+    | 'orders.panel.plan'
+    | 'orders.panel.requirements'
+    | 'orders.panel.sales'
+    | 'orders.panel.times'
+    | 'orders.payment.dialogDescription'
+    | 'orders.payment.paid'
+    | 'orders.payment.toCollect'
+    | 'orders.record.allergies'
+    | 'orders.record.atCounter'
+    | 'orders.record.change'
+    | 'orders.record.day'
+    | 'orders.record.dayWithRelative'
+    | 'orders.record.delivery'
+    | 'orders.record.deliveryOrder'
+    | 'orders.record.history'
+    | 'orders.record.loading'
+    | 'orders.record.none'
+    | 'orders.record.ordered'
+    | 'orders.record.paidBy'
+    | 'orders.record.payingBy'
+    | 'orders.record.payment'
+    | 'orders.record.phone'
+    | 'orders.record.pickup'
+    | 'orders.record.pickupOrder'
+    | 'orders.record.received'
+    | 'orders.record.runState'
+    | 'orders.record.slot'
+    | 'orders.record.statusLate'
+    | 'orders.record.toCollect'
+    | 'orders.record.waitingAtCounter'
+    | 'orders.record.whereItIs'
+    | 'orders.search.label'
+    | 'orders.search.numberPlaceholder'
+    | 'orders.search.placeholder'
+    | 'orders.showing'
+    | 'orders.slot.none'
+    | 'orders.status.cancelled'
+    | 'orders.status.confirmed'
+    | 'orders.status.delivered'
+    | 'orders.status.done'
+    | 'orders.status.pickedUp'
+    | 'orders.status.sold'
+    | 'orders.status.toConfirm'
+    | 'orders.step.confirm'
+    | 'orders.step.deliver'
+    | 'orders.step.driver'
+    | 'orders.step.payment'
+    | 'orders.step.pickup'
+    | 'orders.tab.all'
+    | 'orders.tab.calendar'
+    | 'orders.tab.label'
+    | 'orders.tab.today'
+    | 'orders.toast.changed'
+    | 'orders.toast.failed'
+    | 'orders.toast.pickedUp'
     | 'packaging.archiveBody'
     | 'packaging.archiveConfirm'
     | 'packaging.archiveFailed'
@@ -14416,6 +14558,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:common.saving',
   'kitchen:common.undo',
   'kitchen:common.yes',
+  'kitchen:compactPopup.next',
+  'kitchen:compactPopup.position',
+  'kitchen:compactPopup.previous',
   'kitchen:complaints.cause.foreign_object',
   'kitchen:complaints.cause.late',
   'kitchen:complaints.cause.missing_item',
@@ -17373,6 +17518,145 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.unpricedReceipts.statTypedCaption',
   'kitchen:ops.unpricedReceipts.statTypedLabel',
   'kitchen:ops.unpricedReceipts.title',
+  'kitchen:orders.calendar.dayA11y',
+  'kitchen:orders.calendar.label',
+  'kitchen:orders.calendar.late',
+  'kitchen:orders.calendar.modeLabel',
+  'kitchen:orders.calendar.month',
+  'kitchen:orders.calendar.monthCount',
+  'kitchen:orders.calendar.nextMonth',
+  'kitchen:orders.calendar.nextWeek',
+  'kitchen:orders.calendar.noOrders',
+  'kitchen:orders.calendar.noOrdersOnDay',
+  'kitchen:orders.calendar.plan',
+  'kitchen:orders.calendar.planExpected',
+  'kitchen:orders.calendar.planMore',
+  'kitchen:orders.calendar.planShort',
+  'kitchen:orders.calendar.previousMonth',
+  'kitchen:orders.calendar.previousWeek',
+  'kitchen:orders.calendar.toConfirm',
+  'kitchen:orders.calendar.week',
+  'kitchen:orders.calendar.weekCount',
+  'kitchen:orders.calendar.weekRange',
+  'kitchen:orders.caption',
+  'kitchen:orders.clearFilters',
+  'kitchen:orders.column.customer',
+  'kitchen:orders.column.driver',
+  'kitchen:orders.column.next',
+  'kitchen:orders.column.order',
+  'kitchen:orders.column.payment',
+  'kitchen:orders.column.status',
+  'kitchen:orders.column.total',
+  'kitchen:orders.column.when',
+  'kitchen:orders.count',
+  'kitchen:orders.dates.last7',
+  'kitchen:orders.dates.month',
+  'kitchen:orders.dates.next7',
+  'kitchen:orders.dates.week',
+  'kitchen:orders.day.backToToday',
+  'kitchen:orders.day.coming',
+  'kitchen:orders.day.next',
+  'kitchen:orders.day.past',
+  'kitchen:orders.day.pick',
+  'kitchen:orders.day.previous',
+  'kitchen:orders.day.today',
+  'kitchen:orders.day.tomorrow',
+  'kitchen:orders.day.yesterday',
+  'kitchen:orders.driver.counter',
+  'kitchen:orders.driver.giveTo',
+  'kitchen:orders.driver.needed',
+  'kitchen:orders.driver.pickup',
+  'kitchen:orders.empty.book',
+  'kitchen:orders.empty.day',
+  'kitchen:orders.empty.filtered',
+  'kitchen:orders.figure.collect',
+  'kitchen:orders.figure.confirm',
+  'kitchen:orders.figure.driver',
+  'kitchen:orders.figure.late',
+  'kitchen:orders.figure.more',
+  'kitchen:orders.figure.show',
+  'kitchen:orders.filter.all',
+  'kitchen:orders.filter.both',
+  'kitchen:orders.filter.dates',
+  'kitchen:orders.filter.kind',
+  'kitchen:orders.filter.slot',
+  'kitchen:orders.filter.status',
+  'kitchen:orders.group.late',
+  'kitchen:orders.group.lateAll',
+  'kitchen:orders.group.lateSub',
+  'kitchen:orders.history.confirmed',
+  'kitchen:orders.history.failed',
+  'kitchen:orders.history.given',
+  'kitchen:orders.history.onTheWay',
+  'kitchen:orders.history.placed',
+  'kitchen:orders.history.preparing',
+  'kitchen:orders.history.ready',
+  'kitchen:orders.kind.counter',
+  'kitchen:orders.kind.delivery',
+  'kitchen:orders.kind.pickup',
+  'kitchen:orders.late',
+  'kitchen:orders.loadErrorTitle',
+  'kitchen:orders.newForDay',
+  'kitchen:orders.newOrder',
+  'kitchen:orders.openOrder',
+  'kitchen:orders.panel.cook',
+  'kitchen:orders.panel.openDay',
+  'kitchen:orders.panel.orders',
+  'kitchen:orders.panel.plan',
+  'kitchen:orders.panel.requirements',
+  'kitchen:orders.panel.sales',
+  'kitchen:orders.panel.times',
+  'kitchen:orders.payment.dialogDescription',
+  'kitchen:orders.payment.paid',
+  'kitchen:orders.payment.toCollect',
+  'kitchen:orders.record.allergies',
+  'kitchen:orders.record.atCounter',
+  'kitchen:orders.record.change',
+  'kitchen:orders.record.day',
+  'kitchen:orders.record.dayWithRelative',
+  'kitchen:orders.record.delivery',
+  'kitchen:orders.record.deliveryOrder',
+  'kitchen:orders.record.history',
+  'kitchen:orders.record.loading',
+  'kitchen:orders.record.none',
+  'kitchen:orders.record.ordered',
+  'kitchen:orders.record.paidBy',
+  'kitchen:orders.record.payingBy',
+  'kitchen:orders.record.payment',
+  'kitchen:orders.record.phone',
+  'kitchen:orders.record.pickup',
+  'kitchen:orders.record.pickupOrder',
+  'kitchen:orders.record.received',
+  'kitchen:orders.record.runState',
+  'kitchen:orders.record.slot',
+  'kitchen:orders.record.statusLate',
+  'kitchen:orders.record.toCollect',
+  'kitchen:orders.record.waitingAtCounter',
+  'kitchen:orders.record.whereItIs',
+  'kitchen:orders.search.label',
+  'kitchen:orders.search.numberPlaceholder',
+  'kitchen:orders.search.placeholder',
+  'kitchen:orders.showing',
+  'kitchen:orders.slot.none',
+  'kitchen:orders.status.cancelled',
+  'kitchen:orders.status.confirmed',
+  'kitchen:orders.status.delivered',
+  'kitchen:orders.status.done',
+  'kitchen:orders.status.pickedUp',
+  'kitchen:orders.status.sold',
+  'kitchen:orders.status.toConfirm',
+  'kitchen:orders.step.confirm',
+  'kitchen:orders.step.deliver',
+  'kitchen:orders.step.driver',
+  'kitchen:orders.step.payment',
+  'kitchen:orders.step.pickup',
+  'kitchen:orders.tab.all',
+  'kitchen:orders.tab.calendar',
+  'kitchen:orders.tab.label',
+  'kitchen:orders.tab.today',
+  'kitchen:orders.toast.changed',
+  'kitchen:orders.toast.failed',
+  'kitchen:orders.toast.pickedUp',
   'kitchen:packaging.archiveBody',
   'kitchen:packaging.archiveConfirm',
   'kitchen:packaging.archiveFailed',

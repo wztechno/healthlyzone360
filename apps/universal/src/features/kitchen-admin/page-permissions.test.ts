@@ -188,7 +188,7 @@ describe('writing back', () => {
     });
 
     it('toggles an extra without touching its parent', () => {
-        const extra = extrasForFamily('order-desk')[0];
+        const extra = extrasForFamily('orders')[0];
         expect(extra).toBeDefined();
 
         const on = applyExtra(new Set(['order.view_organisation']), extra!, true);

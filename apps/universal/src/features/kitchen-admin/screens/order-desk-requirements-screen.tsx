@@ -13,7 +13,7 @@ import {
 import type { IssueTrayContent } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -127,10 +127,20 @@ function OrderDeskRequirements() {
 
     const branchId = access.branch?.id ?? null;
 
-    const [from, setFrom] = useState(() => todayIso());
+    // `?from=&to=` opens on a span another page asked about — the Orders calendar's "Open
+    // requirements" for one day.
+    const asked = useLocalSearchParams<{ from?: string; to?: string }>();
+    const askedFrom = typeof asked.from === 'string' && isIsoDate(asked.from) ? asked.from : null;
+    const askedTo = typeof asked.to === 'string' && isIsoDate(asked.to) ? asked.to : null;
+    const [from, setFrom] = useState(() => askedFrom ?? todayIso());
     // `addDays` answers `null` for a date it cannot read; today's own is never one, and the
     // fallback keeps the initial state a single day rather than an empty box.
-    const [to, setTo] = useState(() => addDays(todayIso(), DEFAULT_WINDOW_DAYS) ?? todayIso());
+    const [to, setTo] = useState(
+        () =>
+            (askedFrom !== null && askedTo !== null && askedTo >= askedFrom ? askedTo : null) ??
+            addDays(todayIso(), DEFAULT_WINDOW_DAYS) ??
+            todayIso(),
+    );
 
     /**
      * The question, or `null` when there is nothing askable yet.
