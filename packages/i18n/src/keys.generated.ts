@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10678 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10684 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -6914,9 +6914,15 @@ export interface NamespaceKeys {
     | 'orders.newOrder'
     | 'orders.openOrder'
     | 'orders.panel.cook'
+    | 'orders.panel.expected'
     | 'orders.panel.openDay'
     | 'orders.panel.orders'
     | 'orders.panel.plan'
+    | 'orders.panel.planCount'
+    | 'orders.panel.planMoreNotChosen'
+    | 'orders.panel.planNotChosen'
+    | 'orders.panel.planTitle'
+    | 'orders.panel.planned'
     | 'orders.panel.requirements'
     | 'orders.panel.sales'
     | 'orders.panel.times'
@@ -17610,9 +17616,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:orders.newOrder',
   'kitchen:orders.openOrder',
   'kitchen:orders.panel.cook',
+  'kitchen:orders.panel.expected',
   'kitchen:orders.panel.openDay',
   'kitchen:orders.panel.orders',
   'kitchen:orders.panel.plan',
+  'kitchen:orders.panel.planCount',
+  'kitchen:orders.panel.planMoreNotChosen',
+  'kitchen:orders.panel.planNotChosen',
+  'kitchen:orders.panel.planTitle',
+  'kitchen:orders.panel.planned',
   'kitchen:orders.panel.requirements',
   'kitchen:orders.panel.sales',
   'kitchen:orders.panel.times',

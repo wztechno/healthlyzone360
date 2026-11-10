@@ -663,6 +663,7 @@ export const queryKeys = {
          * week stay in cache while somebody arrows back and forth over a month.
          */
         calendar: (filter?: QueryScope) => ['orderDesk', 'calendar', scope(filter)] as const,
+        planMeals: (day: string) => ['orderDesk', 'planMeals', day] as const,
         /**
          * What one branch must buy for a window. Keyed on the whole filter (shape rule 3): the
          * range and the **branch** together are the view, and the branch in particular is not a

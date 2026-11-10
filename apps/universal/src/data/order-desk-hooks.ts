@@ -6,6 +6,7 @@ import type {
     CreateOrderDeskCustomerRequest,
     KitchenOrder,
     OrderDeskCalendar,
+    OrderDeskPlanMeal,
     OrderDeskCalendarFilters,
     CashSettlementRecord,
     DailyCloseRecord,
@@ -134,6 +135,27 @@ export function useOrderDeskCalendarQuery(
             if (repositories === null) throw new Error('Repositories are not ready.');
             if (filters === null) throw new Error('There is no week to read.');
             return repositories.orderDesk.listCalendar(filters);
+        },
+    });
+}
+
+/**
+ * One day's plan meals that are not orders yet, by subscriber and dish — the calendar's plan count
+ * for that day, opened. `null` asks for nothing.
+ */
+export function useOrderDeskPlanMealsQuery(
+    day: string | null,
+    enabled = true,
+): UseQueryResult<readonly OrderDeskPlanMeal[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.orderDesk.planMeals(day ?? ''),
+        enabled: enabled && day !== null && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (day === null) throw new Error('There is no day to read.');
+            return repositories.orderDesk.listPlanMeals(day);
         },
     });
 }

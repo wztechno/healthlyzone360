@@ -5763,6 +5763,14 @@
             "noOrdersOnDay": "No orders on this day"
         },
         "panel": {
+            "planTitle": "Plan meals",
+            "planCount_one": "{{count}} customer",
+            "planCount_other": "{{count}} customers",
+            "planNotChosen": "Dishes not chosen yet",
+            "planMoreNotChosen_one": "{{count}} not chosen yet",
+            "planMoreNotChosen_other": "{{count}} not chosen yet",
+            "planned": "Planned",
+            "expected": "Expected",
             "orders": "Orders",
             "plan": "Plan meals",
             "sales": "Sales",

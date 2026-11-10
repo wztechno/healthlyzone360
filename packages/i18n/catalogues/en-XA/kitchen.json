@@ -5763,6 +5763,14 @@
       "noOrdersOnDay": "[[Ñó óŕðéŕš óñ ţĥíš ðáý āēīōūāēīō]]"
     },
     "panel": {
+      "planTitle": "[[Þłáñ ɱéáłš āēīō]]",
+      "planCount_one": "[[{{count}} çúšţóɱéŕ āēīōūāēī]]",
+      "planCount_other": "[[{{count}} çúšţóɱéŕš āēīōūāēī]]",
+      "planNotChosen": "[[Ðíšĥéš ñóţ çĥóšéñ ýéţ āēīōūāēīō]]",
+      "planMoreNotChosen_one": "[[{{count}} ñóţ çĥóšéñ ýéţ āēīōūāēīōū]]",
+      "planMoreNotChosen_other": "[[{{count}} ñóţ çĥóšéñ ýéţ āēīōūāēīōū]]",
+      "planned": "[[Þłáññéð āēī]]",
+      "expected": "[[Éẋþéçţéð āēīō]]",
       "orders": "[[Óŕðéŕš āēī]]",
       "plan": "[[Þłáñ ɱéáłš āēīō]]",
       "sales": "[[Šáłéš āē]]",

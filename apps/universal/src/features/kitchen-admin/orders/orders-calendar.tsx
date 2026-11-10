@@ -1,4 +1,4 @@
-import type { OrderDeskCalendarDay } from '@healthy360/api-client/contracts';
+import type { OrderDeskCalendarDay, OrderDeskPlanMeal } from '@healthy360/api-client/contracts';
 import { ErrorState, Icon, Skeleton, Text, useBreakpoint } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useMemo } from 'react';
@@ -7,7 +7,10 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, View } from 'react-native';
 
 import { toFailure } from '../../../data/hooks.ts';
-import { useOrderDeskCalendarQuery } from '../../../data/order-desk-hooks.ts';
+import {
+    useOrderDeskCalendarQuery,
+    useOrderDeskPlanMealsQuery,
+} from '../../../data/order-desk-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { addDays, dateInstant, mondayOf, weekDates } from '../../planner/format.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
@@ -794,26 +797,16 @@ function DayPanel({
                 ? t('kitchen:orders.day.yesterday')
                 : t(offset < 0 ? 'kitchen:orders.day.past' : 'kitchen:orders.day.coming');
 
-    /** Each slot's plan meals, beside its orders. */
-    const planIn = (key: SlotKey): number => {
-        if (calendarDay === null || key === 'none' || key.startsWith('code:')) return 0;
-        const codes = windowCodesOfMeal(key as CalendarMeal);
-        return calendarDay.windows
-            .filter((window) => window.code !== null && codes.includes(window.code))
-            .reduce(
-                (sum, window) =>
-                    sum +
-                    (window.counts.scheduled > 0
-                        ? window.counts.scheduled
-                        : window.counts.projected),
-                0,
-            );
-    };
-    const planOnly = SLOT_MEALS.filter(
-        (meal) =>
-            (slot === 'all' || slot === meal) &&
-            planIn(meal) > 0 &&
-            !groups.some((group) => group.key === meal),
+    /*
+     * The day's plan meals, read by subscriber: orders not made yet, each with the dishes its
+     * customer picked. They stand after the orders, as their own list — never added to them.
+     */
+    const planDays = useOrderDeskPlanMealsQuery(day);
+    const plans = (planDays.data ?? []).filter(
+        (entry) =>
+            slot === 'all' ||
+            entry.meals.length === 0 ||
+            entry.meals.some((meal) => meal.slot === slot),
     );
 
     return (
@@ -988,24 +981,33 @@ function DayPanel({
                                     </Pressable>
                                 );
                             })}
-                            {planIn(group.key) === 0 ? null : (
-                                <Text variant="caption" tone="secondary" className="px-2">
-                                    {t('kitchen:orders.calendar.planMore', {
-                                        count: planIn(group.key),
-                                    })}
+                        </View>
+                    ))}
+                    {plans.length === 0 ? null : (
+                        <View
+                            testID="kitchen-orders-day-panel-plans"
+                            role="region"
+                            aria-label={t('kitchen:orders.panel.planTitle')}
+                            className="flex-col gap-0.5"
+                        >
+                            <View className="min-h-8 flex-row items-center gap-2 px-1">
+                                <Text variant="strong" className="!text-sm !font-bold">
+                                    {t('kitchen:orders.panel.planTitle')}
                                 </Text>
-                            )}
+                                <Text
+                                    variant="label"
+                                    tone="secondary"
+                                    className="ms-auto !font-semibold"
+                                >
+                                    {t('kitchen:orders.panel.planCount', { count: plans.length })}
+                                </Text>
+                            </View>
+                            {plans.map((entry) => (
+                                <PlanRow key={entry.subscriptionId} entry={entry} />
+                            ))}
                         </View>
-                    ))}
-                    {planOnly.map((meal) => (
-                        <View key={meal} className="flex-col gap-0.5">
-                            <Text variant="strong">{slotName(meal)}</Text>
-                            <Text variant="caption" tone="secondary" className="px-2">
-                                {t('kitchen:orders.calendar.planMore', { count: planIn(meal) })}
-                            </Text>
-                        </View>
-                    ))}
-                    {groups.length === 0 && planOnly.length === 0 ? (
+                    )}
+                    {groups.length === 0 && plans.length === 0 ? (
                         <Text tone="secondary" testID="kitchen-orders-day-panel-empty">
                             {t('kitchen:orders.calendar.noOrdersOnDay')}
                         </Text>
@@ -1081,6 +1083,58 @@ function DayPanel({
                     onPress={onOpenDay}
                 />
             </View>
+        </View>
+    );
+}
+
+/**
+ * A plan day on the day panel, drawn like the order rows above it: who, which plan, and what they
+ * picked for each sitting — with "Planned" (claimed, an order tomorrow) or "Expected" (the plan's
+ * weekdays say so) where an order's status would be.
+ */
+function PlanRow({ entry }: { readonly entry: OrderDeskPlanMeal }) {
+    const { t } = useTranslation();
+    const { locale } = useLocale();
+    const slotName = useSlotName();
+    const name = (en: string | null, ar: string | null): string =>
+        (locale === 'ar' && ar !== null && ar !== '' ? ar : en) ?? EM_DASH;
+    const servings = (entry.mealsPerDay ?? 0) + (entry.snacksPerDay ?? 0);
+    const unchosen = Math.max(0, servings - entry.meals.length);
+    const dishes = entry.meals
+        .map((meal) => `${slotName(meal.slot)}: ${name(meal.nameEn, meal.nameAr)}`)
+        .join(' · ');
+    const title = entry.customer?.displayName ?? name(entry.plan.nameEn, entry.plan.nameAr);
+
+    return (
+        <View
+            testID={`kitchen-orders-day-panel-plan-${entry.subscriptionId}`}
+            className="min-h-[46px] flex-row items-center gap-2.5 rounded-xl px-2 py-1.5"
+        >
+            <View className="min-w-0 flex-1 flex-col">
+                <Text variant="strong" numberOfLines={1} className="!text-sm">
+                    {title}
+                </Text>
+                {entry.customer === undefined ? null : (
+                    <Text variant="label" tone="secondary" numberOfLines={1}>
+                        {name(entry.plan.nameEn, entry.plan.nameAr)}
+                    </Text>
+                )}
+                <Text variant="label" tone="secondary" numberOfLines={2}>
+                    {entry.meals.length === 0
+                        ? t('kitchen:orders.panel.planNotChosen')
+                        : unchosen === 0
+                          ? dishes
+                          : `${dishes} · ${t('kitchen:orders.panel.planMoreNotChosen', { count: unchosen })}`}
+                </Text>
+            </View>
+            <DeskChip
+                tone={entry.basis === 'scheduled' ? 'info' : 'neutral'}
+                label={t(
+                    entry.basis === 'scheduled'
+                        ? 'kitchen:orders.panel.planned'
+                        : 'kitchen:orders.panel.expected',
+                )}
+            />
         </View>
     );
 }
