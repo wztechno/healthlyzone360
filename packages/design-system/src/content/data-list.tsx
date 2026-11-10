@@ -615,10 +615,18 @@ export function DataList<Row>({
                                            * content-sized one collapsed it to its min-content.
                                            * The track's alignment moves to `items-*` here, so a
                                            * content-sized root still sits where the column says.
+                                           *
+                                           * And capped to it: a content-sized root (a name beside
+                                           * a badge, a two-line "price · supplier · date" stack)
+                                           * is sized on this box's cross axis, where `shrink` does
+                                           * nothing, so without `max-w-full` on it the root takes
+                                           * its text's full width and paints over the next column.
+                                           * Applied here to every renderer's root, so no column
+                                           * has to remember it.
                                            */}
                                           <View
                                               className={cx(
-                                                  'min-w-0 flex-1',
+                                                  'min-w-0 flex-1 web:*:max-w-full',
                                                   ITEMS_CLASS[
                                                       dataListColumnAlign(
                                                           column as DataListColumn<unknown>,
