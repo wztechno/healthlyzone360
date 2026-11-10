@@ -38,7 +38,11 @@ import {
 import { unitCodeLabel } from '../format.ts';
 import { WeeklyStockCheckBanner } from '../weekly-stock-check.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { pathnameOf } from '../../../navigation/return-to.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { BackPill } from '../../../ui/back-pill.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
+import { ORDERS_HREF } from '../orders/orders-url.ts';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 
 /**
@@ -129,7 +133,9 @@ function OrderDeskRequirements() {
 
     // `?from=&to=` opens on a span another page asked about — the Orders calendar's "Open
     // requirements" for one day.
-    const asked = useLocalSearchParams<{ from?: string; to?: string }>();
+    const asked = useLocalSearchParams<{ from?: string; to?: string; returnTo?: string }>();
+    // Opened from the Orders calendar's "Open requirements": one press back to that day.
+    const back = useReturnTo(asked.returnTo, ORDERS_HREF);
     const askedFrom = typeof asked.from === 'string' && isIsoDate(asked.from) ? asked.from : null;
     const askedTo = typeof asked.to === 'string' && isIsoDate(asked.to) ? asked.to : null;
     const [from, setFrom] = useState(() => askedFrom ?? todayIso());
@@ -366,6 +372,19 @@ function OrderDeskRequirements() {
     return (
         <IssueTrayFrame tray={trayContent}>
             <Cascade space="md" testID="kitchen-order-desk-requirements-screen">
+                {back.returnTo === null ? null : (
+                    <View className="flex-row">
+                        <BackPill
+                            testID="kitchen-order-desk-requirements-back"
+                            label={
+                                pathnameOf(back.returnTo) === ORDERS_HREF
+                                    ? t('kitchen:orders.backToOrders')
+                                    : t('common:returnTo.previous')
+                            }
+                            onPress={back.leave}
+                        />
+                    </View>
+                )}
                 {/*
                  * The Lens bar: the window's figures over the window that produces them, as on every
                  * list page. While the window is in flight each figure holds a placeholder — a zero
