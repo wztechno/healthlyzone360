@@ -126,6 +126,7 @@ export function OrdersShowcaseScreen() {
     const [method, setMethod] = useState<'cash' | 'counter' | 'wish'>('cash');
     const [driver, setDriver] = useState<string>('hr');
     const [reason, setReason] = useState<string>('asked');
+    const [leaveOut, setLeaveOut] = useState<readonly string[]>(['onions']);
 
     const columns = orderColumns({
         t,
@@ -203,11 +204,29 @@ export function OrdersShowcaseScreen() {
                         <DeskButton variant="quiet" label="Clear filters" />
                         <DeskButton variant="dangerOutline" label="Cancel order" />
                         <DeskButton variant="danger" label="Cancel this order" />
-                        <DeskButton variant="secondary" label="Saving" loading />
                         <DeskIconButton
                             label="Previous day"
                             icon={<Icon name="chevronBackward" size="md" />}
                         />
+                    </View>
+                    <Text variant="label" tone="secondary">
+                        Busy — a sweep runs across the pill; disabled — a filled pill turns grey
+                    </Text>
+                    <View className="flex-row flex-wrap items-center gap-2">
+                        <DeskButton label="Confirm" loading />
+                        <DeskButton variant="next" label="Mark picked up" loading />
+                        <DeskButton variant="secondary" label="Saving" loading />
+                        <DeskButton variant="danger" label="Cancelling" loading />
+                        <DeskButton label="New order" disabled />
+                        <DeskButton variant="secondary" label="Pause kitchen" disabled />
+                    </View>
+                    <Text variant="label" tone="secondary">
+                        A ticket's total — lg, in a column
+                    </Text>
+                    <View className="w-full max-w-[400px] flex-col gap-2">
+                        <DeskButton size="lg" block label="Save changes · $22.00" />
+                        <DeskButton size="lg" block label="Placing order" loading />
+                        <DeskButton size="lg" block label="Save changes · $3.00" disabled />
                     </View>
 
                     <Text variant="title">Desk chips</Text>
@@ -266,6 +285,26 @@ export function OrdersShowcaseScreen() {
                                     selected={reason === key}
                                     onPress={() => {
                                         setReason(key ?? '');
+                                    }}
+                                />
+                            ))}
+                        </View>
+                        <View className="flex-col gap-0.5">
+                            {[
+                                ['onions', 'No onions'],
+                                ['pickles', 'No pickles'],
+                            ].map(([key, label]) => (
+                                <ChoiceRow
+                                    key={key}
+                                    mark="check"
+                                    label={label ?? ''}
+                                    selected={leaveOut.includes(key ?? '')}
+                                    onPress={() => {
+                                        setLeaveOut((current) =>
+                                            current.includes(key ?? '')
+                                                ? current.filter((item) => item !== key)
+                                                : [...current, key ?? ''],
+                                        );
                                     }}
                                 />
                             ))}

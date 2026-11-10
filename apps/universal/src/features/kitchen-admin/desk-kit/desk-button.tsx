@@ -1,8 +1,9 @@
-import { themes } from '@healthy360/design-tokens';
-import type { ThemeTokens } from '@healthy360/design-tokens';
-import { useColorScheme } from 'nativewind';
+import { useMotion } from '@healthy360/design-system';
+import { easings } from '@healthy360/design-tokens';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, Text as RNText } from 'react-native';
+import { Animated, Platform, Pressable, Text as RNText, StyleSheet, View } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 
 /**
  * The desk's buttons — the Orders canvas's `.btn.sm`, `.nx`, `.lnk` and `.ib.sm` (2026-11-10).
@@ -19,6 +20,12 @@ import { ActivityIndicator, Pressable, Text as RNText } from 'react-native';
  * is one of several at the foot of a record (Cancel order).
  *
  * The props are `Button`'s own, so a screen moves to the desk look by changing the import.
+ *
+ * **Loading is a sweep, not a spinner.** A soft band runs across the pill in the reading direction
+ * while the write is on its way; the label stays put, so the button never changes width. Under
+ * reduced motion the band stands still, half across. A loading button keeps its full colour — it is
+ * busy, not off — and a disabled filled pill is drawn sunken and grey rather than as a faded green
+ * one, so "not yet" never reads as "broken".
  */
 
 export type DeskButtonVariant =
@@ -65,14 +72,19 @@ const LABEL: Readonly<Record<DeskButtonVariant, string>> = {
     dangerOutline: 'text-danger-strong',
 };
 
-const SPINNER: Readonly<Record<DeskButtonVariant, (theme: ThemeTokens) => string>> = {
-    primary: (theme) => theme.colours.textOnBrand,
-    secondary: (theme) => theme.colours.brandSurface,
-    quiet: (theme) => theme.colours.brandSurface,
-    next: (theme) => theme.colours.brandSurface,
-    danger: (theme) => theme.semantic.danger.onDefault,
-    dangerOutline: (theme) => theme.semantic.danger.strong,
+/** The band's tint: light on a filled pill, a wash of the pill's own ink on an outlined one. */
+const SWEEP: Readonly<Record<DeskButtonVariant, string>> = {
+    primary: 'bg-surface-raised opacity-40',
+    secondary: 'bg-surface-brand opacity-20',
+    quiet: 'bg-surface-brand opacity-20',
+    next: 'bg-surface-brand opacity-20',
+    danger: 'bg-surface-raised opacity-40',
+    dangerOutline: 'bg-danger opacity-20',
 };
+
+/** A filled pill that cannot be pressed yet: sunken and grey, not a faded fill. */
+const FILLED: ReadonlySet<DeskButtonVariant> = new Set(['primary', 'danger']);
+const FILLED_OFF = '!border-stroke-subtle !bg-surface-sunken !shadow-none';
 
 export function DeskButton({
     label,
@@ -88,10 +100,11 @@ export function DeskButton({
     className,
     testID,
 }: DeskButtonProps) {
-    const { colorScheme } = useColorScheme();
     // As `Button`: a loading button must not fire again.
     const inert = disabled || loading;
     const rounded = variant === 'quiet' ? '' : 'rounded-full';
+    const off = disabled && !loading;
+    const filledOff = off && FILLED.has(variant);
 
     return (
         <Pressable
@@ -105,34 +118,136 @@ export function DeskButton({
             disabled={inert}
             onPress={inert || onPress === undefined ? undefined : onPress}
             className={[
-                'flex-row items-center justify-center gap-1.5 border web:transition-colors',
+                'relative flex-row items-center justify-center gap-1.5 overflow-hidden border web:transition-colors',
                 rounded,
                 CONTAINER[variant],
-                size === 'lg' ? '!h-11 !px-5' : '',
-                block ? 'flex-1 self-stretch' : 'self-start',
-                inert ? 'opacity-50' : '',
+                // The ticket's one action: a 44px pill that never gives its height up to a column.
+                size === 'lg' ? '!h-11 shrink-0 !px-5' : '',
+                // `flex-1` shares a row; in a column (the lg pill's only home) it would squeeze.
+                block ? (size === 'lg' ? 'self-stretch' : 'flex-1 self-stretch') : 'self-start',
+                filledOff ? FILLED_OFF : off ? 'opacity-50' : '',
                 className ?? '',
             ].join(' ')}
         >
             {loading ? (
-                <ActivityIndicator
-                    testID={testID === undefined ? undefined : `${testID}-spinner`}
-                    size="small"
-                    color={SPINNER[variant](themes[colorScheme === 'dark' ? 'dark' : 'light'])}
-                    accessibilityElementsHidden
-                    aria-hidden
+                <LoadingSweep
+                    tint={SWEEP[variant]}
+                    {...(testID === undefined ? {} : { testID: `${testID}-loading` })}
                 />
-            ) : (
-                iconStart
-            )}
+            ) : null}
+            {iconStart}
             <RNText
                 numberOfLines={1}
-                className={`${size === 'lg' ? 'text-sm font-bold' : 'text-role-strong'} text-center ${LABEL[variant]}`}
+                className={`${size === 'lg' ? 'text-base font-bold' : 'text-role-strong'} text-center ${
+                    filledOff ? 'text-content-disabled' : LABEL[variant]
+                }`}
             >
                 {label}
             </RNText>
             {iconEnd}
         </Pressable>
+    );
+}
+
+const SWEEP_MS = 1100;
+
+/*
+ * As `Shimmer`: on the web the band is a CSS animation, so a busy button costs no JavaScript per
+ * frame. The band is half the pill, and a percentage translation is relative to the band, so
+ * -100% → 200% runs it from just off the start edge to just off the end.
+ */
+const WEB_SWEEP = StyleSheet.create({
+    band: {
+        animationTimingFunction: easings.standard.css,
+        animationIterationCount: 'infinite',
+        animationDuration: `${String(SWEEP_MS)}ms`,
+        willChange: 'transform',
+    } as unknown as ViewStyle,
+    ltr: {
+        // @ts-expect-error -- web-only style key, absent from React Native's style types.
+        animationKeyframes: [
+            {
+                '0%': { transform: 'translateX(-100%)' },
+                '100%': { transform: 'translateX(200%)' },
+            },
+        ],
+    },
+    rtl: {
+        // @ts-expect-error -- web-only style key, absent from React Native's style types.
+        animationKeyframes: [
+            {
+                '0%': { transform: 'translateX(100%)' },
+                '100%': { transform: 'translateX(-200%)' },
+            },
+        ],
+    },
+});
+
+/**
+ * The loading band: a soft fill sweeping across the pill, behind the label. Decorative — the pill
+ * carries `aria-busy`. Under reduced motion it stands still, filling the first half.
+ */
+function LoadingSweep({ tint, testID }: { readonly tint: string; readonly testID?: string }) {
+    const { enabled, axisSign, easing } = useMotion();
+    const [progress] = useState(() => new Animated.Value(0));
+    const native = Platform.OS !== 'web';
+
+    useEffect(() => {
+        if (!native || !enabled) return;
+        progress.setValue(0);
+        const loop = Animated.loop(
+            Animated.timing(progress, {
+                toValue: 1,
+                duration: SWEEP_MS,
+                easing: easing.standard,
+                useNativeDriver: true,
+            }),
+        );
+        loop.start();
+        return () => {
+            loop.stop();
+        };
+    }, [native, enabled, progress, easing]);
+
+    const hidden = {
+        testID,
+        accessibilityElementsHidden: true,
+        importantForAccessibility: 'no-hide-descendants' as const,
+        'aria-hidden': true,
+    };
+    if (!enabled) {
+        return <View {...hidden} className={`absolute inset-y-0 start-0 w-1/2 ${tint}`} />;
+    }
+    if (!native) {
+        return (
+            <View
+                {...hidden}
+                className={`absolute inset-y-0 start-0 w-1/2 rounded-full ${tint}`}
+                style={
+                    [
+                        WEB_SWEEP.band,
+                        axisSign === 1 ? WEB_SWEEP.ltr : WEB_SWEEP.rtl,
+                    ] as unknown as StyleProp<ViewStyle>
+                }
+            />
+        );
+    }
+    return (
+        <Animated.View
+            {...hidden}
+            className={`absolute inset-y-0 start-0 w-1/2 rounded-full ${tint}`}
+            style={{
+                transform: [
+                    {
+                        translateX: progress.interpolate({
+                            inputRange: [0, 1],
+                            // A percentage is not a native transform: run it in points instead.
+                            outputRange: [-120 * axisSign, 300 * axisSign],
+                        }),
+                    },
+                ],
+            }}
+        />
     );
 }
 

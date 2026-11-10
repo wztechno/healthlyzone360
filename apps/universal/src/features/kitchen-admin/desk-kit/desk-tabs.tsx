@@ -4,12 +4,15 @@ import { Pressable, Text as RNText, View } from 'react-native';
  * The desk's segmented tabs (Orders canvas, 2026-11-10).
  *
  * ```
- * size="lg"  `.otabs`   ⟦ Today (9) │ Calendar │ All orders (96) ⟧    a page's views, 38px
+ * size="lg"  `.otabs`   ⟦ Today (9) │ Calendar │ All orders (96) ⟧    a page's views, 40px
  * size="sm"  `.seg3`    ⟦ Month │ Week ⟧                              a toolbar's switch, 28px
  * ```
  *
- * A sunken tray; the chosen tab is a raised card with a soft shadow. A count rides in a soft-green
- * pill and is not spoken — put it in the label where it must be.
+ * A sunken tray; the chosen tab is a raised card with a soft shadow. `lg` is drawn exactly as the
+ * Cash page's `Tabs variant="strip"` — the same rounding, height and inset — so a page's views look
+ * alike across the desk. A `radio` choice (a payment method) marks the chosen segment in the soft
+ * brand green with brand ink, since it is a value picked, not a view shown. A count rides in a
+ * soft-green pill and is not spoken — put it in the label where it must be.
  */
 
 export interface DeskTabItem<T extends string> {
@@ -52,7 +55,7 @@ export function DeskTabs<T extends string>({
             role={radio ? 'radiogroup' : 'tablist'}
             aria-label={label}
             className={`flex-row bg-surface-sunken ${block ? 'self-stretch' : 'self-start'} ${
-                large ? 'gap-0.5 rounded-[14px] p-1' : 'gap-0.5 rounded-lg p-[3px]'
+                large ? 'gap-1 rounded-2xl p-1' : 'gap-0.5 rounded-lg p-[3px]'
             }`}
         >
             {items.map((item) => {
@@ -69,20 +72,28 @@ export function DeskTabs<T extends string>({
                         onPress={() => {
                             if (!on) onChange(item.value);
                         }}
-                        className={`flex-row items-center justify-center gap-2 ${
+                        className={`flex-row items-center justify-center gap-2 border web:transition-colors ${
                             large
-                                ? 'h-[38px] rounded-[10px] px-4'
+                                ? 'h-10 rounded-xl px-[18px]'
                                 : radio
                                   ? 'min-h-9 rounded-[9px] px-2 py-1'
                                   : 'h-7 rounded-[9px] px-[11px]'
-                        } ${block ? 'flex-1' : ''} ${on ? 'bg-surface-raised shadow-elevation-1' : 'bg-transparent'}`}
+                        } ${block ? 'flex-1' : ''} ${
+                            !on
+                                ? 'border-transparent bg-transparent'
+                                : radio
+                                  ? 'border-brand-500 bg-surface-brand-subtle'
+                                  : 'border-transparent bg-surface-raised shadow-elevation-1'
+                        }`}
                     >
                         <RNText
                             numberOfLines={radio ? 2 : 1}
-                            className={`text-center ${large ? 'text-sm font-semibold' : radio ? 'text-[13px] font-semibold leading-4' : 'text-role-strong'} ${
-                                on
-                                    ? 'text-content-primary'
-                                    : 'text-content-secondary hover:text-content-primary'
+                            className={`text-center ${large || radio ? 'text-[13px] font-semibold' : 'text-role-strong'} ${radio ? 'leading-4' : ''} ${
+                                !on
+                                    ? 'text-content-secondary hover:text-content-primary'
+                                    : radio
+                                      ? 'text-content-on-brand-subtle'
+                                      : 'text-content-primary'
                             }`}
                         >
                             {item.label}

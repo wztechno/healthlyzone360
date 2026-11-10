@@ -1,3 +1,4 @@
+import { Icon } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { Pressable, Text as RNText, View } from 'react-native';
 
@@ -8,6 +9,7 @@ import { Pressable, Text as RNText, View } from 'react-native';
  * mark="avatar"  `.drv`   (HR)  Hadi Rizk                       2 runs today   <- chosen: soft green,
  * mark="radio"   `.cb`    ( )   The customer asked to cancel                      the mark filled
  * mark="none"             ↗     Hand it to a courier company       Ready now
+ * mark="check"            [✓]   Leave out onions                  <- one of many: a checkbox
  * ```
  *
  * Choosing is not doing: the row only picks, and the dialog's footer button acts — so one mis-tap
@@ -28,7 +30,8 @@ export function ChoiceRow({
     readonly label: string;
     /** Translated — quiet words at the row's end. */
     readonly meta?: string | undefined;
-    readonly mark?: 'radio' | 'avatar' | 'none' | undefined;
+    /** `check`: one of several that may all be on — announced as a checkbox, drawn as a square. */
+    readonly mark?: 'radio' | 'check' | 'avatar' | 'none' | undefined;
     /** For `mark="avatar"`: up to two letters. */
     readonly initials?: string | undefined;
     /** For `mark="none"`: a glyph of the caller's. */
@@ -38,11 +41,12 @@ export function ChoiceRow({
     readonly accessibilityLabel?: string | undefined;
     readonly testID?: string | undefined;
 }) {
+    const role = mark === 'check' ? 'checkbox' : 'radio';
     return (
         <Pressable
             testID={testID}
-            role="radio"
-            accessibilityRole="radio"
+            role={role}
+            accessibilityRole={role}
             accessibilityLabel={accessibilityLabel ?? label}
             accessibilityState={{ checked: selected }}
             aria-checked={selected}
@@ -65,6 +69,17 @@ export function ChoiceRow({
                     >
                         {initials ?? ''}
                     </RNText>
+                </View>
+            ) : mark === 'check' ? (
+                <View
+                    aria-hidden
+                    className={`h-5 w-5 items-center justify-center rounded-md border-[1.5px] ${
+                        selected ? 'border-surface-brand bg-surface-brand' : 'border-stroke bg-surface-raised'
+                    }`}
+                >
+                    {selected ? (
+                        <Icon name="check" size="sm" className="text-content-on-brand" />
+                    ) : null}
                 </View>
             ) : mark === 'radio' ? (
                 <View
