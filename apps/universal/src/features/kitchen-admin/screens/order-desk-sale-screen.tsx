@@ -1703,20 +1703,24 @@ function MenuGrid({
                                         }}
                                     />
                                     {canSwitch ? (
-                                        <DeskButton
-                                            testID={`kitchen-order-desk-sale-tile-${tile.id}-off-today`}
-                                            variant="quiet"
-                                            block
-                                            label={t(
-                                                isOff
-                                                    ? 'kitchen:desk.sale.backOnToday'
-                                                    : 'kitchen:desk.sale.offToday',
-                                            )}
-                                            disabled={offToday.isPending}
-                                            onPress={() => {
-                                                offToday.mutate({ itemId: tile.id, off: !isOff });
-                                            }}
-                                        />
+                                        // A row of its own, so `block` widens the button across the
+                                        // card instead of taking half the card's height.
+                                        <View className="flex-row">
+                                            <DeskButton
+                                                testID={`kitchen-order-desk-sale-tile-${tile.id}-off-today`}
+                                                variant="quiet"
+                                                block
+                                                label={t(
+                                                    isOff
+                                                        ? 'kitchen:desk.sale.backOnToday'
+                                                        : 'kitchen:desk.sale.offToday',
+                                                )}
+                                                disabled={offToday.isPending}
+                                                onPress={() => {
+                                                    offToday.mutate({ itemId: tile.id, off: !isOff });
+                                                }}
+                                            />
+                                        </View>
                                     ) : null}
                                 </View>
                             );
