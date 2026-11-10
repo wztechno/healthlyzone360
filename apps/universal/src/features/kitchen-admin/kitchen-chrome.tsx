@@ -11,7 +11,7 @@ import {
     useKitchenSetupQuery,
 } from '../../data/kitchen-ops-hooks.ts';
 import { guardNavigation } from '../../navigation/use-unsaved-guard.ts';
-import { AreaRailTop, DESK_SIDEBAR_WIDTH } from '../../shell/area-brand-block.tsx';
+import { DESK_SIDEBAR_WIDTH } from '../../shell/area-brand-block.tsx';
 import { useAccessState } from '../../session/session-provider.tsx';
 import {
     OVERVIEW_HREF,
@@ -50,11 +50,6 @@ const GROUP_ICONS: Readonly<Record<EntityGroup, IconName>> = {
 
 /** The admin frame's page panel width, shared by every desk area. */
 export const KITCHEN_SIDEBAR_WIDTH = DESK_SIDEBAR_WIDTH;
-
-/** The top of the green module rail: the brand's leaf — see `AreaRailTop`. */
-export function KitchenRailTop() {
-    return <AreaRailTop testID="kitchen-rail-top" />;
-}
 
 /**
  * The rail's destinations: Overview, then the permitted families in their registry groups. The

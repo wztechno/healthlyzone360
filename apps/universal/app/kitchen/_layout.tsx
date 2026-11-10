@@ -2,7 +2,6 @@ import { Slot } from 'expo-router';
 
 import {
     KITCHEN_SIDEBAR_WIDTH,
-    KitchenRailTop,
     useKitchenNavigation,
 } from '../../src/features/kitchen-admin/kitchen-chrome.tsx';
 import {
@@ -43,7 +42,6 @@ function KitchenAreaShell() {
             testID="kitchen-shell"
             navigation={navigation}
             sidebarWidth={KITCHEN_SIDEBAR_WIDTH}
-            sidebarStartCollapsed={<KitchenRailTop />}
             topbarTitle={crumbs.length === 0 ? undefined : <KitchenTrail crumbs={crumbs} />}
             topbarSearch={<KitchenPageSearch navigation={navigation} />}
             topbarActions={<StaffAlertsButton />}

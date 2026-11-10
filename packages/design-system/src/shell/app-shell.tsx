@@ -301,6 +301,11 @@ function AppShellLayout({
      * where there is room for it, shut on a laptop, where its 232px is a quarter of the page.
      */
     const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+        // Opened on an ungrouped destination (Overview), which has no pages to list: shut.
+        const onUngrouped =
+            navigation.some((item) => item.group !== undefined) &&
+            navigation.some((item) => item.active === true && item.group === undefined);
+        if (onUngrouped) return true;
         const stored = readPersistedPanel();
         return stored === null ? !roomyWindow : stored === 'shut';
     });
@@ -390,7 +395,12 @@ function AppShellLayout({
         if (twoPane && roomyWindow && sidebarCollapsed && activeGroup !== undefined) {
             setCollapsed(false);
         }
-    }, [activeKey, activeGroup, twoPane, roomyWindow, sidebarCollapsed, setCollapsed]);
+        // An ungrouped destination (Overview) has no pages to list: the page takes the width. Not
+        // remembered, so the next module page opens the panel again.
+        if (twoPane && !sidebarCollapsed && activeGroup === undefined && groups.length > 0) {
+            if (activeKey !== undefined) setCollapsed(true);
+        }
+    }, [activeKey, activeGroup, twoPane, roomyWindow, sidebarCollapsed, setCollapsed, groups.length]);
 
     /** The reader's own open or shut — remembered, unlike the shell following a page. */
     const chooseCollapsed = (next: boolean) => {
@@ -407,14 +417,18 @@ function AppShellLayout({
         if (sidebarCollapsed) chooseCollapsed(false);
     };
     /**
-     * An ungrouped destination: go there, and open the panel on its note if it is shut. Where
-     * nothing is grouped the panel lists every destination and there is no module icon to open it
-     * from, so a press on any of them is what brings a shut panel back.
+     * An ungrouped destination (Overview): go there with the page panel shut — it has no pages to
+     * list, so the page gets the whole width. Where nothing is grouped the panel lists every
+     * destination and there is no module icon to open it from, so a press on any of them is what
+     * brings a shut panel back.
      */
     const chooseUngrouped = (item: NavigationItem) => {
         setChosenGroup(null);
-        if (sidebarCollapsed && groups.length === 0) chooseCollapsed(false);
-        else if (sidebarCollapsed && roomyWindow) setCollapsed(false);
+        if (groups.length === 0) {
+            if (sidebarCollapsed) chooseCollapsed(false);
+        } else if (!sidebarCollapsed) {
+            setCollapsed(true);
+        }
         item.onPress();
     };
 
