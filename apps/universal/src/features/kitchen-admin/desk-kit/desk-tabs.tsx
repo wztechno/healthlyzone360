@@ -26,6 +26,8 @@ export function DeskTabs<T extends string>({
     items,
     onChange,
     size = 'lg',
+    radio = false,
+    block = false,
     testID,
 }: {
     /** Translated. The set's accessible name. */
@@ -34,15 +36,22 @@ export function DeskTabs<T extends string>({
     readonly items: readonly DeskTabItem<T>[];
     readonly onChange: (value: T) => void;
     readonly size?: 'sm' | 'lg' | undefined;
+    /**
+     * A choice rather than a view — the payment method in a dialog (`.seg3.big`): announced as
+     * radios, and each item a 36px segment.
+     */
+    readonly radio?: boolean | undefined;
+    /** Stretch across the row, the segments sharing it. */
+    readonly block?: boolean | undefined;
     readonly testID?: string | undefined;
 }) {
     const large = size === 'lg';
     return (
         <View
             testID={testID}
-            role="tablist"
+            role={radio ? 'radiogroup' : 'tablist'}
             aria-label={label}
-            className={`flex-row self-start bg-surface-sunken ${
+            className={`flex-row bg-surface-sunken ${block ? 'self-stretch' : 'self-start'} ${
                 large ? 'gap-0.5 rounded-[14px] p-1' : 'gap-0.5 rounded-lg p-[3px]'
             }`}
         >
@@ -52,21 +61,25 @@ export function DeskTabs<T extends string>({
                     <Pressable
                         key={item.value}
                         testID={item.testID}
-                        role="tab"
-                        accessibilityRole="tab"
+                        role={radio ? 'radio' : 'tab'}
+                        accessibilityRole={radio ? 'radio' : 'tab'}
                         accessibilityLabel={item.label}
-                        accessibilityState={{ selected: on }}
-                        aria-selected={on}
+                        accessibilityState={radio ? { checked: on } : { selected: on }}
+                        {...(radio ? { 'aria-checked': on } : { 'aria-selected': on })}
                         onPress={() => {
                             if (!on) onChange(item.value);
                         }}
                         className={`flex-row items-center justify-center gap-2 ${
-                            large ? 'h-[38px] rounded-[10px] px-4' : 'h-7 rounded-[9px] px-[11px]'
-                        } ${on ? 'bg-surface-raised shadow-elevation-1' : 'bg-transparent'}`}
+                            large
+                                ? 'h-[38px] rounded-[10px] px-4'
+                                : radio
+                                  ? 'min-h-9 rounded-[9px] px-2 py-1'
+                                  : 'h-7 rounded-[9px] px-[11px]'
+                        } ${block ? 'flex-1' : ''} ${on ? 'bg-surface-raised shadow-elevation-1' : 'bg-transparent'}`}
                     >
                         <RNText
-                            numberOfLines={1}
-                            className={`${large ? 'text-sm font-semibold' : 'text-role-strong'} ${
+                            numberOfLines={radio ? 2 : 1}
+                            className={`text-center ${large ? 'text-sm font-semibold' : radio ? 'text-[13px] font-semibold leading-4' : 'text-role-strong'} ${
                                 on
                                     ? 'text-content-primary'
                                     : 'text-content-secondary hover:text-content-primary'

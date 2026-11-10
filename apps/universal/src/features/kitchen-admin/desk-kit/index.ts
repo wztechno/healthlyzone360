@@ -11,9 +11,11 @@
  * | `.drop.has` `.mm` | `MiniMonthPicker`  | `DatePickerButton`          |
  * | `.otabs` `.seg3`  | `DeskTabs`         | `Tabs variant="segmented"`  |
  * | `.gh2`            | `ListGroupRow`     | a hand-made section heading |
+ * | `.drv` `.cb`      | `ChoiceRow`        | `FilterChip` / choose buttons in a dialog |
  *
  * All of them are on `/showcase-orders`.
  */
+export { ChoiceRow, initialsOf } from './choice-row.tsx';
 export { DeskButton, DeskIconButton } from './desk-button.tsx';
 export type { DeskButtonProps, DeskButtonVariant } from './desk-button.tsx';
 export { DeskChip } from './desk-chip.tsx';

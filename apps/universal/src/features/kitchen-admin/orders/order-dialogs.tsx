@@ -14,7 +14,6 @@ import {
     KITCHEN_ORDER_PICKABLE_CANCELLATION_REASONS,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
     Callout,
     DatePickerButton,
     Dialog,
@@ -51,7 +50,7 @@ import {
     useOrderDeskDriversQuery,
 } from '../../../data/order-desk-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
-import { DeskButton } from '../desk-kit/index.ts';
+import { ChoiceRow, DeskButton, DeskTabs, initialsOf } from '../desk-kit/index.ts';
 import {
     ORDER_CREATE_ON_BEHALF_PERMISSION,
     ORDER_SUPERVISE_PERMISSION,
@@ -93,6 +92,7 @@ export function AssignDriverDialog({
     onAssigned,
     onRefresh,
     refreshing,
+    onCourier,
 }: {
     readonly job: OrderDeskDeliveryJob;
     readonly orderNumber: string;
@@ -100,6 +100,11 @@ export function AssignDriverDialog({
     readonly onAssigned: (driverName: string) => void;
     readonly onRefresh: () => void;
     readonly refreshing: boolean;
+    /**
+     * The other way out of the kitchen: a courier company. Offered only once the food is ready and
+     * nobody has set off with it — the rule the pop-up's Hand to courier follows.
+     */
+    readonly onCourier?: (() => void) | undefined;
 }) {
     const { t } = useTranslation();
     const [query, setQuery] = useState('');
@@ -240,49 +245,51 @@ export function AssignDriverDialog({
                     )}
                 />
             ) : (
+                // Choosing is not assigning — the footer button is, so one mis-tap never sends
+                // tonight's run to the wrong person.
                 <View
                     testID="kitchen-orders-assign-list"
-                    className="flex-col border-t border-stroke-subtle"
+                    role="radiogroup"
+                    aria-label={t('kitchen:desk.assign.title')}
+                    className="flex-col gap-0.5"
                 >
                     {filtered.map((driver) => (
-                        // The row is inert and the button is the control: a pressable row around
-                        // a button is nested-interactive. Choosing is not assigning — the footer
-                        // button is, so one mis-tap never sends tonight's run to the wrong person.
-                        <View
+                        <ChoiceRow
                             key={driver.userId}
                             testID={`kitchen-orders-assign-driver-${driver.userId}`}
-                            className={
-                                chosen === driver.userId
-                                    ? 'min-h-row-md flex-row items-center justify-between gap-tight border-b border-stroke-subtle bg-surface-brand-subtle px-control-sm'
-                                    : 'min-h-row-md flex-row items-center justify-between gap-tight border-b border-stroke-subtle px-control-sm'
-                            }
-                        >
-                            <Text
-                                variant="label"
-                                {...(driver.displayName === null
-                                    ? { accessibilityLabel: t('kitchen:desk.assign.unnamed') }
-                                    : {})}
-                            >
-                                {driver.displayName ?? EM_DASH}
-                            </Text>
-                            {chosen === driver.userId ? (
-                                <Badge
-                                    testID={`kitchen-orders-assign-driver-${driver.userId}-chosen`}
-                                    tone="success"
-                                    label={t('kitchen:desk.assign.chosen')}
-                                />
-                            ) : (
-                                <DeskButton
-                                    testID={`kitchen-orders-assign-driver-${driver.userId}-choose`}
-                                    variant="quiet"
-                                    label={t('kitchen:desk.assign.choose')}
-                                    onPress={() => {
-                                        setChosen(driver.userId);
-                                    }}
-                                />
-                            )}
-                        </View>
+                            mark="avatar"
+                            initials={initialsOf(driver.displayName)}
+                            label={driver.displayName ?? EM_DASH}
+                            {...(driver.displayName === null
+                                ? { accessibilityLabel: t('kitchen:desk.assign.unnamed') }
+                                : {})}
+                            {...(driver.userId === job.driverUserId
+                                ? { meta: t('kitchen:desk.assign.current') }
+                                : {})}
+                            selected={chosen === driver.userId}
+                            onPress={() => {
+                                setChosen(driver.userId);
+                            }}
+                        />
                     ))}
+                </View>
+            )}
+
+            {onCourier === undefined ? null : (
+                <View className="border-t border-stroke-subtle pt-2">
+                    <DeskButton
+                        testID="kitchen-orders-assign-courier"
+                        variant="quiet"
+                        label={t('kitchen:desk.assign.courierInstead')}
+                        iconEnd={
+                            <Icon
+                                name="chevronForward"
+                                size="sm"
+                                className="text-content-on-brand-subtle"
+                            />
+                        }
+                        onPress={onCourier}
+                    />
                 </View>
             )}
         </Dialog>
@@ -543,18 +550,30 @@ export function RecordPaymentDialog({
                 </Text>
             )}
 
-            <Select<KitchenOrderPaymentMethod>
-                testID="kitchen-orders-payment-method"
-                id="kitchen-orders-payment-method"
-                {...server.flag('method')}
-                label={t('kitchen:desk.recordPayment.methodLabel')}
-                value={method}
-                onChange={setMethod}
-                options={KITCHEN_ORDER_PAYMENT_METHODS.map((candidate) => ({
-                    value: candidate,
-                    label: t(kitchenOrderPaymentMethodKey(candidate)),
-                }))}
-            />
+            <View className="flex-col gap-1.5">
+                <Text variant="label" tone="secondary" className="!font-semibold">
+                    {t('kitchen:desk.recordPayment.methodLabel')}
+                </Text>
+                <DeskTabs<KitchenOrderPaymentMethod>
+                    testID="kitchen-orders-payment-method"
+                    size="sm"
+                    radio
+                    block
+                    label={t('kitchen:desk.recordPayment.methodLabel')}
+                    value={method}
+                    onChange={setMethod}
+                    items={KITCHEN_ORDER_PAYMENT_METHODS.map((candidate) => ({
+                        value: candidate,
+                        label: t(kitchenOrderPaymentMethodKey(candidate)),
+                        testID: `kitchen-orders-payment-method-${candidate}`,
+                    }))}
+                />
+                {server.flag('method').error === undefined ? null : (
+                    <Text variant="caption" tone="danger" role="alert">
+                        {server.flag('method').error}
+                    </Text>
+                )}
+            </View>
 
             {method === 'wish' ? (
                 <Callout
@@ -727,36 +746,50 @@ export function CancelOrderDialog({
             }
         >
             <Stack space="sm">
-                <Text variant="strong">{t('kitchen:ops.orders.cancelReasonLabel')}</Text>
-                <Inline space="xs" wrap testID="kitchen-orders-cancel-reasons">
+                <Text variant="label" tone="secondary" className="!font-semibold">
+                    {t('kitchen:ops.orders.cancelReasonLabel')}
+                </Text>
+                <View
+                    testID="kitchen-orders-cancel-reasons"
+                    role="radiogroup"
+                    aria-label={t('kitchen:ops.orders.cancelReasonLabel')}
+                    className="flex-col gap-0.5"
+                >
                     {KITCHEN_ORDER_PICKABLE_CANCELLATION_REASONS.map((candidate) => (
-                        <FilterChip
+                        <ChoiceRow
                             key={candidate}
                             testID={`kitchen-orders-cancel-reason-${candidate}`}
                             label={t(kitchenOrderCancellationReasonKey(candidate))}
                             selected={reason === candidate}
-                            onChange={() => {
+                            onPress={() => {
                                 setReason(candidate);
                             }}
                         />
                     ))}
-                </Inline>
+                </View>
                 {!started ? null : (
                     <>
-                        <Text variant="strong">{t('kitchen:ops.orders.dispositionLabel')}</Text>
-                        <Inline space="xs" wrap testID="kitchen-orders-cancel-dispositions">
+                        <Text variant="label" tone="secondary" className="mt-2 !font-semibold">
+                            {t('kitchen:ops.orders.dispositionLabel')}
+                        </Text>
+                        <View
+                            testID="kitchen-orders-cancel-dispositions"
+                            role="radiogroup"
+                            aria-label={t('kitchen:ops.orders.dispositionLabel')}
+                            className="flex-col gap-0.5"
+                        >
                             {KITCHEN_ORDER_CANCELLATION_DISPOSITIONS.map((candidate) => (
-                                <FilterChip
+                                <ChoiceRow
                                     key={candidate}
                                     testID={`kitchen-orders-cancel-disposition-${candidate}`}
                                     label={t(kitchenOrderCancellationDispositionKey(candidate))}
                                     selected={disposition === candidate}
-                                    onChange={() => {
+                                    onPress={() => {
                                         setDisposition(candidate);
                                     }}
                                 />
                             ))}
-                        </Inline>
+                        </View>
                     </>
                 )}
                 {failure === null ? null : (

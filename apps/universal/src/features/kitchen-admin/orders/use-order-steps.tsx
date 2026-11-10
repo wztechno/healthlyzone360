@@ -187,6 +187,13 @@ export function useOrderSteps({
                         }}
                         onRefresh={onRefresh}
                         refreshing={refreshing}
+                        {...(courierReady(order)
+                            ? {
+                                  onCourier: () => {
+                                      setDialog({ kind: 'courier', order });
+                                  },
+                              }
+                            : {})}
                     />
                 );
             case 'payment':
@@ -261,4 +268,18 @@ export function useOrderSteps({
         pendingId,
         dialogs,
     };
+}
+
+/**
+ * A courier company may take the run once the food is ready and nobody has set off with it — the
+ * same rule as the pop-up's Hand to courier.
+ */
+function courierReady(order: BookRow): boolean {
+    const job = order.deliveryJob ?? null;
+    return (
+        order.fulfilmentType === 'delivery' &&
+        job !== null &&
+        (order.readyAt ?? null) !== null &&
+        (job.status === 'pending' || job.status === 'assigned')
+    );
 }

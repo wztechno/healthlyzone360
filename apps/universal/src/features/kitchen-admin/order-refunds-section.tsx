@@ -8,12 +8,9 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     Callout,
     Dialog,
-    FilterChip,
     Inline,
-    Select,
     Stack,
     Text,
     TextInputField,
@@ -32,6 +29,7 @@ import {
     useRecordOrderRefundMutation,
 } from '../../data/kitchen-orders-hooks.ts';
 import { formatMoney } from '../marketplace/format.ts';
+import { DeskButton, DeskTabs } from './desk-kit/index.ts';
 import { ORDER_APPROVE_REFUND_PERMISSION } from './entity-registry.ts';
 import { kitchenOrderPaymentMethodKey } from './ops-format.ts';
 
@@ -111,10 +109,9 @@ export function OrderRefundsSection({ order }: { readonly order: KitchenOrder })
                     <Text>{entry.reason}</Text>
                     {entry.status !== 'pending_approval' || !canApprove ? null : (
                         <Inline space="xs" wrap>
-                            <Button
+                            <DeskButton
                                 testID={`kitchen-orders-refund-${entry.id}-approve`}
                                 variant="secondary"
-                                size="sm"
                                 label={t('kitchen:ops.orders.refunds.approve')}
                                 disabled={decide.isPending}
                                 onPress={() => {
@@ -134,10 +131,9 @@ export function OrderRefundsSection({ order }: { readonly order: KitchenOrder })
                                     );
                                 }}
                             />
-                            <Button
+                            <DeskButton
                                 testID={`kitchen-orders-refund-${entry.id}-reject`}
                                 variant="secondary"
-                                size="sm"
                                 label={t('kitchen:ops.orders.refunds.reject')}
                                 disabled={decide.isPending}
                                 onPress={() => {
@@ -168,10 +164,9 @@ export function OrderRefundsSection({ order }: { readonly order: KitchenOrder })
                 </Text>
             ) : position.refundableMinor <= 0 ? null : (
                 <View className="flex-row">
-                    <Button
+                    <DeskButton
                         testID="kitchen-orders-refund-open"
                         variant="secondary"
-                        size="sm"
                         label={t('kitchen:ops.orders.refunds.open')}
                         onPress={() => {
                             setRecording(true);
@@ -255,21 +250,22 @@ function RefundDialog({
     return (
         <Dialog
             testID="kitchen-orders-refund-dialog"
+            look="card"
             open
             onClose={onClose}
             title={t('kitchen:ops.orders.refunds.dialogTitle', { number: order.orderNumber })}
             description={t('kitchen:ops.orders.refunds.dialogBody')}
             actions={
                 <>
-                    <Button
+                    <DeskButton
                         testID="kitchen-orders-refund-dismiss"
-                        variant="quiet"
-                        label={t('kitchen:common.cancel')}
+                        variant="secondary"
+                        label={t('kitchen:common.back')}
                         onPress={onClose}
                     />
-                    <Button
+                    <DeskButton
                         testID="kitchen-orders-refund-confirm"
-                        variant="danger"
+                        variant="primary"
                         label={t('kitchen:ops.orders.refunds.confirm')}
                         loading={record.isPending}
                         disabled={!ready || record.isPending}
@@ -279,33 +275,44 @@ function RefundDialog({
             }
         >
             <Stack space="sm">
-                <Inline space="xs" wrap testID="kitchen-orders-refund-kinds">
-                    {KINDS.map((candidate) => (
-                        <FilterChip
-                            key={candidate}
-                            testID={`kitchen-orders-refund-kind-${candidate}`}
-                            label={t(`kitchen:ops.orders.refunds.kind.${candidate}`)}
-                            selected={kind === candidate}
-                            onChange={() => {
-                                setKind(candidate);
-                            }}
-                        />
-                    ))}
-                </Inline>
+                <DeskTabs<OrderRefundKind>
+                    testID="kitchen-orders-refund-kinds"
+                    size="sm"
+                    radio
+                    block
+                    label={t('kitchen:ops.orders.refunds.dialogTitle', {
+                        number: order.orderNumber,
+                    })}
+                    value={kind}
+                    onChange={setKind}
+                    items={KINDS.map((candidate) => ({
+                        value: candidate,
+                        label: t(`kitchen:ops.orders.refunds.kind.${candidate}`),
+                        testID: `kitchen-orders-refund-kind-${candidate}`,
+                    }))}
+                />
                 <Text variant="caption" tone="secondary">
                     {t(`kitchen:ops.orders.refunds.kindHint.${kind}`)}
                 </Text>
-                <Select<KitchenOrderPaymentMethod>
-                    testID="kitchen-orders-refund-method"
-                    label={t('kitchen:ops.orders.refunds.methodLabel')}
-                    size="sm"
-                    value={method}
-                    onChange={setMethod}
-                    options={KITCHEN_ORDER_PAYMENT_METHODS.map((candidate) => ({
-                        value: candidate,
-                        label: t(kitchenOrderPaymentMethodKey(candidate)),
-                    }))}
-                />
+                <View className="flex-col gap-1.5">
+                    <Text variant="label" tone="secondary" className="!font-semibold">
+                        {t('kitchen:ops.orders.refunds.methodLabel')}
+                    </Text>
+                    <DeskTabs<KitchenOrderPaymentMethod>
+                        testID="kitchen-orders-refund-method"
+                        size="sm"
+                        radio
+                        block
+                        label={t('kitchen:ops.orders.refunds.methodLabel')}
+                        value={method}
+                        onChange={setMethod}
+                        items={KITCHEN_ORDER_PAYMENT_METHODS.map((candidate) => ({
+                            value: candidate,
+                            label: t(kitchenOrderPaymentMethodKey(candidate)),
+                            testID: `kitchen-orders-refund-method-${candidate}`,
+                        }))}
+                    />
+                </View>
                 <TextInputField
                     testID="kitchen-orders-refund-amount"
                     id="kitchen-orders-refund-amount"

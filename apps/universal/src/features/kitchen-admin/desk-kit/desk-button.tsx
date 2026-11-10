@@ -27,8 +27,11 @@ export type DeskButtonVariant =
 export interface DeskButtonProps {
     readonly label: string;
     readonly variant?: DeskButtonVariant | undefined;
-    /** Accepted for `Button` parity; the desk has one height. */
-    readonly size?: 'sm' | 'md' | undefined;
+    /**
+     * `lg`: a 44px pill for the one action a panel ends in — a ticket's Place order. `sm` and `md`
+     * are accepted for `Button` parity and draw the toolbar's 34px.
+     */
+    readonly size?: 'sm' | 'md' | 'lg' | undefined;
     readonly loading?: boolean | undefined;
     readonly disabled?: boolean | undefined;
     readonly iconStart?: ReactNode | undefined;
@@ -74,6 +77,7 @@ const SPINNER: Readonly<Record<DeskButtonVariant, (theme: ThemeTokens) => string
 export function DeskButton({
     label,
     variant = 'primary',
+    size = 'md',
     loading = false,
     disabled = false,
     iconStart,
@@ -104,6 +108,7 @@ export function DeskButton({
                 'flex-row items-center justify-center gap-1.5 border web:transition-colors',
                 rounded,
                 CONTAINER[variant],
+                size === 'lg' ? '!h-11 !px-5' : '',
                 block ? 'flex-1 self-stretch' : 'self-start',
                 inert ? 'opacity-50' : '',
                 className ?? '',
@@ -120,7 +125,10 @@ export function DeskButton({
             ) : (
                 iconStart
             )}
-            <RNText numberOfLines={1} className={`text-role-strong text-center ${LABEL[variant]}`}>
+            <RNText
+                numberOfLines={1}
+                className={`${size === 'lg' ? 'text-sm font-bold' : 'text-role-strong'} text-center ${LABEL[variant]}`}
+            >
                 {label}
             </RNText>
             {iconEnd}

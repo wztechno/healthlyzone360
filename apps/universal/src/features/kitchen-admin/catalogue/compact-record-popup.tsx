@@ -38,6 +38,12 @@ const GUTTER = 28;
 const PHONE_GUTTER = 12;
 const PHONE_MAX = 640;
 const POPUP_WIDTH = 960;
+/**
+ * Every record opens in a window of one size, whatever it holds — a two-line order and a twenty-line
+ * one in the same frame, so stepping through a list with ‹ › never makes the window jump. A short
+ * record leaves room under it; a long one scrolls its body.
+ */
+const POPUP_HEIGHT = 720;
 /** Below this the two columns stack. */
 const TWO_COLUMNS_MIN = 720;
 
@@ -105,7 +111,7 @@ export function CompactRecordPopup({
 
     const gutter = viewport.width < PHONE_MAX ? PHONE_GUTTER : GUTTER;
     const width = Math.max(0, Math.min(POPUP_WIDTH, viewport.width - gutter * 2));
-    const maxHeight = Math.max(0, viewport.height - gutter * 2);
+    const height = Math.max(0, Math.min(POPUP_HEIGHT, viewport.height - gutter * 2));
     const twoColumns = side !== undefined && width >= TWO_COLUMNS_MIN && atLeast('md');
     // The two columns share the window between them: each takes its part of the row.
 
@@ -138,7 +144,7 @@ export function CompactRecordPopup({
                         role="dialog"
                         aria-modal
                         aria-label={label}
-                        style={{ width, maxHeight }}
+                        style={{ width, height }}
                         className="min-h-0 flex-col overflow-hidden rounded-[20px] border border-stroke-subtle bg-surface-raised shadow-elevation-5"
                     >
                         {/* The header: never scrolls. */}
@@ -280,7 +286,8 @@ export function CompactRecordPopup({
                         {/* The body: the one part that scrolls, on the thin bar. */}
                         <ScrollView
                             testID={`${testID}-thin-scroll`}
-                            className="min-h-0 shrink"
+                            // eslint-disable-next-line no-restricted-syntax -- the body takes the window's height the header and foot leave.
+                            className="min-h-0 flex-1"
                             contentContainerClassName="flex-col gap-[14px] pb-[18px] pe-4 ps-4 pt-[14px]"
                         >
                             {banner}

@@ -13,6 +13,7 @@ import {
     CompactSection,
 } from '../features/kitchen-admin/catalogue/compact-record-popup.tsx';
 import {
+    ChoiceRow,
     DeskButton,
     DeskChip,
     DeskIconButton,
@@ -20,6 +21,7 @@ import {
     DeskTabs,
     ListGroupRow,
     MiniMonthPicker,
+    initialsOf,
 } from '../features/kitchen-admin/desk-kit/index.ts';
 import { DayStepper } from '../features/kitchen-admin/orders/day-stepper.tsx';
 import { orderColumns } from '../features/kitchen-admin/orders/order-columns.tsx';
@@ -121,6 +123,9 @@ export function OrdersShowcaseScreen() {
     const [open, setOpen] = useState(false);
     const [slot, setSlot] = useState<'all' | 'lunch' | 'dinner'>('all');
     const [mode, setMode] = useState<'month' | 'week'>('month');
+    const [method, setMethod] = useState<'cash' | 'counter' | 'wish'>('cash');
+    const [driver, setDriver] = useState<string>('hr');
+    const [reason, setReason] = useState<string>('asked');
 
     const columns = orderColumns({
         t,
@@ -216,6 +221,57 @@ export function OrdersShowcaseScreen() {
                         <DeskChip tone="danger" size="lg" label="2 late" />
                     </View>
 
+                    <Text variant="title">Dialog choices — rows and radio segments</Text>
+                    <View className="w-full max-w-[432px] flex-col gap-3">
+                        <DeskTabs<'cash' | 'counter' | 'wish'>
+                            testID="showcase-orders-method"
+                            size="sm"
+                            radio
+                            block
+                            label="How did the money arrive?"
+                            value={method}
+                            onChange={setMethod}
+                            items={[
+                                { value: 'cash', label: 'Cash on delivery' },
+                                { value: 'counter', label: 'Cash at the counter' },
+                                { value: 'wish', label: 'Whish transfer' },
+                            ]}
+                        />
+                        <View className="flex-col gap-0.5">
+                            {[
+                                ['hr', 'Hadi Rizk'],
+                                ['ss', 'Sami Staff'],
+                            ].map(([key, name]) => (
+                                <ChoiceRow
+                                    key={key}
+                                    mark="avatar"
+                                    initials={initialsOf(name ?? null)}
+                                    label={name ?? ''}
+                                    {...(key === 'hr' ? { meta: 'Has it now' } : {})}
+                                    selected={driver === key}
+                                    onPress={() => {
+                                        setDriver(key ?? '');
+                                    }}
+                                />
+                            ))}
+                        </View>
+                        <View className="flex-col gap-0.5">
+                            {[
+                                ['asked', 'The customer asked to cancel'],
+                                ['kitchen', 'The kitchen cannot fulfil it'],
+                            ].map(([key, label]) => (
+                                <ChoiceRow
+                                    key={key}
+                                    label={label ?? ''}
+                                    selected={reason === key}
+                                    onPress={() => {
+                                        setReason(key ?? '');
+                                    }}
+                                />
+                            ))}
+                        </View>
+                    </View>
+
                     <Text variant="title">Desk dropdown and mini month</Text>
                     <View className="z-10 flex-row flex-wrap items-center gap-2">
                         <DeskSelect<'all' | 'lunch' | 'dinner'>
@@ -247,7 +303,8 @@ export function OrdersShowcaseScreen() {
                             title="Late from earlier days"
                             sub="Still open"
                             count="43 orders"
-                            action={<DeskButton variant="quiet" label="See all" />}
+                            actionLabel="See all"
+                            onPress={() => undefined}
                         />
                         <ListGroupRow title="Breakfast" sub="08:00–10:00" count="2 orders" />
                     </View>
