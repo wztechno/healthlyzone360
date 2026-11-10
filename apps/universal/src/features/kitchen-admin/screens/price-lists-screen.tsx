@@ -213,7 +213,15 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                     // `Inline`, as every other list's name cell: in a table cell it stays on one
                     // line and lets the name give way to an ellipsis (whole on hover), so a badge
                     // never runs into the next column.
-                    <Inline testID={testID} space="xs" align="center">
+                    <Inline
+                        testID={testID}
+                        space="xs"
+                        align="center"
+                        wrap={false}
+                        // The cell stacks its content at the start, so the row is sized on the
+                        // cross axis: `max-w-full` is what caps it to the column for the ellipsis.
+                        className="min-w-0 max-w-full shrink"
+                    >
                         <Text variant="strong" numberOfLines={1} testID={`${testID}-name`}>
                             {name.value}
                         </Text>
