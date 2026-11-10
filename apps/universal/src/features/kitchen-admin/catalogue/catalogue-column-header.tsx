@@ -83,6 +83,11 @@ export interface CatalogueColumnHeaderProps {
      * arrow — a target of its own, `-sort` — flips the order.
      */
     readonly onToggleSort?: (() => void) | undefined;
+    /**
+     * `card`: the desk's dropdown card (`DeskSelect`'s menu) — rounded, rising in, closing on a
+     * pick. The Orders table's look; the catalogue lists keep the plain list.
+     */
+    readonly menuLook?: 'list' | 'card' | undefined;
     /** `kitchen-ingredients-column-category` — the trigger takes `-trigger`, the arrow
      * `-sorted` on the ordered column and `-affordance` on every other. */
     readonly testID: string;
@@ -103,6 +108,7 @@ export function CatalogueColumnHeader({
     sortDirection,
     filtered = false,
     onToggleSort,
+    menuLook = 'list',
     testID,
 }: CatalogueColumnHeaderProps) {
     const { t } = useTranslation();
@@ -173,6 +179,7 @@ export function CatalogueColumnHeader({
             // The header cell is inside the list's own stacking context and the rows paint
             // after it, so a panel hanging from the header lands *under* the first rows.
             className="z-sticky"
+            {...(menuLook === 'card' ? { look: 'card' as const, closeOnSelect: true } : {})}
             sections={sections}
             trigger={({ triggerProps, toggle }) => (
                 <Pressable

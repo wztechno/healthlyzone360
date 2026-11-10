@@ -109,6 +109,8 @@ export interface ExternalSort {
 }
 
 export interface ColumnControlsOptions {
+    /** The header menus' look — `card` draws the desk's dropdown card. */
+    readonly menuLook?: 'list' | 'card' | undefined;
     /** Present when the screen owns sorting (a server-sorted list). */
     readonly sort?: ExternalSort | undefined;
     /** Which columns a first visit draws, and which cannot be dropped. See the module docs. */
@@ -307,6 +309,7 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
                         filtered={current !== null}
                         sortDirection={direction}
                         onToggleSort={toggleSort}
+                        menuLook={options.menuLook}
                         testID={testID}
                     />
                 ),

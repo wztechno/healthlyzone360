@@ -510,6 +510,7 @@ function OrdersTable({
     const everyKey = useMemo(() => allColumns.map((column) => column.key), [allColumns]);
     // Every column stays drawn — this table has no column picker — and the header menus filter.
     const controls = useColumnControls(rows, allColumns, testID, {
+        menuLook: 'card',
         picker: { defaults: everyKey, locked: everyKey, max: everyKey.length },
     });
     if (read.pending) {
