@@ -8,7 +8,6 @@ import type { StockItemId, SupplierId } from '@healthy360/domain-types';
 import {
     Callout,
     Cascade,
-    Checkbox,
     DataList,
     Dialog,
     EmptyState,
@@ -701,7 +700,7 @@ function SupplyOrderBuilder() {
         {
             key: 'supplier',
             label: t('kitchen:ops.supplyOrders.columnFrom'),
-            width: 220,
+            width: 340,
             priority: 90,
             render: (row) => {
                 const key = String(row.stockItemId);
@@ -716,8 +715,10 @@ function SupplyOrderBuilder() {
                 );
 
                 return (
-                    <View className="z-auto min-w-0 flex-1 flex-col gap-hair py-1">
-                        <View className="z-auto flex-row items-center gap-hair">
+                    // One line: the picker, why it is empty, and "link to this item" after them,
+                    // so the field sits level with the quantity instead of riding up over a tick.
+                    <View className="z-auto min-w-0 flex-1 flex-row items-center gap-1.5 py-1">
+                        <View className="z-auto min-w-0 flex-1 flex-row items-center gap-hair">
                             <View className="z-auto min-w-0 flex-1">
                                 <Select
                                     testID={`${testID}-supplier-select`}
@@ -750,14 +751,19 @@ function SupplyOrderBuilder() {
                                 }
                             />
                         </View>
-                        <Checkbox
-                            testID={`${testID}-remember`}
-                            checked={remember[key] ?? true}
-                            label={t('kitchen:ops.supplyOrders.rememberLink')}
-                            onChange={(checked) => {
-                                setRemember((previous) => ({ ...previous, [key]: checked }));
-                            }}
-                        />
+                        <View testID={`${testID}-remember`} className="flex-row items-center">
+                            <DeskCheckbox
+                                testID={`${testID}-remember-control`}
+                                label={t('kitchen:ops.supplyOrders.rememberLink')}
+                                checked={remember[key] ?? true}
+                                onChange={(checked) => {
+                                    setRemember((previous) => ({ ...previous, [key]: checked }));
+                                }}
+                            />
+                            <Text variant="label" numberOfLines={1} aria-hidden>
+                                {t('kitchen:ops.supplyOrders.rememberLink')}
+                            </Text>
+                        </View>
                     </View>
                 );
             },
