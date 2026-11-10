@@ -133,6 +133,8 @@ export interface ColumnControls<Row, Base extends DataListColumn<Row>> {
     readonly columns: readonly Base[];
     /** True while an in-memory filter is narrowing the rows. External filters are the screen's. */
     readonly filtered: boolean;
+    /** True while an in-memory sort orders the rows — a grouped list drops its groups then. */
+    readonly sorted: boolean;
     /** Changes whenever the in-memory filters do, so a pager can land on page one. */
     readonly key: object;
     readonly clearFilters: () => void;
@@ -354,6 +356,7 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
         rows: visible,
         columns: controlled,
         filtered: Object.keys(filters).length > 0,
+        sorted: external === undefined && localSort !== null,
         key,
         clearFilters: () => {
             setFilters({});

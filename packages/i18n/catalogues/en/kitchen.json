@@ -5723,7 +5723,8 @@
             "needed": "Needs a driver",
             "pickup": "Pickup",
             "counter": "At the counter",
-            "giveTo": "Give it to {{name}}"
+            "giveTo": "Give it to {{name}}",
+            "none": "No driver"
         },
         "payment": {
             "paid": "Paid",

@@ -8,7 +8,11 @@ import { Text as RNText, View } from 'react-native';
 import { formatMoney } from '../../marketplace/format.ts';
 import { dateInstant } from '../../planner/format.ts';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import type { ColumnFilter, ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import type {
+    ColumnComparator,
+    ColumnFilter,
+    ControlledColumn,
+} from '../catalogue/use-column-controls.tsx';
 import { DeskButton, DeskChip } from '../desk-kit/index.ts';
 import {
     kitchenOrderPaymentMethodKey,
@@ -16,6 +20,7 @@ import {
     kitchenOrderStatusTone,
 } from '../ops-format.ts';
 import {
+    compareByDue,
     daysBetween,
     driverCell,
     isLateOrder,
@@ -466,10 +471,22 @@ function byLabel(read: (order: BookRow) => string): ColumnFilter<BookRow> {
     };
 }
 
+/** Ascending or descending on a number, blanks last both ways. */
+function byNumber(read: (order: BookRow) => number | null): ColumnComparator<BookRow> {
+    return (left, right, direction) => {
+        const a = read(left);
+        const b = read(right);
+        if (a === null || b === null) return a === b ? 0 : a === null ? 1 : -1;
+        return direction === 'asc' ? a - b : b - a;
+    };
+}
+
 /**
- * The Orders table's header filters — the Ingredients list's menus (`useColumnControls`), narrowing
- * the rows on screen: Status (and Late), Day and slot, Driver and Payment. None of the columns
- * sorts: the table is ordered by the day's slots, and a sorted column would scatter its groups.
+ * The Orders table's header controls — the Ingredients list's (`useColumnControls`). Every column
+ * sorts, ascending then descending; Status (and Late), Day and slot, Driver and Payment also filter
+ * from their label, the arrow beside it sorting. Day and slot sorts by when the order is due,
+ * Payment by what is still owed and Total by the amount; the rest by the words they draw. A sorted
+ * table drops its slot groups (`OrdersTable`), which would otherwise scatter.
  */
 export function orderColumnControls(
     context: OrderColumnContext,
@@ -490,7 +507,12 @@ export function orderColumnControls(
                     : orderStatusLabel(order, t) === value,
         },
         when: byLabel((order) => whenLines(order, context).main),
-        driver: byLabel((order) => driverText(order, t, driverName)),
+        // "No driver" rather than the cell's dash: a menu item has to say what it picks.
+        driver: byLabel((order) =>
+            driverCell(order, driverName).kind === 'none'
+                ? t('kitchen:orders.driver.none')
+                : driverText(order, t, driverName),
+        ),
         // By what is owed, not the amount: "Paid", "Money to collect", or how it is paid when the
         // read did not say what has arrived.
         payment: byLabel((order) => {
@@ -501,9 +523,15 @@ export function orderColumnControls(
             return t(owed === 0 ? 'kitchen:orders.payment.paid' : 'kitchen:orders.figure.collect');
         }),
     };
+    const sorts: Readonly<Record<string, ColumnComparator<BookRow>>> = {
+        when: (left, right, direction) =>
+            direction === 'asc' ? compareByDue(left, right) : compareByDue(right, left),
+        payment: byNumber((order) => owedMinor(order)),
+        total: byNumber((order) => order.totalMinor),
+    };
     return orderColumns(context).map((column) => ({
         ...column,
-        sort: false as const,
+        ...(sorts[column.key] === undefined ? {} : { sort: sorts[column.key] }),
         ...(filters[column.key] === undefined ? {} : { filter: filters[column.key] }),
     }));
 }

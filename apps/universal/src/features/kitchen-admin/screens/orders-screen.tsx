@@ -543,7 +543,8 @@ function OrdersTable({
                     onOpenOrder(row, controls.rows);
                 }}
                 rowActionsLabel={t('kitchen:list.rowActions')}
-                sectionHeader={sectionHeader}
+                // A sorted table is one list: its slot groups would scatter.
+                sectionHeader={controls.sorted ? undefined : sectionHeader}
                 emptyState={empty}
             />
             {paged}
