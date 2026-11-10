@@ -12,6 +12,8 @@
  * | `.otabs` `.seg3`  | `DeskTabs`         | `Tabs variant="segmented"`  |
  * | `.gh2`            | `ListGroupRow`     | a hand-made section heading |
  * | `.drv` `.cb`      | `ChoiceRow`        | `FilterChip` / choose buttons in a dialog |
+ * | `.dots.more`      | `DeskRowMenu`      | `RowActionsMenu` (or `rowActionsLook="desk"`) |
+ * | Show columns      | `DeskColumnPicker` | `ColumnPicker`              |
  *
  * All of them are on `/showcase-orders`.
  */
@@ -19,6 +21,8 @@ export { ChoiceRow, initialsOf } from './choice-row.tsx';
 export { DeskButton, DeskIconButton } from './desk-button.tsx';
 export type { DeskButtonProps, DeskButtonVariant } from './desk-button.tsx';
 export { DeskChip } from './desk-chip.tsx';
+export { DeskColumnPicker } from './desk-column-picker.tsx';
+export { DeskRowMenu } from './desk-row-menu.tsx';
 export type { DeskChipSize } from './desk-chip.tsx';
 export { DeskSelect, DropTrigger } from './desk-select.tsx';
 export type { DeskSelectOption } from './desk-select.tsx';

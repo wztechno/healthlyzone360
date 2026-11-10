@@ -37,6 +37,7 @@ export function MiniMonthPicker({
     marked,
     onMonthShown,
     min,
+    max,
     caption,
     testID,
 }: {
@@ -44,6 +45,8 @@ export function MiniMonthPicker({
     readonly value: string;
     /** `YYYY-MM-DD` — the first day that may be picked; the ones before it are drawn and inert. */
     readonly min?: string | undefined;
+    /** `YYYY-MM-DD` — the last day that may be picked; the ones after it are drawn and inert. */
+    readonly max?: string | undefined;
     /** Translated — a label drawn over the pill, as a form field's ("Day"). */
     readonly caption?: string | undefined;
     readonly today: string;
@@ -96,6 +99,7 @@ export function MiniMonthPicker({
                         today={today}
                         marked={marked}
                         min={min}
+                        max={max}
                         onMonth={show}
                         onPick={(day) => {
                             onChange(day);
@@ -126,6 +130,7 @@ function MonthPanel({
     today,
     marked,
     min,
+    max,
     onMonth,
     onPick,
     testID,
@@ -135,6 +140,7 @@ function MonthPanel({
     readonly today: string;
     readonly marked: ((day: string) => boolean) | undefined;
     readonly min: string | undefined;
+    readonly max: string | undefined;
     readonly onMonth: (month: string) => void;
     readonly onPick: (day: string) => void;
     readonly testID: string;
@@ -193,7 +199,9 @@ function MonthPanel({
                             isToday={day === today}
                             chosen={day === value}
                             dot={marked?.(day) === true}
-                            disabled={min !== undefined && day < min}
+                            disabled={
+                                (min !== undefined && day < min) || (max !== undefined && day > max)
+                            }
                             onPick={onPick}
                             testID={`${testID}-day-${day}`}
                         />

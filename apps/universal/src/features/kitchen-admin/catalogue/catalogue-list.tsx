@@ -12,6 +12,7 @@ import type { CatalogueColumn } from './catalogue-column-spec.ts';
 import { useCataloguePort } from './catalogue-nav.tsx';
 import { CATALOGUE_PAGE_SIZE, CataloguePager } from './catalogue-pager.tsx';
 import { ROW_ACTIONS_WIDTH, RowActionsMenu } from './row-actions-menu.tsx';
+import { DeskRowMenu } from '../desk-kit/desk-row-menu.tsx';
 import { RowThumbnail } from './row-thumbnail.tsx';
 
 /**
@@ -97,6 +98,8 @@ export interface CatalogueListProps<Row> {
     readonly rowActions?: ((row: Row) => readonly MenuItem[]) | undefined;
     /** Accessible name for the overflow trigger. */
     readonly rowActionsLabel: string;
+    /** `desk`: the desk kit's `⋯` and dropdown card (`DeskRowMenu`) — the desk pages' look. */
+    readonly rowActionsLook?: 'list' | 'desk' | undefined;
     readonly emptyState?: ReactNode | undefined;
     /**
      * Rows cascade in as they mount — `DataList`'s `rowEntrance`. On by default: every admin list
@@ -192,6 +195,7 @@ function CatalogueTable<Row>({
     onRowPress,
     rowActions,
     rowActionsLabel,
+    rowActionsLook = 'list',
     emptyState,
     rowEntrance = true,
     highlightedId,
@@ -278,6 +282,7 @@ function CatalogueTable<Row>({
                       t('kitchen:list.actionHeader'),
                       rowKey,
                       testID,
+                      rowActionsLook,
                   ),
               ];
 
@@ -510,6 +515,7 @@ function actionColumn<Row>(
     header: string,
     rowKey: (row: Row) => string,
     testID: string,
+    look: 'list' | 'desk' = 'list',
 ): CatalogueColumn<Row> {
     return {
         key: 'actions',
@@ -522,16 +528,18 @@ function actionColumn<Row>(
         // out over the other tracks; a share here would only spend it on padding.
         grow: false,
         role: 'actions',
-        render: (row) => (
-            <RowActionsMenu
-                actions={rowActions(row).map((action) => ({
-                    ...action,
-                    // The item's own id where it has one, else one derived from the row.
-                    testID: action.testID ?? `${testID}-row-${rowKey(row)}-action-${action.key}`,
-                }))}
-                label={label}
-                testID={`${testID}-row-${rowKey(row)}-actions`}
-            />
-        ),
+        render: (row) => {
+            const actions = rowActions(row).map((action) => ({
+                ...action,
+                // The item's own id where it has one, else one derived from the row.
+                testID: action.testID ?? `${testID}-row-${rowKey(row)}-action-${action.key}`,
+            }));
+            const menuTestID = `${testID}-row-${rowKey(row)}-actions`;
+            return look === 'desk' ? (
+                <DeskRowMenu actions={actions} label={label} testID={menuTestID} />
+            ) : (
+                <RowActionsMenu actions={actions} label={label} testID={menuTestID} />
+            );
+        },
     };
 }

@@ -17,6 +17,8 @@ import {
     DeskButton,
     DeskChip,
     DeskIconButton,
+    DeskColumnPicker,
+    DeskRowMenu,
     DeskSelect,
     DeskTabs,
     ListGroupRow,
@@ -123,6 +125,17 @@ export function OrdersShowcaseScreen() {
     const [day, setDay] = useState(TODAY);
     const [open, setOpen] = useState(false);
     const [openB, setOpenB] = useState(false);
+    const columnChoices = [
+        'Ingredient',
+        'Required',
+        'On hand',
+        'Reserved',
+        'Available',
+        'Short',
+        'Suggested buy',
+        'Unit',
+    ];
+    const [shownColumns, setShownColumns] = useState<readonly string[]>(columnChoices.slice(0, 6));
     const [slot, setSlot] = useState<'all' | 'lunch' | 'dinner'>('all');
     const [mode, setMode] = useState<'month' | 'week'>('month');
     const [method, setMethod] = useState<'cash' | 'counter' | 'wish'>('cash');
@@ -313,6 +326,56 @@ export function OrdersShowcaseScreen() {
                         </View>
                     </View>
 
+                    <Text variant="title">Row menu and Show columns</Text>
+                    <View className="z-20 flex-row flex-wrap items-center gap-4">
+                        <DeskRowMenu
+                            testID="showcase-orders-row-menu"
+                            label="Row actions"
+                            actions={[
+                                {
+                                    key: 'view',
+                                    label: 'View ingredient',
+                                    icon: 'eye',
+                                    primary: true,
+                                    onSelect: () => undefined,
+                                },
+                                {
+                                    key: 'edit',
+                                    label: 'Edit ingredient',
+                                    icon: 'pen',
+                                    onSelect: () => undefined,
+                                },
+                            ]}
+                        />
+                        <DeskColumnPicker
+                            testID="showcase-orders-columns"
+                            options={columnChoices.map((key) => ({
+                                key,
+                                label: key,
+                                shown: shownColumns.includes(key),
+                                disabled:
+                                    key === 'Ingredient' ||
+                                    (!shownColumns.includes(key) && shownColumns.length >= 6),
+                            }))}
+                            shown={shownColumns.length}
+                            max={6}
+                            onToggle={(key) => {
+                                setShownColumns((current) =>
+                                    current.includes(key)
+                                        ? current.filter((item) => item !== key)
+                                        : [...current, key],
+                                );
+                            }}
+                            onReset={() => {
+                                setShownColumns(columnChoices.slice(0, 6));
+                            }}
+                            onClear={() => {
+                                setShownColumns(['Ingredient']);
+                            }}
+                            canClear={shownColumns.length > 1}
+                        />
+                    </View>
+
                     <Text variant="title">Desk dropdown and mini month</Text>
                     <View className="z-10 flex-row flex-wrap items-center gap-2">
                         <DeskSelect<'all' | 'lunch' | 'dinner'>
@@ -390,10 +453,13 @@ export function OrdersShowcaseScreen() {
                         />
                     </View>
 
-                    <Text variant="title">Order pop-up — layout B (in the app since 2026-11-11)</Text>
+                    <Text variant="title">
+                        Order pop-up — layout B (in the app since 2026-11-11)
+                    </Text>
                     <Text variant="label" tone="secondary">
                         A progress track with the next step, three cards (customer, delivery, money)
-                        each with one action, allergies and the note lifted out, items ending in totals
+                        each with one action, allergies and the note lifted out, items ending in
+                        totals
                     </Text>
                     <View className="flex-row">
                         <DeskButton

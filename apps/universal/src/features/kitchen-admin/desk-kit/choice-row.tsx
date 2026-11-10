@@ -74,7 +74,9 @@ export function ChoiceRow({
                 <View
                     aria-hidden
                     className={`h-5 w-5 items-center justify-center rounded-md border-[1.5px] ${
-                        selected ? 'border-surface-brand bg-surface-brand' : 'border-stroke bg-surface-raised'
+                        selected
+                            ? 'border-surface-brand bg-surface-brand'
+                            : 'border-stroke bg-surface-raised'
                     }`}
                 >
                     {selected ? (
