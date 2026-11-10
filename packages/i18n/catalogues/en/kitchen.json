@@ -211,6 +211,7 @@
             "columnDelivery": "Delivery",
             "columnItems": "Items",
             "columnTotal": "Total",
+            "columnNext": "Next step",
             "columnActions": "Actions",
             "loadMore": "Load more",
             "loadingMore": "Loading…",

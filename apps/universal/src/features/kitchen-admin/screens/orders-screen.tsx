@@ -386,6 +386,29 @@ function Orders({ view }: { readonly view?: string | undefined }) {
                 />
             ),
         },
+        {
+            // The order's next move as a button on the row, so a kitchen confirms and fulfils
+            // down the list without opening a menu or the order (2026-11-10).
+            key: 'next',
+            label: t('kitchen:ops.orders.columnNext'),
+            width: 160,
+            priority: 90,
+            value: (row) => {
+                const step = nextOrderStep(row);
+                return step === null ? '' : t(NEXT_STEP_LABEL[step]);
+            },
+            render: (row) => (
+                <OrderNextStep
+                    row={row}
+                    onOpen={openRecord}
+                    onChanged={(next) => {
+                        setCarried((held) =>
+                            held.map((candidate) => (candidate.id === next.id ? next : candidate)),
+                        );
+                    }}
+                />
+            ),
+        },
     ];
 
     const controls = useColumnControls(rows, columns, 'kitchen-orders');
@@ -694,6 +717,97 @@ function OrderLinesTable({
     );
 }
 
+type OrderStep = 'confirm' | 'fulfil' | 'deliver';
+
+const NEXT_STEP_LABEL: Readonly<Record<OrderStep, string>> = {
+    confirm: 'kitchen:ops.orders.confirm',
+    fulfil: 'kitchen:ops.orders.fulfil',
+    deliver: 'kitchen:ops.orders.markDelivered',
+};
+
+/**
+ * What the order's next move is, by the same rules the record's own button follows. A delivery
+ * is marked delivered only once it is ready and its run has not failed, and only behind the
+ * record's confirmation (it also ends the driver's run), so its step opens the record.
+ */
+function nextOrderStep(order: KitchenOrder): OrderStep | null {
+    if (canConfirmKitchenOrder(order.status)) return 'confirm';
+    if (!canFulfilKitchenOrder(order.status)) return null;
+    if (order.fulfilmentType !== 'delivery') return 'fulfil';
+    const ready = (order.readyAt ?? null) !== null;
+    return ready && order.deliveryRun?.status !== 'failed' ? 'deliver' : null;
+}
+
+/**
+ * The row's next-step button. It sends the row's `lockVersion`, which can be older than the
+ * record's re-read: when somebody else moved the order first the server refuses, the toast says so,
+ * and the list's refetch shows where it stands.
+ */
+function OrderNextStep({
+    row,
+    onOpen,
+    onChanged,
+}: {
+    readonly row: KitchenOrder;
+    readonly onOpen: (row: KitchenOrder) => void;
+    readonly onChanged: (next: KitchenOrder) => void;
+}) {
+    const { t } = useTranslation();
+    const toast = useToast();
+    const canManage = useCan(ORDER_MANAGE_PERMISSION);
+    const confirmOrder = useConfirmOrderMutation();
+    const fulfilOrder = useFulfilOrderMutation();
+
+    const step = nextOrderStep(row);
+    if (!canManage || step === null) return null;
+
+    const testID = `${kitchenOrderRowTestId(String(row.id))}-next`;
+    const pending = confirmOrder.isPending || fulfilOrder.isPending;
+    const request = { id: row.id, lockVersion: row.lockVersion };
+    const callbacks = {
+        onSuccess: (next: KitchenOrder) => {
+            onChanged(next);
+            toast.show({
+                testID: `kitchen-orders-${step === 'confirm' ? 'confirm' : 'fulfil'}ed-toast`,
+                tone: 'success',
+                message: t(
+                    step === 'confirm'
+                        ? 'kitchen:ops.orders.confirmedToast'
+                        : 'kitchen:ops.orders.fulfilledToast',
+                    { number: next.orderNumber },
+                ),
+            });
+        },
+        onError: (error: unknown) => {
+            toast.show({
+                testID: `${testID}-error`,
+                tone: 'danger',
+                message: t(
+                    toFailure(error)?.code === 'resource.conflict'
+                        ? 'kitchen:ops.orders.conflictTitle'
+                        : 'kitchen:ops.orders.saveFailed',
+                ),
+            });
+        },
+    };
+
+    return (
+        <Button
+            testID={testID}
+            variant={step === 'deliver' ? 'secondary' : 'primary'}
+            size="sm"
+            label={t(NEXT_STEP_LABEL[step])}
+            loading={pending}
+            disabled={pending}
+            onPress={() => {
+                if (step === 'deliver') onOpen(row);
+                else if (step === 'confirm') confirmOrder.mutate(request, callbacks);
+                else fulfilOrder.mutate(request, callbacks);
+            }}
+        />
+    );
+}
+
 function OrderRecord({
     seed,
     onBack,
@@ -905,7 +1019,8 @@ function OrderRecord({
             </Stack>
         );
 
-    // Every action the order has left, behind the pop-up's ⋯ after `forward`.
+    // Every other action the order has left, behind the pop-up's ⋯. Its forward move and Cancel
+    // are buttons on the header (`headerActions`).
     const orderActions: RecordAction[] = [
         ...(order === null
             ? []
@@ -976,26 +1091,7 @@ function OrderRecord({
                       },
                   },
               ]),
-        ...(!canManage ||
-        order === null ||
-        !canCancelKitchenOrder(order.status) ||
-        pickedUp ||
-        (started && !canSupervise)
-            ? []
-            : [
-                  {
-                      key: 'cancel',
-                      label: t('kitchen:ops.orders.cancel'),
-                      icon: 'ban' as const,
-                      tone: 'danger' as const,
-                      testID: 'kitchen-orders-cancel',
-                      disabled: actionPending,
-                      onSelect: () => {
-                          clearActionState();
-                          setCancelling(true);
-                      },
-                  },
-              ]),
+        // Cancel is on the header with the forward button — see `headerActions` below.
         // The server's `amendable` decides; the desk's sale page edits it.
         ...(order === null || !order.amendable || !canSell
             ? []
@@ -1276,6 +1372,45 @@ function OrderRecord({
                     }
                   : undefined;
 
+    const cancelAllowed =
+        canManage &&
+        order !== null &&
+        canCancelKitchenOrder(order.status) &&
+        !pickedUp &&
+        (!started || canSupervise);
+
+    // The order's moves on the header band, not behind ⋯: the reason an order is opened is to
+    // move it on (2026-11-10). The forward button is the rail's own active pill.
+    const headerActions =
+        forward === undefined && !cancelAllowed ? undefined : (
+            <>
+                {!cancelAllowed ? null : (
+                    <Button
+                        testID="kitchen-orders-cancel"
+                        variant="secondary"
+                        size="sm"
+                        label={t('kitchen:ops.orders.cancel')}
+                        disabled={actionPending}
+                        onPress={() => {
+                            clearActionState();
+                            setCancelling(true);
+                        }}
+                    />
+                )}
+                {forward === undefined ? null : (
+                    <Button
+                        testID={forward.testID}
+                        variant="sidebar"
+                        size="sm"
+                        label={forward.label}
+                        loading={forward.loading}
+                        disabled={forward.disabled}
+                        onPress={forward.onPress}
+                    />
+                )}
+            </>
+        );
+
     return (
         <>
             <RecordViewPage
@@ -1303,7 +1438,7 @@ function OrderRecord({
                 rail={[totals]}
                 statusContent={actionContent}
                 footNote={t('kitchen:ops.orders.cancelFinal')}
-                primaryAction={forward}
+                headerActions={headerActions}
                 actions={orderActions}
             />
 

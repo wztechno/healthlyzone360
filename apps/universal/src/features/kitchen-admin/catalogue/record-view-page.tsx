@@ -135,6 +135,12 @@ export interface RecordViewPageProps {
     /** Every other action the record has, behind ⋯ after the primary, in order. */
     readonly actions?: readonly RecordAction[] | undefined;
     /**
+     * Buttons drawn on the header band itself, for a record whose next move is the reason it is
+     * opened — an order's Confirm / Mark fulfilled / Cancel (2026-11-10). The exception to "every
+     * action is behind ⋯": anything here is left out of `primaryAction` and `actions`.
+     */
+    readonly headerActions?: ReactNode | undefined;
+    /**
      * `board` is the Catalogue boards' drawing: the large canopy with the status as a pill, tiles
      * with a title and no glyph, and fields as label-and-value rows. Every other View page keeps
      * the default until its own boards are applied.
@@ -178,6 +184,7 @@ export function RecordViewPage({
     media,
     primaryAction,
     actions,
+    headerActions,
     look = 'default',
     eyebrow,
     testID,
@@ -267,6 +274,7 @@ export function RecordViewPage({
                                 ? []
                                 : [{ text: footNote, testID: `${testID}-foot-note` }]),
                         ]}
+                        actions={headerActions}
                     />
                 ) : (
                     <RecordCanopy
@@ -279,6 +287,7 @@ export function RecordViewPage({
                             : { status: { label: status.label, tone: canopyTone(status.tone) } })}
                         titleBadges={titleAside}
                         captions={captions}
+                        actions={headerActions}
                         noValue={t('kitchen:list.noValue')}
                     />
                 )}
