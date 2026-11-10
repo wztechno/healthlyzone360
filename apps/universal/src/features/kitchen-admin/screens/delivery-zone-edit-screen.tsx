@@ -73,6 +73,7 @@ import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
+import { BackPill } from '../../../ui/back-pill.tsx';
 
 /**
  * `/kitchen/delivery-zones/{zone}` — one delivery zone: where it reaches, what it charges, and when.
@@ -655,9 +656,8 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                     tone="warning"
                     title={t('kitchen:zones.notFoundTitle')}
                     actions={
-                        <Button
+                        <BackPill
                             testID="kitchen-zone-not-found-back"
-                            variant="quiet"
                             label={t('kitchen:zones.backToList')}
                             onPress={back.leave}
                         />

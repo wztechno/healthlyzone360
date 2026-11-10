@@ -83,6 +83,7 @@ import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
+import { BackPill } from '../../../ui/back-pill.tsx';
 
 /**
  * `/kitchen/plans/{plan}` — the commercial definition of a subscription plan.
@@ -980,9 +981,8 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                     tone="warning"
                     title={t('kitchen:plans.notFoundTitle')}
                     actions={
-                        <Button
+                        <BackPill
                             testID="kitchen-plan-not-found-back"
-                            variant="quiet"
                             label={t('kitchen:plans.backToList')}
                             onPress={back.leave}
                         />

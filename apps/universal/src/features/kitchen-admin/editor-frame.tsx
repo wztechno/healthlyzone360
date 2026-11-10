@@ -24,6 +24,7 @@ import type { EditorStepsProps } from './editor-steps.tsx';
 import { useKitchenTrailLeaf } from './kitchen-ops-shell.tsx';
 import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
+import { BackPill } from '../../ui/back-pill.tsx';
 
 /** The editor rail's width beside the form. A style: there is no rail-width token. */
 const EDITOR_RAIL_WIDTH = 330;
@@ -285,9 +286,8 @@ export function EditorFrame({
                                 testID={`${testID}-actions`}
                             >
                                 {hideBack ? null : (
-                                    <Button
+                                    <BackPill
                                         testID={`${testID}-back`}
-                                        variant="secondary"
                                         label={backLabel}
                                         onPress={() => {
                                             guard.intercept(onBack);

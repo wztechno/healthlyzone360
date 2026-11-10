@@ -8,6 +8,7 @@ import { useListPrint } from '../catalogue/list-print.ts';
 import type { PrintResource } from '../catalogue/list-print.ts';
 import { ListPrintSheet } from '../catalogue/list-print-sheet.tsx';
 import { usePrintSheet } from '../print-sheet.tsx';
+import { BackPill } from '../../../ui/back-pill.tsx';
 
 /**
  * `/kitchen/{ingredients|recipes|stock}/print` — the list the reader was looking at, as a page
@@ -31,9 +32,8 @@ export function ListPrintScreen({ resource }: ListPrintScreenProps) {
     const [job] = useState(() => read(resource));
 
     const backButton = (
-        <Button
+        <BackPill
             testID="kitchen-list-print-back"
-            variant="secondary"
             label={t('kitchen:common.back')}
             onPress={back}
         />

@@ -42,6 +42,7 @@ import {
     customerTypeKey,
     customerTypeTone,
 } from './customers-screen.tsx';
+import { BackPill } from '../../../ui/back-pill.tsx';
 
 /**
  * `/kitchen/customers/{customer}` — one customer in the kitchen's book: their contacts, every saved
@@ -107,9 +108,8 @@ function CustomerRecord({ customer }: CustomerDetailScreenProps) {
                     tone="warning"
                     title={t('kitchen:ops.customers.notFoundTitle')}
                     actions={
-                        <Button
+                        <BackPill
                             testID="kitchen-customer-not-found-back"
-                            variant="quiet"
                             label={t('kitchen:ops.customers.backToList')}
                             onPress={backToList}
                         />

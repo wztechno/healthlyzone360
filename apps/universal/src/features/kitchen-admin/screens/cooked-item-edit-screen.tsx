@@ -9,7 +9,6 @@ import type {
     ReferenceSeries,
 } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     ErrorState,
     FormSkeleton,
@@ -48,6 +47,7 @@ import { MealListing } from '../meal-listing.tsx';
 import { parseStockGapFix } from '../recipe-stock-gap-fix.ts';
 import { ProductEditScreen } from './product-edit-screen.tsx';
 import { RecipeEditScreen } from './recipe-edit-screen.tsx';
+import { BackPill } from '../../../ui/back-pill.tsx';
 
 /**
  * `/kitchen/recipes/{recipe}` and `/kitchen/recipes/new?kind=…` — one page for everything a kitchen
@@ -528,9 +528,8 @@ function CookedItemEditor({
                     tone="warning"
                     title={t('kitchen:products.notFoundTitle')}
                     actions={
-                        <Button
+                        <BackPill
                             testID="kitchen-cooked-item-not-found-back"
-                            variant="quiet"
                             label={t('kitchen:recipes.backToList')}
                             onPress={back.leave}
                         />
