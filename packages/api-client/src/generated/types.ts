@@ -10265,6 +10265,39 @@ export type OrderDeskCalendarDay = {
     windows: Array<OrderDeskCalendarWindow>;
 };
 
+export type OrderDeskPlanMealsEnvelope = {
+    data: Array<OrderDeskPlanMeal>;
+    meta: Meta & {
+        date: string;
+        count: number;
+    };
+};
+
+/**
+ * One subscriber's plan day that is not an order yet.
+ */
+export type OrderDeskPlanMeal = {
+    subscription_id: Uuid;
+    basis: 'scheduled' | 'projected';
+    plan: {
+        name_en: string | null;
+        name_ar: string | null;
+    };
+    meals_per_day: number | null;
+    snacks_per_day: number | null;
+    /**
+     * What has been picked, by sitting. Fewer than the plan's servings means the rest are not chosen yet.
+     */
+    meals: Array<{
+        slot: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+        sequence: number;
+        catalogue_item_id: Uuid;
+        name_en: string | null;
+        name_ar: string | null;
+    }>;
+    customer?: OrderDeskCustomerContact;
+};
+
 export type OrderDeskCalendarEnvelope = {
     data: {
         /**
@@ -37725,6 +37758,70 @@ export type GetOrderDeskCalendarResponses = {
 };
 
 export type GetOrderDeskCalendarResponse = GetOrderDeskCalendarResponses[keyof GetOrderDeskCalendarResponses];
+
+export type GetOrderDeskPlanMealsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * The day to list.
+         */
+        date: string;
+        /**
+         * Narrow to one production site. Omitted, the list is organisation-wide.
+         */
+        branch_id?: Uuid;
+    };
+    url: '/catalogue/order-desk/plan-meals';
+};
+
+export type GetOrderDeskPlanMealsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderDeskPlanMealsError = GetOrderDeskPlanMealsErrors[keyof GetOrderDeskPlanMealsErrors];
+
+export type GetOrderDeskPlanMealsResponses = {
+    /**
+     * The day's plan meals, one row per subscriber.
+     */
+    200: OrderDeskPlanMealsEnvelope;
+};
+
+export type GetOrderDeskPlanMealsResponse = GetOrderDeskPlanMealsResponses[keyof GetOrderDeskPlanMealsResponses];
 
 export type GetOrderDeskRequirementsData = {
     body?: never;

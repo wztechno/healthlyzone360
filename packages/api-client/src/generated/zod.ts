@@ -6602,6 +6602,41 @@ export const zOrderDeskCalendarDay = z.object({
     windows: z.array(zOrderDeskCalendarWindow)
 });
 
+/**
+ * One subscriber's plan day that is not an order yet.
+ */
+export const zOrderDeskPlanMeal = z.object({
+    subscription_id: zUuid,
+    basis: z.enum(['scheduled', 'projected']),
+    plan: z.object({
+        name_en: z.string().nullable(),
+        name_ar: z.string().nullable()
+    }),
+    meals_per_day: z.int().nullable(),
+    snacks_per_day: z.int().nullable(),
+    meals: z.array(z.object({
+        slot: z.enum([
+            'breakfast',
+            'lunch',
+            'dinner',
+            'snack'
+        ]),
+        sequence: z.int(),
+        catalogue_item_id: zUuid,
+        name_en: z.string().nullable(),
+        name_ar: z.string().nullable()
+    })),
+    customer: zOrderDeskCustomerContact.optional()
+});
+
+export const zOrderDeskPlanMealsEnvelope = z.object({
+    data: z.array(zOrderDeskPlanMeal),
+    meta: zMeta.and(z.object({
+        date: z.iso.date(),
+        count: z.int().gte(0)
+    }))
+});
+
 export const zOrderDeskCalendarEnvelope = z.object({
     data: z.object({
         days: z.array(zOrderDeskCalendarDay)
@@ -16310,6 +16345,21 @@ export const zGetOrderDeskCalendarQuery = z.object({
  * Every day of the window, each with its three counts and their split by slot.
  */
 export const zGetOrderDeskCalendarResponse = zOrderDeskCalendarEnvelope;
+
+export const zGetOrderDeskPlanMealsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderDeskPlanMealsQuery = z.object({
+    date: z.iso.date(),
+    branch_id: zUuid.optional()
+});
+
+/**
+ * The day's plan meals, one row per subscriber.
+ */
+export const zGetOrderDeskPlanMealsResponse = zOrderDeskPlanMealsEnvelope;
 
 export const zGetOrderDeskRequirementsHeaders = z.object({
     'X-Organisation-Id': zUuid,

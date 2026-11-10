@@ -265,6 +265,7 @@ use Healthy360\Orders\OrderDesk\Http\Controllers\KitchenCustomerIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\KitchenCustomerShowController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskAmendmentController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCalendarController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskPlanMealsController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCashReportController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCloseController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAddressStoreController;
@@ -2433,6 +2434,11 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/order-desk/calendar', OrderDeskCalendarController::class)
                     ->middleware('permission:subscription.view_organisation')
                     ->name('catalogue.order-desk.calendar');
+                // The calendar's plan meals for one day, by subscriber and dish:
+                // the same two codes, for the same union of two books.
+                Route::get('/order-desk/plan-meals', OrderDeskPlanMealsController::class)
+                    ->middleware('permission:subscription.view_organisation')
+                    ->name('catalogue.order-desk.plan-meals');
             });
 
             /*

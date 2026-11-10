@@ -698,6 +698,8 @@ export type {
     OrderDeskCustomer,
     OrderDeskCustomerAddress,
     OrderDeskCustomerContact,
+    OrderDeskPlanMeal,
+    OrderDeskPlanMealDish,
     OrderDeskCustomerCreated,
     OrderDeskCustomerOrigin,
     OrderDeskCustomerAllergies,

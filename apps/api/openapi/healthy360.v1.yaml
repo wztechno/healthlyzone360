@@ -16920,6 +16920,63 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/order-desk/plan-meals:
+    get:
+      operationId: getOrderDeskPlanMeals
+      tags: [Order desk]
+      summary: One day's plan meals that are not orders yet, by subscriber and dish
+      description: |
+        The calendar's plan-meal count for one day, opened. A plan day is an
+        order that has not been made yet — the generator turns it into one a day
+        ahead — so each row reads like an order: whose it is, which plan, and the
+        dish the subscriber picked for each sitting.
+
+        * `basis` is `scheduled` (claimed by the generator, no order yet) or
+          `projected` (the plan's weekdays say it is coming; a forecast).
+        * `meals` holds what has been picked. Fewer meals than `meals_per_day`
+          plus `snacks_per_day` means the rest are not chosen yet.
+        * A day the generator has already turned into an order is **absent**:
+          its order is on the book, and listing it here too would cook it twice.
+
+        Requires **both** `order.view_organisation` and
+        `subscription.view_organisation`, as the calendar does. `customer` is
+        present only for a caller who also holds
+        `order.view_customer_contact_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: date
+          in: query
+          required: true
+          description: The day to list.
+          schema:
+            type: string
+            format: date
+        - name: branch_id
+          in: query
+          required: false
+          description: Narrow to one production site. Omitted, the list is organisation-wide.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The day's plan meals, one row per subscriber.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskPlanMealsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /catalogue/order-desk/requirements:
     get:
       operationId: getOrderDeskRequirements
@@ -42933,6 +42990,68 @@ components:
           items:
             $ref: '#/components/schemas/OrderDeskCalendarWindow'
 
+    OrderDeskPlanMealsEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderDeskPlanMeal'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required: [date, count]
+              properties:
+                date:
+                  type: string
+                  format: date
+                count:
+                  type: integer
+                  minimum: 0
+    OrderDeskPlanMeal:
+      type: object
+      description: One subscriber's plan day that is not an order yet.
+      required: [subscription_id, basis, plan, meals_per_day, snacks_per_day, meals]
+      properties:
+        subscription_id:
+          $ref: '#/components/schemas/Uuid'
+        basis:
+          type: string
+          enum: [scheduled, projected]
+        plan:
+          type: object
+          required: [name_en, name_ar]
+          properties:
+            name_en:
+              type: [string, 'null']
+            name_ar:
+              type: [string, 'null']
+        meals_per_day:
+          type: [integer, 'null']
+        snacks_per_day:
+          type: [integer, 'null']
+        meals:
+          type: array
+          description: What has been picked, by sitting. Fewer than the plan's servings means the rest are not chosen yet.
+          items:
+            type: object
+            required: [slot, sequence, catalogue_item_id, name_en, name_ar]
+            properties:
+              slot:
+                type: string
+                enum: [breakfast, lunch, dinner, snack]
+              sequence:
+                type: integer
+              catalogue_item_id:
+                $ref: '#/components/schemas/Uuid'
+              name_en:
+                type: [string, 'null']
+              name_ar:
+                type: [string, 'null']
+        customer:
+          $ref: '#/components/schemas/OrderDeskCustomerContact'
     OrderDeskCalendarEnvelope:
       type: object
       required: [data, meta]

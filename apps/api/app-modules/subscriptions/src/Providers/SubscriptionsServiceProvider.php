@@ -9,6 +9,7 @@ use Healthy360\Customers\Closure\Contracts\SubscriptionPresence;
 use Healthy360\Inventory\Contracts\SubscriptionMealDemand;
 use Healthy360\Orders\Contracts\BuyerAllergenCheck;
 use Healthy360\Orders\Contracts\OrderPlanDays;
+use Healthy360\Orders\Contracts\PlanDayListing;
 use Healthy360\Orders\Contracts\SubscriptionOutlook;
 use Healthy360\Subscriptions\Console\GenerateSubscriptionDeliveriesCommand;
 use Healthy360\Subscriptions\Contracts\MealSafety;
@@ -18,6 +19,7 @@ use Healthy360\Subscriptions\Services\CreditMemoPresenceAdapter;
 use Healthy360\Subscriptions\Services\MealSafetyService;
 use Healthy360\Subscriptions\Services\OrderPlanDaysAdapter;
 use Healthy360\Subscriptions\Services\SubscriptionMealDemandAdapter;
+use Healthy360\Subscriptions\Services\PlanDayListingAdapter;
 use Healthy360\Subscriptions\Services\SubscriptionOutlookAdapter;
 use Healthy360\Subscriptions\Services\SubscriptionPresenceAdapter;
 use Healthy360\Subscriptions\Services\SubscriptionQueryService;
@@ -95,6 +97,8 @@ class SubscriptionsServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->app->bind(SubscriptionOutlook::class, SubscriptionOutlookAdapter::class);
+        // The order desk's day panel: a day's plan meals by subscriber, with the dishes picked.
+        $this->app->bind(PlanDayListing::class, PlanDayListingAdapter::class);
         // The order view's "which meal for which sitting".
         $this->app->bind(OrderPlanDays::class, OrderPlanDaysAdapter::class);
         $this->app->bind(SubscriptionMealDemand::class, SubscriptionMealDemandAdapter::class);
