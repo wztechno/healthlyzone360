@@ -36,10 +36,16 @@ export function MiniMonthPicker({
     onChange,
     marked,
     onMonthShown,
+    min,
+    caption,
     testID,
 }: {
     /** `YYYY-MM-DD`. */
     readonly value: string;
+    /** `YYYY-MM-DD` — the first day that may be picked; the ones before it are drawn and inert. */
+    readonly min?: string | undefined;
+    /** Translated — a label drawn over the pill, as a form field's ("Day"). */
+    readonly caption?: string | undefined;
     readonly today: string;
     /** Translated — what the pill says, "Today · Tue 10 Nov". */
     readonly valueLabel: string;
@@ -57,7 +63,7 @@ export function MiniMonthPicker({
         onMonthShown?.(month);
     }
 
-    return (
+    const picker = (
         <Dropdown
             testID={testID}
             label={label}
@@ -89,6 +95,7 @@ export function MiniMonthPicker({
                         value={value}
                         today={today}
                         marked={marked}
+                        min={min}
                         onMonth={show}
                         onPick={(day) => {
                             onChange(day);
@@ -100,6 +107,17 @@ export function MiniMonthPicker({
             )}
         </Dropdown>
     );
+
+    return caption === undefined ? (
+        picker
+    ) : (
+        <View className="z-auto flex-col gap-1.5">
+            <RNText className="text-role-strong font-medium text-content-secondary">
+                {caption}
+            </RNText>
+            {picker}
+        </View>
+    );
 }
 
 function MonthPanel({
@@ -107,6 +125,7 @@ function MonthPanel({
     value,
     today,
     marked,
+    min,
     onMonth,
     onPick,
     testID,
@@ -115,6 +134,7 @@ function MonthPanel({
     readonly value: string;
     readonly today: string;
     readonly marked: ((day: string) => boolean) | undefined;
+    readonly min: string | undefined;
     readonly onMonth: (month: string) => void;
     readonly onPick: (day: string) => void;
     readonly testID: string;
@@ -173,6 +193,7 @@ function MonthPanel({
                             isToday={day === today}
                             chosen={day === value}
                             dot={marked?.(day) === true}
+                            disabled={min !== undefined && day < min}
                             onPick={onPick}
                             testID={`${testID}-day-${day}`}
                         />
@@ -189,6 +210,7 @@ function DayCell({
     isToday,
     chosen,
     dot,
+    disabled,
     onPick,
     testID,
 }: {
@@ -197,6 +219,7 @@ function DayCell({
     readonly isToday: boolean;
     readonly chosen: boolean;
     readonly dot: boolean;
+    readonly disabled: boolean;
     readonly onPick: (day: string) => void;
     readonly testID: string;
 }): ReactNode {
@@ -211,7 +234,9 @@ function DayCell({
                 day: 'numeric',
                 month: 'long',
             })}
-            accessibilityState={{ selected: chosen }}
+            accessibilityState={{ selected: chosen, disabled }}
+            aria-disabled={disabled}
+            disabled={disabled}
             onPress={() => {
                 onPick(day);
             }}
@@ -221,7 +246,7 @@ function DayCell({
                     : isToday
                       ? 'border-[1.5px] border-surface-brand hover:bg-surface-sunken'
                       : 'hover:bg-surface-sunken'
-            } ${outside && !chosen ? 'opacity-50' : ''}`}
+            } ${(outside || disabled) && !chosen ? 'opacity-40' : ''}`}
         >
             <RNText
                 className={`text-role-strong tabular-nums ${

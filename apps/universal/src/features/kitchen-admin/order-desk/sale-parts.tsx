@@ -397,8 +397,8 @@ export function TicketLabel({
         <View className="flex-row items-center gap-1.5">
             <Text
                 variant="micro"
-                tone="sidebarMuted"
-                className="font-semibold uppercase tracking-wider"
+                tone="secondary"
+                className="!text-[11px] font-bold uppercase tracking-wider"
             >
                 {children}
             </Text>

@@ -17,7 +17,6 @@ import {
     Button,
     Callout,
     Checkbox,
-    DatePickerButton,
     Drawer,
     EmptyState,
     ErrorState,
@@ -82,6 +81,7 @@ import { displayName } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs } from '../record-form-opening.tsx';
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
+import { DeskButton, DeskChip, MiniMonthPicker } from '../desk-kit/index.ts';
 import { allergenLabel, kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import type { BasketLine } from '../order-desk/basket.ts';
 import { DishChoiceFields, dishOptionsLine } from '../../../ui/dish-choices.tsx';
@@ -120,6 +120,7 @@ import {
 import { useDebouncedValue } from '../order-desk/use-debounced-value.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { isPlannerDate } from '../../planner/format.ts';
+import { relativeDay, shortDay } from '../orders/order-columns.tsx';
 import { landingHref, ordersHref } from '../orders/orders-url.ts';
 
 /**
@@ -214,7 +215,7 @@ const SEARCH_DEBOUNCE_MS = 300;
  * The ticket's width beside the menu. A style: there is no rail-width token. Wide enough for a name
  * beside a stepper pair and a line total at the compact sizes.
  */
-const TICKET_WIDTH = 340;
+const TICKET_WIDTH = 360;
 
 /** The menu's sections rail, beside the grid. A style for the same reason. */
 const SECTION_RAIL_WIDTH = 168;
@@ -223,7 +224,7 @@ const SECTION_RAIL_WIDTH = 168;
 const STRETCH = { alignSelf: 'stretch' } as const;
 /** Address and When share a row down to this width each, then stack. */
 // eslint-disable-next-line no-restricted-syntax -- two checkout cards share a row; not a control.
-const CHECKOUT_COLUMN = { flexGrow: 1, flexShrink: 1, flexBasis: 340, minWidth: 0 } as const;
+const CHECKOUT_COLUMN = { flexGrow: 1, flexShrink: 1, flexBasis: 420, minWidth: 0 } as const;
 
 /**
  * The narrowest a product tile may be before the grid drops a column, when the menu runs the full
@@ -810,6 +811,7 @@ function Sale() {
                     <Text
                         variant="title"
                         accessibilityRole="header"
+                        className="font-display !text-[26px] !leading-8 !font-bold tracking-tight"
                         testID="kitchen-order-desk-sale-editing"
                     >
                         {t('kitchen:desk.edit.title', { number: editOrder.orderNumber })}
@@ -910,7 +912,11 @@ function Sale() {
                                     <FormSection
                                         variant="panel"
                                         testID="kitchen-order-desk-sale-edit-address"
-                                        title={t('kitchen:desk.sale.addressTitle')}
+                                        title={t(
+                                            changingAddress
+                                                ? 'kitchen:desk.edit.currentAddress'
+                                                : 'kitchen:desk.sale.addressTitle',
+                                        )}
                                         actions={
                                             <Button
                                                 testID="kitchen-order-desk-sale-edit-address-toggle"
@@ -967,6 +973,9 @@ function Sale() {
                                     <AddressSection
                                         customerAccountId={state.customerAccountId}
                                         customerAddressId={state.customerAddressId}
+                                        {...(isEditing
+                                            ? { title: t('kitchen:desk.edit.newAddress') }
+                                            : {})}
                                         onSaved={(addressId) => {
                                             update({ ...state, customerAddressId: addressId });
                                         }}
@@ -989,6 +998,7 @@ function Sale() {
                                             : new Set()
                                     }
                                     firstDay={firstOpenDay(today, windowCodes, overToday)}
+                                    today={today}
                                     onSchedule={(next) => {
                                         update({ ...state, ...next });
                                     }}
@@ -1201,6 +1211,7 @@ function WhenSection({
     schedule,
     ended,
     firstDay,
+    today,
     onSchedule,
     drivers,
     driverUserId,
@@ -1217,6 +1228,7 @@ function WhenSection({
     readonly ended: ReadonlySet<string>;
     /** The earliest day the picker offers: tomorrow once every slot today is over. */
     readonly firstDay: string;
+    readonly today: string;
     readonly onSchedule: (
         next: Pick<SaleState, 'requestedDeliveryDate' | 'deliveryWindowCode'>,
     ) => void;
@@ -1227,6 +1239,13 @@ function WhenSection({
 }) {
     const { t } = useTranslation();
     const { locale } = useLocale();
+    const formatter = useFormatter();
+    /** "Today · Tue 10 Nov", or the date alone further out. */
+    const dayLabel = (day: string): string => {
+        const relative = relativeDay(day, today, t, formatter);
+        const short = shortDay(day, formatter);
+        return relative === short ? short : `${relative} · ${short}`;
+    };
 
     return (
         <FormSection
@@ -1241,14 +1260,13 @@ function WhenSection({
              */}
             <View className="z-auto flex-col gap-base">
                 <View className="z-auto flex-row flex-wrap items-end gap-snug">
-                    <DatePickerButton
+                    <MiniMonthPicker
                         testID="kitchen-order-desk-sale-date"
                         label={t('kitchen:desk.sale.dateLabel')}
-                        labelVisible
-                        // The When card is the checkout's last: opened downward, the month runs
-                        // past the foot of the column and has to be scrolled to.
-                        side="above"
+                        caption={t('kitchen:desk.sale.dateLabel')}
                         value={schedule.requestedDeliveryDate}
+                        today={today}
+                        valueLabel={dayLabel(schedule.requestedDeliveryDate)}
                         min={firstDay}
                         onChange={(requestedDeliveryDate) => {
                             onSchedule({
@@ -2062,31 +2080,33 @@ function Ticket({
             }
         >
             {/*
-             * The ticket as a receipt in the sidebar's green (option C, chosen 2026-11-07): the
-             * rail's own ground and ink, white fields and buttons on it, the one action in the
-             * rail's white pill. At checkout the same receipt grows the payment panel.
+             * The ticket as a white receipt (2026-11-10, replacing the sidebar-green one, which
+             * read poorly once it was long): a raised card with the brand's green only where it
+             * means something — the count, the total, the one action. At checkout the same receipt
+             * grows the payment panel.
              */}
             <View
                 testID="kitchen-order-desk-sale-ticket-card"
-                className="flex-col gap-3 rounded-2xl bg-surface-sidebar p-4 shadow-elevation-card"
+                className="flex-col gap-3 rounded-[20px] border border-stroke-subtle bg-surface-raised p-4 shadow-elevation-card"
             >
-                <View className="flex-row items-center justify-between gap-2">
-                    <Text variant="section" tone="sidebar" accessibilityRole="header">
+                <View className="flex-row items-center justify-between gap-2 border-b border-stroke-subtle pb-2.5">
+                    <Text
+                        variant="section"
+                        accessibilityRole="header"
+                        className="font-display !text-[17px] !font-bold"
+                    >
                         {t('kitchen:desk.sale.ticketTitle')}
                     </Text>
-                    <Text
-                        variant="caption"
-                        tone="sidebarMuted"
-                        className="font-semibold"
+                    <DeskChip
                         testID="kitchen-order-desk-sale-ticket-count"
-                    >
-                        {t('kitchen:desk.sale.itemCount', { count: itemCount })}
-                    </Text>
+                        tone="success"
+                        label={t('kitchen:desk.sale.itemCount', { count: itemCount })}
+                    />
                 </View>
                 {who === null ? null : (
                     <View
                         testID="kitchen-order-desk-sale-ticket-who"
-                        className="flex-row items-center gap-2 rounded-lg border border-stroke-subtle bg-surface-raised px-2.5 py-2"
+                        className="flex-row items-center gap-2 rounded-xl bg-surface-sunken px-3 py-2"
                     >
                         <Text variant="label" className="font-semibold" numberOfLines={1}>
                             {who.name}
@@ -2116,7 +2136,7 @@ function Ticket({
                     {lines.length === 0 ? (
                         <Text
                             variant="caption"
-                            tone="sidebarMuted"
+                            tone="secondary"
                             align="center"
                             className="py-4"
                             testID="kitchen-order-desk-sale-ticket-empty"
@@ -2148,34 +2168,31 @@ function Ticket({
                                         testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}`}
                                         role="group"
                                         aria-label={name}
-                                        className="flex-col gap-1 border-b border-dashed border-content-on-sidebar/40 py-2"
+                                        className="flex-col gap-1.5 border-b border-stroke-subtle py-2.5"
                                     >
                                         <View className="flex-row items-baseline gap-2">
-                                            <Text
-                                                variant="mono"
-                                                tone="sidebar"
-                                                className="font-bold"
-                                                testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-quantity`}
-                                            >
-                                                {formatter.formatNumber(quantity)}
-                                            </Text>
-                                            <Text variant="caption" tone="sidebarMuted" aria-hidden>
-                                                ×
-                                            </Text>
+                                            <View className="h-6 min-w-6 items-center justify-center self-center rounded-full bg-surface-brand-subtle px-1.5">
+                                                <Text
+                                                    variant="label"
+                                                    className="!font-bold tabular-nums !text-content-on-brand-subtle"
+                                                    testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-quantity`}
+                                                >
+                                                    {formatter.formatNumber(quantity)}
+                                                </Text>
+                                            </View>
                                             {/* eslint-disable-next-line no-restricted-syntax -- the name is the line's filler. */}
                                             <View className="min-w-0 flex-1">
                                                 <Text
-                                                    variant="label"
-                                                    tone="sidebar"
+                                                    variant="strong"
                                                     numberOfLines={2}
+                                                    className="!text-sm"
                                                 >
                                                     {name}
                                                 </Text>
                                             </View>
                                             <Text
-                                                variant="mono"
-                                                tone="sidebar"
-                                                className="font-semibold"
+                                                variant="strong"
+                                                className="!text-sm !font-bold tabular-nums"
                                                 testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-total`}
                                             >
                                                 {quoted?.lineTotalMinor == null
@@ -2189,7 +2206,7 @@ function Ticket({
                                         <View className="flex-row items-center gap-tight">
                                             {/* eslint-disable-next-line no-restricted-syntax -- the price is the row's filler. */}
                                             <View className="min-w-0 flex-1">
-                                                <Text variant="caption" tone="sidebarMuted">
+                                                <Text variant="caption" tone="secondary">
                                                     {quoted?.unitPriceMinor == null
                                                         ? EM_DASH
                                                         : t('kitchen:desk.sale.each', {
@@ -2248,12 +2265,12 @@ function Ticket({
                                         </View>
                                         {dishOptionsLine(line.options, locale, t) ===
                                         null ? null : (
-                                            <Text variant="caption" tone="sidebarMuted">
+                                            <Text variant="caption" tone="secondary">
                                                 {dishOptionsLine(line.options, locale, t)}
                                             </Text>
                                         )}
                                         {line.note == null || line.note === '' ? null : (
-                                            <Text variant="caption" tone="sidebarMuted">
+                                            <Text variant="caption" tone="secondary">
                                                 {t('kitchen:dishOptions.lineNote', {
                                                     note: line.note,
                                                 })}
@@ -2504,16 +2521,16 @@ function Ticket({
                     )}
 
                     {stage === 'menu' ? (
-                        <Button
+                        <DeskButton
                             testID="kitchen-order-desk-sale-charge"
-                            variant="sidebar"
+                            variant="primary"
                             size="lg"
                             block
                             iconEnd={
                                 <Icon
                                     name="arrowForward"
                                     size="sm"
-                                    className="text-content-on-sidebar-active"
+                                    className="text-content-on-brand"
                                 />
                             }
                             label={chargeLabel}
@@ -2523,7 +2540,7 @@ function Ticket({
                     ) : !kindChosen ? (
                         <Text
                             variant="caption"
-                            tone="sidebarMuted"
+                            tone="secondary"
                             align="center"
                             testID="kitchen-order-desk-sale-kind-pending"
                         >
@@ -2531,9 +2548,9 @@ function Ticket({
                         </Text>
                     ) : (
                         <View className="flex-col gap-hair">
-                            <Button
+                            <DeskButton
                                 testID="kitchen-order-desk-sale-submit"
-                                variant="sidebar"
+                                variant="primary"
                                 size="lg"
                                 block
                                 label={actionLabel}
@@ -2545,7 +2562,7 @@ function Ticket({
                             {shortfall === null || shortfall === 'items' ? null : (
                                 <Text
                                     variant="caption"
-                                    tone="sidebarMuted"
+                                    tone="secondary"
                                     align="center"
                                     testID="kitchen-order-desk-sale-shortfall"
                                 >
@@ -2560,7 +2577,7 @@ function Ticket({
     );
 }
 
-/** A warning said on the ticket's green ground — on its own amber patch, where it can be read. */
+/** A warning on the ticket — on its own amber patch, where it reads as one. */
 function TicketWarning({
     children,
     testID,
@@ -2607,19 +2624,26 @@ function Totals({
 }) {
     const { t } = useTranslation();
 
-    // On the ticket's green: the total in the display face, a step above the lines it adds up.
+    // The total in the display face and the brand's green, a step above the lines it adds up.
     const row = (label: string, value: string, testID: string, strong = false) => (
-        <View className="flex-row items-baseline justify-between gap-tight">
+        <View
+            className={`flex-row items-baseline justify-between gap-tight ${
+                strong ? 'mt-1 border-t border-stroke-subtle pt-2' : ''
+            }`}
+        >
             <Text
-                variant={strong ? 'strong' : 'caption'}
-                tone={strong ? 'sidebar' : 'sidebarMuted'}
+                variant={strong ? 'strong' : 'label'}
+                tone={strong ? 'primary' : 'secondary'}
+                className={strong ? '!text-sm !font-bold' : '!text-[13px]'}
             >
                 {label}
             </Text>
             <Text
-                variant={strong ? 'title' : 'mono'}
-                tone="sidebar"
-                className={strong ? 'font-display tabular-nums' : 'tabular-nums'}
+                variant={strong ? 'title' : 'strong'}
+                tone={strong ? 'brand' : 'primary'}
+                className={
+                    strong ? 'font-display !text-2xl !font-bold tabular-nums' : 'tabular-nums'
+                }
                 testID={testID}
             >
                 {value}
@@ -2725,10 +2749,10 @@ function PaymentMethods({
                             onPress={() => {
                                 onChange(candidate);
                             }}
-                            // White cards on the ticket's green; the chosen one filled and ringed dark, with a tick.
+                            // Cards on the white receipt; the chosen one filled soft green and ringed, with a tick.
                             className={
                                 selected
-                                    ? 'relative h-desk-pay flex-col items-start justify-center gap-0.5 rounded-xl border-2 border-surface-canopy bg-surface-brand-subtle px-2.5'
+                                    ? 'relative h-desk-pay flex-col items-start justify-center gap-0.5 rounded-xl border-2 border-surface-brand bg-surface-brand-subtle px-2.5'
                                     : 'relative h-desk-pay flex-col items-start justify-center gap-0.5 rounded-xl border border-stroke bg-surface-raised px-2.5 web:hover:border-surface-brand'
                             }
                         >

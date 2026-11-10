@@ -900,10 +900,13 @@ export function AddressSection({
     customerAccountId,
     customerAddressId,
     onSaved,
+    title,
 }: {
     readonly customerAccountId: string | null;
     readonly customerAddressId: string | null;
     readonly onSaved: (addressId: string) => void;
+    /** Translated. The card's heading where "Delivery address" would say it twice — an edit's new one. */
+    readonly title?: string | undefined;
 }) {
     const { t } = useTranslation();
     const { locale } = useLocale();
@@ -998,7 +1001,7 @@ export function AddressSection({
         <FormSection
             variant="panel"
             testID="kitchen-order-desk-sale-address"
-            title={t('kitchen:desk.sale.addressTitle')}
+            title={title ?? t('kitchen:desk.sale.addressTitle')}
             description={folded ? undefined : t('kitchen:desk.sale.addressNoteBody')}
             actions={
                 folded ? (
@@ -1055,7 +1058,8 @@ export function AddressSection({
                             ))}
                         </View>
                     )}
-                    <FormGrid columns={3}>
+                    {/* Two to a row: three left each field too narrow to read once the panel is open. */}
+                    <FormGrid columns={2}>
                         <Select
                             testID="kitchen-order-desk-sale-address-area"
                             id="kitchen-order-desk-sale-address-area"
