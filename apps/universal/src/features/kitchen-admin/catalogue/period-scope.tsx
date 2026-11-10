@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 
 import { addDays, isoWeekday } from '../../commerce/dates.ts';
+import { DeskSelect } from '../desk-kit/desk-select.tsx';
 import { LensScope } from './lens-bar.tsx';
 
 /**
@@ -96,6 +97,7 @@ export function PeriodScope({
     onChange,
     allowAll = false,
     unit = 'day',
+    look = 'lens',
 }: {
     readonly testID: string;
     /** `YYYY-MM-DD` — held by the screen, so the shortcuts do not move under a reader at midnight. */
@@ -105,6 +107,8 @@ export function PeriodScope({
     readonly onChange: (window: PeriodWindow) => void;
     readonly allowAll?: boolean | undefined;
     readonly unit?: PeriodUnit | undefined;
+    /** `desk`: the desk kit's dropdown pill and card (`DeskSelect`), as on the order desk. */
+    readonly look?: 'lens' | 'desk' | undefined;
 }) {
     const { t } = useTranslation();
     const windows = periodWindows(today);
@@ -114,20 +118,19 @@ export function PeriodScope({
         'custom',
     ];
 
-    return (
-        <LensScope<Period>
-            testID={testID}
-            label={t('kitchen:lens.periodLabel')}
-            value={periodOf(value, today, allowAll, unit)}
-            onChange={(next) => {
-                if (next === 'custom') return;
-                onChange(next === 'all' ? { from: '', to: '' } : windows[next]);
-            }}
-            options={periods.map((key) => ({
-                value: key,
-                label: t(PERIOD_LABELS[key]),
-                testID: `${testID}-${key}`,
-            }))}
-        />
-    );
+    const props = {
+        testID,
+        label: t('kitchen:lens.periodLabel'),
+        value: periodOf(value, today, allowAll, unit),
+        onChange: (next: Period) => {
+            if (next === 'custom') return;
+            onChange(next === 'all' ? { from: '', to: '' } : windows[next]);
+        },
+        options: periods.map((key) => ({
+            value: key,
+            label: t(PERIOD_LABELS[key]),
+            testID: `${testID}-${key}`,
+        })),
+    };
+    return look === 'desk' ? <DeskSelect<Period> {...props} /> : <LensScope<Period> {...props} />;
 }

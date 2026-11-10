@@ -119,6 +119,9 @@ const EM_DASH = '—';
 /** How far ahead the screen opens on: today plus a fortnight, inside the server's month-long cap. */
 const DEFAULT_WINDOW_DAYS = 13;
 
+/** The server's cap on a window, in days, both ends counted. */
+const MAX_WINDOW_DAYS = 31;
+
 export function OrderDeskRequirementsScreen() {
     return (
         <Gate
@@ -151,15 +154,39 @@ function OrderDeskRequirements() {
     const back = useReturnTo(asked.returnTo, ORDERS_HREF);
     const askedFrom = typeof asked.from === 'string' && isIsoDate(asked.from) ? asked.from : null;
     const askedTo = typeof asked.to === 'string' && isIsoDate(asked.to) ? asked.to : null;
-    const [from, setFrom] = useState(() => askedFrom ?? todayIso());
-    // `addDays` answers `null` for a date it cannot read; today's own is never one, and the
-    // fallback keeps the initial state a single day rather than an empty box.
-    const [to, setTo] = useState(
-        () =>
+    /**
+     * The window the page opened on — the span another page asked about, else the next two weeks —
+     * and what Clear goes back to. `addDays` answers `null` for a date it cannot read; today's own
+     * is never one, and the fallback keeps the window a single day rather than an empty box.
+     */
+    const [opening] = useState(() => {
+        const start = askedFrom ?? today;
+        const end =
             (askedFrom !== null && askedTo !== null && askedTo >= askedFrom ? askedTo : null) ??
-            addDays(todayIso(), DEFAULT_WINDOW_DAYS) ??
-            todayIso(),
-    );
+            addDays(today, DEFAULT_WINDOW_DAYS) ??
+            today;
+        return { from: start, to: end };
+    });
+    const [from, setFromDay] = useState(opening.from);
+    const [to, setToDay] = useState(opening.to);
+    /*
+     * The window stays one the server answers: never backwards, never past its month. Moving one
+     * end over the other carries the other along, and a span stretched past the cap pulls the far
+     * end in — so a pick always lands on a list rather than on "name a window".
+     */
+    const setFrom = (day: string) => {
+        setFromDay(day);
+        const farthest = addDays(day, MAX_WINDOW_DAYS - 1) ?? day;
+        if (to < day) setToDay(day);
+        else if (to > farthest) setToDay(farthest);
+    };
+    const setTo = (day: string) => {
+        setToDay(day);
+        const earliest = addDays(day, -(MAX_WINDOW_DAYS - 1)) ?? day;
+        if (from > day) setFromDay(day);
+        else if (from < earliest) setFromDay(earliest);
+    };
+    const windowMoved = from !== opening.from || to !== opening.to;
 
     /**
      * The question, or `null` when there is nothing askable yet.
@@ -180,9 +207,8 @@ function OrderDeskRequirements() {
 
     const notComputable = requirements.data?.notComputable ?? null;
 
-    const shortIds = (requirements.data?.requirements ?? [])
-        .filter((row) => isShort(row))
-        .map((row) => row.stockItemId);
+    const shortRows = (requirements.data?.requirements ?? []).filter((row) => isShort(row));
+    const shortIds = shortRows.map((row) => row.stockItemId);
     const shortCount = shortIds.length;
 
     /**
@@ -194,8 +220,13 @@ function OrderDeskRequirements() {
             withReturnTo(
                 withQuery('/kitchen/supply-orders/new', {
                     items: shortIds.slice(0, 100).join(','),
+                    // What each short row suggests buying, so the builder opens filled and ticked.
+                    qty: shortRows
+                        .slice(0, 100)
+                        .map((row) => `${row.stockItemId}:${row.suggestedBuy}`)
+                        .join(','),
                 }),
-                '/kitchen/order-desk/requirements',
+                withQuery('/kitchen/order-desk/requirements', { from, to }),
             ) as never,
         );
     };
@@ -363,7 +394,7 @@ function OrderDeskRequirements() {
                 row.nameEn.toLocaleLowerCase().includes(needle) ||
                 row.code.toLocaleLowerCase().includes(needle)),
     );
-    const toolbarFiltered = show !== 'all' || unit !== ALL_UNITS || needle !== '';
+    const toolbarFiltered = show !== 'all' || unit !== ALL_UNITS || needle !== '' || windowMoved;
     /** View and Edit for the ingredient behind a row, coming back here. */
     const rowActions = (row: OrderDeskRequirement): readonly MenuItem[] => {
         const here = withQuery('/kitchen/order-desk/requirements', { from, to });
@@ -515,7 +546,6 @@ function OrderDeskRequirements() {
                                     value={isIsoDate(from) ? from : today}
                                     valueLabel={isIsoDate(from) ? shortDay(from, formatter) : from}
                                     today={today}
-                                    {...(isIsoDate(to) ? { max: to } : {})}
                                     onChange={setFrom}
                                 />
                                 <Text variant="caption" tone="secondary" aria-hidden>
@@ -527,7 +557,6 @@ function OrderDeskRequirements() {
                                     value={isIsoDate(to) ? to : today}
                                     valueLabel={isIsoDate(to) ? shortDay(to, formatter) : to}
                                     today={today}
-                                    {...(isIsoDate(from) ? { min: from } : {})}
                                     onChange={setTo}
                                 />
                                 <DeskSelect<ShowFilter>
@@ -591,6 +620,8 @@ function OrderDeskRequirements() {
                                       setShow('all');
                                       setUnit(ALL_UNITS);
                                       setQuery('');
+                                      setFromDay(opening.from);
+                                      setToDay(opening.to);
                                   },
                               }
                             : {})}

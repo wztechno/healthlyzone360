@@ -6,7 +6,6 @@ import type {
 import {
     Callout,
     Cascade,
-    DatePickerButton,
     EmptyState,
     ErrorState,
     TableSkeleton,
@@ -33,8 +32,9 @@ import {
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import { DeskColumnPicker, DeskSelect, MiniMonthPicker } from '../desk-kit/index.ts';
+import { shortDay } from '../orders/order-columns.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { PeriodScope } from '../catalogue/period-scope.tsx';
 
@@ -279,6 +279,7 @@ function OrderDeskCashReport() {
     ];
     // `.v2` since the Day column: a column choice saved before it existed would otherwise hide it.
     const controls = useColumnControls(rows, columns, 'kitchen-order-desk-cash-report-table', {
+        menuLook: 'card',
         picker: { storageKey: 'kitchen-order-desk-cash-report.v2' },
     });
 
@@ -336,6 +337,7 @@ function OrderDeskCashReport() {
                     scope={
                         <>
                             <PeriodScope
+                                look="desk"
                                 testID="kitchen-order-desk-cash-report-period"
                                 today={today}
                                 value={{ from, to }}
@@ -345,26 +347,30 @@ function OrderDeskCashReport() {
                                 }}
                             />
                             <View className="z-auto flex-row items-center gap-tight">
-                                <DatePickerButton
+                                <MiniMonthPicker
                                     testID="kitchen-order-desk-cash-report-from"
                                     label={t('kitchen:ops.cashReport.fromLabel')}
-                                    value={from}
-                                    max={to}
+                                    value={isIsoDate(from) ? from : today}
+                                    valueLabel={isIsoDate(from) ? shortDay(from, formatter) : from}
+                                    today={today}
+                                    {...(isIsoDate(to) ? { max: to } : {})}
                                     onChange={setFrom}
                                 />
                                 <Text variant="caption" tone="secondary" aria-hidden>
                                     {t('kitchen:ops.requirements.windowTo')}
                                 </Text>
-                                <DatePickerButton
+                                <MiniMonthPicker
                                     testID="kitchen-order-desk-cash-report-to"
                                     label={t('kitchen:ops.cashReport.toLabel')}
-                                    value={to}
-                                    min={from}
+                                    value={isIsoDate(to) ? to : today}
+                                    valueLabel={isIsoDate(to) ? shortDay(to, formatter) : to}
+                                    today={today}
+                                    {...(isIsoDate(from) ? { min: from } : {})}
                                     onChange={setTo}
                                 />
                             </View>
                             {branches.length > 1 ? (
-                                <LensScope<string>
+                                <DeskSelect<string>
                                     testID="kitchen-order-desk-cash-report-branch"
                                     label={t('kitchen:ops.dailyClose.branchLabel')}
                                     value={branch}
@@ -396,9 +402,7 @@ function OrderDeskCashReport() {
                     clearLabel={t('kitchen:lens.clear')}
                     {...(controls.filtered ? { onClear: controls.clearFilters } : {})}
                     trailing={
-                        rows.length === 0 ? undefined : (
-                            <ColumnPicker {...controls.picker} compact />
-                        )
+                        rows.length === 0 ? undefined : <DeskColumnPicker {...controls.picker} />
                     }
                 />
 
@@ -439,6 +443,7 @@ function OrderDeskCashReport() {
                         rows={[]}
                         rowKey={rowTestId}
                         rowActionsLabel={t('kitchen:list.rowActions')}
+                        rowActionsLook="desk"
                         joined
                         frameEmpty
                         emptyState={
@@ -460,6 +465,7 @@ function OrderDeskCashReport() {
                             rows={controls.rows}
                             rowKey={rowTestId}
                             rowActionsLabel={t('kitchen:list.rowActions')}
+                            rowActionsLook="desk"
                             joined
                         />
 
