@@ -22,6 +22,7 @@ import type {
     FailDeliveryRequest,
 } from './driver-jobs.ts';
 import type { MealSlot } from './marketplace.ts';
+import type { OrderDeskCustomerContact, OrderDeskDeliveryJob } from './order-desk.ts';
 
 /**
  * The kitchen's own view of the orders placed against it — the seller side of the same rows the
@@ -352,10 +353,13 @@ export interface KitchenOrder {
  * this list can never produce.
  */
 export interface KitchenOrderPage {
-    readonly items: readonly KitchenOrder[];
+    readonly items: readonly KitchenOrderBookRow[];
     /** Opaque. Echo it back as `cursor`; never parse, compare or construct one. `null` on the last page. */
     readonly nextCursor: string | null;
     readonly hasMore: boolean;
+    /** Only when a numbered page was asked for (`page`): how many orders match, and in how many pages. */
+    readonly totalCount?: number | undefined;
+    readonly totalPages?: number | undefined;
 }
 
 /**
@@ -374,8 +378,32 @@ export interface KitchenDisplay {
     readonly unacceptedOpenMinutes: Readonly<Record<string, number>>;
 }
 
+/**
+ * One row of the order book: the order, plus the three facts a desk queue row carries beside it.
+ *
+ * The book serves all three on every row; they are optional here so a page built from plain orders
+ * (a write's answer seeded into a cached page, a fixture) is still a page. Absent means not known —
+ * never zero, never "no run". `customer` is absent for a reader without
+ * `order.view_customer_contact_organisation`, as on the queue.
+ */
+export interface KitchenOrderBookRow extends KitchenOrder {
+    readonly payment?: KitchenOrderPaymentSummary | undefined;
+    /** `null`: the order has no run. */
+    readonly deliveryJob?: OrderDeskDeliveryJob | null | undefined;
+    readonly customer?: OrderDeskCustomerContact | undefined;
+}
+
 export interface KitchenOrderFilters {
     readonly status?: KitchenOrderStatus | undefined;
+    /**
+     * `YYYY-MM-DD`, inclusive. An order's day is its requested delivery date or, with none, the
+     * day it was placed — the order-desk calendar's rule, so a day's list matches its count.
+     */
+    readonly from?: string | undefined;
+    readonly to?: string | undefined;
+    /** One or more slots by code — a sitting can go by two (`midday`, `lunch`). */
+    readonly deliveryWindowCodes?: readonly string[] | undefined;
+    readonly fulfilmentType?: KitchenOrderFulfilmentType | undefined;
     /**
      * Strictly `YYYY-MM-DD`, matched against `delivery.requestedDate`. The kitchen's primary
      * question — "what am I cooking for Thursday?" — so it is a first-class filter, not a client
@@ -389,6 +417,8 @@ export interface KitchenOrderFilters {
     readonly customerAccountId?: string | undefined;
     readonly cursor?: string | undefined;
     readonly limit?: number | undefined;
+    /** A numbered page, 1-based, for the admin's numbered pager. Sent with `limit` as its size. */
+    readonly page?: number | undefined;
 }
 
 /**

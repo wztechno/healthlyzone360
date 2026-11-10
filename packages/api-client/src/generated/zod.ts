@@ -9636,6 +9636,12 @@ export const zKitchenOrderEnvelope = z.object({
     meta: zMeta
 });
 
+export const zKitchenOrderBookRow = zKitchenOrder.and(z.object({
+    payment: zOrderPaymentSummary,
+    delivery_job: zOrderDeskDeliveryJob.nullable(),
+    customer: zOrderDeskCustomerContact.optional()
+}));
+
 export const zOrderDeskRow = zKitchenOrder.and(z.object({
     due_at: z.iso.datetime({ offset: true }),
     payment: zOrderPaymentSummary,
@@ -15618,19 +15624,29 @@ export const zListKitchenOrdersHeaders = z.object({
 export const zListKitchenOrdersQuery = z.object({
     limit: z.int().gte(1).lte(100).optional().default(25),
     cursor: z.string().max(200).optional(),
+    page: z.int().gte(1).optional(),
+    per_page: z.int().gte(1).lte(100).optional().default(25),
     status: zOrderStatus.optional(),
     customer_account_id: zUuid.optional(),
     requested_delivery_date: z.iso.date().optional(),
     branch_id: zUuid.optional(),
-    query: z.string().max(60).optional()
+    query: z.string().max(60).optional(),
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional(),
+    'delivery_window_code[]': z.array(z.string().max(40)).optional(),
+    fulfilment_type: z.enum([
+        'delivery',
+        'pickup',
+        'counter'
+    ]).optional()
 });
 
 /**
- * A page of the organisation's orders, newest first.
+ * A page of the organisation's orders, newest first. With `page`, numbered — `meta` then carries `total_count` and `total_pages`.
  */
 export const zListKitchenOrdersResponse = z.object({
-    data: z.array(zKitchenOrder),
-    meta: zPaginationMeta
+    data: z.array(zKitchenOrderBookRow),
+    meta: zPaginatedOrNumberedMeta
 });
 
 export const zShowKitchenOrderHeaders = z.object({

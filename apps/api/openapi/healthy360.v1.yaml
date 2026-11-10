@@ -14167,6 +14167,8 @@ paths:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/CursorLimit'
         - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PerPage'
         - name: status
           in: query
           required: false
@@ -14202,10 +14204,52 @@ paths:
           schema:
             type: string
             maxLength: 60
+        - name: from
+          in: query
+          required: false
+          description: |
+            First day of a span, inclusive, `YYYY-MM-DD`. An order's day is its
+            requested delivery date or, when it has none, the day it was placed —
+            the rule the order-desk calendar counts by, so a day's list and the
+            calendar's count for it agree. Alone, the span is open at the end.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          description: |
+            Last day of the span, inclusive, on or after `from`. Alone, the span
+            is open at the start.
+          schema:
+            type: string
+            format: date
+        - name: 'delivery_window_code[]'
+          in: query
+          required: false
+          description: |
+            Restrict to one or more named slots, by the windows' own codes. A
+            set, because a sitting goes by two codes in some kitchens (`midday`
+            and `lunch`). Repeat the bracketed name, as `status[]` on the desk
+            queue does.
+          schema:
+            type: array
+            items:
+              type: string
+              maxLength: 40
+          style: form
+          explode: true
+        - name: fulfilment_type
+          in: query
+          required: false
+          description: Restrict to one way of leaving the kitchen. Omitted, all three are listed.
+          schema:
+            type: string
+            enum: [delivery, pickup, counter]
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
-          description: A page of the organisation's orders, newest first.
+          description: A page of the organisation's orders, newest first. With `page`, numbered — `meta` then carries `total_count` and `total_pages`.
           headers:
             X-Correlation-Id:
               $ref: '#/components/headers/XCorrelationId'
@@ -14218,9 +14262,9 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/KitchenOrder'
+                      $ref: '#/components/schemas/KitchenOrderBookRow'
                   meta:
-                    $ref: '#/components/schemas/PaginationMeta'
+                    $ref: '#/components/schemas/PaginatedOrNumberedMeta'
         '400':
           $ref: '#/components/responses/RequestInvalid'
         '401':
@@ -41627,6 +41671,32 @@ components:
             falls through to the account's own number, which is what this field
             has always been.
       additionalProperties: false
+
+    KitchenOrderBookRow:
+      allOf:
+        - $ref: '#/components/schemas/KitchenOrder'
+        - type: object
+          required: [payment, delivery_job]
+          properties:
+            payment:
+              $ref: '#/components/schemas/OrderPaymentSummary'
+            delivery_job:
+              oneOf:
+                - $ref: '#/components/schemas/OrderDeskDeliveryJob'
+                - type: 'null'
+            customer:
+              $ref: '#/components/schemas/OrderDeskCustomerContact'
+          description: |
+            One row of the kitchen's order book: the kitchen shape, plus the
+            three facts a desk row carries beside it — what has been paid, the
+            run the order became, and (only for a caller holding
+            `order.view_customer_contact_organisation`) the customer's name and
+            number. Each is resolved for the whole page in one statement, through
+            the desk queue's own helpers, so the two lists cannot disagree.
+
+            `payment` is never null — nothing paid is `received_minor: 0`.
+            `delivery_job` is null for an order with no run. `customer` is absent,
+            not null, for a reader who may not see contacts.
 
     OrderDeskRow:
       allOf:

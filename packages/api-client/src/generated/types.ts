@@ -9402,6 +9402,12 @@ export type OrderDeskCustomerContact = {
     phone: string | null;
 };
 
+export type KitchenOrderBookRow = KitchenOrder & {
+    payment: OrderPaymentSummary;
+    delivery_job: OrderDeskDeliveryJob | null;
+    customer?: OrderDeskCustomerContact;
+};
+
 export type OrderDeskRow = KitchenOrder & {
     /**
      * The instant this order is actually due, as a UTC ISO-8601
@@ -34375,6 +34381,27 @@ export type ListKitchenOrdersData = {
          */
         cursor?: string;
         /**
+         * Ask for a numbered page instead of walking the cursor. 1-based.
+         *
+         * Only the kitchen catalogue accepts this — see `docs/api/conventions.md`
+         * for why offset is safe on these five collections and on nothing else.
+         * Sending it switches the response `meta` to `NumberedPaginationMeta`;
+         * omitting it leaves the keyset behaviour exactly as it was, so a client
+         * that has never heard of `page` is unaffected.
+         *
+         * A page past the last is `400 request.invalid`, not an empty list. Page
+         * 1 of an empty collection is not: that is a legitimate empty answer.
+         *
+         */
+        page?: number;
+        /**
+         * Page size for a numbered page. A synonym for `limit`, accepted so a
+         * client does not have to change which word it sends when it starts
+         * asking for pages; `per_page` wins if both are present.
+         *
+         */
+        per_page?: number;
+        /**
          * Restrict to one lifecycle state. Omitted, everything is listed.
          */
         status?: OrderStatus;
@@ -34397,6 +34424,32 @@ export type ListKitchenOrdersData = {
          * Case-insensitive substring match on the order number, and on nothing else.
          */
         query?: string;
+        /**
+         * First day of a span, inclusive, `YYYY-MM-DD`. An order's day is its
+         * requested delivery date or, when it has none, the day it was placed —
+         * the rule the order-desk calendar counts by, so a day's list and the
+         * calendar's count for it agree. Alone, the span is open at the end.
+         *
+         */
+        from?: string;
+        /**
+         * Last day of the span, inclusive, on or after `from`. Alone, the span
+         * is open at the start.
+         *
+         */
+        to?: string;
+        /**
+         * Restrict to one or more named slots, by the windows' own codes. A
+         * set, because a sitting goes by two codes in some kitchens (`midday`
+         * and `lunch`). Repeat the bracketed name, as `status[]` on the desk
+         * queue does.
+         *
+         */
+        'delivery_window_code[]'?: Array<string>;
+        /**
+         * Restrict to one way of leaving the kitchen. Omitted, all three are listed.
+         */
+        fulfilment_type?: 'delivery' | 'pickup' | 'counter';
     };
     url: '/catalogue/orders';
 };
@@ -34430,11 +34483,11 @@ export type ListKitchenOrdersError = ListKitchenOrdersErrors[keyof ListKitchenOr
 
 export type ListKitchenOrdersResponses = {
     /**
-     * A page of the organisation's orders, newest first.
+     * A page of the organisation's orders, newest first. With `page`, numbered — `meta` then carries `total_count` and `total_pages`.
      */
     200: {
-        data: Array<KitchenOrder>;
-        meta: PaginationMeta;
+        data: Array<KitchenOrderBookRow>;
+        meta: PaginatedOrNumberedMeta;
     };
 };
 
