@@ -654,8 +654,10 @@ function OrderDeskRequirements() {
                     <WeeklyStockCheckBanner
                         branchId={branchId}
                         onShowWindow={(windowFrom, windowTo) => {
-                            setFrom(windowFrom);
-                            setTo(windowTo);
+                            // Both ends at once: the week is already a whole window, and setting
+                            // them one by one would let the first carry the second along.
+                            setFromDay(windowFrom);
+                            setToDay(windowTo);
                         }}
                     />
 
