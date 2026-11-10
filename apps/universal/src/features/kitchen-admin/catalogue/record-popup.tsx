@@ -68,6 +68,8 @@ export interface RecordPopupProps {
     readonly onClose: () => void;
     readonly primaryAction?: RecordPrimaryAction | undefined;
     readonly actions?: readonly RecordAction[] | undefined;
+    /** Before the kind label: the Back pill to the page that opened the record, when one did. */
+    readonly leading?: ReactNode;
     readonly children: ReactNode;
     readonly testID: string;
 }
@@ -78,6 +80,7 @@ export function RecordPopup({
     onClose,
     primaryAction,
     actions = [],
+    leading,
     children,
     testID,
 }: RecordPopupProps) {
@@ -95,6 +98,7 @@ export function RecordPopup({
             kind={kind}
             label={title}
             actions={menu}
+            leading={leading}
             testID={testID}
         >
             <InRecordPopup.Provider value>{children}</InRecordPopup.Provider>

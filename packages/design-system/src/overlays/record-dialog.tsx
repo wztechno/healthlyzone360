@@ -75,6 +75,8 @@ export interface RecordDialogProps {
     /** The record's name — the window's accessible name. */
     readonly label: string;
     readonly actions?: readonly RecordDialogAction[] | undefined;
+    /** Before the kind label — a way back to the page that opened the record. */
+    readonly leading?: ReactNode;
     readonly children: ReactNode;
     readonly testID: string;
 }
@@ -114,6 +116,7 @@ export function RecordDialog({
     kind,
     label,
     actions = [],
+    leading,
     children,
     testID,
 }: RecordDialogProps) {
@@ -156,6 +159,7 @@ export function RecordDialog({
                             className="min-h-0 shrink flex-col overflow-hidden rounded-2xl border border-stroke bg-surface-base shadow-elevation-4"
                         >
                             <View className="z-auto flex-row items-center gap-2 pe-3 ps-base pb-2 pt-3">
+                                {leading}
                                 <RNText
                                     testID={`${testID}-eyebrow`}
                                     className="min-w-0 shrink text-role-label font-bold uppercase tracking-wider text-content-secondary text-start"
