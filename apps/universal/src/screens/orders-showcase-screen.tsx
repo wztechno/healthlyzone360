@@ -27,6 +27,7 @@ import { DayStepper } from '../features/kitchen-admin/orders/day-stepper.tsx';
 import { orderColumns } from '../features/kitchen-admin/orders/order-columns.tsx';
 import { localToday, slotKeyOf } from '../features/kitchen-admin/orders/order-book.ts';
 import type { BookRow } from '../features/kitchen-admin/orders/order-book.ts';
+import { OrderPopupProposal } from './orders-popup-proposal.tsx';
 
 /**
  * `/showcase-orders` — the parts the Orders redesign (Option A, 2026-11-10) added, on a page of
@@ -121,6 +122,7 @@ export function OrdersShowcaseScreen() {
     const [tab, setTab] = useState<'today' | 'calendar' | 'all'>('today');
     const [day, setDay] = useState(TODAY);
     const [open, setOpen] = useState(false);
+    const [openB, setOpenB] = useState(false);
     const [slot, setSlot] = useState<'all' | 'lunch' | 'dinner'>('all');
     const [mode, setMode] = useState<'month' | 'week'>('month');
     const [method, setMethod] = useState<'cash' | 'counter' | 'wish'>('cash');
@@ -387,6 +389,51 @@ export function OrdersShowcaseScreen() {
                             }}
                         />
                     </View>
+
+                    <Text variant="title">Order pop-up — proposal B (not in the app)</Text>
+                    <Text variant="label" tone="secondary">
+                        A progress track with the next step, three cards (customer, delivery, money)
+                        each with one action, allergies and the note lifted out, items ending in totals
+                    </Text>
+                    <View className="flex-row">
+                        <DeskButton
+                            testID="showcase-orders-open-popup-b"
+                            variant="secondary"
+                            label="Open proposal B"
+                            onPress={() => {
+                                setOpenB(true);
+                            }}
+                        />
+                    </View>
+                    {!openB ? null : (
+                        <OrderPopupProposal
+                            onClose={() => {
+                                setOpenB(false);
+                            }}
+                            stages={[
+                                { key: 'placed', label: 'Placed', state: 'done' },
+                                { key: 'confirmed', label: 'Confirmed', state: 'done' },
+                                { key: 'ready', label: 'Ready', state: 'done' },
+                                { key: 'road', label: 'On the way', state: 'now' },
+                                { key: 'delivered', label: 'Delivered', state: 'later' },
+                            ]}
+                            lines={[
+                                {
+                                    key: 'salmon',
+                                    quantity: 1,
+                                    name: 'Grilled Salmon Bowl',
+                                    detail: 'No onions · Sauce: Garlic',
+                                    amount: '$9.00',
+                                },
+                                {
+                                    key: 'soup',
+                                    quantity: 2,
+                                    name: 'Lentil Soup',
+                                    amount: '$4.00',
+                                },
+                            ]}
+                        />
+                    )}
                     {!open ? null : (
                         <CompactRecordPopup
                             testID="showcase-orders-popup"
