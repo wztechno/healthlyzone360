@@ -8,6 +8,7 @@ import { toFailure } from '../../../data/hooks.ts';
 import {
     useConfirmOrderMutation,
     useFulfilOrderMutation,
+    useMarkOrderReadyMutation,
 } from '../../../data/kitchen-orders-hooks.ts';
 import {
     AssignDriverDialog,
@@ -24,7 +25,7 @@ import type { BookRow, NextStep } from './order-book.ts';
  * What an order's buttons do, wherever they are drawn — a row's Next step and the pop-up's
  * actions run through the same hook, so the two can never disagree about what "Confirm" means.
  *
- * Confirm and Mark picked up happen at once. Every other step asks first, in a dialog this hook
+ * Confirm, Mark ready and Mark picked up happen at once. Every other step asks first, in a dialog this hook
  * mounts: Mark delivered (it also ends the driver's run), Choose a driver, Record a payment, Hand to
  * courier, Cancel order and the failed-run actions.
  */
@@ -65,6 +66,7 @@ export function useOrderSteps({
     const toast = useToast();
     const confirmOrder = useConfirmOrderMutation();
     const fulfilOrder = useFulfilOrderMutation();
+    const markReady = useMarkOrderReadyMutation();
     const [dialog, setDialog] = useState<OpenDialog | null>(null);
     const [pendingId, setPendingId] = useState<string | null>(null);
 
@@ -128,6 +130,30 @@ export function useOrderSteps({
                                 testID: 'kitchen-orders-confirmed-toast',
                                 tone: 'success',
                                 message: t('kitchen:ops.orders.confirmedToast', {
+                                    number: next.orderNumber,
+                                }),
+                            });
+                        },
+                        onError: (error) => {
+                            failed(error, order.orderNumber);
+                        },
+                        onSettled: () => {
+                            setPendingId(null);
+                        },
+                    },
+                );
+                return;
+            case 'ready':
+                setPendingId(String(order.id));
+                markReady.mutate(
+                    { id: order.id, lockVersion: order.lockVersion },
+                    {
+                        onSuccess: (next) => {
+                            onChanged?.(next);
+                            toast.show({
+                                testID: 'kitchen-orders-ready-toast',
+                                tone: 'success',
+                                message: t('kitchen:orders.toast.ready', {
                                     number: next.orderNumber,
                                 }),
                             });

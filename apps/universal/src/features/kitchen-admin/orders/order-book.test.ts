@@ -209,9 +209,10 @@ describe('orders — the next step', () => {
         expect(nextStep(row)).toBe('driver');
     });
 
-    it('marks a delivery delivered only once it is cooked and its run has not failed', () => {
+    it('marks a delivery ready, then delivered, unless its run has failed', () => {
         const assigned = { ...PENDING_JOB, status: 'assigned' as const, driverUserId: 'driver-1' };
-        expect(nextStep(order({ status: 'confirmed', deliveryJob: assigned }))).toBeNull();
+        expect(nextStep(order({ status: 'confirmed', deliveryJob: assigned }))).toBe('ready');
+        expect(nextStep(order({ status: 'confirmed', deliveryJob: null }))).toBe('ready');
         expect(
             nextStep(
                 order({
@@ -253,6 +254,24 @@ describe('orders — the next step', () => {
         expect(isToCollect(owing)).toBe(true);
         expect(nextStep(owing)).toBe('payment');
         expect(nextStep(order({ status: 'fulfilled' }))).toBeNull();
+    });
+
+    it('counts money owed on an open order as to collect, without making it the next step', () => {
+        const open = order({
+            status: 'confirmed',
+            fulfilmentType: 'pickup',
+            payment: { method: 'cash_on_delivery', receivedMinor: 0, receipted: false },
+        });
+        expect(isToCollect(open)).toBe(true);
+        expect(nextStep(open)).toBe('pickup');
+        expect(
+            isToCollect(
+                order({
+                    status: 'cancelled',
+                    payment: { method: 'cash_on_delivery', receivedMinor: 0, receipted: false },
+                }),
+            ),
+        ).toBe(false);
     });
 
     it('owes nothing on a cancelled order, and does not guess when the read said nothing', () => {

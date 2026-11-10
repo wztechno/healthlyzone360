@@ -222,9 +222,13 @@ export function owedMinor(order: BookRow): number | null {
     return Math.max(0, order.totalMinor - order.payment.receivedMinor);
 }
 
-/** Delivered or picked up, and money still to come in. */
+/**
+ * Money still to come in on an order that is not cancelled — the same test the row's Payment cell
+ * draws "To collect" by, so the figure and the rows can never disagree. Cash on delivery is owed
+ * from the moment the order exists; it is collected when the food arrives.
+ */
 export function isToCollect(order: BookRow): boolean {
-    return order.status === 'fulfilled' && (owedMinor(order) ?? 0) > 0;
+    return order.status !== 'cancelled' && (owedMinor(order) ?? 0) > 0;
 }
 
 /** A courier company has it: nobody on the kitchen's own sheet will be given it. */
@@ -268,12 +272,14 @@ export function driverCell(order: BookRow, nameOf: (userId: string) => string | 
 
 /* ── the next step ───────────────────────────────────────────────────────────────────────────── */
 
-export type NextStep = 'confirm' | 'driver' | 'deliver' | 'pickup' | 'payment';
+export type NextStep = 'confirm' | 'driver' | 'ready' | 'deliver' | 'pickup' | 'payment';
 
 /**
  * The one thing to do next, by the rules the order's own buttons follow: confirm a placed order;
- * give a delivery to a driver; close a delivery once it is cooked (the server refuses before then,
- * HA-29) and its run has not failed; hand a pickup over; take the money still owed on a closed one.
+ * give a delivery to a driver; mark a delivery ready when the kitchen display has not (the server
+ * refuses to close one before then, HA-29); close a delivery once it is ready and its run has not
+ * failed; hand a pickup over; take the money still owed on a closed one. A failed run has no next
+ * step: what happens to it is a decision, in the pop-up's run actions.
  */
 export function nextStep(order: BookRow): NextStep | null {
     if (order.status === 'placed') return 'confirm';
@@ -281,9 +287,9 @@ export function nextStep(order: BookRow): NextStep | null {
         if (order.fulfilmentType !== 'delivery') return 'pickup';
         if (order.deliveryRun?.status === 'failed') return null;
         if (needsDriver(order)) return 'driver';
-        return (order.readyAt ?? null) !== null ? 'deliver' : null;
+        return (order.readyAt ?? null) !== null ? 'deliver' : 'ready';
     }
-    if (isToCollect(order)) return 'payment';
+    if (order.status === 'fulfilled' && isToCollect(order)) return 'payment';
     return null;
 }
 

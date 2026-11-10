@@ -45,7 +45,7 @@ const BOOK_PAGE_LIMIT = 100;
 /** How far back "Needs a driver" looks for a confirmed delivery nobody was given. */
 const DRIVER_LOOKBACK_DAYS = 30;
 
-/** How far back "Money to collect" looks for a closed order still owed. */
+/** How far back "Money to collect" looks for an order still owed. */
 const COLLECT_LOOKBACK_DAYS = 13;
 
 export interface BookRead {
@@ -190,11 +190,13 @@ export function useNeedsDriverOrders(today: string, enabled = true): BookRead {
     };
 }
 
-/** Delivered or picked up in the last two weeks, and money still owed on it. */
+/**
+ * Every order on a day of the last two weeks, up to today, that is not cancelled and still owes
+ * money — open or closed, the rule the row's "To collect" is drawn by.
+ */
 export function useToCollectOrders(today: string, enabled = true): BookRead {
     const filters = useMemo<KitchenOrderFilters>(
         () => ({
-            status: 'fulfilled',
             from: addDays(today, -COLLECT_LOOKBACK_DAYS),
             to: today,
             limit: BOOK_PAGE_LIMIT,

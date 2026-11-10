@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10684 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10686 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -6970,6 +6970,7 @@ export interface NamespaceKeys {
     | 'orders.step.driver'
     | 'orders.step.payment'
     | 'orders.step.pickup'
+    | 'orders.step.ready'
     | 'orders.tab.all'
     | 'orders.tab.calendar'
     | 'orders.tab.label'
@@ -6977,6 +6978,7 @@ export interface NamespaceKeys {
     | 'orders.toast.changed'
     | 'orders.toast.failed'
     | 'orders.toast.pickedUp'
+    | 'orders.toast.ready'
     | 'packaging.archiveBody'
     | 'packaging.archiveConfirm'
     | 'packaging.archiveFailed'
@@ -17672,6 +17674,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:orders.step.driver',
   'kitchen:orders.step.payment',
   'kitchen:orders.step.pickup',
+  'kitchen:orders.step.ready',
   'kitchen:orders.tab.all',
   'kitchen:orders.tab.calendar',
   'kitchen:orders.tab.label',
@@ -17679,6 +17682,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:orders.toast.changed',
   'kitchen:orders.toast.failed',
   'kitchen:orders.toast.pickedUp',
+  'kitchen:orders.toast.ready',
   'kitchen:packaging.archiveBody',
   'kitchen:packaging.archiveConfirm',
   'kitchen:packaging.archiveFailed',

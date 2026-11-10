@@ -5691,6 +5691,7 @@
             "confirm": "Confirm",
             "driver": "Choose a driver",
             "deliver": "Mark delivered",
+            "ready": "Mark ready",
             "pickup": "Mark picked up",
             "payment": "Record a payment"
         },
@@ -5731,6 +5732,7 @@
         },
         "toast": {
             "pickedUp": "Order {{number}} picked up.",
+            "ready": "Order {{number}} is ready to go.",
             "changed": "Order {{number}} changed while you were looking. Check it and try again.",
             "failed": "Order {{number}} could not be updated."
         },

@@ -64,6 +64,7 @@ export function orderStatusTone(order: BookRow): BadgeTone {
 export const NEXT_STEP_KEYS: Readonly<Record<NextStep, string>> = {
     confirm: 'kitchen:orders.step.confirm',
     driver: 'kitchen:orders.step.driver',
+    ready: 'kitchen:orders.step.ready',
     deliver: 'kitchen:orders.step.deliver',
     pickup: 'kitchen:orders.step.pickup',
     payment: 'kitchen:orders.step.payment',
