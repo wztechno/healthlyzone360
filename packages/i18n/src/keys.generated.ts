@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10699 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10704 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -6594,6 +6594,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.addSupplier'
     | 'ops.supplyOrders.addTitle'
     | 'ops.supplyOrders.backToOrders'
+    | 'ops.supplyOrders.backToRequirements'
     | 'ops.supplyOrders.branchRequiredBody'
     | 'ops.supplyOrders.branchRequiredTitle'
     | 'ops.supplyOrders.builderCaption'
@@ -6666,8 +6667,12 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.nothingNeededTitle'
     | 'ops.supplyOrders.onHand'
     | 'ops.supplyOrders.onOrder'
+    | 'ops.supplyOrders.onOrderMore'
+    | 'ops.supplyOrders.onOrderShort'
     | 'ops.supplyOrders.order'
+    | 'ops.supplyOrders.orderAll'
     | 'ops.supplyOrders.orderAnyway'
+    | 'ops.supplyOrders.orderItem'
     | 'ops.supplyOrders.ordersCaption'
     | 'ops.supplyOrders.ordersEmptyBody'
     | 'ops.supplyOrders.ordersEmptyTitle'
@@ -17311,6 +17316,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.addSupplier',
   'kitchen:ops.supplyOrders.addTitle',
   'kitchen:ops.supplyOrders.backToOrders',
+  'kitchen:ops.supplyOrders.backToRequirements',
   'kitchen:ops.supplyOrders.branchRequiredBody',
   'kitchen:ops.supplyOrders.branchRequiredTitle',
   'kitchen:ops.supplyOrders.builderCaption',
@@ -17383,8 +17389,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.nothingNeededTitle',
   'kitchen:ops.supplyOrders.onHand',
   'kitchen:ops.supplyOrders.onOrder',
+  'kitchen:ops.supplyOrders.onOrderMore',
+  'kitchen:ops.supplyOrders.onOrderShort',
   'kitchen:ops.supplyOrders.order',
+  'kitchen:ops.supplyOrders.orderAll',
   'kitchen:ops.supplyOrders.orderAnyway',
+  'kitchen:ops.supplyOrders.orderItem',
   'kitchen:ops.supplyOrders.ordersCaption',
   'kitchen:ops.supplyOrders.ordersEmptyBody',
   'kitchen:ops.supplyOrders.ordersEmptyTitle',
