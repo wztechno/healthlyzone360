@@ -96,7 +96,8 @@ export function DeskColumnPicker({
                 >
                     {t('kitchen:catalogue.columnsButton', { shown, max })}
                 </Text>
-                <View className="flex-row flex-wrap">
+                {/* A gap between the rows, so two ticked neighbours read as two choices, not one band. */}
+                <View className="flex-row flex-wrap gap-y-1.5">
                     {options.map((option) => (
                         <View key={option.key} className="w-1/2 pe-1.5">
                             <View className={option.disabled ? 'opacity-50' : ''}>

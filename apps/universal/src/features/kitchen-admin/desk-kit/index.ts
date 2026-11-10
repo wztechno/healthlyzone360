@@ -20,6 +20,7 @@
 export { ChoiceRow, initialsOf } from './choice-row.tsx';
 export { DeskButton, DeskIconButton } from './desk-button.tsx';
 export type { DeskButtonProps, DeskButtonVariant } from './desk-button.tsx';
+export { DeskCheckbox } from './desk-checkbox.tsx';
 export { DeskChip } from './desk-chip.tsx';
 export { DeskColumnPicker } from './desk-column-picker.tsx';
 export { DeskRowMenu } from './desk-row-menu.tsx';

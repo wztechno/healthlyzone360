@@ -17,6 +17,7 @@ import {
     DeskButton,
     DeskChip,
     DeskIconButton,
+    DeskCheckbox,
     DeskColumnPicker,
     DeskRowMenu,
     DeskSelect,
@@ -125,6 +126,7 @@ export function OrdersShowcaseScreen() {
     const [day, setDay] = useState(TODAY);
     const [open, setOpen] = useState(false);
     const [openB, setOpenB] = useState(false);
+    const [ticked, setTicked] = useState(true);
     const columnChoices = [
         'Ingredient',
         'Required',
@@ -326,7 +328,7 @@ export function OrdersShowcaseScreen() {
                         </View>
                     </View>
 
-                    <Text variant="title">Row menu and Show columns</Text>
+                    <Text variant="title">Row menu, tick boxes and Show columns</Text>
                     <View className="z-20 flex-row flex-wrap items-center gap-4">
                         <DeskRowMenu
                             testID="showcase-orders-row-menu"
@@ -346,6 +348,19 @@ export function OrdersShowcaseScreen() {
                                     onSelect: () => undefined,
                                 },
                             ]}
+                        />
+                        <DeskCheckbox
+                            testID="showcase-orders-check-all"
+                            label="Order every item"
+                            checked={false}
+                            mixed
+                            onChange={() => undefined}
+                        />
+                        <DeskCheckbox
+                            testID="showcase-orders-check"
+                            label="Order Tahini"
+                            checked={ticked}
+                            onChange={setTicked}
                         />
                         <DeskColumnPicker
                             testID="showcase-orders-columns"
