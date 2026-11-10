@@ -41,21 +41,17 @@ const EM_DASH = '—';
 
 type Formatter = ReturnType<typeof useFormatter>;
 
-/** "To confirm", "Confirmed", "Delivered" / "Picked up" / "Sold", "Cancelled". */
+/** "To confirm", "Confirmed", "Done", "Cancelled". */
 export function orderStatusLabel(order: BookRow, t: TFunction): string {
     switch (order.status) {
         case 'placed':
             return t('kitchen:orders.status.toConfirm');
         case 'confirmed':
             return t('kitchen:orders.status.confirmed');
+        // How it left is the Type's to say (the Driver column: a name, Pickup or At the counter);
+        // the status says only where the order stands.
         case 'fulfilled':
-            return t(
-                order.fulfilmentType === 'delivery'
-                    ? 'kitchen:orders.status.delivered'
-                    : order.fulfilmentType === 'pickup'
-                      ? 'kitchen:orders.status.pickedUp'
-                      : 'kitchen:orders.status.sold',
-            );
+            return t('kitchen:orders.status.done');
         case 'cancelled':
             return t('kitchen:orders.status.cancelled');
     }
@@ -229,11 +225,15 @@ export function orderColumns(context: OrderColumnContext): readonly CatalogueCol
             key: 'status',
             role: 'status',
             label: t('kitchen:orders.column.status'),
-            width: 120,
+            // Room for "To confirm" and "Late" side by side: below it the two chips stacked and
+            // ran over the row's rule once the page panel was open.
+            width: 150,
+            min: 150,
+            grow: false,
             priority: 92,
             value: (order) => orderStatusLabel(order, t),
             render: (order) => (
-                <View className="flex-row flex-wrap items-center gap-1">
+                <View className="flex-row items-center gap-1">
                     <DeskChip
                         testID={`${id(order)}-status`}
                         tone={orderStatusTone(order)}

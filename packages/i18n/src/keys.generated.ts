@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10673 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10678 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3938,6 +3938,8 @@ export interface NamespaceKeys {
     | 'desk.assign.choose'
     | 'desk.assign.chosen'
     | 'desk.assign.confirm'
+    | 'desk.assign.courierInstead'
+    | 'desk.assign.current'
     | 'desk.assign.description'
     | 'desk.assign.listErrorTitle'
     | 'desk.assign.noMatchBody'
@@ -4009,8 +4011,10 @@ export interface NamespaceKeys {
     | 'desk.dueAt'
     | 'desk.edit.backToDesk'
     | 'desk.edit.changeAddress'
+    | 'desk.edit.currentAddress'
     | 'desk.edit.keepAddress'
     | 'desk.edit.loadErrorTitle'
+    | 'desk.edit.newAddress'
     | 'desk.edit.notAmendable.agreement_priced'
     | 'desk.edit.notAmendable.closed'
     | 'desk.edit.notAmendable.kitchen_started'
@@ -6827,6 +6831,7 @@ export interface NamespaceKeys {
     | 'ops.unpricedReceipts.statTypedCaption'
     | 'ops.unpricedReceipts.statTypedLabel'
     | 'ops.unpricedReceipts.title'
+    | 'orders.backToOrders'
     | 'orders.calendar.dayA11y'
     | 'orders.calendar.label'
     | 'orders.calendar.late'
@@ -14629,6 +14634,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.assign.choose',
   'kitchen:desk.assign.chosen',
   'kitchen:desk.assign.confirm',
+  'kitchen:desk.assign.courierInstead',
+  'kitchen:desk.assign.current',
   'kitchen:desk.assign.description',
   'kitchen:desk.assign.listErrorTitle',
   'kitchen:desk.assign.noMatchBody',
@@ -14700,8 +14707,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.dueAt',
   'kitchen:desk.edit.backToDesk',
   'kitchen:desk.edit.changeAddress',
+  'kitchen:desk.edit.currentAddress',
   'kitchen:desk.edit.keepAddress',
   'kitchen:desk.edit.loadErrorTitle',
+  'kitchen:desk.edit.newAddress',
   'kitchen:desk.edit.notAmendable.agreement_priced',
   'kitchen:desk.edit.notAmendable.closed',
   'kitchen:desk.edit.notAmendable.kitchen_started',
@@ -17518,6 +17527,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.unpricedReceipts.statTypedCaption',
   'kitchen:ops.unpricedReceipts.statTypedLabel',
   'kitchen:ops.unpricedReceipts.title',
+  'kitchen:orders.backToOrders',
   'kitchen:orders.calendar.dayA11y',
   'kitchen:orders.calendar.label',
   'kitchen:orders.calendar.late',

@@ -2293,6 +2293,8 @@
             "searchHint": "Everybody with an active membership here is listed. Somebody who has not put a name on their profile can only be found with this box empty.",
             "choose": "Choose",
             "chosen": "Chosen",
+            "current": "Has it now",
+            "courierInstead": "Hand it to a courier company instead",
             "unnamed": "This member has no name on their profile.",
             "confirm": "Give them the run",
             "capped": "Showing the first {{limit}}. Narrow the search to reach the rest.",
@@ -2602,6 +2604,8 @@
             "notAmendableBody": "To change it now, cancel it and take a new sale.",
             "backToDesk": "Back to the order desk",
             "changeAddress": "Change address",
+            "currentAddress": "Address on the order now",
+            "newAddress": "New address",
             "keepAddress": "Keep this address",
             "save": "Save changes · {{total}}",
             "review": "Review changes · {{total}}",
@@ -5621,6 +5625,7 @@
             "calendar": "Calendar",
             "all": "All orders"
         },
+        "backToOrders": "Back to orders",
         "newOrder": "New order",
         "newForDay": "New order for this day",
         "clearFilters": "Clear filters",
@@ -5643,7 +5648,7 @@
             "all": "All",
             "both": "Both",
             "slot": "Slot",
-            "kind": "Delivery or pickup",
+            "kind": "Type",
             "dates": "Dates",
             "status": "Status"
         },
@@ -5680,7 +5685,7 @@
             "pickedUp": "Picked up",
             "sold": "Sold",
             "cancelled": "Cancelled",
-            "done": "Delivered or picked up"
+            "done": "Done"
         },
         "step": {
             "confirm": "Confirm",

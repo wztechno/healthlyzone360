@@ -437,7 +437,7 @@ function KindScope({
             options={KIND_FILTERS.map((kind) => ({
                 value: kind,
                 label: t(
-                    kind === 'all' ? 'kitchen:orders.filter.both' : `kitchen:orders.kind.${kind}`,
+                    kind === 'all' ? 'kitchen:orders.filter.all' : `kitchen:orders.kind.${kind}`,
                 ),
                 testID: `${testID}-${kind}`,
             }))}
@@ -451,15 +451,15 @@ function GroupHeading({
     sub,
     count,
     late = false,
-    action,
+    onSeeAll,
     testID,
 }: {
     readonly title: string;
     readonly sub: string | null;
     readonly count: number;
     readonly late?: boolean | undefined;
-    /** A way on from the heading — the late group's "See all". */
-    readonly action?: ReactNode;
+    /** The late group's way on: the whole row opens every late order. */
+    readonly onSeeAll?: (() => void) | undefined;
     readonly testID: string;
 }) {
     const { t } = useTranslation();
@@ -470,7 +470,13 @@ function GroupHeading({
             title={title}
             sub={sub}
             count={t('kitchen:orders.count', { count })}
-            action={action}
+            {...(onSeeAll === undefined
+                ? {}
+                : {
+                      onPress: onSeeAll,
+                      actionLabel: t('kitchen:orders.group.lateAll'),
+                      actionTestID: `${testID}-all`,
+                  })}
         />
     );
 }
@@ -683,26 +689,17 @@ function TodayTab({
                             title={t('kitchen:orders.group.late')}
                             sub={t('kitchen:orders.group.lateSub')}
                             count={groupCounts.get(group) ?? 0}
-                            action={
-                                late.length > LATE_ON_TODAY ? (
-                                    <DeskButton
-                                        testID="kitchen-orders-group-late-all"
-                                        variant="quiet"
-                                        label={t('kitchen:orders.group.lateAll')}
-                                        onPress={() => {
-                                            update({
-                                                tab: 'all',
-                                                quick: 'late',
-                                                dates: 'all',
-                                                status: 'all',
-                                                slot: query.slot,
-                                                kind: query.kind,
-                                                q: '',
-                                            });
-                                        }}
-                                    />
-                                ) : undefined
-                            }
+                            onSeeAll={() => {
+                                update({
+                                    tab: 'all',
+                                    quick: 'late',
+                                    dates: 'all',
+                                    status: 'all',
+                                    slot: query.slot,
+                                    kind: query.kind,
+                                    q: '',
+                                });
+                            }}
                         />
                     ) : (
                         <GroupHeading
