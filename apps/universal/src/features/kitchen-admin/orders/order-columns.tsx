@@ -8,6 +8,7 @@ import { Text as RNText, View } from 'react-native';
 import { formatMoney } from '../../marketplace/format.ts';
 import { dateInstant } from '../../planner/format.ts';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import type { ColumnFilter, ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { DeskButton, DeskChip } from '../desk-kit/index.ts';
 import {
     kitchenOrderPaymentMethodKey,
@@ -448,4 +449,61 @@ export function paymentText(
         sub: method,
         tone: 'warning',
     };
+}
+
+/* ── header filters ──────────────────────────────────────────────────────────────────────────── */
+
+const LATE_VALUE = '\u0000late';
+
+/** A column filtered by the words it draws: one value per distinct label among the rows. */
+function byLabel(read: (order: BookRow) => string): ColumnFilter<BookRow> {
+    return {
+        values: (rows) =>
+            [...new Set(rows.map(read))]
+                .sort((left, right) => left.localeCompare(right))
+                .map((label) => ({ key: label, label })),
+        match: (order, value) => read(order) === value,
+    };
+}
+
+/**
+ * The Orders table's header filters — the Ingredients list's menus (`useColumnControls`), narrowing
+ * the rows on screen: Status (and Late), Day and slot, Driver and Payment. None of the columns
+ * sorts: the table is ordered by the day's slots, and a sorted column would scatter its groups.
+ */
+export function orderColumnControls(
+    context: OrderColumnContext,
+): readonly ControlledColumn<BookRow, CatalogueColumn<BookRow>>[] {
+    const { t, formatter, now, windows, driverName } = context;
+    const status = byLabel((order) => orderStatusLabel(order, t));
+    const filters: Readonly<Record<string, ColumnFilter<BookRow>>> = {
+        status: {
+            values: (rows) => [
+                ...status.values(rows),
+                ...(rows.some((order) => isLateOrder(order, now, windows))
+                    ? [{ key: LATE_VALUE, label: t('kitchen:orders.late') }]
+                    : []),
+            ],
+            match: (order, value) =>
+                value === LATE_VALUE
+                    ? isLateOrder(order, now, windows)
+                    : orderStatusLabel(order, t) === value,
+        },
+        when: byLabel((order) => whenLines(order, context).main),
+        driver: byLabel((order) => driverText(order, t, driverName)),
+        // By what is owed, not the amount: "Paid", "Money to collect", or how it is paid when the
+        // read did not say what has arrived.
+        payment: byLabel((order) => {
+            const owed = owedMinor(order);
+            if (order.status === 'cancelled' || owed === null) {
+                return paymentText(order, t, formatter).main;
+            }
+            return t(owed === 0 ? 'kitchen:orders.payment.paid' : 'kitchen:orders.figure.collect');
+        }),
+    };
+    return orderColumns(context).map((column) => ({
+        ...column,
+        sort: false as const,
+        ...(filters[column.key] === undefined ? {} : { filter: filters[column.key] }),
+    }));
 }

@@ -36,7 +36,8 @@ import { useWindowName } from '../order-desk/use-window-name.ts';
 import { useListPage } from '../use-list-page.ts';
 import { CalendarTab, SlotScope, useSlotHours, useSlotName } from '../orders/orders-calendar.tsx';
 import { DayStepper } from '../orders/day-stepper.tsx';
-import { longDay, orderColumns, shortDay } from '../orders/order-columns.tsx';
+import { longDay, orderColumnControls, shortDay } from '../orders/order-columns.tsx';
+import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import type { OrderColumnContext } from '../orders/order-columns.tsx';
 import {
     DATES_FILTERS,
@@ -505,6 +506,12 @@ function OrdersTable({
     readonly testID: string;
 }) {
     const { t } = useTranslation();
+    const allColumns = useMemo(() => orderColumnControls(columns), [columns]);
+    const everyKey = useMemo(() => allColumns.map((column) => column.key), [allColumns]);
+    // Every column stays drawn — this table has no column picker — and the header menus filter.
+    const controls = useColumnControls(rows, allColumns, testID, {
+        picker: { defaults: everyKey, locked: everyKey, max: everyKey.length },
+    });
     if (read.pending) {
         return <TableSkeleton testID={`${testID}-loading`} partTestID={testID} rows={8} />;
     }
@@ -526,13 +533,13 @@ function OrdersTable({
                 joined
                 frameEmpty
                 label={t('kitchen:orders.caption')}
-                columns={orderColumns(columns)}
-                rows={rows}
+                columns={controls.columns}
+                rows={controls.rows}
                 rowKey={(row) => String(row.id)}
                 density="sm"
                 highlightedId={highlighted}
                 onRowPress={(row) => {
-                    onOpenOrder(row, rows);
+                    onOpenOrder(row, controls.rows);
                 }}
                 rowActionsLabel={t('kitchen:list.rowActions')}
                 sectionHeader={sectionHeader}
