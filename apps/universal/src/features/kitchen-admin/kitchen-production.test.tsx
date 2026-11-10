@@ -487,7 +487,7 @@ describe('one batch', () => {
         // The quantities are still theirs to read — a 403 on the whole page would blank the desk
         // for the person actually running the batch.
         expect(screen.getByTestId('kitchen-production-batch-yield-produced')).toHaveTextContent(
-            '38 l',
+            '38 L',
         );
     });
 

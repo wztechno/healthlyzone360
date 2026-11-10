@@ -44,7 +44,7 @@ import {
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
-import { displayName } from '../format.ts';
+import { displayName, unitCodeLabel } from '../format.ts';
 import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
@@ -408,7 +408,7 @@ function SupplyOrderBuilder() {
                                 testID={`${testID}-on-hand`}
                             >
                                 {t('kitchen:ops.supplyOrders.onHand', {
-                                    quantity: `${formatter.formatNumber(Number(row.quantityOnHand))} ${row.unitCode}`,
+                                    quantity: `${formatter.formatNumber(Number(row.quantityOnHand))} ${unitCodeLabel(row.unitCode, t)}`,
                                 })}
                             </Text>
                             {/* Already on its way: what stops the same order being drafted twice. */}
@@ -421,7 +421,7 @@ function SupplyOrderBuilder() {
                                     testID={`${testID}-on-order`}
                                 >
                                     {t('kitchen:ops.supplyOrders.onOrder', {
-                                        quantity: `${formatter.formatNumber(Number(row.onOrderQuantity))} ${row.unitCode}`,
+                                        quantity: `${formatter.formatNumber(Number(row.onOrderQuantity))} ${unitCodeLabel(row.unitCode, t)}`,
                                         orders: row.openOrders
                                             .map((order) => order.number)
                                             .join(t('kitchen:common.listSeparator')),
@@ -485,7 +485,7 @@ function SupplyOrderBuilder() {
                                 })}
                                 labelHidden
                                 size="sm"
-                                unit={row.unitCode}
+                                unit={unitCodeLabel(row.unitCode, t)}
                                 value={value}
                                 // An em dash placeholder rather than "0": the row has no honest
                                 // suggestion and a zero in the box would read as one.
@@ -695,7 +695,7 @@ function SupplyOrderBuilder() {
         .map((item: StockItem) => ({
             value: String(item.id),
             label: item.nameEn,
-            description: item.unitCode,
+            description: unitCodeLabel(item.unitCode, t),
         }));
 
     const loaded = branchId !== null && !proposal.isPending && failure === null;

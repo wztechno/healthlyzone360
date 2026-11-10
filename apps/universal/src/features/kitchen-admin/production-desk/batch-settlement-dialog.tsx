@@ -19,7 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { addDays } from '../../commerce/dates.ts';
-import { withoutMinus } from '../format.ts';
+import { unitCodeLabel, withoutMinus } from '../format.ts';
 import { BATCH_QUANTITY_FORMAT } from '../operations/batch-sheet.tsx';
 import { ledgerQuantity } from '../ops-format.ts';
 import type { CompletionDraft, LineField } from './completion-model.ts';
@@ -145,12 +145,15 @@ export function BatchSettlementDialog({
         onChange(withLineQuantity(draft, field, stockItemId, withoutMinus(value)));
     };
 
+    const yieldUnitLabel = yieldUnitCode === null ? undefined : unitCodeLabel(yieldUnitCode, t);
+
     const claimed = (line: ProductionOrderLine): string =>
         ledgerQuantity(
             (parsed) => formatter.formatNumber(parsed, BATCH_QUANTITY_FORMAT),
             line.reservedQuantity ?? line.requiredQuantity,
             line.unitCode,
             noValue,
+            t,
         );
 
     /*
@@ -182,7 +185,7 @@ export function BatchSettlementDialog({
                             ? 'kitchen:ops.production.asPlanned'
                             : 'kitchen:fields.quantityPlaceholder',
                     )}
-                    unit={line.unitCode ?? undefined}
+                    unit={line.unitCode === null ? undefined : unitCodeLabel(line.unitCode, t)}
                     value={draft[field][id] ?? ''}
                     onChangeText={(value) => {
                         setLine(field, id, value);
@@ -288,7 +291,7 @@ export function BatchSettlementDialog({
                         label={t('kitchen:ops.production.producedLabel')}
                         hint={t('kitchen:ops.production.producedHint')}
                         placeholder={t('kitchen:ops.production.producedPlaceholder')}
-                        unit={yieldUnitCode ?? undefined}
+                        unit={yieldUnitLabel}
                         required
                         value={draft.produced}
                         error={
@@ -309,7 +312,7 @@ export function BatchSettlementDialog({
                         label={t('kitchen:ops.production.rejectedLabel')}
                         hint={t('kitchen:ops.production.rejectedHint')}
                         placeholder={t('kitchen:fields.quantityPlaceholder')}
-                        unit={yieldUnitCode ?? undefined}
+                        unit={yieldUnitLabel}
                         value={draft.rejected}
                         error={errors.rejected === undefined ? undefined : t(errors.rejected)}
                         onChangeText={(value) => {

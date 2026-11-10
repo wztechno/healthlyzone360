@@ -76,6 +76,7 @@ export function BatchLinesPanel({
             value,
             unitCode,
             noValue,
+            t,
         );
 
     /** By the figure the wire sends, blanks last either way: "not yet" is not the smallest. */

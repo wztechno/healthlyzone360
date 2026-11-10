@@ -123,6 +123,7 @@ import {
     unitDimension,
     unitDimensionKey,
     unitKey,
+    unitCodeLabel,
     unitShortKey,
     withoutMinus,
 } from '../format.ts';
@@ -3067,7 +3068,13 @@ function IngredientEditor({
                                         : {
                                               unit: t('kitchen:fields.unitPricePer', {
                                                   currency: latestPurchase.costCurrencyCode ?? '',
-                                                  unit: latestPurchase.unitCode ?? '',
+                                                  unit:
+                                                      latestPurchase.unitCode === null
+                                                          ? ''
+                                                          : unitCodeLabel(
+                                                                latestPurchase.unitCode,
+                                                                t,
+                                                            ),
                                               }),
                                               hint: currentPriceSource,
                                           })}

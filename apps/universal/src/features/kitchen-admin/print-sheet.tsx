@@ -9,7 +9,7 @@ import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, View } from 'react-native';
 
-import { prefersArabic } from './format.ts';
+import { prefersArabic, unitCodeLabel } from './format.ts';
 import { printSheetTestId, purchaseOrderStatusKey } from './ops-format.ts';
 
 /**
@@ -376,7 +376,7 @@ export function PrintSheet({ order }: PrintSheetProps) {
                             ordinal={index + 1}
                             arabicFirst={arabicFirst}
                             sheetTestId={printSheetTestId(String(order.id))}
-                            quantity={`${formatter.formatNumber(Number(line.quantity))} ${line.unitCode}`}
+                            quantity={`${formatter.formatNumber(Number(line.quantity))} ${unitCodeLabel(line.unitCode, t)}`}
                         />
                     ))}
                 </View>

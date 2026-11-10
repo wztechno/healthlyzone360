@@ -753,7 +753,7 @@ describe('supplied items', () => {
         const priced = suppliedItemRowTestId(String(stockItemId(1)));
         expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent(/2\.50/);
         expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent(/USD/);
-        expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent(/kg/);
+        expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent(/Kg/);
         expect(screen.getByTestId(`${priced}-preferred`)).toBeTruthy();
         expect(screen.getByTestId(`${priced}-ref`)).toHaveTextContent('GF-FLOUR-25');
 

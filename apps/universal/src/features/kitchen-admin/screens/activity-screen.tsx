@@ -29,7 +29,7 @@ import { PeriodScope } from '../catalogue/period-scope.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { AUDIT_VIEW_PERMISSION } from '../entity-registry.ts';
-import { humaniseCode } from '../format.ts';
+import { humaniseCode, unitCodeLabel } from '../format.ts';
 
 /**
  * `/kitchen/activity` — where an owner investigates a number. Built like the cash report: a window of
@@ -265,7 +265,7 @@ function StockMovements({ window }: { readonly window: { from: string; to: strin
             priority: 92,
             render: (row) => (
                 <Text variant="mono">
-                    {`${formatter.formatNumber(Number(row.quantityDelta))} ${row.unit}`}
+                    {`${formatter.formatNumber(Number(row.quantityDelta))} ${unitCodeLabel(row.unit, t)}`}
                 </Text>
             ),
         },

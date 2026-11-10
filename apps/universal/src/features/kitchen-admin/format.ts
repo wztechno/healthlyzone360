@@ -268,9 +268,13 @@ export function adminReferenceUnits<Unit extends { readonly id: string; readonly
     return current === undefined || admin.includes(current) ? admin : [...admin, current];
 }
 
-/** A server unit code as the admin writes it — `Kg`, `L`, `Pc` — or the code itself when unknown. */
+/**
+ * A server unit code as the admin writes it — `Kg`, `L`, `Pc` — or, when the code is not one of
+ * ours, the code itself with a capital first letter: a unit is never shown in lower case.
+ */
 export function unitCodeLabel(code: string, t: (key: string) => string): string {
-    return isMeasureUnit(code) ? t(unitShortKey(code)) : code;
+    if (isMeasureUnit(code)) return t(unitShortKey(code));
+    return `${code.charAt(0).toLocaleUpperCase()}${code.slice(1)}`;
 }
 
 /* ── category codes ──────────────────────────────────────────────────────────────────────────── */

@@ -35,6 +35,7 @@ import {
     INVENTORY_ORDER_SUPPLIES_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
+import { unitCodeLabel } from '../format.ts';
 import { WeeklyStockCheckBanner } from '../weekly-stock-check.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
@@ -284,7 +285,7 @@ function OrderDeskRequirements() {
                 values: (loaded) =>
                     [...new Set(loaded.map((row) => row.unitCode ?? EM_DASH))].map((unit) => ({
                         key: unit,
-                        label: unit,
+                        label: unit === EM_DASH ? EM_DASH : unitCodeLabel(unit, t),
                     })),
                 match: (row, value) => (row.unitCode ?? EM_DASH) === value,
             },
@@ -292,7 +293,7 @@ function OrderDeskRequirements() {
                 <Text variant="mono" tone="secondary" testID={`${rowTestId(row)}-unit`}>
                     {/* The one genuine unknown on this row. A shelf with no resolved unit still has
                         real quantities; it is the label for them that is missing. */}
-                    {row.unitCode ?? EM_DASH}
+                    {row.unitCode === null ? EM_DASH : unitCodeLabel(row.unitCode, t)}
                 </Text>
             ),
         },

@@ -366,13 +366,13 @@ describe('ops panels', () => {
         await type('kitchen-stock-movement-quantity-input', '-2');
         expect(screen.getByTestId('kitchen-stock-movement-quantity-input').props.value).toBe('2');
         expect(screen.getByTestId('kitchen-stock-editor-summary-movement')).toHaveTextContent(
-            /−2 kg|-2 kg/,
+            /−2 Kg|-2 Kg/,
         );
 
         // Wasting more than the four kilograms on the shelf is refused before it is posted.
         await type('kitchen-stock-movement-quantity-input', '5');
         expect(screen.getByTestId('kitchen-stock-movement-quantity-error')).toHaveTextContent(
-            /Only 4 kg is on the shelf/,
+            /Only 4 Kg is on the shelf/,
         );
         expect(screen.getByTestId('kitchen-stock-editor-save')).toBeDisabled();
 
@@ -390,7 +390,7 @@ describe('ops panels', () => {
         await type('kitchen-stock-movement-quantity-input', '6.5');
         expect(screen.queryByTestId('kitchen-stock-movement-quantity-error')).toBeNull();
         expect(screen.getByTestId('kitchen-stock-editor-summary-movement')).toHaveTextContent(
-            /\+2\.5 kg/,
+            /\+2\.5 Kg/,
         );
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-stock-editor-save'));
@@ -439,7 +439,7 @@ describe('ops panels', () => {
             fireEvent.changeText(screen.getByTestId('kitchen-stock-movement-quantity-input'), '0');
         });
         expect(screen.getByTestId('kitchen-stock-editor-summary-movement')).toHaveTextContent(
-            /−4 kg|-4 kg/,
+            /−4 Kg|-4 Kg/,
         );
     });
 

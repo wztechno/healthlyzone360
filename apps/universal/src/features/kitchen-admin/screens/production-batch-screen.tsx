@@ -316,6 +316,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
             value,
             unitCode,
             noValue,
+            t,
         );
 
     const history = steps(batch, formatter, t);

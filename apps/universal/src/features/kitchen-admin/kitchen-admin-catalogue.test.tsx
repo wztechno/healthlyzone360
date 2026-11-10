@@ -1655,7 +1655,7 @@ describe('the last purchase on a resale item', () => {
         expect(screen.getByTestId('kitchen-product-unit-price-input').props.editable).toBe(false);
         expect(
             screen.getByTestId('kitchen-product-unit-price-unit', { includeHiddenElements: true }),
-        ).toHaveTextContent('USD / pc');
+        ).toHaveTextContent('USD / Pc');
     });
 
     it('says "Never bought" when nothing has been received for it', async () => {

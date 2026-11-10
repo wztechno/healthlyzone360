@@ -12,6 +12,7 @@ import { useRecordSplit } from './catalogue/record-popup.tsx';
 import { RecordTile, TileEmpty } from './catalogue/record-tiles.tsx';
 import { BoardFieldRows } from './catalogue/record-view-page.tsx';
 import { RECORD_RAIL_MIN } from './desk-layout.ts';
+import { unitCodeLabel } from './format.ts';
 import { purchaseOrderStatusKey } from './ops-format.ts';
 
 /**
@@ -312,7 +313,7 @@ export function SupplyOrderRecord({
                                         >
                                             {t('kitchen:ops.supplyOrders.view.toComeLine', {
                                                 quantity: quantity(line.outstandingQuantity),
-                                                unit: line.unitCode,
+                                                unit: unitCodeLabel(line.unitCode, t),
                                                 item: line.itemNameEn,
                                             })}
                                         </Text>

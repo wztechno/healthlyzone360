@@ -27,6 +27,7 @@ import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
+import { unitCodeLabel } from '../format.ts';
 
 type Shelf = DuplicateStockGroup['shelves'][number];
 
@@ -186,7 +187,7 @@ function StockDuplicatesList() {
                 t('kitchen:stockDuplicates.shelf', {
                     code: shelf.code,
                     quantity: Number(shelf.quantity),
-                    unit: shelf.unitCode,
+                    unit: unitCodeLabel(shelf.unitCode, t),
                 }),
             )
             .join(' · ');

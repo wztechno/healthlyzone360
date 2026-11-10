@@ -269,7 +269,7 @@ function ProductionBatches() {
                 priority: 75,
                 render: (row) => (
                     <Text variant="mono" testID={`${productionBatchTestId(String(row.id))}-yield`}>
-                        {yieldSummary(row) ?? noValue}
+                        {yieldSummary(row, t) ?? noValue}
                     </Text>
                 ),
             },

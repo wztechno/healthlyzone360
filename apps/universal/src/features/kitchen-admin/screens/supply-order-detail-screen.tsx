@@ -61,7 +61,7 @@ import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { readQuantity } from '../supply-order-model.ts';
-import { trimDecimal } from '../format.ts';
+import { trimDecimal, unitCodeLabel } from '../format.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 /**
@@ -283,7 +283,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
             value: String(item.id),
             // Named without the catalogue code, as the rows are; the type-ahead matches on the name.
             label: item.nameEn,
-            description: item.unitCode,
+            description: unitCodeLabel(item.unitCode, t),
         }));
 
     function edit(next: readonly LineDraft[], nextNotes = notes): void {
@@ -547,7 +547,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                                   testID={`${purchaseOrderLineTestId(line.stockItemId)}-received`}
                                   tone={Number(line.receivedQuantity) > 0 ? 'primary' : 'secondary'}
                               >
-                                  {`${formatter.formatNumber(Number(line.receivedQuantity))} ${line.unitCode}`}
+                                  {`${formatter.formatNumber(Number(line.receivedQuantity))} ${unitCodeLabel(line.unitCode, t)}`}
                               </Text>
                           </View>
                       );
@@ -564,7 +564,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                           testID={`${purchaseOrderLineTestId(line.stockItemId)}-outstanding`}
                           tone={Number(line.outstandingQuantity) > 0 ? 'warning' : 'secondary'}
                       >
-                          {`${formatter.formatNumber(Number(line.outstandingQuantity))} ${line.unitCode}`}
+                          {`${formatter.formatNumber(Number(line.outstandingQuantity))} ${unitCodeLabel(line.unitCode, t)}`}
                       </Text>
                   ),
               },
@@ -618,7 +618,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                 if (!editable) {
                     return (
                         <Text variant="mono" testID={`${testID}-quantity`}>
-                            {`${formatter.formatNumber(Number(line.quantity))} ${line.unitCode}`}
+                            {`${formatter.formatNumber(Number(line.quantity))} ${unitCodeLabel(line.unitCode, t)}`}
                         </Text>
                     );
                 }
@@ -643,7 +643,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                             })}
                             labelHidden
                             size="sm"
-                            unit={line.unitCode}
+                            unit={unitCodeLabel(line.unitCode, t)}
                             placeholder={t('kitchen:ops.supplyOrders.quantityPlaceholder')}
                             value={line.quantity}
                             error={
