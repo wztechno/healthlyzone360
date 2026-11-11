@@ -25,7 +25,7 @@ import { ENTITY_FAMILIES } from './entity-registry.ts';
  *
  * The box is a button that looks like a field, not a field: typing happens in the palette, which
  * has the room to show the results. In the admin frame's bar it is a wide sunken pill after the
- * trail, up to 420px, with the shortcut in a chip at its end; below `md` it narrows to a round
+ * trail, up to 460px, with the shortcut in a chip at its end; below `md` it narrows to a round
  * glyph, because the bar there is holding the trail as well.
  */
 export function KitchenPageSearch({
@@ -79,7 +79,7 @@ export function KitchenPageSearch({
                 className={cx(
                     'flex-row items-center rounded-full bg-surface-sunken transition-colors duration-fast ease-standard web:cursor-text',
                     wide
-                        ? 'h-11 min-w-0 max-w-[420px] flex-1 gap-2.5 border border-transparent pe-2 ps-4 hover:border-stroke-default'
+                        ? 'h-11 min-w-0 max-w-[460px] flex-1 gap-2.5 border border-transparent pe-2 ps-4 hover:border-stroke-default'
                         : 'h-10 w-10 justify-center',
                 )}
             >

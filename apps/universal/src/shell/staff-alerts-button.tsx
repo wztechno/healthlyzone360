@@ -1,5 +1,5 @@
 import type { StaffAlert, StaffAlertType } from '@healthy360/api-client/contracts';
-import { Button, DensityProvider, Icon, useBreakpoint, useToast } from '@healthy360/design-system';
+import { DensityProvider, Icon, useBreakpoint, useToast } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { usePathname, useRouter } from 'expo-router';
@@ -15,12 +15,15 @@ import {
     useStaffAlertsQuery,
 } from '../data/staff-alerts-hooks.ts';
 import { playAlertTone } from '../features/kds/alert-tone.ts';
+import { DeskButton } from '../features/kitchen-admin/desk-kit/desk-button.tsx';
+import { DeskChip } from '../features/kitchen-admin/desk-kit/desk-chip.tsx';
 import { ORDER_SUPERVISE_PERMISSION } from '../features/kitchen-admin/entity-registry.ts';
 import { guardNavigation } from '../navigation/use-unsaved-guard.ts';
 
 /**
  * The kitchen top bar's alerts: a pill with the unread count, opening the list of alerts addressed
- * to the reader. Built as `KeptWorkButton` is (`kept-work-dock.tsx`), so the two pills read as one
+ * to the reader. Drawn from the Search + Alerts canvas (2026-11-11): one list, grouped Today and
+ * Earlier, an unread alert tinted by how urgent it is. Built as `KeptWorkButton` is (`kept-work-dock.tsx`), so the two pills read as one
  * family: same pill, compact density, Escape closes, a panel hung from the bar, shut by a new page.
  *
  * The alert's wording is written here from `type` and the order number. The row holds no more than
@@ -48,6 +51,53 @@ const ROW_ICONS: Readonly<Record<StaffAlertType, IconName>> = {
     batch_stuck: 'clock',
     customer_cancelled: 'ban',
 };
+
+/**
+ * How loud an unread alert is drawn: `danger` for what can hurt someone or lose an order now,
+ * `warning` for what is waiting on the reader, `info` for news. A read alert is quiet whatever its
+ * tone.
+ */
+type AlertTone = 'danger' | 'warning' | 'info';
+
+const ROW_TONES: Readonly<Record<StaffAlertType, AlertTone>> = {
+    unaccepted_manager: 'warning',
+    unaccepted_owner: 'warning',
+    allergy_order: 'danger',
+    late_cancel: 'warning',
+    delivery_failed: 'danger',
+    no_cash_collected: 'warning',
+    refund_approval: 'warning',
+    stock_expiring: 'warning',
+    temperature_out_of_range: 'danger',
+    refund_approved: 'info',
+    refund_rejected: 'info',
+    short_hand_in: 'warning',
+    short_close: 'warning',
+    price_approval: 'warning',
+    dish_below_target: 'warning',
+    delivery_moved_closed: 'info',
+    delivery_closed_unmoved: 'warning',
+    batch_stuck: 'warning',
+    customer_cancelled: 'info',
+};
+
+const TONE_ROW: Readonly<Record<AlertTone, string>> = {
+    danger: 'border-danger-border bg-danger-subtle',
+    warning: 'border-warning-border bg-warning-subtle',
+    info: 'border-transparent bg-transparent hover:bg-surface-sunken',
+};
+
+const TONE_TILE: Readonly<Record<AlertTone, { readonly tile: string; readonly ink: string }>> = {
+    danger: { tile: 'bg-surface-raised', ink: 'text-danger-on-subtle' },
+    warning: { tile: 'bg-surface-raised', ink: 'text-warning-on-subtle' },
+    info: { tile: 'bg-info-subtle', ink: 'text-info-on-subtle' },
+};
+
+/** `YYYY-MM-DD` in the reader's own day, for the Today / Earlier split. */
+function localDay(date: Date): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${String(date.getFullYear())}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
 
 /** Where an alert about something other than an order opens. `{id}` is the alert's subject. */
 const PAGES: Partial<Readonly<Record<StaffAlertType, string>>> = {
@@ -129,44 +179,77 @@ function AlertRow({
     const title = alertTitle(t, alert);
     const when = formatter.formatDate(alert.createdAt, WHEN);
     const unread = alert.readAt === null;
+    const tone = ROW_TONES[alert.type];
+    const tile = TONE_TILE[tone];
 
+    // Unread: tinted by its tone, the glyph in a tile, the sentence bold, a red dot, Open as the
+    // green pill. Read: quiet — no tint, regular weight, Open as a link.
     return (
         <View
             testID="staff-alerts-panel-row"
-            className="flex-row items-center gap-2 border-t border-stroke-subtle py-2"
+            className={`flex-row items-start gap-3 rounded-[14px] border p-2.5 web:transition-colors ${
+                unread ? TONE_ROW[tone] : 'border-transparent hover:bg-surface-sunken'
+            }`}
         >
-            <Icon
-                name={ROW_ICONS[alert.type]}
-                size="sm"
-                className={unread ? 'text-content-primary' : 'text-content-secondary'}
-            />
-            <View className="min-w-0 flex-1">
-                <RNText
-                    numberOfLines={2}
-                    className={
-                        unread
-                            ? 'text-sm font-semibold text-content-primary text-start'
-                            : 'text-sm text-content-primary text-start'
-                    }
-                >
-                    {title}
-                </RNText>
+            <View
+                className={`h-[34px] w-[34px] items-center justify-center rounded-[10px] ${
+                    unread ? tile.tile : 'bg-surface-sunken'
+                }`}
+            >
+                <Icon
+                    name={ROW_ICONS[alert.type]}
+                    size="md"
+                    className={unread ? tile.ink : 'text-content-secondary'}
+                />
+            </View>
+            <View className="min-w-0 flex-1 flex-col gap-1">
+                <View className="flex-row items-start gap-2">
+                    <RNText
+                        numberOfLines={2}
+                        className={`min-w-0 flex-1 text-sm text-content-primary text-start ${
+                            unread ? 'font-semibold' : ''
+                        }`}
+                    >
+                        {title}
+                    </RNText>
+                    {unread ? (
+                        <View
+                            aria-hidden
+                            className="mt-1.5 h-2 w-2 rounded-full bg-danger-strong"
+                        />
+                    ) : null}
+                </View>
                 <RNText numberOfLines={1} className="text-xs text-content-secondary text-start">
                     {unread ? t('kitchen:alerts.unreadDetail', { when }) : when}
                 </RNText>
+                <View className="flex-row pt-1">
+                    <DeskButton
+                        testID="staff-alerts-panel-open"
+                        variant={unread ? 'primary' : 'quiet'}
+                        label={t('kitchen:alerts.open')}
+                        accessibilityLabel={t('kitchen:alerts.openLabel', { title })}
+                        className={unread ? '!h-[30px] !px-3' : '!px-0'}
+                        onPress={() => {
+                            onOpen(alert);
+                        }}
+                    />
+                </View>
             </View>
-            <Button
-                testID="staff-alerts-panel-open"
-                size="sm"
-                variant="secondary"
-                label={t('kitchen:alerts.open')}
-                accessibilityLabel={t('kitchen:alerts.openLabel', { title })}
-                className="self-center"
-                onPress={() => {
-                    onOpen(alert);
-                }}
-            />
         </View>
+    );
+}
+
+/** A group's upper label — Today, Earlier. */
+function GroupLabel({ label, divided }: { readonly label: string; readonly divided: boolean }) {
+    return (
+        <RNText
+            accessibilityRole="header"
+            className={`px-2 pb-1.5 text-role-caption font-bold uppercase tracking-wider text-content-secondary text-start ${
+                divided ? 'mt-1.5 border-t border-stroke-subtle pt-3' : 'pt-2'
+            }`}
+        >
+            {label}
+        </RNText>
     );
 }
 
@@ -199,6 +282,10 @@ function AlertsBell() {
     const rows = alerts.data?.alerts ?? [];
     const unreadCount = alerts.data?.unreadCount ?? 0;
     const label = t('kitchen:alerts.buttonLabel', { n: unreadCount });
+    const lit = unreadCount > 0 || open;
+    const today = localDay(new Date());
+    const todays = rows.filter((alert) => localDay(new Date(alert.createdAt)) === today);
+    const earlier = rows.filter((alert) => localDay(new Date(alert.createdAt)) !== today);
 
     const openAlert = (alert: StaffAlert) => {
         setOpenOn(null);
@@ -227,19 +314,34 @@ function AlertsBell() {
                     onPress={() => {
                         setOpenOn(open ? null : pathname);
                     }}
-                    className="h-11 flex-row items-center gap-2 rounded-full border border-stroke-subtle bg-surface-raised pe-3 ps-4 hover:bg-surface-brand-subtle"
+                    // Soft green with a red count while anything is unread; plain once all is read.
+                    className={`h-11 flex-row items-center gap-2 rounded-full border pe-3 ps-4 web:transition-colors ${
+                        open
+                            ? 'border-surface-brand bg-surface-brand-subtle'
+                            : unreadCount > 0
+                              ? 'border-stroke bg-surface-brand-subtle hover:border-surface-brand'
+                              : 'border-stroke-subtle bg-surface-raised hover:bg-surface-brand-subtle'
+                    }`}
                 >
-                    <Icon name="bell" size="sm" className="text-content-primary" />
+                    <Icon
+                        name="bell"
+                        size="sm"
+                        className={lit ? 'text-content-on-brand-subtle' : 'text-content-primary'}
+                    />
                     {roomy ? (
-                        <RNText className="text-sm font-semibold text-content-primary">
+                        <RNText
+                            className={`text-sm font-semibold ${
+                                lit ? 'text-content-on-brand-subtle' : 'text-content-primary'
+                            }`}
+                        >
                             {t('kitchen:alerts.title')}
                         </RNText>
                     ) : null}
                     {unreadCount === 0 ? null : (
-                        <View className="items-center rounded-full bg-surface-brand px-1.5">
+                        <View className="h-5 min-w-5 items-center justify-center rounded-full bg-danger-strong px-1.5">
                             <RNText
                                 testID="staff-alerts-count"
-                                className="text-xs font-semibold tabular-nums text-content-on-brand"
+                                className="text-xs font-bold tabular-nums text-danger-on-strong"
                             >
                                 {unreadCount}
                             </RNText>
@@ -247,7 +349,9 @@ function AlertsBell() {
                     )}
                     {/* The top bar is full on a phone, so the pill gives up its chevron there. */}
                     {roomy ? (
-                        <Icon name="chevronDown" size="sm" className="text-content-secondary" />
+                        <View className={`web:transition-transform ${open ? 'rotate-180' : ''}`}>
+                            <Icon name="chevronDown" size="sm" className="text-content-secondary" />
+                        </View>
                     ) : null}
                 </Pressable>
                 {open ? (
@@ -255,27 +359,30 @@ function AlertsBell() {
                         testID="staff-alerts-panel"
                         role="dialog"
                         aria-label={t('kitchen:alerts.title')}
-                        className="absolute end-0 top-full z-tooltip mt-1 w-[320px] rounded-xl border border-stroke-strong bg-surface-raised px-3 pb-1 pt-2 shadow-elevation-3 web:max-w-[92vw]"
+                        className="absolute end-0 top-full z-tooltip mt-2 w-[420px] overflow-hidden rounded-[20px] border border-stroke-subtle bg-surface-raised shadow-elevation-4 web:max-w-[92vw]"
                     >
-                        <View className="flex-row items-center gap-2 pb-1">
-                            <View className="min-w-0 flex-1 flex-row items-center gap-2">
-                                <Icon name="bell" size="sm" className="text-content-secondary" />
-                                <RNText
-                                    accessibilityRole="header"
-                                    numberOfLines={1}
-                                    className="min-w-0 shrink text-sm font-semibold text-content-primary text-start"
-                                >
-                                    {t('kitchen:alerts.title')}
-                                </RNText>
-                            </View>
+                        <View className="flex-row items-center gap-2.5 px-4 pb-2.5 pt-4">
+                            <RNText
+                                accessibilityRole="header"
+                                numberOfLines={1}
+                                className="min-w-0 shrink font-display text-lg font-bold text-content-primary text-start"
+                            >
+                                {t('kitchen:alerts.title')}
+                            </RNText>
                             {unreadCount === 0 ? null : (
-                                <Button
+                                <DeskChip
+                                    testID="staff-alerts-new"
+                                    tone="danger"
+                                    label={t('kitchen:alerts.newCount', { n: unreadCount })}
+                                />
+                            )}
+                            <View className="flex-1" />
+                            {unreadCount === 0 ? null : (
+                                <DeskButton
                                     testID="staff-alerts-mark-all"
-                                    size="sm"
                                     variant="quiet"
                                     label={t('kitchen:alerts.markAllRead')}
                                     loading={markAllRead.isPending}
-                                    className="self-center"
                                     onPress={() => {
                                         markAllRead.mutate();
                                     }}
@@ -283,19 +390,48 @@ function AlertsBell() {
                             )}
                         </View>
                         {alerts.isPending ? null : rows.length === 0 ? (
-                            <RNText
-                                testID="staff-alerts-panel-empty"
-                                className="border-t border-stroke-subtle py-2 text-xs text-content-secondary text-start"
-                            >
-                                {t(
-                                    alerts.isError
-                                        ? 'kitchen:alerts.loadError'
-                                        : 'kitchen:alerts.empty',
+                            <View className="items-center gap-2.5 px-4 pb-8 pt-6">
+                                {alerts.isError ? null : (
+                                    <View className="h-[52px] w-[52px] items-center justify-center rounded-full bg-surface-brand-subtle">
+                                        <Icon
+                                            name="check"
+                                            size="lg"
+                                            className="text-content-on-brand-subtle"
+                                        />
+                                    </View>
                                 )}
-                            </RNText>
+                                <RNText
+                                    testID="staff-alerts-panel-empty"
+                                    className="text-center text-sm font-semibold text-content-primary"
+                                >
+                                    {t(
+                                        alerts.isError
+                                            ? 'kitchen:alerts.loadError'
+                                            : 'kitchen:alerts.empty',
+                                    )}
+                                </RNText>
+                            </View>
                         ) : (
-                            <ScrollView className="max-h-[320px]">
-                                {rows.map((alert) => (
+                            <ScrollView
+                                className="max-h-[440px]"
+                                contentContainerClassName="flex-col gap-1.5 px-2 pb-2"
+                            >
+                                {todays.length === 0 ? null : (
+                                    <GroupLabel
+                                        label={t('kitchen:alerts.groupToday')}
+                                        divided={false}
+                                    />
+                                )}
+                                {todays.map((alert) => (
+                                    <AlertRow key={alert.id} alert={alert} onOpen={openAlert} />
+                                ))}
+                                {earlier.length === 0 ? null : (
+                                    <GroupLabel
+                                        label={t('kitchen:alerts.groupEarlier')}
+                                        divided={todays.length > 0}
+                                    />
+                                )}
+                                {earlier.map((alert) => (
                                     <AlertRow key={alert.id} alert={alert} onOpen={openAlert} />
                                 ))}
                             </ScrollView>
