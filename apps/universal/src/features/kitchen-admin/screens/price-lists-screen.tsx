@@ -4,8 +4,6 @@ import type {
     PublishableStatus,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Cascade,
     EmptyState,
     ErrorState,
@@ -72,6 +70,8 @@ import {
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /** Until the index has counted: every figure reads as pending. */
 const NO_FIGURES: PriceListFigures = {
     statusCounts: { draft: 0, review_required: 0, published: 0, retired: 0 },
@@ -226,16 +226,14 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                             {name.value}
                         </Text>
                         {name.isFallback ? (
-                            <Badge
-                                icon={null}
+                            <DeskChip
                                 testID={`${testID}-missing-arabic`}
                                 tone="warning"
                                 label={t('kitchen:list.missingArabic')}
                             />
                         ) : null}
                         {isAgreementPriced(row.channels) ? (
-                            <Badge
-                                icon={null}
+                            <DeskChip
                                 testID={`${testID}-agreement`}
                                 tone="warning"
                                 label={t('kitchen:priceLists.agreementBadge')}
@@ -312,8 +310,7 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                     <Inline space="xs" align="center">
                         <Text testID={`${testID}-entries`}>{entriesText(row, t)}</Text>
                         {summary.inconsistent === 0 ? null : (
-                            <Badge
-                                icon={null}
+                            <DeskChip
                                 testID={`${testID}-entries-inconsistent`}
                                 tone="danger"
                                 label={t('kitchen:priceLists.inconsistentCount', {
@@ -353,8 +350,7 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                 },
             },
             render: (row) => (
-                <Badge
-                    icon={null}
+                <DeskChip
                     testID={`${priceListRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
                     label={t(statusShortKey(row.meta.status))}
@@ -474,7 +470,7 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
                         canManage ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-price-lists-toolbar-create"
                                 label={t('kitchen:priceLists.create')}
                                 iconStart={<Icon name="plus" size="sm" />}

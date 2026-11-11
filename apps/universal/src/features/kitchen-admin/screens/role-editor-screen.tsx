@@ -1,7 +1,6 @@
 import { isDeletableRole, isValidationFailure } from '@healthy360/api-client/contracts';
 import type { ApiFailure } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     Cascade,
     Dialog,
@@ -47,6 +46,7 @@ import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/roles/{role}` and `/kitchen/roles/new` — one editor, three jobs.
  *
@@ -273,7 +273,7 @@ function RoleEditor() {
                 title={t('accessAdmin:role.notFoundTitle')}
                 body={t('accessAdmin:role.notFoundBody')}
                 actions={
-                    <Button
+                    <DeskButton
                         testID="kitchen-role-editor-missing-back"
                         variant="quiet"
                         label={t('accessAdmin:role.backToList')}
@@ -579,7 +579,7 @@ function RoleEditor() {
                     }
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-role-editor-back"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
@@ -588,7 +588,7 @@ function RoleEditor() {
                                 }}
                             />
                             {deletable ? (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-role-editor-delete"
                                     variant="quiet"
                                     label={t('accessAdmin:role.delete')}
@@ -602,7 +602,7 @@ function RoleEditor() {
                              * caller cannot change — every field is locked and the tray says why.
                              */}
                             {readOnly ? null : (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-role-editor-save"
                                     label={t('accessAdmin:role.save')}
                                     loading={create.isPending || update.isPending}
@@ -788,6 +788,7 @@ function RoleEditor() {
             />
 
             <Dialog
+                look="card"
                 testID="kitchen-role-editor-delete-dialog"
                 open={confirmingDelete}
                 onClose={() => {
@@ -797,7 +798,7 @@ function RoleEditor() {
                 description={t('accessAdmin:role.deleteBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-role-editor-delete-cancel"
                             variant="secondary"
                             label={t('accessAdmin:role.cancel')}
@@ -805,7 +806,7 @@ function RoleEditor() {
                                 setConfirmingDelete(false);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-role-editor-delete-confirm"
                             variant="danger"
                             label={t('accessAdmin:role.deleteConfirm')}

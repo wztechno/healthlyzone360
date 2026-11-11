@@ -1,6 +1,5 @@
 import type { LocalisedText, StorefrontProfile } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     Cascade,
     ErrorState,
@@ -24,6 +23,7 @@ import { EditorGuardDialogs } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 const PAGE = 'kitchen-storefront';
 
 /**
@@ -183,7 +183,7 @@ function StorefrontProfileSection() {
                 title={t('kitchen:storefrontProfile.title')}
                 description={t('kitchen:storefrontProfile.description')}
                 actions={
-                    <Button
+                    <DeskButton
                         testID="kitchen-storefront-profile-save"
                         size="sm"
                         label={t('kitchen:storefrontProfile.save')}

@@ -6,8 +6,6 @@ import type {
     SalesChannelRecord,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Cascade,
     ErrorState,
     FormSkeleton,
@@ -48,6 +46,8 @@ import { displayName, statusShortKey, statusTone } from '../format.ts';
 import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { NewPriceListDialog } from '../new-price-list-dialog.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 const PAGE = 'kitchen-wholesale';
 const ROUTE = '/kitchen/wholesale';
 
@@ -319,7 +319,7 @@ function WholesaleSetup() {
                 error={channelFailure?.message}
                 action={
                     wholesale === null && canManageCatalogue ? (
-                        <Button
+                        <DeskButton
                             size="sm"
                             testID={`${PAGE}-channel-open`}
                             label={t('kitchen:wholesale.channelOpen')}
@@ -344,7 +344,7 @@ function WholesaleSetup() {
                           })
                 }
                 action={
-                    <Button
+                    <DeskButton
                         testID={`${PAGE}-lists-new`}
                         variant={agreementLists.length === 0 ? 'primary' : 'secondary'}
                         label={t('kitchen:wholesale.listsNew')}
@@ -395,20 +395,18 @@ function WholesaleSetup() {
                                           {nameOf(list)}
                                       </Text>
                                   </View>
-                                  <Badge
-                                      icon={null}
+                                  <DeskChip
                                       tone={statusTone(list.meta.status)}
                                       label={t(statusShortKey(list.meta.status))}
                                   />
                                   {isAssigned(list) ? (
-                                      <Badge
-                                          icon={null}
+                                      <DeskChip
                                           testID={`${rowID}-assigned`}
                                           tone="success"
                                           label={t('kitchen:wholesale.assigned')}
                                       />
                                   ) : (
-                                      <Button
+                                      <DeskButton
                                           size="sm"
                                           testID={`${rowID}-assign`}
                                           variant="secondary"
@@ -420,7 +418,7 @@ function WholesaleSetup() {
                                           }}
                                       />
                                   )}
-                                  <Button
+                                  <DeskButton
                                       size="sm"
                                       testID={`${rowID}-open`}
                                       variant="quiet"
@@ -450,7 +448,7 @@ function WholesaleSetup() {
                     canManageCatalogue &&
                     !offerings.pending &&
                     offered.size < itemIds.length ? (
-                        <Button
+                        <DeskButton
                             size="sm"
                             testID={`${PAGE}-items-offer`}
                             label={t('kitchen:wholesale.itemsOffer')}
@@ -544,8 +542,7 @@ export function SetupStep({
                 <View className="min-w-0 flex-1 gap-1" style={{ flexBasis: 280 }}>
                     <Inline space="xs">
                         <Text variant="strong">{title}</Text>
-                        <Badge
-                            icon={null}
+                        <DeskChip
                             testID={`${testID}-state`}
                             tone={done ? 'success' : 'warning'}
                             label={done ? t('kitchen:wholesale.done') : t('kitchen:wholesale.todo')}

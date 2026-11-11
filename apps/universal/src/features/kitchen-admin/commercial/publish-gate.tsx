@@ -1,7 +1,8 @@
-import { Button, Callout, FormSection, Stack, Text } from '@healthy360/design-system';
+import { Callout, FormSection, Stack, Text } from '@healthy360/design-system';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * The Publication section of a commercial editor (Commercial handoff §2.2 `PublishGate`).
  *
@@ -80,7 +81,7 @@ export function PublishGate({
                                 {excluded}
                             </Text>
                             {canManage ? (
-                                <Button
+                                <DeskButton
                                     testID={testID}
                                     variant="secondary"
                                     label={t('kitchen:publish.action')}

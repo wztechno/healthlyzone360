@@ -1,9 +1,6 @@
 import type { ConsumptionException } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Cascade,
-    DatePickerButton,
     Dialog,
     EmptyState,
     ErrorState,
@@ -70,6 +67,9 @@ import { todayIso } from '../../commerce/dates.ts';
 import type { LensFigure, LensMixPart } from '../catalogue/lens-bar.tsx';
 import { useListMemory, useRememberedQuery } from '../list-memory.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskDateButton } from '../desk-kit/mini-month.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/consumption-exceptions` — what a confirmed order could not deduct honestly (INV1.5), as
  * `Workbench.dc.html` draws it (§3.5).
@@ -529,13 +529,13 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
             },
             render: (row) =>
                 row.resolved ? (
-                    <Badge
+                    <DeskChip
                         testID={`kitchen-exception-${row.id}-resolved`}
                         tone="success"
                         label={t('kitchen:ops.exceptions.resolvedBadge')}
                     />
                 ) : (
-                    <Badge
+                    <DeskChip
                         testID={`kitchen-exception-${row.id}-open`}
                         tone="danger"
                         label={t('kitchen:ops.exceptions.unresolvedBadge')}
@@ -758,7 +758,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                                 }}
                             />
                             <View className="z-auto flex-row items-center gap-tight">
-                                <DatePickerButton
+                                <DeskDateButton
                                     testID="kitchen-exceptions-filter-from"
                                     label={t('kitchen:ops.exceptions.filterFrom')}
                                     value={from}
@@ -776,7 +776,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                                 <Text variant="caption" tone="secondary" aria-hidden>
                                     {t('kitchen:ops.requirements.windowTo')}
                                 </Text>
-                                <DatePickerButton
+                                <DeskDateButton
                                     testID="kitchen-exceptions-filter-to"
                                     label={t('kitchen:ops.exceptions.filterTo')}
                                     value={to}
@@ -847,6 +847,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
             </View>
 
             <Dialog
+                look="card"
                 testID="kitchen-exception-resolve-dialog"
                 open={resolving !== null}
                 onClose={() => {
@@ -856,7 +857,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                 description={t('kitchen:ops.exceptions.resolveBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-exception-resolve-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -864,7 +865,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                                 setResolving(null);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-exception-resolve-confirm"
                             variant="danger"
                             label={t('kitchen:ops.exceptions.resolveConfirm')}

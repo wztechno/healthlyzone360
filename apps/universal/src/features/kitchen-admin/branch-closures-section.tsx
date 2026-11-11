@@ -1,7 +1,5 @@
 import type { BranchClosure } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Callout,
     DateField,
     ErrorState,
@@ -24,6 +22,8 @@ import {
 } from '../../data/kitchen-ops-hooks.ts';
 import { toFailure } from '../../data/hooks.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
+import { DeskChip } from './desk-kit/desk-chip.tsx';
 /**
  * Holidays: dates this branch is shut on top of its week. Saves on its own, as the service timings
  * do, because a closure is one decision and the week's Save is another.
@@ -95,7 +95,7 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
             printDescription
             actions={
                 canManage ? (
-                    <Button
+                    <DeskButton
                         testID="kitchen-branch-closures-add"
                         size="sm"
                         label={t('kitchen:branchClosures.add')}
@@ -159,7 +159,7 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
                             testID={`kitchen-branch-closures-row-${closure.id}`}
                         >
                             <Inline space="sm" align="center">
-                                <Badge icon={null} tone="warning" label={rangeOf(closure)} />
+                                <DeskChip tone="warning" label={rangeOf(closure)} />
                                 {closure.note === null ? null : (
                                     <Text variant="caption" tone="secondary">
                                         {closure.note}
@@ -167,7 +167,7 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
                                 )}
                             </Inline>
                             {canManage ? (
-                                <Button
+                                <DeskButton
                                     testID={`kitchen-branch-closures-remove-${closure.id}`}
                                     size="sm"
                                     variant="quiet"

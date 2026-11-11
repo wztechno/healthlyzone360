@@ -1,8 +1,6 @@
 import type { OrderComplaint } from '@healthy360/api-client/contracts';
 import { COMPLAINT_OUTCOMES } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Cascade,
     Dialog,
     EmptyState,
@@ -50,6 +48,8 @@ import {
 } from '../list-memory.ts';
 import { useViewedRecord } from '../use-viewed-record.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/complaints`: what went wrong with orders, what it cost and how it ended. A complaint is
  * opened from its order's page. Here it is closed, with an outcome, or remade: a real order at zero
@@ -160,7 +160,7 @@ function Complaints({ view }: { readonly view: string | undefined }) {
             priority: 80,
             value: (row) => stateLabel(row),
             render: (row) => (
-                <Badge tone={isOpen(row) ? 'warning' : 'neutral'} label={stateLabel(row)} />
+                <DeskChip tone={isOpen(row) ? 'warning' : 'neutral'} label={stateLabel(row)} />
             ),
         },
     ];
@@ -486,6 +486,7 @@ function CloseDialog({
 
     return (
         <Dialog
+            look="card"
             testID="kitchen-complaints-close-dialog"
             open
             onClose={() => {
@@ -493,7 +494,7 @@ function CloseDialog({
             }}
             title={t('kitchen:complaints.closeTitle')}
             actions={
-                <Button
+                <DeskButton
                     testID="kitchen-complaints-close-confirm"
                     label={t('kitchen:complaints.closeConfirm')}
                     loading={update.isPending}

@@ -1,6 +1,5 @@
 import type { DeliveryWindow } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     Cascade,
     Dialog,
@@ -40,6 +39,7 @@ import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.ts
 import { serverFieldErrors } from '../server-field-errors.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/delivery-windows` — the kitchen's delivery slots, org-wide.
  *
@@ -260,7 +260,7 @@ function DeliveryWindowsEditor() {
                 dirty={guard.isDirty}
                 actions={
                     canManage ? (
-                        <Button
+                        <DeskButton
                             testID="kitchen-windows-save"
                             label={t('kitchen:windows.save')}
                             loading={saving}
@@ -288,7 +288,7 @@ function DeliveryWindowsEditor() {
                     body={t('kitchen:deliveryWindows.emptyBody')}
                     actions={
                         canManage ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-windows-empty-add"
                                 variant="secondary"
                                 iconStart={<Icon name="plus" />}
@@ -354,6 +354,7 @@ function DeliveryWindowsEditor() {
             )}
 
             <Dialog
+                look="card"
                 testID="kitchen-windows-archive-dialog"
                 open={archiving !== null}
                 onClose={() => {
@@ -363,7 +364,7 @@ function DeliveryWindowsEditor() {
                 description={t('kitchen:windows.archiveBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-windows-archive-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -371,7 +372,7 @@ function DeliveryWindowsEditor() {
                                 setArchiving(null);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-windows-archive-confirm"
                             variant="danger"
                             label={t('kitchen:windows.archiveConfirm')}

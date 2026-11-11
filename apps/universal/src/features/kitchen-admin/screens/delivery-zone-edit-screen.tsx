@@ -5,7 +5,6 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     Callout,
     Cascade,
     Checkbox,
@@ -75,6 +74,8 @@ import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/delivery-zones/{zone}` — one delivery zone: where it reaches, what it charges, and when.
  *
@@ -834,13 +835,12 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                                     : 'kitchen-zone-editor-screen-status'
                             }
                             tone={statusTone(status)}
-                            icon={null}
                             label={t(statusKey(status))}
                         />
                     }
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-zone-editor-screen-back"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
@@ -849,7 +849,7 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                                 }}
                             />
                             {isCreating || !canManage || isRetired ? null : (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-zone-archive"
                                     variant="quiet"
                                     label={t('kitchen:list.archive')}
@@ -863,7 +863,7 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                              * changed only the first step should not have to page to the last for it.
                              */}
                             {canManage ? (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-zone-editor-screen-save"
                                     label={t('kitchen:zones.saveZone')}
                                     loading={saving}
@@ -1161,6 +1161,7 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
 
                 {/* ── archive ──────────────────────────────────────────────────────────────────── */}
                 <Dialog
+                    look="card"
                     testID="kitchen-zone-archive-dialog"
                     open={showArchive}
                     onClose={() => {
@@ -1170,7 +1171,7 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                     description={t('kitchen:zones.archiveBody')}
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-zone-archive-cancel"
                                 variant="quiet"
                                 label={t('kitchen:common.cancel')}
@@ -1178,7 +1179,7 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                                     setShowArchive(false);
                                 }}
                             />
-                            <Button
+                            <DeskButton
                                 testID="kitchen-zone-archive-confirm"
                                 variant="danger"
                                 label={t('kitchen:zones.archiveConfirm')}
@@ -1342,7 +1343,7 @@ function ZoneWindowAssignment({
                                     }}
                                 />
                                 {window.isActive ? null : (
-                                    <Badge
+                                    <DeskChip
                                         testID={`${testID}-inactive`}
                                         tone="neutral"
                                         label={t('kitchen:zoneWindows.inactiveBadge')}
@@ -1354,7 +1355,7 @@ function ZoneWindowAssignment({
                 </View>
             )}
             <View className="flex-row">
-                <Button
+                <DeskButton
                     testID="kitchen-zone-windows-manage"
                     size="sm"
                     variant="secondary"

@@ -1,9 +1,7 @@
 import type { ActivityEntry, StockActivityMovement } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     Cascade,
-    DatePickerButton,
     EmptyState,
     ErrorState,
     Stack,
@@ -31,6 +29,8 @@ import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { AUDIT_VIEW_PERMISSION } from '../entity-registry.ts';
 import { humaniseCode, unitCodeLabel } from '../format.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 /**
  * `/kitchen/activity` — where an owner investigates a number. Built like the cash report: a window of
  * days over a table. Read-only, in two views: every stock movement with who made it and what it was
@@ -63,7 +63,7 @@ function OrderLink({
     const router = useRouter();
 
     return (
-        <Button
+        <DeskButton
             testID={testID}
             size="sm"
             variant="quiet"
@@ -131,7 +131,7 @@ function Activity() {
                             }}
                         />
                         <View className="z-auto flex-row items-center gap-tight">
-                            <DatePickerButton
+                            <DeskDateButton
                                 testID="kitchen-activity-from"
                                 label={t('kitchen:ops.cashReport.fromLabel')}
                                 value={from}
@@ -141,7 +141,7 @@ function Activity() {
                             <Text variant="caption" tone="secondary" aria-hidden>
                                 {t('kitchen:ops.requirements.windowTo')}
                             </Text>
-                            <DatePickerButton
+                            <DeskDateButton
                                 testID="kitchen-activity-to"
                                 label={t('kitchen:ops.cashReport.toLabel')}
                                 value={to}

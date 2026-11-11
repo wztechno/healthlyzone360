@@ -5,8 +5,6 @@ import type {
     KitchenCustomerDetail,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Callout,
     ErrorState,
     Inline,
@@ -44,6 +42,8 @@ import {
 } from './customers-screen.tsx';
 import { BackPill } from '../../../ui/back-pill.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/customers/{customer}` — one customer in the kitchen's book: their contacts, every saved
  * address, and for a corporate buyer the company record and named contacts. Read-only; correcting a
@@ -202,8 +202,7 @@ function CustomerView({
             kind={t('kitchen:ops.customers.viewKind')}
             reference={detail.accountNumber}
             titleAside={
-                <Badge
-                    icon={null}
+                <DeskChip
                     tone={customerTypeTone(detail.type)}
                     label={t(customerTypeKey(detail.type))}
                 />
@@ -300,8 +299,8 @@ function CustomerOrders({ customerAccountId }: { readonly customerAccountId: str
                             currency: order.currencyCode,
                         })}
                     </Text>
-                    <Badge tone="neutral" label={t(kitchenOrderStatusKey(order.status))} />
-                    <Button
+                    <DeskChip tone="neutral" label={t(kitchenOrderStatusKey(order.status))} />
+                    <DeskButton
                         testID={`kitchen-customer-order-${String(order.id)}`}
                         size="sm"
                         variant="quiet"
@@ -339,10 +338,16 @@ function ContactList({ contacts }: { readonly contacts: readonly KitchenCustomer
                     </Text>
                     {contact.label === null ? null : <Text tone="secondary">{contact.label}</Text>}
                     {contact.isPrimary ? (
-                        <Badge tone="success" label={t('kitchen:ops.customers.contactPrimary')} />
+                        <DeskChip
+                            tone="success"
+                            label={t('kitchen:ops.customers.contactPrimary')}
+                        />
                     ) : null}
                     {contact.verified ? (
-                        <Badge tone="success" label={t('kitchen:ops.customers.contactVerified')} />
+                        <DeskChip
+                            tone="success"
+                            label={t('kitchen:ops.customers.contactVerified')}
+                        />
                     ) : null}
                 </Inline>
             ))}
@@ -393,7 +398,7 @@ function AddressList({ addresses }: { readonly addresses: readonly KitchenCustom
                                     : t('kitchen:ops.customers.addressDelivery'))}
                         </Text>
                         {address.isDefault ? (
-                            <Badge
+                            <DeskChip
                                 tone="success"
                                 label={t('kitchen:ops.customers.addressDefault')}
                             />

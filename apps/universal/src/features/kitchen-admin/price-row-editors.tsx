@@ -2,8 +2,8 @@ import { PRICE_STATUSES } from '@healthy360/api-client/contracts';
 import type { CatalogueItemRef, PriceStatus } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     Checkbox,
+    cx,
     GRID_CONTENT_ATTR,
     Icon,
     IconButton,
@@ -13,7 +13,6 @@ import {
     SegmentedControl,
     Select,
     Text,
-    cx,
     useToast,
 } from '@healthy360/design-system';
 import type { SelectOption, TabItem } from '@healthy360/design-system';
@@ -36,6 +35,7 @@ import {
     priceStatusCarriesAmount,
 } from './format.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
 /**
  * The price-list entry grid (K1.5), as `Price List.dc.html` draws it.
  *
@@ -1268,7 +1268,7 @@ export function PriceEntriesCard({
                             />
                         </View>
                         {canManage ? (
-                            <Button
+                            <DeskButton
                                 testID={`${testID}-add-entry`}
                                 variant="secondary"
                                 size="sm"
@@ -1302,14 +1302,14 @@ export function PriceEntriesCard({
                                 onChangeText={setPercent}
                             />
                         </View>
-                        <Button
+                        <DeskButton
                             testID={`${testID}-bulk-apply`}
                             size="sm"
                             label={t('kitchen:priceLists.bulkApply')}
                             onPress={applyPercent}
                         />
                         <ToolbarRule />
-                        <Button
+                        <DeskButton
                             testID={`${testID}-bulk-remove`}
                             variant="ghost"
                             size="sm"
@@ -1317,7 +1317,7 @@ export function PriceEntriesCard({
                             onPress={removeSelected}
                         />
                         <View className="flex-1" />
-                        <Button
+                        <DeskButton
                             testID={`${testID}-bulk-clear`}
                             variant="ghost"
                             size="sm"
