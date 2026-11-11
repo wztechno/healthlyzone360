@@ -114,17 +114,16 @@ describe('RecordViewPage as a pop-up', () => {
         expect(screen.getByTestId('record-body').props.className).not.toContain('flex-row');
     });
 
-    it('lists the primary behind ⋯ and draws no button on the canopy', async () => {
+    it('pins the primary in the desk footer and draws no button on the canopy', async () => {
         mockWindowWidth = 1280;
         await renderStubScreen(
             <ContentWidthProvider value={PANEL_SHUT}>{page}</ContentWidthProvider>,
         );
 
-        expect(screen.queryByTestId('record-primary')).toBeNull();
         expect(screen.queryByTestId('record-back')).toBeNull();
         const primary = await getRecordAction('record', 'record-primary');
         expect(screen.getByTestId('record-header')).not.toContainElement(primary);
-        expect(screen.getByTestId('record-actions-menu-panel')).toContainElement(primary);
+        expect(screen.getByTestId('record-footer')).toContainElement(primary);
         expect(screen.getByTestId('record-close')).toBeTruthy();
     });
 });

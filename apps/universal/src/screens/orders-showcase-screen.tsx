@@ -19,6 +19,7 @@ import {
     DeskIconButton,
     DeskCheckbox,
     DeskColumnPicker,
+    DeskDateButton,
     DeskRowMenu,
     DeskSelect,
     DeskTabs,
@@ -26,6 +27,7 @@ import {
     MiniMonthPicker,
     initialsOf,
 } from '../features/kitchen-admin/desk-kit/index.ts';
+import { RecordPopup } from '../features/kitchen-admin/catalogue/record-popup.tsx';
 import { DayStepper } from '../features/kitchen-admin/orders/day-stepper.tsx';
 import { orderColumns } from '../features/kitchen-admin/orders/order-columns.tsx';
 import { localToday, slotKeyOf } from '../features/kitchen-admin/orders/order-book.ts';
@@ -126,6 +128,8 @@ export function OrdersShowcaseScreen() {
     const [day, setDay] = useState(TODAY);
     const [open, setOpen] = useState(false);
     const [openB, setOpenB] = useState(false);
+    const [openRecord, setOpenRecord] = useState(false);
+    const [from, setFrom] = useState('');
     const [ticked, setTicked] = useState(true);
     const columnChoices = [
         'Ingredient',
@@ -413,6 +417,17 @@ export function OrdersShowcaseScreen() {
                             onChange={setDay}
                             marked={(candidate) => candidate.endsWith('5')}
                         />
+                        {/* `DatePickerButton`'s props: a placeholder until a day is set, and Clear. */}
+                        <DeskDateButton
+                            testID="showcase-orders-from"
+                            label="From"
+                            placeholder="Any day"
+                            value={from}
+                            onChange={setFrom}
+                            onClear={() => {
+                                setFrom('');
+                            }}
+                        />
                     </View>
 
                     <Text variant="title">List group rows</Text>
@@ -467,6 +482,62 @@ export function OrdersShowcaseScreen() {
                             }}
                         />
                     </View>
+
+                    <Text variant="title">Record pop-up in the desk frame (every record view)</Text>
+                    <View className="flex-row">
+                        <DeskButton
+                            testID="showcase-orders-open-record"
+                            variant="secondary"
+                            label="Open a record pop-up"
+                            onPress={() => {
+                                setOpenRecord(true);
+                            }}
+                        />
+                    </View>
+                    {!openRecord ? null : (
+                        <RecordPopup
+                            testID="showcase-orders-record"
+                            title="Basmati rice"
+                            kind="Ingredient"
+                            onClose={() => {
+                                setOpenRecord(false);
+                            }}
+                            primaryAction={{ label: 'Edit ingredient', onPress: () => undefined }}
+                            actions={[
+                                {
+                                    key: 'label',
+                                    label: 'Print label',
+                                    icon: 'tag',
+                                    onSelect: () => undefined,
+                                },
+                                {
+                                    key: 'save',
+                                    label: 'Saving',
+                                    loading: true,
+                                    onSelect: () => undefined,
+                                },
+                                {
+                                    key: 'archive',
+                                    label: 'Archive',
+                                    icon: 'archive',
+                                    tone: 'danger',
+                                    onSelect: () => undefined,
+                                },
+                            ]}
+                        >
+                            <CompactSection title="Details">
+                                <CompactField label="Category">
+                                    <Text variant="strong">Grains</Text>
+                                </CompactField>
+                                <CompactField label="Unit">
+                                    <Text variant="strong">kg</Text>
+                                </CompactField>
+                                <CompactField label="Status">
+                                    <DeskChip tone="success" label="Active" />
+                                </CompactField>
+                            </CompactSection>
+                        </RecordPopup>
+                    )}
 
                     <Text variant="title">
                         Order pop-up — layout B (in the app since 2026-11-11)
