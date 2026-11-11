@@ -195,7 +195,7 @@ function CatalogueTable<Row>({
     onRowPress,
     rowActions,
     rowActionsLabel,
-    rowActionsLook = 'list',
+    rowActionsLook = 'desk',
     emptyState,
     rowEntrance = true,
     highlightedId,

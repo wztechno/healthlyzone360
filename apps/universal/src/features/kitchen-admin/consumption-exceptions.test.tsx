@@ -683,7 +683,10 @@ describe('consumption exceptions at desk width', () => {
                 );
             });
 
-            // The menu stays open after a pick, so All is pressed from the same menu.
+            // The desk menu closes on a pick: open it again unless it is still on screen.
+            if (screen.queryByTestId('kitchen-exceptions-filter-period-all') === null) {
+                fireEvent.press(screen.getByTestId('kitchen-exceptions-filter-period-trigger'));
+            }
             fireEvent.press(await screen.findByTestId('kitchen-exceptions-filter-period-all'));
             await waitFor(() => {
                 const last = jest.mocked(list).mock.calls.at(-1)?.[0];

@@ -8,7 +8,7 @@
  * | `.ib.sm`          | `DeskIconButton`   | `IconButton`                |
  * | `.ac`             | `DeskChip`         | `Badge`                     |
  * | `.drop` `.cpop`   | `DeskSelect`       | `LensScope`                 |
- * | `.drop.has` `.mm` | `MiniMonthPicker`  | `DatePickerButton`          |
+ * | `.drop.has` `.mm` | `MiniMonthPicker`  | `DatePickerButton` (or `DeskDateButton`, its props) |
  * | `.otabs` `.seg3`  | `DeskTabs`         | `Tabs variant="segmented"`  |
  * | `.gh2`            | `ListGroupRow`     | a hand-made section heading |
  * | `.drv` `.cb`      | `ChoiceRow`        | `FilterChip` / choose buttons in a dialog |
@@ -30,4 +30,4 @@ export type { DeskSelectOption } from './desk-select.tsx';
 export { DeskTabs } from './desk-tabs.tsx';
 export type { DeskTabItem } from './desk-tabs.tsx';
 export { ListGroupRow } from './list-group-row.tsx';
-export { MiniMonthPicker } from './mini-month.tsx';
+export { DeskDateButton, MiniMonthPicker } from './mini-month.tsx';

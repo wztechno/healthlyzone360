@@ -1,11 +1,12 @@
 import type { BarcodeScan } from '@healthy360/api-client/contracts';
-import { Icon, InfoTip, Menu, SearchInput, Skeleton, Text } from '@healthy360/design-system';
+import { Icon, InfoTip, SearchInput, Skeleton, Text } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { CameraScanButton } from '../camera-scan-button.tsx';
+import { DeskSelect } from '../desk-kit/desk-select.tsx';
 
 /**
  * The Lens bar — a list page's figures, filters and actions as one object. It replaces the stat
@@ -631,68 +632,16 @@ export interface LensScopeOption<T extends string> {
  * A scope picker for the query row — "Kind  All ▾". A scope is not a filter: Clear leaves it, and it
  * is never a token, because it is the part of the catalogue the reader chose to stand in.
  */
-export function LensScope<T extends string>({
-    label,
-    value,
-    options,
-    onChange,
-    testID,
-}: {
+export function LensScope<T extends string>(props: {
     readonly label: string;
     readonly value: T;
     readonly options: readonly LensScopeOption<T>[];
     readonly onChange: (value: T) => void;
     readonly testID: string;
 }) {
-    const current = options.find((option) => option.value === value);
-
-    return (
-        <Menu
-            testID={testID}
-            label={label}
-            maxHeight={SCOPE_MENU_MAX_HEIGHT}
-            sections={[
-                {
-                    items: options.map((option) => ({
-                        key: option.value,
-                        label:
-                            option.count === undefined
-                                ? option.label
-                                : `${option.label} · ${String(option.count)}`,
-                        icon: option.icon,
-                        selected: option.value === value,
-                        testID: option.testID,
-                        onSelect: () => {
-                            onChange(option.value);
-                        },
-                    })),
-                },
-            ]}
-            trigger={({ triggerProps, toggle }) => (
-                <Pressable
-                    {...triggerProps}
-                    testID={`${testID}-trigger`}
-                    role="button"
-                    accessibilityRole="button"
-                    accessibilityLabel={`${label}: ${current?.label ?? ''}`}
-                    onPress={toggle}
-                    className="h-desk-toolbar flex-row items-center gap-1.5 rounded-full border border-stroke-subtle bg-surface-raised pe-2 ps-3 hover:border-stroke"
-                >
-                    <Text variant="body" tone="secondary">
-                        {label}
-                    </Text>
-                    <Text variant="strong" numberOfLines={1}>
-                        {current?.label ?? ''}
-                    </Text>
-                    <Icon name="chevronDown" size="sm" className="text-content-secondary" />
-                </Pressable>
-            )}
-        />
-    );
+    // The desk kit's dropdown pill and card (2026-11-11): every Lens bar draws the Orders look.
+    return <DeskSelect<T> {...props} />;
 }
-
-/** Long enough for a category tree's top level without the menu running off a laptop screen. */
-const SCOPE_MENU_MAX_HEIGHT = 360;
 
 /** The narrowest the search gives way to: an order number and a short name. */
 const SEARCH_MIN_WIDTH = 200;

@@ -23,6 +23,7 @@ export function ChoiceRow({
     leading,
     selected,
     onPress,
+    disabled = false,
     accessibilityLabel,
     testID,
 }: {
@@ -38,6 +39,8 @@ export function ChoiceRow({
     readonly leading?: ReactNode;
     readonly selected: boolean;
     readonly onPress: () => void;
+    /** Drawn at half strength and not pressable — a locked column, a full table's spare ones. */
+    readonly disabled?: boolean | undefined;
     readonly accessibilityLabel?: string | undefined;
     readonly testID?: string | undefined;
 }) {
@@ -48,10 +51,14 @@ export function ChoiceRow({
             role={role}
             accessibilityRole={role}
             accessibilityLabel={accessibilityLabel ?? label}
-            accessibilityState={{ checked: selected }}
+            accessibilityState={{ checked: selected, disabled }}
             aria-checked={selected}
-            onPress={onPress}
+            aria-disabled={disabled}
+            disabled={disabled}
+            onPress={disabled ? undefined : onPress}
             className={`flex-row items-center gap-2.5 rounded-xl ps-2.5 pe-2 web:transition-colors ${
+                disabled ? 'opacity-50' : ''
+            } ${
                 mark === 'avatar' ? 'min-h-[46px]' : 'min-h-10'
             } ${selected ? 'bg-surface-brand-subtle' : 'hover:bg-surface-sunken'}`}
         >

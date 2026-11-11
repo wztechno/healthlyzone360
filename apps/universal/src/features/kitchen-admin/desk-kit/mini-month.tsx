@@ -7,7 +7,8 @@ import { Pressable, Text as RNText, View } from 'react-native';
 
 import { dateInstant } from '../../planner/format.ts';
 import { firstOfMonth, monthGrid, monthOf, shiftMonth } from '../orders/order-book.ts';
-import { DeskIconButton } from './desk-button.tsx';
+import { todayIso } from '../../commerce/dates.ts';
+import { DeskButton, DeskIconButton } from './desk-button.tsx';
 import { DropTrigger } from './desk-select.tsx';
 
 /**
@@ -39,9 +40,10 @@ export function MiniMonthPicker({
     min,
     max,
     caption,
+    onClear,
     testID,
 }: {
-    /** `YYYY-MM-DD`. */
+    /** `YYYY-MM-DD`, or `''` for no day yet — the month then opens on today's. */
     readonly value: string;
     /** `YYYY-MM-DD` — the first day that may be picked; the ones before it are drawn and inert. */
     readonly min?: string | undefined;
@@ -57,9 +59,13 @@ export function MiniMonthPicker({
     readonly onChange: (day: string) => void;
     readonly marked?: ((day: string) => boolean) | undefined;
     readonly onMonthShown?: ((month: string) => void) | undefined;
+    /** A Clear link under the month, for a window that may be left open-ended. */
+    readonly onClear?: (() => void) | undefined;
     readonly testID: string;
 }) {
-    const [shown, setShown] = useState(monthOf(value));
+    const { t } = useTranslation();
+    const anchor = value === '' ? today : value;
+    const [shown, setShown] = useState(monthOf(anchor));
 
     function show(month: string) {
         setShown(month);
@@ -74,7 +80,7 @@ export function MiniMonthPicker({
             panelClassName="w-[296px] !rounded-[18px] !shadow-elevation-bar p-3"
             onOpenChange={(open) => {
                 // Opens on the chosen day's month, wherever it was left.
-                if (open) show(monthOf(value));
+                if (open) show(monthOf(anchor));
             }}
             trigger={({ triggerProps, toggle, open }) => (
                 <DropTrigger
@@ -107,6 +113,19 @@ export function MiniMonthPicker({
                         }}
                         testID={testID}
                     />
+                    {onClear === undefined || value === '' ? null : (
+                        <View className="mt-2 flex-row justify-end border-t border-stroke-subtle pt-2">
+                            <DeskButton
+                                testID={`${testID}-clear`}
+                                variant="quiet"
+                                label={t('common:action.clear')}
+                                onPress={() => {
+                                    onClear();
+                                    close();
+                                }}
+                            />
+                        </View>
+                    )}
                 </SlideIn>
             )}
         </Dropdown>
@@ -121,6 +140,62 @@ export function MiniMonthPicker({
             </RNText>
             {picker}
         </View>
+    );
+}
+
+/**
+ * `DatePickerButton`'s props over the mini month — a toolbar's From / To moves to the desk look by
+ * changing the component. The pill reads "Tue 10 Nov", or the placeholder while no day is set;
+ * `onClear` adds the month's Clear link.
+ */
+export function DeskDateButton({
+    label,
+    labelVisible = false,
+    value,
+    min,
+    max,
+    placeholder,
+    onChange,
+    onClear,
+    testID,
+}: {
+    /** Translated — the field's name; drawn over the pill when `labelVisible`. */
+    readonly label: string;
+    readonly labelVisible?: boolean | undefined;
+    /** `YYYY-MM-DD`, or `''`. */
+    readonly value: string;
+    readonly min?: string | undefined;
+    readonly max?: string | undefined;
+    /** Translated — the pill's words while `value` is empty. */
+    readonly placeholder?: string | undefined;
+    readonly onChange: (day: string) => void;
+    readonly onClear?: (() => void) | undefined;
+    readonly testID: string;
+}) {
+    const formatter = useFormatter();
+    const day = /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '';
+    return (
+        <MiniMonthPicker
+            testID={testID}
+            label={label}
+            caption={labelVisible ? label : undefined}
+            value={day}
+            valueLabel={
+                day === ''
+                    ? (placeholder ?? label)
+                    : formatter.formatDate(dateInstant(day), {
+                          weekday: 'short',
+                          day: 'numeric',
+                          month: 'short',
+                          timeZone: 'UTC',
+                      })
+            }
+            today={todayIso()}
+            min={min}
+            max={max}
+            onChange={onChange}
+            onClear={onClear}
+        />
     );
 }
 

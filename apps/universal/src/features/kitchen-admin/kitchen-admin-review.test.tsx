@@ -821,8 +821,17 @@ describe('the review queue screen', () => {
             '0',
         );
 
+        // The desk menu closes on a pick; a press that finds it still open shuts it, so press again.
+        const trigger = 'kitchen-review-filter-period-trigger';
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-review-filter-period-trigger'));
+            fireEvent.press(screen.getByTestId(trigger));
+        });
+        if (screen.queryByTestId('kitchen-review-filter-period-all') === null) {
+            await act(async () => {
+                fireEvent.press(screen.getByTestId(trigger));
+            });
+        }
+        await act(async () => {
             fireEvent.press(await screen.findByTestId('kitchen-review-filter-period-all'));
         });
         await untilVisible('kitchen-review-table-list');
