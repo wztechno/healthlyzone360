@@ -1,7 +1,5 @@
 import type { KitchenSetupStep } from '@healthy360/api-client/contracts';
 import {
-    Button,
-    Callout,
     Cascade,
     ErrorState,
     FormSkeleton,
@@ -24,13 +22,18 @@ import { GO_LIVE_PERMISSION, KITCHEN_SETUP_PERMISSION } from '../entity-registry
 import { SETUP_STEP_ICONS, SetupRoad, canDrawRoad } from '../setup/setup-road.tsx';
 import { SetupStep } from './wholesale-setup-screen.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { withReturnTo } from '../../../navigation/return-to.ts';
+import { useCurrentHref } from '../../../navigation/use-return-to.ts';
+import { FailureToast } from '../failure-toast.tsx';
 const PAGE = 'kitchen-setup';
 
 /** Where each step is finished. */
 const STEP_HREF: Readonly<Record<KitchenSetupStep['key'], string>> = {
     hours: '/kitchen/branch-operating',
     delivery: '/kitchen/delivery-zones',
-    menu: '/kitchen/meals',
+    // The recipe book itself: the old /kitchen/meals redirect would drop the way back.
+    menu: '/kitchen/recipes?kind=meal',
     prices: '/kitchen/price-lists',
     team: '/kitchen/team',
 };
@@ -53,6 +56,7 @@ export function KitchenSetupScreen() {
 function KitchenSetup() {
     const { t } = useTranslation();
     const router = useRouter();
+    const here = useCurrentHref();
     const toast = useToast();
     const formatter = useFormatter();
     const { atLeast } = useBreakpoint();
@@ -88,7 +92,7 @@ function KitchenSetup() {
     const showRoad = Platform.OS === 'web' && atLeast('lg') && canDrawRoad(required);
 
     const open = (step: KitchenSetupStep) => {
-        router.push(STEP_HREF[step.key] as never);
+        router.push(withReturnTo(STEP_HREF[step.key], here) as never);
     };
     const pressGoLive = () => {
         goLive.mutate(undefined, {
@@ -162,7 +166,7 @@ function KitchenSetup() {
                         done={step.done}
                         body={t(`kitchen:setup.step.${step.key}.body`)}
                         action={
-                            <Button
+                            <DeskButton
                                 testID={`${PAGE}-${step.key}-open`}
                                 variant="secondary"
                                 size="sm"
@@ -176,15 +180,12 @@ function KitchenSetup() {
                 ))
             )}
 
-            {goLiveFailure === null ? null : (
-                <Callout
-                    testID={`${PAGE}-go-live-error`}
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:setup.goLiveError')}
-                    body={goLiveFailure.message}
-                />
-            )}
+            <FailureToast
+                failure={goLiveFailure}
+                testID={`${PAGE}-go-live-error`}
+                title={t('kitchen:setup.goLiveError')}
+                body={goLiveFailure?.message}
+            />
 
             <View className={cx('z-auto gap-3', atLeast('md') ? 'flex-row' : 'flex-col')}>
                 <View
@@ -224,7 +225,7 @@ function KitchenSetup() {
                         </View>
                     </View>
                     {next === undefined ? null : (
-                        <Button
+                        <DeskButton
                             testID={`${PAGE}-focus-open`}
                             label={t('kitchen:setup.open')}
                             onPress={() => {
@@ -233,7 +234,7 @@ function KitchenSetup() {
                         />
                     )}
                     {ready && canGoLive ? (
-                        <Button
+                        <DeskButton
                             testID={`${PAGE}-go-live`}
                             label={t('kitchen:setup.goLive')}
                             loading={goLive.isPending}
@@ -264,7 +265,7 @@ function KitchenSetup() {
                                 {t(`kitchen:setup.step.${step.key}.title`)}
                             </Text>
                         </View>
-                        <Button
+                        <DeskButton
                             testID={`${PAGE}-${step.key}-open`}
                             variant="secondary"
                             size="sm"

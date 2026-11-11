@@ -73,6 +73,9 @@ jest.mock('expo-router', () => {
     const dismissTo = jest.fn();
     return {
         __esModule: true,
+        useSegments: () => [],
+        useGlobalSearchParams: () => ({}),
+        useNavigation: () => ({}),
         useRouter: () => ({
             push,
             replace,

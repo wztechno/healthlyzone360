@@ -31,9 +31,12 @@ import type { StyleProp, ViewStyle } from 'react-native';
 export type DeskButtonVariant =
     'primary' | 'secondary' | 'quiet' | 'next' | 'danger' | 'dangerOutline';
 
+/** `Button`'s `ghost` is accepted for parity and drawn as the desk's `quiet` link. */
+type AcceptedVariant = DeskButtonVariant | 'ghost';
+
 export interface DeskButtonProps {
     readonly label: string;
-    readonly variant?: DeskButtonVariant | undefined;
+    readonly variant?: AcceptedVariant | undefined;
     /**
      * `lg`: a 44px pill for the one action a panel ends in — a ticket's Place order. `sm` and `md`
      * are accepted for `Button` parity and draw the toolbar's 34px.
@@ -49,6 +52,13 @@ export interface DeskButtonProps {
     readonly accessibilityLabel?: string | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
+    /** A focus target named elsewhere — a stock gap's link to Publish. */
+    readonly nativeID?: string | undefined;
+    /** A menu's `triggerProps`, when the button opens one (Import ⌄, New recipe ⌄). */
+    readonly 'aria-expanded'?: boolean | undefined;
+    readonly 'aria-controls'?: string | undefined;
+    readonly 'aria-haspopup'?: string | boolean | undefined;
+    readonly accessibilityState?: { readonly expanded?: boolean | undefined } | undefined;
 }
 
 const CONTAINER: Readonly<Record<DeskButtonVariant, string>> = {
@@ -88,7 +98,7 @@ const FILLED_OFF = '!border-stroke-subtle !bg-surface-sunken !shadow-none';
 
 export function DeskButton({
     label,
-    variant = 'primary',
+    variant: asked = 'primary',
     size = 'md',
     loading = false,
     disabled = false,
@@ -99,7 +109,13 @@ export function DeskButton({
     accessibilityLabel,
     className,
     testID,
+    nativeID,
+    'aria-expanded': expanded,
+    'aria-controls': controls,
+    'aria-haspopup': hasPopup,
+    accessibilityState,
 }: DeskButtonProps) {
+    const variant: DeskButtonVariant = asked === 'ghost' ? 'quiet' : asked;
     // As `Button`: a loading button must not fire again.
     const inert = disabled || loading;
     const rounded = variant === 'quiet' ? '' : 'rounded-full';
@@ -109,10 +125,20 @@ export function DeskButton({
     return (
         <Pressable
             testID={testID}
+            nativeID={nativeID}
             role="button"
             accessibilityRole="button"
             accessibilityLabel={accessibilityLabel ?? label}
-            accessibilityState={{ disabled: inert, busy: loading }}
+            accessibilityState={{
+                disabled: inert,
+                busy: loading,
+                ...(accessibilityState?.expanded === undefined
+                    ? {}
+                    : { expanded: accessibilityState.expanded }),
+            }}
+            {...(expanded === undefined ? {} : { 'aria-expanded': expanded })}
+            {...(controls === undefined ? {} : { 'aria-controls': controls })}
+            {...(hasPopup === undefined ? {} : { 'aria-haspopup': hasPopup })}
             aria-disabled={inert}
             aria-busy={loading}
             disabled={inert}
@@ -135,7 +161,12 @@ export function DeskButton({
                     {...(testID === undefined ? {} : { testID: `${testID}-loading` })}
                 />
             ) : null}
-            {iconStart}
+            {/* The glyphs take the label's ink unless they name their own. */}
+            {iconStart === undefined || iconStart === null ? null : (
+                <View className={filledOff ? 'text-content-disabled' : LABEL[variant]}>
+                    {iconStart}
+                </View>
+            )}
             <RNText
                 numberOfLines={1}
                 className={`${size === 'lg' ? 'text-base font-bold' : 'text-role-strong'} text-center ${
@@ -144,7 +175,11 @@ export function DeskButton({
             >
                 {label}
             </RNText>
-            {iconEnd}
+            {iconEnd === undefined || iconEnd === null ? null : (
+                <View className={filledOff ? 'text-content-disabled' : LABEL[variant]}>
+                    {iconEnd}
+                </View>
+            )}
         </Pressable>
     );
 }

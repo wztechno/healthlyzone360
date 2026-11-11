@@ -594,7 +594,8 @@ describe('one batch', () => {
 
         fireEvent.press(screen.getByTestId('kitchen-production-batch-label'));
         expect(routerMock.__push).toHaveBeenCalledWith(
-            `/kitchen/production-desk/${BATCH_ID}/label`,
+            // With the batch as its way back, so the label returns to it.
+            `/kitchen/production-desk/${BATCH_ID}/label?returnTo=%252Fkitchen%252Fproduction-desk`,
         );
     });
 

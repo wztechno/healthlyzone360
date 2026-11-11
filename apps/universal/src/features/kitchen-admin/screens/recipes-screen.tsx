@@ -1,6 +1,4 @@
 import {
-    Badge,
-    Button,
     Cascade,
     Dialog,
     Icon,
@@ -88,6 +86,8 @@ import {
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { useListMemory, useRememberedFilter } from '../list-memory.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/recipes` — the recipe book: everything this kitchen cooks, on one list.
  *
@@ -657,6 +657,7 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                  * sentence, which this dialog already renders.
                  */}
                 <Dialog
+                    look="card"
                     testID="kitchen-recipes-archive-dialog"
                     open={list.archiving !== null}
                     onClose={list.cancelArchive}
@@ -664,13 +665,13 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                     description={t('kitchen:recipes.archiveBody')}
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-recipes-archive-cancel"
                                 variant="quiet"
                                 label={t('kitchen:common.cancel')}
                                 onPress={list.cancelArchive}
                             />
-                            <Button
+                            <DeskButton
                                 testID="kitchen-recipes-archive-confirm"
                                 variant="danger"
                                 label={t('kitchen:recipes.archiveConfirm')}
@@ -701,6 +702,7 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                  * so because "withdraw" and "delete" must not read as one word.
                  */}
                 <Dialog
+                    look="card"
                     testID="kitchen-recipes-withdraw-dialog"
                     open={list.withdrawing !== null}
                     onClose={list.cancelWithdraw}
@@ -708,13 +710,13 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                     description={t('kitchen:recipes.withdrawBody')}
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-recipes-withdraw-cancel"
                                 variant="quiet"
                                 label={t('kitchen:common.cancel')}
                                 onPress={list.cancelWithdraw}
                             />
-                            <Button
+                            <DeskButton
                                 testID="kitchen-recipes-withdraw-confirm"
                                 variant="danger"
                                 label={t('kitchen:meals.retireConfirm')}
@@ -817,7 +819,7 @@ function RecipeCreateControl({
 
     if (kind !== null) {
         return mayCreate(kind) ? (
-            <Button
+            <DeskButton
                 testID="kitchen-recipes-toolbar-create"
                 label={t(CREATE_LABEL_KEYS[kind])}
                 iconStart={<Icon name="plus" size="sm" />}
@@ -849,7 +851,7 @@ function RecipeCreateControl({
                 },
             ]}
             trigger={({ triggerProps, toggle }) => (
-                <Button
+                <DeskButton
                     {...triggerProps}
                     testID="kitchen-recipes-toolbar-create"
                     label={t('kitchen:toolbar.createRecipe')}
@@ -1117,7 +1119,7 @@ function frozenLabelSection(
             ) : (
                 <Inline space="xs">
                     {codes.map((code) => (
-                        <Badge
+                        <DeskChip
                             key={String(code)}
                             testID={`kitchen-recipes-view-frozen-allergen-${String(code)}`}
                             tone="danger"
@@ -1142,7 +1144,7 @@ function channelSection(row: RecipeAdminSummary, t: TFunction): RecordViewSectio
                 ) : (
                     <Inline space="xs">
                         {channels.map((channel) => (
-                            <Badge
+                            <DeskChip
                                 key={channel}
                                 testID={`kitchen-recipes-view-channel-${channel}`}
                                 tone="info"

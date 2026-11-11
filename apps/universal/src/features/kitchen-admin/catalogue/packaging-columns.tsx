@@ -1,5 +1,5 @@
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
-import { Badge, Text } from '@healthy360/design-system';
+import { Text } from '@healthy360/design-system';
 import type { BadgeTone } from '@healthy360/design-system';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -8,6 +8,7 @@ import { displayName, statusShortKey, statusTone, unitShortKey } from '../format
 import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * The columns of `/kitchen/packaging`.
  *
@@ -286,11 +287,10 @@ export function packagingColumns({
             sortable: false,
             value: (row) => t(packagingStatusKey(row.meta.status)),
             render: (row) => (
-                <Badge
+                <DeskChip
                     testID={`${packagingRowTestId(row.id)}-status`}
                     tone={packagingStatusTone(row.meta.status)}
                     // A pill and its word, as the Packaging board draws it.
-                    icon={null}
                     label={t(packagingStatusKey(row.meta.status))}
                 />
             ),

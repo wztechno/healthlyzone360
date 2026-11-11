@@ -1,6 +1,5 @@
 import {
     Badge,
-    Button,
     Card,
     Cascade,
     Dialog,
@@ -15,9 +14,9 @@ import {
     Stack,
     Text,
     TextInputField,
+    useContentWidth,
     useIssueTrayController,
     useToast,
-    useContentWidth,
 } from '@healthy360/design-system';
 import type { IngredientAdmin, RecipeVersionAdmin } from '@healthy360/api-client/contracts';
 import type {
@@ -36,6 +35,7 @@ import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
+import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import {
     recipesFromPages,
@@ -55,6 +55,7 @@ import {
     BatchSheet,
     useBatchIngredients,
     useShelfAvailability,
+    useShelfStockItems,
 } from '../operations/batch-sheet.tsx';
 import type { ShelfAvailability } from '../operations/batch-sheet.tsx';
 import { RecordFormOpening, focusFirstRefusal } from '../record-form-opening.tsx';
@@ -65,6 +66,7 @@ import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/production-desk/new` — open a draft batch against a published recipe version (PROD1).
  *
@@ -176,6 +178,7 @@ function ProductionBatchNew() {
     const params = useLocalSearchParams<{
         readonly recipe?: string;
         readonly runs?: string;
+        readonly kept?: string;
         readonly returnTo?: string;
     }>();
     // Cancel steps back to wherever the form was opened from — the desk, or the planner.
@@ -194,7 +197,8 @@ function ProductionBatchNew() {
     const [submitted, setSubmitted] = useState(false);
     // Whether the form still holds what the planner handed over — said in the note until changed.
     const [fromPlanner, setFromPlanner] = useState(
-        () => handedRuns !== undefined && typeof params.recipe === 'string',
+        // `kept` is this form handing itself back after "Order shortfall", not the planner.
+        () => handedRuns !== undefined && typeof params.recipe === 'string' && params.kept !== '1',
     );
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
 
@@ -312,6 +316,7 @@ function ProductionBatchNew() {
 
     const ingredients = useBatchIngredients(previewVersion);
     const availability = useShelfAvailability();
+    const stockItemOf = useShelfStockItems();
 
     /*
      * How many lines the free stock does not cover — the sheet's own sum, counted for the summary
@@ -566,13 +571,12 @@ function ProductionBatchNew() {
                             variant="caps"
                             testID="kitchen-production-batch-new-status"
                             tone={statusTone('draft')}
-                            icon={null}
                             label={t(statusKey('draft'))}
                         />
                     }
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-production-batch-new-back"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
@@ -580,7 +584,7 @@ function ProductionBatchNew() {
                                     guard.intercept(back.leave);
                                 }}
                             />
-                            <Button
+                            <DeskButton
                                 testID="kitchen-production-batch-new-submit"
                                 label={t('kitchen:ops.production.createSubmit')}
                                 /*
@@ -835,8 +839,44 @@ function ProductionBatchNew() {
                             draftOnTop={draftOnTop}
                             shortCount={shortCount}
                             onOrderShortfall={() => {
+                                // The short lines go to the builder as its items, and this batch —
+                                // its recipe and runs — is the way back once the order is made.
+                                const shortItems =
+                                    previewVersion === null || runs === null
+                                        ? []
+                                        : previewVersion.lines
+                                              .filter((line) => {
+                                                  const free = availability(
+                                                      line.ingredientId,
+                                                      line.unit,
+                                                  );
+                                                  return (
+                                                      free !== null &&
+                                                      scaleLine(line.quantity, runs) > free
+                                                  );
+                                              })
+                                              .map((line) => stockItemOf(line.ingredientId))
+                                              .filter((id): id is string => id !== null);
+                                const here = withQuery('/kitchen/production-desk/new', {
+                                    recipe: recipeId === null ? null : String(recipeId),
+                                    runs: runs === null ? null : String(runs),
+                                    kept: '1',
+                                    returnTo: back.returnTo,
+                                });
                                 guard.intercept(() => {
-                                    router.push('/kitchen/supply-orders/new');
+                                    router.push(
+                                        withReturnTo(
+                                            withQuery('/kitchen/supply-orders/new', {
+                                                items:
+                                                    shortItems.length === 0
+                                                        ? null
+                                                        : [...new Set(shortItems)]
+                                                              .slice(0, 100)
+                                                              .join(','),
+                                            }),
+                                            here,
+                                        ) as never,
+                                    );
                                 });
                             }}
                             version={previewVersion}
@@ -928,6 +968,7 @@ function ProductionBatchNew() {
                 </View>
 
                 <Dialog
+                    look="card"
                     testID="kitchen-production-batch-new-unsaved-dialog"
                     open={guard.isPrompting}
                     onClose={guard.cancelDiscard}
@@ -935,13 +976,13 @@ function ProductionBatchNew() {
                     description={t('kitchen:ops.production.discardBody')}
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-production-batch-new-unsaved-keep"
                                 variant="quiet"
                                 label={t('kitchen:unsaved.keepEditing')}
                                 onPress={guard.cancelDiscard}
                             />
-                            <Button
+                            <DeskButton
                                 testID="kitchen-production-batch-new-unsaved-discard"
                                 variant="danger"
                                 label={t('kitchen:common.discard')}
@@ -1055,7 +1096,7 @@ function ConsumePreview({
                                 : t('kitchen:ops.production.shortNone')}
                         </Text>
                         {shortCount !== null && shortCount > 0 ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-production-batch-new-order-shortfall"
                                 variant="secondary"
                                 size="sm"

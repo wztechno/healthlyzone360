@@ -68,3 +68,5 @@ afterEach(() => {
  * `row-actions-menu.test.tsx`.
  */
 jest.mock('./src/features/kitchen-admin/catalogue/row-actions-menu.tsx');
+// The desk kit's `⋯` (every `CatalogueList` since 2026-11-11), drawn flat the same way.
+jest.mock('./src/features/kitchen-admin/desk-kit/desk-row-menu.tsx');

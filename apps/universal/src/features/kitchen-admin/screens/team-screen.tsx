@@ -1,8 +1,6 @@
 import type { StaffInvitation, TeamMemberSummary } from '@healthy360/api-client/contracts';
 import { isWorkingMember } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Cascade,
     Chip,
     EmptyState,
@@ -53,6 +51,8 @@ import {
     useRestoredPageFallback,
 } from '../list-memory.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/team` — everybody who can sign in to this kitchen (AA1), on the Catalogue list.
  *
@@ -139,11 +139,10 @@ function StatusBadge({ member }: { readonly member: TeamMemberSummary }) {
           : 'warning';
 
     return (
-        <Badge
+        <DeskChip
             testID={testID}
             tone={tone}
             // A pill on every status, as the board draws them.
-            icon={null}
             label={statusText(member, t)}
         />
     );
@@ -214,7 +213,7 @@ function PendingInvitations({ invitations }: { readonly invitations: readonly St
                       priority: 99,
                       align: 'end' as const,
                       render: (row: StaffInvitation) => (
-                          <Button
+                          <DeskButton
                               testID={`kitchen-team-invitation-${row.id}-revoke`}
                               variant="ghost"
                               size="sm"
@@ -549,7 +548,7 @@ function TeamList() {
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
                         canAdd ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-team-add"
                                 label={t('accessAdmin:team.add')}
                                 iconStart={<Icon name="plus" size="sm" />}

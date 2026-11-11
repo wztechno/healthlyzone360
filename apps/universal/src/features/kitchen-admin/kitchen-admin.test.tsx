@@ -891,33 +891,37 @@ describe('the ingredient list', () => {
         // The six defaults: Allergens in, Unit one pick away.
         expect(screen.getByTestId(cell('allergens-none'))).toBeTruthy();
         expect(screen.queryByTestId(cell('unit'))).toBeNull();
+        // The desk pill reads "6 of 6"; its full name is "Show columns · 6 of 6".
         expect(screen.getByTestId('kitchen-ingredients-columns-trigger')).toHaveTextContent(
-            /Show columns · 6 of 6/,
+            /6 of 6/,
         );
+        expect(
+            screen.getByTestId('kitchen-ingredients-columns-trigger').props.accessibilityLabel,
+        ).toMatch(/Show columns · 6 of 6/);
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-trigger'));
         });
-        await untilVisible('kitchen-ingredients-columns-unit-control');
+        await untilVisible('kitchen-ingredients-columns-unit');
 
         // Full: an unticked column cannot be added, and Item can never be dropped.
         expect(
-            screen.getByTestId('kitchen-ingredients-columns-unit-control').props.accessibilityState,
+            screen.getByTestId('kitchen-ingredients-columns-unit').props.accessibilityState,
         ).toEqual(expect.objectContaining({ disabled: true, checked: false }));
         expect(
-            screen.getByTestId('kitchen-ingredients-columns-name-control').props.accessibilityState,
+            screen.getByTestId('kitchen-ingredients-columns-name').props.accessibilityState,
         ).toEqual(expect.objectContaining({ disabled: true, checked: true }));
 
         // Drop Allergens, which frees the slot Unit then takes.
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-allergens-control'));
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-allergens'));
         });
         expect(screen.queryByTestId(cell('allergens-none'))).toBeNull();
         expect(
-            screen.getByTestId('kitchen-ingredients-columns-unit-control').props.accessibilityState,
+            screen.getByTestId('kitchen-ingredients-columns-unit').props.accessibilityState,
         ).toEqual(expect.objectContaining({ disabled: false }));
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-unit-control'));
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-unit'));
         });
         expect(screen.getByTestId(cell('unit'))).toBeTruthy();
 
@@ -933,11 +937,11 @@ describe('the ingredient list', () => {
         });
         expect(screen.queryByTestId(cell('allergens-none'))).toBeNull();
         expect(
-            screen.getByTestId('kitchen-ingredients-columns-name-control').props.accessibilityState,
+            screen.getByTestId('kitchen-ingredients-columns-name').props.accessibilityState,
         ).toEqual(expect.objectContaining({ checked: true }));
-        expect(screen.getByTestId('kitchen-ingredients-columns-trigger')).toHaveTextContent(
-            /Show columns · 1 of 6/,
-        );
+        expect(
+            screen.getByTestId('kitchen-ingredients-columns-trigger').props.accessibilityLabel,
+        ).toMatch(/Show columns · 1 of 6/);
         expect(
             screen.getByTestId('kitchen-ingredients-columns-clear').props.accessibilityState,
         ).toEqual(expect.objectContaining({ disabled: true }));
@@ -946,7 +950,7 @@ describe('the ingredient list', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-done'));
         });
-        expect(screen.queryByTestId('kitchen-ingredients-columns-unit-control')).toBeNull();
+        expect(screen.queryByTestId('kitchen-ingredients-columns-unit')).toBeNull();
     });
 
     it('answers a search nothing matches with the filtered empty state', async () => {
@@ -2962,7 +2966,14 @@ describe('the allergen class reference', () => {
             '12 of 14',
         );
 
-        // A filter value leaves the menu open, so the next market is one press away.
+        // The desk menu closes on a pick: open it again unless it is still on screen.
+        if (screen.queryByTestId('kitchen-allergen-classes-column-markets-none') === null) {
+            await act(async () => {
+                fireEvent.press(
+                    screen.getByTestId('kitchen-allergen-classes-column-markets-trigger'),
+                );
+            });
+        }
         await untilVisible('kitchen-allergen-classes-column-markets-none');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-allergen-classes-column-markets-none'));

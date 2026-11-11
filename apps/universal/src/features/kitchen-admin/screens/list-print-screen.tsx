@@ -1,4 +1,4 @@
-import { Button, Callout, Heading, Inline, Stack, Text } from '@healthy360/design-system';
+import { Callout, Heading, Inline, Stack, Text } from '@healthy360/design-system';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -10,6 +10,7 @@ import { ListPrintSheet } from '../catalogue/list-print-sheet.tsx';
 import { usePrintSheet } from '../print-sheet.tsx';
 import { BackPill } from '../../../ui/back-pill.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/{ingredients|recipes|stock}/print` — the list the reader was looking at, as a page
  * (Export → PDF — table).
@@ -72,7 +73,7 @@ export function ListPrintScreen({ resource }: ListPrintScreenProps) {
                     <Inline space="sm" align="center" wrap>
                         {backButton}
                         {sheet.mode === 'browser' ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-list-print-action"
                                 label={t('kitchen:transfer.print.action')}
                                 onPress={sheet.print}

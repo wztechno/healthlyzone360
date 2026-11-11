@@ -1,10 +1,9 @@
-import { Button, Checkbox, Dialog, Icon, IconButton, Text } from '@healthy360/design-system';
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { createKeyValueStore } from '../../../session/storage.ts';
+import { DeskColumnPicker } from '../desk-kit/desk-column-picker.tsx';
 
 /**
  * Which of a table's columns are drawn — chosen by the reader, at most {@link MAX_VISIBLE_COLUMNS}.
@@ -219,120 +218,22 @@ export interface ColumnPickerProps {
 }
 
 /**
- * The toolbar button, and the window it opens in the middle of the screen.
+ * The toolbar's Show columns, and the window it opens in the middle of the screen.
  *
- * A `Dialog` rather than a menu hanging off the button: choosing columns is setting several
- * switches and then looking at the table, so the choice gets a window of its own — dimmed page
- * behind it, the design system's own entrance, focus held inside until it closes. It stays open
- * through every toggle and closes on Done, a click on the backdrop or Escape.
- *
- * The columns are checkboxes laid out two to a row, so a record with fourteen fields is a short
- * square window rather than a long strip. The running count sits above them, so the cap is visible
- * before it is reached. Each row is the design system's `Checkbox`, which takes the desk density on
- * its own; its checked and disabled state are on its `-control` element, as every checkbox in the
- * app has them.
+ * Since 2026-11-11 every table draws the desk kit's form (`DeskColumnPicker`): the "▦ 6 of 6" pill
+ * on the toolbar's height and a card window of check rows, two to a row, with Clear all, Reset and
+ * Done at its foot. A `Dialog` rather than a menu hanging off the button: choosing columns is
+ * setting several switches and then looking at the table, so it stays open through every toggle and
+ * closes on Done, a click on the backdrop or Escape.
  */
 export function ColumnPicker({
-    options,
-    shown,
-    max,
-    onToggle,
-    onReset,
-    onClear,
-    canClear,
-    testID,
-    compact,
+    compact: _compact,
+    ...props
 }: ColumnPickerProps & {
-    /** The trigger as an icon button — the Lens bar, where the row has no room for its words. */
+    /** Kept for the callers that still say it: the pill is narrow at every width. */
     readonly compact?: boolean | undefined;
 }) {
-    const { t } = useTranslation();
-    const [open, setOpen] = useState(false);
-    const close = useCallback(() => {
-        setOpen(false);
-    }, []);
-
-    return (
-        <View testID={testID}>
-            {compact === true ? (
-                // The Lens bar's form: the glyph alone, its full name on hover and to a reader.
-                <IconButton
-                    testID={`${testID}-trigger`}
-                    variant="secondary"
-                    label={t('kitchen:catalogue.columnsButton', { shown, max })}
-                    round
-                    className="!h-desk-toolbar border border-stroke-subtle"
-                    icon={<Icon name="layoutGrid" size="sm" className="text-content-primary" />}
-                    aria-haspopup="dialog"
-                    onPress={() => {
-                        setOpen(true);
-                    }}
-                />
-            ) : (
-                <Button
-                    testID={`${testID}-trigger`}
-                    variant="secondary"
-                    label={t('kitchen:catalogue.columnsButton', { shown, max })}
-                    iconStart={
-                        <Icon name="layoutGrid" size="sm" className="text-content-primary" />
-                    }
-                    hint={t('kitchen:catalogue.columnsHint', { max })}
-                    aria-haspopup="dialog"
-                    onPress={() => {
-                        setOpen(true);
-                    }}
-                />
-            )}
-            <Dialog
-                testID={`${testID}-dialog`}
-                open={open}
-                onClose={close}
-                title={t('kitchen:catalogue.columnsLabel')}
-                description={t('kitchen:catalogue.columnsHeading', { max })}
-                actions={
-                    <>
-                        <Button
-                            testID={`${testID}-clear`}
-                            variant="ghost"
-                            label={t('kitchen:catalogue.columnsClear')}
-                            disabled={!canClear}
-                            onPress={onClear}
-                        />
-                        <Button
-                            testID={`${testID}-reset`}
-                            variant="ghost"
-                            label={t('kitchen:catalogue.columnsReset')}
-                            onPress={onReset}
-                        />
-                        <Button
-                            testID={`${testID}-done`}
-                            label={t('common:action.done')}
-                            onPress={close}
-                        />
-                    </>
-                }
-            >
-                <Text variant="mono" tone="secondary" testID={`${testID}-count`}>
-                    {t('kitchen:catalogue.columnsButton', { shown, max })}
-                </Text>
-                <View className="flex-row flex-wrap gap-y-hair">
-                    {options.map((option) => (
-                        <View key={option.key} className="w-1/2 pe-tight">
-                            <Checkbox
-                                testID={`${testID}-${option.key}`}
-                                label={option.label}
-                                checked={option.shown}
-                                disabled={option.disabled}
-                                onChange={() => {
-                                    onToggle(option.key);
-                                }}
-                            />
-                        </View>
-                    ))}
-                </View>
-            </Dialog>
-        </View>
-    );
+    return <DeskColumnPicker {...props} />;
 }
 
 /**

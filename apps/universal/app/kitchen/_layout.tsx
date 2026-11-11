@@ -1,3 +1,4 @@
+import { ToastLookScope } from '@healthy360/design-system';
 import { Slot } from 'expo-router';
 
 import {
@@ -11,6 +12,7 @@ import {
     useKitchenTrail,
 } from '../../src/features/kitchen-admin/kitchen-ops-shell.tsx';
 import { KitchenPageSearch } from '../../src/features/kitchen-admin/kitchen-page-search.tsx';
+import { SaveBarProvider } from '../../src/features/kitchen-admin/save-bar.tsx';
 import { AreaShell } from '../../src/shell/area-shell.tsx';
 import { StaffAlertsButton } from '../../src/shell/staff-alerts-button.tsx';
 
@@ -27,14 +29,20 @@ import { StaffAlertsButton } from '../../src/shell/staff-alerts-button.tsx';
 export default function KitchenLayout() {
     return (
         <KitchenTrailProvider>
-            <KitchenAreaShell />
+            {/* The admin's own toast: the desk card, bottom centre (design-system toast.tsx). */}
+            <ToastLookScope look="desk">
+                {/* An editor's save bar, drawn at the foot of the page (save-bar.tsx). */}
+                <SaveBarProvider>
+                    <KitchenAreaShell />
+                </SaveBarProvider>
+            </ToastLookScope>
         </KitchenTrailProvider>
     );
 }
 
 function KitchenAreaShell() {
     const navigation = useKitchenNavigation();
-    const crumbs = useKitchenTrail();
+    const crumbs = useKitchenTrail(navigation);
 
     return (
         <AreaShell

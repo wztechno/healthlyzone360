@@ -1,7 +1,5 @@
 import type { ServiceArea } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Callout,
     Checkbox,
     cx,
@@ -43,6 +41,8 @@ import type {
 import { ISO_WEEKDAYS, displayName } from './format.ts';
 import { RowAnnouncer, UndoBar } from './row-editor-shell.tsx';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
+import { DeskChip } from './desk-kit/desk-chip.tsx';
 /**
  * The three repeated editors of the delivery slice (K1.7).
  *
@@ -404,7 +404,7 @@ export function DeliveryWindowRows({
                               if (onArchive === undefined) return null;
                               const label = displayName(row.label, locale).value;
                               return (
-                                  <Button
+                                  <DeskButton
                                       testID={`${rowTestId}-archive`}
                                       size="sm"
                                       variant="quiet"
@@ -461,7 +461,7 @@ export function DeliveryWindowRows({
 
             <Inline space="sm" wrap align="center">
                 {canManage ? (
-                    <Button
+                    <DeskButton
                         testID={`${testID}-add`}
                         size="sm"
                         variant="secondary"
@@ -679,7 +679,7 @@ export function OperatingWeekRows({
                             {t(weekdayKey(day.weekday))}
                         </Text>
                         {day.isClosed ? (
-                            <Badge
+                            <DeskChip
                                 testID={`${dayID}-closed-badge`}
                                 tone="neutral"
                                 label={t('kitchen:branchHours.closedBadge')}
@@ -765,7 +765,7 @@ export function OperatingWeekRows({
                       // Only on an open day: a closed day has no times to copy.
                       render: (day) =>
                           day.isClosed ? null : (
-                              <Button
+                              <DeskButton
                                   testID={`${testID}-day-${String(day.weekday)}-copy`}
                                   size="sm"
                                   variant="ghost"

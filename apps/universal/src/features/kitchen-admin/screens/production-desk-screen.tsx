@@ -1,7 +1,5 @@
 import type { ProductionOrder, ProductionOrderStatus } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Cascade,
     EmptyState,
     ErrorState,
@@ -48,6 +46,8 @@ import {
 } from '../production-desk/batch-figures.ts';
 import { trimDecimal, unitCodeLabel } from '../format.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/production-desk` — the batches this kitchen still has to do something about (PROD1).
  *
@@ -253,15 +253,13 @@ function ProductionDesk() {
                 priority: 95,
                 render: (row) => (
                     <View className="flex-row flex-wrap items-center gap-1.5">
-                        <Badge
-                            icon={null}
+                        <DeskChip
                             testID={`${productionBatchTestId(String(row.id))}-status`}
                             tone={productionStatusTone(row.status)}
                             label={t(productionStatusKey(row.status))}
                         />
                         {row.isExpired ? (
-                            <Badge
-                                icon={null}
+                            <DeskChip
                                 testID={`${productionBatchTestId(String(row.id))}-expired`}
                                 tone="danger"
                                 label={t('kitchen:ops.production.expiredBadge')}
@@ -400,7 +398,7 @@ function ProductionDesk() {
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
                         canManage ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-production-desk-new"
                                 size="sm"
                                 label={t('kitchen:ops.production.create')}
@@ -481,7 +479,7 @@ function ProductionDesk() {
                         />
                         <View className="flex-row flex-wrap items-center justify-center gap-snug">
                             {page > 1 ? (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-production-desk-previous"
                                     variant="secondary"
                                     size="sm"
@@ -492,7 +490,7 @@ function ProductionDesk() {
                                 />
                             ) : null}
                             {hasMore ? (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-production-desk-next"
                                     variant="secondary"
                                     size="sm"

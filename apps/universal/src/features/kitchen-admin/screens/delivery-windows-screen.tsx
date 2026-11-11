@@ -1,7 +1,5 @@
 import type { DeliveryWindow } from '@healthy360/api-client/contracts';
 import {
-    Button,
-    Callout,
     Cascade,
     Dialog,
     EmptyState,
@@ -40,6 +38,8 @@ import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.ts
 import { serverFieldErrors } from '../server-field-errors.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/delivery-windows` — the kitchen's delivery slots, org-wide.
  *
@@ -258,28 +258,25 @@ function DeliveryWindowsEditor() {
                 testID="kitchen-windows-screen"
                 title={title}
                 dirty={guard.isDirty}
-                actions={
-                    canManage ? (
-                        <Button
-                            testID="kitchen-windows-save"
-                            label={t('kitchen:windows.save')}
-                            loading={saving}
-                            disabled={!dirty || rowErrors.size > 0 || saving}
-                            onPress={saveAll}
-                        />
-                    ) : undefined
+                save={
+                    canManage
+                        ? {
+                              testID: 'kitchen-windows-save',
+                              label: t('kitchen:windows.save'),
+                              loading: saving,
+                              disabled: !dirty || rowErrors.size > 0 || saving,
+                              onPress: saveAll,
+                          }
+                        : undefined
                 }
             />
 
-            {saveFailure === null ? null : (
-                <Callout
-                    testID="kitchen-windows-save-error"
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:windows.saveError')}
-                    body={server.unplaced ?? saveFailure.message}
-                />
-            )}
+            <FailureToast
+                failure={saveFailure}
+                testID="kitchen-windows-save-error"
+                title={t('kitchen:windows.saveError')}
+                body={server.unplaced ?? saveFailure?.message}
+            />
 
             {rows.length === 0 ? (
                 <EmptyState
@@ -288,7 +285,7 @@ function DeliveryWindowsEditor() {
                     body={t('kitchen:deliveryWindows.emptyBody')}
                     actions={
                         canManage ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-windows-empty-add"
                                 variant="secondary"
                                 iconStart={<Icon name="plus" />}
@@ -354,6 +351,7 @@ function DeliveryWindowsEditor() {
             )}
 
             <Dialog
+                look="card"
                 testID="kitchen-windows-archive-dialog"
                 open={archiving !== null}
                 onClose={() => {
@@ -363,7 +361,7 @@ function DeliveryWindowsEditor() {
                 description={t('kitchen:windows.archiveBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-windows-archive-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -371,7 +369,7 @@ function DeliveryWindowsEditor() {
                                 setArchiving(null);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-windows-archive-confirm"
                             variant="danger"
                             label={t('kitchen:windows.archiveConfirm')}
@@ -400,15 +398,12 @@ function DeliveryWindowsEditor() {
                 }
             />
 
-            {archiveFailure === null ? null : (
-                <Callout
-                    testID="kitchen-windows-archive-error"
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:windows.archiveFailed')}
-                    body={archiveFailure.message}
-                />
-            )}
+            <FailureToast
+                failure={archiveFailure}
+                testID="kitchen-windows-archive-error"
+                title={t('kitchen:windows.archiveFailed')}
+                body={archiveFailure?.message}
+            />
 
             <EditorGuardDialogs testID="kitchen-windows-screen" guard={guard} />
         </Cascade>

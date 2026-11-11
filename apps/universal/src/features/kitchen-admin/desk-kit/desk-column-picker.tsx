@@ -100,17 +100,16 @@ export function DeskColumnPicker({
                 <View className="flex-row flex-wrap gap-y-1.5">
                     {options.map((option) => (
                         <View key={option.key} className="w-1/2 pe-1.5">
-                            <View className={option.disabled ? 'opacity-50' : ''}>
-                                <ChoiceRow
-                                    testID={`${testID}-${option.key}`}
-                                    mark="check"
-                                    label={option.label}
-                                    selected={option.shown}
-                                    onPress={() => {
-                                        if (!option.disabled) onToggle(option.key);
-                                    }}
-                                />
-                            </View>
+                            <ChoiceRow
+                                testID={`${testID}-${option.key}`}
+                                mark="check"
+                                label={option.label}
+                                selected={option.shown}
+                                disabled={option.disabled}
+                                onPress={() => {
+                                    onToggle(option.key);
+                                }}
+                            />
                         </View>
                     ))}
                 </View>

@@ -1,6 +1,6 @@
 import type { KitchenOrder } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
-import { Badge, Callout, ErrorState, Inline, Skeleton, Text } from '@healthy360/design-system';
+import { Callout, ErrorState, Inline, Skeleton, Text } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useRouter } from 'expo-router';
@@ -734,8 +734,7 @@ function OrderLines({
                         {line.allergens.length === 0 ? null : (
                             <Inline space="xs" wrap>
                                 {line.allergens.map((allergen) => (
-                                    <Badge
-                                        icon={null}
+                                    <DeskChip
                                         key={allergen.allergenCode}
                                         tone={
                                             allergen.containment === 'contains'

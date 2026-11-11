@@ -1,5 +1,5 @@
 import type { AllergenClass } from '@healthy360/api-client/contracts';
-import { Badge, Inline, Text } from '@healthy360/design-system';
+import { Inline, Text } from '@healthy360/design-system';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 
@@ -7,6 +7,7 @@ import { displayName } from '../format.ts';
 import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * The fourteen regulatory allergen classes, as a column spec.
  *
@@ -114,10 +115,9 @@ export function allergenColumns({
                             {displayName(entry.name, locale).value}
                         </Text>
                         {entry.severeByDefault ? (
-                            <Badge
+                            <DeskChip
                                 testID={`${testID}-severe`}
                                 tone="danger"
-                                icon={null}
                                 // One word on the row. `classes.severe` is the sentence — "trace
                                 // exposure can be dangerous" — and it is what the View panel says;
                                 // a badge beside a name has room for the label, not the reason.
@@ -153,11 +153,10 @@ export function allergenColumns({
                 ) : (
                     <Inline space="xs" wrap testID={`${testID}-markets`}>
                         {entry.markets.map((market) => (
-                            <Badge
+                            <DeskChip
                                 key={market}
                                 testID={`${testID}-market-${market}`}
                                 tone="info"
-                                icon={null}
                                 label={market}
                             />
                         ))}
@@ -201,18 +200,16 @@ export function allergenColumns({
                 entry.isActive ? t('kitchen:classes.active') : t('kitchen:classes.inactive'),
             render: (entry) =>
                 entry.isActive ? (
-                    <Badge
+                    <DeskChip
                         testID={`${allergenRowTestId(String(entry.code))}-active`}
                         tone="brand"
                         // A pill and its word, as the board draws both states.
-                        icon={null}
                         label={t('kitchen:classes.active')}
                     />
                 ) : (
-                    <Badge
+                    <DeskChip
                         testID={`${allergenRowTestId(String(entry.code))}-inactive`}
                         tone="warning"
-                        icon={null}
                         label={t('kitchen:classes.inactive')}
                     />
                 ),

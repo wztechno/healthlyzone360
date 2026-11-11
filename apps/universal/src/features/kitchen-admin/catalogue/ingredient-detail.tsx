@@ -17,6 +17,7 @@ import { primaryMenuAction, RecordPopup } from './record-popup.tsx';
 import { RecordTile, RecordTileRow, TileEmpty, TileFacts } from './record-tiles.tsx';
 import { SegmentBar, SegmentKey } from './segment-bar.tsx';
 
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * The ingredient record, in its pop-up — the `Kitchen-ingredient` board.
  *
@@ -256,7 +257,7 @@ export function IngredientDetail({
     const nutritionBadges = [
         ...(ingredient.nutritionEstimated === true
             ? [
-                  <Badge
+                  <DeskChip
                       key="estimated"
                       testID={`${testID}-nutrition-estimated`}
                       tone="warning"
@@ -267,7 +268,7 @@ export function IngredientDetail({
         ...(ingredient.nutritionDerivedFromVersionId === null
             ? []
             : [
-                  <Badge
+                  <DeskChip
                       key="derived"
                       testID={`${testID}-nutrition-derived`}
                       tone="info"
@@ -425,7 +426,7 @@ export function IngredientDetail({
                             >
                                 {ingredient.allergens.length === 0 ? (
                                     <View role="listitem">
-                                        <Badge
+                                        <DeskChip
                                             testID={`${testID}-allergens-clear`}
                                             tone="success"
                                             label={t('kitchen:allergens.noneBadge')}
@@ -655,7 +656,11 @@ export function IngredientDetail({
                                     ) : (
                                         <View className="flex-row flex-wrap gap-1.5">
                                             {ingredient.aliases.map((alias) => (
-                                                <Badge key={alias} tone="neutral" label={alias} />
+                                                <DeskChip
+                                                    key={alias}
+                                                    tone="neutral"
+                                                    label={alias}
+                                                />
                                             ))}
                                         </View>
                                     ),

@@ -1,4 +1,4 @@
-import { Button, Text } from '@healthy360/design-system';
+import { Text } from '@healthy360/design-system';
 import type { PurchaseOrderId } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,7 @@ import { useCan } from '../../access/gate.tsx';
 import type { RecordAction } from './catalogue/record-popup.tsx';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from './entity-registry.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
 /**
  * The order a receipt row was delivered against: its number, or a dash for a market purchase.
  *
@@ -76,7 +77,7 @@ export function ReceiptOpenOrder({
     if (orderId === null || !canOpenOrder) return null;
 
     return (
-        <Button
+        <DeskButton
             testID={testID}
             size="sm"
             variant="secondary"

@@ -5,7 +5,6 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     Callout,
     Cascade,
     Checkbox,
@@ -51,7 +50,7 @@ import {
     useUpdateZoneMutation,
     zonesFromPages,
 } from '../../../data/kitchen-admin-hooks.ts';
-import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { useCurrentHref, useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useAccessState, useSession } from '../../../session/session-provider.tsx';
 import { BilingualField } from '../bilingual-field.tsx';
 import { weekdayKey } from '../../marketplace/format.ts';
@@ -75,6 +74,9 @@ import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { withReturnTo } from '../../../navigation/return-to.ts';
 /**
  * `/kitchen/delivery-zones/{zone}` — one delivery zone: where it reaches, what it charges, and when.
  *
@@ -245,6 +247,7 @@ function ReadOnlyCell({
 function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
+    const here = useCurrentHref();
     const { locale } = useLocale();
     const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
@@ -834,13 +837,12 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                                     : 'kitchen-zone-editor-screen-status'
                             }
                             tone={statusTone(status)}
-                            icon={null}
                             label={t(statusKey(status))}
                         />
                     }
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-zone-editor-screen-back"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
@@ -849,7 +851,7 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                                 }}
                             />
                             {isCreating || !canManage || isRetired ? null : (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-zone-archive"
                                     variant="quiet"
                                     label={t('kitchen:list.archive')}
@@ -858,20 +860,19 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                                     }}
                                 />
                             )}
-                            {/*
-                             * The one Save, on every step: it writes the whole walk, and a reader who
-                             * changed only the first step should not have to page to the last for it.
-                             */}
-                            {canManage ? (
-                                <Button
-                                    testID="kitchen-zone-editor-screen-save"
-                                    label={t('kitchen:zones.saveZone')}
-                                    loading={saving}
-                                    disabled={saving}
-                                    onPress={attemptSave}
-                                />
-                            ) : null}
                         </>
+                    }
+                    creating={isCreating}
+                    save={
+                        canManage
+                            ? {
+                                  testID: 'kitchen-zone-editor-screen-save',
+                                  label: t('kitchen:zones.saveZone'),
+                                  loading: saving,
+                                  disabled: saving,
+                                  onPress: attemptSave,
+                              }
+                            : undefined
                     }
                     errors={{
                         summary: t(
@@ -1145,7 +1146,12 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                                 canManage={canManage}
                                 onManage={() => {
                                     guard.intercept(() => {
-                                        router.push('/kitchen/delivery-windows' as never);
+                                        router.push(
+                                            withReturnTo(
+                                                '/kitchen/delivery-windows',
+                                                here,
+                                            ) as never,
+                                        );
                                     });
                                 }}
                                 onChange={(next) => {
@@ -1161,6 +1167,7 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
 
                 {/* ── archive ──────────────────────────────────────────────────────────────────── */}
                 <Dialog
+                    look="card"
                     testID="kitchen-zone-archive-dialog"
                     open={showArchive}
                     onClose={() => {
@@ -1170,7 +1177,7 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                     description={t('kitchen:zones.archiveBody')}
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-zone-archive-cancel"
                                 variant="quiet"
                                 label={t('kitchen:common.cancel')}
@@ -1178,7 +1185,7 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                                     setShowArchive(false);
                                 }}
                             />
-                            <Button
+                            <DeskButton
                                 testID="kitchen-zone-archive-confirm"
                                 variant="danger"
                                 label={t('kitchen:zones.archiveConfirm')}
@@ -1342,7 +1349,7 @@ function ZoneWindowAssignment({
                                     }}
                                 />
                                 {window.isActive ? null : (
-                                    <Badge
+                                    <DeskChip
                                         testID={`${testID}-inactive`}
                                         tone="neutral"
                                         label={t('kitchen:zoneWindows.inactiveBadge')}
@@ -1354,7 +1361,7 @@ function ZoneWindowAssignment({
                 </View>
             )}
             <View className="flex-row">
-                <Button
+                <DeskButton
                     testID="kitchen-zone-windows-manage"
                     size="sm"
                     variant="secondary"

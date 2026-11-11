@@ -6,7 +6,6 @@ import type {
     IngredientAllergenMapping,
 } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     Checkbox,
     Inline,
@@ -34,6 +33,8 @@ import { AllergenReferenceSource } from './allergen-reference-source.tsx';
 import { displayName } from './format.ts';
 import { serverFieldErrors } from './server-field-errors.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
+import { FailureToast } from './failure-toast.tsx';
 type Choice = AllergenChoice;
 
 export interface IngredientAllergenEditorProps {
@@ -216,7 +217,7 @@ export function IngredientAllergenEditor({
                 />
             ) : null}
             {selection === undefined ? null : (
-                <Button
+                <DeskButton
                     testID="allergen-reference-import"
                     label={t('kitchen:allergenLookup.import')}
                     loading={importReference.isPending}
@@ -318,7 +319,7 @@ export function IngredientAllergenEditor({
                                     {/* `Button` holds itself to the top; the wrapper lines it up
                                         with the input box. */}
                                     <View>
-                                        <Button
+                                        <DeskButton
                                             testID="allergen-review-confirm"
                                             variant="primary"
                                             label={t('kitchen:nutritionLookup.confirmReview')}
@@ -405,18 +406,16 @@ export function IngredientAllergenEditor({
                 </Stack>
             )}
 
-            {failure === null ? null : (
-                <Callout
-                    testID="kitchen-ingredient-mapping-error"
-                    tone="danger"
-                    title={t('kitchen:allergens.saveError')}
-                    body={server.unplaced ?? failure.message}
-                />
-            )}
+            <FailureToast
+                failure={failure}
+                testID="kitchen-ingredient-mapping-error"
+                title={t('kitchen:allergens.saveError')}
+                body={server.unplaced ?? failure?.message}
+            />
 
             {fromLookup ? null : (
                 <Inline justify="end">
-                    <Button
+                    <DeskButton
                         testID="kitchen-ingredient-mapping-save"
                         variant="primary"
                         size="sm"

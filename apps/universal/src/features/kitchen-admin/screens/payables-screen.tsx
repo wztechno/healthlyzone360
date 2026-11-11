@@ -1,10 +1,7 @@
 import type { Payable } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
-    Callout,
     Cascade,
-    DatePickerButton,
     Dialog,
     EmptyState,
     ErrorState,
@@ -34,6 +31,9 @@ import {
     INVENTORY_VIEW_COSTS_PERMISSION,
 } from '../entity-registry.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskDateButton } from '../desk-kit/mini-month.tsx';
+import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/supplier-bills?tab=bills` — what is owed for deliveries.
  *
@@ -189,7 +189,7 @@ function Payables() {
                 !canAct ? (
                     <Text tone="secondary">{EM_DASH}</Text>
                 ) : row.priceApprovalStatus === 'pending' ? (
-                    <Button
+                    <DeskButton
                         testID={`kitchen-payable-${row.id}-review`}
                         variant="secondary"
                         size="sm"
@@ -201,7 +201,7 @@ function Payables() {
                 ) : row.amount === null ? (
                     <Text tone="secondary">{EM_DASH}</Text>
                 ) : (
-                    <Button
+                    <DeskButton
                         testID={`kitchen-payable-${row.id}-pay`}
                         variant="secondary"
                         size="sm"
@@ -355,6 +355,7 @@ function ReviewDialog({ row, onClose }: { readonly row: Payable; readonly onClos
 
     return (
         <Dialog
+            look="card"
             testID="kitchen-payable-review-dialog"
             open
             onClose={onClose}
@@ -362,13 +363,13 @@ function ReviewDialog({ row, onClose }: { readonly row: Payable; readonly onClos
             description={t('kitchen:ops.payables.reviewBody')}
             actions={
                 <>
-                    <Button
+                    <DeskButton
                         testID="kitchen-payable-review-dismiss"
                         variant="quiet"
                         label={t('kitchen:common.cancel')}
                         onPress={onClose}
                     />
-                    <Button
+                    <DeskButton
                         testID="kitchen-payable-review-confirm"
                         label={t('kitchen:ops.payables.approve')}
                         loading={approve.isPending}
@@ -402,14 +403,12 @@ function ReviewDialog({ row, onClose }: { readonly row: Payable; readonly onClos
                         </Text>
                     ))}
                 </Stack>
-                {failure === null ? null : (
-                    <Callout
-                        testID="kitchen-payable-review-error"
-                        tone="danger"
-                        title={t('kitchen:ops.payables.saveError')}
-                        body={failure.message}
-                    />
-                )}
+                <FailureToast
+                    failure={failure}
+                    testID="kitchen-payable-review-error"
+                    title={t('kitchen:ops.payables.saveError')}
+                    body={failure?.message}
+                />
             </Stack>
         </Dialog>
     );
@@ -427,6 +426,7 @@ function PayDialog({ row, onClose }: { readonly row: Payable; readonly onClose: 
 
     return (
         <Dialog
+            look="card"
             testID="kitchen-payable-pay-dialog"
             open
             onClose={onClose}
@@ -434,13 +434,13 @@ function PayDialog({ row, onClose }: { readonly row: Payable; readonly onClose: 
             description={t('kitchen:ops.payables.payBody')}
             actions={
                 <>
-                    <Button
+                    <DeskButton
                         testID="kitchen-payable-pay-dismiss"
                         variant="quiet"
                         label={t('kitchen:common.cancel')}
                         onPress={onClose}
                     />
-                    <Button
+                    <DeskButton
                         testID="kitchen-payable-pay-confirm"
                         label={t('kitchen:ops.payables.confirmPay')}
                         loading={pay.isPending}
@@ -465,7 +465,7 @@ function PayDialog({ row, onClose }: { readonly row: Payable; readonly onClose: 
             }
         >
             <Stack space="sm">
-                <DatePickerButton
+                <DeskDateButton
                     testID="kitchen-payable-due"
                     label={t('kitchen:ops.payables.dueLabel')}
                     labelVisible
@@ -498,14 +498,12 @@ function PayDialog({ row, onClose }: { readonly row: Payable; readonly onClose: 
                     maxLength={120}
                     autoCorrect={false}
                 />
-                {failure === null ? null : (
-                    <Callout
-                        testID="kitchen-payable-pay-error"
-                        tone="danger"
-                        title={t('kitchen:ops.payables.saveError')}
-                        body={failure.message}
-                    />
-                )}
+                <FailureToast
+                    failure={failure}
+                    testID="kitchen-payable-pay-error"
+                    title={t('kitchen:ops.payables.saveError')}
+                    body={failure?.message}
+                />
             </Stack>
         </Dialog>
     );

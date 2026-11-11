@@ -5,7 +5,6 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     Callout,
     Cascade,
     Checkbox,
@@ -44,7 +43,6 @@ import { useProcessStep } from '../../../navigation/active-process.ts';
 import { pathnameOf, withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import {
-    useCreateSupplierMutation,
     useItemLatestPurchasesQuery,
     usePostGoodsReceiptMutation,
     useProcurementReferenceQuery,
@@ -90,11 +88,13 @@ import type {
 import { readAmount, readQuantity, todayIsoDate } from '../receive-delivery-model.ts';
 import { RecordFormOpening, focusFirstRefusal } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
+import { NewSupplierDialog } from '../new-supplier-dialog.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/procurement/new` — post a goods receipt (O2, SUP5, INV1.1), from the Post Receipt design.
  *
@@ -269,7 +269,6 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
     const reference = useProcurementReferenceQuery();
     const orders = useReceivableOrdersQuery(branchId);
     const postReceipt = usePostGoodsReceiptMutation();
-    const createSupplier = useCreateSupplierMutation();
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
 
     // Each way of arriving keeps its own lines, so looking at the other one and coming back loses
@@ -298,11 +297,6 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
     const bodyWidth = port.width;
 
     const [creatingSupplier, setCreatingSupplier] = useState(false);
-    const [newSupplierTried, setNewSupplierTried] = useState(false);
-    const [newSupplierName, setNewSupplierName] = useState('');
-    const [newSupplierCode, setNewSupplierCode] = useState('');
-    const [newSupplierEmail, setNewSupplierEmail] = useState('');
-    const [newSupplierPhone, setNewSupplierPhone] = useState('');
 
     // The page's issue tray; a refused post opens it.
     const issueTray = useIssueTrayController();
@@ -651,10 +645,13 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
     function receiveWaitingOrder() {
         const only = waitingOrders.length === 1 ? waitingOrders[0] : undefined;
         guard.intercept(() => {
+            // Receiving takes the place of this receipt, so it goes back where this was opened from.
             router.push(
-                withQuery('/kitchen/procurement/receive', {
-                    order: only === undefined ? null : String(only.id),
-                }) as never,
+                back.carry(
+                    withQuery('/kitchen/procurement/receive', {
+                        order: only === undefined ? null : String(only.id),
+                    }),
+                ) as never,
             );
         });
     }
@@ -849,27 +846,6 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
     };
     const server = serverFieldErrors(postFailure, postTargets(postedLineKeys));
 
-    // The new-supplier dialog has no issue banner, so its error line stays and the fields are marked.
-    const supplierFailure = toFailure(createSupplier.error);
-    const supplierServer = serverFieldErrors(supplierFailure, {
-        name_en: {
-            label: t('kitchen:ops.procurement.fieldSupplierName'),
-            fieldId: 'kitchen-procurement-supplier-name',
-        },
-        code: {
-            label: t('kitchen:ops.procurement.fieldSupplierCode'),
-            fieldId: 'kitchen-procurement-supplier-code',
-        },
-        contact_email: {
-            label: t('kitchen:ops.procurement.fieldSupplierEmail'),
-            fieldId: 'kitchen-procurement-supplier-email',
-        },
-        contact_phone: {
-            label: t('kitchen:ops.procurement.fieldSupplierPhone'),
-            fieldId: 'kitchen-procurement-supplier-phone',
-        },
-    });
-
     const baseLineIssues = submitted ? lineIssues : liveLineIssues;
     const shownLineIssues = server.isValidation
         ? new Map(
@@ -999,44 +975,6 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
         );
     }
 
-    function closeCreateSupplier() {
-        setCreatingSupplier(false);
-        setNewSupplierTried(false);
-        setNewSupplierName('');
-        setNewSupplierCode('');
-        setNewSupplierEmail('');
-        setNewSupplierPhone('');
-        createSupplier.reset();
-    }
-
-    function submitNewSupplier() {
-        setNewSupplierTried(true);
-        if (newSupplierName.trim() === '') return;
-        createSupplier.mutate(
-            {
-                nameEn: newSupplierName.trim(),
-                code: newSupplierCode.trim() === '' ? null : newSupplierCode.trim(),
-                // The only currency this system prices in, so it is the only honest answer.
-                currencyCode: RECEIPT_CURRENCY,
-                contactEmail: newSupplierEmail.trim() === '' ? null : newSupplierEmail.trim(),
-                contactPhone: newSupplierPhone.trim() === '' ? null : newSupplierPhone.trim(),
-            },
-            {
-                onSuccess: (supplier) => {
-                    // Chosen on the receipt in progress — the reason it was created here.
-                    setSupplierId(String(supplier.id));
-                    guard.markDirty();
-                    closeCreateSupplier();
-                    toast.show({
-                        testID: 'kitchen-procurement-supplier-created-toast',
-                        tone: 'success',
-                        message: t('kitchen:ops.procurement.supplierCreatedToast'),
-                    });
-                },
-            },
-        );
-    }
-
     /*
      * Beside or under. The summary sits beside the form wherever the form keeps its 620px, and
      * under it on anything narrower, where a fixed column would squeeze the lines table.
@@ -1152,7 +1090,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                     }}
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-procurement-post-cancel"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
@@ -1160,7 +1098,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                     guard.intercept(back.leave);
                                 }}
                             />
-                            <Button
+                            <DeskButton
                                 testID="kitchen-procurement-post-confirm"
                                 label={postLabel}
                                 loading={postReceipt.isPending}
@@ -1226,7 +1164,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                         })}
                                         body={t('kitchen:ops.procurement.openOrdersBody')}
                                         actions={
-                                            <Button
+                                            <DeskButton
                                                 testID="kitchen-post-receipt-open-orders-receive"
                                                 variant="secondary"
                                                 label={t(
@@ -1311,7 +1249,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                              */}
                                             {canManage && !orderMode ? (
                                                 <View className="flex-row">
-                                                    <Button
+                                                    <DeskButton
                                                         testID="kitchen-procurement-post-new-supplier"
                                                         size="sm"
                                                         variant="ghost"
@@ -1409,7 +1347,6 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                                 <Badge
                                                     variant="label"
                                                     tone="neutral"
-                                                    icon={null}
                                                     testID="kitchen-post-receipt-quantities-only"
                                                     label={t(
                                                         'kitchen:ops.procurement.quantitiesOnly',
@@ -1485,7 +1422,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                      */}
                                     {lines.some((line) => line.stockItemId !== null) ? (
                                         <Stack space="sm" testID="kitchen-procurement-post-trace">
-                                            <Button
+                                            <DeskButton
                                                 testID="kitchen-procurement-post-trace-toggle"
                                                 variant="ghost"
                                                 size="sm"
@@ -1647,93 +1584,26 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                     </View>
                 )}
 
-                <Dialog
-                    testID="kitchen-procurement-supplier-dialog"
+                <NewSupplierDialog
+                    testID="kitchen-procurement-supplier"
                     open={creatingSupplier}
-                    onClose={closeCreateSupplier}
-                    title={t('kitchen:ops.procurement.newSupplierTitle')}
-                    description={t('kitchen:ops.procurement.newSupplierBody')}
-                    actions={
-                        <>
-                            <Button
-                                testID="kitchen-procurement-supplier-cancel"
-                                variant="quiet"
-                                label={t('kitchen:common.cancel')}
-                                onPress={closeCreateSupplier}
-                            />
-                            <Button
-                                testID="kitchen-procurement-supplier-confirm"
-                                label={t('kitchen:ops.procurement.newSupplierSave')}
-                                loading={createSupplier.isPending}
-                                onPress={submitNewSupplier}
-                            />
-                        </>
-                    }
-                >
-                    <Stack space="md">
-                        {createSupplier.error === null ? null : (
-                            <Text testID="kitchen-procurement-supplier-error" tone="danger">
-                                {supplierServer.unplaced ??
-                                    supplierFailure?.message ??
-                                    t('kitchen:ops.procurement.newSupplierFailed')}
-                            </Text>
-                        )}
-                        {/*
-                         * No currency picker: the receipt books in RECEIPT_CURRENCY regardless, and a
-                         * picker whose answer changes nothing is a question that should not be asked.
-                         * The line under the fields says so instead.
-                         */}
-                        <FormGrid maxColumns={2} testID="kitchen-procurement-supplier-grid">
-                            <TextInputField
-                                testID="kitchen-procurement-supplier-name"
-                                id="kitchen-procurement-supplier-name"
-                                label={t('kitchen:ops.procurement.fieldSupplierName')}
-                                placeholder={t('kitchen:ops.procurement.supplierNamePlaceholder')}
-                                size="sm"
-                                value={newSupplierName}
-                                onChangeText={setNewSupplierName}
-                                {...(newSupplierTried && newSupplierName.trim() === ''
-                                    ? { error: t('kitchen:ops.procurement.supplierNameRequired') }
-                                    : {})}
-                                {...supplierServer.flag('name_en')}
-                            />
-                            <TextInputField
-                                testID="kitchen-procurement-supplier-code"
-                                id="kitchen-procurement-supplier-code"
-                                {...supplierServer.flag('code')}
-                                label={t('kitchen:ops.procurement.fieldSupplierCode')}
-                                placeholder={t('kitchen:ops.procurement.supplierCodePlaceholder')}
-                                size="sm"
-                                value={newSupplierCode}
-                                onChangeText={setNewSupplierCode}
-                            />
-                            <TextInputField
-                                testID="kitchen-procurement-supplier-email"
-                                id="kitchen-procurement-supplier-email"
-                                {...supplierServer.flag('contact_email')}
-                                label={t('kitchen:ops.procurement.fieldSupplierEmail')}
-                                placeholder={t('kitchen:ops.suppliers.emailPlaceholder')}
-                                size="sm"
-                                value={newSupplierEmail}
-                                onChangeText={setNewSupplierEmail}
-                                keyboardType="email-address"
-                            />
-                            <TextInputField
-                                testID="kitchen-procurement-supplier-phone"
-                                id="kitchen-procurement-supplier-phone"
-                                {...supplierServer.flag('contact_phone')}
-                                label={t('kitchen:ops.procurement.fieldSupplierPhone')}
-                                placeholder={t('kitchen:ops.suppliers.phonePlaceholder')}
-                                size="sm"
-                                value={newSupplierPhone}
-                                onChangeText={setNewSupplierPhone}
-                                keyboardType="phone-pad"
-                            />
-                        </FormGrid>
-                    </Stack>
-                </Dialog>
+                    onClose={() => {
+                        setCreatingSupplier(false);
+                    }}
+                    onCreated={(supplier) => {
+                        // Chosen on the receipt in progress — the reason it was created here.
+                        setSupplierId(String(supplier.id));
+                        guard.markDirty();
+                        toast.show({
+                            testID: 'kitchen-procurement-supplier-created-toast',
+                            tone: 'success',
+                            message: t('kitchen:ops.procurement.supplierCreatedToast'),
+                        });
+                    }}
+                />
 
                 <Dialog
+                    look="card"
                     testID="kitchen-post-receipt-screen-unsaved-dialog"
                     open={guard.isPrompting}
                     onClose={guard.cancelDiscard}
@@ -1741,13 +1611,13 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                     description={t('kitchen:ops.procurement.discardBody', { count: lines.length })}
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-post-receipt-screen-unsaved-keep"
                                 variant="quiet"
                                 label={t('kitchen:unsaved.keepEditing')}
                                 onPress={guard.cancelDiscard}
                             />
-                            <Button
+                            <DeskButton
                                 testID="kitchen-post-receipt-screen-unsaved-discard"
                                 variant="danger"
                                 label={t('kitchen:common.discard')}

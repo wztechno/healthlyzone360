@@ -2,7 +2,6 @@ import { isValidationFailure } from '@healthy360/api-client/contracts';
 import type { ChannelAvailability } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     Callout,
     Cascade,
     Dialog,
@@ -55,6 +54,7 @@ import {
     summarisePriceEntries,
 } from '../format.ts';
 import { returnCrumbLabel } from '../came-from.ts';
+import { useFinishDetour } from '../finish-detour.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import {
     PriceEntriesCard,
@@ -80,7 +80,9 @@ import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
+import { PageBackPill } from '../../../shell/area-trail.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/price-lists/{priceList}` — what a list charges for, and whether it may charge it.
  *
@@ -205,6 +207,7 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
      * left — and opens the list afresh only when nothing is behind this page.
      */
     const back = useReturnTo(returnTo, BOOK_ROUTE);
+    const finishDetour = useFinishDetour(back);
 
     const [entries, setEntries] = useState<readonly PriceEntryDraft[]>([]);
     const [baseline, setBaseline] = useState<ReadonlyMap<string, PriceEntryDraft>>(() => new Map());
@@ -838,7 +841,6 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
                                 <Badge
                                     testID={`${PAGE_ID}-status`}
                                     variant="caps"
-                                    icon={null}
                                     tone={statusTone(data.meta.status)}
                                     label={t(statusKey(data.meta.status))}
                                 />
@@ -893,7 +895,7 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
                         }
                         actions={
                             <>
-                                <BackPill
+                                <PageBackPill
                                     testID={`${SCREEN_ID}-back`}
                                     label={t('kitchen:priceLists.backToList')}
                                     onPress={() => {
@@ -901,7 +903,7 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
                                     }}
                                 />
                                 {isPublished || !canManage ? null : (
-                                    <Button
+                                    <DeskButton
                                         testID={`${PAGE_ID}-publish`}
                                         label={t('kitchen:priceLists.publish')}
                                         disabled={guard.isDirty || !online || quarantined}
@@ -972,7 +974,7 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
                                       })}
                             </RNText>
                         </View>
-                        <Button
+                        <DeskButton
                             testID={`${PAGE_ID}-discard`}
                             variant="secondary"
                             size="sm"
@@ -980,7 +982,7 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
                             onPress={discard}
                         />
                         {/* The frame's own save id, so the guard and conflict flows find it. */}
-                        <Button
+                        <DeskButton
                             testID={`${SCREEN_ID}-save`}
                             size="sm"
                             label={
@@ -999,6 +1001,7 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
 
                 {/* ── publish ──────────────────────────────────────────────────────────────────── */}
                 <Dialog
+                    look="card"
                     testID={`${PAGE_ID}-publish-dialog`}
                     open={showPublish}
                     onClose={() => {
@@ -1008,7 +1011,7 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
                     description={t('kitchen:priceLists.publishBody')}
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID={`${PAGE_ID}-publish-cancel`}
                                 variant="quiet"
                                 label={t('kitchen:common.cancel')}
@@ -1016,7 +1019,7 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
                                     setShowPublish(false);
                                 }}
                             />
-                            <Button
+                            <DeskButton
                                 testID={`${PAGE_ID}-publish-confirm`}
                                 label={t('kitchen:publish.confirm')}
                                 loading={publish.isPending}
@@ -1030,7 +1033,8 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
                                         {
                                             onSuccess: () => {
                                                 setShowPublish(false);
-                                                toast.show({
+                                                guard.markClean();
+                                                finishDetour({
                                                     testID: `${PAGE_ID}-published-toast`,
                                                     tone: 'success',
                                                     message: t(

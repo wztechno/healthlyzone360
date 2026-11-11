@@ -1,6 +1,5 @@
 import { formatGtin } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     EmptyState,
     ErrorState,
@@ -28,6 +27,7 @@ import { usePrintSheet } from '../print-sheet.tsx';
 import { MAX_LABEL_COPIES } from '../production-desk/batch-figures.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/ingredients/{ingredient}/label` — the kitchen code's label, as many copies as asked
  * (ingredient barcodes, plan §8).
@@ -167,7 +167,7 @@ function IngredientBarcodeLabel({ ingredient }: IngredientBarcodeLabelScreenProp
                         </View>
                         {backButton}
                         {sheet.mode === 'browser' ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-ingredient-label-print"
                                 label={t('kitchen:barcodes.printLabel')}
                                 onPress={sheet.print}

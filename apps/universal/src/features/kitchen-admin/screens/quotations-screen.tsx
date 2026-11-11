@@ -6,8 +6,6 @@ import type {
     KitchenQuotationStatus,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Callout,
     Cascade,
     EmptyState,
@@ -66,6 +64,8 @@ import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /** The request `?view=` names, read on its own when the loaded page does not hold it. */
 function useQuotationById(id: string | null) {
     const parsed = QuotationId.safeParse(id);
@@ -283,8 +283,7 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
                 match: (row, value) => row.status === value,
             },
             render: (row) => (
-                <Badge
-                    icon={null}
+                <DeskChip
                     testID={`${kitchenQuotationRowTestId(String(row.id))}-status`}
                     tone={kitchenQuotationStatusTone(row.status)}
                     label={t(kitchenQuotationStatusKey(row.status))}
@@ -432,7 +431,7 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
                         )}
                         actions={
                             unfiltered ? undefined : (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-quotations-clear"
                                     variant="secondary"
                                     size="sm"
@@ -605,7 +604,7 @@ function QuotationPricing({
     }
 
     const backButton = (
-        <Button
+        <DeskButton
             testID="kitchen-quotations-back"
             variant="secondary"
             label={t('kitchen:ops.quotations.backToQuotations')}
@@ -677,8 +676,7 @@ function QuotationPricing({
                 })}
                 dirty={dirty}
                 badges={
-                    <Badge
-                        icon={null}
+                    <DeskChip
                         testID="kitchen-quotations-detail-status"
                         tone={kitchenQuotationStatusTone(quotation.status)}
                         label={t(kitchenQuotationStatusKey(quotation.status))}
@@ -703,7 +701,7 @@ function QuotationPricing({
                     <>
                         {backButton}
                         {editable ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-quotations-send"
                                 label={t('kitchen:ops.quotations.send')}
                                 loading={quote.isPending}
@@ -737,7 +735,7 @@ function QuotationPricing({
                                     : 'kitchen:ops.quotations.conflictTitle',
                             )}
                             actions={
-                                <Button
+                                <DeskButton
                                     testID="kitchen-quotations-conflict-refresh"
                                     size="sm"
                                     variant="secondary"

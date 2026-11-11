@@ -8,7 +8,6 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Callout,
     Dialog,
     Inline,
     Stack,
@@ -33,6 +32,8 @@ import { DeskButton, DeskTabs } from './desk-kit/index.ts';
 import { ORDER_APPROVE_REFUND_PERMISSION } from './entity-registry.ts';
 import { kitchenOrderPaymentMethodKey } from './ops-format.ts';
 
+import { DeskChip } from './desk-kit/desk-chip.tsx';
+import { FailureToast } from './failure-toast.tsx';
 /**
  * The refund part of the order record, for a manager. A ledger beside the receipts: entries are
  * added, never edited, and a receipt is never touched. One above the kitchen's limit waits here for
@@ -195,9 +196,9 @@ function EntryBadge({ entry }: { readonly entry: OrderRefund }) {
     return entry.status === 'pending_approval' ? (
         <Badge tone="warning" icon="warning" label={label} />
     ) : entry.status === 'rejected' ? (
-        <Badge tone="neutral" label={label} />
+        <DeskChip tone="neutral" label={label} />
     ) : (
-        <Badge tone="success" label={label} />
+        <DeskChip tone="success" label={label} />
     );
 }
 
@@ -344,14 +345,12 @@ function RefundDialog({
                     maxLength={300}
                     required
                 />
-                {failure === null ? null : (
-                    <Callout
-                        testID="kitchen-orders-refund-error"
-                        tone="danger"
-                        title={t('kitchen:ops.orders.refunds.saveError')}
-                        body={failure.message}
-                    />
-                )}
+                <FailureToast
+                    failure={failure}
+                    testID="kitchen-orders-refund-error"
+                    title={t('kitchen:ops.orders.refunds.saveError')}
+                    body={failure?.message}
+                />
             </Stack>
         </Dialog>
     );

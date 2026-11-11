@@ -17,7 +17,7 @@ import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { useOrderDeskDriversQuery } from '../../../data/order-desk-hooks.ts';
-import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
+import { safeReturnTo, withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CATALOGUE_PAGE_SIZE, CataloguePager } from '../catalogue/catalogue-pager.tsx';
@@ -143,6 +143,11 @@ function OrdersPage() {
     const params = useLocalSearchParams();
     const query = readOrdersQuery(params);
     const currentHref = useCurrentHref();
+    // An order another page opened (a customer, a complaint, an alert) closes back to that page.
+    const cameFrom = safeReturnTo(
+        Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo,
+    );
+    const [arrival] = useState(() => (cameFrom === null ? null : query.view));
     const now = useTickingNow(ORDERS_POLL_MS);
     const today = localToday(now);
     const windows = useDeliveryWindows();
@@ -405,6 +410,10 @@ function OrdersPage() {
                             openOrder(row, opened?.list ?? []);
                         }}
                         onClose={() => {
+                            if (cameFrom !== null && arrival !== null && query.view === arrival) {
+                                router.dismissTo(cameFrom as never);
+                                return;
+                            }
                             update({ view: null });
                         }}
                     />

@@ -1,7 +1,5 @@
 import type { ReceivableOrder } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Checkbox,
     DataList,
     DateField,
@@ -21,7 +19,7 @@ import {
 import type { DataListColumn, IssueCardItem, IssueTrayContent } from '@healthy360/design-system';
 import { PurchaseOrderId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -31,7 +29,9 @@ const EM_DASH_PICK = '—';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
+import { pathnameOf } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { STOCK_GAPS_PATH } from '../consumption-exceptions/stock-gap-fix.ts';
 import {
     usePostGoodsReceiptMutation,
     useReceivableOrdersQuery,
@@ -74,6 +74,8 @@ import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/procurement/receive` — booking in a delivery against an issued order (SUP5, §7).
  *
@@ -156,7 +158,11 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
     const formatter = useFormatter();
     const router = useRouter();
     // Back steps to wherever the delivery was opened from — the order, or procurement.
-    const back = useReturnTo(undefined, '/kitchen/procurement');
+    const rawReturn = useLocalSearchParams().returnTo;
+    const back = useReturnTo(
+        Array.isArray(rawReturn) ? rawReturn[0] : rawReturn,
+        '/kitchen/procurement',
+    );
     const toast = useToast();
     const access = useAccessState();
     const branchId = access.branch?.id ?? null;
@@ -536,11 +542,22 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                     });
                     // Back to the order for whoever can read it; a receiver without the ordering
                     // code came in through the book, and the order page would only refuse them.
-                    router.replace(
-                        (canOpenOrder
-                            ? `/kitchen/supply-orders/${String(PurchaseOrderId.unsafe(String(selectedOrder.id)))}`
-                            : '/kitchen/procurement') as never,
-                    );
+                    // Opened from a page with something waiting on this delivery — Stock gaps through
+                    // Post receipt — it goes back there, and to Stock gaps says the gap is fixed.
+                    if (back.returnTo !== null) {
+                        guard.markClean();
+                        back.finish(
+                            pathnameOf(back.returnTo) === STOCK_GAPS_PATH
+                                ? { fixed: '1' }
+                                : undefined,
+                        );
+                    } else {
+                        router.replace(
+                            (canOpenOrder
+                                ? `/kitchen/supply-orders/${String(PurchaseOrderId.unsafe(String(selectedOrder.id)))}`
+                                : '/kitchen/procurement') as never,
+                        );
+                    }
                     // The cost status is the second half of what just happened, and it is not
                     // irreversible — a receipt posted without prices is a job, not a mistake.
                     if (result.costStatus !== 'complete') {
@@ -1042,7 +1059,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                     title={t('kitchen:ops.receiving.sectionCharges')}
                                 >
                                     <Stack space="sm" testID="kitchen-receive-charges">
-                                        <Button
+                                        <DeskButton
                                             testID="kitchen-receive-charges-toggle"
                                             size="sm"
                                             variant="ghost"
@@ -1127,6 +1144,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
              * is irreversible — an unpriced receipt is a job for later, not a mistake.
              */}
             <Dialog
+                look="card"
                 testID="kitchen-receive-confirm-dialog"
                 open={confirming}
                 onClose={() => {
@@ -1135,7 +1153,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                 title={t('kitchen:ops.receiving.confirmTitle')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-receive-confirm-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -1143,7 +1161,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                 setConfirming(false);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-receive-confirm-post"
                             label={t('kitchen:ops.receiving.post')}
                             loading={postReceipt.isPending}
@@ -1171,25 +1189,25 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                         </Text>
                     ) : null}
                     {state.hasOverReceipt ? (
-                        <Badge
+                        <DeskChip
                             tone="warning"
                             testID="kitchen-receive-confirm-over"
                             label={t('kitchen:ops.receiving.confirmOver')}
                         />
                     ) : confirmations.closeShort ? (
-                        <Badge
+                        <DeskChip
                             tone="warning"
                             testID="kitchen-receive-confirm-close-short"
                             label={t('kitchen:ops.receiving.confirmCloseShort')}
                         />
                     ) : state.hasShortfall ? (
-                        <Badge
+                        <DeskChip
                             tone="info"
                             testID="kitchen-receive-confirm-partial"
                             label={t('kitchen:ops.receiving.confirmPartial')}
                         />
                     ) : (
-                        <Badge
+                        <DeskChip
                             tone="success"
                             testID="kitchen-receive-confirm-complete"
                             label={t('kitchen:ops.receiving.confirmComplete')}

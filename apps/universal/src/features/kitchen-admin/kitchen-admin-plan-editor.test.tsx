@@ -36,6 +36,9 @@ jest.mock('expo-router', () => {
     };
     return {
         __esModule: true,
+        useSegments: () => [],
+        useGlobalSearchParams: () => ({}),
+        useNavigation: () => ({}),
         useRouter: () => router,
         usePathname: () => '/kitchen/plans',
         useLocalSearchParams: () => ({}),

@@ -97,7 +97,7 @@ export function PeriodScope({
     onChange,
     allowAll = false,
     unit = 'day',
-    look = 'lens',
+    look = 'desk',
 }: {
     readonly testID: string;
     /** `YYYY-MM-DD` — held by the screen, so the shortcuts do not move under a reader at midnight. */

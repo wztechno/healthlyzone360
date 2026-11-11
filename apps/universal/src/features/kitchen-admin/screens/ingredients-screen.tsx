@@ -1,4 +1,4 @@
-import { Button, Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy360/design-system';
+import { Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -11,7 +11,7 @@ import { View } from 'react-native';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { pathnameOf } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
-import { BackPill } from '../../../ui/back-pill.tsx';
+import { PageBackPill } from '../../../shell/area-trail.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
@@ -42,6 +42,7 @@ import {
     statusShortKey,
 } from '../format.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/ingredients` — the ingredient list, as `Catalogue.dc.html` draws it.
  *
@@ -138,7 +139,7 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
               : t('common:returnTo.previous');
     const backPill = (testID: string) =>
         backLabel === null ? undefined : (
-            <BackPill testID={testID} label={backLabel} onPress={back.leave} />
+            <PageBackPill testID={testID} label={backLabel} onPress={back.leave} />
         );
     // The table closes the toolbar's card only when it is drawn: loading, empty and failed lists
     // bring their own frames.
@@ -320,7 +321,7 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                                 />
                             ) : null}
                             {canManage ? (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-ingredients-toolbar-create"
                                     label={t('kitchen:toolbar.create')}
                                     iconStart={<Icon name="plus" size="sm" />}
@@ -430,6 +431,7 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
             </View>
 
             <Dialog
+                look="card"
                 testID="kitchen-ingredients-archive-dialog"
                 open={list.archiving !== null}
                 onClose={list.cancelArchive}
@@ -437,13 +439,13 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                 description={t('kitchen:editor.archiveBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-ingredients-archive-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={list.cancelArchive}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-ingredients-archive-confirm"
                             variant="danger"
                             label={t('kitchen:editor.archiveConfirm')}

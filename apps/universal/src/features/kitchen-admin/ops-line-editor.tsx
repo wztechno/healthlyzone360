@@ -1,5 +1,4 @@
 import {
-    Button,
     DataList,
     Icon,
     IconButton,
@@ -18,6 +17,7 @@ import { View } from 'react-native';
 import { traceInput } from './receive-delivery-model.ts';
 import type { ScanTrace } from './receive-delivery-model.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
 /**
  * One draft row in a repeatable stock-item-and-quantity list — a goods receipt line. `key` is a
  * client-only identity for React's list reconciliation; it never reaches the wire
@@ -458,7 +458,7 @@ export function StockItemLineEditor({
             )}
             {/* Add under the rows it adds to, and the receipt's total at the end of the same line. */}
             <View className="flex-row flex-wrap items-center justify-between gap-tight">
-                <Button
+                <DeskButton
                     testID={`${testID}-add`}
                     variant="secondary"
                     size="sm"

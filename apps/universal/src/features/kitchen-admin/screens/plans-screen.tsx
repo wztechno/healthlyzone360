@@ -1,8 +1,6 @@
 import { SubscriptionPlanId } from '@healthy360/domain-types';
 import type { PlanAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Cascade,
     EmptyState,
     ErrorState,
@@ -69,6 +67,8 @@ import {
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /** The plan `?view=` names, read on its own when the loaded page does not hold it. */
 function usePlanById(id: string | null) {
     const parsed = SubscriptionPlanId.safeParse(id);
@@ -219,8 +219,7 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
                             </Text>
                         )}
                         {name.isFallback ? (
-                            <Badge
-                                icon={null}
+                            <DeskChip
                                 testID={`${testID}-missing-arabic`}
                                 tone="warning"
                                 label={t('kitchen:list.missingArabic')}
@@ -337,8 +336,7 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
                 },
             },
             render: (row) => (
-                <Badge
-                    icon={null}
+                <DeskChip
                     testID={`${planRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
                     label={t(statusShortKey(row.meta.status))}
@@ -481,7 +479,7 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
                         canManage ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-plans-toolbar-create"
                                 label={t('kitchen:plans.create')}
                                 iconStart={<Icon name="plus" size="sm" />}

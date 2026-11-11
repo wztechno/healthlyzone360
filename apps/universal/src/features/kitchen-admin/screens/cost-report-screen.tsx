@@ -1,13 +1,5 @@
 import type { MonthlyCostReportRow } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Cascade,
-    DatePickerButton,
-    EmptyState,
-    ErrorState,
-    TableSkeleton,
-    Text,
-} from '@healthy360/design-system';
+import { Cascade, EmptyState, ErrorState, TableSkeleton, Text } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -34,6 +26,10 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { PeriodScope, periodWindows } from '../catalogue/period-scope.tsx';
+import { DeskDateButton } from '../desk-kit/mini-month.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { withReturnTo } from '../../../navigation/return-to.ts';
+import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 /**
  * `/kitchen/cost-report` — the monthly cost report (INV1.4), as `Workbench.dc.html` draws it (§3.4).
  *
@@ -106,6 +102,7 @@ function CostReport() {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
+    const here = useCurrentHref();
     const params = useLocalSearchParams<{ from?: string; to?: string; month?: string }>();
     // This month by default — the Period shortcut's first.
     const [today] = useState(() => todayIso());
@@ -185,16 +182,14 @@ function CostReport() {
                         {row.month}
                     </Text>
                     {row.hasDataQualityFlag ? (
-                        <Badge
-                            icon={null}
+                        <DeskChip
                             testID={`kitchen-cost-report-${row.month}-flag`}
                             tone="warning"
                             label={t('kitchen:ops.costReport.flagged')}
                         />
                     ) : null}
                     {row.isMarginWithheld ? (
-                        <Badge
-                            icon={null}
+                        <DeskChip
                             testID={`kitchen-cost-report-${row.month}-withheld`}
                             tone="warning"
                             label={t('kitchen:ops.costReport.marginWithheld')}
@@ -434,7 +429,7 @@ function CostReport() {
                     icon: null,
                     // The month stays open behind it, so Back from the ledger returns to it.
                     onPress: () => {
-                        router.push('/kitchen/purchases-ledger' as never);
+                        router.push(withReturnTo('/kitchen/purchases-ledger', here) as never);
                     },
                 }}
             />
@@ -489,7 +484,7 @@ function CostReport() {
                         }}
                     />
                     <View className="z-auto flex-row items-center gap-tight">
-                        <DatePickerButton
+                        <DeskDateButton
                             testID="kitchen-cost-report-filter-from"
                             label={t('kitchen:ops.costReport.filterFrom')}
                             value={fromDate}
@@ -501,7 +496,7 @@ function CostReport() {
                         <Text variant="caption" tone="secondary" aria-hidden>
                             {t('kitchen:ops.requirements.windowTo')}
                         </Text>
-                        <DatePickerButton
+                        <DeskDateButton
                             testID="kitchen-cost-report-filter-to"
                             label={t('kitchen:ops.costReport.filterTo')}
                             value={toDate}

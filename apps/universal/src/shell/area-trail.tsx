@@ -9,7 +9,9 @@ import {
     useRef,
     useState,
 } from 'react';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
+
+import { BackPill } from '../ui/back-pill.tsx';
 
 /**
  * The area-agnostic half of a desk area's breadcrumb trail: the leaf a screen names, and the bar's
@@ -104,6 +106,24 @@ export function useTrailLeaf(
             setTrail(NO_LEAF);
         };
     }, [setTrail, leaf, hasBack, parent]);
+}
+
+/**
+ * Whether an area trail is drawn above this page. Where one is, it is the page's way back — a
+ * return crumb when the page was opened from elsewhere — so a page's own "Back to …" pill would
+ * be a second control for the same step ({@link PageBackPill}).
+ */
+export function useAreaTrailDrawn(): boolean {
+    return useContext(TrailLeafContext) !== undefined;
+}
+
+/**
+ * A page's own "Back to …" pill, drawn only where no area trail is: one way back per screen.
+ * Under a desk area's layout the trail in the top bar is that way back (and on a phone the trail
+ * itself becomes one back pill); a page rendered on its own still gets its pill.
+ */
+export function PageBackPill(props: ComponentProps<typeof BackPill>) {
+    return useAreaTrailDrawn() ? null : <BackPill {...props} />;
 }
 
 /** The leaf the current screen has named — read by an area's crumb builder. */

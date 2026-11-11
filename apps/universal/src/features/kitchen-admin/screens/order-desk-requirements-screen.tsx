@@ -38,7 +38,7 @@ import { unitCodeLabel } from '../format.ts';
 import { WeeklyStockCheckBanner } from '../weekly-stock-check.tsx';
 import { pathnameOf } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
-import { BackPill } from '../../../ui/back-pill.tsx';
+import { PageBackPill, useAreaTrailDrawn } from '../../../shell/area-trail.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import { ORDERS_HREF } from '../orders/orders-url.ts';
 import { shortDay } from '../orders/order-columns.tsx';
@@ -152,6 +152,8 @@ function OrderDeskRequirements() {
     const asked = useLocalSearchParams<{ from?: string; to?: string; returnTo?: string }>();
     // Opened from the Orders calendar's "Open requirements": one press back to that day.
     const back = useReturnTo(asked.returnTo, ORDERS_HREF);
+    // The top bar's trail is the way back where it is drawn — one control per screen.
+    const trailDrawn = useAreaTrailDrawn();
     const askedFrom = typeof asked.from === 'string' && isIsoDate(asked.from) ? asked.from : null;
     const askedTo = typeof asked.to === 'string' && isIsoDate(asked.to) ? asked.to : null;
     /**
@@ -226,7 +228,7 @@ function OrderDeskRequirements() {
                         .map((row) => `${row.stockItemId}:${row.suggestedBuy}`)
                         .join(','),
                 }),
-                withQuery('/kitchen/order-desk/requirements', { from, to }),
+                back.carry(withQuery('/kitchen/order-desk/requirements', { from, to })),
             ) as never,
         );
     };
@@ -397,7 +399,7 @@ function OrderDeskRequirements() {
     const toolbarFiltered = show !== 'all' || unit !== ALL_UNITS || needle !== '' || windowMoved;
     /** View and Edit for the ingredient behind a row, coming back here. */
     const rowActions = (row: OrderDeskRequirement): readonly MenuItem[] => {
-        const here = withQuery('/kitchen/order-desk/requirements', { from, to });
+        const here = back.carry(withQuery('/kitchen/order-desk/requirements', { from, to }));
         return [
             {
                 key: 'view',
@@ -456,9 +458,9 @@ function OrderDeskRequirements() {
     return (
         <IssueTrayFrame tray={trayContent}>
             <Cascade space="md" testID="kitchen-order-desk-requirements-screen">
-                {back.returnTo === null ? null : (
+                {back.returnTo === null || trailDrawn ? null : (
                     <View className="flex-row">
-                        <BackPill
+                        <PageBackPill
                             testID="kitchen-order-desk-requirements-back"
                             label={
                                 pathnameOf(back.returnTo) === ORDERS_HREF

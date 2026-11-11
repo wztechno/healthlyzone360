@@ -1,5 +1,5 @@
 import type { PurchaseOrder } from '@healthy360/api-client/contracts';
-import { Badge, Text } from '@healthy360/design-system';
+import { Text } from '@healthy360/design-system';
 import type { BadgeTone } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
@@ -15,6 +15,7 @@ import { RECORD_RAIL_MIN } from './desk-layout.ts';
 import { unitCodeLabel } from './format.ts';
 import { purchaseOrderStatusKey } from './ops-format.ts';
 
+import { DeskChip } from './desk-kit/desk-chip.tsx';
 /**
  * A supply order that can no longer be edited, read as a record (the `Kitchen-ops-po-record`
  * board). The draft stays the builder it was; from `issued` on the lines are frozen and the page is
@@ -219,8 +220,7 @@ export function SupplyOrderRecord({
                                             {step.at ?? dash}
                                         </Text>
                                         {step.state === 'pending' ? null : (
-                                            <Badge
-                                                icon={null}
+                                            <DeskChip
                                                 tone={
                                                     step.key === 'cancelled'
                                                         ? 'neutral'

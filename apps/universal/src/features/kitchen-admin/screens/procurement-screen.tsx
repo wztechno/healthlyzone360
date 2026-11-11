@@ -1,9 +1,6 @@
 import type { GoodsReceipt, ReceiptCostStatus } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Cascade,
-    DatePickerButton,
     EmptyState,
     ErrorState,
     Inline,
@@ -54,6 +51,9 @@ import { AwaitingDeliveries } from '../awaiting-deliveries.tsx';
 import { ReceiptOrderRef, useReceiptOpenOrderActions } from '../receipt-order-ref.tsx';
 import { useViewedRecord } from '../use-viewed-record.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskDateButton } from '../desk-kit/mini-month.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/procurement` — the receipts book, and the direct-purchase path (O2, SUP5).
  *
@@ -320,8 +320,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
             },
             render: (row) => (
                 <View className="min-w-0 flex-row flex-wrap items-center gap-1.5">
-                    <Badge
-                        icon={null}
+                    <DeskChip
                         tone={receiptCostStatusTone(row.costStatus)}
                         testID={`${goodsReceiptRowTestId(String(row.id))}-cost-status`}
                         label={t(receiptCostStatusKey(row.costStatus))}
@@ -532,7 +531,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                                 onChange={pickWindow}
                             />
                             <View className="z-auto flex-row items-center gap-tight">
-                                <DatePickerButton
+                                <DeskDateButton
                                     testID="kitchen-procurement-filter-from"
                                     label={t('kitchen:ops.ledger.filterFrom')}
                                     value={from}
@@ -548,7 +547,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                                 <Text variant="caption" tone="secondary" aria-hidden>
                                     {t('kitchen:ops.requirements.windowTo')}
                                 </Text>
-                                <DatePickerButton
+                                <DeskDateButton
                                     testID="kitchen-procurement-filter-to"
                                     label={t('kitchen:ops.ledger.filterTo')}
                                     value={to}
@@ -630,7 +629,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                              * Suppliers have their own screen (SUP1) and the unpriced queue is the cost
                              * holder's; both stay one press from the receipts book, beside the one primary.
                              */}
-                            <Button
+                            <DeskButton
                                 testID="kitchen-procurement-manage-suppliers"
                                 size="sm"
                                 variant="ghost"
@@ -640,7 +639,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                                 }}
                             />
                             {canViewCosts ? (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-procurement-unpriced-link"
                                     size="sm"
                                     variant="ghost"
@@ -653,7 +652,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                                 />
                             ) : null}
                             {canManage ? (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-procurement-post-receipt"
                                     label={t('kitchen:ops.procurement.postReceipt')}
                                     onPress={() => {

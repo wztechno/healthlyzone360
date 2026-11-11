@@ -16,6 +16,23 @@
         "yes": "Yes",
         "no": "No"
     },
+    "trail": {
+        "modulePages": "{{module}} pages"
+    },
+    "detour": {
+        "openAgain": "Open again"
+    },
+    "saveBar": {
+        "label": "Save changes",
+        "unsaved": "Unsaved changes",
+        "notSavedYet": "Not saved yet",
+        "discard": "Discard",
+        "discardTitle": "Discard your changes?",
+        "discardBody": "The page goes back to how it was last saved.",
+        "keepEditing": "Keep editing",
+        "toFix_one": "{{count}} to fix",
+        "toFix_other": "{{count}} to fix"
+    },
     "hub": {
         "title": "Kitchen workspace",
         "itemCount_one": "{{count}} record",
@@ -641,6 +658,9 @@
             "createFailed": "Nothing was saved — try again.",
             "createdToast_one": "Created {{count}} draft order: {{numbers}}",
             "createdToast_other": "Created {{count}} draft orders: {{numbers}}",
+            "openCreated": "Open supply orders",
+            "supplierAddedPicked_one": "{{name}} added and chosen for {{count}} item",
+            "supplierAddedPicked_other": "{{name}} added and chosen for {{count}} items",
             "ordersTitle": "Orders you've made",
             "ordersCaption": "Purchase orders for this kitchen, newest first.",
             "ordersEmptyTitle": "No orders yet",
@@ -5423,6 +5443,9 @@
         "freshMany": "{{n}} new alerts",
         "empty": "No alerts yet.",
         "loadError": "Alerts could not be loaded.",
+        "newCount": "{{n}} new",
+        "groupToday": "Today",
+        "groupEarlier": "Earlier",
         "markAllRead": "Mark all read",
         "open": "Open",
         "openLabel": "Open: {{title}}",

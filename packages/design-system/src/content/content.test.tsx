@@ -559,17 +559,26 @@ describe('Callout', () => {
 });
 
 describe('Callout, compact', () => {
-    it('is the one-line strip: full width, 32px at least, the strip’s inset', async () => {
+    it('is the one-line strip: full width, 40px at least, the strip’s inset and edge', async () => {
         await renderWithI18n(
             <Callout testID="strip" size="compact" tone="warning" title="Short" />,
         );
 
         const classes: string = screen.getByTestId('strip').props.className;
-        for (const token of ['w-full', 'min-h-8', 'py-1', 'pe-1', 'ps-2.5', 'rounded-md']) {
+        for (const token of [
+            'w-full',
+            'min-h-10',
+            'py-1',
+            'pe-2',
+            'ps-3',
+            'rounded-xl',
+            'border',
+        ]) {
             expect(classes.split(' ')).toContain(token);
         }
         expect(classes).toContain('bg-warning-subtle');
-        expect(classes).not.toMatch(/(^|\s)border(\s|$)/);
+        // The strip draws the tone's own edge (the notice strip, 2026-11-11).
+        expect(classes).toContain('border-warning-border');
     });
 
     it('sets the title and the body as one run of text', async () => {
@@ -581,7 +590,7 @@ describe('Callout, compact', () => {
         expect(within(run).getByTestId('strip-title')).toHaveTextContent('Stock gap');
         expect(within(run).getByTestId('strip-body')).toHaveTextContent('Two lines short.');
         expect(run).toHaveTextContent('Stock gap Two lines short.');
-        expect(screen.getByTestId('strip-title').props.className).toContain('font-semibold');
+        expect(screen.getByTestId('strip-title').props.className).toContain('font-bold');
         // The mark sits on the row's centre line, not pushed down onto a first line.
         expect(screen.getByTestId('strip-icon').props.className ?? '').not.toContain('mt-1');
     });
@@ -627,7 +636,7 @@ describe('Callout, compact', () => {
             </DensityProvider>,
         );
 
-        expect(screen.getByTestId('strip').props.className).toContain('min-h-8');
+        expect(screen.getByTestId('strip').props.className).toContain('min-h-10');
         expect(screen.getByTestId('strip-text')).toBeTruthy();
         expect(screen.getByTestId('panel').props.className).not.toContain('min-h-8');
         expect(screen.queryByTestId('panel-text')).toBeNull();

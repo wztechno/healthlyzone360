@@ -51,6 +51,11 @@ export interface MenuItem {
      */
     readonly primary?: boolean | undefined;
     /**
+     * A waiting count drawn as a soft amber pill at the row's end — the rail's own number, where a
+     * menu lists the same pages the rail does (the kitchen trail's module menu). Zero draws nothing.
+     */
+    readonly count?: number | undefined;
+    /**
      * Overrides the derived `{menu}-item-{key}` id.
      *
      * For the case where a row action *moved into* a menu and the id it carried outside one is a
@@ -203,6 +208,11 @@ function MenuRow({
             >
                 {item.label}
             </RNText>
+            {item.count === undefined || item.count === 0 ? null : (
+                <RNText className="rounded-full bg-warning-subtle px-2 py-0.5 text-xs font-bold text-warning-on-subtle">
+                    {String(item.count)}
+                </RNText>
+            )}
         </Pressable>
     );
 }

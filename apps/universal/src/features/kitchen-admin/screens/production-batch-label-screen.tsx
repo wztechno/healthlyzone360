@@ -1,6 +1,5 @@
 import type { ProductionOrder } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     EmptyState,
     ErrorState,
@@ -14,7 +13,7 @@ import {
 import { ProductionOrderId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { isMeasureUnit } from '@healthy360/nutrition';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -28,6 +27,8 @@ import { usePrintSheet } from '../print-sheet.tsx';
 import { formatLot, labelCopies } from '../production-desk/batch-figures.ts';
 import { Gs1Barcode } from '../production-desk/gs1-barcode.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 /**
  * `/kitchen/production-desk/{order}/label` — the batch's label, as many copies as it needs.
  *
@@ -69,7 +70,11 @@ export function ProductionBatchLabelScreen({ order }: ProductionBatchLabelScreen
 
 function ProductionBatchLabel({ order }: ProductionBatchLabelScreenProps) {
     const { t } = useTranslation();
-    const router = useRouter();
+    const params = useLocalSearchParams<{ readonly returnTo?: string }>();
+    const back = useReturnTo(
+        params.returnTo,
+        order === undefined ? '/kitchen/production-desk' : `/kitchen/production-desk/${order}`,
+    );
     const sheet = usePrintSheet();
 
     const parsed = order === undefined ? null : ProductionOrderId.safeParse(order);
@@ -124,12 +129,12 @@ function ProductionBatchLabel({ order }: ProductionBatchLabelScreenProps) {
     const barcode = batch.barcode;
 
     const backButton = (
-        <Button
+        <DeskButton
             testID="kitchen-production-label-back"
             variant="secondary"
             label={t('kitchen:ops.production.openBatch')}
             onPress={() => {
-                router.push(`/kitchen/production-desk/${String(batch.id)}`);
+                back.leave();
             }}
         />
     );
@@ -184,7 +189,7 @@ function ProductionBatchLabel({ order }: ProductionBatchLabelScreenProps) {
                         <Inline space="sm" align="center" wrap>
                             {backButton}
                             {sheet.mode === 'browser' ? (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-production-label-print"
                                     label={t('kitchen:ops.production.printLabel')}
                                     onPress={sheet.print}

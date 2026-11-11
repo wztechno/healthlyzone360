@@ -1,8 +1,6 @@
 import { apiFailure } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Cascade,
-    DatePickerButton,
     EmptyState,
     ErrorState,
     Stack,
@@ -34,6 +32,8 @@ import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { useListMemory, useRememberedFilter, useRememberedQuery } from '../list-memory.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 /**
  * `/kitchen/review` — the publication review queue (K1.8), as `Workbench.dc.html` draws it.
  *
@@ -286,7 +286,7 @@ function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
                                     onChange={pickWindow}
                                 />
                                 <View className="z-auto flex-row items-center gap-tight">
-                                    <DatePickerButton
+                                    <DeskDateButton
                                         testID="kitchen-review-filter-from"
                                         label={t('kitchen:review.filterFrom')}
                                         value={from}
@@ -302,7 +302,7 @@ function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
                                     <Text variant="caption" tone="secondary" aria-hidden>
                                         {t('kitchen:ops.requirements.windowTo')}
                                     </Text>
-                                    <DatePickerButton
+                                    <DeskDateButton
                                         testID="kitchen-review-filter-to"
                                         label={t('kitchen:review.filterTo')}
                                         value={to}
@@ -358,7 +358,7 @@ function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
                                 title={t('kitchen:review.filteredEmptyTitle')}
                                 body={t('kitchen:review.filteredEmptyBody')}
                                 actions={
-                                    <Button
+                                    <DeskButton
                                         testID="kitchen-review-clear-filters"
                                         variant="secondary"
                                         size="sm"

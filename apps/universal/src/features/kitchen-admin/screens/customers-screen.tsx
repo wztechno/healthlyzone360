@@ -1,6 +1,5 @@
 import type { KitchenCustomer, KitchenCustomerType } from '@healthy360/api-client/contracts';
 import {
-    Badge,
     Callout,
     Cascade,
     EmptyState,
@@ -39,6 +38,7 @@ import {
     useRememberedQuery,
 } from '../list-memory.ts';
 
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/customers` — the kitchen's customer book, for reference (Access group).
  *
@@ -154,8 +154,7 @@ function CustomersList() {
                 sort: (left, right, direction) => compareText(left.type, right.type, direction),
                 render: (row) => (
                     <View className="flex-row">
-                        <Badge
-                            icon={null}
+                        <DeskChip
                             testID={`${rowTestId(row.id)}-type`}
                             tone={customerTypeTone(row.type)}
                             label={t(customerTypeKey(row.type))}

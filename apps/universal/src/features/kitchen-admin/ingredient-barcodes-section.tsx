@@ -2,8 +2,6 @@ import { formatGtin } from '@healthy360/api-client/contracts';
 import type { ApiFailure, BarcodeScan, IngredientBarcode } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
-    Callout,
     FormSection,
     Icon,
     IconButton,
@@ -32,6 +30,8 @@ import { barcodeFailureText } from './barcode-scan.ts';
 import { CameraScanButton } from './camera-scan-button.tsx';
 import { unitCodeLabel, unitShortKey } from './format.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
+import { FailureToast } from './failure-toast.tsx';
 /**
  * An ingredient's barcodes (ingredient barcodes, plan §8): producer's codes and the one kitchen code.
  *
@@ -107,7 +107,7 @@ export function IngredientBarcodesSection({
             description={t('kitchen:barcodes.description')}
             actions={
                 canManage && !hasKitchenCode && barcodes.data !== undefined ? (
-                    <Button
+                    <DeskButton
                         testID="kitchen-ingredient-barcode-generate"
                         variant="secondary"
                         size="sm"
@@ -153,7 +153,6 @@ export function IngredientBarcodesSection({
                                         <Badge
                                             variant="label"
                                             tone={row.origin === 'system' ? 'info' : 'neutral'}
-                                            icon={null}
                                             label={t(
                                                 row.origin === 'system'
                                                     ? 'kitchen:barcodes.originSystem'
@@ -170,7 +169,7 @@ export function IngredientBarcodesSection({
                                 trailing={
                                     <Inline space="xs" align="center">
                                         {row.origin === 'system' ? (
-                                            <Button
+                                            <DeskButton
                                                 testID={`kitchen-ingredient-barcode-${row.id}-print`}
                                                 variant="quiet"
                                                 size="sm"
@@ -245,7 +244,7 @@ export function IngredientBarcodesSection({
                         {/* Wrapped: `Button` pins itself `self-start`, which beats the row's
                             `items-end` and left it level with the labels, not the inputs. */}
                         <View>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-ingredient-barcode-add"
                                 size="sm"
                                 label={t('kitchen:barcodes.add')}
@@ -259,15 +258,12 @@ export function IngredientBarcodesSection({
                     </View>
                 ) : null}
 
-                {failure === null ? null : (
-                    <Callout
-                        testID="kitchen-ingredient-barcode-error"
-                        role="alert"
-                        tone="danger"
-                        title={t('kitchen:barcodes.refusedTitle')}
-                        body={barcodeFailureText(t, failure, locale) ?? ''}
-                    />
-                )}
+                <FailureToast
+                    failure={failure}
+                    testID="kitchen-ingredient-barcode-error"
+                    title={t('kitchen:barcodes.refusedTitle')}
+                    body={barcodeFailureText(t, failure, locale) ?? ''}
+                />
             </Stack>
         </FormSection>
     );

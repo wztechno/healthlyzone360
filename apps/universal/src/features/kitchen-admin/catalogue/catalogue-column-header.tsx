@@ -108,7 +108,7 @@ export function CatalogueColumnHeader({
     sortDirection,
     filtered = false,
     onToggleSort,
-    menuLook = 'list',
+    menuLook = 'card',
     testID,
 }: CatalogueColumnHeaderProps) {
     const { t } = useTranslation();

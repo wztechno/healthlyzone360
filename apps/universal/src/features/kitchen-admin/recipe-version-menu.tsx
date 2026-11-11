@@ -1,11 +1,13 @@
 import type { RecipeVersionSummary } from '@healthy360/api-client/contracts';
-import { Badge, Button, Dropdown, Icon, InfoTip, Text, cx } from '@healthy360/design-system';
+import { Dropdown, Icon, InfoTip, Text, cx } from '@healthy360/design-system';
 import type { RecipeVersionId } from '@healthy360/domain-types';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
 import { statusKey, statusShortKey, statusTone } from './format.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
+import { DeskChip } from './desk-kit/desk-chip.tsx';
 type VersionStatus = RecipeVersionSummary['status'];
 
 /** The dot beside a status: amber for work in progress, green for what customers see. */
@@ -107,10 +109,9 @@ export function RecipeVersionMenu({
                             >
                                 <View className="min-w-0 flex-1 flex-col">
                                     <View className="flex-row flex-wrap items-center gap-1.5">
-                                        <Badge
+                                        <DeskChip
                                             testID={`${rowTestId}-status`}
                                             tone={statusTone(version.status)}
-                                            icon={null}
                                             label={t(statusKey(version.status))}
                                         />
                                         <Text variant="bodyStrong">
@@ -119,8 +120,7 @@ export function RecipeVersionMenu({
                                             })}
                                         </Text>
                                         {version.isCurrent ? (
-                                            <Badge
-                                                icon={null}
+                                            <DeskChip
                                                 testID={`${rowTestId}-current`}
                                                 tone="info"
                                                 label={t('kitchen:recipes.currentVersion')}
@@ -131,7 +131,7 @@ export function RecipeVersionMenu({
                                         {t(audienceKey(version.status))}
                                     </Text>
                                 </View>
-                                <Button
+                                <DeskButton
                                     testID={`${rowTestId}-select`}
                                     size="sm"
                                     variant={isSelected ? 'secondary' : 'ghost'}
@@ -150,7 +150,7 @@ export function RecipeVersionMenu({
                     })}
                     {onRetire === undefined ? null : (
                         <View className="mt-1 border-t border-stroke-subtle pt-1">
-                            <Button
+                            <DeskButton
                                 testID="kitchen-recipe-retire"
                                 size="sm"
                                 variant="ghost"

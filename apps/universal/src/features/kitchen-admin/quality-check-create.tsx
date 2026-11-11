@@ -7,13 +7,13 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
+    cx,
     FormSection,
     IssueTrayFrame,
     SearchInput,
     Skeleton,
     Stack,
     Text,
-    cx,
     useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
@@ -507,7 +507,6 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
                             <View className="w-20 flex-row">
                                 <Badge
                                     variant="label"
-                                    icon={null}
                                     tone={qualityCheckStatusTone(status)}
                                     label={t(
                                         status === 'hold'
@@ -864,7 +863,6 @@ function SubjectList({
                                 ) : (
                                     <Badge
                                         variant="label"
-                                        icon={null}
                                         testID={`kitchen-qc-subject-${row.id}-check`}
                                         tone={qualityCheckStatusTone(row.check.status)}
                                         label={t('kitchen:ops.qc.checkBadge', {

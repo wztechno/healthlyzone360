@@ -193,7 +193,12 @@ function GuardedAreaShell({
 
     const banner = (
         <View>
-            <OfflineIndicator testID="offline-indicator" state={connectivity} />
+            <OfflineIndicator
+                testID="offline-indicator"
+                // The desk system bar is the kitchen's; the other areas keep the strip.
+                look={area === 'kitchen' || area === 'kds' ? 'bar' : 'strip'}
+                state={connectivity}
+            />
         </View>
     );
 

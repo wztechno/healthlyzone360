@@ -1,5 +1,4 @@
 import {
-    Button,
     Callout,
     EmptyState,
     ErrorState,
@@ -9,7 +8,7 @@ import {
     Text,
 } from '@healthy360/design-system';
 import { ProductionOrderId } from '@healthy360/domain-types';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -21,6 +20,8 @@ import { PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
 import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { BatchLinesPanel } from '../production-desk/batch-lines-panel.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 /**
  * `/kitchen/production-desk/{order}/sheet` — what one batch stood on (PROD1).
  *
@@ -63,7 +64,11 @@ export function ProductionBatchSheetScreen({ order }: ProductionBatchSheetScreen
 function ProductionBatchSheet({ order }: ProductionBatchSheetScreenProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
-    const router = useRouter();
+    const params = useLocalSearchParams<{ readonly returnTo?: string }>();
+    const back = useReturnTo(
+        params.returnTo,
+        order === undefined ? '/kitchen/production-desk' : `/kitchen/production-desk/${order}`,
+    );
 
     const parsed = order === undefined ? null : ProductionOrderId.safeParse(order);
     const record = useProductionTechnicalSheetQuery(parsed);
@@ -120,13 +125,13 @@ function ProductionBatchSheet({ order }: ProductionBatchSheetScreenProps) {
                 subtitle={t('kitchen:ops.production.sheetSubtitle')}
                 back={
                     <View className="flex-row">
-                        <Button
+                        <DeskButton
                             testID="kitchen-production-batch-sheet-back"
                             variant="ghost"
                             size="sm"
                             label={t('kitchen:ops.production.openBatch')}
                             onPress={() => {
-                                router.push(`/kitchen/production-desk/${String(sheet.order.id)}`);
+                                back.leave();
                             }}
                         />
                     </View>

@@ -1,7 +1,5 @@
 import type { LocalisedText, StorefrontProfile } from '@healthy360/api-client/contracts';
 import {
-    Button,
-    Callout,
     Cascade,
     ErrorState,
     FormSection,
@@ -24,6 +22,8 @@ import { EditorGuardDialogs } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { FailureToast } from '../failure-toast.tsx';
 const PAGE = 'kitchen-storefront';
 
 /**
@@ -183,7 +183,7 @@ function StorefrontProfileSection() {
                 title={t('kitchen:storefrontProfile.title')}
                 description={t('kitchen:storefrontProfile.description')}
                 actions={
-                    <Button
+                    <DeskButton
                         testID="kitchen-storefront-profile-save"
                         size="sm"
                         label={t('kitchen:storefrontProfile.save')}
@@ -193,15 +193,12 @@ function StorefrontProfileSection() {
                     />
                 }
             >
-                {saveFailure === null ? null : (
-                    <Callout
-                        testID="kitchen-storefront-profile-save-error"
-                        role="alert"
-                        tone="danger"
-                        title={t('kitchen:storefrontProfile.saveError')}
-                        body={server.unplaced ?? saveFailure.message}
-                    />
-                )}
+                <FailureToast
+                    failure={saveFailure}
+                    testID="kitchen-storefront-profile-save-error"
+                    title={t('kitchen:storefrontProfile.saveError')}
+                    body={server.unplaced ?? saveFailure?.message}
+                />
                 <BilingualField
                     testID="kitchen-storefront-profile-tagline"
                     layout="row"

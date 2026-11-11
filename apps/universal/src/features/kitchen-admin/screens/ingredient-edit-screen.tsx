@@ -19,7 +19,6 @@ import {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     Callout,
     Cascade,
     Checkbox,
@@ -134,6 +133,8 @@ import { IngredientAssistPanel } from '../ingredient-assist-panel.tsx';
 import { AllergenReferencePicker } from '../allergen-reference-picker.tsx';
 import { IngredientAllergenEditor } from '../ingredient-allergen-editor.tsx';
 import { IngredientBarcodesSection } from '../ingredient-barcodes-section.tsx';
+import { STOCK_GAPS_PATH } from '../consumption-exceptions/stock-gap-fix.ts';
+import { useBeforeDiscard, useSaveBar } from '../save-bar.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { focusFirstRefusal, UnsavedDialog } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
@@ -142,6 +143,8 @@ import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/ingredients/{ingredient}` — the record editor, as `Catalogue Forms.dc.html` draws it
  * (`isIngredient` and `isPackaging`).
@@ -691,6 +694,10 @@ function IngredientEditor({
      */
     const draftKeepable = useRef(true);
     const keptRef = useRef<{ keep: () => void; discard: () => void } | null>(null);
+    // The save bar's Discard redraws the page: drop the kept draft first, or it would return.
+    useBeforeDiscard(() => {
+        keptRef.current?.discard();
+    });
     const guard = useUnsavedGuard({
         message: t('kitchen:unsaved.browserPrompt'),
         keepsDraft: () => draftKeepable.current,
@@ -1202,16 +1209,23 @@ function IngredientEditor({
     const goBackToRecipe = useCallback(() => {
         if (returned.current) return;
         returned.current = true;
+        // Named after where it really goes — a recipe, Stock gaps, Requirements, Review — never
+        // "your recipe" for a page that is not one.
         toast.show({
             testID: 'kitchen-ingredient-saved-toast',
             tone: 'success',
             message:
-                returnName === null
-                    ? t('kitchen:ingredientFix.savedBack')
-                    : t('kitchen:ingredientFix.savedBackNamed', { name: returnName }),
+                returnLabel === null
+                    ? t('kitchen:editor.savedToast')
+                    : t('kitchen:ingredientFix.savedBackNamed', { name: returnLabel }),
         });
-        back.finish();
-    }, [back, returnName, t, toast]);
+        // Back to Stock gaps it says the gap was fixed, which retries it on arrival.
+        back.finish(
+            back.returnTo !== null && pathnameOf(back.returnTo) === STOCK_GAPS_PATH
+                ? { fixed: '1' }
+                : undefined,
+        );
+    }, [back, returnLabel, t, toast]);
     const wasDone = useRef(needsDone);
     useEffect(() => {
         const became = needsDone && !wasDone.current;
@@ -1935,6 +1949,23 @@ function IngredientEditor({
         back.leave();
     };
 
+    // The save bar takes the unsaved marker and Save, on a record this caller can write.
+    const ingredientWriting = create.isPending || update.isPending || photoSave.isPending;
+    const barDrawn = useSaveBar({
+        dirty: guard.isDirty,
+        creating: isCreating,
+        save: platformNotice
+            ? undefined
+            : {
+                  testID: 'kitchen-ingredient-editor-screen-save',
+                  label: t('kitchen:editor.save'),
+                  loading: ingredientWriting,
+                  disabled: !editable || currencyMissing || ingredientWriting,
+                  onPress: save,
+              },
+        testID: 'kitchen-ingredient-editor-screen',
+    });
+
     /* ── loading, refusal and not-found ──────────────────────────────────────────────────────── */
 
     if (!isCreating && parsed === null) {
@@ -2656,9 +2687,9 @@ function IngredientEditor({
             ? {
                   context: {
                       label:
-                          returnName === null
+                          returnLabel === null
                               ? t('kitchen:tray.forYourRecipe')
-                              : t('kitchen:tray.forRecipe', { name: returnName }),
+                              : t('kitchen:tray.forRecipe', { name: returnLabel }),
                   },
               }
             : {}),
@@ -2668,9 +2699,9 @@ function IngredientEditor({
             ? {
                   doneAction: {
                       label:
-                          returnName === null
+                          returnLabel === null
                               ? t('kitchen:ingredientFix.back')
-                              : t('kitchen:ingredientFix.backNamed', { name: returnName }),
+                              : t('kitchen:ingredientFix.backNamed', { name: returnLabel }),
                       onPress: () => {
                           leaveWithoutKeeping(back.leave);
                       },
@@ -2731,11 +2762,10 @@ function IngredientEditor({
                             </RNText>
                             {/* Wrapped: `Badge` pins itself `self-start`, off the title's middle. */}
                             <View>
-                                <Badge
+                                <DeskChip
                                     testID="kitchen-ingredient-editor-screen-status"
                                     {...(family.food ? {} : { variant: 'caps' as const })}
                                     tone={statusTone(data?.meta.status ?? 'draft')}
-                                    icon={null}
                                     label={t(statusKey(data?.meta.status ?? 'draft'))}
                                 />
                             </View>
@@ -2749,7 +2779,7 @@ function IngredientEditor({
                                     {reference}
                                 </Text>
                             )}
-                            {!family.food && guard.isDirty ? (
+                            {!family.food && guard.isDirty && !barDrawn ? (
                                 <Badge
                                     testID="kitchen-ingredient-editor-screen-dirty"
                                     tone="warning"
@@ -2788,7 +2818,7 @@ function IngredientEditor({
                         ) : null}
                     </View>
                     <Inline space="xs" align="center">
-                        {family.food && guard.isDirty ? (
+                        {family.food && guard.isDirty && !barDrawn ? (
                             <View
                                 testID="kitchen-ingredient-editor-screen-dirty"
                                 className="flex-row items-center gap-1.5"
@@ -2802,7 +2832,7 @@ function IngredientEditor({
                                 </Text>
                             </View>
                         ) : null}
-                        <Button
+                        <DeskButton
                             testID="kitchen-ingredient-editor-screen-back"
                             variant="secondary"
                             {...(family.food ? {} : { size: 'sm' as const })}
@@ -2812,8 +2842,8 @@ function IngredientEditor({
                             }}
                         />
                         {/* Hidden rather than always disabled on a record this caller cannot write. */}
-                        {platformNotice ? null : (
-                            <Button
+                        {platformNotice || barDrawn ? null : (
+                            <DeskButton
                                 testID="kitchen-ingredient-editor-screen-save"
                                 label={t('kitchen:editor.save')}
                                 iconStart={<Icon name="check" size="sm" />}
@@ -3637,6 +3667,7 @@ function IngredientEditor({
                 <UnsavedDialog guard={guard} testID="kitchen-ingredient-editor-screen" />
 
                 <Dialog
+                    look="card"
                     testID="kitchen-ingredient-editor-screen-conflict-dialog"
                     open={concurrency.conflict !== null}
                     onClose={concurrency.keepEditing}
@@ -3645,13 +3676,13 @@ function IngredientEditor({
                     description={t('kitchen:conflict.body')}
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-ingredient-editor-screen-conflict-keep"
                                 variant="quiet"
                                 label={t('kitchen:conflict.keepEditing')}
                                 onPress={concurrency.keepEditing}
                             />
-                            <Button
+                            <DeskButton
                                 testID="kitchen-ingredient-editor-screen-conflict-reload"
                                 variant="danger"
                                 label={t('kitchen:conflict.reload')}

@@ -1,4 +1,10 @@
-import { Icon, SlideIn, Text, useBreakpoint } from '@healthy360/design-system';
+import {
+    ContentWidthProvider,
+    Icon,
+    SlideIn,
+    Text,
+    useBreakpoint,
+} from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -44,6 +50,8 @@ const POPUP_WIDTH = 960;
  * record leaves room under it; a long one scrolls its body.
  */
 const POPUP_HEIGHT = 720;
+/** The body's inline padding (`ps-4 pe-4`) — what `useContentWidth` subtracts inside the window. */
+const BODY_PADDING = 16;
 /** Below this the two columns stack. */
 const TWO_COLUMNS_MIN = 720;
 
@@ -68,7 +76,13 @@ export interface CompactRecordPopupProps {
     readonly label: string;
     /** Translated, upper label over the title — "Delivery order". */
     readonly kind: string;
-    readonly title: string;
+    /**
+     * The header's big line. Left out by a record whose body draws its own name — `RecordPopup`'s
+     * canopy — so the window shows the kind alone over it.
+     */
+    readonly title?: string | undefined;
+    /** Before everything in the header — the Back pill to the page that opened the record. */
+    readonly leading?: ReactNode;
     readonly chips?: ReactNode;
     /** The figure the header carries at its end — an order's total. */
     readonly figure?: { readonly label: string; readonly value: string } | undefined;
@@ -85,12 +99,17 @@ export interface CompactRecordPopupProps {
     readonly footerEnd?: ReactNode;
     readonly onClose: () => void;
     readonly testID: string;
+    /** Overrides the window's own id (`testID`) — `RecordPopup` keeps its `-window`. */
+    readonly windowTestID?: string | undefined;
+    /** Overrides `{testID}-kind` — `RecordPopup` keeps its `-eyebrow`. */
+    readonly kindTestID?: string | undefined;
 }
 
 export function CompactRecordPopup({
     label,
     kind,
     title,
+    leading,
     chips,
     figure,
     nav,
@@ -103,6 +122,8 @@ export function CompactRecordPopup({
     footerEnd,
     onClose,
     testID,
+    windowTestID,
+    kindTestID,
 }: CompactRecordPopupProps) {
     const { t } = useTranslation();
     const viewport = useWindowDimensions();
@@ -140,7 +161,7 @@ export function CompactRecordPopup({
                 />
                 <SlideIn edge="bottom" distance="medium" duration="normal">
                     <View
-                        testID={testID}
+                        testID={windowTestID ?? testID}
                         role="dialog"
                         aria-modal
                         aria-label={label}
@@ -150,6 +171,7 @@ export function CompactRecordPopup({
                         {/* The header: never scrolls. */}
                         <View className="z-10 flex-col border-b border-stroke-subtle bg-surface-raised">
                             <View className="flex-row flex-wrap items-center gap-3 pb-2 pe-3 ps-3 pt-3">
+                                {leading}
                                 {nav === undefined ? null : (
                                     <View
                                         testID={`${testID}-nav`}
@@ -190,19 +212,21 @@ export function CompactRecordPopup({
                                         variant="micro"
                                         tone="secondary"
                                         className="font-bold uppercase tracking-wider"
-                                        testID={`${testID}-kind`}
+                                        testID={kindTestID ?? `${testID}-kind`}
                                     >
                                         {kind}
                                     </Text>
-                                    <Text
-                                        variant="section"
-                                        numberOfLines={1}
-                                        className="font-display !text-xl !font-bold !leading-6"
-                                        testID={`${testID}-title`}
-                                        accessibilityRole="header"
-                                    >
-                                        {title}
-                                    </Text>
+                                    {title === undefined ? null : (
+                                        <Text
+                                            variant="section"
+                                            numberOfLines={1}
+                                            className="font-display !text-xl !font-bold !leading-6"
+                                            testID={`${testID}-title`}
+                                            accessibilityRole="header"
+                                        >
+                                            {title}
+                                        </Text>
+                                    )}
                                 </View>
                                 {chips === undefined ? null : (
                                     <View className="flex-row flex-wrap items-center gap-1">
@@ -290,17 +314,25 @@ export function CompactRecordPopup({
                             className="min-h-0 flex-1"
                             contentContainerClassName="flex-col gap-[14px] pb-[18px] pe-4 ps-4 pt-[14px]"
                         >
-                            {banner}
-                            <View
-                                className={
-                                    twoColumns ? 'flex-row items-start gap-5' : 'flex-col gap-4'
-                                }
+                            {/* What a body measures against: the window, less its 16px a side. */}
+                            <ContentWidthProvider
+                                value={{
+                                    chrome: Math.max(0, viewport.width - width),
+                                    padding: BODY_PADDING,
+                                }}
                             >
-                                <View className={mainColumn}>{main}</View>
-                                {side === undefined ? null : (
-                                    <View className={sideColumn}>{side}</View>
-                                )}
-                            </View>
+                                {banner}
+                                <View
+                                    className={
+                                        twoColumns ? 'flex-row items-start gap-5' : 'flex-col gap-4'
+                                    }
+                                >
+                                    <View className={mainColumn}>{main}</View>
+                                    {side === undefined ? null : (
+                                        <View className={sideColumn}>{side}</View>
+                                    )}
+                                </View>
+                            </ContentWidthProvider>
                         </ScrollView>
 
                         {footer === undefined && footerEnd === undefined ? null : (

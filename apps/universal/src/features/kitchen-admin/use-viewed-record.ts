@@ -1,5 +1,7 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
+
+import { safeReturnTo } from '../../navigation/return-to.ts';
 
 /**
  * The record a list's View page is showing, as an address: `?view=<id>`.
@@ -21,6 +23,10 @@ import { useEffect, useState } from 'react';
  *   Only a record that read refuses (or a list with no such read) counts as gone: the list shows
  *   rather than an empty record, and the address stops naming it. A record read this way is held
  *   like a row, so a list that refetches (a poll) never closes it.
+ * - Closed back to where it came from. A record another page opened — an order from a customer,
+ *   a complaint from an order, an ingredient from Requirements — arrives as `?view=` with that
+ *   page's `?returnTo=`. Closing *that* record goes back there rather than leaving the reader on a
+ *   list they never asked for. Records opened by hand on the list close onto the list as before.
  */
 export interface ViewedRecord<Row> {
     readonly viewing: Row | null;
@@ -64,6 +70,10 @@ export function useViewedRecord<Row>(
 ): ViewedRecord<Row> {
     const router = useRouter();
     const named = view === undefined || view === '' ? null : view;
+    const rawReturn = useLocalSearchParams().returnTo;
+    const returnTo = safeReturnTo(Array.isArray(rawReturn) ? rawReturn[0] : rawReturn);
+    // The record the page was opened on, by another page that handed its way back.
+    const [arrival] = useState(() => (returnTo === null ? null : named));
     const [viewingId, setViewingId] = useState<string | null>(
         () => named ?? (seed === null ? null : idOf(seed)),
     );
@@ -103,6 +113,10 @@ export function useViewedRecord<Row>(
         setViewing: (row) => {
             const next = row === null ? null : idOf(row);
             if (next === viewingId) return;
+            if (next === null && arrival !== null && viewingId === arrival && returnTo !== null) {
+                router.dismissTo(returnTo as never);
+                return;
+            }
             // A row opened by hand is shown even when this page of the list does not hold it.
             if (row !== null) setHeld(row);
             setViewingId(next);

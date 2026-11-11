@@ -6,16 +6,15 @@ import {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     Callout,
     Cascade,
     Dialog,
     ErrorState,
     FormGrid,
+    FormSection,
     FormSkeleton,
     IssueTrayFrame,
     Select,
-    FormSection,
     Stack,
     Text,
     useIssueTrayController,
@@ -58,6 +57,7 @@ import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { memberDisplayName } from './team-screen.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/team/{membership}` — one person, what they may do, and whether they may still do it.
  *
@@ -275,7 +275,7 @@ function TeamMemberEditor() {
                 title={t('accessAdmin:member.notFoundTitle')}
                 body={t('accessAdmin:member.notFoundBody')}
                 actions={
-                    <Button
+                    <DeskButton
                         testID="kitchen-team-member-missing-back"
                         variant="quiet"
                         label={t('accessAdmin:member.backToList')}
@@ -523,13 +523,25 @@ function TeamMemberEditor() {
                     testID="kitchen-team-member"
                     title={name}
                     dirty={guard.isDirty}
+                    save={
+                        canAssignRoles
+                            ? {
+                                  testID: 'kitchen-team-member-save',
+                                  label: t('accessAdmin:member.save'),
+                                  // Both halves of the chain: a scope write still running is a
+                                  // save still running.
+                                  loading: scopeWrite.isPending || setRoles.isPending,
+                                  disabled: scopeWrite.isPending || setRoles.isPending,
+                                  onPress: save,
+                              }
+                            : undefined
+                    }
                     badges={
                         <>
                             <Badge
                                 variant="label"
                                 testID="kitchen-team-member-status"
                                 tone={isWorkingMember(record.status) ? 'success' : 'warning'}
-                                icon={null}
                                 label={t(`accessAdmin:status.${record.status}` as never, {
                                     defaultValue: record.status,
                                 })}
@@ -545,7 +557,7 @@ function TeamMemberEditor() {
                     }
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-team-member-back"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
@@ -554,7 +566,7 @@ function TeamMemberEditor() {
                                 }}
                             />
                             {canUpdate && isWorkingMember(record.status) ? (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-team-member-suspend"
                                     variant="secondary"
                                     label={t('accessAdmin:member.suspend')}
@@ -565,7 +577,7 @@ function TeamMemberEditor() {
                                 />
                             ) : null}
                             {canUpdate && isReactivatableMember(record.status) ? (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-team-member-reactivate"
                                     variant="secondary"
                                     label={t('accessAdmin:member.reactivate')}
@@ -576,30 +588,13 @@ function TeamMemberEditor() {
                                 />
                             ) : null}
                             {canEnd && record.status !== 'ended' ? (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-team-member-end"
                                     variant="quiet"
                                     label={t('accessAdmin:member.end')}
                                     onPress={() => {
                                         setConfirmingEnd(true);
                                     }}
-                                />
-                            ) : null}
-                            {/*
-                             * Save, last, on every step. Hidden rather than disabled for somebody
-                             * who may not assign roles: the whole record is theirs to read, and a
-                             * Save that could never work is noise.
-                             */}
-                            {canAssignRoles ? (
-                                <Button
-                                    testID="kitchen-team-member-save"
-                                    label={t('accessAdmin:member.save')}
-                                    // Both halves of the chain: a scope write still running is a
-                                    // save still running, and a button that came back to life
-                                    // between the two would take a second press.
-                                    loading={scopeWrite.isPending || setRoles.isPending}
-                                    disabled={scopeWrite.isPending || setRoles.isPending}
-                                    onPress={save}
                                 />
                             ) : null}
                         </>
@@ -755,6 +750,7 @@ function TeamMemberEditor() {
             />
 
             <Dialog
+                look="card"
                 testID="kitchen-team-member-end-dialog"
                 open={confirmingEnd}
                 onClose={() => {
@@ -764,7 +760,7 @@ function TeamMemberEditor() {
                 description={t('accessAdmin:member.endBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-team-member-end-cancel"
                             variant="secondary"
                             label={t('accessAdmin:member.cancel')}
@@ -772,7 +768,7 @@ function TeamMemberEditor() {
                                 setConfirmingEnd(false);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-team-member-end-confirm"
                             variant="danger"
                             label={t('accessAdmin:member.endConfirm')}

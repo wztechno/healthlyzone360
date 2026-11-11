@@ -1,7 +1,5 @@
 import type { DishOptionDraft, KitchenDishOption } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     DataList,
     FormSection,
     Icon,
@@ -26,6 +24,8 @@ import { toFailure } from '../../data/hooks.ts';
 import { displayName } from './format.ts';
 import { allergenLabel } from './ops-format.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
+import { DeskChip } from './desk-kit/desk-chip.tsx';
 /**
  * The free changes a dish offers: something left out, or a sauce or side from a group. Saved on its
  * own, as the whole list, because it is not part of the listing's draft and a rename must not wait
@@ -243,7 +243,7 @@ export function DishOptionsSection({
 
                 {canManage ? (
                     <View className="flex-row gap-tight">
-                        <Button
+                        <DeskButton
                             testID="kitchen-dish-options-add"
                             variant="secondary"
                             size="sm"
@@ -265,7 +265,7 @@ export function DishOptionsSection({
                                 ]);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-dish-options-save"
                             size="sm"
                             label={t('kitchen:dishOptions.save')}
@@ -341,8 +341,7 @@ function ChoiceAllergens({
     return (
         <Inline space="xs" wrap testID={testID}>
             {row.allergens.map(({ code }) => (
-                <Badge
-                    icon={null}
+                <DeskChip
                     key={code}
                     testID={`${testID}-${code}`}
                     tone="danger"
