@@ -37,8 +37,9 @@ export interface DialogProps {
     readonly dismissOnBackdrop?: boolean | undefined;
     readonly size?: DialogSize | undefined;
     /**
-     * `md` only. `card`: the kitchen desk's confirmation (Orders canvas `.dlg`, 2026-11-10) — a
-     * 24px corner, the title in the display face, a 13px line under it, and a rise as it opens.
+     * `md` only. `card`: the kitchen desk's pop-up (Toasts / pop-ups / banners canvas, 2026-11-11)
+     * — a 22px corner, the question as the title in the display face, one 14px line under it, and
+     * a rise as it opens.
      */
     readonly look?: 'standard' | 'card' | undefined;
     readonly className?: string | undefined;
@@ -112,7 +113,7 @@ export function Dialog({
                 nativeID={descriptionId}
                 testID={`${base}-description`}
                 className={cx(
-                    card ? 'text-role-strong font-medium' : 'text-sm',
+                    card ? 'text-sm leading-relaxed' : 'text-sm',
                     'text-content-secondary text-start',
                 )}
             >
@@ -238,7 +239,7 @@ export function Dialog({
                                 className={cx(
                                     'w-full max-h-[85vh] min-h-0 shrink flex-col gap-4 bg-surface-raised p-6',
                                     card
-                                        ? 'rounded-2xl border border-stroke-subtle shadow-elevation-5'
+                                        ? 'rounded-[22px] border border-stroke-subtle shadow-elevation-5'
                                         : 'rounded-xl shadow-elevation-4',
                                     className,
                                 )}
