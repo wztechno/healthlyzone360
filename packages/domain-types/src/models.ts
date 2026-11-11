@@ -69,7 +69,15 @@ export interface Membership {
     readonly organisation: Organisation;
     readonly status: MembershipStatus;
     readonly roles: readonly MembershipRole[];
-    /** Empty means the membership is organisation-wide rather than branch-scoped. */
+    /**
+     * The one branch this membership is bound to; `null` when it is organisation-wide. This, not
+     * the length of `branches`, is what says whether somebody is a branch's own staff.
+     */
+    readonly branchId: BranchId | null;
+    /**
+     * The branches the membership may work in: its own when it is bound to one, otherwise every
+     * open branch of the organisation. More than one means there is a choice to make.
+     */
     readonly branches: readonly Branch[];
     readonly startsAt: IsoDateTime | null;
     readonly expiresAt: IsoDateTime | null;

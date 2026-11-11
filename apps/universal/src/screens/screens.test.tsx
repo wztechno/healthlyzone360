@@ -535,6 +535,33 @@ describe('OrganisationPickerScreen', () => {
         });
     });
 
+    /*
+     * "Switch organisation" with one membership auto-selects the organisation already in use.
+     * Naming no branch made the server forget the remembered one, and a manager of a two-branch
+     * kitchen lost the kitchen and its display with nothing to pick them back from.
+     */
+    it('keeps the branch when the organisation chosen is the one already in use', async () => {
+        const current = testActiveContext({
+            organisationId: VERDANT_KITCHEN.id,
+            branchId: AL_QUOZ.id,
+            membershipId: KITCHEN_MEMBERSHIP.id,
+        });
+        const { repositories } = await renderStubScreen(<OrganisationPickerScreen />, {
+            session: testMeResponse({ memberships: [KITCHEN_MEMBERSHIP], activeContext: current }),
+            repositories: { context: { setContext: async () => current } },
+        });
+
+        await waitFor(() => {
+            expect(repositories.context.setContext).toHaveBeenCalledWith({
+                organisationId: VERDANT_KITCHEN.id,
+                branchId: AL_QUOZ.id,
+            });
+        });
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledWith('/workspace');
+        });
+    });
+
     it('applies the chosen organisation', async () => {
         const applied = testActiveContext({
             organisationId: CEDAR_CLINIC.id,

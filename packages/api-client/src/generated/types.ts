@@ -133,6 +133,14 @@ export type Membership = {
      * Assigned role codes.
      */
     roles: Array<string>;
+    /**
+     * The branches this membership may select as its working branch: its
+     * own when `branch_id` is set, otherwise every active branch of the
+     * organisation. Empty for a membership that is not active. Absent on
+     * a server that predates the field.
+     *
+     */
+    branches?: Array<Branch>;
 };
 
 /**

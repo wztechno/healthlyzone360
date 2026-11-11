@@ -60,8 +60,17 @@ export function OrganisationPickerScreen() {
         (appConfig.appMode === 'customer' || appConfig.appMode === 'all-dev');
 
     const choose = (membership: Membership) => {
+        // Choosing the organisation already being worked in keeps its branch. Naming no branch
+        // tells the server to forget the one it remembers, and "Switch organisation" with a single
+        // membership lands here by itself — which silently cost a manager the kitchen and its
+        // display, both of which need a branch.
+        const current = me?.activeContext ?? null;
+        const keptBranchId = current?.membershipId === membership.id ? current.branchId : null;
         setContext.mutate(
-            { organisationId: membership.organisation.id },
+            {
+                organisationId: membership.organisation.id,
+                ...(keptBranchId === null ? {} : { branchId: keptBranchId }),
+            },
             {
                 onSuccess: (context) => {
                     router.replace(context.branchId === null ? '/select-branch' : '/workspace');

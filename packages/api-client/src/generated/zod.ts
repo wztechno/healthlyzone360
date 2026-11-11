@@ -156,7 +156,8 @@ export const zMembership = z.object({
     branch_id: zUuid.nullable(),
     joined_at: z.iso.datetime({ offset: true }).nullable(),
     organisation: zOrganisation,
-    roles: z.array(z.string())
+    roles: z.array(z.string()),
+    branches: z.array(zBranch).optional()
 });
 
 /**
