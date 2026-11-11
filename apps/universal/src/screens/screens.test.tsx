@@ -535,6 +535,33 @@ describe('OrganisationPickerScreen', () => {
         });
     });
 
+    /*
+     * "Switch organisation" with one membership auto-selects the organisation already in use.
+     * Naming no branch made the server forget the remembered one, and a manager of a two-branch
+     * kitchen lost the kitchen and its display with nothing to pick them back from.
+     */
+    it('keeps the branch when the organisation chosen is the one already in use', async () => {
+        const current = testActiveContext({
+            organisationId: VERDANT_KITCHEN.id,
+            branchId: AL_QUOZ.id,
+            membershipId: KITCHEN_MEMBERSHIP.id,
+        });
+        const { repositories } = await renderStubScreen(<OrganisationPickerScreen />, {
+            session: testMeResponse({ memberships: [KITCHEN_MEMBERSHIP], activeContext: current }),
+            repositories: { context: { setContext: async () => current } },
+        });
+
+        await waitFor(() => {
+            expect(repositories.context.setContext).toHaveBeenCalledWith({
+                organisationId: VERDANT_KITCHEN.id,
+                branchId: AL_QUOZ.id,
+            });
+        });
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledWith('/workspace');
+        });
+    });
+
     it('applies the chosen organisation', async () => {
         const applied = testActiveContext({
             organisationId: CEDAR_CLINIC.id,
@@ -554,10 +581,10 @@ describe('OrganisationPickerScreen', () => {
                 organisationId: CEDAR_CLINIC.id,
             });
         });
-        // No branch came back, so the journey continues at the branch picker rather than the
-        // workspace — the screen navigates on the server's echo, not on what it asked for.
+        // No branch came back, and the journey still continues at the workspace page: its
+        // top-bar switcher opens on the choice, so there is no page in between.
         await waitFor(() => {
-            expect(routerMock.__replace).toHaveBeenCalledWith('/select-branch');
+            expect(routerMock.__replace).toHaveBeenCalledWith('/workspace');
         });
     });
 });
@@ -668,6 +695,39 @@ describe('WorkspaceSelectorScreen', () => {
         await fireEvent.press(await screen.findByTestId('workspace-org-trigger'));
         await fireEvent.press(await screen.findByTestId('workspace-switch-organisation'));
         expect(routerMock.__push).toHaveBeenCalledWith('/select-organisation');
+    });
+
+    /*
+     * An organisation-wide member of a two-branch kitchen starts with no branch. The choice is
+     * made in the switcher, which opens on it unasked, rather than on a page of its own.
+     */
+    it('opens on the branch choice when several are on offer and none is chosen', async () => {
+        const marina = { ...AL_QUOZ, id: 'branch-marina' as typeof AL_QUOZ.id, name: 'Marina' };
+        const membership = { ...KITCHEN_MEMBERSHIP, branchId: null, branches: [AL_QUOZ, marina] };
+        const context = testActiveContext({
+            organisationId: VERDANT_KITCHEN.id,
+            branchId: null,
+            membershipId: membership.id,
+        });
+        const { repositories } = await renderStubScreen(<WorkspaceOrgSwitcher />, {
+            session: testMeResponse({ memberships: [membership], activeContext: context }),
+            repositories: {
+                context: { setContext: async () => ({ ...context, branchId: marina.id }) },
+            },
+        });
+
+        // No press on the trigger: the menu is already open, and the button says what is wanted.
+        const option = await screen.findByTestId(`workspace-branch-${marina.id}`);
+        expect(screen.getByTestId('workspace-org-trigger')).toHaveTextContent(/Choose a branch/);
+
+        await fireEvent.press(option);
+        await waitFor(() => {
+            expect(repositories.context.setContext).toHaveBeenCalledWith({
+                organisationId: VERDANT_KITCHEN.id,
+                branchId: marina.id,
+            });
+        });
+        expect(routerMock.__push).not.toHaveBeenCalledWith('/select-branch');
     });
 
     it('offers the profile as a card beside the areas', async () => {
