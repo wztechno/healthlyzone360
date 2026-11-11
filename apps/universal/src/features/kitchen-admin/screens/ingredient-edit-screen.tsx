@@ -134,7 +134,7 @@ import { AllergenReferencePicker } from '../allergen-reference-picker.tsx';
 import { IngredientAllergenEditor } from '../ingredient-allergen-editor.tsx';
 import { IngredientBarcodesSection } from '../ingredient-barcodes-section.tsx';
 import { STOCK_GAPS_PATH } from '../consumption-exceptions/stock-gap-fix.ts';
-import { useSaveBar } from '../save-bar.tsx';
+import { useBeforeDiscard, useSaveBar } from '../save-bar.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { focusFirstRefusal, UnsavedDialog } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
@@ -694,6 +694,10 @@ function IngredientEditor({
      */
     const draftKeepable = useRef(true);
     const keptRef = useRef<{ keep: () => void; discard: () => void } | null>(null);
+    // The save bar's Discard redraws the page: drop the kept draft first, or it would return.
+    useBeforeDiscard(() => {
+        keptRef.current?.discard();
+    });
     const guard = useUnsavedGuard({
         message: t('kitchen:unsaved.browserPrompt'),
         keepsDraft: () => draftKeepable.current,

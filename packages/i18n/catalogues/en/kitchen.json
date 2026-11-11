@@ -26,6 +26,10 @@
         "label": "Save changes",
         "unsaved": "Unsaved changes",
         "notSavedYet": "Not saved yet",
+        "discard": "Discard",
+        "discardTitle": "Discard your changes?",
+        "discardBody": "The page goes back to how it was last saved.",
+        "keepEditing": "Keep editing",
         "toFix_one": "{{count}} to fix",
         "toFix_other": "{{count}} to fix"
     },

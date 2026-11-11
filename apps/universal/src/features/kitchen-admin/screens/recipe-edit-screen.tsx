@@ -123,7 +123,7 @@ import { ingredientFixHref, ingredientNeedsById } from '../ingredient-fix.ts';
 import type { HostArchive } from '../host-save.ts';
 import type { IngredientNeed } from '../ingredient-fix.ts';
 import { useFinishDetour } from '../finish-detour.ts';
-import { useSaveBar } from '../save-bar.tsx';
+import { useBeforeDiscard, useSaveBar } from '../save-bar.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import {
     RecipeLineTable,
@@ -778,6 +778,10 @@ function RecipeEditor({
      */
     const draftKeepable = useRef(true);
     const keptRef = useRef<{ keep: () => void; discard: () => void } | null>(null);
+    // The save bar's Discard redraws the page: drop the kept draft first, or it would return.
+    useBeforeDiscard(() => {
+        keptRef.current?.discard();
+    });
     const guard = useUnsavedGuard({
         message: t('kitchen:unsaved.browserPrompt'),
         keepsDraft: () => draftKeepable.current,

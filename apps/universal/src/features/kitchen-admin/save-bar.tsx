@@ -1,5 +1,6 @@
-import { useToastInset } from '@healthy360/design-system';
+import { Dialog, useToastInset } from '@healthy360/design-system';
 import {
+    Fragment,
     createContext,
     useContext,
     useEffect,
@@ -86,15 +87,85 @@ export function SaveBarProvider({ children }: { readonly children: ReactNode }) 
 }
 
 /**
+ * ## Discard
+ *
+ * Discard puts the page back as it was last saved, and keeps the reader on it. Every editor already
+ * fills its form from the saved record when it opens, so the one way to do that for all of them is
+ * to open the page again: {@link DiscardBoundary} wraps the kitchen's pages and draws them afresh
+ * from the cached record. An editor that keeps a draft of its own across a reload (the recipe and
+ * ingredient pages) clears it first through {@link useBeforeDiscard}, or the draft would come
+ * straight back. The bar asks before it throws anything away.
+ */
+interface DiscardContextValue {
+    readonly discard: () => void;
+    readonly onBefore: (run: () => void) => () => void;
+}
+
+const DiscardContext = createContext<DiscardContextValue | undefined>(undefined);
+
+/** Draws its page afresh when the save bar's Discard is confirmed. */
+export function DiscardBoundary({ children }: { readonly children: ReactNode }) {
+    const [generation, setGeneration] = useState(0);
+    const [befores] = useState(() => new Set<() => void>());
+    const [value] = useState<DiscardContextValue>(() => ({
+        discard: () => {
+            for (const run of befores) run();
+            setGeneration((current) => current + 1);
+        },
+        onBefore: (run) => {
+            befores.add(run);
+            return () => {
+                befores.delete(run);
+            };
+        },
+    }));
+    return (
+        <DiscardContext.Provider value={value}>
+            <Fragment key={generation}>{children}</Fragment>
+        </DiscardContext.Provider>
+    );
+}
+
+/** Runs just before Discard redraws the page — to drop a draft that would otherwise return. */
+export function useBeforeDiscard(run: () => void): void {
+    const context = useContext(DiscardContext);
+    const latest = useRef(run);
+    useLayoutEffect(() => {
+        latest.current = run;
+    });
+    useEffect(
+        () =>
+            context?.onBefore(() => {
+                latest.current();
+            }),
+        [context],
+    );
+}
+
+/**
  * States this page's save bar. Returns whether a bar is drawn for it — `false` outside the
  * kitchen layout, where the caller keeps its own chip and Save.
  *
  * Callbacks are read at press time, so inline closures do not re-register the bar every render.
  */
-export function useSaveBar(state: SaveBarState | null): boolean {
+export function useSaveBar(given: SaveBarState | null): boolean {
+    const { t } = useTranslation();
     const context = useContext(SaveBarContext);
+    const discarding = useContext(DiscardContext);
     const set = context?.set;
     const [owner] = useState(() => ({}));
+    // Under a DiscardBoundary every page with changes gets the Discard that redraws it.
+    const state: SaveBarState | null =
+        given === null || given.discard !== undefined || discarding === undefined || !given.dirty
+            ? given
+            : {
+                  ...given,
+                  discard: {
+                      testID: `${given.testID}-discard`,
+                      label: t('kitchen:saveBar.discard'),
+                      onPress: discarding.discard,
+                  },
+              };
     const latest = useRef(state);
     useLayoutEffect(() => {
         latest.current = state;
@@ -159,8 +230,10 @@ export function SaveBarSlot() {
     const { t } = useTranslation();
     const state = useContext(SaveBarContext)?.current?.state ?? null;
     const shown = state !== null && (state.dirty || state.creating === true);
+    const [confirming, setConfirming] = useState(false);
     useToastInset(shown ? BAR_LIFT : 0);
     if (!shown) return null;
+    const discard = state.discard;
 
     const toFix = state.toFix ?? 0;
     return (
@@ -182,14 +255,16 @@ export function SaveBarSlot() {
                 {state.dirty ? t('kitchen:saveBar.unsaved') : t('kitchen:saveBar.notSavedYet')}
                 {toFix > 0 ? ` · ${t('kitchen:saveBar.toFix', { count: toFix })}` : ''}
             </RNText>
-            {state.discard === undefined ? null : (
+            {discard === undefined ? null : (
                 <DeskButton
-                    testID={state.discard.testID}
+                    testID={discard.testID}
                     variant="secondary"
-                    label={state.discard.label}
-                    loading={state.discard.loading}
-                    disabled={state.discard.disabled}
-                    onPress={state.discard.onPress}
+                    label={discard.label}
+                    loading={discard.loading}
+                    disabled={discard.disabled}
+                    onPress={() => {
+                        setConfirming(true);
+                    }}
                 />
             )}
             {state.save === undefined ? null : (
@@ -201,6 +276,38 @@ export function SaveBarSlot() {
                     onPress={state.save.onPress}
                 />
             )}
+            {/* Throwing work away is the one thing here that cannot be taken back: ask first. */}
+            <Dialog
+                look="card"
+                testID={`${state.testID}-discard-dialog`}
+                open={confirming && discard !== undefined}
+                onClose={() => {
+                    setConfirming(false);
+                }}
+                title={t('kitchen:saveBar.discardTitle')}
+                description={t('kitchen:saveBar.discardBody')}
+                actions={
+                    <>
+                        <DeskButton
+                            testID={`${state.testID}-discard-keep`}
+                            variant="secondary"
+                            label={t('kitchen:saveBar.keepEditing')}
+                            onPress={() => {
+                                setConfirming(false);
+                            }}
+                        />
+                        <DeskButton
+                            testID={`${state.testID}-discard-confirm`}
+                            variant="danger"
+                            label={t('kitchen:saveBar.discard')}
+                            onPress={() => {
+                                setConfirming(false);
+                                discard?.onPress();
+                            }}
+                        />
+                    </>
+                }
+            />
         </View>
     );
 }
