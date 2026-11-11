@@ -51,7 +51,7 @@ beforeEach(function (): void {
 /**
  * @param  array<string, mixed>  $attributes
  */
-function bookOrder(object $test, array $attributes = [], ?string $state = null): Order
+function bookRowOrder(object $test, array $attributes = [], ?string $state = null): Order
 {
     $factory = $state === null ? Order::factory() : Order::factory()->{$state}();
 
@@ -97,7 +97,7 @@ function bookAgent(string $organisationId, string $email, array $permissions): U
 it('carries the payment position and the run on every row, and no customer without the contact code', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-05-10 08:00:00', 'UTC'));
 
-    $paid = bookOrder($this, ['requested_delivery_date' => '2026-05-10', 'placed_at' => '2026-05-09 10:00:00']);
+    $paid = bookRowOrder($this, ['requested_delivery_date' => '2026-05-10', 'placed_at' => '2026-05-09 10:00:00']);
     OrderPaymentReceipt::factory()->create([
         'organisation_id' => $this->orgId,
         'order_id' => $paid->getKey(),
@@ -105,7 +105,7 @@ it('carries the payment position and the run on every row, and no customer witho
         'amount_minor' => 1200,
     ]);
 
-    $delivery = bookOrder($this, [
+    $delivery = bookRowOrder($this, [
         'requested_delivery_date' => '2026-05-10',
         'placed_at' => '2026-05-09 09:00:00',
         'status' => OrderStatus::Confirmed,
@@ -149,7 +149,7 @@ it('serves the name and number to a caller who holds the contact code', function
     $account->display_name = 'Nadia Haddad';
     $account->save();
 
-    bookOrder($this, ['requested_delivery_date' => '2026-05-10']);
+    bookRowOrder($this, ['requested_delivery_date' => '2026-05-10']);
 
     $agent = bookAgent($this->orgId, 'agent-book@kitchen.test', [
         'order.view_organisation',
@@ -168,9 +168,9 @@ it('serves the name and number to a caller who holds the contact code', function
 it('narrows to a span of days, putting an order with no day on the day it was placed', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-05-12 08:00:00', 'UTC'));
 
-    $wanted = bookOrder($this, ['requested_delivery_date' => '2026-05-10', 'placed_at' => '2026-05-01 09:00:00']);
+    $wanted = bookRowOrder($this, ['requested_delivery_date' => '2026-05-10', 'placed_at' => '2026-05-01 09:00:00']);
     // A counter sale: no requested day, so it is on the day it was placed.
-    $counter = bookOrder($this, [
+    $counter = bookRowOrder($this, [
         'requested_delivery_date' => null,
         'delivery_window_code' => null,
         'placed_at' => '2026-05-10 13:00:00',
@@ -179,8 +179,8 @@ it('narrows to a span of days, putting an order with no day on the day it was pl
         'fulfilled_at' => '2026-05-10 13:00:00',
     ], 'counter');
     // Placed on the day, wanted on another: not that day's work.
-    bookOrder($this, ['requested_delivery_date' => '2026-05-11', 'placed_at' => '2026-05-10 15:00:00']);
-    bookOrder($this, ['requested_delivery_date' => '2026-05-09', 'placed_at' => '2026-05-08 15:00:00']);
+    bookRowOrder($this, ['requested_delivery_date' => '2026-05-11', 'placed_at' => '2026-05-10 15:00:00']);
+    bookRowOrder($this, ['requested_delivery_date' => '2026-05-09', 'placed_at' => '2026-05-08 15:00:00']);
 
     $ids = $this->getJson('/api/v1/catalogue/orders?from=2026-05-10&to=2026-05-10', $this->headers)
         ->assertOk()
@@ -200,9 +200,9 @@ it('narrows to a span of days, putting an order with no day on the day it was pl
 });
 
 it('narrows to a set of slots and to one way of leaving', function (): void {
-    $lunch = bookOrder($this, ['requested_delivery_date' => '2026-05-10', 'delivery_window_code' => 'midday', 'fulfilment_type' => 'delivery']);
-    $alsoLunch = bookOrder($this, ['requested_delivery_date' => '2026-05-10', 'delivery_window_code' => 'lunch'], 'pickup');
-    bookOrder($this, ['requested_delivery_date' => '2026-05-10', 'delivery_window_code' => 'evening', 'fulfilment_type' => 'delivery']);
+    $lunch = bookRowOrder($this, ['requested_delivery_date' => '2026-05-10', 'delivery_window_code' => 'midday', 'fulfilment_type' => 'delivery']);
+    $alsoLunch = bookRowOrder($this, ['requested_delivery_date' => '2026-05-10', 'delivery_window_code' => 'lunch'], 'pickup');
+    bookRowOrder($this, ['requested_delivery_date' => '2026-05-10', 'delivery_window_code' => 'evening', 'fulfilment_type' => 'delivery']);
 
     $slot = $this->getJson('/api/v1/catalogue/orders?delivery_window_code[]=midday&delivery_window_code[]=lunch', $this->headers)
         ->assertOk()
@@ -221,7 +221,7 @@ it('narrows to a set of slots and to one way of leaving', function (): void {
 
 it('serves a numbered page with its totals when a page is asked for', function (): void {
     foreach (range(1, 5) as $index) {
-        bookOrder($this, [
+        bookRowOrder($this, [
             'requested_delivery_date' => '2026-05-10',
             'placed_at' => '2026-05-0'.$index.' 09:00:00',
             'created_at' => '2026-05-0'.$index.' 09:00:00',

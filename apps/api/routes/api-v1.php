@@ -265,7 +265,6 @@ use Healthy360\Orders\OrderDesk\Http\Controllers\KitchenCustomerIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\KitchenCustomerShowController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskAmendmentController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCalendarController;
-use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskPlanMealsController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCashReportController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCloseController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAddressStoreController;
@@ -278,6 +277,7 @@ use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDeliveryWindowIndexCon
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDishChoicesController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDriverIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskPlacementController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskPlanMealsController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQueueController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQuoteController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskSettlementController;

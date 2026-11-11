@@ -71,7 +71,8 @@ export function DishChoicesDialog({
 
     const options = read.data?.options ?? [];
     const portions = read.data?.portions ?? [];
-    const chosenPortion = value.catalogueItemVariantId ?? portions[0]?.catalogueItemVariantId ?? null;
+    const chosenPortion =
+        value.catalogueItemVariantId ?? portions[0]?.catalogueItemVariantId ?? null;
     const portion = portions.find(
         (candidate) => candidate.catalogueItemVariantId === chosenPortion,
     );
@@ -229,7 +230,13 @@ export function DishChoicesDialog({
 }
 
 /** A heading in the dialog's label style over its rows. */
-function ChoiceGroup({ label, children }: { readonly label: string; readonly children: ReactNode }) {
+function ChoiceGroup({
+    label,
+    children,
+}: {
+    readonly label: string;
+    readonly children: ReactNode;
+}) {
     return (
         <View role="group" aria-label={label} className="flex-col gap-1">
             <Text variant="label" tone="secondary" className="!font-semibold">

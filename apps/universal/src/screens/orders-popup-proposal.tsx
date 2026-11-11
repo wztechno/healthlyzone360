@@ -77,15 +77,21 @@ export function OrderPopupProposal({
                         next={<DeskButton label="Mark delivered" />}
                     />
                     <View className="flex-row flex-wrap gap-3">
-                        <InfoCard icon="person" title="Customer"
-                            action={<DeskButton variant="quiet" label="Call" />}>
+                        <InfoCard
+                            icon="person"
+                            title="Customer"
+                            action={<DeskButton variant="quiet" label="Call" />}
+                        >
                             <Text variant="strong">Karim Saleh</Text>
                             <Text variant="caption" tone="secondary" className="tabular-nums">
                                 +961 71 552 019
                             </Text>
                         </InfoCard>
-                        <InfoCard icon="truck" title="Delivery"
-                            action={<DeskButton variant="quiet" label="Change driver" />}>
+                        <InfoCard
+                            icon="truck"
+                            title="Delivery"
+                            action={<DeskButton variant="quiet" label="Change driver" />}
+                        >
                             <Text variant="strong">Today · Lunch, 12:00–14:00</Text>
                             <Text variant="caption" tone="secondary">
                                 Achrafieh, Building 12, 3rd floor
@@ -94,8 +100,12 @@ export function OrderPopupProposal({
                                 Driver: Hadi Rizk
                             </Text>
                         </InfoCard>
-                        <InfoCard icon="banknote" title="Money"
-                            action={<DeskButton variant="quiet" label="Record a payment" />} warn>
+                        <InfoCard
+                            icon="banknote"
+                            title="Money"
+                            action={<DeskButton variant="quiet" label="Record a payment" />}
+                            warn
+                        >
                             <Text variant="strong" tone="warning">
                                 To collect $16.00
                             </Text>

@@ -400,7 +400,15 @@ function AppShellLayout({
         if (twoPane && !sidebarCollapsed && activeGroup === undefined && groups.length > 0) {
             if (activeKey !== undefined) setCollapsed(true);
         }
-    }, [activeKey, activeGroup, twoPane, roomyWindow, sidebarCollapsed, setCollapsed, groups.length]);
+    }, [
+        activeKey,
+        activeGroup,
+        twoPane,
+        roomyWindow,
+        sidebarCollapsed,
+        setCollapsed,
+        groups.length,
+    ]);
 
     /** The reader's own open or shut — remembered, unlike the shell following a page. */
     const chooseCollapsed = (next: boolean) => {

@@ -1493,11 +1493,7 @@ function ConflictBand({
                     ) : (
                         <View className="flex-row flex-wrap gap-1">
                             {names.map((name) => (
-                                <DeskChip
-                                    key={name}
-                                    tone="warning"
-                                    label={name}
-                                />
+                                <DeskChip key={name} tone="warning" label={name} />
                             ))}
                         </View>
                     )}
@@ -1717,7 +1713,10 @@ function MenuGrid({
                                                 )}
                                                 disabled={offToday.isPending}
                                                 onPress={() => {
-                                                    offToday.mutate({ itemId: tile.id, off: !isOff });
+                                                    offToday.mutate({
+                                                        itemId: tile.id,
+                                                        off: !isOff,
+                                                    });
                                                 }}
                                             />
                                         </View>

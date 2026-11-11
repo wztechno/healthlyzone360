@@ -576,7 +576,11 @@ export function CustomerSection({
                 <View className="z-auto flex-col gap-tight">
                     <View className="z-auto flex-row flex-wrap items-center gap-tight">
                         <View className="h-10 w-10 items-center justify-center rounded-xl bg-surface-brand-subtle">
-                            <Icon name="person" size="md" className="text-content-on-brand-subtle" />
+                            <Icon
+                                name="person"
+                                size="md"
+                                className="text-content-on-brand-subtle"
+                            />
                         </View>
                         {/* eslint-disable-next-line no-restricted-syntax -- the search absorbs the bar. */}
                         <View className="flex-1" style={{ minWidth: fieldWidth }}>

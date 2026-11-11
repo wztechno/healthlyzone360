@@ -33,36 +33,39 @@ export interface OrderStage {
 export function orderStages(order: BookRow, t: TFunction): readonly OrderStage[] | null {
     if (order.status === 'cancelled') return null;
     const delivery = order.fulfilmentType === 'delivery';
-    const stamped: readonly { readonly key: string; readonly label: string; readonly at: unknown }[] =
-        [
-            { key: 'placed', label: t('kitchen:orders.stage.placed'), at: order.placedAt },
-            {
-                key: 'confirmed',
-                label: t('kitchen:orders.history.confirmed'),
-                at: order.confirmedAt,
-            },
-            { key: 'ready', label: t('kitchen:orders.history.ready'), at: order.readyAt ?? null },
-            ...(delivery
-                ? [
-                      {
-                          key: 'on-the-way',
-                          label: t('kitchen:orders.history.onTheWay'),
-                          at: order.deliveryRun?.pickedUpAt ?? null,
-                      },
-                  ]
-                : []),
-            {
-                key: 'fulfilled',
-                label: t(
-                    delivery
-                        ? 'kitchen:orders.status.delivered'
-                        : order.fulfilmentType === 'pickup'
-                          ? 'kitchen:orders.status.pickedUp'
-                          : 'kitchen:orders.status.sold',
-                ),
-                at: order.fulfilledAt,
-            },
-        ];
+    const stamped: readonly {
+        readonly key: string;
+        readonly label: string;
+        readonly at: unknown;
+    }[] = [
+        { key: 'placed', label: t('kitchen:orders.stage.placed'), at: order.placedAt },
+        {
+            key: 'confirmed',
+            label: t('kitchen:orders.history.confirmed'),
+            at: order.confirmedAt,
+        },
+        { key: 'ready', label: t('kitchen:orders.history.ready'), at: order.readyAt ?? null },
+        ...(delivery
+            ? [
+                  {
+                      key: 'on-the-way',
+                      label: t('kitchen:orders.history.onTheWay'),
+                      at: order.deliveryRun?.pickedUpAt ?? null,
+                  },
+              ]
+            : []),
+        {
+            key: 'fulfilled',
+            label: t(
+                delivery
+                    ? 'kitchen:orders.status.delivered'
+                    : order.fulfilmentType === 'pickup'
+                      ? 'kitchen:orders.status.pickedUp'
+                      : 'kitchen:orders.status.sold',
+            ),
+            at: order.fulfilledAt,
+        },
+    ];
     // A later stamp implies the earlier steps happened, even where one was never written.
     const lastDone = stamped.reduce(
         (last, stage, index) => (stage.at !== null && stage.at !== undefined ? index : last),

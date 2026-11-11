@@ -13,10 +13,7 @@ import { useKitchenOrderQuery } from '../../../data/kitchen-orders-hooks.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { dishOptionsLine } from '../../../ui/dish-choices.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
-import {
-    CompactRecordPopup,
-    CompactSection,
-} from '../catalogue/compact-record-popup.tsx';
+import { CompactRecordPopup, CompactSection } from '../catalogue/compact-record-popup.tsx';
 import {
     ORDER_CREATE_ON_BEHALF_PERMISSION,
     ORDER_MANAGE_PERMISSION,
