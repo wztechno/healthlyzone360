@@ -1,7 +1,5 @@
 import type { Supplier } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Cascade,
     EmptyState,
     ErrorState,
@@ -45,6 +43,8 @@ import {
 import { useViewedRecord } from '../use-viewed-record.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/suppliers` — who this kitchen buys from (SUP1), on the Catalogue list (Operations
  * design, `suppliers`).
@@ -238,8 +238,7 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
                                 {displayName(row.name, locale).value}
                             </Text>
                             {row.archivedAt === null ? null : (
-                                <Badge
-                                    icon={null}
+                                <DeskChip
                                     testID={`${testID}-archived`}
                                     tone="neutral"
                                     label={t('kitchen:ops.suppliers.archivedBadge')}
@@ -465,7 +464,7 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
                         canManage ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-suppliers-toolbar-create"
                                 label={t('kitchen:ops.suppliers.create')}
                                 iconStart={<Icon name="plus" size="sm" />}

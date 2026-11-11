@@ -1,5 +1,5 @@
 import type { ProductAdmin } from '@healthy360/api-client/contracts';
-import { Badge, Inline, Text } from '@healthy360/design-system';
+import { Inline, Text } from '@healthy360/design-system';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { View } from 'react-native';
@@ -18,6 +18,7 @@ import { AssessmentBadges } from './allergen-assessment.tsx';
 import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * Products — and, unchanged, sauces and dressings — as an array.
  *
@@ -167,10 +168,9 @@ export function productColumns({
                          * publish. The Missing Arabic stat card counts them.
                          */}
                         {name.isFallback ? (
-                            <Badge
+                            <DeskChip
                                 testID={`${productRowTestId(String(row.id))}-missing-arabic`}
                                 tone="warning"
-                                icon={null}
                                 label={t('kitchen:list.missingArabic')}
                             />
                         ) : null}
@@ -304,26 +304,23 @@ export function productColumns({
                 return (
                     <Inline space="xs" align="center">
                         {row.isMarketPriced ? (
-                            <Badge
+                            <DeskChip
                                 testID={`${testID}-market-priced`}
                                 tone="warning"
-                                icon={null}
                                 label={t('kitchen:products.marketPricedShort')}
                             />
                         ) : null}
                         {row.isAssorted ? (
-                            <Badge
+                            <DeskChip
                                 testID={`${testID}-assorted`}
                                 tone="neutral"
-                                icon={null}
                                 label={t('kitchen:products.assortedShort')}
                             />
                         ) : null}
                         {row.dataQualityFlags.length === 0 ? null : (
-                            <Badge
+                            <DeskChip
                                 testID={`${testID}-data-quality`}
                                 tone="warning"
-                                icon={null}
                                 label={String(row.dataQualityFlags.length)}
                             />
                         )}
@@ -343,11 +340,10 @@ export function productColumns({
             sortType: 'text',
             value: (row) => t(statusShortKey(row.meta.status)),
             render: (row) => (
-                <Badge
+                <DeskChip
                     testID={`${productRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
                     // A pill and its word, as the Resale board draws it.
-                    icon={null}
                     label={t(statusShortKey(row.meta.status))}
                 />
             ),

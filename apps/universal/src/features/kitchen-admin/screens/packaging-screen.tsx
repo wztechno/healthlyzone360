@@ -1,5 +1,5 @@
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
-import { Button, Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy360/design-system';
+import { Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
@@ -36,6 +36,7 @@ import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entit
 import { displayName, humaniseCode, unitShortKey } from '../format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/packaging` — bags, boxes, lids, cutlery and labels, and what each costs.
  *
@@ -235,7 +236,7 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                                  * which is what stops a successful save from producing a row the
                                  * page that created it cannot show.
                                  */}
-                                <Button
+                                <DeskButton
                                     testID="kitchen-packaging-toolbar-create"
                                     label={t('kitchen:packaging.create')}
                                     iconStart={<Icon name="plus" size="sm" />}
@@ -339,6 +340,7 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
              * "archive" on its own reads like a delete and is not one.
              */}
             <Dialog
+                look="card"
                 testID="kitchen-packaging-archive-dialog"
                 open={list.archiving !== null}
                 onClose={list.cancelArchive}
@@ -346,13 +348,13 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                 description={t('kitchen:packaging.archiveBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-packaging-archive-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={list.cancelArchive}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-packaging-archive-confirm"
                             variant="danger"
                             label={t('kitchen:packaging.archiveConfirm')}

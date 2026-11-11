@@ -1,14 +1,5 @@
 import type { ProductAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Button,
-    Cascade,
-    Dialog,
-    Icon,
-    Inline,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
@@ -54,6 +45,8 @@ import {
 } from '../format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/products` — what this kitchen buys in and sells on as goods, rather than cooks. The
  * cooked kinds that were listed here too — sauces, dressings, frozen meals — are recipes in the
@@ -286,7 +279,7 @@ function ProductsList({
                         canManage ? (
                             <Inline space="xs" align="center">
                                 <CatalogueTransferActions testID="kitchen-products-toolbar" />
-                                <Button
+                                <DeskButton
                                     testID="kitchen-products-toolbar-create"
                                     label={t(family.create)}
                                     iconStart={<Icon name="plus" size="sm" />}
@@ -370,6 +363,7 @@ function ProductsList({
              * pointing at it — because "archive" on its own reads like a delete and is not one.
              */}
             <Dialog
+                look="card"
                 testID="kitchen-products-archive-dialog"
                 open={list.archiving !== null}
                 onClose={list.cancelArchive}
@@ -377,13 +371,13 @@ function ProductsList({
                 description={t('kitchen:products.archiveBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-products-archive-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={list.cancelArchive}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-products-archive-confirm"
                             variant="danger"
                             label={t('kitchen:products.archiveConfirm')}
@@ -449,10 +443,10 @@ function channelChips(row: ProductAdmin, t: TFunction): ReactNode {
     const channels = availableChannels(row.channelAvailability);
 
     return channels.length === 0 ? (
-        <Badge tone="neutral" icon={null} label={t('kitchen:products.noChannels')} />
+        <DeskChip tone="neutral" label={t('kitchen:products.noChannels')} />
     ) : (
         channels.map((channel) => (
-            <Badge key={channel} tone="info" icon={null} label={t(channelKey(channel))} />
+            <DeskChip key={channel} tone="info" label={t(channelKey(channel))} />
         ))
     );
 }

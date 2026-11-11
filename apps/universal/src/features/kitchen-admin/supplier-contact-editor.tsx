@@ -1,11 +1,13 @@
 import type { SupplierContact, SupplierContactInput } from '@healthy360/api-client/contracts';
-import { Badge, Button, FormGrid, Stack, Text, TextInputField } from '@healthy360/design-system';
+import { FormGrid, Stack, Text, TextInputField } from '@healthy360/design-system';
 import type { SupplierContactId } from '@healthy360/domain-types';
 import { useTranslation } from 'react-i18next';
 
 import { supplierContactRowTestId } from './ops-format.ts';
 import { RowShell } from './row-editor-shell.tsx';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
+import { DeskChip } from './desk-kit/desk-chip.tsx';
 /**
  * The supplier contact editor (SUP1) — a set of cards edited together and saved once.
  *
@@ -160,7 +162,7 @@ export function SupplierContactCard({
             onRemove={onRemove}
             badge={
                 draft.isPrimary ? (
-                    <Badge
+                    <DeskChip
                         testID={`${testID}-primary-badge`}
                         tone="info"
                         label={t('kitchen:ops.suppliers.primaryContact')}
@@ -261,7 +263,7 @@ export function SupplierContactCard({
                 ) : null}
 
                 {canManage && !draft.isPrimary ? (
-                    <Button
+                    <DeskButton
                         testID={`${testID}-make-primary`}
                         size="sm"
                         variant="ghost"

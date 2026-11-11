@@ -1,14 +1,5 @@
 import type { AdminEntityMeta, AdminRecordMeta } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Button,
-    Cascade,
-    Dialog,
-    Inline,
-    Stack,
-    Text,
-    useContentWidth,
-} from '@healthy360/design-system';
+import { Cascade, Dialog, Inline, Stack, Text, useContentWidth } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -26,6 +17,8 @@ import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
 import { BackPill } from '../../ui/back-pill.tsx';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
+import { DeskChip } from './desk-kit/desk-chip.tsx';
 /** The editor rail's width beside the form. A style: there is no rail-width token. */
 const EDITOR_RAIL_WIDTH = 330;
 
@@ -201,25 +194,22 @@ export function EditorFrame({
     const metaLine = (
         <Inline space="xs" align="center" wrap testID={`${testID}-meta`}>
             {summary !== undefined ? null : meta === null ? (
-                <Badge
+                <DeskChip
                     testID={`${testID}-status`}
                     tone="neutral"
-                    icon={null}
                     label={t('kitchen:status.draft')}
                 />
             ) : 'status' in meta ? (
-                <Badge
-                    icon={null}
+                <DeskChip
                     testID={`${testID}-status`}
                     tone={statusTone(meta.status)}
                     label={t(statusKey(meta.status))}
                 />
             ) : null}
             {guard.isDirty ? (
-                <Badge
+                <DeskChip
                     testID={`${testID}-dirty`}
                     tone="warning"
-                    icon={null}
                     label={t('kitchen:editor.unsaved')}
                 />
             ) : null}
@@ -249,7 +239,7 @@ export function EditorFrame({
                     >
                         {primaryAction}
                         {hideSave ? null : (
-                            <Button
+                            <DeskButton
                                 testID={`${testID}-save`}
                                 label={saveLabel}
                                 loading={saving}
@@ -269,8 +259,7 @@ export function EditorFrame({
                         title={hideTitle || steps !== undefined ? undefined : title}
                         titleAside={
                             titleChip === undefined ? undefined : (
-                                <Badge
-                                    icon={null}
+                                <DeskChip
                                     testID={`${testID}-chip`}
                                     tone={titleChip.tone}
                                     label={titleChip.label}
@@ -297,7 +286,7 @@ export function EditorFrame({
                                 {primaryAction}
                                 {/* A stepped form saves from its last step's Next, not up here. */}
                                 {hideSave || stepped ? null : (
-                                    <Button
+                                    <DeskButton
                                         testID={`${testID}-save`}
                                         label={saveLabel}
                                         loading={saving}
@@ -352,7 +341,7 @@ export function EditorFrame({
                     finalAction={
                         steps.finalAction ??
                         (hideSave ? null : (
-                            <Button
+                            <DeskButton
                                 testID={`${testID}-save`}
                                 label={saveLabel}
                                 loading={saving}
@@ -365,6 +354,7 @@ export function EditorFrame({
             )}
 
             <Dialog
+                look="card"
                 testID={`${testID}-unsaved-dialog`}
                 open={guard.isPrompting}
                 onClose={guard.cancelDiscard}
@@ -372,13 +362,13 @@ export function EditorFrame({
                 description={t('kitchen:unsaved.body')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID={`${testID}-unsaved-keep`}
                             variant="quiet"
                             label={t('kitchen:unsaved.keepEditing')}
                             onPress={guard.cancelDiscard}
                         />
-                        <Button
+                        <DeskButton
                             testID={`${testID}-unsaved-discard`}
                             variant="danger"
                             label={t('kitchen:unsaved.discard')}
@@ -389,6 +379,7 @@ export function EditorFrame({
             />
 
             <Dialog
+                look="card"
                 testID={`${testID}-conflict-dialog`}
                 open={concurrency.conflict !== null}
                 onClose={concurrency.keepEditing}
@@ -397,13 +388,13 @@ export function EditorFrame({
                 description={t('kitchen:conflict.body')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID={`${testID}-conflict-keep`}
                             variant="quiet"
                             label={t('kitchen:conflict.keepEditing')}
                             onPress={concurrency.keepEditing}
                         />
-                        <Button
+                        <DeskButton
                             testID={`${testID}-conflict-reload`}
                             variant="danger"
                             label={t('kitchen:conflict.reload')}

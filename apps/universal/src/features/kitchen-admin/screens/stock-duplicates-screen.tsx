@@ -1,6 +1,5 @@
 import type { DuplicateStockGroup } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Cascade,
     Dialog,
     EmptyState,
@@ -29,6 +28,7 @@ import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import { unitCodeLabel } from '../format.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 type Shelf = DuplicateStockGroup['shelves'][number];
 
 /**
@@ -270,6 +270,7 @@ function StockDuplicatesList() {
             )}
 
             <Dialog
+                look="card"
                 testID="kitchen-stock-duplicates-merge-dialog"
                 open={merging !== null}
                 onClose={() => {
@@ -285,7 +286,7 @@ function StockDuplicatesList() {
                 })}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-stock-duplicates-merge-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -293,7 +294,7 @@ function StockDuplicatesList() {
                                 setMerging(null);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-stock-duplicates-merge-confirm"
                             variant="danger"
                             label={t('kitchen:stockDuplicates.mergeConfirm')}

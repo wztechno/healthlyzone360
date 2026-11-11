@@ -1,4 +1,4 @@
-import { Button, Callout, Text, useIssueGroup } from '@healthy360/design-system';
+import { Callout, Text, useIssueGroup } from '@healthy360/design-system';
 import type { BranchId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { View } from 'react-native';
 import { useWeeklyStockCheckQuery } from '../../data/order-desk-hooks.ts';
 import { unitCodeLabel } from './format.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
 /** How many short items the notice names before it says "and N more". */
 const NAMED = 5;
 
@@ -94,7 +95,7 @@ export function WeeklyStockCheckBanner({
             role="status"
             title={title}
             actions={
-                <Button
+                <DeskButton
                     testID={showWindow.testID}
                     size="sm"
                     variant="secondary"

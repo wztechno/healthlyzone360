@@ -8,7 +8,6 @@ import type {
 import { STOCK_WASTE_REASONS } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     Callout,
     Cascade,
     EmptyState,
@@ -87,6 +86,8 @@ import {
 } from '../list-memory.ts';
 import { useViewedRecord } from '../use-viewed-record.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * The photograph of what is on the shelf: the ingredient's own, or the product's.
  *
@@ -493,8 +494,7 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
                 match: (row, value) => row.state === value,
             },
             render: (row) => (
-                <Badge
-                    icon={null}
+                <DeskChip
                     testID={`${stockItemRowTestId(String(row.item.id))}-status`}
                     tone={STATE_TONE[row.state]}
                     label={t(STATE_LABEL[row.state])}
@@ -1464,13 +1464,12 @@ function StockMovementEditor({
                         variant="caps"
                         testID="kitchen-stock-editor-status"
                         tone={STATE_TONE[row.state]}
-                        icon={null}
                         label={t(STATE_LABEL[row.state])}
                     />
                 }
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-stock-editor-back"
                             variant="secondary"
                             label={t('kitchen:editor.cancel')}
@@ -1478,7 +1477,7 @@ function StockMovementEditor({
                                 guard.intercept(onDone);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-stock-editor-save"
                             label={t('kitchen:ops.stock.saveLabel')}
                             loading={saving}

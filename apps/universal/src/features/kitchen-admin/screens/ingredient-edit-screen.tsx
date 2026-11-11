@@ -19,7 +19,6 @@ import {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     Callout,
     Cascade,
     Checkbox,
@@ -142,6 +141,8 @@ import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/ingredients/{ingredient}` — the record editor, as `Catalogue Forms.dc.html` draws it
  * (`isIngredient` and `isPackaging`).
@@ -2731,11 +2732,10 @@ function IngredientEditor({
                             </RNText>
                             {/* Wrapped: `Badge` pins itself `self-start`, off the title's middle. */}
                             <View>
-                                <Badge
+                                <DeskChip
                                     testID="kitchen-ingredient-editor-screen-status"
                                     {...(family.food ? {} : { variant: 'caps' as const })}
                                     tone={statusTone(data?.meta.status ?? 'draft')}
-                                    icon={null}
                                     label={t(statusKey(data?.meta.status ?? 'draft'))}
                                 />
                             </View>
@@ -2802,7 +2802,7 @@ function IngredientEditor({
                                 </Text>
                             </View>
                         ) : null}
-                        <Button
+                        <DeskButton
                             testID="kitchen-ingredient-editor-screen-back"
                             variant="secondary"
                             {...(family.food ? {} : { size: 'sm' as const })}
@@ -2813,7 +2813,7 @@ function IngredientEditor({
                         />
                         {/* Hidden rather than always disabled on a record this caller cannot write. */}
                         {platformNotice ? null : (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-ingredient-editor-screen-save"
                                 label={t('kitchen:editor.save')}
                                 iconStart={<Icon name="check" size="sm" />}
@@ -3637,6 +3637,7 @@ function IngredientEditor({
                 <UnsavedDialog guard={guard} testID="kitchen-ingredient-editor-screen" />
 
                 <Dialog
+                    look="card"
                     testID="kitchen-ingredient-editor-screen-conflict-dialog"
                     open={concurrency.conflict !== null}
                     onClose={concurrency.keepEditing}
@@ -3645,13 +3646,13 @@ function IngredientEditor({
                     description={t('kitchen:conflict.body')}
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-ingredient-editor-screen-conflict-keep"
                                 variant="quiet"
                                 label={t('kitchen:conflict.keepEditing')}
                                 onPress={concurrency.keepEditing}
                             />
-                            <Button
+                            <DeskButton
                                 testID="kitchen-ingredient-editor-screen-conflict-reload"
                                 variant="danger"
                                 label={t('kitchen:conflict.reload')}

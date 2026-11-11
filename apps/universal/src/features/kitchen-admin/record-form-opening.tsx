@@ -1,6 +1,5 @@
 import {
     Badge,
-    Button,
     Dialog,
     FormIssueBanner,
     Inline,
@@ -22,6 +21,7 @@ import type { ServerFieldTarget } from './server-field-errors.ts';
 import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
 /**
  * The opening of a Catalogue Forms record page, for the forms that do not draw their own.
  *
@@ -220,6 +220,7 @@ export function UnsavedDialog({
 
     return (
         <Dialog
+            look="card"
             testID={`${testID}-unsaved-dialog`}
             open={guard.isPrompting}
             onClose={guard.cancelDiscard}
@@ -227,20 +228,20 @@ export function UnsavedDialog({
             description={t(keepable ? 'kitchen:unsaved.keepableBody' : 'kitchen:unsaved.body')}
             actions={
                 <>
-                    <Button
+                    <DeskButton
                         testID={`${testID}-unsaved-keep`}
                         variant="quiet"
                         label={t(keepable ? 'kitchen:unsaved.stay' : 'kitchen:unsaved.keepEditing')}
                         onPress={guard.cancelDiscard}
                     />
-                    <Button
+                    <DeskButton
                         testID={`${testID}-unsaved-discard`}
                         variant="danger"
                         label={t('kitchen:unsaved.discard')}
                         onPress={guard.confirmDiscard}
                     />
                     {keepable ? (
-                        <Button
+                        <DeskButton
                             testID={`${testID}-unsaved-keep-for-later`}
                             variant="primary"
                             label={t('kitchen:unsaved.keepForLater')}
@@ -275,6 +276,7 @@ export function EditorGuardDialogs({
 
             {concurrency === undefined ? null : (
                 <Dialog
+                    look="card"
                     testID={`${testID}-conflict-dialog`}
                     open={concurrency.conflict !== null}
                     onClose={concurrency.keepEditing}
@@ -283,13 +285,13 @@ export function EditorGuardDialogs({
                     description={t('kitchen:conflict.body')}
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID={`${testID}-conflict-keep`}
                                 variant="quiet"
                                 label={t('kitchen:conflict.keepEditing')}
                                 onPress={concurrency.keepEditing}
                             />
-                            <Button
+                            <DeskButton
                                 testID={`${testID}-conflict-reload`}
                                 variant="danger"
                                 label={t('kitchen:conflict.reload')}

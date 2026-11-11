@@ -8,7 +8,6 @@ import { RECEIPT_COST_STATUSES } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Cascade,
-    DatePickerButton,
     EmptyState,
     ErrorState,
     InfoTip,
@@ -63,6 +62,8 @@ import {
 } from '../list-memory.ts';
 import { useViewedRecord } from '../use-viewed-record.ts';
 
+import { DeskDateButton } from '../desk-kit/mini-month.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/purchases-ledger` — the browsable record behind the monthly spend figure (INV1.1), and
  * since SUP6 the weekly and monthly check over the same rows (§3.7, §7).
@@ -566,8 +567,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                 },
             },
             render: (row) => (
-                <Badge
-                    icon={null}
+                <DeskChip
                     testID={`kitchen-ledger-${row.id}-state`}
                     tone={LINE_STATE_TONES[ledgerLineState(row)]}
                     label={t(LINE_STATE_KEYS[ledgerLineState(row)])}
@@ -844,7 +844,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                             />
                             <View aria-hidden className="mx-1 h-5 w-px bg-brand-100" />
                             <View className="flex-row items-center gap-tight">
-                                <DatePickerButton
+                                <DeskDateButton
                                     testID="kitchen-ledger-filter-from"
                                     label={t('kitchen:ops.ledger.filterFrom')}
                                     value={from}
@@ -865,7 +865,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                                 <Text variant="caption" tone="secondary" aria-hidden>
                                     {t('kitchen:ops.requirements.windowTo')}
                                 </Text>
-                                <DatePickerButton
+                                <DeskDateButton
                                     testID="kitchen-ledger-filter-to"
                                     label={t('kitchen:ops.ledger.filterTo')}
                                     value={to}
@@ -1384,10 +1384,9 @@ function PeriodStatusCell({ period }: { readonly period: SpendSummaryPeriod }) {
 
     if (period.isComplete) {
         return (
-            <Badge
+            <DeskChip
                 testID={`${testID}-state`}
                 tone="success"
-                icon={null}
                 label={t('kitchen:ops.ledger.completeBadge')}
             />
         );
@@ -1407,16 +1406,14 @@ function PeriodStatusCell({ period }: { readonly period: SpendSummaryPeriod }) {
     return (
         <Inline space="xs" align="center" wrap={false} testID={`${testID}-state`}>
             {unpriced > 0 ? (
-                <Badge
+                <DeskChip
                     testID={`${testID}-unpriced`}
                     tone="warning"
-                    icon={null}
                     label={t('kitchen:ops.ledger.unpricedBadge', { count: unpriced })}
                 />
             ) : null}
             {pendingFx > 0 ? (
-                <Badge
-                    icon={null}
+                <DeskChip
                     testID={`${testID}-pending-fx`}
                     tone="info"
                     label={t('kitchen:ops.ledger.pendingFxBadge', { count: pendingFx })}

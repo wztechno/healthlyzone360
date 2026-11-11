@@ -118,6 +118,7 @@ import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/products/{product}` — the resale item editor, drawn the way `Catalogue Forms.dc.html`
  * draws its siblings. The design has no resale frame of its own, so this is the ingredient editor's
@@ -1464,7 +1465,7 @@ function ProductEditor({
                     tone="warning"
                     title={t('kitchen:products.notFoundTitle')}
                     actions={
-                        <Button
+                        <DeskButton
                             testID="kitchen-product-not-found-back"
                             variant="quiet"
                             size="sm"
@@ -1554,7 +1555,6 @@ function ProductEditor({
             variant="caps"
             testID="kitchen-product-editor-screen-status"
             tone={statusTone(status)}
-            icon={null}
             label={t(statusKey(status))}
         />
     );
@@ -1598,7 +1598,7 @@ function ProductEditor({
                 />
             )}
             {embedded ? null : (
-                <Button
+                <DeskButton
                     testID="kitchen-product-editor-screen-back"
                     variant="secondary"
                     label={t('kitchen:editor.cancel')}
@@ -1609,7 +1609,7 @@ function ProductEditor({
             )}
             {/* Saved by the host page's own Save when it took this listing's (`host-save.ts`). */}
             {onRegisterSave !== undefined ? null : (
-                <Button
+                <DeskButton
                     testID="kitchen-product-editor-screen-save"
                     variant={offersPublish ? 'secondary' : 'primary'}
                     label={t('kitchen:common.saveDraft')}
@@ -1849,7 +1849,7 @@ function ProductEditor({
                     title={t('kitchen:products.sectionPacks')}
                     actions={
                         canManage ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-product-packs-add"
                                 size="sm"
                                 variant="secondary"
@@ -2094,7 +2094,7 @@ function ProductEditor({
                     }
                     actions={
                         details.recipeId === null ? undefined : (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-product-recipe-open"
                                 size="sm"
                                 variant="ghost"
@@ -2165,6 +2165,7 @@ function ProductEditor({
 
             {/* ── publish ──────────────────────────────────────────────────────────────────── */}
             <Dialog
+                look="card"
                 testID="kitchen-product-publish-dialog"
                 open={showPublish}
                 onClose={() => {
@@ -2174,7 +2175,7 @@ function ProductEditor({
                 description={t('kitchen:products.publishBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-product-publish-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -2182,7 +2183,7 @@ function ProductEditor({
                                 setShowPublish(false);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-product-publish-confirm"
                             label={t('kitchen:publish.action')}
                             loading={publish.isPending}
@@ -2222,6 +2223,7 @@ function ProductEditor({
 
             {/* ── archive ──────────────────────────────────────────────────────────────────── */}
             <Dialog
+                look="card"
                 testID="kitchen-product-archive-dialog"
                 open={showArchive}
                 onClose={() => {
@@ -2231,7 +2233,7 @@ function ProductEditor({
                 description={t('kitchen:products.archiveBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-product-archive-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -2239,7 +2241,7 @@ function ProductEditor({
                                 setShowArchive(false);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-product-archive-confirm"
                             variant="danger"
                             label={t('kitchen:products.archiveConfirm')}
@@ -2280,6 +2282,7 @@ function ProductEditor({
 
             {/* ── the two guards ───────────────────────────────────────────────────────────── */}
             <Dialog
+                look="card"
                 testID="kitchen-product-editor-screen-unsaved-dialog"
                 open={guard.isPrompting}
                 onClose={guard.cancelDiscard}
@@ -2287,13 +2290,13 @@ function ProductEditor({
                 description={t('kitchen:unsaved.body')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-product-editor-screen-unsaved-keep"
                             variant="quiet"
                             label={t('kitchen:unsaved.keepEditing')}
                             onPress={guard.cancelDiscard}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-product-editor-screen-unsaved-discard"
                             variant="danger"
                             label={t('kitchen:unsaved.discard')}
@@ -2304,6 +2307,7 @@ function ProductEditor({
             />
 
             <Dialog
+                look="card"
                 testID="kitchen-product-editor-screen-conflict-dialog"
                 open={concurrency.conflict !== null}
                 onClose={concurrency.keepEditing}
@@ -2312,13 +2316,13 @@ function ProductEditor({
                 description={t('kitchen:conflict.body')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-product-editor-screen-conflict-keep"
                             variant="quiet"
                             label={t('kitchen:conflict.keepEditing')}
                             onPress={concurrency.keepEditing}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-product-editor-screen-conflict-reload"
                             variant="danger"
                             label={t('kitchen:conflict.reload')}

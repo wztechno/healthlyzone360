@@ -1,7 +1,5 @@
 import type { ReceivableOrder } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Checkbox,
     DataList,
     DateField,
@@ -74,6 +72,8 @@ import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/procurement/receive` — booking in a delivery against an issued order (SUP5, §7).
  *
@@ -1042,7 +1042,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                     title={t('kitchen:ops.receiving.sectionCharges')}
                                 >
                                     <Stack space="sm" testID="kitchen-receive-charges">
-                                        <Button
+                                        <DeskButton
                                             testID="kitchen-receive-charges-toggle"
                                             size="sm"
                                             variant="ghost"
@@ -1127,6 +1127,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
              * is irreversible — an unpriced receipt is a job for later, not a mistake.
              */}
             <Dialog
+                look="card"
                 testID="kitchen-receive-confirm-dialog"
                 open={confirming}
                 onClose={() => {
@@ -1135,7 +1136,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                 title={t('kitchen:ops.receiving.confirmTitle')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-receive-confirm-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -1143,7 +1144,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                 setConfirming(false);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-receive-confirm-post"
                             label={t('kitchen:ops.receiving.post')}
                             loading={postReceipt.isPending}
@@ -1171,25 +1172,25 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                         </Text>
                     ) : null}
                     {state.hasOverReceipt ? (
-                        <Badge
+                        <DeskChip
                             tone="warning"
                             testID="kitchen-receive-confirm-over"
                             label={t('kitchen:ops.receiving.confirmOver')}
                         />
                     ) : confirmations.closeShort ? (
-                        <Badge
+                        <DeskChip
                             tone="warning"
                             testID="kitchen-receive-confirm-close-short"
                             label={t('kitchen:ops.receiving.confirmCloseShort')}
                         />
                     ) : state.hasShortfall ? (
-                        <Badge
+                        <DeskChip
                             tone="info"
                             testID="kitchen-receive-confirm-partial"
                             label={t('kitchen:ops.receiving.confirmPartial')}
                         />
                     ) : (
-                        <Badge
+                        <DeskChip
                             tone="success"
                             testID="kitchen-receive-confirm-complete"
                             label={t('kitchen:ops.receiving.confirmComplete')}

@@ -1,4 +1,4 @@
-import { Button, Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy360/design-system';
+import { Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -42,6 +42,7 @@ import {
     statusShortKey,
 } from '../format.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/ingredients` — the ingredient list, as `Catalogue.dc.html` draws it.
  *
@@ -320,7 +321,7 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                                 />
                             ) : null}
                             {canManage ? (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-ingredients-toolbar-create"
                                     label={t('kitchen:toolbar.create')}
                                     iconStart={<Icon name="plus" size="sm" />}
@@ -430,6 +431,7 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
             </View>
 
             <Dialog
+                look="card"
                 testID="kitchen-ingredients-archive-dialog"
                 open={list.archiving !== null}
                 onClose={list.cancelArchive}
@@ -437,13 +439,13 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                 description={t('kitchen:editor.archiveBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-ingredients-archive-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={list.cancelArchive}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-ingredients-archive-confirm"
                             variant="danger"
                             label={t('kitchen:editor.archiveConfirm')}

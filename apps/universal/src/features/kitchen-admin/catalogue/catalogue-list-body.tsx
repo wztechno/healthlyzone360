@@ -1,17 +1,11 @@
 import type { ApiFailure } from '@healthy360/api-client/contracts';
-import {
-    Button,
-    EmptyState,
-    ErrorState,
-    Inline,
-    Stack,
-    TableSkeleton,
-} from '@healthy360/design-system';
+import { EmptyState, ErrorState, Inline, Stack, TableSkeleton } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { CataloguePager } from './catalogue-pager.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /** The part of a list hook's state the body reads. Every catalogue list hook already carries it. */
 export interface CatalogueListBodyState {
     readonly isPending: boolean;
@@ -96,7 +90,7 @@ export function CatalogueListBody({
                     list.isUnfiltered && create === undefined ? undefined : (
                         <Inline space="sm" wrap>
                             {list.isUnfiltered ? null : (
-                                <Button
+                                <DeskButton
                                     testID={`${testID}-clear`}
                                     variant="secondary"
                                     label={t('kitchen:toolbar.clearFilters')}
@@ -104,7 +98,7 @@ export function CatalogueListBody({
                                 />
                             )}
                             {create === undefined ? null : (
-                                <Button
+                                <DeskButton
                                     testID={`${testID}-empty-create`}
                                     label={create.label}
                                     onPress={create.onPress}

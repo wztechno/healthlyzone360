@@ -2,12 +2,13 @@ import type {
     IngredientAssistReference,
     IngredientAssistSuggestion,
 } from '@healthy360/api-client/contracts';
-import { Button, Callout, Inline, Stack, Text } from '@healthy360/design-system';
+import { Callout, Inline, Stack, Text } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 
 import { displayName } from './format.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
 /**
  * What the ingredient assistant found for the typed name, under the identity fields.
  *
@@ -60,7 +61,7 @@ export function IngredientAssistPanel({
                     {entry.reason}
                 </Text>
             )}
-            <Button
+            <DeskButton
                 testID={`kitchen-ingredient-assist-open-${entry.id}`}
                 size="sm"
                 variant="ghost"
@@ -91,7 +92,7 @@ export function IngredientAssistPanel({
                 role="status"
                 title={t('kitchen:assist.title')}
                 actions={
-                    <Button
+                    <DeskButton
                         testID="kitchen-ingredient-assist-rerun"
                         size="sm"
                         variant="ghost"
@@ -143,7 +144,7 @@ export function IngredientAssistPanel({
                                     category: categorySuggestion.label,
                                 })}
                             </Text>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-ingredient-assist-apply-category"
                                 size="sm"
                                 variant="ghost"

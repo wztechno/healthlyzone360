@@ -1,7 +1,8 @@
-import { Button, Card, Inline, Stack, Text } from '@healthy360/design-system';
+import { Card, Inline, Stack, Text } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
 /**
  * The chrome every ordered-row editor in this workspace shares.
  *
@@ -78,7 +79,7 @@ export function RowShell({
                         <Inline space="xs" wrap justify="end">
                             {onMove === undefined ? null : (
                                 <>
-                                    <Button
+                                    <DeskButton
                                         testID={`${testID}-move-up`}
                                         size="sm"
                                         variant="ghost"
@@ -88,7 +89,7 @@ export function RowShell({
                                             onMove(position - 2);
                                         }}
                                     />
-                                    <Button
+                                    <DeskButton
                                         testID={`${testID}-move-down`}
                                         size="sm"
                                         variant="ghost"
@@ -100,7 +101,7 @@ export function RowShell({
                                     />
                                 </>
                             )}
-                            <Button
+                            <DeskButton
                                 testID={`${testID}-remove`}
                                 size="sm"
                                 variant="ghost"
@@ -147,7 +148,7 @@ export function UndoBar({ label, onUndo, testID }: UndoBarProps) {
             <Text testID={`${testID}-removed`} variant="caption">
                 {label}
             </Text>
-            <Button
+            <DeskButton
                 testID={`${testID}-undo`}
                 size="sm"
                 variant="ghost"

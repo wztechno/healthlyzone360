@@ -1,6 +1,5 @@
 import type { RecipeSheetBundle } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     Card,
     ErrorState,
@@ -27,6 +26,7 @@ import { displayName } from '../format.ts';
 import { usePrintSheet } from '../print-sheet.tsx';
 import { TechnicalSheetPanel } from '../technical-sheet-panel.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/recipes/sheets?recipes=a,b,c` — technical sheets, one per page (Export → PDF —
  * technical sheets).
@@ -94,7 +94,7 @@ function RecipeSheetsPrint({ recipes }: RecipeSheetsPrintScreenProps) {
     });
 
     const backButton = (
-        <Button
+        <DeskButton
             testID="kitchen-recipe-sheets-print-back"
             variant="secondary"
             label={t('kitchen:common.back')}
@@ -167,7 +167,7 @@ function RecipeSheetsPrint({ recipes }: RecipeSheetsPrintScreenProps) {
                     <Inline space="sm" align="center" wrap>
                         {backButton}
                         {sheet.mode === 'browser' && bundles.length > 0 ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-recipe-sheets-print-action"
                                 label={t('kitchen:transfer.print.action')}
                                 onPress={sheet.print}

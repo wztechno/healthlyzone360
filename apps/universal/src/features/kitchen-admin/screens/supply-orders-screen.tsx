@@ -4,8 +4,6 @@ import type {
     PurchaseOrderStatus,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Callout,
     Cascade,
     EmptyState,
@@ -67,6 +65,8 @@ import {
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /** The order `?view=` names, read on its own when the loaded page does not hold it. */
 function useOrderById(id: string | null) {
     const parsed = PurchaseOrderId.safeParse(id);
@@ -447,8 +447,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                     },
                 },
                 render: (row) => (
-                    <Badge
-                        icon={null}
+                    <DeskChip
                         testID={`${purchaseOrderRowTestId(String(row.id))}-status`}
                         tone={purchaseOrderStatusTone(row.status)}
                         label={t(purchaseOrderStatusKey(row.status))}
@@ -521,15 +520,13 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                         </Text>
                         {/* A word and a tone, never colour alone. Out wins when a row is both. */}
                         {row.isOutOfStock ? (
-                            <Badge
-                                icon={null}
+                            <DeskChip
                                 testID={`${testID}-out`}
                                 tone="danger"
                                 label={t('kitchen:ops.supplyOrders.outBadge')}
                             />
                         ) : row.isLow ? (
-                            <Badge
-                                icon={null}
+                            <DeskChip
                                 testID={`${testID}-low`}
                                 tone="warning"
                                 label={t('kitchen:ops.supplyOrders.lowBadge')}
@@ -654,7 +651,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                     })}
                     body={t('kitchen:ops.supplyOrders.print.createdBody')}
                     actions={
-                        <Button
+                        <DeskButton
                             testID="kitchen-supply-orders-created-print"
                             variant="secondary"
                             label={t('kitchen:ops.supplyOrders.print.printThem', {
@@ -733,7 +730,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                           })}
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
-                        <Button
+                        <DeskButton
                             testID="kitchen-supply-orders-prepare"
                             label={t('kitchen:ops.supplyOrders.prepare')}
                             onPress={prepare}
@@ -785,7 +782,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                                 // way back has to be here.
                                 actions={
                                     unfiltered ? undefined : (
-                                        <Button
+                                        <DeskButton
                                             testID="kitchen-supply-orders-book-clear"
                                             variant="secondary"
                                             size="sm"
@@ -901,7 +898,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                         title={t('kitchen:ops.supplyOrders.nothingNeededTitle')}
                         body={t('kitchen:ops.supplyOrders.nothingNeededBody')}
                         actions={
-                            <Button
+                            <DeskButton
                                 testID="kitchen-supply-orders-order-anyway"
                                 variant="secondary"
                                 label={t('kitchen:ops.supplyOrders.orderAnyway')}
