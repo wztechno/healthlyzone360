@@ -4,8 +4,6 @@ import type {
     ProductionPlan,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Callout,
     Cascade,
     Dialog,
@@ -71,6 +69,8 @@ import {
 import { EditorGuardDialogs } from '../record-form-opening.tsx';
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/production-desk/{order}` — one batch, and every edge it has left (PROD1).
  *
@@ -368,8 +368,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                 noValue={noValue}
                 heading={
                     <>
-                        <Badge
-                            icon={null}
+                        <DeskChip
                             testID="kitchen-production-batch-status"
                             tone={productionStatusTone(batch.status)}
                             label={t(productionStatusKey(batch.status))}
@@ -390,7 +389,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                 actions={
                     <>
                         {batch.confirmedAt === null ? null : (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-production-batch-sheet"
                                 variant="secondary"
                                 size="sm"
@@ -404,7 +403,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                         )}
                         {/* The lot shows from start; the label waits for a use-by, its barcode's. */}
                         {batch.barcode === null ? null : (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-production-batch-label"
                                 variant="secondary"
                                 size="sm"
@@ -417,7 +416,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                             />
                         )}
                         {canRecordTemperature && probeable ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-production-batch-temperature"
                                 variant="secondary"
                                 size="sm"
@@ -428,7 +427,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                             />
                         ) : null}
                         {canManage && isCallableOff(batch) ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-production-batch-cancel"
                                 variant="secondary"
                                 size="sm"
@@ -440,7 +439,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                             />
                         ) : null}
                         {canManage && settling ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-production-batch-abandon"
                                 variant="danger"
                                 size="sm"
@@ -451,7 +450,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                             />
                         ) : null}
                         {canManage && settling ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-production-batch-complete"
                                 size="sm"
                                 label={t('kitchen:ops.production.complete')}
@@ -461,7 +460,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                             />
                         ) : null}
                         {canManage && edge !== null ? (
-                            <Button
+                            <DeskButton
                                 testID={`kitchen-production-batch-${edge}`}
                                 size="sm"
                                 label={t(
@@ -535,6 +534,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
             ) : null}
 
             <Dialog
+                look="card"
                 testID="kitchen-production-batch-cancel-dialog"
                 open={cancelling}
                 onClose={() => {
@@ -543,7 +543,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                 title={t('kitchen:ops.production.cancelTitle')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-production-batch-cancel-dismiss"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -551,7 +551,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                                 setCancelling(false);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-production-batch-cancel-submit"
                             variant="danger"
                             label={t('kitchen:ops.production.cancelSubmit')}

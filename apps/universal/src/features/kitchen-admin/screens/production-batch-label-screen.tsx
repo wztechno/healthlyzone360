@@ -1,6 +1,5 @@
 import type { ProductionOrder } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     EmptyState,
     ErrorState,
@@ -28,6 +27,7 @@ import { usePrintSheet } from '../print-sheet.tsx';
 import { formatLot, labelCopies } from '../production-desk/batch-figures.ts';
 import { Gs1Barcode } from '../production-desk/gs1-barcode.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/production-desk/{order}/label` — the batch's label, as many copies as it needs.
  *
@@ -124,7 +124,7 @@ function ProductionBatchLabel({ order }: ProductionBatchLabelScreenProps) {
     const barcode = batch.barcode;
 
     const backButton = (
-        <Button
+        <DeskButton
             testID="kitchen-production-label-back"
             variant="secondary"
             label={t('kitchen:ops.production.openBatch')}
@@ -184,7 +184,7 @@ function ProductionBatchLabel({ order }: ProductionBatchLabelScreenProps) {
                         <Inline space="sm" align="center" wrap>
                             {backButton}
                             {sheet.mode === 'browser' ? (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-production-label-print"
                                     label={t('kitchen:ops.production.printLabel')}
                                     onPress={sheet.print}

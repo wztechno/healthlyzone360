@@ -33,6 +33,7 @@ import { DeskButton, DeskTabs } from './desk-kit/index.ts';
 import { ORDER_APPROVE_REFUND_PERMISSION } from './entity-registry.ts';
 import { kitchenOrderPaymentMethodKey } from './ops-format.ts';
 
+import { DeskChip } from './desk-kit/desk-chip.tsx';
 /**
  * The refund part of the order record, for a manager. A ledger beside the receipts: entries are
  * added, never edited, and a receipt is never touched. One above the kitchen's limit waits here for
@@ -195,9 +196,9 @@ function EntryBadge({ entry }: { readonly entry: OrderRefund }) {
     return entry.status === 'pending_approval' ? (
         <Badge tone="warning" icon="warning" label={label} />
     ) : entry.status === 'rejected' ? (
-        <Badge tone="neutral" label={label} />
+        <DeskChip tone="neutral" label={label} />
     ) : (
-        <Badge tone="success" label={label} />
+        <DeskChip tone="success" label={label} />
     );
 }
 

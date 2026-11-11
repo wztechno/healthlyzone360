@@ -1,5 +1,4 @@
 import {
-    Button,
     Callout,
     EmptyState,
     ErrorState,
@@ -21,6 +20,7 @@ import { PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
 import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { BatchLinesPanel } from '../production-desk/batch-lines-panel.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/production-desk/{order}/sheet` — what one batch stood on (PROD1).
  *
@@ -120,7 +120,7 @@ function ProductionBatchSheet({ order }: ProductionBatchSheetScreenProps) {
                 subtitle={t('kitchen:ops.production.sheetSubtitle')}
                 back={
                     <View className="flex-row">
-                        <Button
+                        <DeskButton
                             testID="kitchen-production-batch-sheet-back"
                             variant="ghost"
                             size="sm"

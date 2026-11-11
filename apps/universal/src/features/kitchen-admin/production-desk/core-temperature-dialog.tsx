@@ -1,4 +1,4 @@
-import { Button, Dialog, Stack, Text, TextInputField, useToast } from '@healthy360/design-system';
+import { Dialog, Stack, Text, TextInputField, useToast } from '@healthy360/design-system';
 import type { ProductionOrderId } from '@healthy360/domain-types';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { toFailure } from '../../../data/hooks.ts';
 import { useRecordCookingTemperatureMutation } from '../../../data/kitchen-ops-hooks.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * A batch's core temperature, recorded from the batch itself.
  *
@@ -28,12 +29,13 @@ export function CoreTemperatureDialog({
 
     return (
         <Dialog
+            look="card"
             testID="kitchen-production-batch-temperature-dialog"
             open
             onClose={onClose}
             title={t('kitchen:temperature.recordBatch')}
             actions={
-                <Button
+                <DeskButton
                     testID="kitchen-production-batch-temperature-save"
                     label={t('kitchen:temperature.save')}
                     loading={record.isPending}

@@ -9,7 +9,6 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     Callout,
     Cascade,
     Checkbox,
@@ -40,6 +39,8 @@ import { DeskTableTitle } from '../order-desk/desk-parts.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/order-desk/cash?tab=handins` — cash coming back from the road.
  *
@@ -146,7 +147,7 @@ function OrderDeskSettlement() {
             priority: 99,
             render: (row) => (
                 <View className="flex-row justify-end">
-                    <Button
+                    <DeskButton
                         testID={`kitchen-settlement-driver-${row.driverUserId}${tillSuffix(row)}-settle`}
                         variant="secondary"
                         size="sm"
@@ -219,7 +220,7 @@ function OrderDeskSettlement() {
             priority: 99,
             render: (row) => (
                 <View className="flex-row justify-end">
-                    <Button
+                    <DeskButton
                         testID={`kitchen-settlement-courier-${row.courierName}${tillSuffix(row)}-settle`}
                         variant="secondary"
                         size="sm"
@@ -291,11 +292,11 @@ function OrderDeskSettlement() {
             priority: 92,
             render: (row) =>
                 row.shortMinor === 0 ? (
-                    <Badge tone="success" label={t('kitchen:ops.settlement.settled')} />
+                    <DeskChip tone="success" label={t('kitchen:ops.settlement.settled')} />
                 ) : row.signedOffAt !== null ? (
-                    <Badge tone="neutral" label={t('kitchen:ops.settlement.signedOff')} />
+                    <DeskChip tone="neutral" label={t('kitchen:ops.settlement.signedOff')} />
                 ) : canSignOff ? (
-                    <Button
+                    <DeskButton
                         testID={`kitchen-settlement-${row.id}-sign-off`}
                         variant="secondary"
                         size="sm"
@@ -506,6 +507,7 @@ function SettleDialog({
 
     return (
         <Dialog
+            look="card"
             testID="kitchen-settlement-dialog"
             open
             onClose={onClose}
@@ -513,13 +515,13 @@ function SettleDialog({
             description={t(`kitchen:ops.settlement.dialogBody.${settling.kind}`)}
             actions={
                 <>
-                    <Button
+                    <DeskButton
                         testID="kitchen-settlement-dismiss"
                         variant="quiet"
                         label={t('kitchen:common.cancel')}
                         onPress={onClose}
                     />
-                    <Button
+                    <DeskButton
                         testID="kitchen-settlement-confirm"
                         label={t('kitchen:ops.settlement.confirm')}
                         loading={record.isPending}

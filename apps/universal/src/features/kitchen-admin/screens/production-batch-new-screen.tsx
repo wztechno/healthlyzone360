@@ -1,6 +1,5 @@
 import {
     Badge,
-    Button,
     Card,
     Cascade,
     Dialog,
@@ -15,9 +14,9 @@ import {
     Stack,
     Text,
     TextInputField,
+    useContentWidth,
     useIssueTrayController,
     useToast,
-    useContentWidth,
 } from '@healthy360/design-system';
 import type { IngredientAdmin, RecipeVersionAdmin } from '@healthy360/api-client/contracts';
 import type {
@@ -65,6 +64,7 @@ import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/production-desk/new` — open a draft batch against a published recipe version (PROD1).
  *
@@ -566,13 +566,12 @@ function ProductionBatchNew() {
                             variant="caps"
                             testID="kitchen-production-batch-new-status"
                             tone={statusTone('draft')}
-                            icon={null}
                             label={t(statusKey('draft'))}
                         />
                     }
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-production-batch-new-back"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
@@ -580,7 +579,7 @@ function ProductionBatchNew() {
                                     guard.intercept(back.leave);
                                 }}
                             />
-                            <Button
+                            <DeskButton
                                 testID="kitchen-production-batch-new-submit"
                                 label={t('kitchen:ops.production.createSubmit')}
                                 /*
@@ -928,6 +927,7 @@ function ProductionBatchNew() {
                 </View>
 
                 <Dialog
+                    look="card"
                     testID="kitchen-production-batch-new-unsaved-dialog"
                     open={guard.isPrompting}
                     onClose={guard.cancelDiscard}
@@ -935,13 +935,13 @@ function ProductionBatchNew() {
                     description={t('kitchen:ops.production.discardBody')}
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-production-batch-new-unsaved-keep"
                                 variant="quiet"
                                 label={t('kitchen:unsaved.keepEditing')}
                                 onPress={guard.cancelDiscard}
                             />
-                            <Button
+                            <DeskButton
                                 testID="kitchen-production-batch-new-unsaved-discard"
                                 variant="danger"
                                 label={t('kitchen:common.discard')}
@@ -1055,7 +1055,7 @@ function ConsumePreview({
                                 : t('kitchen:ops.production.shortNone')}
                         </Text>
                         {shortCount !== null && shortCount > 0 ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-production-batch-new-order-shortfall"
                                 variant="secondary"
                                 size="sm"

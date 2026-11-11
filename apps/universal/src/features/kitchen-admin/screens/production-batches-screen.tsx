@@ -1,13 +1,5 @@
 import type { ProductionOrder, ProductionOrderStatus } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Button,
-    Cascade,
-    EmptyState,
-    ErrorState,
-    TableSkeleton,
-    Text,
-} from '@healthy360/design-system';
+import { Cascade, EmptyState, ErrorState, TableSkeleton, Text } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -43,6 +35,8 @@ import {
     useRestoredPageFallback,
 } from '../list-memory.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/production-desk/batches` — the batches nobody has to move any more (PROD1).
  *
@@ -237,8 +231,7 @@ function ProductionBatches() {
                                 })}
                             </Text>
                             {row.isExpired ? (
-                                <Badge
-                                    icon={null}
+                                <DeskChip
                                     testID={`${productionBatchTestId(String(row.id))}-expired`}
                                     tone="danger"
                                     label={t('kitchen:ops.production.expiredBadge')}
@@ -280,8 +273,7 @@ function ProductionBatches() {
                 width: 140,
                 priority: 85,
                 render: (row) => (
-                    <Badge
-                        icon={null}
+                    <DeskChip
                         testID={`${productionBatchTestId(String(row.id))}-status`}
                         tone={productionStatusTone(row.status)}
                         label={t(productionStatusKey(row.status))}
@@ -410,7 +402,7 @@ function ProductionBatches() {
                         />
                         <View className="flex-row flex-wrap items-center justify-center gap-snug">
                             {page > 1 ? (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-production-batches-previous"
                                     variant="secondary"
                                     size="sm"
@@ -421,7 +413,7 @@ function ProductionBatches() {
                                 />
                             ) : null}
                             {hasMore ? (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-production-batches-next"
                                     variant="secondary"
                                     size="sm"

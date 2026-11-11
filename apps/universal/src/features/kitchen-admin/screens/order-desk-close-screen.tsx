@@ -7,7 +7,6 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     Callout,
     Cascade,
     Dialog,
@@ -38,6 +37,8 @@ import { DeskTableTitle } from '../order-desk/desk-parts.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/order-desk/cash?tab=close` — counting the till at the end of a shift.
  *
@@ -158,7 +159,7 @@ function OrderDeskClose() {
             priority: 99,
             render: (row) => (
                 <View className="flex-row justify-end">
-                    <Button
+                    <DeskButton
                         testID={`kitchen-close-${row.branchId ?? 'kitchen'}-${row.currencyCode}-open`}
                         variant="secondary"
                         size="sm"
@@ -278,13 +279,13 @@ function OrderDeskClose() {
             priority: 93,
             render: (row) =>
                 row.varianceMinor === 0 ? (
-                    <Badge tone="success" label={t('kitchen:ops.dailyClose.balanced')} />
+                    <DeskChip tone="success" label={t('kitchen:ops.dailyClose.balanced')} />
                 ) : row.varianceMinor > 0 ? (
-                    <Badge tone="neutral" label={t('kitchen:ops.dailyClose.over')} />
+                    <DeskChip tone="neutral" label={t('kitchen:ops.dailyClose.over')} />
                 ) : row.signedOffAt !== null ? (
-                    <Badge tone="neutral" label={t('kitchen:ops.dailyClose.signedOff')} />
+                    <DeskChip tone="neutral" label={t('kitchen:ops.dailyClose.signedOff')} />
                 ) : canSignOff ? (
-                    <Button
+                    <DeskButton
                         testID={`kitchen-close-${row.id}-sign-off`}
                         variant="secondary"
                         size="sm"
@@ -546,6 +547,7 @@ function CloseDialog({
 
     return (
         <Dialog
+            look="card"
             testID="kitchen-close-dialog"
             open
             onClose={onClose}
@@ -557,13 +559,13 @@ function CloseDialog({
             description={t('kitchen:ops.dailyClose.dialogBody')}
             actions={
                 <>
-                    <Button
+                    <DeskButton
                         testID="kitchen-close-dismiss"
                         variant="quiet"
                         label={t('kitchen:common.cancel')}
                         onPress={onClose}
                     />
-                    <Button
+                    <DeskButton
                         testID="kitchen-close-confirm"
                         label={t('kitchen:ops.dailyClose.confirm')}
                         loading={record.isPending}

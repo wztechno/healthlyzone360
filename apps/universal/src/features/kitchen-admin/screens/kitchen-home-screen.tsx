@@ -1,6 +1,5 @@
 import type { KitchenOrder } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     Card,
     Cascade,
@@ -68,6 +67,7 @@ import { GROUP_LABEL_KEYS } from '../kitchen-nav.ts';
 import { buildReviewQueue } from '../review-queue.ts';
 import { ordersHref } from '../orders/orders-url.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen` — the overview: what needs someone today, then every module one press away.
  *
@@ -358,7 +358,7 @@ function ConfirmRow({
                 {formatMoney(formatter, order.totalMinor / 100, order.currencyCode)}
             </Text>
             {canConfirm ? (
-                <Button
+                <DeskButton
                     testID={`kitchen-home-order-${String(order.id)}-confirm`}
                     size="sm"
                     label={t('kitchen:ops.orders.confirm')}
@@ -917,7 +917,7 @@ export function KitchenHomeScreen() {
                         title={t('kitchen:setup.notOpenTitle')}
                         body={t('kitchen:setup.notOpenBody')}
                         actions={
-                            <Button
+                            <DeskButton
                                 testID="kitchen-home-open-setup"
                                 size="sm"
                                 label={t('kitchen:families.setup.name')}
@@ -946,7 +946,7 @@ export function KitchenHomeScreen() {
                             </Stack>
                             <Inline space="xs" align="center">
                                 {permitted.has('supplyOrders') ? (
-                                    <Button
+                                    <DeskButton
                                         testID="kitchen-home-order-supplies"
                                         variant="secondary"
                                         iconStart={
@@ -961,9 +961,10 @@ export function KitchenHomeScreen() {
                                     />
                                 ) : null}
                                 {permitted.has('orders') ? (
-                                    <Button
+                                    <DeskButton
                                         testID="kitchen-home-new-order"
                                         label={t('kitchen:hub.newSale')}
+                                        iconStart={<Icon name="plus" size="sm" />}
                                         onPress={open('/kitchen/order-desk/sale')}
                                     />
                                 ) : null}
@@ -1235,7 +1236,7 @@ export function KitchenHomeScreen() {
                                             </View>
                                             {permitted.has('supplyOrders') ? (
                                                 <View className="px-3 pb-1.5 pt-1">
-                                                    <Button
+                                                    <DeskButton
                                                         testID="kitchen-home-buying-order-supplies"
                                                         size="sm"
                                                         variant="secondary"

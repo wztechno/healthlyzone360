@@ -6,8 +6,6 @@ import type {
     TemperatureUnitDraft,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Dialog,
     EmptyState,
     ErrorState,
@@ -44,6 +42,8 @@ import {
     ORDER_PREPARE_PERMISSION,
 } from '../entity-registry.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/temperature-logs`: what an inspector asks to see. Fridge and freezer readings twice a
  * day, and the core temperature of each cooked batch, a month at a time, on paper through the list
@@ -150,8 +150,7 @@ function TemperatureLogs() {
                         : 'kitchen:temperature.inRange',
                 ),
             render: (row) => (
-                <Badge
-                    icon={null}
+                <DeskChip
                     tone={row.outOfRange ? 'danger' : 'success'}
                     label={t(
                         row.outOfRange
@@ -269,8 +268,7 @@ function TemperatureLogs() {
             value: (row) =>
                 t(row.active ? 'kitchen:temperature.active' : 'kitchen:temperature.retired'),
             render: (row) => (
-                <Badge
-                    icon={null}
+                <DeskChip
                     tone={row.active ? 'success' : 'neutral'}
                     label={t(
                         row.active ? 'kitchen:temperature.active' : 'kitchen:temperature.retired',
@@ -387,7 +385,7 @@ function TemperatureLogs() {
                     </View>
                 )}
                 {tab !== 'readings' || !canRecord ? null : (
-                    <Button
+                    <DeskButton
                         testID="kitchen-temperature-record"
                         label={t('kitchen:temperature.record')}
                         iconStart={<Icon name="plus" size="sm" />}
@@ -397,7 +395,7 @@ function TemperatureLogs() {
                     />
                 )}
                 {tab !== 'cooking' || !canRecord ? null : (
-                    <Button
+                    <DeskButton
                         testID="kitchen-temperature-record-batch"
                         label={t('kitchen:temperature.recordBatch')}
                         iconStart={<Icon name="plus" size="sm" />}
@@ -407,7 +405,7 @@ function TemperatureLogs() {
                     />
                 )}
                 {tab !== 'units' || !canManage ? null : (
-                    <Button
+                    <DeskButton
                         testID="kitchen-temperature-unit-add"
                         label={t('kitchen:temperature.addUnit')}
                         iconStart={<Icon name="plus" size="sm" />}
@@ -417,7 +415,7 @@ function TemperatureLogs() {
                     />
                 )}
                 {tab === 'units' ? null : (
-                    <Button
+                    <DeskButton
                         testID="kitchen-temperature-print"
                         variant="secondary"
                         label={t('kitchen:temperature.print')}
@@ -490,12 +488,13 @@ function ReadingDialog({
 
     return (
         <Dialog
+            look="card"
             testID="kitchen-temperature-dialog"
             open
             onClose={onClose}
             title={t('kitchen:temperature.record')}
             actions={
-                <Button
+                <DeskButton
                     testID="kitchen-temperature-save"
                     label={t('kitchen:temperature.save')}
                     loading={record.isPending}
@@ -594,12 +593,13 @@ function BatchDialog({ onClose }: { readonly onClose: () => void }) {
 
     return (
         <Dialog
+            look="card"
             testID="kitchen-temperature-batch-dialog"
             open
             onClose={onClose}
             title={t('kitchen:temperature.recordBatch')}
             actions={
-                <Button
+                <DeskButton
                     testID="kitchen-temperature-batch-save"
                     label={t('kitchen:temperature.save')}
                     loading={record.isPending}
@@ -687,6 +687,7 @@ function UnitDialog({
 
     return (
         <Dialog
+            look="card"
             testID="kitchen-temperature-unit-dialog"
             open
             onClose={onClose}
@@ -694,7 +695,7 @@ function UnitDialog({
                 unit === null ? 'kitchen:temperature.addUnit' : 'kitchen:temperature.editUnit',
             )}
             actions={
-                <Button
+                <DeskButton
                     testID="kitchen-temperature-unit-save"
                     label={t('kitchen:temperature.save')}
                     loading={save.isPending}

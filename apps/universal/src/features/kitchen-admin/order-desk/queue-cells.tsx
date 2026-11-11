@@ -1,5 +1,5 @@
 import type { OrderDeskQueueRow } from '@healthy360/api-client/contracts';
-import { Badge, Text } from '@healthy360/design-system';
+import { Text } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -10,6 +10,7 @@ import {
     orderDeskRowTestId,
 } from '../ops-format.ts';
 
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * The queue's cells that are more than a plain value: how late, and how the order is being paid.
  * Each keeps the test ids the queue suite has always read.
@@ -33,11 +34,9 @@ export function DueBadge({
 }) {
     const formatter = useFormatter();
     return (
-        <Badge
+        <DeskChip
             testID={`${orderDeskRowTestId(String(row.id))}-due-age`}
             tone={orderDeskDueTone(row.dueAt, now, overdueGraceMinutes)}
-            icon={null}
-            className="!h-[22px] !rounded-full !px-2"
             label={formatter.formatRelativeTime(row.dueAt, now)}
         />
     );

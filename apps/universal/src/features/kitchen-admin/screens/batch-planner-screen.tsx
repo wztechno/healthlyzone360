@@ -5,8 +5,6 @@ import type {
     RecipeVersionAdmin,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Cascade,
     EmptyState,
     ErrorState,
@@ -56,6 +54,8 @@ import { BATCH_QUANTITY_FORMAT, useBatchIngredients } from '../operations/batch-
 import { usePrintSheet } from '../print-sheet.tsx';
 import { ProductionTable, ProductionTableSection } from '../production-desk/production-table.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/batch` — one recipe, one target, and the sheet it scales to.
  *
@@ -201,7 +201,7 @@ function BatchPlanner() {
                 figures={facts(version, factor, reading, yieldUnitLabel, number, t)}
                 actions={
                     print.mode === 'browser' ? (
-                        <Button
+                        <DeskButton
                             testID="kitchen-batch-print"
                             size="sm"
                             variant="secondary"
@@ -522,10 +522,9 @@ function useSheetColumns(
                         {nameOf(line.ingredientId)}
                     </Text>
                     {line.isOptional ? (
-                        <Badge
+                        <DeskChip
                             testID={`${rowId(line.ingredientId)}-optional`}
                             tone="neutral"
-                            icon={null}
                             label={t('kitchen:ops.batch.optionalBadge')}
                         />
                     ) : null}
