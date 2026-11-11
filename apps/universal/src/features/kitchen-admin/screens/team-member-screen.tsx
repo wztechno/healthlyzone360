@@ -523,6 +523,19 @@ function TeamMemberEditor() {
                     testID="kitchen-team-member"
                     title={name}
                     dirty={guard.isDirty}
+                    save={
+                        canAssignRoles
+                            ? {
+                                  testID: 'kitchen-team-member-save',
+                                  label: t('accessAdmin:member.save'),
+                                  // Both halves of the chain: a scope write still running is a
+                                  // save still running.
+                                  loading: scopeWrite.isPending || setRoles.isPending,
+                                  disabled: scopeWrite.isPending || setRoles.isPending,
+                                  onPress: save,
+                              }
+                            : undefined
+                    }
                     badges={
                         <>
                             <Badge
@@ -582,23 +595,6 @@ function TeamMemberEditor() {
                                     onPress={() => {
                                         setConfirmingEnd(true);
                                     }}
-                                />
-                            ) : null}
-                            {/*
-                             * Save, last, on every step. Hidden rather than disabled for somebody
-                             * who may not assign roles: the whole record is theirs to read, and a
-                             * Save that could never work is noise.
-                             */}
-                            {canAssignRoles ? (
-                                <DeskButton
-                                    testID="kitchen-team-member-save"
-                                    label={t('accessAdmin:member.save')}
-                                    // Both halves of the chain: a scope write still running is a
-                                    // save still running, and a button that came back to life
-                                    // between the two would take a second press.
-                                    loading={scopeWrite.isPending || setRoles.isPending}
-                                    disabled={scopeWrite.isPending || setRoles.isPending}
-                                    onPress={save}
                                 />
                             ) : null}
                         </>

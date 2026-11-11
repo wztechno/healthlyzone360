@@ -22,6 +22,8 @@ import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
 
 import { DeskButton } from './desk-kit/desk-button.tsx';
+import { useSaveBar } from './save-bar.tsx';
+import type { SaveBarAction } from './save-bar.tsx';
 /**
  * The opening of a Catalogue Forms record page, for the forms that do not draw their own.
  *
@@ -62,8 +64,17 @@ export interface RecordFormOpeningProps<Step extends string> {
      * kitchen and channels. Facts of the record rather than fields of the form.
      */
     readonly details?: ReactNode | undefined;
-    /** At the inline end — Cancel, then any lifecycle act, then the commit. */
+    /** At the inline end — Cancel, then any lifecycle act. The commit goes in `save`. */
     readonly actions?: ReactNode | undefined;
+    /**
+     * The commit. In the kitchen layout it is drawn in the save bar at the page's foot, while there
+     * is something to save; a screen rendered on its own draws it last among the actions.
+     */
+    readonly save?: SaveBarAction | undefined;
+    /** Puts the form back as loaded — the save bar's Discard. */
+    readonly discard?: SaveBarAction | undefined;
+    /** A record never saved: the save bar stays up until it is. */
+    readonly creating?: boolean | undefined;
     readonly errors?:
         { readonly summary: string; readonly items: readonly FormIssueItem[] } | undefined;
     readonly warnings?:
@@ -86,6 +97,9 @@ export function RecordFormOpening<Step extends string>({
     dirty,
     details,
     actions,
+    save,
+    discard,
+    creating,
     errors,
     warnings,
     steps,
@@ -119,6 +133,16 @@ export function RecordFormOpening<Step extends string>({
         testID: `${testID}-issues-warnings`,
     });
 
+    // The save bar takes the unsaved marker and the commit, where the kitchen layout draws one.
+    const barDrawn = useSaveBar({
+        dirty,
+        creating,
+        toFix: errors?.items.length ?? 0,
+        save,
+        discard,
+        testID,
+    });
+
     const showErrors = !inTray && errors !== undefined && errors.items.length > 0;
     const showWarnings = !inTray && warnings !== undefined && warnings.items.length > 0;
 
@@ -131,7 +155,7 @@ export function RecordFormOpening<Step extends string>({
                 titleAside={
                     <Inline space="xs" align="center" wrap testID={`${testID}-meta`}>
                         {badges}
-                        {dirty ? (
+                        {dirty && !barDrawn ? (
                             <Badge
                                 variant="label"
                                 testID={`${testID}-dirty`}
@@ -143,7 +167,7 @@ export function RecordFormOpening<Step extends string>({
                     </Inline>
                 }
                 primaryAction={
-                    actions === undefined ? undefined : (
+                    actions === undefined && (save === undefined || barDrawn) ? undefined : (
                         <Inline
                             space="xs"
                             align="center"
@@ -152,6 +176,15 @@ export function RecordFormOpening<Step extends string>({
                             testID={`${testID}-actions`}
                         >
                             {actions}
+                            {save === undefined || barDrawn ? null : (
+                                <DeskButton
+                                    testID={save.testID}
+                                    label={save.label}
+                                    loading={save.loading}
+                                    disabled={save.disabled}
+                                    onPress={save.onPress}
+                                />
+                            )}
                         </Inline>
                     )
                 }

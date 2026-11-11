@@ -597,20 +597,19 @@ function RoleEditor() {
                                     }}
                                 />
                             ) : null}
-                            {/*
-                             * Save role, last, on every step. Not drawn at all on a role this
-                             * caller cannot change — every field is locked and the tray says why.
-                             */}
-                            {readOnly ? null : (
-                                <DeskButton
-                                    testID="kitchen-role-editor-save"
-                                    label={t('accessAdmin:role.save')}
-                                    loading={create.isPending || update.isPending}
-                                    disabled={create.isPending || update.isPending}
-                                    onPress={attemptSave}
-                                />
-                            )}
                         </>
+                    }
+                    creating={isNew}
+                    save={
+                        readOnly
+                            ? undefined
+                            : {
+                                  testID: 'kitchen-role-editor-save',
+                                  label: t('accessAdmin:role.save'),
+                                  loading: create.isPending || update.isPending,
+                                  disabled: create.isPending || update.isPending,
+                                  onPress: attemptSave,
+                              }
                     }
                     errors={{
                         summary: t(

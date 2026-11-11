@@ -72,6 +72,7 @@ import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/production-desk/{order}` — one batch, and every edge it has left (PROD1).
  *
@@ -335,19 +336,16 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
              * A refused Confirm or Start, in the server's words: without it the button simply
              * did nothing. The batch page has no issue tray, so it is said here.
              */}
-            {advanceFailure === null ? null : (
-                <Callout
-                    testID="kitchen-production-batch-advance-error"
-                    tone="danger"
-                    role="alert"
-                    title={t(
-                        confirmFailure === null
-                            ? 'kitchen:ops.production.startFailedTitle'
-                            : 'kitchen:ops.production.confirmFailedTitle',
-                    )}
-                    body={advanceFailure.message}
-                />
-            )}
+            <FailureToast
+                failure={advanceFailure}
+                testID="kitchen-production-batch-advance-error"
+                title={t(
+                    confirmFailure === null
+                        ? 'kitchen:ops.production.startFailedTitle'
+                        : 'kitchen:ops.production.confirmFailedTitle',
+                )}
+                body={advanceFailure?.message}
+            />
 
             {batch.abandonReason === null ? null : (
                 <Stack space="xs" testID="kitchen-production-batch-notices">

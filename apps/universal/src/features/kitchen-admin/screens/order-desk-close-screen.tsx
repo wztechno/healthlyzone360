@@ -39,6 +39,7 @@ import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../ent
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/order-desk/cash?tab=close` — counting the till at the end of a shift.
  *
@@ -632,14 +633,12 @@ function CloseDialog({
                         required={short}
                     />
                 )}
-                {failure === null ? null : (
-                    <Callout
-                        testID="kitchen-close-error"
-                        tone="danger"
-                        title={t('kitchen:ops.dailyClose.saveError')}
-                        body={failure.message}
-                    />
-                )}
+                <FailureToast
+                    failure={failure}
+                    testID="kitchen-close-error"
+                    title={t('kitchen:ops.dailyClose.saveError')}
+                    body={failure?.message}
+                />
             </Stack>
         </Dialog>
     );

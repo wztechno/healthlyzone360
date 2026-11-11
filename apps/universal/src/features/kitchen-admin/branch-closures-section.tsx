@@ -1,6 +1,5 @@
 import type { BranchClosure } from '@healthy360/api-client/contracts';
 import {
-    Callout,
     DateField,
     ErrorState,
     FormGrid,
@@ -24,6 +23,7 @@ import { toFailure } from '../../data/hooks.ts';
 
 import { DeskButton } from './desk-kit/desk-button.tsx';
 import { DeskChip } from './desk-kit/desk-chip.tsx';
+import { FailureToast } from './failure-toast.tsx';
 /**
  * Holidays: dates this branch is shut on top of its week. Saves on its own, as the service timings
  * do, because a closure is one decision and the week's Save is another.
@@ -106,15 +106,12 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
                 ) : undefined
             }
         >
-            {saveFailure === null ? null : (
-                <Callout
-                    testID="kitchen-branch-closures-error"
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:branchClosures.saveError')}
-                    body={saveFailure.message}
-                />
-            )}
+            <FailureToast
+                failure={saveFailure}
+                testID="kitchen-branch-closures-error"
+                title={t('kitchen:branchClosures.saveError')}
+                body={saveFailure?.message}
+            />
             {canManage ? (
                 <FormGrid track="half" testID="kitchen-branch-closures-form">
                     <DateField

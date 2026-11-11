@@ -123,6 +123,7 @@ import { ingredientFixHref, ingredientNeedsById } from '../ingredient-fix.ts';
 import type { HostArchive } from '../host-save.ts';
 import type { IngredientNeed } from '../ingredient-fix.ts';
 import { useFinishDetour } from '../finish-detour.ts';
+import { useSaveBar } from '../save-bar.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import {
     RecipeLineTable,
@@ -2310,6 +2311,30 @@ function RecipeEditor({
         });
     };
 
+    // The save bar takes the unsaved marker and Save; Publish stays in the header beside the
+    // version it publishes.
+    const recipeWriting =
+        creatingNow ||
+        create.isPending ||
+        update.isPending ||
+        setLines.isPending ||
+        setPackagingLines.isPending ||
+        photoSave.isPending ||
+        listingSaving;
+    const barDrawn = useSaveBar({
+        dirty: guard.isDirty,
+        creating: isCreating,
+        save: {
+            testID: 'kitchen-recipe-editor-screen-save',
+            label: t(isEditable ? 'kitchen:common.saveDraft' : 'kitchen:common.save'),
+            loading: recipeWriting,
+            disabled:
+                creatingNow || !canManage || (!isEditable && !shelfLifeChanged && !listingDirty),
+            onPress: attemptSave,
+        },
+        testID: 'kitchen-recipe-editor-screen',
+    });
+
     /* ── loading, refusal and not-found ──────────────────────────────────────────────────────── */
 
     if (!isCreating && parsed === null) {
@@ -3196,7 +3221,7 @@ function RecipeEditor({
                                         {headerReference}
                                     </Text>
                                 ) : null}
-                                {guard.isDirty ? (
+                                {guard.isDirty && barDrawn ? null : guard.isDirty ? (
                                     <Badge
                                         variant="label"
                                         testID="kitchen-recipe-editor-screen-dirty"
@@ -3272,30 +3297,34 @@ function RecipeEditor({
                                  * recipe's), so Save lights for that change alone and stops calling
                                  * the write a draft.
                                  */}
-                                <DeskButton
-                                    testID="kitchen-recipe-editor-screen-save"
-                                    variant={publishLeads || !isEditable ? 'secondary' : 'primary'}
-                                    label={t(
-                                        isEditable
-                                            ? 'kitchen:common.saveDraft'
-                                            : 'kitchen:common.save',
-                                    )}
-                                    loading={
-                                        creatingNow ||
-                                        create.isPending ||
-                                        update.isPending ||
-                                        setLines.isPending ||
-                                        setPackagingLines.isPending ||
-                                        photoSave.isPending ||
-                                        listingSaving
-                                    }
-                                    disabled={
-                                        creatingNow ||
-                                        !canManage ||
-                                        (!isEditable && !shelfLifeChanged && !listingDirty)
-                                    }
-                                    onPress={attemptSave}
-                                />
+                                {barDrawn ? null : (
+                                    <DeskButton
+                                        testID="kitchen-recipe-editor-screen-save"
+                                        variant={
+                                            publishLeads || !isEditable ? 'secondary' : 'primary'
+                                        }
+                                        label={t(
+                                            isEditable
+                                                ? 'kitchen:common.saveDraft'
+                                                : 'kitchen:common.save',
+                                        )}
+                                        loading={
+                                            creatingNow ||
+                                            create.isPending ||
+                                            update.isPending ||
+                                            setLines.isPending ||
+                                            setPackagingLines.isPending ||
+                                            photoSave.isPending ||
+                                            listingSaving
+                                        }
+                                        disabled={
+                                            creatingNow ||
+                                            !canManage ||
+                                            (!isEditable && !shelfLifeChanged && !listingDirty)
+                                        }
+                                        onPress={attemptSave}
+                                    />
+                                )}
                                 {!publishShown || !isEditable || !canPublish ? null : (
                                     <DeskButton
                                         testID="kitchen-recipe-publish"

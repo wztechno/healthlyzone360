@@ -22,6 +22,13 @@
     "detour": {
         "openAgain": "Open again"
     },
+    "saveBar": {
+        "label": "Save changes",
+        "unsaved": "Unsaved changes",
+        "notSavedYet": "Not saved yet",
+        "toFix_one": "{{count}} to fix",
+        "toFix_other": "{{count}} to fix"
+    },
     "hub": {
         "title": "Kitchen workspace",
         "itemCount_one": "{{count}} record",

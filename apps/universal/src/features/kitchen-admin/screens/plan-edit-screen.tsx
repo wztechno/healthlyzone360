@@ -61,6 +61,7 @@ import {
 } from '../format.ts';
 import { returnCrumbLabel } from '../came-from.ts';
 import { useFinishDetour } from '../finish-detour.ts';
+import { useSaveBar } from '../save-bar.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { PlanDurationRows, PlanVariantRows } from '../plan-row-editors.tsx';
 import {
@@ -974,6 +975,25 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
         );
     };
 
+    // The save bar takes the unsaved marker and Save the plan; Publish stays in the header.
+    const planWriting =
+        create.isPending ||
+        update.isPending ||
+        (isCreating && (saveVariantsMutation.isPending || saveDurationsMutation.isPending));
+    const barDrawn = useSaveBar({
+        dirty: guard.isDirty,
+        creating: isCreating,
+        save: {
+            testID: 'kitchen-plan-editor-screen-save',
+            // The design's own word for this button (Commercial §3.3).
+            label: t('kitchen:plans.savePlan'),
+            loading: planWriting,
+            disabled: !canManage || planWriting,
+            onPress: attemptSave,
+        },
+        testID: 'kitchen-plan-editor-screen',
+    });
+
     /* ── loading, refusal and not-found ──────────────────────────────────────────────────────── */
 
     if (!isCreating && parsed === null) {
@@ -1292,7 +1312,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                     tone="brand"
                                     label={t('kitchen:plans.createChip')}
                                 />
-                                {guard.isDirty ? (
+                                {guard.isDirty && !barDrawn ? (
                                     <Badge
                                         variant="label"
                                         testID="kitchen-plan-editor-screen-dirty"
@@ -1333,16 +1353,19 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                 )}
                                 {/*
                                  * The commit, last, on every step: a new plan is written whole from
-                                 * here, and a saved one is edited in any order.
+                                 * here, and a saved one is edited in any order. In the save bar
+                                 * where the kitchen layout draws one.
                                  */}
-                                <DeskButton
-                                    testID="kitchen-plan-editor-screen-save"
-                                    // The design's own word for this button (Commercial §3.3).
-                                    label={t('kitchen:plans.savePlan')}
-                                    loading={busy}
-                                    disabled={!canManage || busy}
-                                    onPress={attemptSave}
-                                />
+                                {barDrawn ? null : (
+                                    <DeskButton
+                                        testID="kitchen-plan-editor-screen-save"
+                                        // The design's own word for this button (Commercial §3.3).
+                                        label={t('kitchen:plans.savePlan')}
+                                        loading={busy}
+                                        disabled={!canManage || busy}
+                                        onPress={attemptSave}
+                                    />
+                                )}
                             </Inline>
                         }
                     />

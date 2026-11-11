@@ -69,6 +69,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
+import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/suppliers/{supplier}` and `/kitchen/suppliers/new` — the supplier record (SUP1).
  *
@@ -989,21 +990,19 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                                 }}
                             />
                         )}
-                        {/*
-                         * The details' Save, last, on every step. Hidden rather than disabled on an
-                         * archived supplier: every field is locked and the callout says why, so a
-                         * Save that could never work is noise.
-                         */}
-                        {!canManage || isArchived ? null : (
-                            <DeskButton
-                                testID="kitchen-supplier-screen-save"
-                                label={t('kitchen:ops.suppliers.saveDetails')}
-                                loading={create.isPending || update.isPending}
-                                disabled={create.isPending || update.isPending}
-                                onPress={attemptSave}
-                            />
-                        )}
                     </>
+                }
+                creating={isCreating}
+                save={
+                    !canManage || isArchived
+                        ? undefined
+                        : {
+                              testID: 'kitchen-supplier-screen-save',
+                              label: t('kitchen:ops.suppliers.saveDetails'),
+                              loading: create.isPending || update.isPending,
+                              disabled: create.isPending || update.isPending,
+                              onPress: attemptSave,
+                          }
                 }
                 errors={{
                     summary: t(
@@ -1393,15 +1392,12 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                         }
                     >
                         <Stack space="md">
-                            {linkFailure === null ? null : (
-                                <Callout
-                                    testID="kitchen-supplier-items-error"
-                                    role="alert"
-                                    tone="danger"
-                                    title={t('kitchen:editor.saveError')}
-                                    body={linkServer.unplaced ?? linkFailure.message}
-                                />
-                            )}
+                            <FailureToast
+                                failure={linkFailure}
+                                testID="kitchen-supplier-items-error"
+                                title={t('kitchen:editor.saveError')}
+                                body={linkServer.unplaced ?? linkFailure?.message}
+                            />
 
                             {suppliedItems.length === 0 ? (
                                 <Text testID="kitchen-supplier-items-empty" tone="secondary">

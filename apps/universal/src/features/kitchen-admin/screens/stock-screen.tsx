@@ -1463,6 +1463,17 @@ function StockMovementEditor({
                 testID="kitchen-stock-editor"
                 title={name}
                 dirty={guard.isDirty}
+                // A movement is new each time: the bar holds its Save until it is recorded.
+                creating
+                save={{
+                    testID: 'kitchen-stock-editor-save',
+                    label: t('kitchen:ops.stock.saveLabel'),
+                    loading: saving,
+                    disabled: !canSave || saving,
+                    onPress: () => {
+                        void save();
+                    },
+                }}
                 badges={
                     <Badge
                         variant="caps"
@@ -1479,15 +1490,6 @@ function StockMovementEditor({
                             label={t('kitchen:editor.cancel')}
                             onPress={() => {
                                 guard.intercept(onDone);
-                            }}
-                        />
-                        <DeskButton
-                            testID="kitchen-stock-editor-save"
-                            label={t('kitchen:ops.stock.saveLabel')}
-                            loading={saving}
-                            disabled={!canSave || saving}
-                            onPress={() => {
-                                void save();
                             }}
                         />
                     </>

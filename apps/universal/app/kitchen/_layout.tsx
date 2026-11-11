@@ -12,6 +12,7 @@ import {
     useKitchenTrail,
 } from '../../src/features/kitchen-admin/kitchen-ops-shell.tsx';
 import { KitchenPageSearch } from '../../src/features/kitchen-admin/kitchen-page-search.tsx';
+import { SaveBarProvider } from '../../src/features/kitchen-admin/save-bar.tsx';
 import { AreaShell } from '../../src/shell/area-shell.tsx';
 import { StaffAlertsButton } from '../../src/shell/staff-alerts-button.tsx';
 
@@ -30,7 +31,10 @@ export default function KitchenLayout() {
         <KitchenTrailProvider>
             {/* The admin's own toast: the desk card, bottom centre (design-system toast.tsx). */}
             <ToastLookScope look="desk">
-                <KitchenAreaShell />
+                {/* An editor's save bar, drawn at the foot of the page (save-bar.tsx). */}
+                <SaveBarProvider>
+                    <KitchenAreaShell />
+                </SaveBarProvider>
             </ToastLookScope>
         </KitchenTrailProvider>
     );

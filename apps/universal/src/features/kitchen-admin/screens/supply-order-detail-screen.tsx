@@ -809,6 +809,18 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                     testID="kitchen-supply-order-detail-screen"
                     title={title}
                     dirty={guard.isDirty}
+                    save={
+                        editable
+                            ? {
+                                  testID: 'kitchen-supply-order-detail-screen-save',
+                                  label: t('kitchen:ops.supplyOrders.saveLines'),
+                                  loading: update.isPending,
+                                  // A wrong box does not disable Save: pressing it takes you there.
+                                  disabled: !dirty || empty || update.isPending,
+                                  onPress: save,
+                              }
+                            : undefined
+                    }
                     badges={
                         <Badge
                             variant="label"
@@ -872,22 +884,6 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                                     testID="kitchen-supply-order-detail-receive"
                                     label={t('kitchen:ops.supplyOrders.receiveDelivery')}
                                     onPress={goReceive}
-                                />
-                            ) : null}
-                            {/*
-                             * No save control at all on a frozen order — an editing affordance that
-                             * always refuses is worse than none.
-                             */}
-                            {editable ? (
-                                <DeskButton
-                                    testID="kitchen-supply-order-detail-screen-save"
-                                    variant={issuable ? 'secondary' : 'primary'}
-                                    label={t('kitchen:ops.supplyOrders.saveLines')}
-                                    loading={update.isPending}
-                                    // A wrong box does not disable Save: pressing it takes you
-                                    // there.
-                                    disabled={!dirty || empty || update.isPending}
-                                    onPress={save}
                                 />
                             ) : null}
                             {issuable ? (

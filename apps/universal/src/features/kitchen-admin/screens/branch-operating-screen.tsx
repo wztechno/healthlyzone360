@@ -54,6 +54,7 @@ import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { useLocalSearchParams } from 'expo-router';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useFinishDetour } from '../finish-detour.ts';
+import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/branch-operating` — when this branch trades, and when it stops taking today's orders.
  *
@@ -367,6 +368,17 @@ function BranchOperatingEditor() {
                 testID="kitchen-branch-hours-screen"
                 title={title}
                 dirty={guard.isDirty || timingsDirty}
+                save={
+                    canManage
+                        ? {
+                              testID: 'kitchen-branch-hours-screen-save',
+                              label: t('kitchen:branchHours.save'),
+                              loading: save.isPending,
+                              disabled: !dirty || dayIssues.size > 0 || save.isPending,
+                              onPress: saveWeek,
+                          }
+                        : undefined
+                }
                 badges={
                     <Badge
                         variant="label"
@@ -387,27 +399,17 @@ function BranchOperatingEditor() {
                                     setAddingBranch(true);
                                 }}
                             />
-                            <DeskButton
-                                testID="kitchen-branch-hours-screen-save"
-                                label={t('kitchen:branchHours.save')}
-                                loading={save.isPending}
-                                disabled={!dirty || dayIssues.size > 0 || save.isPending}
-                                onPress={saveWeek}
-                            />
                         </>
                     ) : undefined
                 }
             />
 
-            {saveFailure === null ? null : (
-                <Callout
-                    testID="kitchen-branch-hours-save-error"
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:branchHours.saveError')}
-                    body={server.unplaced ?? saveFailure.message}
-                />
-            )}
+            <FailureToast
+                failure={saveFailure}
+                testID="kitchen-branch-hours-save-error"
+                title={t('kitchen:branchHours.saveError')}
+                body={server.unplaced ?? saveFailure?.message}
+            />
 
             {everyDayClosed ? (
                 <Callout
@@ -613,15 +615,12 @@ function NewBranchDialog({
                 </>
             }
         >
-            {failure === null ? null : (
-                <Callout
-                    testID="kitchen-branch-new-error"
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:branchClosures.newBranchError')}
-                    body={failure.message}
-                />
-            )}
+            <FailureToast
+                failure={failure}
+                testID="kitchen-branch-new-error"
+                title={t('kitchen:branchClosures.newBranchError')}
+                body={failure?.message}
+            />
             <TextInputField
                 testID="kitchen-branch-new-name"
                 id="kitchen-branch-new-name"
@@ -768,15 +767,12 @@ function ServiceTimingsSection({
                     />
                 }
             >
-                {saveFailure === null ? null : (
-                    <Callout
-                        testID="kitchen-service-timings-save-error"
-                        role="alert"
-                        tone="danger"
-                        title={t('kitchen:serviceTimings.saveError')}
-                        body={server.unplaced ?? saveFailure.message}
-                    />
-                )}
+                <FailureToast
+                    failure={saveFailure}
+                    testID="kitchen-service-timings-save-error"
+                    title={t('kitchen:serviceTimings.saveError')}
+                    body={server.unplaced ?? saveFailure?.message}
+                />
                 <FormGrid track="half" testID="kitchen-service-timings-grid">
                     {SERVICE_TIMINGS.map(({ key, copy, server: field }) => (
                         <TextInputField

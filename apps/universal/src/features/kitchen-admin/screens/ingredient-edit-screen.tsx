@@ -134,6 +134,7 @@ import { AllergenReferencePicker } from '../allergen-reference-picker.tsx';
 import { IngredientAllergenEditor } from '../ingredient-allergen-editor.tsx';
 import { IngredientBarcodesSection } from '../ingredient-barcodes-section.tsx';
 import { STOCK_GAPS_PATH } from '../consumption-exceptions/stock-gap-fix.ts';
+import { useSaveBar } from '../save-bar.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { focusFirstRefusal, UnsavedDialog } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
@@ -1944,6 +1945,23 @@ function IngredientEditor({
         back.leave();
     };
 
+    // The save bar takes the unsaved marker and Save, on a record this caller can write.
+    const ingredientWriting = create.isPending || update.isPending || photoSave.isPending;
+    const barDrawn = useSaveBar({
+        dirty: guard.isDirty,
+        creating: isCreating,
+        save: platformNotice
+            ? undefined
+            : {
+                  testID: 'kitchen-ingredient-editor-screen-save',
+                  label: t('kitchen:editor.save'),
+                  loading: ingredientWriting,
+                  disabled: !editable || currencyMissing || ingredientWriting,
+                  onPress: save,
+              },
+        testID: 'kitchen-ingredient-editor-screen',
+    });
+
     /* ── loading, refusal and not-found ──────────────────────────────────────────────────────── */
 
     if (!isCreating && parsed === null) {
@@ -2757,7 +2775,7 @@ function IngredientEditor({
                                     {reference}
                                 </Text>
                             )}
-                            {!family.food && guard.isDirty ? (
+                            {!family.food && guard.isDirty && !barDrawn ? (
                                 <Badge
                                     testID="kitchen-ingredient-editor-screen-dirty"
                                     tone="warning"
@@ -2796,7 +2814,7 @@ function IngredientEditor({
                         ) : null}
                     </View>
                     <Inline space="xs" align="center">
-                        {family.food && guard.isDirty ? (
+                        {family.food && guard.isDirty && !barDrawn ? (
                             <View
                                 testID="kitchen-ingredient-editor-screen-dirty"
                                 className="flex-row items-center gap-1.5"
@@ -2820,7 +2838,7 @@ function IngredientEditor({
                             }}
                         />
                         {/* Hidden rather than always disabled on a record this caller cannot write. */}
-                        {platformNotice ? null : (
+                        {platformNotice || barDrawn ? null : (
                             <DeskButton
                                 testID="kitchen-ingredient-editor-screen-save"
                                 label={t('kitchen:editor.save')}

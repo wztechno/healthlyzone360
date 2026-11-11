@@ -41,6 +41,7 @@ import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../ent
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/order-desk/cash?tab=handins` — cash coming back from the road.
  *
@@ -596,14 +597,12 @@ function SettleDialog({
                         />
                     </>
                 )}
-                {failure === null ? null : (
-                    <Callout
-                        testID="kitchen-settlement-error"
-                        tone="danger"
-                        title={t('kitchen:ops.settlement.saveError')}
-                        body={failure.message}
-                    />
-                )}
+                <FailureToast
+                    failure={failure}
+                    testID="kitchen-settlement-error"
+                    title={t('kitchen:ops.settlement.saveError')}
+                    body={failure?.message}
+                />
             </Stack>
         </Dialog>
     );

@@ -11,6 +11,7 @@ import { guardNavigation } from '../../navigation/use-unsaved-guard.ts';
 import { useAccessState } from '../../session/session-provider.tsx';
 import { TrailLeafProvider, useTrailLeaf, useTrailLeafState } from '../../shell/area-trail.tsx';
 import { returnCrumbLabel } from './came-from.ts';
+import { SaveBarSlot } from './save-bar.tsx';
 import { DeskTrail } from './desk-kit/desk-trail.tsx';
 import type { DeskCrumb } from './desk-kit/desk-trail.tsx';
 import { ENTITY_FAMILIES } from './entity-registry.ts';
@@ -327,6 +328,8 @@ export function KitchenOpsShell({ children }: KitchenOpsShellProps) {
                 <View testID="kitchen-ops-content" className="min-h-0 min-w-0 flex-1">
                     {children}
                 </View>
+                {/* Last in the content, so it can stick to the foot of the scroll port. */}
+                <SaveBarSlot />
             </View>
         </DensityProvider>
     );

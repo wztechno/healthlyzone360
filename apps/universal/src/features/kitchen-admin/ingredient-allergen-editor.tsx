@@ -34,6 +34,7 @@ import { displayName } from './format.ts';
 import { serverFieldErrors } from './server-field-errors.ts';
 
 import { DeskButton } from './desk-kit/desk-button.tsx';
+import { FailureToast } from './failure-toast.tsx';
 type Choice = AllergenChoice;
 
 export interface IngredientAllergenEditorProps {
@@ -405,14 +406,12 @@ export function IngredientAllergenEditor({
                 </Stack>
             )}
 
-            {failure === null ? null : (
-                <Callout
-                    testID="kitchen-ingredient-mapping-error"
-                    tone="danger"
-                    title={t('kitchen:allergens.saveError')}
-                    body={server.unplaced ?? failure.message}
-                />
-            )}
+            <FailureToast
+                failure={failure}
+                testID="kitchen-ingredient-mapping-error"
+                title={t('kitchen:allergens.saveError')}
+                body={server.unplaced ?? failure?.message}
+            />
 
             {fromLookup ? null : (
                 <Inline justify="end">

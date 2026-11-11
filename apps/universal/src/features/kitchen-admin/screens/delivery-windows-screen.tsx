@@ -1,6 +1,5 @@
 import type { DeliveryWindow } from '@healthy360/api-client/contracts';
 import {
-    Callout,
     Cascade,
     Dialog,
     EmptyState,
@@ -40,6 +39,7 @@ import { serverFieldErrors } from '../server-field-errors.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/delivery-windows` — the kitchen's delivery slots, org-wide.
  *
@@ -258,28 +258,25 @@ function DeliveryWindowsEditor() {
                 testID="kitchen-windows-screen"
                 title={title}
                 dirty={guard.isDirty}
-                actions={
-                    canManage ? (
-                        <DeskButton
-                            testID="kitchen-windows-save"
-                            label={t('kitchen:windows.save')}
-                            loading={saving}
-                            disabled={!dirty || rowErrors.size > 0 || saving}
-                            onPress={saveAll}
-                        />
-                    ) : undefined
+                save={
+                    canManage
+                        ? {
+                              testID: 'kitchen-windows-save',
+                              label: t('kitchen:windows.save'),
+                              loading: saving,
+                              disabled: !dirty || rowErrors.size > 0 || saving,
+                              onPress: saveAll,
+                          }
+                        : undefined
                 }
             />
 
-            {saveFailure === null ? null : (
-                <Callout
-                    testID="kitchen-windows-save-error"
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:windows.saveError')}
-                    body={server.unplaced ?? saveFailure.message}
-                />
-            )}
+            <FailureToast
+                failure={saveFailure}
+                testID="kitchen-windows-save-error"
+                title={t('kitchen:windows.saveError')}
+                body={server.unplaced ?? saveFailure?.message}
+            />
 
             {rows.length === 0 ? (
                 <EmptyState
@@ -401,15 +398,12 @@ function DeliveryWindowsEditor() {
                 }
             />
 
-            {archiveFailure === null ? null : (
-                <Callout
-                    testID="kitchen-windows-archive-error"
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:windows.archiveFailed')}
-                    body={archiveFailure.message}
-                />
-            )}
+            <FailureToast
+                failure={archiveFailure}
+                testID="kitchen-windows-archive-error"
+                title={t('kitchen:windows.archiveFailed')}
+                body={archiveFailure?.message}
+            />
 
             <EditorGuardDialogs testID="kitchen-windows-screen" guard={guard} />
         </Cascade>

@@ -22,6 +22,17 @@
     "detour": {
         "openAgain": "افتحها مجددًا"
     },
+    "saveBar": {
+        "label": "حفظ التغييرات",
+        "unsaved": "تغييرات غير محفوظة",
+        "notSavedYet": "لم يُحفظ بعد",
+        "toFix_zero": "لا شيء لإصلاحه",
+        "toFix_one": "أمر واحد لإصلاحه",
+        "toFix_two": "أمران لإصلاحهما",
+        "toFix_few": "{{count}} أمور لإصلاحها",
+        "toFix_many": "{{count}} أمرًا لإصلاحه",
+        "toFix_other": "{{count}} أمر لإصلاحه"
+    },
     "hub": {
         "title": "مساحة عمل المطبخ",
         "itemCount_zero": "لا توجد سجلات",

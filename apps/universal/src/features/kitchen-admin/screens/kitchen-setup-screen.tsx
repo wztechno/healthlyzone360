@@ -1,6 +1,5 @@
 import type { KitchenSetupStep } from '@healthy360/api-client/contracts';
 import {
-    Callout,
     Cascade,
     ErrorState,
     FormSkeleton,
@@ -26,6 +25,7 @@ import { SetupStep } from './wholesale-setup-screen.tsx';
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
+import { FailureToast } from '../failure-toast.tsx';
 const PAGE = 'kitchen-setup';
 
 /** Where each step is finished. */
@@ -180,15 +180,12 @@ function KitchenSetup() {
                 ))
             )}
 
-            {goLiveFailure === null ? null : (
-                <Callout
-                    testID={`${PAGE}-go-live-error`}
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:setup.goLiveError')}
-                    body={goLiveFailure.message}
-                />
-            )}
+            <FailureToast
+                failure={goLiveFailure}
+                testID={`${PAGE}-go-live-error`}
+                title={t('kitchen:setup.goLiveError')}
+                body={goLiveFailure?.message}
+            />
 
             <View className={cx('z-auto gap-3', atLeast('md') ? 'flex-row' : 'flex-col')}>
                 <View

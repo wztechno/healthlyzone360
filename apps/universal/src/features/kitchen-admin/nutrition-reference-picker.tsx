@@ -21,6 +21,7 @@ import { toFailure } from '../../data/hooks.ts';
 import { useNutritionReferenceSearch } from '../../data/kitchen-admin-hooks.ts';
 
 import { DeskButton } from './desk-kit/desk-button.tsx';
+import { FailureToast } from './failure-toast.tsx';
 /** `saturated_fat` → `saturatedFat`: the provider's ids are snake case, the catalogue's keys are not. */
 export function nutrientKey(id: string): string {
     return `nutrition:nutrients.${id.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase())}`;
@@ -169,18 +170,16 @@ export function NutritionReferencePicker({
                 />
             )}
 
-            {failure === null ? null : (
-                <Callout
-                    testID="nutrition-reference-error"
-                    tone="danger"
-                    title={t(
-                        failure.code === 'nutrition.provider_configuration'
-                            ? 'kitchen:nutritionLookup.configuration'
-                            : 'kitchen:nutritionLookup.unavailable',
-                    )}
-                    body={failure.message}
-                />
-            )}
+            <FailureToast
+                failure={failure}
+                testID="nutrition-reference-error"
+                title={t(
+                    failure?.code === 'nutrition.provider_configuration'
+                        ? 'kitchen:nutritionLookup.configuration'
+                        : 'kitchen:nutritionLookup.unavailable',
+                )}
+                body={failure?.message}
+            />
             {!search.isPending && !search.isError && search.data?.length === 0 ? (
                 <Callout
                     testID="nutrition-reference-empty"

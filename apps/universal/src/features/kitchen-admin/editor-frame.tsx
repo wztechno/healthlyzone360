@@ -15,6 +15,7 @@ import type { EditorStepsProps } from './editor-steps.tsx';
 import { useKitchenTrailLeaf } from './kitchen-ops-shell.tsx';
 import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
+import { useSaveBar } from './save-bar.tsx';
 import { PageBackPill } from '../../shell/area-trail.tsx';
 
 import { DeskButton } from './desk-kit/desk-button.tsx';
@@ -163,6 +164,28 @@ export function EditorFrame({
     // The rail beside the form only while the form keeps its width — on the page, not the window.
     const railBeside = useContentWidth().atLeast(EDITOR_RAIL_WIDTH + 16 + EDITOR_FORM_MIN);
     const formatter = useFormatter();
+    const walked = steps !== undefined && steps.steps.length > 1;
+    // The save bar takes the unsaved marker, and the Save of a form that is not walked in steps.
+    // Embedded, the host page owns the bar.
+    const barDrawn = useSaveBar(
+        embedded
+            ? null
+            : {
+                  dirty: guard.isDirty,
+                  creating: meta === null,
+                  save:
+                      hideSave || walked
+                          ? undefined
+                          : {
+                                testID: `${testID}-save`,
+                                label: saveLabel,
+                                loading: saving,
+                                disabled: saveDisabled || saving,
+                                onPress: onSaveDraft,
+                            },
+                  testID,
+              },
+    );
 
     const updatedLine = (): string => {
         // An unknown timestamp reads the same as no record at all. `/kitchen/branch-operating` is the
@@ -206,7 +229,7 @@ export function EditorFrame({
                     label={t(statusKey(meta.status))}
                 />
             ) : null}
-            {guard.isDirty ? (
+            {guard.isDirty && !barDrawn ? (
                 <DeskChip
                     testID={`${testID}-dirty`}
                     tone="warning"
@@ -238,7 +261,7 @@ export function EditorFrame({
                         testID={`${testID}-actions`}
                     >
                         {primaryAction}
-                        {hideSave ? null : (
+                        {hideSave || barDrawn ? null : (
                             <DeskButton
                                 testID={`${testID}-save`}
                                 label={saveLabel}
@@ -285,7 +308,7 @@ export function EditorFrame({
                                 )}
                                 {primaryAction}
                                 {/* A stepped form saves from its last step's Next, not up here. */}
-                                {hideSave || stepped ? null : (
+                                {hideSave || stepped || barDrawn ? null : (
                                     <DeskButton
                                         testID={`${testID}-save`}
                                         label={saveLabel}

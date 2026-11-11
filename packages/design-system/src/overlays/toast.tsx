@@ -106,6 +106,25 @@ export interface ToastApi {
 }
 
 const ToastContext = createContext<ToastApi | null>(null);
+/** Lifts the toasts above a bar pinned to the foot of the page — the desk's save bar. */
+const ToastInsetContext = createContext<((owner: object, inset: number) => void) | null>(null);
+
+/**
+ * Keeps the toasts clear of something pinned to the bottom of the page: while this is mounted with
+ * a non-zero `inset`, the toast column rises by that many pixels. Several owners may ask at once;
+ * the highest wins. Outside a provider it does nothing.
+ */
+export function useToastInset(inset: number): void {
+    const setInset = useContext(ToastInsetContext);
+    const [owner] = useState(() => ({}));
+    useEffect(() => {
+        if (setInset === null) return undefined;
+        setInset(owner, inset);
+        return () => {
+            setInset(owner, 0);
+        };
+    }, [inset, owner, setInset]);
+}
 const ToastLookContext = createContext<ToastLook>('default');
 
 /**
@@ -140,6 +159,17 @@ export interface ToastProviderProps {
 export function ToastProvider({ children, defaultDurationMs }: ToastProviderProps) {
     const { t } = useTranslation();
     const [toasts, setToasts] = useState<readonly Toast[]>([]);
+    const [insets, setInsets] = useState<ReadonlyMap<object, number>>(() => new Map());
+    const setInset = useCallback((owner: object, inset: number) => {
+        setInsets((current) => {
+            if ((current.get(owner) ?? 0) === inset) return current;
+            const next = new Map(current);
+            if (inset === 0) next.delete(owner);
+            else next.set(owner, inset);
+            return next;
+        });
+    }, []);
+    const lift = Math.max(0, ...insets.values());
     const counter = useRef(0);
     const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
@@ -194,7 +224,7 @@ export function ToastProvider({ children, defaultDurationMs }: ToastProviderProp
 
     return (
         <ToastContext.Provider value={api}>
-            {children}
+            <ToastInsetContext.Provider value={setInset}>{children}</ToastInsetContext.Provider>
 
             {/*
              * Pinned to the window on the web. The app's root view can be taller than the window,
@@ -206,6 +236,7 @@ export function ToastProvider({ children, defaultDurationMs }: ToastProviderProp
              */}
             <View
                 className="absolute bottom-4 end-4 start-4 z-50 flex-col gap-2 web:fixed web:bottom-6"
+                style={lift === 0 ? undefined : { bottom: 24 + lift }}
                 pointerEvents="box-none"
             >
                 <View

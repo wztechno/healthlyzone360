@@ -1,7 +1,6 @@
 import type { Payable } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Callout,
     Cascade,
     Dialog,
     EmptyState,
@@ -34,6 +33,7 @@ import {
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskDateButton } from '../desk-kit/mini-month.tsx';
+import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/supplier-bills?tab=bills` — what is owed for deliveries.
  *
@@ -403,14 +403,12 @@ function ReviewDialog({ row, onClose }: { readonly row: Payable; readonly onClos
                         </Text>
                     ))}
                 </Stack>
-                {failure === null ? null : (
-                    <Callout
-                        testID="kitchen-payable-review-error"
-                        tone="danger"
-                        title={t('kitchen:ops.payables.saveError')}
-                        body={failure.message}
-                    />
-                )}
+                <FailureToast
+                    failure={failure}
+                    testID="kitchen-payable-review-error"
+                    title={t('kitchen:ops.payables.saveError')}
+                    body={failure?.message}
+                />
             </Stack>
         </Dialog>
     );
@@ -500,14 +498,12 @@ function PayDialog({ row, onClose }: { readonly row: Payable; readonly onClose: 
                     maxLength={120}
                     autoCorrect={false}
                 />
-                {failure === null ? null : (
-                    <Callout
-                        testID="kitchen-payable-pay-error"
-                        tone="danger"
-                        title={t('kitchen:ops.payables.saveError')}
-                        body={failure.message}
-                    />
-                )}
+                <FailureToast
+                    failure={failure}
+                    testID="kitchen-payable-pay-error"
+                    title={t('kitchen:ops.payables.saveError')}
+                    body={failure?.message}
+                />
             </Stack>
         </Dialog>
     );

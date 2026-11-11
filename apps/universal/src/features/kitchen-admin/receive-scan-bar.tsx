@@ -26,6 +26,7 @@ import { unitShortKey } from './format.ts';
 import type { ScannedPack } from './receive-delivery-model.ts';
 
 import { DeskButton } from './desk-kit/desk-button.tsx';
+import { FailureToast } from './failure-toast.tsx';
 /**
  * The scan field both receive screens put above their lines (ingredient barcodes, plan §8).
  *
@@ -319,14 +320,11 @@ function LinkBarcodeDialog({
                     value={packQuantity}
                     onChangeText={setPackQuantity}
                 />
-                {failure === null ? null : (
-                    <Callout
-                        testID={`${testID}-error`}
-                        role="alert"
-                        tone="danger"
-                        title={barcodeFailureText(t, failure, locale) ?? ''}
-                    />
-                )}
+                <FailureToast
+                    failure={failure}
+                    testID={`${testID}-error`}
+                    title={barcodeFailureText(t, failure, locale) ?? ''}
+                />
             </Stack>
         </Dialog>
     );

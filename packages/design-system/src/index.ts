@@ -402,6 +402,7 @@ export type {
 export {
     DEFAULT_TOAST_DURATION_MS,
     TOAST_TONES,
+    useToastInset,
     ToastLookScope,
     ToastProvider,
     useToast,

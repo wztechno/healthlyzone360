@@ -860,20 +860,19 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                                     }}
                                 />
                             )}
-                            {/*
-                             * The one Save, on every step: it writes the whole walk, and a reader who
-                             * changed only the first step should not have to page to the last for it.
-                             */}
-                            {canManage ? (
-                                <DeskButton
-                                    testID="kitchen-zone-editor-screen-save"
-                                    label={t('kitchen:zones.saveZone')}
-                                    loading={saving}
-                                    disabled={saving}
-                                    onPress={attemptSave}
-                                />
-                            ) : null}
                         </>
+                    }
+                    creating={isCreating}
+                    save={
+                        canManage
+                            ? {
+                                  testID: 'kitchen-zone-editor-screen-save',
+                                  label: t('kitchen:zones.saveZone'),
+                                  loading: saving,
+                                  disabled: saving,
+                                  onPress: attemptSave,
+                              }
+                            : undefined
                     }
                     errors={{
                         summary: t(

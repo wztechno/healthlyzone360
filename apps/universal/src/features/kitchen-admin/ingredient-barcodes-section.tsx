@@ -2,7 +2,6 @@ import { formatGtin } from '@healthy360/api-client/contracts';
 import type { ApiFailure, BarcodeScan, IngredientBarcode } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Callout,
     FormSection,
     Icon,
     IconButton,
@@ -32,6 +31,7 @@ import { CameraScanButton } from './camera-scan-button.tsx';
 import { unitCodeLabel, unitShortKey } from './format.ts';
 
 import { DeskButton } from './desk-kit/desk-button.tsx';
+import { FailureToast } from './failure-toast.tsx';
 /**
  * An ingredient's barcodes (ingredient barcodes, plan §8): producer's codes and the one kitchen code.
  *
@@ -258,15 +258,12 @@ export function IngredientBarcodesSection({
                     </View>
                 ) : null}
 
-                {failure === null ? null : (
-                    <Callout
-                        testID="kitchen-ingredient-barcode-error"
-                        role="alert"
-                        tone="danger"
-                        title={t('kitchen:barcodes.refusedTitle')}
-                        body={barcodeFailureText(t, failure, locale) ?? ''}
-                    />
-                )}
+                <FailureToast
+                    failure={failure}
+                    testID="kitchen-ingredient-barcode-error"
+                    title={t('kitchen:barcodes.refusedTitle')}
+                    body={barcodeFailureText(t, failure, locale) ?? ''}
+                />
             </Stack>
         </FormSection>
     );
