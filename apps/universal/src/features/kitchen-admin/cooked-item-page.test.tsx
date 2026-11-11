@@ -60,6 +60,9 @@ jest.mock('expo-router', () => {
     const canGoBack = () => false;
     return {
         __esModule: true,
+        useSegments: () => [],
+        useGlobalSearchParams: () => ({}),
+        useNavigation: () => ({}),
         useRouter: () => ({
             push,
             replace,

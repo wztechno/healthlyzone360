@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10707 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10711 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4284,6 +4284,7 @@ export interface NamespaceKeys {
     | 'desk.window.to'
     | 'desk.window.today'
     | 'desk.windowLabel'
+    | 'detour.openAgain'
     | 'dishOptions.add'
     | 'dishOptions.allergensAfterSave'
     | 'dishOptions.apply'
@@ -6672,6 +6673,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.onOrder'
     | 'ops.supplyOrders.onOrderMore'
     | 'ops.supplyOrders.onOrderShort'
+    | 'ops.supplyOrders.openCreated'
     | 'ops.supplyOrders.order'
     | 'ops.supplyOrders.orderAll'
     | 'ops.supplyOrders.orderAnyway'
@@ -6778,6 +6780,7 @@ export interface NamespaceKeys {
     | 'ops.supplyOrders.summaryLeftBehind'
     | 'ops.supplyOrders.summaryLineTotal'
     | 'ops.supplyOrders.summaryLines'
+    | 'ops.supplyOrders.supplierAddedPicked'
     | 'ops.supplyOrders.supplierArchivedBody'
     | 'ops.supplyOrders.supplierArchivedTitle'
     | 'ops.supplyOrders.supplierLabel'
@@ -8113,6 +8116,7 @@ export interface NamespaceKeys {
     | 'toolbar.segmentReview'
     | 'toolbar.statusAll'
     | 'toolbar.statusLabel'
+    | 'trail.modulePages'
     | 'transfer.columns.ingredients.availability'
     | 'transfer.columns.ingredients.b2bPrice'
     | 'transfer.columns.ingredients.b2cPrice'
@@ -15009,6 +15013,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:desk.window.to',
   'kitchen:desk.window.today',
   'kitchen:desk.windowLabel',
+  'kitchen:detour.openAgain',
   'kitchen:dishOptions.add',
   'kitchen:dishOptions.allergensAfterSave',
   'kitchen:dishOptions.apply',
@@ -17397,6 +17402,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.onOrder',
   'kitchen:ops.supplyOrders.onOrderMore',
   'kitchen:ops.supplyOrders.onOrderShort',
+  'kitchen:ops.supplyOrders.openCreated',
   'kitchen:ops.supplyOrders.order',
   'kitchen:ops.supplyOrders.orderAll',
   'kitchen:ops.supplyOrders.orderAnyway',
@@ -17503,6 +17509,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.supplyOrders.summaryLeftBehind',
   'kitchen:ops.supplyOrders.summaryLineTotal',
   'kitchen:ops.supplyOrders.summaryLines',
+  'kitchen:ops.supplyOrders.supplierAddedPicked',
   'kitchen:ops.supplyOrders.supplierArchivedBody',
   'kitchen:ops.supplyOrders.supplierArchivedTitle',
   'kitchen:ops.supplyOrders.supplierLabel',
@@ -18838,6 +18845,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:toolbar.segmentReview',
   'kitchen:toolbar.statusAll',
   'kitchen:toolbar.statusLabel',
+  'kitchen:trail.modulePages',
   'kitchen:transfer.columns.ingredients.availability',
   'kitchen:transfer.columns.ingredients.b2bPrice',
   'kitchen:transfer.columns.ingredients.b2cPrice',

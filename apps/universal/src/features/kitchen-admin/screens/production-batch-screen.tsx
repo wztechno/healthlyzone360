@@ -23,7 +23,8 @@ import { useTranslation } from 'react-i18next';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
-import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { withReturnTo } from '../../../navigation/return-to.ts';
+import { useCurrentHref, useReturnTo } from '../../../navigation/use-return-to.ts';
 import {
     useAbandonProductionOrderMutation,
     useCancelProductionOrderMutation,
@@ -147,6 +148,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
+    const here = useCurrentHref();
     const params = useLocalSearchParams<{ readonly returnTo?: string }>();
     // Back steps to wherever the batch was opened from — the register, the planner, else the desk.
     const back = useReturnTo(params.returnTo, '/kitchen/production-desk');
@@ -396,7 +398,10 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                                 label={t('kitchen:ops.production.sheetLink')}
                                 onPress={() => {
                                     router.push(
-                                        `/kitchen/production-desk/${String(batch.id)}/sheet`,
+                                        withReturnTo(
+                                            `/kitchen/production-desk/${String(batch.id)}/sheet`,
+                                            here,
+                                        ) as never,
                                     );
                                 }}
                             />
@@ -410,7 +415,10 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                                 label={t('kitchen:ops.production.printLabel')}
                                 onPress={() => {
                                     router.push(
-                                        `/kitchen/production-desk/${String(batch.id)}/label`,
+                                        withReturnTo(
+                                            `/kitchen/production-desk/${String(batch.id)}/label`,
+                                            here,
+                                        ) as never,
                                     );
                                 }}
                             />

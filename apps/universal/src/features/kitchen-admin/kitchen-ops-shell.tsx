@@ -1,19 +1,20 @@
 import { DensityProvider } from '@healthy360/design-system';
-import type { BreadcrumbItem } from '@healthy360/design-system';
-import { usePathname, useRouter } from 'expo-router';
+import type { MenuItem, NavigationItem } from '@healthy360/design-system';
+import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { pathnameOf, safeReturnTo } from '../../navigation/return-to.ts';
 import { guardNavigation } from '../../navigation/use-unsaved-guard.ts';
 import { useAccessState } from '../../session/session-provider.tsx';
-import {
-    AreaTrail,
-    TrailLeafProvider,
-    useTrailLeaf,
-    useTrailLeafState,
-} from '../../shell/area-trail.tsx';
+import { TrailLeafProvider, useTrailLeaf, useTrailLeafState } from '../../shell/area-trail.tsx';
+import { returnCrumbLabel } from './came-from.ts';
+import { DeskTrail } from './desk-kit/desk-trail.tsx';
+import type { DeskCrumb } from './desk-kit/desk-trail.tsx';
+import { ENTITY_FAMILIES } from './entity-registry.ts';
+import type { EntityFamily } from './entity-registry.ts';
 import {
     OVERVIEW_HREF,
     activeKitchenNavHref,
@@ -136,96 +137,187 @@ export const useKitchenTrailLeaf = useTrailLeaf;
 /** Holds the trail's leaf for everything under the kitchen layout — the top bar and the page. */
 export const KitchenTrailProvider = TrailLeafProvider;
 
+/** One crumb of the kitchen trail — the desk kit's (`desk-kit/desk-trail.tsx`). */
+export type KitchenCrumb = DeskCrumb;
+
+/** The deepest registry family an href sits under — `/kitchen/order-desk/cash` is Cash's. */
+function familyOf(href: string): EntityFamily | undefined {
+    const path = pathnameOf(href);
+    return ENTITY_FAMILIES.filter(
+        (candidate) => path === candidate.href || path.startsWith(`${candidate.href}/`),
+    ).sort((a, b) => b.href.length - a.href.length)[0];
+}
+
 /**
  * The crumbs for the current kitchen route. Empty on the hub, where a trail naming the page you
  * are on is furniture — which is the caller's signal to draw the area title instead.
+ *
+ * ## The one rule for "where did I come from"
+ *
+ * Every kitchen page reads `?returnTo=` here, lists included, so no page has to remember to. When
+ * the return is somewhere other than this route's own family — Purchases ledger opened from Stock,
+ * Quality control from Stock gaps, Stock from an alert — the trail is `⌂ / ↩ Stock gaps / Quality
+ * control`, and the return crumb goes back there. A return *within* the family (a supplier opened
+ * from its own list's view) keeps the ordinary trail; only its family crumb goes back to the list
+ * as it was left, filters and all, instead of to a fresh one.
+ *
+ * `navigation` is the rail's own items (`useKitchenNavigation`), passed so the module's menu lists
+ * exactly the rail's pages with the rail's counts; without it the menu lists the permitted pages.
  */
-export function useKitchenTrail(): readonly BreadcrumbItem[] {
+export function useKitchenTrail(navigation?: readonly NavigationItem[]): readonly KitchenCrumb[] {
     const { t } = useTranslation();
     const router = useRouter();
     const pathname = usePathname();
+    const params = useGlobalSearchParams();
     const accessState = useAccessState();
     const { leaf, back, parentLabel } = useTrailLeafState();
+    const rawReturn = params.returnTo;
+    const returnTo = safeReturnTo(Array.isArray(rawReturn) ? rawReturn[0] : rawReturn);
 
-    return useMemo<readonly BreadcrumbItem[]>(() => {
+    return useMemo<readonly KitchenCrumb[]>(() => {
         // The hub is its own page; a trail that says "Kitchen workspace" on the kitchen workspace
         // is furniture.
         if (isKitchenNavActive(pathname, OVERVIEW_HREF)) return [];
 
-        const hub: BreadcrumbItem = {
+        const go = (href: string) => () => {
+            guardNavigation(() => {
+                router.push(href as never);
+            });
+        };
+        const backTo = (href: string) => () => {
+            guardNavigation(() => {
+                router.dismissTo(href as never);
+            });
+        };
+        const hub: KitchenCrumb = {
             key: 'hub',
+            kind: 'home',
             label: t('kitchen:hub.title'),
             testID: 'kitchen-crumb-hub',
-            onPress: () => {
-                guardNavigation(() => {
-                    router.push(OVERVIEW_HREF as never);
-                });
-            },
+            onPress: go(OVERVIEW_HREF),
         };
+        const returnCrumb = (label: string, onPress: () => void): KitchenCrumb => ({
+            key: 'return',
+            kind: 'return',
+            label,
+            testID: 'kitchen-crumb-return',
+            onPress,
+        });
+        const current = (key: string, label: string, testID: string): KitchenCrumb => ({
+            key,
+            kind: 'current',
+            label,
+            testID,
+        });
 
         // Opened from somewhere that is not this route's parent — a recipe from Stock gaps — and
-        // handed the way back: the crumb above the leaf is that page, and goes back to it.
+        // the screen handed the way back itself, with the origin's name (a record's, say).
         if (leaf !== null && back !== null && parentLabel !== null) {
             return [
                 hub,
-                {
-                    key: 'return',
-                    label: parentLabel,
-                    testID: 'kitchen-crumb-family',
-                    onPress: back,
-                },
-                { key: 'leaf', label: leaf, testID: 'kitchen-crumb-leaf' },
+                returnCrumb(parentLabel, back),
+                current('leaf', leaf, 'kitchen-crumb-leaf'),
             ];
         }
 
-        const items = kitchenNavSections(accessState).flatMap((section) => section.items);
+        const sections = kitchenNavSections(accessState);
+        const items = sections.flatMap((section) => section.items);
         const activeHref = activeKitchenNavHref(
             pathname,
             items.map((item) => item.href),
         );
         const family = items.find((item) => item.href === activeHref);
 
+        // Opened from another page than this family: that page is the way back, on every page.
+        const returnFamily = returnTo === null ? undefined : familyOf(returnTo);
+        // Only once this page's own family is known: until the access state lands every family
+        // reads as "elsewhere", and the trail would flash a return for the page's own list.
+        if (
+            family !== undefined &&
+            returnTo !== null &&
+            returnFamily !== undefined &&
+            returnFamily.key !== family.key
+        ) {
+            const label = returnCrumbLabel(returnTo, t);
+            if (label !== null) {
+                return [
+                    hub,
+                    returnCrumb(label, backTo(returnTo)),
+                    leaf === null
+                        ? current(family.key, t(family.nameKey), 'kitchen-crumb-family')
+                        : current('leaf', leaf, 'kitchen-crumb-leaf'),
+                ];
+            }
+        }
+
         // A route the registry does not know — permission-filtered away, or new and unregistered.
         // Still offer the way home rather than rendering nothing.
         if (family === undefined) {
-            return [{ key: 'hub', label: t('kitchen:hub.title'), testID: 'kitchen-crumb-hub' }];
+            return [{ ...hub, kind: 'current', onPress: undefined }];
         }
+
+        const section = sections.find((candidate) =>
+            candidate.items.some((item) => item.key === family.key),
+        );
+        const railByKey = new Map((navigation ?? []).map((item) => [item.key, item]));
+        const pages: MenuItem[] = (section?.items ?? [])
+            .filter((item) => navigation === undefined || railByKey.has(item.key))
+            .map((item) => {
+                const count = railByKey.get(item.key)?.count;
+                return {
+                    key: item.key,
+                    label: t(item.nameKey),
+                    selected: item.key === family.key,
+                    testID: `kitchen-crumb-module-${item.key}`,
+                    ...(count === undefined ? {} : { count }),
+                    onSelect: go(item.href),
+                };
+            });
+        const moduleCrumb: KitchenCrumb | null =
+            section === undefined
+                ? null
+                : {
+                      key: 'module',
+                      kind: 'module',
+                      label: t(section.labelKey),
+                      testID: 'kitchen-crumb-module',
+                      pages,
+                  };
 
         const onFamilyRoute = pathname === family.href;
         // A record open *inside* the list: the family route is the page, but the list is not
         // what is showing, so the crumb is a link again — to the list, by closing the record.
         const viewOpen = onFamilyRoute && leaf !== null && back !== null;
+        const showLeaf = leaf !== null && (!onFamilyRoute || viewOpen);
+        const familyPress =
+            viewOpen && back !== null
+                ? back
+                : returnTo !== null && returnFamily?.key === family.key
+                  ? // Back to the list as it was left, when the return is the list's own address.
+                    backTo(returnTo)
+                  : go(family.href);
+        const familyCrumb: KitchenCrumb = showLeaf
+            ? {
+                  key: family.key,
+                  kind: 'page',
+                  label: t(family.nameKey),
+                  testID: 'kitchen-crumb-family',
+                  onPress: familyPress,
+              }
+            : current(family.key, t(family.nameKey), 'kitchen-crumb-family');
+
         return [
             hub,
-            {
-                key: family.key,
-                label: t(family.nameKey),
-                testID: 'kitchen-crumb-family',
-                // A link unless it *is* the page. Note the second condition: with a leaf below it
-                // the family crumb is no longer last, and `Breadcrumbs` only strips the press from
-                // the final item — so this is what actually restores the way back to the list.
-                ...(viewOpen
-                    ? { onPress: back }
-                    : onFamilyRoute
-                      ? {}
-                      : {
-                            onPress: () => {
-                                guardNavigation(() => {
-                                    router.push(family.href as never);
-                                });
-                            },
-                        }),
-            },
-            ...(leaf === null || (onFamilyRoute && !viewOpen)
-                ? []
-                : [{ key: 'leaf', label: leaf, testID: 'kitchen-crumb-leaf' }]),
+            ...(moduleCrumb === null ? [] : [moduleCrumb]),
+            familyCrumb,
+            ...(showLeaf && leaf !== null ? [current('leaf', leaf, 'kitchen-crumb-leaf')] : []),
         ];
-    }, [accessState, pathname, router, t, leaf, back, parentLabel]);
+    }, [accessState, pathname, router, t, leaf, back, parentLabel, returnTo, navigation]);
 }
 
 /** The trail as the top bar draws it. `kitchen-breadcrumbs` is a print-stylesheet contract. */
-export function KitchenTrail({ crumbs }: { readonly crumbs: readonly BreadcrumbItem[] }) {
-    return <AreaTrail testID="kitchen-breadcrumbs" crumbs={crumbs} />;
+export function KitchenTrail({ crumbs }: { readonly crumbs: readonly KitchenCrumb[] }) {
+    return <DeskTrail testID="kitchen-breadcrumbs" crumbs={crumbs} />;
 }
 
 export function KitchenOpsShell({ children }: KitchenOpsShellProps) {

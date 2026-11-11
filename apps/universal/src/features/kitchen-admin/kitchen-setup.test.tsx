@@ -13,6 +13,10 @@ const mockPush = jest.fn();
 
 jest.mock('expo-router', () => ({
     __esModule: true,
+    useSegments: () => [],
+    useGlobalSearchParams: () => ({}),
+    useNavigation: () => ({}),
+    useLocalSearchParams: () => ({}),
     useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
     usePathname: () => '/kitchen/setup',
     Redirect: () => null,
@@ -59,7 +63,10 @@ describe('the Setup page', () => {
 
         fireEvent.press(screen.getByTestId('kitchen-setup-focus-open'));
 
-        expect(mockPush).toHaveBeenCalledWith('/kitchen/meals');
+        // With Setup as the way back, so the step's page leads back here.
+        expect(mockPush).toHaveBeenCalledWith(
+            '/kitchen/recipes?kind=meal&returnTo=%252Fkitchen%252Fsetup',
+        );
     });
 
     it('offers Go live once the required steps are done, whatever Team says', async () => {
@@ -97,6 +104,6 @@ describe('the Setup page', () => {
 
         fireEvent.press(screen.getByTestId('kitchen-setup-team-open'));
 
-        expect(mockPush).toHaveBeenCalledWith('/kitchen/team');
+        expect(mockPush).toHaveBeenCalledWith('/kitchen/team?returnTo=%252Fkitchen%252Fsetup');
     });
 });

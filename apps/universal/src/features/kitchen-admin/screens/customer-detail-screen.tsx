@@ -24,7 +24,7 @@ import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useKitchenCustomerQuery } from '../../../data/kitchen-customers-hooks.ts';
 import { useKitchenOrdersQuery } from '../../../data/kitchen-orders-hooks.ts';
-import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { useCurrentHref, useReturnTo } from '../../../navigation/use-return-to.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import {
@@ -44,6 +44,7 @@ import { BackPill } from '../../../ui/back-pill.tsx';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { withReturnTo } from '../../../navigation/return-to.ts';
 /**
  * `/kitchen/customers/{customer}` — one customer in the kitchen's book: their contacts, every saved
  * address, and for a corporate buyer the company record and named contacts. Read-only; correcting a
@@ -258,6 +259,7 @@ function CustomerOrders({ customerAccountId }: { readonly customerAccountId: str
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
+    const here = useCurrentHref();
     const orders = useKitchenOrdersQuery({ customerAccountId, limit: RECENT_ORDERS });
     const failure = toFailure(orders.error);
 
@@ -307,7 +309,10 @@ function CustomerOrders({ customerAccountId }: { readonly customerAccountId: str
                         label={t('kitchen:ops.customers.openOrder')}
                         onPress={() => {
                             router.push(
-                                `/kitchen/orders?view=${encodeURIComponent(String(order.id))}` as never,
+                                withReturnTo(
+                                    `/kitchen/orders?view=${encodeURIComponent(String(order.id))}`,
+                                    here,
+                                ) as never,
                             );
                         }}
                     />

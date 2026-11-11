@@ -46,9 +46,10 @@ import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
 import { displayName, unitCodeLabel } from '../format.ts';
 import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { NewSupplierDialog } from '../new-supplier-dialog.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
-import { BackPill } from '../../../ui/back-pill.tsx';
+import { PageBackPill, useAreaTrailDrawn } from '../../../shell/area-trail.tsx';
 import { pathnameOf } from '../../../navigation/return-to.ts';
 import { DeskButton, DeskCheckbox, DeskChip } from '../desk-kit/index.ts';
 import { supplyOrderGroupTestId, supplyOrderRowTestId } from '../ops-format.ts';
@@ -203,6 +204,8 @@ function SupplyOrderBuilder() {
     // Cancel steps back to wherever the builder was opened from — the book, a batch's shortfall or
     // Requirements.
     const back = useReturnTo(params.returnTo, '/kitchen/supply-orders');
+    // The top bar's trail is the way back where it is drawn — one control per screen.
+    const trailDrawn = useAreaTrailDrawn();
     const toast = useToast();
     const access = useAccessState();
 
@@ -224,6 +227,8 @@ function SupplyOrderBuilder() {
     const guard = useUnsavedGuardFor(touched, { message: t('kitchen:unsaved.browserPrompt') });
     const [remember, setRemember] = useState<Readonly<Record<string, boolean>>>({});
     const [confirmingRefresh, setConfirmingRefresh] = useState(false);
+    /** "Add a new supplier" — made here, so the order in progress is never left behind. */
+    const [addingSupplier, setAddingSupplier] = useState(false);
     const [confirmingCreate, setConfirmingCreate] = useState(false);
     /** Dialog-level, not toast-level: the batch failed, so the dialog stays open to be retried. */
     const [createFailed, setCreateFailed] = useState(false);
@@ -365,6 +370,29 @@ function SupplyOrderBuilder() {
         }
     }
 
+    /**
+     * A supplier made from the unlinked rows' "Add a new supplier" is the answer those rows were
+     * waiting for: it is chosen on each one still without a supplier. Only chosen for this order —
+     * whether it also becomes the item's supplier stays the row's own "link" tick.
+     */
+    function supplierAdded(supplier: Supplier): void {
+        const waiting = unlinked.filter(
+            (row) => (effective[String(row.stockItemId)]?.supplierId ?? null) === null,
+        );
+        for (const row of waiting) update(row, { supplierId: supplier.id });
+        toast.show({
+            testID: 'kitchen-supply-order-supplier-added-toast',
+            tone: 'success',
+            message:
+                waiting.length === 0
+                    ? t('kitchen:ops.procurement.supplierCreatedToast')
+                    : t('kitchen:ops.supplyOrders.supplierAddedPicked', {
+                          name: displayName(supplier.name, locale).value,
+                          count: waiting.length,
+                      }),
+        });
+    }
+
     function refresh(): void {
         setConfirmingRefresh(false);
         setTouched(false);
@@ -402,9 +430,15 @@ function SupplyOrderBuilder() {
                 // Returned in request order (§6), and passed on in that order: the sheets come out
                 // of the printer grouped the way the person grouped them.
                 const ids = created.map((order) => String(order.id)).join(',');
-                router.replace(
-                    `/kitchen/supply-orders?created=${encodeURIComponent(ids)}` as never,
-                );
+                const book = `/kitchen/supply-orders?created=${encodeURIComponent(ids)}`;
+                // Opened from another page — Requirements, a batch short of stock — the reader goes
+                // back to it, with the order book one press away on the toast.
+                const fromElsewhere = back.returnTo !== null;
+                // Clean before leaving, so the leave guard does not stop a finished order.
+                setTouched(false);
+                guard.markClean();
+                if (fromElsewhere) back.finish();
+                else router.replace(book as never);
                 toast.show({
                     testID: 'kitchen-supply-order-created-toast',
                     tone: 'success',
@@ -412,6 +446,17 @@ function SupplyOrderBuilder() {
                         count: created.length,
                         numbers: created.map((order) => order.number).join(', '),
                     }),
+                    ...(fromElsewhere
+                        ? {
+                              action: {
+                                  label: t('kitchen:ops.supplyOrders.openCreated'),
+                                  testID: 'kitchen-supply-order-created-open',
+                                  onPress: () => {
+                                      router.push(book as never);
+                                  },
+                              },
+                          }
+                        : {}),
                 });
             },
             onError: () => {
@@ -800,20 +845,22 @@ function SupplyOrderBuilder() {
              * The desk's way back, as Requirements and the order pages draw it, where Cancel was; the
              * commit lives at the foot of the ticket, under what it creates.
              */}
-            <View className="flex-row">
-                <BackPill
-                    testID="kitchen-supply-order-builder-cancel"
-                    label={
-                        back.returnTo !== null &&
-                        pathnameOf(back.returnTo) === '/kitchen/order-desk/requirements'
-                            ? t('kitchen:ops.supplyOrders.backToRequirements')
-                            : t('kitchen:ops.supplyOrders.backToOrders')
-                    }
-                    onPress={() => {
-                        guard.intercept(back.leave);
-                    }}
-                />
-            </View>
+            {trailDrawn ? null : (
+                <View className="flex-row">
+                    <PageBackPill
+                        testID="kitchen-supply-order-builder-cancel"
+                        label={
+                            back.returnTo !== null &&
+                            pathnameOf(back.returnTo) === '/kitchen/order-desk/requirements'
+                                ? t('kitchen:ops.supplyOrders.backToRequirements')
+                                : t('kitchen:ops.supplyOrders.backToOrders')
+                        }
+                        onPress={() => {
+                            guard.intercept(back.leave);
+                        }}
+                    />
+                </View>
+            )}
             <RecordFormOpening
                 testID="kitchen-supply-order-builder-screen"
                 title={t('kitchen:ops.supplyOrders.builderTitle')}
@@ -987,11 +1034,7 @@ function SupplyOrderBuilder() {
                                                     />
                                                 }
                                                 onPress={() => {
-                                                    guard.intercept(() => {
-                                                        router.push(
-                                                            '/kitchen/suppliers/new' as never,
-                                                        );
-                                                    });
+                                                    setAddingSupplier(true);
                                                 }}
                                             />
                                         }
@@ -1096,6 +1139,15 @@ function SupplyOrderBuilder() {
                     ) : null}
                 </View>
             )}
+
+            <NewSupplierDialog
+                testID="kitchen-supply-order-new-supplier"
+                open={addingSupplier}
+                onClose={() => {
+                    setAddingSupplier(false);
+                }}
+                onCreated={supplierAdded}
+            />
 
             <Dialog
                 look="card"

@@ -50,7 +50,7 @@ import {
     useUpdateZoneMutation,
     zonesFromPages,
 } from '../../../data/kitchen-admin-hooks.ts';
-import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { useCurrentHref, useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useAccessState, useSession } from '../../../session/session-provider.tsx';
 import { BilingualField } from '../bilingual-field.tsx';
 import { weekdayKey } from '../../marketplace/format.ts';
@@ -76,6 +76,7 @@ import { BackPill } from '../../../ui/back-pill.tsx';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { withReturnTo } from '../../../navigation/return-to.ts';
 /**
  * `/kitchen/delivery-zones/{zone}` — one delivery zone: where it reaches, what it charges, and when.
  *
@@ -246,6 +247,7 @@ function ReadOnlyCell({
 function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
+    const here = useCurrentHref();
     const { locale } = useLocale();
     const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
@@ -1145,7 +1147,12 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                                 canManage={canManage}
                                 onManage={() => {
                                     guard.intercept(() => {
-                                        router.push('/kitchen/delivery-windows' as never);
+                                        router.push(
+                                            withReturnTo(
+                                                '/kitchen/delivery-windows',
+                                                here,
+                                            ) as never,
+                                        );
                                     });
                                 }}
                                 onChange={(next) => {

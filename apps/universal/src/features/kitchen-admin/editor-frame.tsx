@@ -15,7 +15,7 @@ import type { EditorStepsProps } from './editor-steps.tsx';
 import { useKitchenTrailLeaf } from './kitchen-ops-shell.tsx';
 import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
-import { BackPill } from '../../ui/back-pill.tsx';
+import { PageBackPill } from '../../shell/area-trail.tsx';
 
 import { DeskButton } from './desk-kit/desk-button.tsx';
 import { DeskChip } from './desk-kit/desk-chip.tsx';
@@ -275,7 +275,7 @@ export function EditorFrame({
                                 testID={`${testID}-actions`}
                             >
                                 {hideBack ? null : (
-                                    <BackPill
+                                    <PageBackPill
                                         testID={`${testID}-back`}
                                         label={backLabel}
                                         onPress={() => {

@@ -16,6 +16,12 @@
         "yes": "Yes",
         "no": "No"
     },
+    "trail": {
+        "modulePages": "{{module}} pages"
+    },
+    "detour": {
+        "openAgain": "Open again"
+    },
     "hub": {
         "title": "Kitchen workspace",
         "itemCount_one": "{{count}} record",
@@ -641,6 +647,9 @@
             "createFailed": "Nothing was saved — try again.",
             "createdToast_one": "Created {{count}} draft order: {{numbers}}",
             "createdToast_other": "Created {{count}} draft orders: {{numbers}}",
+            "openCreated": "Open supply orders",
+            "supplierAddedPicked_one": "{{name}} added and chosen for {{count}} item",
+            "supplierAddedPicked_other": "{{name}} added and chosen for {{count}} items",
             "ordersTitle": "Orders you've made",
             "ordersCaption": "Purchase orders for this kitchen, newest first.",
             "ordersEmptyTitle": "No orders yet",

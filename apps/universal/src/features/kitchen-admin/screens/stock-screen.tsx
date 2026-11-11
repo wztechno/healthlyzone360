@@ -75,7 +75,7 @@ import { STOCK_COUNT_IMPORT_GUIDE } from '../catalogue/import-guides.ts';
 import { listPrintJob, useListPrint } from '../catalogue/list-print.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { returnCrumbLabel } from '../came-from.ts';
-import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { useCurrentHref, useReturnTo } from '../../../navigation/use-return-to.ts';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import {
@@ -88,6 +88,7 @@ import { useViewedRecord } from '../use-viewed-record.ts';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { withReturnTo } from '../../../navigation/return-to.ts';
 /**
  * The photograph of what is on the shelf: the ingredient's own, or the product's.
  *
@@ -232,6 +233,7 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
+    const here = useCurrentHref();
     // A detour from a Stock gap: the movement's Cancel and Save go back to the gap.
     const back = useReturnTo(returnTo, '/kitchen/stock');
     const canManage = useCan(INVENTORY_MANAGE_PERMISSION);
@@ -677,7 +679,9 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
 
     const openHistory = (row: StockRow) => {
         rememberOpened(String(row.item.id));
-        router.push(`/kitchen/purchases-ledger?item=${String(row.item.id)}` as never);
+        router.push(
+            withReturnTo(`/kitchen/purchases-ledger?item=${String(row.item.id)}`, here) as never,
+        );
     };
 
     /**

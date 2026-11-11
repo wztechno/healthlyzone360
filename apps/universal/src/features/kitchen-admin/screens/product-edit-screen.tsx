@@ -69,7 +69,8 @@ import {
     useProcurementReferenceQuery,
     useStockItemsQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
-import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { withReturnTo } from '../../../navigation/return-to.ts';
+import { useCurrentHref, useReturnTo } from '../../../navigation/use-return-to.ts';
 import { BilingualField } from '../bilingual-field.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { AllergenAssessmentCallout, AssessmentBadges } from '../catalogue/allergen-assessment.tsx';
@@ -111,6 +112,7 @@ import {
 } from '../format.ts';
 import { ImageSlot } from '../image-slot.tsx';
 import { returnCrumbLabel } from '../came-from.ts';
+import { useFinishDetour } from '../finish-detour.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { focusFirstRefusal } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
@@ -429,6 +431,7 @@ function ProductEditor({
 }: ProductEditScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
+    const here = useCurrentHref();
     const { locale } = useLocale();
     const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
@@ -514,6 +517,7 @@ function ProductEditor({
      * list as it was left — and open the list afresh only when nothing is behind this page.
      */
     const back = useReturnTo(returnTo, routeBase);
+    const finishDetour = useFinishDetour(back);
 
     useEffect(() => {
         onDirtyChange?.(guard.isDirty);
@@ -1015,7 +1019,7 @@ function ProductEditor({
     };
 
     const showSaved = () => {
-        toast.show({
+        finishDetour({
             testID: 'kitchen-product-saved-toast',
             tone: 'success',
             message: t('kitchen:editor.savedToast'),
@@ -1544,7 +1548,8 @@ function ProductEditor({
         const target = details.recipeId;
         if (target === null) return;
         guard.intercept(() => {
-            router.push(`/kitchen/recipes/${String(target)}` as never);
+            // The product — with its own way back — is where the recipe returns to.
+            router.push(withReturnTo(`/kitchen/recipes/${String(target)}`, here) as never);
         });
     };
 

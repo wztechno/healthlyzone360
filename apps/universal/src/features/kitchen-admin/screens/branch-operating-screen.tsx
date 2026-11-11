@@ -51,6 +51,9 @@ import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { useLocalSearchParams } from 'expo-router';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { useFinishDetour } from '../finish-detour.ts';
 /**
  * `/kitchen/branch-operating` — when this branch trades, and when it stops taking today's orders.
  *
@@ -155,8 +158,14 @@ export function BranchOperatingScreen() {
 }
 
 function BranchOperatingEditor() {
+    // Opened from Setup or an alert: saving the week is the job, and it goes back there.
+    const rawReturn = useLocalSearchParams().returnTo;
+    const back = useReturnTo(
+        Array.isArray(rawReturn) ? rawReturn[0] : rawReturn,
+        '/kitchen/branch-operating',
+    );
+    const finishDetour = useFinishDetour(back);
     const { t } = useTranslation();
-    const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
     const access = useAccessState();
     const { me } = useSession();
@@ -255,7 +264,7 @@ function BranchOperatingEditor() {
                     setDays(operatingDraftsFrom(saved));
                     setDirty(false);
                     guard.markClean();
-                    toast.show({
+                    finishDetour({
                         testID: 'kitchen-branch-hours-saved-toast',
                         tone: 'success',
                         message: t('kitchen:branchHours.savedToast', {

@@ -54,6 +54,7 @@ import {
     summarisePriceEntries,
 } from '../format.ts';
 import { returnCrumbLabel } from '../came-from.ts';
+import { useFinishDetour } from '../finish-detour.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import {
     PriceEntriesCard,
@@ -79,6 +80,7 @@ import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
+import { PageBackPill } from '../../../shell/area-trail.tsx';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
@@ -205,6 +207,7 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
      * left — and opens the list afresh only when nothing is behind this page.
      */
     const back = useReturnTo(returnTo, BOOK_ROUTE);
+    const finishDetour = useFinishDetour(back);
 
     const [entries, setEntries] = useState<readonly PriceEntryDraft[]>([]);
     const [baseline, setBaseline] = useState<ReadonlyMap<string, PriceEntryDraft>>(() => new Map());
@@ -892,7 +895,7 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
                         }
                         actions={
                             <>
-                                <BackPill
+                                <PageBackPill
                                     testID={`${SCREEN_ID}-back`}
                                     label={t('kitchen:priceLists.backToList')}
                                     onPress={() => {
@@ -1030,7 +1033,8 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
                                         {
                                             onSuccess: () => {
                                                 setShowPublish(false);
-                                                toast.show({
+                                                guard.markClean();
+                                                finishDetour({
                                                     testID: `${PAGE_ID}-published-toast`,
                                                     tone: 'success',
                                                     message: t(

@@ -133,6 +133,7 @@ import { IngredientAssistPanel } from '../ingredient-assist-panel.tsx';
 import { AllergenReferencePicker } from '../allergen-reference-picker.tsx';
 import { IngredientAllergenEditor } from '../ingredient-allergen-editor.tsx';
 import { IngredientBarcodesSection } from '../ingredient-barcodes-section.tsx';
+import { STOCK_GAPS_PATH } from '../consumption-exceptions/stock-gap-fix.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { focusFirstRefusal, UnsavedDialog } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
@@ -1203,16 +1204,23 @@ function IngredientEditor({
     const goBackToRecipe = useCallback(() => {
         if (returned.current) return;
         returned.current = true;
+        // Named after where it really goes — a recipe, Stock gaps, Requirements, Review — never
+        // "your recipe" for a page that is not one.
         toast.show({
             testID: 'kitchen-ingredient-saved-toast',
             tone: 'success',
             message:
-                returnName === null
-                    ? t('kitchen:ingredientFix.savedBack')
-                    : t('kitchen:ingredientFix.savedBackNamed', { name: returnName }),
+                returnLabel === null
+                    ? t('kitchen:editor.savedToast')
+                    : t('kitchen:ingredientFix.savedBackNamed', { name: returnLabel }),
         });
-        back.finish();
-    }, [back, returnName, t, toast]);
+        // Back to Stock gaps it says the gap was fixed, which retries it on arrival.
+        back.finish(
+            back.returnTo !== null && pathnameOf(back.returnTo) === STOCK_GAPS_PATH
+                ? { fixed: '1' }
+                : undefined,
+        );
+    }, [back, returnLabel, t, toast]);
     const wasDone = useRef(needsDone);
     useEffect(() => {
         const became = needsDone && !wasDone.current;
@@ -2657,9 +2665,9 @@ function IngredientEditor({
             ? {
                   context: {
                       label:
-                          returnName === null
+                          returnLabel === null
                               ? t('kitchen:tray.forYourRecipe')
-                              : t('kitchen:tray.forRecipe', { name: returnName }),
+                              : t('kitchen:tray.forRecipe', { name: returnLabel }),
                   },
               }
             : {}),
@@ -2669,9 +2677,9 @@ function IngredientEditor({
             ? {
                   doneAction: {
                       label:
-                          returnName === null
+                          returnLabel === null
                               ? t('kitchen:ingredientFix.back')
-                              : t('kitchen:ingredientFix.backNamed', { name: returnName }),
+                              : t('kitchen:ingredientFix.backNamed', { name: returnLabel }),
                       onPress: () => {
                           leaveWithoutKeeping(back.leave);
                       },

@@ -16,6 +16,12 @@
         "yes": "نعم",
         "no": "لا"
     },
+    "trail": {
+        "modulePages": "صفحات {{module}}"
+    },
+    "detour": {
+        "openAgain": "افتحها مجددًا"
+    },
     "hub": {
         "title": "مساحة عمل المطبخ",
         "itemCount_zero": "لا توجد سجلات",
@@ -704,6 +710,13 @@
             "createdToast_few": "أُنشئت {{count}} طلبات مسودة: {{numbers}}",
             "createdToast_many": "أُنشئ {{count}} طلبًا مسودة: {{numbers}}",
             "createdToast_other": "أُنشئ {{count}} طلب مسودة: {{numbers}}",
+            "openCreated": "افتح طلبات التوريد",
+            "supplierAddedPicked_zero": "أُضيف {{name}}",
+            "supplierAddedPicked_one": "أُضيف {{name}} واختير لصنف واحد",
+            "supplierAddedPicked_two": "أُضيف {{name}} واختير لصنفين",
+            "supplierAddedPicked_few": "أُضيف {{name}} واختير لـ{{count}} أصناف",
+            "supplierAddedPicked_many": "أُضيف {{name}} واختير لـ{{count}} صنفًا",
+            "supplierAddedPicked_other": "أُضيف {{name}} واختير لـ{{count}} صنف",
             "ordersTitle": "الطلبات التي أنشأتها",
             "ordersCaption": "طلبات الشراء لهذا المطبخ، الأحدث أولًا.",
             "ordersEmptyTitle": "لا طلبات بعد",

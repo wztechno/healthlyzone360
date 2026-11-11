@@ -18,6 +18,8 @@ import { playAlertTone } from '../features/kds/alert-tone.ts';
 import { DeskButton } from '../features/kitchen-admin/desk-kit/desk-button.tsx';
 import { DeskChip } from '../features/kitchen-admin/desk-kit/desk-chip.tsx';
 import { ORDER_SUPERVISE_PERMISSION } from '../features/kitchen-admin/entity-registry.ts';
+import { withReturnTo } from '../navigation/return-to.ts';
+import { useCurrentHref } from '../navigation/use-return-to.ts';
 import { guardNavigation } from '../navigation/use-unsaved-guard.ts';
 
 /**
@@ -287,15 +289,20 @@ function AlertsBell() {
     const todays = rows.filter((alert) => localDay(new Date(alert.createdAt)) === today);
     const earlier = rows.filter((alert) => localDay(new Date(alert.createdAt)) !== today);
 
+    const here = useCurrentHref();
     const openAlert = (alert: StaffAlert) => {
         setOpenOn(null);
         // Read only once the reader is really going: Stay must leave an unopened alert unread.
         guardNavigation(() => {
             if (alert.readAt === null) markRead.mutate(alert.id);
+            // Carrying the page the reader was on, so the alert's page leads back to it.
             router.push(
-                (PAGES[alert.type] ?? '/kitchen/orders?view={id}').replace(
-                    '{id}',
-                    encodeURIComponent(alert.orderId),
+                withReturnTo(
+                    (PAGES[alert.type] ?? '/kitchen/orders?view={id}').replace(
+                        '{id}',
+                        encodeURIComponent(alert.orderId),
+                    ),
+                    here,
                 ) as never,
             );
         });

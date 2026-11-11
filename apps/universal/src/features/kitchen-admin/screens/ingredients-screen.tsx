@@ -11,7 +11,7 @@ import { View } from 'react-native';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { pathnameOf } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
-import { BackPill } from '../../../ui/back-pill.tsx';
+import { PageBackPill } from '../../../shell/area-trail.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
@@ -139,7 +139,7 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
               : t('common:returnTo.previous');
     const backPill = (testID: string) =>
         backLabel === null ? undefined : (
-            <BackPill testID={testID} label={backLabel} onPress={back.leave} />
+            <PageBackPill testID={testID} label={backLabel} onPress={back.leave} />
         );
     // The table closes the toolbar's card only when it is drawn: loading, empty and failed lists
     // bring their own frames.

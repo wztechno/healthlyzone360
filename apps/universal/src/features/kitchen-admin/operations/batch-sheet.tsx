@@ -85,6 +85,24 @@ export function useShelfAvailability(): ShelfAvailability {
     }, [itemRows, levelRows]);
 }
 
+/**
+ * The stock item each ingredient is kept as, for handing a shortfall to the supply-order builder,
+ * which proposes by stock item. `null` for an ingredient no stock item holds yet.
+ */
+export function useShelfStockItems(): (ingredientId: IngredientId) => string | null {
+    const canView = useCan(INVENTORY_VIEW_PERMISSION);
+    const items = useStockItemsQuery(canView);
+    const rows = items.data;
+    return useMemo(() => {
+        const byIngredient = new Map<string, string>();
+        for (const item of rows ?? []) {
+            if (item.ingredientId !== null)
+                byIngredient.set(String(item.ingredientId), String(item.id));
+        }
+        return (ingredientId) => byIngredient.get(String(ingredientId)) ?? null;
+    }, [rows]);
+}
+
 /** Every ingredient the version names — lines and packaging — resolved by id from the catalogue. */
 export function useBatchIngredients(
     version: RecipeVersionAdmin | null,

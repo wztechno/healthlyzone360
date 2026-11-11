@@ -34,7 +34,7 @@ export default function KitchenLayout() {
 
 function KitchenAreaShell() {
     const navigation = useKitchenNavigation();
-    const crumbs = useKitchenTrail();
+    const crumbs = useKitchenTrail(navigation);
 
     return (
         <AreaShell

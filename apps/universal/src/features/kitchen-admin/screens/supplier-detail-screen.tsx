@@ -38,7 +38,7 @@ import {
     useUpdateSupplierMutation,
     useUpsertSupplierLinkMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
-import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { useCurrentHref, useReturnTo } from '../../../navigation/use-return-to.ts';
 import { BilingualField } from '../bilingual-field.tsx';
 import {
     INVENTORY_MANAGE_PERMISSION,
@@ -68,6 +68,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { withReturnTo } from '../../../navigation/return-to.ts';
 /**
  * `/kitchen/suppliers/{supplier}` and `/kitchen/suppliers/new` — the supplier record (SUP1).
  *
@@ -218,6 +219,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
     const { locale } = useLocale();
     const formatter = useFormatter();
     const router = useRouter();
+    const here = useCurrentHref();
     const toast = useToast();
     const canManage = useCan(INVENTORY_MANAGE_PERMISSION);
     const canViewCosts = useCan(INVENTORY_VIEW_COSTS_PERMISSION);
@@ -1379,7 +1381,10 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                                         label={t('kitchen:ops.suppliers.seeLedger')}
                                         onPress={() => {
                                             router.push(
-                                                `/kitchen/purchases-ledger?supplier=${String(parsed)}` as never,
+                                                withReturnTo(
+                                                    `/kitchen/purchases-ledger?supplier=${String(parsed)}`,
+                                                    here,
+                                                ) as never,
                                             );
                                         }}
                                     />

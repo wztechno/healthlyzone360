@@ -118,6 +118,7 @@ import { isPlannerDate } from '../../planner/format.ts';
 import { relativeDay, shortDay } from '../orders/order-columns.tsx';
 import { landingHref, ordersHref } from '../orders/orders-url.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
+import { PageBackPill } from '../../../shell/area-trail.tsx';
 
 /**
  * `/kitchen/order-desk/sale` — ringing up a counter, collection or telephone sale. Kitchen v2 `4f`.
@@ -833,7 +834,7 @@ function Sale() {
                             }}
                         />
                     ) : (
-                        <BackPill
+                        <PageBackPill
                             testID="kitchen-order-desk-sale-back-to-desk"
                             label={t('kitchen:ops.orders.backToOrders')}
                             onPress={back.leave}

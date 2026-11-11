@@ -122,6 +122,7 @@ import { ImageSlot } from '../image-slot.tsx';
 import { ingredientFixHref, ingredientNeedsById } from '../ingredient-fix.ts';
 import type { HostArchive } from '../host-save.ts';
 import type { IngredientNeed } from '../ingredient-fix.ts';
+import { useFinishDetour } from '../finish-detour.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import {
     RecipeLineTable,
@@ -1128,6 +1129,7 @@ function RecipeEditor({
         );
 
     const cameBack = back.returnTo !== null;
+    const finishDetour = useFinishDetour(back);
     useKitchenTrailLeaf(
         isCreating || data !== undefined ? title : null,
         cameBack
@@ -4102,26 +4104,16 @@ function RecipeEditor({
                                                 setSelectedVersionId(null);
                                                 if (fix !== null) setFixPublished(true);
                                                 endProcessSavedOn(ownPath);
-                                                toast.show({
+                                                // Opened from somewhere — a stock gap, Review, Dish
+                                                // margins: publishing is what it was opened for, so
+                                                // the reader goes back there (`finish-detour.ts`).
+                                                finishDetour({
                                                     testID: 'kitchen-recipe-published-toast',
                                                     tone: 'success',
                                                     message: t('kitchen:publish.publishedToast', {
                                                         number: published.currentVersion
                                                             .versionNumber,
                                                     }),
-                                                    // Opened from a stock gap: the next step is back
-                                                    // there, to retry it.
-                                                    ...(fix !== null && cameBack
-                                                        ? {
-                                                              action: {
-                                                                  testID: 'kitchen-recipe-published-back',
-                                                                  label: t(
-                                                                      'kitchen:ops.exceptions.fix.back',
-                                                                  ),
-                                                                  onPress: finishFix,
-                                                              },
-                                                          }
-                                                        : {}),
                                                 });
                                             },
                                             onError: (error) => {

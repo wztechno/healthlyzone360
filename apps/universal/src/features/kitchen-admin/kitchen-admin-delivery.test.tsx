@@ -120,6 +120,9 @@ jest.mock('expo-router', () => {
     const replace = jest.fn();
     return {
         __esModule: true,
+        useSegments: () => [],
+        useGlobalSearchParams: () => ({}),
+        useNavigation: () => ({}),
         useRouter: () => ({
             push,
             replace,
@@ -1269,7 +1272,10 @@ describe('the delivery-zone editor', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-zone-windows-manage'));
         });
-        expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/delivery-windows');
+        // With the zone as the way back.
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            '/kitchen/delivery-windows?returnTo=%252Fkitchen%252Fdelivery-zones',
+        );
     });
 
     it('saves a changed assignment with setZoneWindows under the zone’s lock version', async () => {

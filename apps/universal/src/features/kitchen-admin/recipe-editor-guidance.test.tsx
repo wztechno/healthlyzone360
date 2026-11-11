@@ -51,6 +51,9 @@ jest.mock('expo-router', () => {
     const canGoBack = jest.fn(() => true);
     return {
         __esModule: true,
+        useSegments: () => [],
+        useGlobalSearchParams: () => ({}),
+        useNavigation: () => ({}),
         useRouter: () => ({
             push,
             replace,
@@ -543,7 +546,7 @@ describe('a recipe opened from a stock gap', () => {
         expect(routerMock.__push).not.toHaveBeenCalled();
     });
 
-    it('offers the way back once published, telling Stock gaps the gap was fixed', async () => {
+    it('goes back once published, telling Stock gaps the gap was fixed', async () => {
         // Sent here by Stock gaps: the fix is the process the top bar's Continue keeps.
         startProcess({
             kind: 'stockGapFix',
@@ -625,14 +628,13 @@ describe('a recipe opened from a stock gap', () => {
         expect(screen.queryByTestId('kitchen-recipe-stock-gap')).toBeNull();
         // Published: nothing is left to lose, so Continue has nothing to keep.
         expect(readActiveProcess()).toBeNull();
-        // The toast offers the same way back.
-        await untilVisible('kitchen-recipe-published-back');
         expect(screen.queryByTestId('kitchen-recipe-yield-pieces-error')).toBeNull();
-
-        await press('kitchen-recipe-stock-gap-back');
+        // Publishing is what it was opened for, so it goes back to Stock gaps by itself, saying
+        // the gap was fixed — and the toast offers the other way, opening the recipe again.
         expect(routerMock.__dismissTo).toHaveBeenCalledWith(
             '/kitchen/consumption-exceptions?reason=unquantified_recipe_line&page=2&fixed=1',
         );
+        await untilVisible('kitchen-recipe-published-toast-reopen');
     });
 
     it('opens a draft from a published version, from the card', async () => {

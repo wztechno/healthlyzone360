@@ -28,6 +28,8 @@ import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { PeriodScope, periodWindows } from '../catalogue/period-scope.tsx';
 import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { withReturnTo } from '../../../navigation/return-to.ts';
+import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 /**
  * `/kitchen/cost-report` — the monthly cost report (INV1.4), as `Workbench.dc.html` draws it (§3.4).
  *
@@ -100,6 +102,7 @@ function CostReport() {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
+    const here = useCurrentHref();
     const params = useLocalSearchParams<{ from?: string; to?: string; month?: string }>();
     // This month by default — the Period shortcut's first.
     const [today] = useState(() => todayIso());
@@ -426,7 +429,7 @@ function CostReport() {
                     icon: null,
                     // The month stays open behind it, so Back from the ledger returns to it.
                     onPress: () => {
-                        router.push('/kitchen/purchases-ledger' as never);
+                        router.push(withReturnTo('/kitchen/purchases-ledger', here) as never);
                     },
                 }}
             />

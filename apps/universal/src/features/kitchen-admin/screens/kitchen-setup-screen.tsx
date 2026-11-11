@@ -24,13 +24,16 @@ import { SETUP_STEP_ICONS, SetupRoad, canDrawRoad } from '../setup/setup-road.ts
 import { SetupStep } from './wholesale-setup-screen.tsx';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { withReturnTo } from '../../../navigation/return-to.ts';
+import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 const PAGE = 'kitchen-setup';
 
 /** Where each step is finished. */
 const STEP_HREF: Readonly<Record<KitchenSetupStep['key'], string>> = {
     hours: '/kitchen/branch-operating',
     delivery: '/kitchen/delivery-zones',
-    menu: '/kitchen/meals',
+    // The recipe book itself: the old /kitchen/meals redirect would drop the way back.
+    menu: '/kitchen/recipes?kind=meal',
     prices: '/kitchen/price-lists',
     team: '/kitchen/team',
 };
@@ -53,6 +56,7 @@ export function KitchenSetupScreen() {
 function KitchenSetup() {
     const { t } = useTranslation();
     const router = useRouter();
+    const here = useCurrentHref();
     const toast = useToast();
     const formatter = useFormatter();
     const { atLeast } = useBreakpoint();
@@ -88,7 +92,7 @@ function KitchenSetup() {
     const showRoad = Platform.OS === 'web' && atLeast('lg') && canDrawRoad(required);
 
     const open = (step: KitchenSetupStep) => {
-        router.push(STEP_HREF[step.key] as never);
+        router.push(withReturnTo(STEP_HREF[step.key], here) as never);
     };
     const pressGoLive = () => {
         goLive.mutate(undefined, {

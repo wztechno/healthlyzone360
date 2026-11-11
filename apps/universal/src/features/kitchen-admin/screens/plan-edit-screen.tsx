@@ -44,7 +44,7 @@ import {
     useUpdatePlanMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { withReturnTo } from '../../../navigation/return-to.ts';
-import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { useCurrentHref, useReturnTo } from '../../../navigation/use-return-to.ts';
 import { BilingualField } from '../bilingual-field.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { PlanMatrixGrid } from '../commercial/plan-matrix-grid.tsx';
@@ -60,6 +60,7 @@ import {
     summarisePlanPrices,
 } from '../format.ts';
 import { returnCrumbLabel } from '../came-from.ts';
+import { useFinishDetour } from '../finish-detour.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { PlanDurationRows, PlanVariantRows } from '../plan-row-editors.tsx';
 import {
@@ -343,6 +344,7 @@ export function PlanEditScreen({ plan, returnTo }: PlanEditScreenProps) {
 function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
+    const here = useCurrentHref();
     const { locale } = useLocale();
     const formatter = useFormatter();
     const toast = useToast();
@@ -350,6 +352,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
     // Cancel and the not-found link step back to wherever the reader came from — the plan list as
     // they left it — and only open a fresh list when there is no history to return to.
     const back = useReturnTo(returnTo, '/kitchen/plans');
+    const finishDetour = useFinishDetour(back);
 
     const isCreating = plan === undefined || plan === 'new';
     // Every plan, new or saved, opens on the plan itself and walks the same four steps.
@@ -1694,7 +1697,9 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                     label={t('kitchen:plans.openPriceLists')}
                                     onPress={() => {
                                         guard.intercept(() => {
-                                            router.push('/kitchen/price-lists' as never);
+                                            router.push(
+                                                withReturnTo('/kitchen/price-lists', here) as never,
+                                            );
                                         });
                                     }}
                                 />
@@ -1775,7 +1780,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                         {
                                             onSuccess: (published) => {
                                                 setShowPublish(false);
-                                                toast.show({
+                                                finishDetour({
                                                     testID: 'kitchen-plan-published-toast',
                                                     tone: 'success',
                                                     message: t('kitchen:plans.publishedToast', {

@@ -14,6 +14,7 @@
  * | `.drv` `.cb`      | `ChoiceRow`        | `FilterChip` / choose buttons in a dialog |
  * | `.dots.more`      | `DeskRowMenu`      | `RowActionsMenu` (or `rowActionsLook="desk"`) |
  * | Show columns      | `DeskColumnPicker` | `ColumnPicker`              |
+ * | Breadcrumb board  | `DeskTrail`        | `Breadcrumbs` in the kitchen top bar |
  *
  * All of them are on `/showcase-orders`.
  */
@@ -28,6 +29,8 @@ export type { DeskChipSize } from './desk-chip.tsx';
 export { DeskSelect, DropTrigger } from './desk-select.tsx';
 export type { DeskSelectOption } from './desk-select.tsx';
 export { DeskTabs } from './desk-tabs.tsx';
+export { DeskTrail } from './desk-trail.tsx';
+export type { DeskCrumb } from './desk-trail.tsx';
 export type { DeskTabItem } from './desk-tabs.tsx';
 export { ListGroupRow } from './list-group-row.tsx';
 export { DeskDateButton, MiniMonthPicker } from './mini-month.tsx';
