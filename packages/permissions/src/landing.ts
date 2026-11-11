@@ -72,7 +72,14 @@ export function resolveLandingRoute(state: AccessState): LandingRoute {
         }
         return { href: ROUTE_PATHS.selectOrganisation, reason: 'no_organisation_context' };
     }
-    if (state.organisation?.requiresBranchSelection === true && !hasBranchContext(state)) {
+    // The workspace page offers the branch choice itself, in its top-bar switcher, so a build that
+    // lands there needs no page in between. Only a build that lands on a branch-bound screen — the
+    // kitchen display, the driver's jobs — goes through the picker first.
+    if (
+        state.organisation?.requiresBranchSelection === true &&
+        !hasBranchContext(state) &&
+        MODE_LANDING_PATHS[state.mode] !== ROUTE_PATHS.workspace
+    ) {
         return { href: ROUTE_PATHS.selectBranch, reason: 'no_branch_context' };
     }
     return { href: MODE_LANDING_PATHS[state.mode], reason: 'workspace' };

@@ -72,8 +72,10 @@ export function OrganisationPickerScreen() {
                 ...(keptBranchId === null ? {} : { branchId: keptBranchId }),
             },
             {
-                onSuccess: (context) => {
-                    router.replace(context.branchId === null ? '/select-branch' : '/workspace');
+                onSuccess: () => {
+                    // Always the workspace page: with no branch yet, its top-bar switcher opens
+                    // on the choice, so there is no page in between.
+                    router.replace('/workspace');
                 },
             },
         );

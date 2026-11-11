@@ -96,14 +96,25 @@ describe('resolveLandingRoute', () => {
         expect(resolveLandingRoute(state).reason).toBe('no_organisation_context');
     });
 
-    it('sends branch-scoped memberships to the branch picker', () => {
+    it('sends a build that lands on a branch-bound screen through the branch picker', () => {
         const state = makeAccessState({
-            mode: 'staff',
+            mode: 'kiosk',
             organisation: makeAccessOrganisation({ requiresBranchSelection: true }),
         });
         expect(resolveLandingRoute(state)).toEqual({
             href: ROUTE_PATHS.selectBranch,
             reason: 'no_branch_context',
+        });
+    });
+
+    it('lands staff on the workspace page, which offers the branch choice itself', () => {
+        const state = makeAccessState({
+            mode: 'staff',
+            organisation: makeAccessOrganisation({ requiresBranchSelection: true }),
+        });
+        expect(resolveLandingRoute(state)).toEqual({
+            href: ROUTE_PATHS.workspace,
+            reason: 'workspace',
         });
     });
 
