@@ -13,6 +13,7 @@ use Healthy360\Consent\Services\ConsentLedger;
 use Healthy360\Features\Services\FeatureEntitlementChecker;
 use Healthy360\Identity\Contracts\ProgrammeMembershipLookup;
 use Healthy360\Identity\Models\UserProfile;
+use Healthy360\Organisations\Enums\BranchStatus;
 use Healthy360\Organisations\Enums\MembershipStatus;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
@@ -146,9 +147,10 @@ final class UserContextHydrator
             ->keyBy(fn (Organisation $organisation): string => (string) $organisation->getKey());
 
         $roleCodes = $this->roleCodesByMembership($user, $memberships);
+        $branches = $this->branchesByMembership($memberships);
 
         return array_values($memberships
-            ->map(function (OrganisationMembership $membership) use ($organisations, $roleCodes): ?array {
+            ->map(function (OrganisationMembership $membership) use ($organisations, $roleCodes, $branches): ?array {
                 $organisation = $organisations->get((string) $membership->organisation_id);
 
                 if (! $organisation instanceof Organisation) {
@@ -162,6 +164,7 @@ final class UserContextHydrator
                     'joined_at' => $membership->joined_at?->toIso8601String(),
                     'organisation' => $this->organisations->organisation($organisation),
                     'roles' => $roleCodes[(string) $membership->getKey()] ?? [],
+                    'branches' => $branches[(string) $membership->getKey()] ?? [],
                 ];
             })
             ->filter()
@@ -230,6 +233,54 @@ final class UserContextHydrator
         } catch (BranchOutsideMembershipScope) {
             return $membership->branch_id;
         }
+    }
+
+    /**
+     * The branches each membership may select: its own when it is scoped to
+     * one, otherwise every active branch of its organisation — the same set
+     * `ContextValidator::branch()` accepts a claim from.
+     *
+     * Without this list a client cannot offer the choice at all. An
+     * organisation-wide member of a kitchen with two branches is given no
+     * branch by default, and kitchen and KDS routes require one, so with
+     * nothing to pick from they were locked out of both for good.
+     *
+     * Only an active membership is answered: an invitation does not list the
+     * sites of an organisation the person has not joined. Read as each
+     * organisation in turn, for the reason the role codes are.
+     *
+     * @param  EloquentCollection<int, OrganisationMembership>  $memberships
+     * @return array<string, list<array{id: string, name: string, city: string|null, timezone: string, status: string}>>
+     */
+    private function branchesByMembership(EloquentCollection $memberships): array
+    {
+        $branches = [];
+
+        foreach ($memberships->where('status', MembershipStatus::Active) as $membership) {
+            $selectable = $this->database->during(
+                null,
+                (string) $membership->organisation_id,
+                null,
+                function () use ($membership): EloquentCollection {
+                    $query = OrganisationBranch::withoutTenancy()
+                        ->where('organisation_id', $membership->organisation_id)
+                        ->where('status', BranchStatus::Active)
+                        ->orderBy('name');
+
+                    if ($membership->branch_id !== null) {
+                        $query->whereKey($membership->branch_id);
+                    }
+
+                    return $query->get();
+                },
+            );
+
+            $branches[(string) $membership->getKey()] = array_values($selectable
+                ->map(fn (OrganisationBranch $branch): array => $this->organisations->branch($branch))
+                ->all());
+        }
+
+        return $branches;
     }
 
     /**

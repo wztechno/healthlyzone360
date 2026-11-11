@@ -385,6 +385,7 @@ export function testMembership(overrides: Partial<Membership> = {}): Membership 
                 name: 'Kitchen manager',
             },
         ],
+        branchId: null,
         branches: [],
         startsAt: null,
         expiresAt: null,

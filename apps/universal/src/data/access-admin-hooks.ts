@@ -85,7 +85,9 @@ export function useIsBranchBoundAdmin(): boolean {
     const { me } = useSession();
     const membershipId = me?.activeContext?.membershipId;
     const membership = me?.memberships.find((candidate) => candidate.id === membershipId);
-    return (membership?.branches.length ?? 0) > 0;
+    // The membership's own binding, not how many branches it may work in: an owner of a
+    // two-branch kitchen lists both and is bound to neither.
+    return membership != null && membership.branchId !== null;
 }
 
 export function usePermissionCatalogueQuery(

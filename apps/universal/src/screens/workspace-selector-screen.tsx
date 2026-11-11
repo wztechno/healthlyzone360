@@ -272,7 +272,16 @@ export function WorkspaceOrgSwitcher() {
     const { organisationId, organisationName, branches, branchId, branchName, role } =
         useWorkingContext();
     const setContext = useSetContextMutation();
-    const [open, setOpen] = useState(false);
+    /*
+     * With several branches and none chosen, the menu opens by itself and the button says what is
+     * wanted: the kitchen and its display need a branch, and this is where one is picked, rather
+     * than on a page of its own. `null` is "not touched yet", so a person who closes it is not
+     * shown it again.
+     */
+    const needsBranch = branches.length > 1 && branchId === null;
+    const [toggled, setOpen] = useState<boolean | null>(null);
+    const open = toggled ?? needsBranch;
+    const branchLine = branchName ?? (needsBranch ? t('auth:branchPicker.title') : undefined);
     const containerRef = useRef<View | null>(null);
 
     useEffect(() => {
@@ -318,7 +327,7 @@ export function WorkspaceOrgSwitcher() {
                     aria-expanded={open}
                     accessibilityLabel={t('auth:workspace.switchOrganisation')}
                     onPress={() => {
-                        setOpen((current) => !current);
+                        setOpen(!open);
                     }}
                     className={cx(
                         'h-12 min-w-0 flex-row items-center gap-2.5 rounded-full border pe-3.5 ps-1.5',
@@ -336,12 +345,12 @@ export function WorkspaceOrgSwitcher() {
                         >
                             {organisationName}
                         </RNText>
-                        {branchName === undefined ? null : (
+                        {branchLine === undefined ? null : (
                             <RNText
                                 numberOfLines={1}
                                 className="text-xs text-content-secondary text-start"
                             >
-                                {branchName}
+                                {branchLine}
                             </RNText>
                         )}
                     </View>
