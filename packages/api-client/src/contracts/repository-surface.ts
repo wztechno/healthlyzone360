@@ -408,6 +408,7 @@ export const REPOSITORY_SURFACE = {
         'getToday',
         'getSettlements',
         'listCalendar',
+        'listPlanMeals',
         'listDeliveryAreas',
         'listDeliveryWindows',
         'getCustomerAllergies',

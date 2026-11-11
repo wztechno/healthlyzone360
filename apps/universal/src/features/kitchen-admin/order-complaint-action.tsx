@@ -1,14 +1,6 @@
 import { COMPLAINT_CAUSES } from '@healthy360/api-client/contracts';
 import type { ComplaintCause, KitchenOrder } from '@healthy360/api-client/contracts';
-import {
-    Button,
-    Dialog,
-    Select,
-    Stack,
-    Text,
-    TextInputField,
-    useToast,
-} from '@healthy360/design-system';
+import { Dialog, Stack, Text, TextInputField, useToast } from '@healthy360/design-system';
 import { parseMinorAmount } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -17,6 +9,7 @@ import { View } from 'react-native';
 
 import { toFailure } from '../../data/hooks.ts';
 import { useRecordComplaintMutation } from '../../data/kitchen-orders-hooks.ts';
+import { ChoiceRow, DeskButton } from './desk-kit/index.ts';
 
 /** The order page's way into a complaint: why, and what it has cost so far. */
 export function OrderComplaintAction({ order }: { readonly order: KitchenOrder }) {
@@ -33,10 +26,9 @@ export function OrderComplaintAction({ order }: { readonly order: KitchenOrder }
 
     return (
         <View className="flex-row">
-            <Button
+            <DeskButton
                 testID="kitchen-orders-complaint-open"
                 variant="secondary"
-                size="sm"
                 label={t('kitchen:complaints.record')}
                 onPress={() => {
                     setOpen(true);
@@ -44,63 +36,84 @@ export function OrderComplaintAction({ order }: { readonly order: KitchenOrder }
             />
             <Dialog
                 testID="kitchen-orders-complaint-dialog"
+                look="card"
                 open={open}
                 onClose={() => {
                     setOpen(false);
                 }}
                 title={t('kitchen:complaints.recordTitle', { number: order.orderNumber })}
                 actions={
-                    <Button
-                        testID="kitchen-orders-complaint-save"
-                        label={t('kitchen:complaints.recordConfirm')}
-                        loading={record.isPending}
-                        disabled={record.isPending || costMinor === null}
-                        onPress={() => {
-                            if (costMinor === null) return;
-                            record.mutate(
-                                {
-                                    orderId: order.id,
-                                    cause,
-                                    description:
-                                        description.trim() === '' ? null : description.trim(),
-                                    costMinor,
-                                },
-                                {
-                                    onSuccess: (complaint) => {
-                                        setOpen(false);
-                                        toast.show({
-                                            testID: 'kitchen-orders-complaint-toast',
-                                            tone: 'success',
-                                            message: t('kitchen:complaints.recordedToast'),
-                                            action: {
-                                                label: t('kitchen:complaints.openRecord'),
-                                                testID: 'kitchen-orders-complaint-toast-open',
-                                                onPress: () => {
-                                                    router.push(
-                                                        `/kitchen/complaints?view=${encodeURIComponent(complaint.id)}` as never,
-                                                    );
-                                                },
-                                            },
-                                        });
+                    <>
+                        <DeskButton
+                            testID="kitchen-orders-complaint-back"
+                            variant="secondary"
+                            label={t('kitchen:common.back')}
+                            onPress={() => {
+                                setOpen(false);
+                            }}
+                        />
+                        <DeskButton
+                            testID="kitchen-orders-complaint-save"
+                            label={t('kitchen:complaints.recordConfirm')}
+                            loading={record.isPending}
+                            disabled={record.isPending || costMinor === null}
+                            onPress={() => {
+                                if (costMinor === null) return;
+                                record.mutate(
+                                    {
+                                        orderId: order.id,
+                                        cause,
+                                        description:
+                                            description.trim() === '' ? null : description.trim(),
+                                        costMinor,
                                     },
-                                },
-                            );
-                        }}
-                    />
+                                    {
+                                        onSuccess: (complaint) => {
+                                            setOpen(false);
+                                            toast.show({
+                                                testID: 'kitchen-orders-complaint-toast',
+                                                tone: 'success',
+                                                message: t('kitchen:complaints.recordedToast'),
+                                                action: {
+                                                    label: t('kitchen:complaints.openRecord'),
+                                                    testID: 'kitchen-orders-complaint-toast-open',
+                                                    onPress: () => {
+                                                        router.push(
+                                                            `/kitchen/complaints?view=${encodeURIComponent(complaint.id)}` as never,
+                                                        );
+                                                    },
+                                                },
+                                            });
+                                        },
+                                    },
+                                );
+                            }}
+                        />
+                    </>
                 }
             >
                 <Stack space="sm">
-                    <Select
+                    <Text variant="label" tone="secondary" className="!font-semibold">
+                        {t('kitchen:complaints.columnCause')}
+                    </Text>
+                    <View
                         testID="kitchen-orders-complaint-cause"
-                        label={t('kitchen:complaints.columnCause')}
-                        size="sm"
-                        value={cause}
-                        options={COMPLAINT_CAUSES.map((value) => ({
-                            value,
-                            label: t(`kitchen:complaints.cause.${value}`),
-                        }))}
-                        onChange={setCause}
-                    />
+                        role="radiogroup"
+                        aria-label={t('kitchen:complaints.columnCause')}
+                        className="flex-col gap-0.5"
+                    >
+                        {COMPLAINT_CAUSES.map((value) => (
+                            <ChoiceRow
+                                key={value}
+                                testID={`kitchen-orders-complaint-cause-${value}`}
+                                label={t(`kitchen:complaints.cause.${value}`)}
+                                selected={cause === value}
+                                onPress={() => {
+                                    setCause(value);
+                                }}
+                            />
+                        ))}
+                    </View>
                     <TextInputField
                         testID="kitchen-orders-complaint-description"
                         id="kitchen-orders-complaint-description"

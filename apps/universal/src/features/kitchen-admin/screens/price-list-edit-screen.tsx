@@ -79,6 +79,7 @@ import { serverFieldErrors } from '../server-field-errors.ts';
 import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
+import { BackPill } from '../../../ui/back-pill.tsx';
 
 /**
  * `/kitchen/price-lists/{priceList}` — what a list charges for, and whether it may charge it.
@@ -624,9 +625,8 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
                     tone="warning"
                     title={t('kitchen:priceLists.notFoundTitle')}
                     actions={
-                        <Button
+                        <BackPill
                             testID={`${PAGE_ID}-not-found-back`}
-                            variant="quiet"
                             label={t('kitchen:priceLists.backToList')}
                             onPress={backToBook}
                         />
@@ -893,9 +893,8 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
                         }
                         actions={
                             <>
-                                <Button
+                                <BackPill
                                     testID={`${SCREEN_ID}-back`}
-                                    variant="secondary"
                                     label={t('kitchen:priceLists.backToList')}
                                     onPress={() => {
                                         guard.intercept(backToBook);

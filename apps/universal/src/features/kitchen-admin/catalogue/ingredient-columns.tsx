@@ -1,5 +1,5 @@
 import type { CostAmount, IngredientAdmin } from '@healthy360/api-client/contracts';
-import { Badge, Inline, Text } from '@healthy360/design-system';
+import { Inline, Text } from '@healthy360/design-system';
 import type { BadgeTone } from '@healthy360/design-system';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -240,14 +240,8 @@ export function ingredientColumns({
                         >
                             {name.value}
                         </Text>
-                        {name.isFallback ? (
-                            <Badge
-                                testID={`${ingredientRowTestId(row.id)}-missing-arabic`}
-                                tone="warning"
-                                icon="warning"
-                                label={t('kitchen:list.missingArabic')}
-                            />
-                        ) : null}
+                        {/* No "AR missing" chip on the row (removed 2026-11-11): the Lens bar's
+                            Missing Arabic figure still finds them. */}
                     </Inline>
                 );
             },

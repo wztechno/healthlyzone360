@@ -1,4 +1,4 @@
-import { Button, Callout, Inline, Popover, Text } from '@healthy360/design-system';
+import { Button, Callout, Menu } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 
@@ -8,6 +8,7 @@ import {
     usePauseKitchenMutation,
     useResumeKitchenMutation,
 } from '../../../data/staff-alerts-hooks.ts';
+import { DropTrigger } from '../desk-kit/index.ts';
 import { ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
 
 /**
@@ -25,7 +26,11 @@ function usePausedUntil(): string | null {
     return settings.data?.pausedUntil ?? null;
 }
 
-/** The toolbar's button. Gone while a pause runs: the banner carries the way out. */
+/**
+ * The toolbar's button — the desk's dropdown pill (`DropTrigger`) opening the same rising card menu
+ * as the calendar's Slot and Type, one row per length. Gone while a pause runs: the banner carries
+ * the way out.
+ */
 export function KitchenPauseButton() {
     const { t } = useTranslation();
     const canPause = useCan(ORDER_SUPERVISE_PERMISSION);
@@ -34,38 +39,41 @@ export function KitchenPauseButton() {
 
     if (!canPause || pausedUntil !== null) return null;
 
+    const button = t('kitchen:desk.pause.button');
     return (
-        <Popover
+        <Menu
             testID="kitchen-pause"
-            triggerVariant="button"
-            triggerIcon="chevronDown"
-            triggerIconPosition="end"
-            triggerLabel={t('kitchen:desk.pause.button')}
-            triggerText={t('kitchen:desk.pause.button')}
-            title={t('kitchen:desk.pause.title')}
+            label={button}
+            look="card"
+            closeOnSelect
             align="end"
             className="z-auto"
-        >
-            <Text variant="caption" tone="secondary">
-                {t('kitchen:desk.pause.body')}
-            </Text>
-            <Inline space="xs" wrap>
-                {PAUSE_MINUTES.map((minutes) => (
-                    <Button
-                        key={minutes}
-                        testID={`kitchen-pause-${String(minutes)}`}
-                        size="sm"
-                        variant="secondary"
-                        label={t('kitchen:desk.pause.minutes', { count: minutes })}
-                        loading={pause.isPending && pause.variables === minutes}
-                        disabled={pause.isPending}
-                        onPress={() => {
+            sections={[
+                {
+                    label: t('kitchen:desk.pause.title'),
+                    items: PAUSE_MINUTES.map((minutes) => ({
+                        key: String(minutes),
+                        label: t('kitchen:desk.pause.minutes', { count: minutes }),
+                        disabled: pause.isPending,
+                        testID: `kitchen-pause-${String(minutes)}`,
+                        onSelect: () => {
                             pause.mutate(minutes);
-                        }}
-                    />
-                ))}
-            </Inline>
-        </Popover>
+                        },
+                    })),
+                },
+            ]}
+            trigger={({ triggerProps, toggle, open }) => (
+                <DropTrigger
+                    triggerProps={triggerProps}
+                    onPress={toggle}
+                    open={open}
+                    filled={false}
+                    value={button}
+                    accessibilityLabel={button}
+                    testID="kitchen-pause-trigger"
+                />
+            )}
+        />
     );
 }
 

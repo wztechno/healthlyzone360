@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { RowDensity } from '@healthy360/design-tokens';
 import { Platform, Pressable, Text as RNText, View } from 'react-native';
@@ -282,6 +282,13 @@ export interface DataListProps<Row> {
      * animate unless its screen asked for it.
      */
     readonly rowEntrance?: boolean | undefined;
+    /**
+     * A heading row drawn across the whole table before a row — a day's orders under Breakfast,
+     * Lunch, Dinner. Asked for every row with the one before it (`undefined` for the first row on
+     * the page), so a group that runs onto the next page is headed again there. `null` draws
+     * nothing. The caller draws the heading's content; the list gives it a full-width row.
+     */
+    readonly sectionHeader?: ((row: Row, previous: Row | undefined) => ReactNode) | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -382,6 +389,7 @@ export function DataList<Row>({
     framed = false,
     flushTop = false,
     rowEntrance = false,
+    sectionHeader,
     className,
     testID,
 }: DataListProps<Row>) {
@@ -615,10 +623,18 @@ export function DataList<Row>({
                                            * content-sized one collapsed it to its min-content.
                                            * The track's alignment moves to `items-*` here, so a
                                            * content-sized root still sits where the column says.
+                                           *
+                                           * And capped to it: a content-sized root (a name beside
+                                           * a badge, a two-line "price · supplier · date" stack)
+                                           * is sized on this box's cross axis, where `shrink` does
+                                           * nothing, so without `max-w-full` on it the root takes
+                                           * its text's full width and paints over the next column.
+                                           * Applied here to every renderer's root, so no column
+                                           * has to remember it.
                                            */}
                                           <View
                                               className={cx(
-                                                  'min-w-0 flex-1',
+                                                  'min-w-0 flex-1 web:*:max-w-full',
                                                   ITEMS_CLASS[
                                                       dataListColumnAlign(
                                                           column as DataListColumn<unknown>,
@@ -682,7 +698,7 @@ export function DataList<Row>({
                            * its own element, id and hover — the wrapper is a plain box between the
                            * table and its row, which ARIA 1.2 allows for a required context.
                            */
-                          return rowEntrance ? (
+                          const entered = rowEntrance ? (
                               <CascadeItem
                                   key={key}
                                   index={index}
@@ -696,6 +712,33 @@ export function DataList<Row>({
                               </CascadeItem>
                           ) : (
                               drawn
+                          );
+
+                          const heading = sectionHeader?.(row, rows[index - 1]) ?? null;
+                          if (heading === null || heading === false) return entered;
+                          return (
+                              <Fragment key={key}>
+                                  {/*
+                                   * The heading spans the table: one cell as wide as the tracks,
+                                   * with the rule above it a row's own rule. It brings its own
+                                   * ground and inset (`ListGroupRow`), so a group that is itself a
+                                   * warning can say so across the whole row.
+                                   */}
+                                  <View
+                                      role="row"
+                                      testID={
+                                          testID === undefined
+                                              ? undefined
+                                              : `${testID}-section-${key}`
+                                      }
+                                      className="border-b border-stroke-subtle"
+                                  >
+                                      <View role="cell" className="min-w-0">
+                                          {heading}
+                                      </View>
+                                  </View>
+                                  {entered}
+                              </Fragment>
                           );
                       })}
             </View>

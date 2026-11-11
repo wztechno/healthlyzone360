@@ -617,6 +617,7 @@ export {
 export type {
     CancelKitchenOrderRequest,
     KitchenOrder,
+    KitchenOrderBookRow,
     CloseFailedDeliveryRequest,
     FailKitchenOrderDeliveryRequest,
     HandToCourierRequest,
@@ -697,6 +698,8 @@ export type {
     OrderDeskCustomer,
     OrderDeskCustomerAddress,
     OrderDeskCustomerContact,
+    OrderDeskPlanMeal,
+    OrderDeskPlanMealDish,
     OrderDeskCustomerCreated,
     OrderDeskCustomerOrigin,
     OrderDeskCustomerAllergies,

@@ -58,13 +58,13 @@ export function SaleSteps({
                         role="listitem"
                         aria-current={on ? 'step' : undefined}
                         className={`h-desk-step flex-row items-center gap-[7px] rounded-full pe-3 ps-1 ${
-                            on ? 'bg-surface-canopy' : ''
+                            on ? 'bg-surface-brand' : ''
                         }`}
                     >
                         <View
                             className={`h-desk-step-mark w-desk-step-mark items-center justify-center rounded-full ${
                                 on
-                                    ? 'bg-brand-300'
+                                    ? 'bg-surface-raised'
                                     : done
                                       ? 'bg-surface-brand-subtle'
                                       : 'bg-surface-sunken'
@@ -82,7 +82,7 @@ export function SaleSteps({
                                     tone="secondary"
                                     className={
                                         on
-                                            ? '!text-[11px] font-bold !text-surface-canopy'
+                                            ? '!text-[11px] font-bold !text-content-on-brand-subtle'
                                             : '!text-[11px] font-bold'
                                     }
                                 >
@@ -94,7 +94,7 @@ export function SaleSteps({
                             variant="label"
                             tone={done ? 'primary' : 'secondary'}
                             className={
-                                on ? 'font-semibold !text-content-on-canopy' : 'font-semibold'
+                                on ? 'font-semibold !text-content-on-brand' : 'font-semibold'
                             }
                         >
                             {step.label}
@@ -397,8 +397,8 @@ export function TicketLabel({
         <View className="flex-row items-center gap-1.5">
             <Text
                 variant="micro"
-                tone="sidebarMuted"
-                className="font-semibold uppercase tracking-wider"
+                tone="secondary"
+                className="!text-[11px] font-bold uppercase tracking-wider"
             >
                 {children}
             </Text>

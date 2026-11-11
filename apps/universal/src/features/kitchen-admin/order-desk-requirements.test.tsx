@@ -151,8 +151,9 @@ describe('order desk requirements — create order', () => {
         const query = new URLSearchParams(href.slice(href.indexOf('?') + 1));
         expect(href.startsWith('/kitchen/supply-orders/new?')).toBe(true);
         expect(query.get('items')).toBe(SHELF_ID);
-        expect(decodeURIComponent(query.get('returnTo') ?? '')).toBe(
-            '/kitchen/order-desk/requirements',
+        // Back to the same window, so the list the order was raised from is the one that returns.
+        expect(decodeURIComponent(query.get('returnTo') ?? '')).toMatch(
+            /^\/kitchen\/order-desk\/requirements\?from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}$/,
         );
     });
 

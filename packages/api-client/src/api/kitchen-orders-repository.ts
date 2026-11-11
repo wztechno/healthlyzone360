@@ -21,6 +21,7 @@ import type {
     HandToCourierRequest,
     KitchenDisplay,
     KitchenOrder,
+    KitchenOrderBookRow,
     KitchenOrderDelivery,
     KitchenOrderFilters,
     KitchenOrderLine,
@@ -38,6 +39,7 @@ import type {
 import type {
     KitchenDisplayEnvelope,
     KitchenOrder as WireKitchenOrder,
+    KitchenOrderBookRow as WireKitchenOrderBookRow,
     KitchenOrderDelivery as WireKitchenOrderDelivery,
     KitchenOrderLine as WireKitchenOrderLine,
     OrderComplaint as WireOrderComplaint,
@@ -299,6 +301,39 @@ function mapPaymentSummary(wire: WireOrderPaymentSummary): KitchenOrderPaymentSu
     };
 }
 
+/**
+ * One row of the book: the order, what has been paid, its run and — when the reader may see it —
+ * the customer. The run and the customer are mapped here rather than imported from the desk's
+ * mappers, on `mapPaymentSummary`'s terms; the wire types are the shared source. `customer` is
+ * spread only when present, because its absence is the permission signal.
+ */
+export function mapKitchenOrderBookRow(wire: WireKitchenOrderBookRow): KitchenOrderBookRow {
+    const job = wire.delivery_job;
+    return {
+        ...mapKitchenOrder(wire),
+        payment: mapPaymentSummary(wire.payment),
+        deliveryJob:
+            job === null
+                ? null
+                : {
+                      id: job.id,
+                      status: job.status,
+                      trackingStatus: job.tracking_status,
+                      driverUserId: job.driver_user_id,
+                      assignedAt: job.assigned_at,
+                      lockVersion: job.lock_version,
+                  },
+        ...(wire.customer === undefined
+            ? {}
+            : {
+                  customer: {
+                      displayName: wire.customer.display_name,
+                      phone: wire.customer.phone,
+                  },
+              }),
+    };
+}
+
 /** Same shape as `kitchen-admin-repository.ts`'s `cursorQuery`, narrowed to this endpoint's filters. */
 function ordersQuery(filters?: KitchenOrderFilters): string {
     if (filters === undefined) return '';
@@ -308,6 +343,13 @@ function ordersQuery(filters?: KitchenOrderFilters): string {
     if (filters.requestedDeliveryDate !== undefined) {
         search.set('requested_delivery_date', filters.requestedDeliveryDate);
     }
+    if (filters.from !== undefined) search.set('from', filters.from);
+    if (filters.to !== undefined) search.set('to', filters.to);
+    // The bracketed name, repeated — the only form PHP reads as a set.
+    for (const code of filters.deliveryWindowCodes ?? []) {
+        search.append('delivery_window_code[]', code);
+    }
+    if (filters.fulfilmentType !== undefined) search.set('fulfilment_type', filters.fulfilmentType);
     if (filters.branchId !== undefined) search.set('branch_id', String(filters.branchId));
     if (filters.query !== undefined && filters.query.trim() !== '') {
         search.set('query', filters.query.trim());
@@ -316,7 +358,12 @@ function ordersQuery(filters?: KitchenOrderFilters): string {
         search.set('customer_account_id', filters.customerAccountId);
     }
     if (filters.cursor !== undefined) search.set('cursor', filters.cursor);
-    if (filters.limit !== undefined) search.set('limit', String(filters.limit));
+    if (filters.page !== undefined) {
+        search.set('page', String(filters.page));
+        if (filters.limit !== undefined) search.set('per_page', String(filters.limit));
+    } else if (filters.limit !== undefined) {
+        search.set('limit', String(filters.limit));
+    }
 
     const rendered = search.toString();
     return rendered === '' ? '' : `?${rendered}`;
@@ -361,16 +408,28 @@ export function createApiKitchenOrdersRepository(transport: Transport): KitchenO
 
     return {
         async listOrders(filters?: KitchenOrderFilters): Promise<KitchenOrderPage> {
-            const envelope = await transport.requestEnvelope<readonly WireKitchenOrder[]>({
+            const envelope = await transport.requestEnvelope<readonly WireKitchenOrderBookRow[]>({
                 method: 'GET',
                 path: `/catalogue/orders${ordersQuery(filters)}`,
             });
 
-            const meta = envelope.meta as PaginationMeta | null;
+            const meta = envelope.meta as
+                | (Partial<PaginationMeta> & {
+                      readonly page?: number;
+                      readonly total_count?: number;
+                      readonly total_pages?: number;
+                  })
+                | null;
             return {
-                items: envelope.data.map(mapKitchenOrder),
+                items: envelope.data.map(mapKitchenOrderBookRow),
                 nextCursor: meta?.next_cursor ?? null,
-                hasMore: meta?.has_more ?? false,
+                hasMore:
+                    meta?.has_more ??
+                    (meta?.page !== undefined && meta.total_pages !== undefined
+                        ? meta.page < meta.total_pages
+                        : false),
+                ...(meta?.total_count === undefined ? {} : { totalCount: meta.total_count }),
+                ...(meta?.total_pages === undefined ? {} : { totalPages: meta.total_pages }),
             };
         },
 

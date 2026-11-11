@@ -118,6 +118,16 @@ const MEAL_OF_CODE: ReadonlyMap<string, CalendarMeal> = new Map(
     CALENDAR_MEALS.flatMap((meal) => MEAL_CODES[meal].map((code) => [code, meal] as const)),
 );
 
+/** The sitting a delivery-window code is, or `null` for any other code and for no code. */
+export function mealOfWindowCode(code: string | null): CalendarMeal | null {
+    return code === null ? null : (MEAL_OF_CODE.get(code) ?? null);
+}
+
+/** Both names a kitchen may give one sitting's window. */
+export function windowCodesOfMeal(meal: CalendarMeal): readonly string[] {
+    return MEAL_CODES[meal];
+}
+
 export interface CalendarSlotDescriptor {
     /**
      * Stable within a week and safe as a test id — named rows are prefixed, so a kitchen whose own

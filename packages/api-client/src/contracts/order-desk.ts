@@ -1,4 +1,5 @@
 import type { AllergenConflict } from './commerce.ts';
+import type { MealSlot } from './marketplace.ts';
 import type { BranchId, CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
 
 import type { DishChoices, DishOptionDraft, KitchenDishOption } from './dish-options.ts';
@@ -98,6 +99,30 @@ export type OrderDeskQueueStatus = (typeof ORDER_DESK_QUEUE_STATUSES)[number];
  * gave a number has no number. The number is served **verified or not**: a courier ringing about
  * tonight's delivery needs the number the customer gave, not one the platform has proved.
  */
+/** One sitting's dish on a plan day: what the subscriber picked. */
+export interface OrderDeskPlanMealDish {
+    readonly slot: MealSlot;
+    readonly sequence: number;
+    readonly catalogueItemId: string;
+    readonly nameEn: string | null;
+    readonly nameAr: string | null;
+}
+
+/**
+ * A subscriber's plan day that is not an order yet. `scheduled`: the generator has claimed it;
+ * `projected`: the plan's weekdays say it is coming. Fewer `meals` than the servings means the rest
+ * are not chosen yet.
+ */
+export interface OrderDeskPlanMeal {
+    readonly subscriptionId: string;
+    readonly basis: 'scheduled' | 'projected';
+    readonly plan: { readonly nameEn: string | null; readonly nameAr: string | null };
+    readonly mealsPerDay: number | null;
+    readonly snacksPerDay: number | null;
+    readonly meals: readonly OrderDeskPlanMealDish[];
+    readonly customer?: OrderDeskCustomerContact | undefined;
+}
+
 export interface OrderDeskCustomerContact {
     /**
      * The **account's** name, always. There is no snapshot of a name on an order and there should
@@ -1313,6 +1338,14 @@ export interface OrderDeskRepository {
      * screen bound its next request instead of discovering the ceiling by hitting it.
      */
     listCalendar(filters: OrderDeskCalendarFilters): Promise<OrderDeskCalendar>;
+
+    /**
+     * One day's plan meals that are not orders yet, one row per subscriber, with the dishes each
+     * has picked — the calendar's plan-meal count for that day, opened. A day already turned into
+     * an order is absent (its order is on the book). `customer` is present only for a caller who
+     * may see contact details.
+     */
+    listPlanMeals(day: string, branchId?: BranchId): Promise<readonly OrderDeskPlanMeal[]>;
 
     /**
      * What one branch must buy to cook a window, and the part of that window nobody could compute.

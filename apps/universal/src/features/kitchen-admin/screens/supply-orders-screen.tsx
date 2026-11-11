@@ -47,7 +47,7 @@ import {
 } from '../catalogue/use-column-controls.tsx';
 import type { ControlledColumn, SortDirection } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
-import { displayName } from '../format.ts';
+import { displayName, unitCodeLabel } from '../format.ts';
 import {
     purchaseOrderRowTestId,
     purchaseOrderStatusKey,
@@ -491,7 +491,8 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
             label: t('kitchen:ops.supplyOrders.columnOnHand'),
             width: 180,
             priority: 90,
-            value: (row) => `${formatter.formatNumber(Number(row.quantityOnHand))} ${row.unitCode}`,
+            value: (row) =>
+                `${formatter.formatNumber(Number(row.quantityOnHand))} ${unitCodeLabel(row.unitCode, t)}`,
             // Filters by the badge rather than sorting the figure: the quantities are in each
             // shelf's own unit, so 2 kg against 40 pieces orders nothing a reader could use. The
             // states offered are the ones the queue holds.
@@ -516,7 +517,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                 return (
                     <View className="flex-row items-center gap-1.5">
                         <Text variant="mono" testID={`${testID}-on-hand`}>
-                            {`${formatter.formatNumber(Number(row.quantityOnHand))} ${row.unitCode}`}
+                            {`${formatter.formatNumber(Number(row.quantityOnHand))} ${unitCodeLabel(row.unitCode, t)}`}
                         </Text>
                         {/* A word and a tone, never colour alone. Out wins when a row is both. */}
                         {row.isOutOfStock ? (

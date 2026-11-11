@@ -48,6 +48,7 @@ import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
+import { unitCodeLabel } from '../format.ts';
 import { BoardFieldRows } from '../catalogue/record-view-page.tsx';
 import { RECORD_RAIL_MIN, RECORD_SPLIT_MIN } from '../desk-layout.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
@@ -532,13 +533,15 @@ function lineColumns({
             label: t('kitchen:ops.unpricedReceipts.columnReceived'),
             width: 110,
             priority: 90,
-            render: (line) => (
-                <Text variant="mono" testID={`kitchen-unpriced-line-${line.id}-quantity`}>
-                    {`${formatter.formatNumber(Number(line.quantity))} ${
-                        itemsById.get(String(line.stockItemId))?.unitCode ?? ''
-                    }`.trim()}
-                </Text>
-            ),
+            render: (line) => {
+                const code = itemsById.get(String(line.stockItemId))?.unitCode;
+                const unit = code === undefined ? '' : unitCodeLabel(code, t);
+                return (
+                    <Text variant="mono" testID={`kitchen-unpriced-line-${line.id}-quantity`}>
+                        {`${formatter.formatNumber(Number(line.quantity))} ${unit}`.trim()}
+                    </Text>
+                );
+            },
         },
         {
             key: 'unitPrice',

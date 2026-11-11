@@ -26,6 +26,7 @@ import { Ean13Barcode } from '../ean13-barcode.tsx';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { usePrintSheet } from '../print-sheet.tsx';
 import { MAX_LABEL_COPIES } from '../production-desk/batch-figures.ts';
+import { BackPill } from '../../../ui/back-pill.tsx';
 
 /**
  * `/kitchen/ingredients/{ingredient}/label` — the kitchen code's label, as many copies as asked
@@ -85,9 +86,8 @@ function IngredientBarcodeLabel({ ingredient }: IngredientBarcodeLabelScreenProp
                 testID="kitchen-ingredient-label-not-found"
                 title={t('kitchen:barcodes.labelNotFound')}
                 actions={
-                    <Button
+                    <BackPill
                         testID="kitchen-ingredient-label-not-found-back"
-                        variant="secondary"
                         label={t('kitchen:editor.backToList')}
                         onPress={back.leave}
                     />
@@ -117,9 +117,8 @@ function IngredientBarcodeLabel({ ingredient }: IngredientBarcodeLabelScreenProp
 
     const kitchenCode = barcodes.data?.find((row) => row.origin === 'system');
     const backButton = (
-        <Button
+        <BackPill
             testID="kitchen-ingredient-label-back"
-            variant="secondary"
             label={t('kitchen:barcodes.backToIngredient')}
             onPress={back.leave}
         />

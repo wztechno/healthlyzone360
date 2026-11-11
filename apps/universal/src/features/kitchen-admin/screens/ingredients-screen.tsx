@@ -2,13 +2,16 @@ import { Button, Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy3
 import type { MenuItem } from '@healthy360/design-system';
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import { useFormatter, useLocale } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
+import { pathnameOf } from '../../../navigation/return-to.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { BackPill } from '../../../ui/back-pill.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
@@ -120,6 +123,23 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
     const list = useIngredientList(view);
     const print = useListPrint();
     const router = useRouter();
+    /*
+     * Opened from another page — Requirements' "View ingredient" — the way back is a Back pill, in
+     * the record's bar while it is open and above the list once it is closed. Nothing is drawn for
+     * the list reached from the rail.
+     */
+    const asked = useLocalSearchParams<{ returnTo?: string }>();
+    const back = useReturnTo(asked.returnTo, '/kitchen/ingredients');
+    const backLabel =
+        back.returnTo === null
+            ? null
+            : pathnameOf(back.returnTo) === '/kitchen/order-desk/requirements'
+              ? t('kitchen:ops.supplyOrders.backToRequirements')
+              : t('common:returnTo.previous');
+    const backPill = (testID: string) =>
+        backLabel === null ? undefined : (
+            <BackPill testID={testID} label={backLabel} onPress={back.leave} />
+        );
     // The table closes the toolbar's card only when it is drawn: loading, empty and failed lists
     // bring their own frames.
     const joined = !list.isPending && list.failure === null && list.rows.length > 0;
@@ -179,6 +199,7 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                 ingredient={viewing}
                 categoryName={categoryName}
                 onBack={list.closeView}
+                leading={backPill('kitchen-ingredients-detail-back')}
                 onPrintLabel={() => {
                     router.push(`/kitchen/ingredients/${String(viewing.id)}/label`);
                 }}
@@ -188,6 +209,9 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
 
     return (
         <Cascade space="md" testID="kitchen-ingredients-screen">
+            {backLabel === null ? null : (
+                <View className="flex-row">{backPill('kitchen-ingredients-back')}</View>
+            )}
             {/*
              * One block, so the toolbar card runs straight on into the table: the figures and the
              * actions stand on the page, and the query row is the top of the list's card

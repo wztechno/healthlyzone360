@@ -2,7 +2,7 @@ import { DataList, Inline, Text, fitColumns, useBreakpoint } from '@healthy360/d
 import type { MenuItem } from '@healthy360/design-system';
 import type { RowDensity } from '@healthy360/design-tokens';
 import type { ReactNode, RefObject } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, View } from 'react-native';
 
@@ -12,6 +12,7 @@ import type { CatalogueColumn } from './catalogue-column-spec.ts';
 import { useCataloguePort } from './catalogue-nav.tsx';
 import { CATALOGUE_PAGE_SIZE, CataloguePager } from './catalogue-pager.tsx';
 import { ROW_ACTIONS_WIDTH, RowActionsMenu } from './row-actions-menu.tsx';
+import { DeskRowMenu } from '../desk-kit/desk-row-menu.tsx';
 import { RowThumbnail } from './row-thumbnail.tsx';
 
 /**
@@ -97,6 +98,8 @@ export interface CatalogueListProps<Row> {
     readonly rowActions?: ((row: Row) => readonly MenuItem[]) | undefined;
     /** Accessible name for the overflow trigger. */
     readonly rowActionsLabel: string;
+    /** `desk`: the desk kit's `⋯` and dropdown card (`DeskRowMenu`) — the desk pages' look. */
+    readonly rowActionsLook?: 'list' | 'desk' | undefined;
     readonly emptyState?: ReactNode | undefined;
     /**
      * Rows cascade in as they mount — `DataList`'s `rowEntrance`. On by default: every admin list
@@ -124,6 +127,8 @@ export interface CatalogueListProps<Row> {
     readonly joined?: boolean | undefined;
     /** Keeps the frame when empty: for an `emptyState` drawn in the table's `table` or `row` shape. */
     readonly frameEmpty?: boolean | undefined;
+    /** A heading row before a row — `DataList`'s `sectionHeader`, at both widths. */
+    readonly sectionHeader?: ((row: Row, previous: Row | undefined) => ReactNode) | undefined;
     readonly testID: string;
 }
 
@@ -190,11 +195,13 @@ function CatalogueTable<Row>({
     onRowPress,
     rowActions,
     rowActionsLabel,
+    rowActionsLook = 'list',
     emptyState,
     rowEntrance = true,
     highlightedId,
     joined = false,
     frameEmpty = false,
+    sectionHeader,
     testID,
 }: CatalogueListProps<Row>) {
     const { t } = useTranslation();
@@ -228,26 +235,31 @@ function CatalogueTable<Row>({
                 {rows.length === 0
                     ? emptyState
                     : rows.map((row, index) => (
-                          <CatalogueListItem
-                              key={rowKey(row)}
-                              title={cellText(columnForRole(columns, 'title'), row)}
-                              media={narrowThumbnail(columns, row, rowKey, testID)}
-                              status={renderRole(columns, 'status', row)}
-                              metric={renderRole(columns, 'metric', row)}
-                              meta={metaEntries(columns, row)}
-                              actions={rowActions?.(row)}
-                              actionsLabel={rowActionsLabel}
-                              onPress={
-                                  onRowPress === undefined
-                                      ? undefined
-                                      : () => {
-                                            onRowPress(row);
-                                        }
-                              }
-                              divider={index < rows.length - 1}
-                              highlighted={row === highlighted}
-                              testID={`${testID}-row-${rowKey(row)}`}
-                          />
+                          <Fragment key={rowKey(row)}>
+                              {sectionHeader === undefined ? null : (
+                                  <NarrowSection heading={sectionHeader(row, rows[index - 1])} />
+                              )}
+                              <CatalogueListItem
+                                  key={rowKey(row)}
+                                  title={cellText(columnForRole(columns, 'title'), row)}
+                                  media={narrowThumbnail(columns, row, rowKey, testID)}
+                                  status={renderRole(columns, 'status', row)}
+                                  metric={renderRole(columns, 'metric', row)}
+                                  meta={metaEntries(columns, row)}
+                                  actions={rowActions?.(row)}
+                                  actionsLabel={rowActionsLabel}
+                                  onPress={
+                                      onRowPress === undefined
+                                          ? undefined
+                                          : () => {
+                                                onRowPress(row);
+                                            }
+                                  }
+                                  divider={index < rows.length - 1}
+                                  highlighted={row === highlighted}
+                                  testID={`${testID}-row-${rowKey(row)}`}
+                              />
+                          </Fragment>
                       ))}
             </View>
         );
@@ -270,6 +282,7 @@ function CatalogueTable<Row>({
                       t('kitchen:list.actionHeader'),
                       rowKey,
                       testID,
+                      rowActionsLook,
                   ),
               ];
 
@@ -327,6 +340,7 @@ function CatalogueTable<Row>({
                     framed={rows.length > 0 || frameEmpty}
                     flushTop={joined}
                     rowEntrance={rowEntrance}
+                    sectionHeader={sectionHeader}
                     testID={testID}
                 />
             </View>
@@ -378,6 +392,12 @@ function useRevealRow(
             row.style.backgroundColor = '';
         };
     });
+}
+
+/** The heading row of the two-line list, which brings its own ground. Nothing when there is none. */
+function NarrowSection({ heading }: { readonly heading: ReactNode }) {
+    if (heading === null || heading === undefined || heading === false) return null;
+    return <View>{heading}</View>;
 }
 
 function cellText<Row>(column: CatalogueColumn<Row> | undefined, row: Row): string {
@@ -495,6 +515,7 @@ function actionColumn<Row>(
     header: string,
     rowKey: (row: Row) => string,
     testID: string,
+    look: 'list' | 'desk' = 'list',
 ): CatalogueColumn<Row> {
     return {
         key: 'actions',
@@ -507,16 +528,18 @@ function actionColumn<Row>(
         // out over the other tracks; a share here would only spend it on padding.
         grow: false,
         role: 'actions',
-        render: (row) => (
-            <RowActionsMenu
-                actions={rowActions(row).map((action) => ({
-                    ...action,
-                    // The item's own id where it has one, else one derived from the row.
-                    testID: action.testID ?? `${testID}-row-${rowKey(row)}-action-${action.key}`,
-                }))}
-                label={label}
-                testID={`${testID}-row-${rowKey(row)}-actions`}
-            />
-        ),
+        render: (row) => {
+            const actions = rowActions(row).map((action) => ({
+                ...action,
+                // The item's own id where it has one, else one derived from the row.
+                testID: action.testID ?? `${testID}-row-${rowKey(row)}-action-${action.key}`,
+            }));
+            const menuTestID = `${testID}-row-${rowKey(row)}-actions`;
+            return look === 'desk' ? (
+                <DeskRowMenu actions={actions} label={label} testID={menuTestID} />
+            ) : (
+                <RowActionsMenu actions={actions} label={label} testID={menuTestID} />
+            );
+        },
     };
 }

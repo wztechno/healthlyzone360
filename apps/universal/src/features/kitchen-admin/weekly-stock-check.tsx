@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { useWeeklyStockCheckQuery } from '../../data/order-desk-hooks.ts';
+import { unitCodeLabel } from './format.ts';
 
 /** How many short items the notice names before it says "and N more". */
 const NAMED = 5;
@@ -48,7 +49,7 @@ export function WeeklyStockCheckBanner({
             name: row.name,
             short: formatter.formatNumber(Number(row.short)),
             buy: formatter.formatNumber(Number(row.suggestedBuy)),
-            unit: row.unitCode ?? '',
+            unit: row.unitCode === null ? '' : unitCodeLabel(row.unitCode, t),
         }),
     }));
     const more = short === null ? 0 : short.shortfalls.length - named.length;

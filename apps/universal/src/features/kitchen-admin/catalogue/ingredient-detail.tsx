@@ -1,4 +1,5 @@
 import type { IngredientAdmin } from '@healthy360/api-client/contracts';
+import type { ReactNode } from 'react';
 import { Badge, Cascade, InfoTip, Text } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { coreNutrientDefinition, findAmount } from '@healthy360/nutrition';
@@ -124,6 +125,8 @@ export interface IngredientDetailProps {
     readonly onEdit?: (() => void) | undefined;
     /** Opens the label page. */
     readonly onPrintLabel: () => void;
+    /** The Back pill to the page that opened the record (Requirements), drawn in the bar. */
+    readonly leading?: ReactNode;
     readonly testID: string;
 }
 
@@ -133,6 +136,7 @@ export function IngredientDetail({
     onBack,
     onEdit,
     onPrintLabel,
+    leading,
     testID,
 }: IngredientDetailProps) {
     const { t } = useTranslation();
@@ -284,6 +288,7 @@ export function IngredientDetail({
             title={name.value}
             kind={t('kitchen:list.viewKind')}
             onClose={onBack}
+            leading={leading}
             actions={[
                 {
                     key: 'print-label',

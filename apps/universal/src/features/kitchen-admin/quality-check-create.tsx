@@ -215,7 +215,7 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
                         return {
                             key: line.id,
                             name: item?.name ?? shortId(String(line.stockItemId)),
-                            qty: ledgerQuantity(number, line.quantity, unit, noValue),
+                            qty: ledgerQuantity(number, line.quantity, unit, noValue, t),
                         };
                     }),
                     more: Math.max(0, row.lines.length - COVER_LIMIT),
@@ -232,6 +232,7 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
                     row.producedQuantity ?? row.plannedYield,
                     row.plannedYieldUnitCode,
                     noValue,
+                    t,
                 );
                 const name = row.productionItemNameEn ?? noValue;
                 return {

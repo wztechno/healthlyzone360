@@ -64,7 +64,7 @@ import {
     INVENTORY_VIEW_COSTS_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
-import { parseQuantity, withoutMinus } from '../format.ts';
+import { parseQuantity, unitCodeLabel, withoutMinus } from '../format.ts';
 import { isOutOfStock, stockItemRowTestId } from '../ops-format.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
@@ -425,18 +425,18 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
             label: t('kitchen:ops.stock.columnUnit'),
             width: 80,
             priority: 60,
-            value: (row) => row.item.unitCode,
-            // The units this book actually counts in. A code is its own label — it is what the
-            // cell prints.
+            value: (row) => unitCodeLabel(row.item.unitCode, t),
+            // The units this book actually counts in, keyed by the raw code and labelled the way
+            // the cell prints it.
             filter: {
                 values: (loaded) =>
                     [...new Set(loaded.map((row) => row.item.unitCode))].map((code) => ({
                         key: code,
-                        label: code,
+                        label: unitCodeLabel(code, t),
                     })),
                 match: (row, value) => row.item.unitCode === value,
             },
-            render: (row) => <Text tone="secondary">{row.item.unitCode}</Text>,
+            render: (row) => <Text tone="secondary">{unitCodeLabel(row.item.unitCode, t)}</Text>,
         },
         {
             key: 'reorder',
@@ -551,7 +551,7 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
             }),
             // Currency and unit come off the wire — never assumed.
             currency: purchase.costCurrencyCode ?? '',
-            unit: purchase.unitCode ?? '',
+            unit: purchase.unitCode === null ? '' : unitCodeLabel(purchase.unitCode, t),
         });
     }
 
@@ -830,7 +830,7 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
                     {
                         key: 'unit',
                         label: t('kitchen:ops.stock.columnUnit'),
-                        value: viewing.item.unitCode,
+                        value: unitCodeLabel(viewing.item.unitCode, t),
                     },
                     {
                         key: 'reorder',
@@ -1289,7 +1289,7 @@ function StockMovementEditor({
         thresholdMagnitude !== null && parMagnitude !== null && parMagnitude <= thresholdMagnitude;
 
     const name = row.item.nameEn;
-    const unit = row.item.unitCode;
+    const unit = unitCodeLabel(row.item.unitCode, t);
     const onHand = row.level === null ? 0 : Number(row.level.quantity);
     const amount = (value: number) => `${formatter.formatNumber(value)} ${unit}`;
 

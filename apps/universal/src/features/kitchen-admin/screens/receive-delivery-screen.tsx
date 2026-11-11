@@ -44,6 +44,7 @@ import {
 } from '../entity-registry.ts';
 import { EditorFrame } from '../editor-frame.tsx';
 import { focusField } from '../field-focus.ts';
+import { unitCodeLabel } from '../format.ts';
 import {
     applyScan,
     exceedsOutstanding,
@@ -457,7 +458,8 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
             },
         };
         indexes.forEach((index, posted) => {
-            const unit = lines[index]?.unitCode ?? '';
+            const code = lines[index]?.unitCode;
+            const unit = code === undefined ? '' : unitCodeLabel(code, t);
             targets[`lines.${String(posted)}.quantity`] = {
                 label: t('kitchen:ops.receiving.fieldLineQuantity', { unit }),
                 fieldId: lineFieldId(index, 'quantity'),
@@ -843,7 +845,10 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                             'kitchen:ops.receiving.outstandingLabel',
                                                             {
                                                                 quantity: line.outstandingQuantity,
-                                                                unit: line.unitCode,
+                                                                unit: unitCodeLabel(
+                                                                    line.unitCode,
+                                                                    t,
+                                                                ),
                                                             },
                                                         )}
                                                     </Text>
@@ -858,7 +863,12 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                         }
                                                         label={t(
                                                             'kitchen:ops.receiving.fieldLineQuantity',
-                                                            { unit: line.unitCode },
+                                                            {
+                                                                unit: unitCodeLabel(
+                                                                    line.unitCode,
+                                                                    t,
+                                                                ),
+                                                            },
                                                         )}
                                                         placeholder={t(
                                                             'kitchen:fields.quantityPlaceholder',
@@ -926,7 +936,10 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                             'kitchen:ops.receiving.lineOverReceipt',
                                                             {
                                                                 quantity: line.outstandingQuantity,
-                                                                unit: line.unitCode,
+                                                                unit: unitCodeLabel(
+                                                                    line.unitCode,
+                                                                    t,
+                                                                ),
                                                             },
                                                         )}
                                                     </Text>

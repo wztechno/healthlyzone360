@@ -36,6 +36,7 @@ import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
 import { useSession } from '../../../session/session-provider.tsx';
 import { AllergenList } from '../../catalogue/allergen-list.tsx';
 import { NutritionFactsPanel } from '../../catalogue/nutrition-facts-panel.tsx';
+import { unitShortKey } from '../../kitchen-admin/format.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { PLANNER_MEAL_TYPES, dateInstant } from '../format.ts';
@@ -109,7 +110,7 @@ export function RecipeDetailScreen({ recipeId }: RecipeDetailScreenProps) {
                       quantity: formatter.formatNumber(line.quantity * factor, {
                           maximumFractionDigits: 1,
                       }),
-                      unit: line.unit,
+                      unit: t(unitShortKey(line.unit)),
                   }),
                   optional: line.optional,
               }));

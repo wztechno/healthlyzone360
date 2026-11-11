@@ -1,8 +1,5 @@
-import { gradients } from '@healthy360/design-tokens';
-import { useIsRtl } from '@healthy360/i18n';
-import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text as RNText, View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 
 /**
  * The record canopy — a record page's opening, drawn on the canopy band (option C of the
@@ -22,8 +19,8 @@ import { StyleSheet, Text as RNText, View } from 'react-native';
  * is optional — a record with a lifecycle (a supply order) draws it, a catalogue record does not.
  *
  * No size above the admin's `strong` role is used anywhere on it: the band is what catches the
- * eye, never the type. The two gradients are {@link PageHero}'s — the colour sweep and the scrim
- * along the reading direction that keeps the mint captions at AA wherever they sit.
+ * eye, never the type. The band is the admin rail's own green (`surface-sidebar` and its `on-sidebar`
+ * inks, 2026-11-10), not the shop's dark canopy, so a pop-up's head reads as part of the admin.
  */
 
 export type RecordCanopyTone = 'success' | 'warning' | 'danger' | 'neutral';
@@ -101,23 +98,23 @@ export interface RecordCanopyProps {
 }
 
 const PILL_CLASS: Readonly<Record<RecordCanopyTone, string>> = {
-    success: 'bg-content-on-canopy-muted/20',
+    success: 'bg-content-on-sidebar-muted/20',
     warning: 'bg-warning/30',
     danger: 'bg-danger/30',
-    neutral: 'bg-content-on-canopy/10',
+    neutral: 'bg-content-on-sidebar/10',
 };
 
 const PILL_DOT_CLASS: Readonly<Record<RecordCanopyTone, string>> = {
-    success: 'bg-content-on-canopy-muted',
+    success: 'bg-content-on-sidebar-muted',
     warning: 'bg-warning',
     danger: 'bg-danger',
-    neutral: 'bg-content-on-canopy/60',
+    neutral: 'bg-content-on-sidebar/60',
 };
 
 const STEP_DOT_CLASS: Readonly<Record<RecordCanopyStepState, string>> = {
-    done: 'bg-content-on-canopy-muted',
+    done: 'bg-content-on-sidebar-muted',
     partial: 'bg-warning',
-    pending: 'border-2 border-content-on-canopy/45',
+    pending: 'border-2 border-content-on-sidebar/45',
 };
 
 export function RecordCanopy({
@@ -138,32 +135,14 @@ export function RecordCanopy({
     noValue,
     testID,
 }: RecordCanopyProps) {
-    const isRtl = useIsRtl();
-    const scrimStart = isRtl ? { x: 1, y: 0 } : { x: 0, y: 0 };
-    const scrimEnd = isRtl ? { x: 0, y: 0 } : { x: 1, y: 0 };
-
     return (
         // `z-10`, as the Record lens: a popover opened from an action must land over the tiles.
         <View
             testID={testID}
             role="region"
             aria-label={title}
-            className="z-10 overflow-hidden rounded-xl shadow-elevation-card"
+            className="z-10 overflow-hidden rounded-xl bg-surface-sidebar shadow-elevation-card"
         >
-            <LinearGradient
-                colors={gradients.canopy.colours}
-                locations={gradients.canopy.locations}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-            />
-            <LinearGradient
-                colors={gradients.canopyScrim.colours}
-                start={scrimStart}
-                end={scrimEnd}
-                style={StyleSheet.absoluteFill}
-            />
-
             <View className="z-auto flex-col gap-base p-base">
                 <View className="z-auto flex-row flex-wrap items-center gap-x-5 gap-y-snug">
                     {back}
@@ -175,7 +154,7 @@ export function RecordCanopy({
                                 testID={titleTestID ?? `${testID}-title`}
                                 accessibilityRole="header"
                                 aria-level={1}
-                                className="text-role-strong font-bold text-content-on-canopy text-start"
+                                className="text-role-strong font-bold text-content-on-sidebar text-start"
                             >
                                 {title}
                             </RNText>
@@ -185,7 +164,7 @@ export function RecordCanopy({
                                     {...(titleAsideLang === undefined
                                         ? {}
                                         : { lang: titleAsideLang })}
-                                    className="text-role-strong text-content-on-canopy-muted text-start"
+                                    className="text-role-strong text-content-on-sidebar-muted text-start"
                                 >
                                     {titleAside}
                                 </RNText>
@@ -199,7 +178,7 @@ export function RecordCanopy({
                                         aria-hidden
                                         className={`h-2 w-2 rounded-full ${PILL_DOT_CLASS[status.tone]}`}
                                     />
-                                    <RNText className="text-role-label font-semibold text-content-on-canopy">
+                                    <RNText className="text-role-label font-semibold text-content-on-sidebar">
                                         {status.label}
                                     </RNText>
                                 </View>
@@ -214,7 +193,7 @@ export function RecordCanopy({
                                 <RNText
                                     key={key}
                                     testID={line.testID ?? `${testID}-caption-${String(index)}`}
-                                    className="text-role-label text-content-on-canopy-muted text-start"
+                                    className="text-role-label text-content-on-sidebar-muted text-start"
                                 >
                                     {'text' in line
                                         ? line.text
@@ -234,14 +213,14 @@ export function RecordCanopy({
                             {facts.map((fact) => (
                                 <View
                                     key={fact.key}
-                                    className="min-w-[112px] flex-col gap-0.5 rounded-lg border border-content-on-canopy/15 bg-content-on-canopy/10 px-snug py-tight"
+                                    className="min-w-[112px] flex-col gap-0.5 rounded-lg border border-content-on-sidebar/15 bg-content-on-sidebar/10 px-snug py-tight"
                                 >
-                                    <RNText className="text-role-label text-content-on-canopy-muted text-start">
+                                    <RNText className="text-role-label text-content-on-sidebar-muted text-start">
                                         {fact.label}
                                     </RNText>
                                     <RNText
                                         testID={fact.testID ?? `${testID}-fact-${fact.key}`}
-                                        className="text-role-strong font-bold tabular-nums text-content-on-canopy text-start"
+                                        className="text-role-strong font-bold tabular-nums text-content-on-sidebar text-start"
                                     >
                                         {fact.value}
                                     </RNText>
@@ -264,7 +243,7 @@ export function RecordCanopy({
                         testID={`${testID}-history`}
                         role="list"
                         aria-label={stepsLabel}
-                        className="flex-row rounded-lg bg-surface-canopy-deep/60 px-base py-snug"
+                        className="flex-row rounded-lg bg-content-on-sidebar/10 px-base py-snug"
                     >
                         {steps.map((step, index) => {
                             const next = steps[index + 1];
@@ -287,17 +266,17 @@ export function RecordCanopy({
                                                 next === undefined
                                                     ? 'bg-transparent'
                                                     : next.state === 'pending'
-                                                      ? 'bg-content-on-canopy/20'
-                                                      : 'bg-content-on-canopy-muted'
+                                                      ? 'bg-content-on-sidebar/20'
+                                                      : 'bg-content-on-sidebar-muted'
                                             }`}
                                         />
                                     </View>
-                                    <RNText className="text-role-label font-semibold text-content-on-canopy text-start">
+                                    <RNText className="text-role-label font-semibold text-content-on-sidebar text-start">
                                         {step.label}
                                     </RNText>
                                     <RNText
                                         testID={step.testID}
-                                        className="text-role-label tabular-nums text-content-on-canopy-muted text-start"
+                                        className="text-role-label tabular-nums text-content-on-sidebar-muted text-start"
                                     >
                                         {step.at ?? noValue}
                                     </RNText>
@@ -353,8 +332,8 @@ export interface RecordCanopyHeroProps {
 
 /**
  * The Ingredient view board's canopy: handle and status over a large name, the filing as pills, and
- * one large figure at the inline end. A page with one figure to lead with draws this; the band and
- * its gradients are {@link RecordCanopy}'s, and every other View page keeps that compact head.
+ * one large figure at the inline end. A page with one figure to lead with draws this; the band is
+ * {@link RecordCanopy}'s, and every other View page keeps that compact head.
  */
 export function RecordCanopyHero({
     title,
@@ -376,31 +355,13 @@ export function RecordCanopyHero({
     actions,
     testID,
 }: RecordCanopyHeroProps) {
-    const isRtl = useIsRtl();
-    const scrimStart = isRtl ? { x: 1, y: 0 } : { x: 0, y: 0 };
-    const scrimEnd = isRtl ? { x: 0, y: 0 } : { x: 1, y: 0 };
-
     return (
         <View
             testID={testID}
             role="region"
             aria-label={title}
-            className="z-10 overflow-hidden rounded-xl shadow-elevation-card"
+            className="z-10 overflow-hidden rounded-xl bg-surface-sidebar shadow-elevation-card"
         >
-            <LinearGradient
-                colors={gradients.canopy.colours}
-                locations={gradients.canopy.locations}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-            />
-            <LinearGradient
-                colors={gradients.canopyScrim.colours}
-                start={scrimStart}
-                end={scrimEnd}
-                style={StyleSheet.absoluteFill}
-            />
-
             <View className="flex-row flex-wrap items-end justify-between gap-6 p-6">
                 <View className="min-w-0 shrink flex-row flex-wrap items-center gap-5">
                     {media}
@@ -412,20 +373,20 @@ export function RecordCanopyHero({
                                 <>
                                     <RNText
                                         testID={referenceTestID ?? `${testID}-reference`}
-                                        className="text-role-label font-semibold tabular-nums text-content-on-canopy text-start"
+                                        className="text-role-label font-semibold tabular-nums text-content-on-sidebar text-start"
                                     >
                                         {reference}
                                     </RNText>
                                     <View
                                         aria-hidden
-                                        className="h-1 w-1 rounded-full bg-content-on-canopy"
+                                        className="h-1 w-1 rounded-full bg-content-on-sidebar"
                                     />
                                 </>
                             )}
                             {status === undefined ? null : (
                                 <RNText
                                     testID={statusTestID ?? `${testID}-status`}
-                                    className="text-role-label font-semibold text-content-on-canopy text-start"
+                                    className="text-role-label font-semibold text-content-on-sidebar text-start"
                                 >
                                     {status}
                                 </RNText>
@@ -433,7 +394,7 @@ export function RecordCanopyHero({
                             {kind === undefined ? null : (
                                 <RNText
                                     testID={kindTestID ?? `${testID}-kind`}
-                                    className="text-role-label font-semibold text-content-on-canopy text-start"
+                                    className="text-role-label font-semibold text-content-on-sidebar text-start"
                                 >
                                     {kind}
                                 </RNText>
@@ -443,7 +404,7 @@ export function RecordCanopyHero({
                             testID={titleTestID ?? `${testID}-title`}
                             accessibilityRole="header"
                             aria-level={1}
-                            className="mt-2 font-display text-3xl font-bold text-content-on-canopy text-start lg:text-4xl"
+                            className="mt-2 font-display text-3xl font-bold text-content-on-sidebar text-start lg:text-4xl"
                         >
                             {title}
                         </RNText>
@@ -451,7 +412,7 @@ export function RecordCanopyHero({
                             <RNText
                                 testID={`${testID}-title-aside`}
                                 {...(titleAsideLang === undefined ? {} : { lang: titleAsideLang })}
-                                className="mt-1 text-base font-semibold text-content-on-canopy-muted text-start"
+                                className="mt-1 text-base font-semibold text-content-on-sidebar-muted text-start"
                             >
                                 {titleAside}
                             </RNText>
@@ -463,7 +424,7 @@ export function RecordCanopyHero({
                                         testID={statusTestID ?? `${testID}-status`}
                                         className={`h-7 flex-row items-center rounded-full px-3 ${PILL_CLASS[statusChip.tone]}`}
                                     >
-                                        <RNText className="text-role-label font-semibold text-content-on-canopy">
+                                        <RNText className="text-role-label font-semibold text-content-on-sidebar">
                                             {statusChip.label}
                                         </RNText>
                                     </View>
@@ -471,9 +432,9 @@ export function RecordCanopyHero({
                                 {chips.map((chip) => (
                                     <View
                                         key={chip}
-                                        className="h-7 flex-row items-center rounded-full bg-content-on-canopy/20 px-3"
+                                        className="h-7 flex-row items-center rounded-full bg-content-on-sidebar/20 px-3"
                                     >
-                                        <RNText className="text-role-label font-semibold text-content-on-canopy">
+                                        <RNText className="text-role-label font-semibold text-content-on-sidebar">
                                             {chip}
                                         </RNText>
                                     </View>
@@ -483,7 +444,7 @@ export function RecordCanopyHero({
                         {caption === undefined ? null : (
                             <RNText
                                 testID={`${testID}-caption`}
-                                className="mt-2.5 text-role-label text-content-on-canopy-muted text-start"
+                                className="mt-2.5 text-role-label text-content-on-sidebar-muted text-start"
                             >
                                 {caption}
                             </RNText>
@@ -492,7 +453,7 @@ export function RecordCanopyHero({
                             <RNText
                                 key={line.testID}
                                 testID={line.testID}
-                                className={`${index === 0 ? 'mt-2.5' : 'mt-0.5'} text-role-label text-content-on-canopy-muted text-start`}
+                                className={`${index === 0 ? 'mt-2.5' : 'mt-0.5'} text-role-label text-content-on-sidebar-muted text-start`}
                             >
                                 {line.text}
                             </RNText>
@@ -502,17 +463,17 @@ export function RecordCanopyHero({
 
                 {figure === undefined ? null : (
                     <View testID={`${testID}-figure`} className="ms-auto flex-col items-end">
-                        <RNText className="text-role-label font-semibold text-content-on-canopy">
+                        <RNText className="text-role-label font-semibold text-content-on-sidebar">
                             {figure.label}
                         </RNText>
                         <RNText
                             testID={`${testID}-figure-value`}
-                            className="my-0.5 font-display text-3xl font-bold tabular-nums text-content-on-canopy lg:text-4xl"
+                            className="my-0.5 font-display text-3xl font-bold tabular-nums text-content-on-sidebar lg:text-4xl"
                         >
                             {figure.value}
                         </RNText>
                         {figure.note === undefined ? null : (
-                            <RNText className="text-role-label font-semibold text-content-on-canopy">
+                            <RNText className="text-role-label font-semibold text-content-on-sidebar">
                                 {figure.note}
                             </RNText>
                         )}
@@ -537,7 +498,7 @@ export function RecordCanopyGlyph({ children }: { readonly children: ReactNode }
     return (
         <View
             aria-hidden
-            className="h-12 w-12 items-center justify-center rounded-lg border border-content-on-canopy/20 bg-content-on-canopy/10"
+            className="h-12 w-12 items-center justify-center rounded-lg border border-content-on-sidebar/20 bg-content-on-sidebar/10"
         >
             {children}
         </View>

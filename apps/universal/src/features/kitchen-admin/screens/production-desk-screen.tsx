@@ -46,7 +46,7 @@ import {
     formatLot,
     yieldSummary,
 } from '../production-desk/batch-figures.ts';
-import { trimDecimal } from '../format.ts';
+import { trimDecimal, unitCodeLabel } from '../format.ts';
 
 /**
  * `/kitchen/production-desk` — the batches this kitchen still has to do something about (PROD1).
@@ -241,7 +241,7 @@ function ProductionDesk() {
                          * thrown away. Before the batch is settled this is an em dash rather than a
                          * zero: it has produced nothing **yet**.
                          */}
-                        {yieldSummary(row) ?? planned(row, t('kitchen:list.noValue'))}
+                        {yieldSummary(row, t) ?? planned(row, t('kitchen:list.noValue'), t)}
                     </Text>
                 ),
             },
@@ -597,8 +597,10 @@ function lensFigures(
  * only while there is no produced one, and falls back to the em dash rather than to a zero when the
  * batch does not even say what it intends.
  */
-function planned(row: ProductionOrder, fallback: string): string {
+function planned(row: ProductionOrder, fallback: string, t: (key: string) => string): string {
     if (row.plannedYield === null) return fallback;
 
-    return `${trimDecimal(row.plannedYield)} ${row.plannedYieldUnitCode ?? ''}`.trim();
+    const unit =
+        row.plannedYieldUnitCode === null ? '' : unitCodeLabel(row.plannedYieldUnitCode, t);
+    return `${trimDecimal(row.plannedYield)} ${unit}`.trim();
 }

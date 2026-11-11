@@ -211,6 +211,7 @@
             "columnDelivery": "Delivery",
             "columnItems": "Items",
             "columnTotal": "Total",
+            "columnNext": "Next step",
             "columnActions": "Actions",
             "loadMore": "Load more",
             "loadingMore": "Loading…",
@@ -660,6 +661,11 @@
             "detailTitle": "Order {{number}}",
             "detailSubtitle": "{{supplier}} · {{branch}} · made {{date}}",
             "backToOrders": "Back to supply orders",
+            "orderAll": "Order every item",
+            "orderItem": "Order {{item}}",
+            "backToRequirements": "Back to requirements",
+            "onOrderShort": "{{quantity}} on order · {{first}}",
+            "onOrderMore": "{{quantity}} on order · {{first}} +{{more}}",
             "notFoundTitle": "That order isn't here",
             "notFoundBody": "The link may be mistyped, or the order may belong to another kitchen.",
             "supplierArchivedTitle": "This supplier is archived",
@@ -1808,7 +1814,16 @@
             "weeklyClearBody": "The orders and subscriptions booked for that week were covered by the shelf.",
             "weeklyClearWithHoles_one": "Covered — but {{count}} day had demand nobody could work out. See the list below.",
             "weeklyClearWithHoles_other": "Covered — but {{count}} days had demand nobody could work out. See the list below.",
-            "weeklyShowWindow": "Show that week"
+            "weeklyShowWindow": "Show that week",
+            "showLabel": "Show",
+            "showAll": "All",
+            "showShort": "Short",
+            "showCovered": "Covered",
+            "unitAll": "All",
+            "searchLabel": "Search ingredients",
+            "searchPlaceholder": "Ingredient or code",
+            "viewIngredient": "View ingredient",
+            "editIngredient": "Edit ingredient"
         },
         "cashReport": {
             "title": "Cash taken",
@@ -2292,6 +2307,8 @@
             "searchHint": "Everybody with an active membership here is listed. Somebody who has not put a name on their profile can only be found with this box empty.",
             "choose": "Choose",
             "chosen": "Chosen",
+            "current": "Has it now",
+            "courierInstead": "Hand it to a courier company instead",
             "unnamed": "This member has no name on their profile.",
             "confirm": "Give them the run",
             "capped": "Showing the first {{limit}}. Narrow the search to reach the rest.",
@@ -2601,6 +2618,8 @@
             "notAmendableBody": "To change it now, cancel it and take a new sale.",
             "backToDesk": "Back to the order desk",
             "changeAddress": "Change address",
+            "currentAddress": "Address on the order now",
+            "newAddress": "New address",
             "keepAddress": "Keep this address",
             "save": "Save changes · {{total}}",
             "review": "Review changes · {{total}}",
@@ -2997,6 +3016,7 @@
         "close": "Close",
         "columnSort": "Sort by {{column}}",
         "columnsButton": "Show columns · {{shown}} of {{max}}",
+        "columnsCount": "{{shown}} of {{max}}",
         "columnsClear": "Clear all",
         "columnsHint": "Choose which columns appear in the table. Up to {{max}} at a time.",
         "columnsLabel": "Choose the columns to show",
@@ -5612,5 +5632,214 @@
             "allergy": "allergy",
             "anaphylaxis": "life-threatening"
         }
+    },
+    "orders": {
+        "tab": {
+            "label": "Orders views",
+            "today": "Today",
+            "calendar": "Calendar",
+            "all": "All orders"
+        },
+        "backToOrders": "Back to orders",
+        "newOrder": "New order",
+        "newForDay": "New order for this day",
+        "clearFilters": "Clear filters",
+        "caption": "Orders",
+        "late": "Late",
+        "loadErrorTitle": "The orders could not be loaded",
+        "openOrder": "Open order {{number}}",
+        "showing": "Showing: {{figure}}",
+        "count_one": "{{count}} order",
+        "count_other": "{{count}} orders",
+        "figure": {
+            "confirm": "To confirm",
+            "late": "Late",
+            "driver": "Needs a driver",
+            "collect": "Money to collect",
+            "more": "{{count}}+",
+            "show": "Show only: {{figure}}"
+        },
+        "filter": {
+            "all": "All",
+            "both": "Both",
+            "slot": "Slot",
+            "kind": "Type",
+            "dates": "Dates",
+            "status": "Status"
+        },
+        "dates": {
+            "week": "This week",
+            "next7": "Next 7 days",
+            "last7": "Last 7 days",
+            "month": "This month"
+        },
+        "kind": {
+            "delivery": "Delivery",
+            "pickup": "Pickup",
+            "counter": "Counter sale"
+        },
+        "search": {
+            "label": "Find an order",
+            "placeholder": "Order number, name or phone",
+            "numberPlaceholder": "Order number"
+        },
+        "empty": {
+            "filtered": "Nothing matches these filters",
+            "day": "No orders on {{day}}",
+            "book": "No orders yet"
+        },
+        "group": {
+            "late": "Late from earlier days",
+            "lateSub": "Still open",
+            "lateAll": "See all"
+        },
+        "status": {
+            "toConfirm": "To confirm",
+            "confirmed": "Confirmed",
+            "delivered": "Delivered",
+            "pickedUp": "Picked up",
+            "sold": "Sold",
+            "cancelled": "Cancelled",
+            "done": "Done"
+        },
+        "step": {
+            "confirm": "Confirm",
+            "driver": "Choose a driver",
+            "deliver": "Mark delivered",
+            "ready": "Mark ready",
+            "pickup": "Mark picked up",
+            "payment": "Record a payment"
+        },
+        "day": {
+            "today": "Today",
+            "tomorrow": "Tomorrow",
+            "yesterday": "Yesterday",
+            "past": "Past day",
+            "coming": "Coming up",
+            "previous": "Previous day",
+            "next": "Next day",
+            "pick": "Pick a day",
+            "backToToday": "Back to today"
+        },
+        "slot": {
+            "none": "No slot"
+        },
+        "column": {
+            "order": "Order",
+            "customer": "Customer",
+            "when": "Day and slot",
+            "status": "Status",
+            "driver": "Driver",
+            "payment": "Payment",
+            "total": "Total",
+            "next": "Next step"
+        },
+        "driver": {
+            "needed": "Needs a driver",
+            "pickup": "Pickup",
+            "counter": "At the counter",
+            "giveTo": "Give it to {{name}}",
+            "none": "No driver"
+        },
+        "payment": {
+            "paid": "Paid",
+            "toCollect": "To collect {{amount}}",
+            "dialogDescription": "Order {{number}} · still to collect {{outstanding}}"
+        },
+        "toast": {
+            "pickedUp": "Order {{number}} picked up.",
+            "ready": "Order {{number}} is ready to go.",
+            "changed": "Order {{number}} changed while you were looking. Check it and try again.",
+            "failed": "Order {{number}} could not be updated."
+        },
+        "calendar": {
+            "label": "Calendar",
+            "modeLabel": "Calendar view",
+            "month": "Month",
+            "week": "Week",
+            "previousMonth": "Previous month",
+            "nextMonth": "Next month",
+            "previousWeek": "Previous week",
+            "nextWeek": "Next week",
+            "weekRange": "{{from}} – {{to}}",
+            "monthCount_one": "{{count}} order this month",
+            "monthCount_other": "{{count}} orders this month",
+            "weekCount_one": "{{count}} order this week",
+            "weekCount_other": "{{count}} orders this week",
+            "dayA11y_one": "{{day}}, {{count}} order",
+            "dayA11y_other": "{{day}}, {{count}} orders",
+            "plan_one": "{{count}} plan meal",
+            "plan_other": "{{count}} plan meals",
+            "planExpected_one": "About {{count}} plan meal",
+            "planExpected_other": "About {{count}} plan meals",
+            "planShort": "{{count}} plan",
+            "planMore_one": "+ {{count}} plan meal",
+            "planMore_other": "+ {{count}} plan meals",
+            "toConfirm": "{{count}} to confirm",
+            "late": "{{count}} late",
+            "noOrders": "No orders",
+            "noOrdersOnDay": "No orders on this day"
+        },
+        "panel": {
+            "planTitle": "Plan meals",
+            "planCount_one": "{{count}} customer",
+            "planCount_other": "{{count}} customers",
+            "planNotChosen": "Dishes not chosen yet",
+            "planMoreNotChosen_one": "{{count}} not chosen yet",
+            "planMoreNotChosen_other": "{{count}} not chosen yet",
+            "planned": "Planned",
+            "expected": "Expected",
+            "orders": "Orders",
+            "plan": "Plan meals",
+            "sales": "Sales",
+            "cook": "What to cook",
+            "requirements": "Open requirements",
+            "times": "× {{count}}",
+            "openDay": "Open this day"
+        },
+        "record": {
+            "loading": "Order",
+            "day": "Day",
+            "dayWithRelative": "{{day}} ({{relative}})",
+            "slot": "Slot",
+            "ordered": "Ordered",
+            "phone": "Telephone",
+            "allergies": "Allergies",
+            "none": "None",
+            "payment": "Payment",
+            "payingBy": "Paying by",
+            "received": "Received",
+            "toCollect": "Still to collect",
+            "delivery": "Delivery",
+            "pickup": "Pickup",
+            "runState": "Where it is",
+            "whereItIs": "Where it is",
+            "waitingAtCounter": "Waiting at the counter",
+            "history": "History",
+            "statusLate": "{{status}} · Late",
+            "deliveryOrder": "Delivery order",
+            "pickupOrder": "Pickup order",
+            "atCounter": "Pickup at the counter",
+            "paidBy": "Paid · {{method}}",
+            "change": "Change"
+        },
+        "stage": {
+            "label": "Where the order is",
+            "placed": "Placed"
+        },
+        "history": {
+            "placed": "Order placed",
+            "confirmed": "Confirmed",
+            "preparing": "Cooking started",
+            "ready": "Ready",
+            "given": "Given to {{name}}",
+            "onTheWay": "On the way",
+            "failed": "Delivery failed"
+        }
+    },
+    "compactPopup": {
+        "previous": "Previous",
+        "next": "Next",
+        "position": "{{index}} of {{count}}"
     }
 }

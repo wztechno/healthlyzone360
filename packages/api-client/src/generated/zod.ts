@@ -6602,6 +6602,41 @@ export const zOrderDeskCalendarDay = z.object({
     windows: z.array(zOrderDeskCalendarWindow)
 });
 
+/**
+ * One subscriber's plan day that is not an order yet.
+ */
+export const zOrderDeskPlanMeal = z.object({
+    subscription_id: zUuid,
+    basis: z.enum(['scheduled', 'projected']),
+    plan: z.object({
+        name_en: z.string().nullable(),
+        name_ar: z.string().nullable()
+    }),
+    meals_per_day: z.int().nullable(),
+    snacks_per_day: z.int().nullable(),
+    meals: z.array(z.object({
+        slot: z.enum([
+            'breakfast',
+            'lunch',
+            'dinner',
+            'snack'
+        ]),
+        sequence: z.int(),
+        catalogue_item_id: zUuid,
+        name_en: z.string().nullable(),
+        name_ar: z.string().nullable()
+    })),
+    customer: zOrderDeskCustomerContact.optional()
+});
+
+export const zOrderDeskPlanMealsEnvelope = z.object({
+    data: z.array(zOrderDeskPlanMeal),
+    meta: zMeta.and(z.object({
+        date: z.iso.date(),
+        count: z.int().gte(0)
+    }))
+});
+
 export const zOrderDeskCalendarEnvelope = z.object({
     data: z.object({
         days: z.array(zOrderDeskCalendarDay)
@@ -9635,6 +9670,12 @@ export const zKitchenOrderEnvelope = z.object({
     }),
     meta: zMeta
 });
+
+export const zKitchenOrderBookRow = zKitchenOrder.and(z.object({
+    payment: zOrderPaymentSummary,
+    delivery_job: zOrderDeskDeliveryJob.nullable(),
+    customer: zOrderDeskCustomerContact.optional()
+}));
 
 export const zOrderDeskRow = zKitchenOrder.and(z.object({
     due_at: z.iso.datetime({ offset: true }),
@@ -15618,19 +15659,29 @@ export const zListKitchenOrdersHeaders = z.object({
 export const zListKitchenOrdersQuery = z.object({
     limit: z.int().gte(1).lte(100).optional().default(25),
     cursor: z.string().max(200).optional(),
+    page: z.int().gte(1).optional(),
+    per_page: z.int().gte(1).lte(100).optional().default(25),
     status: zOrderStatus.optional(),
     customer_account_id: zUuid.optional(),
     requested_delivery_date: z.iso.date().optional(),
     branch_id: zUuid.optional(),
-    query: z.string().max(60).optional()
+    query: z.string().max(60).optional(),
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional(),
+    'delivery_window_code[]': z.array(z.string().max(40)).optional(),
+    fulfilment_type: z.enum([
+        'delivery',
+        'pickup',
+        'counter'
+    ]).optional()
 });
 
 /**
- * A page of the organisation's orders, newest first.
+ * A page of the organisation's orders, newest first. With `page`, numbered — `meta` then carries `total_count` and `total_pages`.
  */
 export const zListKitchenOrdersResponse = z.object({
-    data: z.array(zKitchenOrder),
-    meta: zPaginationMeta
+    data: z.array(zKitchenOrderBookRow),
+    meta: zPaginatedOrNumberedMeta
 });
 
 export const zShowKitchenOrderHeaders = z.object({
@@ -16294,6 +16345,21 @@ export const zGetOrderDeskCalendarQuery = z.object({
  * Every day of the window, each with its three counts and their split by slot.
  */
 export const zGetOrderDeskCalendarResponse = zOrderDeskCalendarEnvelope;
+
+export const zGetOrderDeskPlanMealsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderDeskPlanMealsQuery = z.object({
+    date: z.iso.date(),
+    branch_id: zUuid.optional()
+});
+
+/**
+ * The day's plan meals, one row per subscriber.
+ */
+export const zGetOrderDeskPlanMealsResponse = zOrderDeskPlanMealsEnvelope;
 
 export const zGetOrderDeskRequirementsHeaders = z.object({
     'X-Organisation-Id': zUuid,

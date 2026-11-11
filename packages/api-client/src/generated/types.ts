@@ -9402,6 +9402,12 @@ export type OrderDeskCustomerContact = {
     phone: string | null;
 };
 
+export type KitchenOrderBookRow = KitchenOrder & {
+    payment: OrderPaymentSummary;
+    delivery_job: OrderDeskDeliveryJob | null;
+    customer?: OrderDeskCustomerContact;
+};
+
 export type OrderDeskRow = KitchenOrder & {
     /**
      * The instant this order is actually due, as a UTC ISO-8601
@@ -10257,6 +10263,39 @@ export type OrderDeskCalendarDay = {
      *
      */
     windows: Array<OrderDeskCalendarWindow>;
+};
+
+export type OrderDeskPlanMealsEnvelope = {
+    data: Array<OrderDeskPlanMeal>;
+    meta: Meta & {
+        date: string;
+        count: number;
+    };
+};
+
+/**
+ * One subscriber's plan day that is not an order yet.
+ */
+export type OrderDeskPlanMeal = {
+    subscription_id: Uuid;
+    basis: 'scheduled' | 'projected';
+    plan: {
+        name_en: string | null;
+        name_ar: string | null;
+    };
+    meals_per_day: number | null;
+    snacks_per_day: number | null;
+    /**
+     * What has been picked, by sitting. Fewer than the plan's servings means the rest are not chosen yet.
+     */
+    meals: Array<{
+        slot: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+        sequence: number;
+        catalogue_item_id: Uuid;
+        name_en: string | null;
+        name_ar: string | null;
+    }>;
+    customer?: OrderDeskCustomerContact;
 };
 
 export type OrderDeskCalendarEnvelope = {
@@ -34375,6 +34414,27 @@ export type ListKitchenOrdersData = {
          */
         cursor?: string;
         /**
+         * Ask for a numbered page instead of walking the cursor. 1-based.
+         *
+         * Only the kitchen catalogue accepts this — see `docs/api/conventions.md`
+         * for why offset is safe on these five collections and on nothing else.
+         * Sending it switches the response `meta` to `NumberedPaginationMeta`;
+         * omitting it leaves the keyset behaviour exactly as it was, so a client
+         * that has never heard of `page` is unaffected.
+         *
+         * A page past the last is `400 request.invalid`, not an empty list. Page
+         * 1 of an empty collection is not: that is a legitimate empty answer.
+         *
+         */
+        page?: number;
+        /**
+         * Page size for a numbered page. A synonym for `limit`, accepted so a
+         * client does not have to change which word it sends when it starts
+         * asking for pages; `per_page` wins if both are present.
+         *
+         */
+        per_page?: number;
+        /**
          * Restrict to one lifecycle state. Omitted, everything is listed.
          */
         status?: OrderStatus;
@@ -34397,6 +34457,32 @@ export type ListKitchenOrdersData = {
          * Case-insensitive substring match on the order number, and on nothing else.
          */
         query?: string;
+        /**
+         * First day of a span, inclusive, `YYYY-MM-DD`. An order's day is its
+         * requested delivery date or, when it has none, the day it was placed —
+         * the rule the order-desk calendar counts by, so a day's list and the
+         * calendar's count for it agree. Alone, the span is open at the end.
+         *
+         */
+        from?: string;
+        /**
+         * Last day of the span, inclusive, on or after `from`. Alone, the span
+         * is open at the start.
+         *
+         */
+        to?: string;
+        /**
+         * Restrict to one or more named slots, by the windows' own codes. A
+         * set, because a sitting goes by two codes in some kitchens (`midday`
+         * and `lunch`). Repeat the bracketed name, as `status[]` on the desk
+         * queue does.
+         *
+         */
+        'delivery_window_code[]'?: Array<string>;
+        /**
+         * Restrict to one way of leaving the kitchen. Omitted, all three are listed.
+         */
+        fulfilment_type?: 'delivery' | 'pickup' | 'counter';
     };
     url: '/catalogue/orders';
 };
@@ -34430,11 +34516,11 @@ export type ListKitchenOrdersError = ListKitchenOrdersErrors[keyof ListKitchenOr
 
 export type ListKitchenOrdersResponses = {
     /**
-     * A page of the organisation's orders, newest first.
+     * A page of the organisation's orders, newest first. With `page`, numbered — `meta` then carries `total_count` and `total_pages`.
      */
     200: {
-        data: Array<KitchenOrder>;
-        meta: PaginationMeta;
+        data: Array<KitchenOrderBookRow>;
+        meta: PaginatedOrNumberedMeta;
     };
 };
 
@@ -37672,6 +37758,70 @@ export type GetOrderDeskCalendarResponses = {
 };
 
 export type GetOrderDeskCalendarResponse = GetOrderDeskCalendarResponses[keyof GetOrderDeskCalendarResponses];
+
+export type GetOrderDeskPlanMealsData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * The day to list.
+         */
+        date: string;
+        /**
+         * Narrow to one production site. Omitted, the list is organisation-wide.
+         */
+        branch_id?: Uuid;
+    };
+    url: '/catalogue/order-desk/plan-meals';
+};
+
+export type GetOrderDeskPlanMealsErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetOrderDeskPlanMealsError = GetOrderDeskPlanMealsErrors[keyof GetOrderDeskPlanMealsErrors];
+
+export type GetOrderDeskPlanMealsResponses = {
+    /**
+     * The day's plan meals, one row per subscriber.
+     */
+    200: OrderDeskPlanMealsEnvelope;
+};
+
+export type GetOrderDeskPlanMealsResponse = GetOrderDeskPlanMealsResponses[keyof GetOrderDeskPlanMealsResponses];
 
 export type GetOrderDeskRequirementsData = {
     body?: never;

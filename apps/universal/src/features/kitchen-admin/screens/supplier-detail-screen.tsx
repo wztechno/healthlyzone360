@@ -47,7 +47,7 @@ import {
     INVENTORY_VIEW_COSTS_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
-import { displayName } from '../format.ts';
+import { displayName, unitCodeLabel } from '../format.ts';
 import { returnCrumbLabel } from '../came-from.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { focusField } from '../field-focus.ts';
@@ -638,7 +638,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                             maximumFractionDigits: 2,
                         }),
                         currency: purchase.costCurrencyCode ?? '',
-                        unit: purchase.unitCode ?? '',
+                        unit: purchase.unitCode === null ? '' : unitCodeLabel(purchase.unitCode, t),
                     })}
                 </Text>
                 <Text variant="caption" tone="secondary" testID={`${testID}-price-date`}>

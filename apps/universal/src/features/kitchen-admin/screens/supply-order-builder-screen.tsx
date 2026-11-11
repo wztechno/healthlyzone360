@@ -6,11 +6,8 @@ import type {
 } from '@healthy360/api-client/contracts';
 import type { StockItemId, SupplierId } from '@healthy360/domain-types';
 import {
-    Badge,
-    Button,
     Callout,
     Cascade,
-    Checkbox,
     DataList,
     Dialog,
     EmptyState,
@@ -20,12 +17,14 @@ import {
     InfoTip,
     QuantityInput,
     Select,
+    Skeleton,
     Stack,
     TableSkeleton,
     Text,
     useToast,
 } from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
+import type { ReactNode } from 'react';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -44,12 +43,14 @@ import {
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
-import { displayName } from '../format.ts';
+import { displayName, unitCodeLabel } from '../format.ts';
 import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
-import { RecordSummaryAside } from '../record-summary-aside.tsx';
+import { BackPill } from '../../../ui/back-pill.tsx';
+import { pathnameOf } from '../../../navigation/return-to.ts';
+import { DeskButton, DeskCheckbox, DeskChip } from '../desk-kit/index.ts';
 import { supplyOrderGroupTestId, supplyOrderRowTestId } from '../ops-format.ts';
 import {
     buildGroups,
@@ -198,7 +199,7 @@ function SupplyOrderBuilder() {
     const formatter = useFormatter();
     const router = useRouter();
     // `items` is the Requirements screen's shortfall, handed over as stock item ids.
-    const params = useLocalSearchParams<{ items?: string; returnTo?: string }>();
+    const params = useLocalSearchParams<{ items?: string; qty?: string; returnTo?: string }>();
     // Cancel steps back to wherever the builder was opened from — the book, a batch's shortfall or
     // Requirements.
     const back = useReturnTo(params.returnTo, '/kitchen/supply-orders');
@@ -253,7 +254,32 @@ function SupplyOrderBuilder() {
      * copied the server's answer into state would have to re-run on every fetch, and the frame
      * between the answer arriving and the copy landing is where a table renders the wrong numbers.
      */
-    const effective = useMemo(() => initialChoices(rows, edits), [rows, edits]);
+    /*
+     * Quantities the page that opened the builder worked out — Requirements' suggested buy, as
+     * `qty=id:amount,…` — fill the rows nobody has touched yet, ticked to order. The server's own
+     * suggestion only knows the reorder levels; Requirements knows the days ahead.
+     */
+    const [seeds] = useState<Readonly<Record<string, string>>>(() =>
+        Object.fromEntries(
+            (params.qty ?? '')
+                .split(',')
+                .map((pair) => pair.split(':'))
+                .filter(
+                    (pair): pair is [string, string] =>
+                        pair.length === 2 && pair[0] !== '' && Number(pair[1]) > 0,
+                ),
+        ),
+    );
+    const effective = useMemo(() => {
+        const base = initialChoices(rows, edits);
+        const seeded: Record<string, SupplyOrderRowChoice> = { ...base };
+        for (const [key, quantity] of Object.entries(seeds)) {
+            const choice = base[key];
+            if (choice === undefined || edits[key] !== undefined) continue;
+            seeded[key] = { ...choice, quantity, ordering: true };
+        }
+        return seeded;
+    }, [rows, edits, seeds]);
 
     const directory: readonly SupplyOrderSupplier[] = useMemo(
         () =>
@@ -290,8 +316,44 @@ function SupplyOrderBuilder() {
         // untouched row keeps the suggestion beside the field being changed instead of blanking it.
         setEdits((previous) => ({
             ...previous,
-            [key]: { ...(previous[key] ?? initialChoice(row)), ...patch },
+            [key]: { ...(previous[key] ?? effective[key] ?? initialChoice(row)), ...patch },
         }));
+    }
+
+    /**
+     * Tick a row on or off. Ticking on a row with an empty box fills it with the server's suggestion
+     * where there is one, so "order all" is one press rather than one press and forty numbers.
+     */
+    function choose(row: OrderProposalItem, ordering: boolean): void {
+        const current = effective[String(row.stockItemId)];
+        const empty = (current?.quantity ?? '') === '';
+        update(row, {
+            ordering,
+            ...(ordering && empty && row.suggestedQuantity !== null
+                ? { quantity: row.suggestedQuantity }
+                : {}),
+        });
+    }
+
+    /** The header's tick: every row of a table on, or every row off. */
+    function chooseAll(list: readonly OrderProposalItem[], ordering: boolean): void {
+        setTouched(true);
+        setEdits((previous) => {
+            const next = { ...previous };
+            for (const row of list) {
+                const key = String(row.stockItemId);
+                const current = previous[key] ?? effective[key] ?? initialChoice(row);
+                const empty = current.quantity === '';
+                next[key] = {
+                    ...current,
+                    ordering,
+                    ...(ordering && empty && row.suggestedQuantity !== null
+                        ? { quantity: row.suggestedQuantity }
+                        : {}),
+                };
+            }
+            return next;
+        });
     }
 
     function chooseSupplier(row: OrderProposalItem, supplierId: SupplierId): void {
@@ -374,26 +436,26 @@ function SupplyOrderBuilder() {
             {
                 key: 'item',
                 label: t('kitchen:ops.supplyOrders.columnItem'),
-                width: 180,
+                width: 240,
                 priority: 100,
                 render: (row) => {
                     const testID = supplyOrderRowTestId(String(row.stockItemId));
                     return (
-                        <View className="min-w-0 flex-1 flex-col py-1">
-                            <View className="min-w-0 flex-row items-center gap-hair">
+                        <View className="w-full min-w-0 flex-1 flex-col overflow-hidden py-1">
+                            <View className="min-w-0 flex-row items-center gap-1.5">
                                 <Text variant="strong" numberOfLines={1} testID={`${testID}-name`}>
                                     {row.itemNameEn}
                                 </Text>
                                 {row.isOutOfStock ? (
-                                    <Badge
-                                        icon={null}
+                                    <DeskChip
+                                        size="sm"
                                         testID={`${testID}-out`}
                                         tone="danger"
                                         label={t('kitchen:ops.supplyOrders.outBadge')}
                                     />
                                 ) : row.isLow ? (
-                                    <Badge
-                                        icon={null}
+                                    <DeskChip
+                                        size="sm"
                                         testID={`${testID}-low`}
                                         tone="warning"
                                         label={t('kitchen:ops.supplyOrders.lowBadge')}
@@ -408,7 +470,7 @@ function SupplyOrderBuilder() {
                                 testID={`${testID}-on-hand`}
                             >
                                 {t('kitchen:ops.supplyOrders.onHand', {
-                                    quantity: `${formatter.formatNumber(Number(row.quantityOnHand))} ${row.unitCode}`,
+                                    quantity: `${formatter.formatNumber(Number(row.quantityOnHand))} ${unitCodeLabel(row.unitCode, t)}`,
                                 })}
                             </Text>
                             {/* Already on its way: what stops the same order being drafted twice. */}
@@ -420,12 +482,18 @@ function SupplyOrderBuilder() {
                                     className="tabular-nums"
                                     testID={`${testID}-on-order`}
                                 >
-                                    {t('kitchen:ops.supplyOrders.onOrder', {
-                                        quantity: `${formatter.formatNumber(Number(row.onOrderQuantity))} ${row.unitCode}`,
-                                        orders: row.openOrders
-                                            .map((order) => order.number)
-                                            .join(t('kitchen:common.listSeparator')),
-                                    })}
+                                    {/* The first order by number and how many more: a row of
+                                        five PO numbers ran under the next three columns. */}
+                                    {t(
+                                        row.openOrders.length > 1
+                                            ? 'kitchen:ops.supplyOrders.onOrderMore'
+                                            : 'kitchen:ops.supplyOrders.onOrderShort',
+                                        {
+                                            quantity: `${formatter.formatNumber(Number(row.onOrderQuantity))} ${unitCodeLabel(row.unitCode, t)}`,
+                                            first: row.openOrders[0]?.number ?? '',
+                                            more: row.openOrders.length - 1,
+                                        },
+                                    )}
                                 </Text>
                             )}
                         </View>
@@ -485,7 +553,7 @@ function SupplyOrderBuilder() {
                                 })}
                                 labelHidden
                                 size="sm"
-                                unit={row.unitCode}
+                                unit={unitCodeLabel(row.unitCode, t)}
                                 value={value}
                                 // An em dash placeholder rather than "0": the row has no honest
                                 // suggestion and a zero in the box would read as one.
@@ -513,31 +581,43 @@ function SupplyOrderBuilder() {
         ];
     }
 
-    function orderingColumn(): DataListColumn<OrderProposalItem> {
+    /**
+     * The tick at the start of a row — ordered or not — and, in the header, the tick for the whole
+     * table. Unticking keeps the typed quantity: switching a row off and back on must not cost
+     * somebody the number they worked out.
+     */
+    function orderingColumn(
+        list: readonly OrderProposalItem[],
+        testID: string,
+    ): DataListColumn<OrderProposalItem> {
+        const ticked = list.filter((row) => effective[String(row.stockItemId)]?.ordering ?? true);
         return {
             key: 'ordering',
-            label: t('kitchen:ops.supplyOrders.columnOrdering'),
-            width: 128,
-            priority: 80,
+            label: t('kitchen:ops.supplyOrders.orderAll'),
+            width: 48,
+            priority: 99,
             grow: false,
+            renderHeader: () => (
+                <DeskCheckbox
+                    testID={`${testID}-order-all`}
+                    label={t('kitchen:ops.supplyOrders.orderAll')}
+                    checked={list.length > 0 && ticked.length === list.length}
+                    mixed={ticked.length > 0 && ticked.length < list.length}
+                    onChange={(next) => {
+                        chooseAll(list, next);
+                    }}
+                />
+            ),
             render: (row) => {
                 const key = String(row.stockItemId);
                 const ordering = effective[key]?.ordering ?? true;
-
                 return (
-                    <Button
+                    <DeskCheckbox
                         testID={`${supplyOrderRowTestId(key)}-toggle`}
-                        variant="ghost"
-                        size="sm"
-                        label={
-                            ordering
-                                ? t('kitchen:ops.supplyOrders.notOrdering')
-                                : t('kitchen:ops.supplyOrders.order')
-                        }
-                        onPress={() => {
-                            // The typed quantity is kept, not cleared: switching a row off and back
-                            // on must not cost somebody the number they worked out.
-                            update(row, { ordering: !ordering });
+                        label={t('kitchen:ops.supplyOrders.orderItem', { item: row.itemNameEn })}
+                        checked={ordering}
+                        onChange={(next) => {
+                            choose(row, next);
                         }}
                     />
                 );
@@ -546,6 +626,7 @@ function SupplyOrderBuilder() {
     }
 
     const assignedColumns: readonly DataListColumn<OrderProposalItem>[] = [
+        orderingColumn(assigned, 'kitchen-supply-order-rows'),
         ...baseColumns(),
         {
             key: 'supplier',
@@ -593,15 +674,15 @@ function SupplyOrderBuilder() {
                          * supplier, or there are candidates and nobody has chosen between them.
                          */}
                         {current === undefined ? (
-                            <Badge
+                            <DeskChip
+                                size="sm"
                                 testID={`${testID}-choose-supplier`}
                                 tone="warning"
-                                icon={null}
                                 label={t('kitchen:ops.supplyOrders.chooseSupplier')}
                             />
                         ) : current.isPreferred ? (
-                            <Badge
-                                icon={null}
+                            <DeskChip
+                                size="sm"
                                 testID={`${testID}-preferred`}
                                 tone="info"
                                 label={t('kitchen:ops.supplyOrders.preferredBadge')}
@@ -611,15 +692,15 @@ function SupplyOrderBuilder() {
                 );
             },
         },
-        orderingColumn(),
     ];
 
     const unlinkedColumns: readonly DataListColumn<OrderProposalItem>[] = [
+        orderingColumn(unlinked, 'kitchen-supply-order-unlinked-rows'),
         ...baseColumns(),
         {
             key: 'supplier',
             label: t('kitchen:ops.supplyOrders.columnFrom'),
-            width: 220,
+            width: 340,
             priority: 90,
             render: (row) => {
                 const key = String(row.stockItemId);
@@ -634,8 +715,10 @@ function SupplyOrderBuilder() {
                 );
 
                 return (
-                    <View className="z-auto min-w-0 flex-1 flex-col gap-hair py-1">
-                        <View className="z-auto flex-row items-center gap-hair">
+                    // One line: the picker, why it is empty, and "link to this item" after them,
+                    // so the field sits level with the quantity instead of riding up over a tick.
+                    <View className="z-auto min-w-0 flex-1 flex-row items-center gap-1.5 py-1">
+                        <View className="z-auto min-w-0 flex-1 flex-row items-center gap-hair">
                             <View className="z-auto min-w-0 flex-1">
                                 <Select
                                     testID={`${testID}-supplier-select`}
@@ -668,19 +751,23 @@ function SupplyOrderBuilder() {
                                 }
                             />
                         </View>
-                        <Checkbox
-                            testID={`${testID}-remember`}
-                            checked={remember[key] ?? true}
-                            label={t('kitchen:ops.supplyOrders.rememberLink')}
-                            onChange={(checked) => {
-                                setRemember((previous) => ({ ...previous, [key]: checked }));
-                            }}
-                        />
+                        <View testID={`${testID}-remember`} className="flex-row items-center">
+                            <DeskCheckbox
+                                testID={`${testID}-remember-control`}
+                                label={t('kitchen:ops.supplyOrders.rememberLink')}
+                                checked={remember[key] ?? true}
+                                onChange={(checked) => {
+                                    setRemember((previous) => ({ ...previous, [key]: checked }));
+                                }}
+                            />
+                            <Text variant="label" numberOfLines={1} aria-hidden>
+                                {t('kitchen:ops.supplyOrders.rememberLink')}
+                            </Text>
+                        </View>
                     </View>
                 );
             },
         },
-        orderingColumn(),
     ];
 
     /**
@@ -695,7 +782,7 @@ function SupplyOrderBuilder() {
         .map((item: StockItem) => ({
             value: String(item.id),
             label: item.nameEn,
-            description: item.unitCode,
+            description: unitCodeLabel(item.unitCode, t),
         }));
 
     const loaded = branchId !== null && !proposal.isPending && failure === null;
@@ -710,36 +797,27 @@ function SupplyOrderBuilder() {
     return (
         <Cascade space="md" testID="kitchen-supply-order-builder-screen">
             {/*
-             * The opening the record forms share, as Post receipt draws it: the title, Cancel, and the
-             * commit at the inline end. It is drawn once: the summary states what it creates.
+             * The desk's way back, as Requirements and the order pages draw it, where Cancel was; the
+             * commit lives at the foot of the ticket, under what it creates.
              */}
+            <View className="flex-row">
+                <BackPill
+                    testID="kitchen-supply-order-builder-cancel"
+                    label={
+                        back.returnTo !== null &&
+                        pathnameOf(back.returnTo) === '/kitchen/order-desk/requirements'
+                            ? t('kitchen:ops.supplyOrders.backToRequirements')
+                            : t('kitchen:ops.supplyOrders.backToOrders')
+                    }
+                    onPress={() => {
+                        guard.intercept(back.leave);
+                    }}
+                />
+            </View>
             <RecordFormOpening
                 testID="kitchen-supply-order-builder-screen"
                 title={t('kitchen:ops.supplyOrders.builderTitle')}
                 dirty={touched}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-supply-order-builder-cancel"
-                            variant="secondary"
-                            label={t('kitchen:editor.cancel')}
-                            onPress={() => {
-                                guard.intercept(back.leave);
-                            }}
-                        />
-                        {loaded ? (
-                            <Button
-                                testID="kitchen-supply-order-builder-create"
-                                label={t('kitchen:ops.supplyOrders.createDrafts', {
-                                    count: plan.groups.length,
-                                })}
-                                loading={createOrders.isPending}
-                                disabled={plan.groups.length === 0 || createOrders.isPending}
-                                onPress={openCreate}
-                            />
-                        ) : null}
-                    </>
-                }
             />
 
             {branchId === null ? (
@@ -775,10 +853,9 @@ function SupplyOrderBuilder() {
                                       })
                             }
                             actions={
-                                <Button
+                                <DeskButton
                                     testID="kitchen-supply-order-refresh"
-                                    variant="ghost"
-                                    size="sm"
+                                    variant="quiet"
                                     label={t('kitchen:ops.supplyOrders.refresh')}
                                     loading={proposal.isFetching}
                                     onPress={() => {
@@ -898,12 +975,17 @@ function SupplyOrderBuilder() {
                                         testID="kitchen-supply-order-unlinked"
                                         title={t('kitchen:ops.supplyOrders.unlinkedTitle')}
                                         actions={
-                                            <Button
+                                            <DeskButton
                                                 testID="kitchen-supply-order-add-supplier"
-                                                variant="ghost"
-                                                size="sm"
+                                                variant="quiet"
                                                 label={t('kitchen:ops.supplyOrders.addSupplier')}
-                                                iconStart={<Icon name="plus" size="sm" />}
+                                                iconStart={
+                                                    <Icon
+                                                        name="plus"
+                                                        size="sm"
+                                                        className="text-content-on-brand-subtle"
+                                                    />
+                                                }
                                                 onPress={() => {
                                                     guard.intercept(() => {
                                                         router.push(
@@ -929,12 +1011,10 @@ function SupplyOrderBuilder() {
                     </View>
 
                     {loaded ? (
-                        <RecordSummaryAside
-                            variant="panel"
+                        <SupplyTicket
                             testID="kitchen-supply-order-preview"
-                            title={t('kitchen:ops.supplyOrders.readyTitle')}
                             width={sideBySide ? ASIDE_WIDTH : null}
-                            rows={[
+                            figures={[
                                 {
                                     key: 'out',
                                     label: t('kitchen:ops.supplyOrders.metrics.outOfStock'),
@@ -956,44 +1036,25 @@ function SupplyOrderBuilder() {
                                     value: formatter.formatNumber(leftBehind),
                                 },
                             ]}
-                            total={{
-                                label: t('kitchen:ops.supplyOrders.summaryDrafts'),
-                                value: formatter.formatNumber(plan.groups.length),
-                            }}
-                            /*
-                             * One line per draft order: the supplier and how many items it will
-                             * carry. The lines themselves are the rows beside it; repeating them
-                             * here made the page twice as long to say the same thing.
-                             */
-                            list={{
-                                title: t('kitchen:ops.supplyOrders.summaryBySupplier'),
-                                empty: t('kitchen:ops.supplyOrders.readyEmpty'),
-                                testID: 'kitchen-supply-order-groups',
-                                emptyTestID: 'kitchen-supply-order-preview-empty',
-                                items: plan.groups.map((group) => ({
-                                    key: String(group.supplier.id),
-                                    testID: supplyOrderGroupTestId(String(group.supplier.id)),
-                                    name: displayName(
-                                        {
-                                            en: group.supplier.nameEn,
-                                            ar: group.supplier.nameAr ?? '',
-                                        },
-                                        locale,
-                                    ).value,
-                                    value: t('kitchen:ops.supplyOrders.groupCount', {
-                                        count: group.lines.length,
-                                    }),
-                                })),
-                            }}
-                            /*
-                             * The two kinds of "left behind", named apart (§4): a row with a
-                             * quantity and nobody to buy it from is a job left undone, and a row
-                             * somebody switched off is not.
-                             */
+                            drafts={formatter.formatNumber(plan.groups.length)}
+                            groups={plan.groups.map((group) => ({
+                                key: String(group.supplier.id),
+                                testID: supplyOrderGroupTestId(String(group.supplier.id)),
+                                name: displayName(
+                                    {
+                                        en: group.supplier.nameEn,
+                                        ar: group.supplier.nameAr ?? '',
+                                    },
+                                    locale,
+                                ).value,
+                                value: t('kitchen:ops.supplyOrders.groupCount', {
+                                    count: group.lines.length,
+                                }),
+                            }))}
                             note={
                                 plan.unassigned.length === 0 &&
                                 plan.excluded.length === 0 ? null : (
-                                    <Stack space="sm">
+                                    <View className="flex-col gap-2">
                                         {plan.unassigned.length === 0 ? null : (
                                             <Callout
                                                 testID="kitchen-supply-order-unassigned-warning"
@@ -1015,8 +1076,21 @@ function SupplyOrderBuilder() {
                                                 })}
                                             </Text>
                                         )}
-                                    </Stack>
+                                    </View>
                                 )
+                            }
+                            action={
+                                <DeskButton
+                                    testID="kitchen-supply-order-builder-create"
+                                    size="lg"
+                                    block
+                                    label={t('kitchen:ops.supplyOrders.createDrafts', {
+                                        count: plan.groups.length,
+                                    })}
+                                    loading={createOrders.isPending}
+                                    disabled={plan.groups.length === 0 || createOrders.isPending}
+                                    onPress={openCreate}
+                                />
                             }
                         />
                     ) : null}
@@ -1024,6 +1098,7 @@ function SupplyOrderBuilder() {
             )}
 
             <Dialog
+                look="card"
                 open={confirmingCreate}
                 onClose={() => {
                     setConfirmingCreate(false);
@@ -1033,7 +1108,7 @@ function SupplyOrderBuilder() {
                 testID="kitchen-supply-order-create-confirm"
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-supply-order-create-cancel"
                             variant="secondary"
                             label={t('kitchen:ops.supplyOrders.createCancel')}
@@ -1041,7 +1116,7 @@ function SupplyOrderBuilder() {
                                 setConfirmingCreate(false);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-supply-order-create-confirm-action"
                             label={t('kitchen:ops.supplyOrders.createConfirm', {
                                 count: plan.groups.length,
@@ -1096,6 +1171,7 @@ function SupplyOrderBuilder() {
             </Dialog>
 
             <Dialog
+                look="card"
                 open={confirmingRefresh}
                 onClose={() => {
                     setConfirmingRefresh(false);
@@ -1105,7 +1181,7 @@ function SupplyOrderBuilder() {
                 testID="kitchen-supply-order-refresh-confirm"
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-supply-order-refresh-cancel"
                             variant="secondary"
                             label={t('kitchen:ops.supplyOrders.refreshCancel')}
@@ -1113,7 +1189,7 @@ function SupplyOrderBuilder() {
                                 setConfirmingRefresh(false);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-supply-order-refresh-confirm-action"
                             label={t('kitchen:ops.supplyOrders.refreshConfirm')}
                             onPress={refresh}
@@ -1124,5 +1200,155 @@ function SupplyOrderBuilder() {
 
             <EditorGuardDialogs guard={guard} testID="kitchen-supply-order-builder-screen" />
         </Cascade>
+    );
+}
+
+/* ── the ticket ──────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * What will be created, as the Orders calendar's day panel draws a day (2026-11-11): an eyebrow and
+ * the count of drafts, the four figures in sunken tiles, one row per supplier's draft, the notes on
+ * what is left behind, and the commit pinned at its foot.
+ *
+ * ```
+ * READY TO ORDER
+ * 2 draft orders
+ * [Out of stock 4] [Running low 52]
+ * [Lines to order 3] [Won't be ordered 57]
+ * One draft per supplier
+ *   Phoenicia Wholesale Foods      2 items
+ *   Beirut Packaging Co.           1 item
+ * ((        Create 2 draft orders        ))
+ * ```
+ *
+ * The ids are `RecordSummaryAside`'s, which it replaces: the root, `-${figure}`, `-total`, the
+ * groups list and its empty line.
+ */
+function SupplyTicket({
+    testID,
+    width,
+    figures,
+    drafts,
+    groups,
+    note,
+    action,
+}: {
+    readonly testID: string;
+    readonly width: number | null;
+    readonly figures: readonly {
+        readonly key: string;
+        readonly label: string;
+        readonly value: string;
+    }[];
+    readonly drafts: string;
+    readonly groups: readonly {
+        readonly key: string;
+        readonly testID: string;
+        readonly name: string;
+        readonly value: string;
+    }[];
+    readonly note: ReactNode;
+    readonly action: ReactNode;
+}) {
+    const { t } = useTranslation();
+    return (
+        <View
+            testID={testID}
+            role="region"
+            aria-label={t('kitchen:ops.supplyOrders.readyTitle')}
+            style={width === null ? undefined : { width }}
+            className="flex-col gap-2.5 rounded-[22px] border border-stroke-subtle bg-surface-raised p-4 web:sticky web:top-0"
+        >
+            <View className="flex-col">
+                <Text
+                    variant="micro"
+                    tone="secondary"
+                    className="!text-xs font-bold uppercase tracking-widest"
+                >
+                    {t('kitchen:ops.supplyOrders.readyTitle')}
+                </Text>
+                <View className="mt-0.5 flex-row items-baseline gap-2">
+                    <Text
+                        variant="section"
+                        className="font-display !text-[22px] !font-bold !leading-7 tabular-nums"
+                        testID={`${testID}-total`}
+                    >
+                        {drafts}
+                    </Text>
+                    <Text variant="strong" tone="secondary">
+                        {t('kitchen:ops.supplyOrders.summaryDrafts')}
+                    </Text>
+                </View>
+            </View>
+
+            <View className="flex-row flex-wrap gap-1.5">
+                {figures.map((figure) => (
+                    <View
+                        key={figure.key}
+                        className="min-w-[45%] flex-1 flex-col rounded-[14px] bg-surface-sunken px-3 py-2.5"
+                    >
+                        <Text
+                            variant="label"
+                            tone="secondary"
+                            numberOfLines={1}
+                            className="!font-semibold"
+                        >
+                            {figure.label}
+                        </Text>
+                        {figure.value === '' ? (
+                            <Skeleton heightClassName="h-6" widthClassName="w-10" />
+                        ) : (
+                            <Text
+                                variant="title"
+                                className="mt-0.5 font-display !text-xl !font-bold tabular-nums"
+                                testID={`${testID}-${figure.key}`}
+                            >
+                                {figure.value}
+                            </Text>
+                        )}
+                    </View>
+                ))}
+            </View>
+
+            <View className="flex-col gap-0.5">
+                <View className="min-h-8 flex-row items-center px-1">
+                    <Text variant="strong" className="!text-sm !font-bold">
+                        {t('kitchen:ops.supplyOrders.summaryBySupplier')}
+                    </Text>
+                </View>
+                {groups.length === 0 ? (
+                    <Text
+                        variant="caption"
+                        tone="secondary"
+                        className="px-1"
+                        testID={`${testID}-empty`}
+                    >
+                        {t('kitchen:ops.supplyOrders.readyEmpty')}
+                    </Text>
+                ) : (
+                    <View testID="kitchen-supply-order-groups" className="flex-col">
+                        {groups.map((group) => (
+                            <View
+                                key={group.key}
+                                testID={group.testID}
+                                className="min-h-10 flex-row items-center gap-2.5 rounded-xl px-2"
+                            >
+                                <Text
+                                    variant="strong"
+                                    numberOfLines={1}
+                                    className="min-w-0 flex-1 !text-sm"
+                                >
+                                    {group.name}
+                                </Text>
+                                <DeskChip tone="success" label={group.value} />
+                            </View>
+                        ))}
+                    </View>
+                )}
+            </View>
+
+            {note}
+            {action}
+        </View>
     );
 }

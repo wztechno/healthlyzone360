@@ -1826,7 +1826,7 @@ describe('the ingredient editor', () => {
             screen.getByTestId('kitchen-ingredient-unit-price-unit', {
                 includeHiddenElements: true,
             }),
-        ).toHaveTextContent('USD / kg');
+        ).toHaveTextContent('USD / Kg');
     });
 
     it('asks before discarding unsaved changes, and leaves when told to', async () => {

@@ -64,6 +64,7 @@ export function BatchPlanPanel({ testID, plan, costsVisible, first = false }: Ba
             value,
             unitCode,
             noValue,
+            t,
         );
 
     const byFigure =

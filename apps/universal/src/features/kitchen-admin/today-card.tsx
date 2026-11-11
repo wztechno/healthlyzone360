@@ -11,6 +11,7 @@ import { formatMoney } from '../marketplace/format.ts';
 import { CatalogueStatCards } from './catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from './catalogue/catalogue-stat-cards.tsx';
 import { ORDER_MANAGE_PERMISSION, ORDER_SETTLE_CASH_PERMISSION } from './entity-registry.ts';
+import { ordersHref } from './orders/orders-url.ts';
 
 /**
  * The kitchen home's Today card (owner, 3 Nov): sales and orders, cash to collect, late orders and
@@ -85,7 +86,7 @@ function TodayFigures({ branchId }: { readonly branchId: BranchId | null }) {
             tone: late > 0 ? 'warning' : 'default',
             accessibilityLabel: t('kitchen:hub.today.openPastDue'),
             onPress: () => {
-                router.push('/kitchen/order-desk?lens=past_due' as never);
+                router.push(ordersHref({ tab: 'all', quick: 'late' }) as never);
             },
         },
         {

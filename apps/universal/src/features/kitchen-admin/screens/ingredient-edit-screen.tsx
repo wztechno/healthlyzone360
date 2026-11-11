@@ -123,6 +123,7 @@ import {
     unitDimension,
     unitDimensionKey,
     unitKey,
+    unitCodeLabel,
     unitShortKey,
     withoutMinus,
 } from '../format.ts';
@@ -139,6 +140,7 @@ import { serverFieldErrors } from '../server-field-errors.ts';
 import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
+import { BackPill } from '../../../ui/back-pill.tsx';
 
 /**
  * `/kitchen/ingredients/{ingredient}` — the record editor, as `Catalogue Forms.dc.html` draws it
@@ -1944,10 +1946,8 @@ function IngredientEditor({
                     tone="warning"
                     title={t('kitchen:editor.notFoundTitle')}
                     actions={
-                        <Button
+                        <BackPill
                             testID="kitchen-ingredient-not-found-back"
-                            variant="quiet"
-                            size="sm"
                             label={t('kitchen:editor.backToList')}
                             onPress={goBack}
                         />
@@ -3067,7 +3067,13 @@ function IngredientEditor({
                                         : {
                                               unit: t('kitchen:fields.unitPricePer', {
                                                   currency: latestPurchase.costCurrencyCode ?? '',
-                                                  unit: latestPurchase.unitCode ?? '',
+                                                  unit:
+                                                      latestPurchase.unitCode === null
+                                                          ? ''
+                                                          : unitCodeLabel(
+                                                                latestPurchase.unitCode,
+                                                                t,
+                                                            ),
                                               }),
                                               hint: currentPriceSource,
                                           })}

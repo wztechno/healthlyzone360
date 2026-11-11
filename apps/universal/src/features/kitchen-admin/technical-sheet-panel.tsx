@@ -23,7 +23,7 @@ import { View } from 'react-native';
 
 import { useIngredientsByIds } from '../../data/kitchen-admin-hooks.ts';
 import { kindsLabel } from './catalogue/recipe-columns.tsx';
-import { displayName, humaniseCode } from './format.ts';
+import { displayName, humaniseCode, unitShortKey } from './format.ts';
 
 /**
  * The recipe as the kitchen's paper technical sheet lays it out: a Description
@@ -228,13 +228,15 @@ export function TechnicalSheetPanel({
 
     const totalCost = figures?.totalInputCost ?? version.estimatedCost;
 
+    const yieldUnitLabel = t(unitShortKey(version.yieldUnit));
+
     const quantityProduced =
         version.yieldPieces === null
-            ? `${formatter.formatNumber(version.yieldQuantity)} ${version.yieldUnit}`
+            ? `${formatter.formatNumber(version.yieldQuantity)} ${yieldUnitLabel}`
             : t('kitchen:recipes.sheetQuantityWithPieces', {
                   pieces: formatter.formatNumber(version.yieldPieces),
                   quantity: formatter.formatNumber(version.yieldQuantity),
-                  unit: version.yieldUnit,
+                  unit: yieldUnitLabel,
               });
 
     const columns = [
@@ -257,7 +259,7 @@ export function TechnicalSheetPanel({
             key: 'unit',
             width: 64,
             header: t('kitchen:recipes.sheetColUnit'),
-            render: (row: Row) => <Text variant="caption">{row.unit}</Text>,
+            render: (row: Row) => <Text variant="caption">{t(unitShortKey(row.unit))}</Text>,
         },
         {
             key: 'quantity',
@@ -400,7 +402,7 @@ export function TechnicalSheetPanel({
                             {figures.costPerYieldUnit !== null ? (
                                 <DescriptionRow
                                     label={t('kitchen:recipes.sheetCostPerUnit', {
-                                        unit: version.yieldUnit,
+                                        unit: yieldUnitLabel,
                                     })}
                                     value={cost(figures.costPerYieldUnit)}
                                     testID={`${testID}-cost-per-unit`}
@@ -445,7 +447,7 @@ export function TechnicalSheetPanel({
                                 <>
                                     <DescriptionRow
                                         label={t('kitchen:recipes.sheetPackagingPerUnit', {
-                                            unit: version.yieldUnit,
+                                            unit: yieldUnitLabel,
                                         })}
                                         value={cost(packagingFigures.costPerYieldUnit)}
                                         testID={`${testID}-packaging-per-unit`}
@@ -467,7 +469,7 @@ export function TechnicalSheetPanel({
                             {computed?.totalCostPerYieldUnit == null ? null : (
                                 <DescriptionRow
                                     label={t('kitchen:recipes.sheetCostAllIn', {
-                                        unit: version.yieldUnit,
+                                        unit: yieldUnitLabel,
                                     })}
                                     value={cost(computed.totalCostPerYieldUnit)}
                                     testID={`${testID}-cost-all-in`}
@@ -514,7 +516,7 @@ export function TechnicalSheetPanel({
                                     {weekly.block.totalCostPerYieldUnit === null ? null : (
                                         <DescriptionRow
                                             label={t('kitchen:recipes.sheetCostAllIn', {
-                                                unit: version.yieldUnit,
+                                                unit: yieldUnitLabel,
                                             })}
                                             value={cost(weekly.block.totalCostPerYieldUnit)}
                                             testID={`${testID}-weekly-all-in`}

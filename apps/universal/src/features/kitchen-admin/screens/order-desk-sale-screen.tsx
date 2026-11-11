@@ -13,18 +13,13 @@ import type {
 import { ORDER_DESK_FULFILMENT_TYPES } from '@healthy360/api-client/contracts';
 import { OrderId } from '@healthy360/domain-types';
 import {
-    Badge,
-    Button,
     Callout,
     Checkbox,
-    DatePickerButton,
-    Drawer,
     EmptyState,
     ErrorState,
     Dropdown,
     FormSection,
     Icon,
-    IconButton,
     InfoTip,
     SearchInput,
     Select,
@@ -52,7 +47,6 @@ import {
 import { useKitchenOrderQuery } from '../../../data/kitchen-orders-hooks.ts';
 import {
     useAmendOrderDeskOrderMutation,
-    useDishChoicesQuery,
     useOrderDeskDeliveryWindowsQuery,
     useOrderDeskDriversQuery,
     useOrderDeskQuoteQuery,
@@ -82,10 +76,11 @@ import { displayName } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs } from '../record-form-opening.tsx';
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
+import { DeskButton, DeskChip, DeskIconButton, MiniMonthPicker } from '../desk-kit/index.ts';
 import { allergenLabel, kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import type { BasketLine } from '../order-desk/basket.ts';
-import { DishChoiceFields, dishOptionsLine } from '../../../ui/dish-choices.tsx';
-import type { DishChoiceValue } from '../../../ui/dish-choices.tsx';
+import { dishOptionsLine } from '../../../ui/dish-choices.tsx';
+import { DishChoicesDialog } from '../order-desk/dish-choices-dialog.tsx';
 import {
     MAX_LINE_QUANTITY,
     addItem,
@@ -118,6 +113,11 @@ import {
     withWalkIn,
 } from '../order-desk/sale-state.ts';
 import { useDebouncedValue } from '../order-desk/use-debounced-value.ts';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { isPlannerDate } from '../../planner/format.ts';
+import { relativeDay, shortDay } from '../orders/order-columns.tsx';
+import { landingHref, ordersHref } from '../orders/orders-url.ts';
+import { BackPill } from '../../../ui/back-pill.tsx';
 
 /**
  * `/kitchen/order-desk/sale` — ringing up a counter, collection or telephone sale. Kitchen v2 `4f`.
@@ -211,7 +211,7 @@ const SEARCH_DEBOUNCE_MS = 300;
  * The ticket's width beside the menu. A style: there is no rail-width token. Wide enough for a name
  * beside a stepper pair and a line total at the compact sizes.
  */
-const TICKET_WIDTH = 340;
+const TICKET_WIDTH = 360;
 
 /** The menu's sections rail, beside the grid. A style for the same reason. */
 const SECTION_RAIL_WIDTH = 168;
@@ -220,7 +220,7 @@ const SECTION_RAIL_WIDTH = 168;
 const STRETCH = { alignSelf: 'stretch' } as const;
 /** Address and When share a row down to this width each, then stack. */
 // eslint-disable-next-line no-restricted-syntax -- two checkout cards share a row; not a control.
-const CHECKOUT_COLUMN = { flexGrow: 1, flexShrink: 1, flexBasis: 340, minWidth: 0 } as const;
+const CHECKOUT_COLUMN = { flexGrow: 1, flexShrink: 1, flexBasis: 420, minWidth: 0 } as const;
 
 /**
  * The narrowest a product tile may be before the grid drops a column, when the menu runs the full
@@ -369,7 +369,20 @@ function Sale() {
     const toast = useToast();
     const { locale } = useLocale();
 
-    const [state, setState] = useState<SaleState>(initialSaleState);
+    /*
+     * `?day=` is the day the Orders page sent a New order from — the day on its stepper, or the
+     * calendar's chosen day — so the sale starts on it. `?returnTo=` is that page as it was, and
+     * placing or saving lands back there, on the order's own day, with the order lit up.
+     */
+    const entry = useLocalSearchParams<{ day?: string; returnTo?: string }>();
+    const back = useReturnTo(entry.returnTo, ordersHref({ tab: 'today' }));
+    const [state, setState] = useState<SaleState>(() => {
+        const initial = initialSaleState();
+        const day = typeof entry.day === 'string' ? entry.day : undefined;
+        return isPlannerDate(day) && day >= todayIso()
+            ? { ...initial, requestedDeliveryDate: day }
+            : initial;
+    });
     /** Picking the food, or — after Charge — saying how it leaves and taking the money. */
     const [stage, setStage] = useState<SaleStage>('menu');
     /**
@@ -462,6 +475,10 @@ function Sale() {
         editOrder === null
             ? t('kitchen:desk.sale.title')
             : t('kitchen:desk.edit.title', { number: editOrder.orderNumber }),
+        () => {
+            back.leave();
+        },
+        t('kitchen:families.orders.name'),
     );
 
     /*
@@ -613,7 +630,7 @@ function Sale() {
                         tone: 'success',
                         message: t('kitchen:desk.edit.savedToast', { number: order.orderNumber }),
                     });
-                    router.replace('/kitchen/order-desk');
+                    router.dismissTo(landingHref(back.returnTo, order, todayIso()) as never);
                 },
             },
         );
@@ -700,7 +717,7 @@ function Sale() {
                         tone: 'success',
                         message: t(toastKey, { number: order.orderNumber }),
                     });
-                    router.replace('/kitchen/order-desk');
+                    router.dismissTo(landingHref(back.returnTo, order, todayIso()) as never);
                 },
             },
         );
@@ -751,14 +768,10 @@ function Sale() {
                 title={t('kitchen:desk.edit.notAmendableTitle')}
                 body={t('kitchen:desk.edit.notAmendableBody')}
                 actions={
-                    <Button
+                    <BackPill
                         testID="kitchen-order-desk-sale-not-amendable-back"
-                        size="sm"
-                        variant="secondary"
-                        label={t('kitchen:desk.edit.backToDesk')}
-                        onPress={() => {
-                            router.replace('/kitchen/order-desk');
-                        }}
+                        label={t('kitchen:ops.orders.backToOrders')}
+                        onPress={back.leave}
                     />
                 }
             />
@@ -792,6 +805,7 @@ function Sale() {
                     <Text
                         variant="title"
                         accessibilityRole="header"
+                        className="font-display !text-[26px] !leading-8 !font-bold tracking-tight"
                         testID="kitchen-order-desk-sale-editing"
                     >
                         {t('kitchen:desk.edit.title', { number: editOrder.orderNumber })}
@@ -811,28 +825,18 @@ function Sale() {
                 )}
                 <View className="ms-auto flex-row">
                     {stage === 'checkout' ? (
-                        <Button
+                        <BackPill
                             testID="kitchen-order-desk-sale-back"
-                            size="sm"
-                            variant="secondary"
-                            className="!rounded-[10px]"
                             label={t('kitchen:desk.sale.backToMenu')}
-                            iconStart={<Icon name="chevronBackward" size="sm" />}
                             onPress={() => {
                                 setStage('menu');
                             }}
                         />
                     ) : (
-                        <Button
+                        <BackPill
                             testID="kitchen-order-desk-sale-back-to-desk"
-                            size="sm"
-                            variant="secondary"
-                            className="!rounded-[10px]"
-                            label={t('kitchen:desk.sale.backToDesk')}
-                            iconStart={<Icon name="chevronBackward" size="sm" />}
-                            onPress={() => {
-                                router.push('/kitchen/order-desk');
-                            }}
+                            label={t('kitchen:ops.orders.backToOrders')}
+                            onPress={back.leave}
                         />
                     )}
                 </View>
@@ -894,11 +898,14 @@ function Sale() {
                                     <FormSection
                                         variant="panel"
                                         testID="kitchen-order-desk-sale-edit-address"
-                                        title={t('kitchen:desk.sale.addressTitle')}
+                                        title={t(
+                                            changingAddress
+                                                ? 'kitchen:desk.edit.currentAddress'
+                                                : 'kitchen:desk.sale.addressTitle',
+                                        )}
                                         actions={
-                                            <Button
+                                            <DeskButton
                                                 testID="kitchen-order-desk-sale-edit-address-toggle"
-                                                size="sm"
                                                 variant="secondary"
                                                 label={t(
                                                     changingAddress
@@ -951,6 +958,9 @@ function Sale() {
                                     <AddressSection
                                         customerAccountId={state.customerAccountId}
                                         customerAddressId={state.customerAddressId}
+                                        {...(isEditing
+                                            ? { title: t('kitchen:desk.edit.newAddress') }
+                                            : {})}
                                         onSaved={(addressId) => {
                                             update({ ...state, customerAddressId: addressId });
                                         }}
@@ -973,6 +983,7 @@ function Sale() {
                                             : new Set()
                                     }
                                     firstDay={firstOpenDay(today, windowCodes, overToday)}
+                                    today={today}
                                     onSchedule={(next) => {
                                         update({ ...state, ...next });
                                     }}
@@ -1185,6 +1196,7 @@ function WhenSection({
     schedule,
     ended,
     firstDay,
+    today,
     onSchedule,
     drivers,
     driverUserId,
@@ -1201,6 +1213,7 @@ function WhenSection({
     readonly ended: ReadonlySet<string>;
     /** The earliest day the picker offers: tomorrow once every slot today is over. */
     readonly firstDay: string;
+    readonly today: string;
     readonly onSchedule: (
         next: Pick<SaleState, 'requestedDeliveryDate' | 'deliveryWindowCode'>,
     ) => void;
@@ -1211,6 +1224,13 @@ function WhenSection({
 }) {
     const { t } = useTranslation();
     const { locale } = useLocale();
+    const formatter = useFormatter();
+    /** "Today · Tue 10 Nov", or the date alone further out. */
+    const dayLabel = (day: string): string => {
+        const relative = relativeDay(day, today, t, formatter);
+        const short = shortDay(day, formatter);
+        return relative === short ? short : `${relative} · ${short}`;
+    };
 
     return (
         <FormSection
@@ -1225,14 +1245,13 @@ function WhenSection({
              */}
             <View className="z-auto flex-col gap-base">
                 <View className="z-auto flex-row flex-wrap items-end gap-snug">
-                    <DatePickerButton
+                    <MiniMonthPicker
                         testID="kitchen-order-desk-sale-date"
                         label={t('kitchen:desk.sale.dateLabel')}
-                        labelVisible
-                        // The When card is the checkout's last: opened downward, the month runs
-                        // past the foot of the column and has to be scrolled to.
-                        side="above"
+                        caption={t('kitchen:desk.sale.dateLabel')}
                         value={schedule.requestedDeliveryDate}
+                        today={today}
+                        valueLabel={dayLabel(schedule.requestedDeliveryDate)}
                         min={firstDay}
                         onChange={(requestedDeliveryDate) => {
                             onSchedule({
@@ -1474,13 +1493,7 @@ function ConflictBand({
                     ) : (
                         <View className="flex-row flex-wrap gap-1">
                             {names.map((name) => (
-                                <Badge
-                                    key={name}
-                                    tone="warning"
-                                    icon={null}
-                                    className="!rounded-full"
-                                    label={name}
-                                />
+                                <DeskChip key={name} tone="warning" label={name} />
                             ))}
                         </View>
                     )}
@@ -1686,21 +1699,27 @@ function MenuGrid({
                                         }}
                                     />
                                     {canSwitch ? (
-                                        <Button
-                                            testID={`kitchen-order-desk-sale-tile-${tile.id}-off-today`}
-                                            size="sm"
-                                            variant="quiet"
-                                            block
-                                            label={t(
-                                                isOff
-                                                    ? 'kitchen:desk.sale.backOnToday'
-                                                    : 'kitchen:desk.sale.offToday',
-                                            )}
-                                            disabled={offToday.isPending}
-                                            onPress={() => {
-                                                offToday.mutate({ itemId: tile.id, off: !isOff });
-                                            }}
-                                        />
+                                        // A row of its own, so `block` widens the button across the
+                                        // card instead of taking half the card's height.
+                                        <View className="flex-row">
+                                            <DeskButton
+                                                testID={`kitchen-order-desk-sale-tile-${tile.id}-off-today`}
+                                                variant="quiet"
+                                                block
+                                                label={t(
+                                                    isOff
+                                                        ? 'kitchen:desk.sale.backOnToday'
+                                                        : 'kitchen:desk.sale.offToday',
+                                                )}
+                                                disabled={offToday.isPending}
+                                                onPress={() => {
+                                                    offToday.mutate({
+                                                        itemId: tile.id,
+                                                        off: !isOff,
+                                                    });
+                                                }}
+                                            />
+                                        </View>
                                     ) : null}
                                 </View>
                             );
@@ -1833,9 +1852,9 @@ function MenuTileButton({
                     {refused ? null : (
                         <View
                             aria-hidden
-                            className="h-8 w-8 items-center justify-center rounded-[10px] bg-surface-canopy"
+                            className="h-8 w-8 items-center justify-center rounded-full bg-surface-brand"
                         >
-                            <Icon name="plus" size="sm" className="text-brand-300" />
+                            <Icon name="plus" size="sm" className="text-content-on-brand" />
                         </View>
                     )}
                 </View>
@@ -2046,31 +2065,33 @@ function Ticket({
             }
         >
             {/*
-             * The ticket as a receipt in the sidebar's green (option C, chosen 2026-11-07): the
-             * rail's own ground and ink, white fields and buttons on it, the one action in the
-             * rail's white pill. At checkout the same receipt grows the payment panel.
+             * The ticket as a white receipt (2026-11-10, replacing the sidebar-green one, which
+             * read poorly once it was long): a raised card with the brand's green only where it
+             * means something — the count, the total, the one action. At checkout the same receipt
+             * grows the payment panel.
              */}
             <View
                 testID="kitchen-order-desk-sale-ticket-card"
-                className="flex-col gap-3 rounded-2xl bg-surface-sidebar p-4 shadow-elevation-card"
+                className="flex-col gap-3 rounded-[20px] border border-stroke-subtle bg-surface-raised p-4 shadow-elevation-card"
             >
-                <View className="flex-row items-center justify-between gap-2">
-                    <Text variant="section" tone="sidebar" accessibilityRole="header">
+                <View className="flex-row items-center justify-between gap-2 border-b border-stroke-subtle pb-2.5">
+                    <Text
+                        variant="section"
+                        accessibilityRole="header"
+                        className="font-display !text-[17px] !font-bold"
+                    >
                         {t('kitchen:desk.sale.ticketTitle')}
                     </Text>
-                    <Text
-                        variant="caption"
-                        tone="sidebarMuted"
-                        className="font-semibold"
+                    <DeskChip
                         testID="kitchen-order-desk-sale-ticket-count"
-                    >
-                        {t('kitchen:desk.sale.itemCount', { count: itemCount })}
-                    </Text>
+                        tone="success"
+                        label={t('kitchen:desk.sale.itemCount', { count: itemCount })}
+                    />
                 </View>
                 {who === null ? null : (
                     <View
                         testID="kitchen-order-desk-sale-ticket-who"
-                        className="flex-row items-center gap-2 rounded-lg border border-stroke-subtle bg-surface-raised px-2.5 py-2"
+                        className="flex-row items-center gap-2 rounded-xl bg-surface-sunken px-3 py-2"
                     >
                         <Text variant="label" className="font-semibold" numberOfLines={1}>
                             {who.name}
@@ -2100,7 +2121,7 @@ function Ticket({
                     {lines.length === 0 ? (
                         <Text
                             variant="caption"
-                            tone="sidebarMuted"
+                            tone="secondary"
                             align="center"
                             className="py-4"
                             testID="kitchen-order-desk-sale-ticket-empty"
@@ -2132,34 +2153,31 @@ function Ticket({
                                         testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}`}
                                         role="group"
                                         aria-label={name}
-                                        className="flex-col gap-1 border-b border-dashed border-content-on-sidebar/40 py-2"
+                                        className="flex-col gap-1.5 border-b border-stroke-subtle py-2.5"
                                     >
                                         <View className="flex-row items-baseline gap-2">
-                                            <Text
-                                                variant="mono"
-                                                tone="sidebar"
-                                                className="font-bold"
-                                                testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-quantity`}
-                                            >
-                                                {formatter.formatNumber(quantity)}
-                                            </Text>
-                                            <Text variant="caption" tone="sidebarMuted" aria-hidden>
-                                                ×
-                                            </Text>
+                                            <View className="h-6 min-w-6 items-center justify-center self-center rounded-full bg-surface-brand-subtle px-1.5">
+                                                <Text
+                                                    variant="label"
+                                                    className="!font-bold tabular-nums !text-content-on-brand-subtle"
+                                                    testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-quantity`}
+                                                >
+                                                    {formatter.formatNumber(quantity)}
+                                                </Text>
+                                            </View>
                                             {/* eslint-disable-next-line no-restricted-syntax -- the name is the line's filler. */}
                                             <View className="min-w-0 flex-1">
                                                 <Text
-                                                    variant="label"
-                                                    tone="sidebar"
+                                                    variant="strong"
                                                     numberOfLines={2}
+                                                    className="!text-sm"
                                                 >
                                                     {name}
                                                 </Text>
                                             </View>
                                             <Text
-                                                variant="mono"
-                                                tone="sidebar"
-                                                className="font-semibold"
+                                                variant="strong"
+                                                className="!text-sm !font-bold tabular-nums"
                                                 testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-total`}
                                             >
                                                 {quoted?.lineTotalMinor == null
@@ -2173,7 +2191,7 @@ function Ticket({
                                         <View className="flex-row items-center gap-tight">
                                             {/* eslint-disable-next-line no-restricted-syntax -- the price is the row's filler. */}
                                             <View className="min-w-0 flex-1">
-                                                <Text variant="caption" tone="sidebarMuted">
+                                                <Text variant="caption" tone="secondary">
                                                     {quoted?.unitPriceMinor == null
                                                         ? EM_DASH
                                                         : t('kitchen:desk.sale.each', {
@@ -2185,11 +2203,9 @@ function Ticket({
                                                 </Text>
                                             </View>
                                             <View className="flex-row items-center gap-hair">
-                                                <IconButton
+                                                <DeskIconButton
                                                     testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-options`}
                                                     icon={<Icon name="pen" size="sm" />}
-                                                    variant="secondary"
-                                                    size="sm"
                                                     label={t('kitchen:dishOptions.lineAction', {
                                                         name,
                                                     })}
@@ -2197,11 +2213,9 @@ function Ticket({
                                                         setChoosing(key);
                                                     }}
                                                 />
-                                                <IconButton
+                                                <DeskIconButton
                                                     testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-decrement`}
                                                     icon={<Icon name="minus" size="sm" />}
-                                                    variant="secondary"
-                                                    size="sm"
                                                     label={t(
                                                         'designSystem:numberStepper.decrease',
                                                         {
@@ -2212,11 +2226,9 @@ function Ticket({
                                                         step(quantity - 1);
                                                     }}
                                                 />
-                                                <IconButton
+                                                <DeskIconButton
                                                     testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-increment`}
                                                     icon={<Icon name="plus" size="sm" />}
-                                                    variant="secondary"
-                                                    size="sm"
                                                     label={t(
                                                         'designSystem:numberStepper.increase',
                                                         {
@@ -2232,12 +2244,12 @@ function Ticket({
                                         </View>
                                         {dishOptionsLine(line.options, locale, t) ===
                                         null ? null : (
-                                            <Text variant="caption" tone="sidebarMuted">
+                                            <Text variant="caption" tone="secondary">
                                                 {dishOptionsLine(line.options, locale, t)}
                                             </Text>
                                         )}
                                         {line.note == null || line.note === '' ? null : (
-                                            <Text variant="caption" tone="sidebarMuted">
+                                            <Text variant="caption" tone="secondary">
                                                 {t('kitchen:dishOptions.lineNote', {
                                                     note: line.note,
                                                 })}
@@ -2270,10 +2282,10 @@ function Ticket({
                     )}
 
                     {choosingLine === undefined ? null : (
-                        <DishChoicesDrawer
+                        <DishChoicesDialog
                             key={lineKey(choosingLine)}
                             line={choosingLine}
-                            money={money}
+                            money={(portion) => money(portion.unitPriceMinor, portion.currencyCode)}
                             onClose={() => {
                                 setChoosing(null);
                             }}
@@ -2446,9 +2458,8 @@ function Ticket({
                             title={t('kitchen:ops.orders.conflictTitle')}
                             body={t('kitchen:ops.orders.conflictBody')}
                             actions={
-                                <Button
+                                <DeskButton
                                     testID="kitchen-order-desk-sale-conflict-reload"
-                                    size="sm"
                                     variant="secondary"
                                     label={t('kitchen:ops.orders.conflictRefresh')}
                                     onPress={onReload}
@@ -2488,16 +2499,16 @@ function Ticket({
                     )}
 
                     {stage === 'menu' ? (
-                        <Button
+                        <DeskButton
                             testID="kitchen-order-desk-sale-charge"
-                            variant="sidebar"
+                            variant="primary"
                             size="lg"
                             block
                             iconEnd={
                                 <Icon
                                     name="arrowForward"
                                     size="sm"
-                                    className="text-content-on-sidebar-active"
+                                    className="text-content-on-brand"
                                 />
                             }
                             label={chargeLabel}
@@ -2507,7 +2518,7 @@ function Ticket({
                     ) : !kindChosen ? (
                         <Text
                             variant="caption"
-                            tone="sidebarMuted"
+                            tone="secondary"
                             align="center"
                             testID="kitchen-order-desk-sale-kind-pending"
                         >
@@ -2515,9 +2526,9 @@ function Ticket({
                         </Text>
                     ) : (
                         <View className="flex-col gap-hair">
-                            <Button
+                            <DeskButton
                                 testID="kitchen-order-desk-sale-submit"
-                                variant="sidebar"
+                                variant="primary"
                                 size="lg"
                                 block
                                 label={actionLabel}
@@ -2529,7 +2540,7 @@ function Ticket({
                             {shortfall === null || shortfall === 'items' ? null : (
                                 <Text
                                     variant="caption"
-                                    tone="sidebarMuted"
+                                    tone="secondary"
                                     align="center"
                                     testID="kitchen-order-desk-sale-shortfall"
                                 >
@@ -2544,7 +2555,7 @@ function Ticket({
     );
 }
 
-/** A warning said on the ticket's green ground — on its own amber patch, where it can be read. */
+/** A warning on the ticket — on its own amber patch, where it reads as one. */
 function TicketWarning({
     children,
     testID,
@@ -2591,19 +2602,26 @@ function Totals({
 }) {
     const { t } = useTranslation();
 
-    // On the ticket's green: the total in the display face, a step above the lines it adds up.
+    // The total in the display face and the brand's green, a step above the lines it adds up.
     const row = (label: string, value: string, testID: string, strong = false) => (
-        <View className="flex-row items-baseline justify-between gap-tight">
+        <View
+            className={`flex-row items-baseline justify-between gap-tight ${
+                strong ? 'mt-1 border-t border-stroke-subtle pt-2' : ''
+            }`}
+        >
             <Text
-                variant={strong ? 'strong' : 'caption'}
-                tone={strong ? 'sidebar' : 'sidebarMuted'}
+                variant={strong ? 'strong' : 'label'}
+                tone={strong ? 'primary' : 'secondary'}
+                className={strong ? '!text-sm !font-bold' : '!text-[13px]'}
             >
                 {label}
             </Text>
             <Text
-                variant={strong ? 'title' : 'mono'}
-                tone="sidebar"
-                className={strong ? 'font-display tabular-nums' : 'tabular-nums'}
+                variant={strong ? 'title' : 'strong'}
+                tone={strong ? 'brand' : 'primary'}
+                className={
+                    strong ? 'font-display !text-2xl !font-bold tabular-nums' : 'tabular-nums'
+                }
                 testID={testID}
             >
                 {value}
@@ -2709,10 +2727,10 @@ function PaymentMethods({
                             onPress={() => {
                                 onChange(candidate);
                             }}
-                            // White cards on the ticket's green; the chosen one filled and ringed dark, with a tick.
+                            // Cards on the white receipt; the chosen one filled soft green and ringed, with a tick.
                             className={
                                 selected
-                                    ? 'relative h-desk-pay flex-col items-start justify-center gap-0.5 rounded-xl border-2 border-surface-canopy bg-surface-brand-subtle px-2.5'
+                                    ? 'relative h-desk-pay flex-col items-start justify-center gap-0.5 rounded-xl border-2 border-surface-brand bg-surface-brand-subtle px-2.5'
                                     : 'relative h-desk-pay flex-col items-start justify-center gap-0.5 rounded-xl border border-stroke bg-surface-raised px-2.5 web:hover:border-surface-brand'
                             }
                         >
@@ -2750,92 +2768,5 @@ function PaymentMethods({
                 );
             })}
         </View>
-    );
-}
-
-/**
- * One row's portion, free options and note. Portions are packs, so the row's quote prices the
- * choice; nothing here works out a price.
- */
-function DishChoicesDrawer({
-    line,
-    money,
-    onClose,
-    onSave,
-}: {
-    readonly line: BasketLine;
-    readonly money: (amount: number, currency: OrderDeskQuote['currencyCode']) => string;
-    readonly onClose: () => void;
-    readonly onSave: (change: Parameters<typeof changeLine>[2]) => void;
-}) {
-    const { t } = useTranslation();
-    const { locale } = useLocale();
-    const read = useDishChoicesQuery(line.catalogueItemId);
-    const [value, setValue] = useState<DishChoiceValue>({
-        catalogueItemVariantId: line.catalogueItemVariantId,
-        optionIds: line.options?.map((option) => option.id) ?? [],
-    });
-    const [note, setNote] = useState(line.note ?? '');
-
-    const options = read.data?.options ?? [];
-    const portions = read.data?.portions ?? [];
-    const portion = portions.find(
-        (candidate) => candidate.catalogueItemVariantId === value.catalogueItemVariantId,
-    );
-
-    return (
-        <Drawer
-            testID="kitchen-order-desk-sale-choices"
-            open
-            onClose={onClose}
-            title={t('kitchen:dishOptions.drawerTitle')}
-            footer={
-                <Button
-                    testID="kitchen-order-desk-sale-choices-save"
-                    label={t('kitchen:dishOptions.apply')}
-                    onPress={() => {
-                        onSave({
-                            catalogueItemVariantId: value.catalogueItemVariantId,
-                            variantLabel:
-                                portion === undefined
-                                    ? line.variantLabel
-                                    : displayName(
-                                          { en: portion.nameEn, ar: portion.nameAr },
-                                          locale,
-                                      ).value,
-                            options: options.filter((option) =>
-                                value.optionIds.includes(option.id),
-                            ),
-                            note: note.trim(),
-                        });
-                    }}
-                />
-            }
-        >
-            <View className="flex-col gap-snug">
-                {options.length === 0 && portions.length === 0 ? null : (
-                    <DishChoiceFields
-                        testID="kitchen-order-desk-sale-choices-fields"
-                        size="sm"
-                        options={options}
-                        portions={portions}
-                        value={value}
-                        onChange={setValue}
-                        formatPrice={(choice) => money(choice.unitPriceMinor, choice.currencyCode)}
-                    />
-                )}
-                <TextInputField
-                    testID="kitchen-order-desk-sale-choices-note"
-                    id="kitchen-order-desk-sale-choices-note"
-                    label={t('kitchen:dishOptions.noteLabel')}
-                    size="sm"
-                    multiline
-                    numberOfLines={2}
-                    maxLength={300}
-                    value={note}
-                    onChangeText={setNote}
-                />
-            </View>
-        </Drawer>
     );
 }

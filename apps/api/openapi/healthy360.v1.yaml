@@ -14167,6 +14167,8 @@ paths:
         - $ref: '#/components/parameters/XOrganisationIdRequired'
         - $ref: '#/components/parameters/CursorLimit'
         - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PerPage'
         - name: status
           in: query
           required: false
@@ -14202,10 +14204,52 @@ paths:
           schema:
             type: string
             maxLength: 60
+        - name: from
+          in: query
+          required: false
+          description: |
+            First day of a span, inclusive, `YYYY-MM-DD`. An order's day is its
+            requested delivery date or, when it has none, the day it was placed —
+            the rule the order-desk calendar counts by, so a day's list and the
+            calendar's count for it agree. Alone, the span is open at the end.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          description: |
+            Last day of the span, inclusive, on or after `from`. Alone, the span
+            is open at the start.
+          schema:
+            type: string
+            format: date
+        - name: 'delivery_window_code[]'
+          in: query
+          required: false
+          description: |
+            Restrict to one or more named slots, by the windows' own codes. A
+            set, because a sitting goes by two codes in some kitchens (`midday`
+            and `lunch`). Repeat the bracketed name, as `status[]` on the desk
+            queue does.
+          schema:
+            type: array
+            items:
+              type: string
+              maxLength: 40
+          style: form
+          explode: true
+        - name: fulfilment_type
+          in: query
+          required: false
+          description: Restrict to one way of leaving the kitchen. Omitted, all three are listed.
+          schema:
+            type: string
+            enum: [delivery, pickup, counter]
         - $ref: '#/components/parameters/XClientRequestId'
       responses:
         '200':
-          description: A page of the organisation's orders, newest first.
+          description: A page of the organisation's orders, newest first. With `page`, numbered — `meta` then carries `total_count` and `total_pages`.
           headers:
             X-Correlation-Id:
               $ref: '#/components/headers/XCorrelationId'
@@ -14218,9 +14262,9 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/KitchenOrder'
+                      $ref: '#/components/schemas/KitchenOrderBookRow'
                   meta:
-                    $ref: '#/components/schemas/PaginationMeta'
+                    $ref: '#/components/schemas/PaginatedOrNumberedMeta'
         '400':
           $ref: '#/components/responses/RequestInvalid'
         '401':
@@ -16867,6 +16911,63 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrderDeskCalendarEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /catalogue/order-desk/plan-meals:
+    get:
+      operationId: getOrderDeskPlanMeals
+      tags: [Order desk]
+      summary: One day's plan meals that are not orders yet, by subscriber and dish
+      description: |
+        The calendar's plan-meal count for one day, opened. A plan day is an
+        order that has not been made yet — the generator turns it into one a day
+        ahead — so each row reads like an order: whose it is, which plan, and the
+        dish the subscriber picked for each sitting.
+
+        * `basis` is `scheduled` (claimed by the generator, no order yet) or
+          `projected` (the plan's weekdays say it is coming; a forecast).
+        * `meals` holds what has been picked. Fewer meals than `meals_per_day`
+          plus `snacks_per_day` means the rest are not chosen yet.
+        * A day the generator has already turned into an order is **absent**:
+          its order is on the book, and listing it here too would cook it twice.
+
+        Requires **both** `order.view_organisation` and
+        `subscription.view_organisation`, as the calendar does. `customer` is
+        present only for a caller who also holds
+        `order.view_customer_contact_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - name: date
+          in: query
+          required: true
+          description: The day to list.
+          schema:
+            type: string
+            format: date
+        - name: branch_id
+          in: query
+          required: false
+          description: Narrow to one production site. Omitted, the list is organisation-wide.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The day's plan meals, one row per subscriber.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDeskPlanMealsEnvelope'
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
@@ -41628,6 +41729,32 @@ components:
             has always been.
       additionalProperties: false
 
+    KitchenOrderBookRow:
+      allOf:
+        - $ref: '#/components/schemas/KitchenOrder'
+        - type: object
+          required: [payment, delivery_job]
+          properties:
+            payment:
+              $ref: '#/components/schemas/OrderPaymentSummary'
+            delivery_job:
+              oneOf:
+                - $ref: '#/components/schemas/OrderDeskDeliveryJob'
+                - type: 'null'
+            customer:
+              $ref: '#/components/schemas/OrderDeskCustomerContact'
+          description: |
+            One row of the kitchen's order book: the kitchen shape, plus the
+            three facts a desk row carries beside it — what has been paid, the
+            run the order became, and (only for a caller holding
+            `order.view_customer_contact_organisation`) the customer's name and
+            number. Each is resolved for the whole page in one statement, through
+            the desk queue's own helpers, so the two lists cannot disagree.
+
+            `payment` is never null — nothing paid is `received_minor: 0`.
+            `delivery_job` is null for an order with no run. `customer` is absent,
+            not null, for a reader who may not see contacts.
+
     OrderDeskRow:
       allOf:
         - $ref: '#/components/schemas/KitchenOrder'
@@ -42863,6 +42990,68 @@ components:
           items:
             $ref: '#/components/schemas/OrderDeskCalendarWindow'
 
+    OrderDeskPlanMealsEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderDeskPlanMeal'
+        meta:
+          allOf:
+            - $ref: '#/components/schemas/Meta'
+            - type: object
+              required: [date, count]
+              properties:
+                date:
+                  type: string
+                  format: date
+                count:
+                  type: integer
+                  minimum: 0
+    OrderDeskPlanMeal:
+      type: object
+      description: One subscriber's plan day that is not an order yet.
+      required: [subscription_id, basis, plan, meals_per_day, snacks_per_day, meals]
+      properties:
+        subscription_id:
+          $ref: '#/components/schemas/Uuid'
+        basis:
+          type: string
+          enum: [scheduled, projected]
+        plan:
+          type: object
+          required: [name_en, name_ar]
+          properties:
+            name_en:
+              type: [string, 'null']
+            name_ar:
+              type: [string, 'null']
+        meals_per_day:
+          type: [integer, 'null']
+        snacks_per_day:
+          type: [integer, 'null']
+        meals:
+          type: array
+          description: What has been picked, by sitting. Fewer than the plan's servings means the rest are not chosen yet.
+          items:
+            type: object
+            required: [slot, sequence, catalogue_item_id, name_en, name_ar]
+            properties:
+              slot:
+                type: string
+                enum: [breakfast, lunch, dinner, snack]
+              sequence:
+                type: integer
+              catalogue_item_id:
+                $ref: '#/components/schemas/Uuid'
+              name_en:
+                type: [string, 'null']
+              name_ar:
+                type: [string, 'null']
+        customer:
+          $ref: '#/components/schemas/OrderDeskCustomerContact'
     OrderDeskCalendarEnvelope:
       type: object
       required: [data, meta]

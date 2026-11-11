@@ -5,6 +5,7 @@ import type {
     HandToCourierRequest,
     KitchenDisplay,
     KitchenOrder,
+    KitchenOrderBookRow,
     KitchenOrderFilters,
     KitchenOrderPage,
     KitchenOrderTransitionRequest,
@@ -84,6 +85,50 @@ export function useKitchenOrdersQuery(
     });
 }
 
+/** Every order a filter matches, read page by page up to a cap — see {@link useKitchenOrdersWholeQuery}. */
+export interface KitchenOrdersWhole {
+    readonly items: readonly KitchenOrderBookRow[];
+    /** More matched than the cap let it read. */
+    readonly truncated: boolean;
+}
+
+/**
+ * Every order a filter matches — one day, one week — rather than one page of them.
+ *
+ * The Orders page draws a day whole, grouped by slot, so a page cut at a hundred would drop the
+ * dinner orders off the end of a busy day. The pages are walked inside one query, newest first,
+ * up to `maxPages`; past that the answer says it was cut short rather than pretending to be whole.
+ */
+export function useKitchenOrdersWholeQuery(
+    filters: Omit<KitchenOrderFilters, 'cursor' | 'page'>,
+    enabled = true,
+    refetchInterval: number | false = false,
+    maxPages = 5,
+): UseQueryResult<KitchenOrdersWhole> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenOrders.list({ ...filters, whole: maxPages }),
+        enabled: enabled && repositories !== null,
+        refetchInterval,
+        queryFn: async () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            const items: KitchenOrderBookRow[] = [];
+            let cursor: string | null = null;
+            for (let read = 0; read < maxPages; read += 1) {
+                const page: KitchenOrderPage = await repositories.kitchenOrders.listOrders({
+                    ...filters,
+                    ...(cursor === null ? {} : { cursor }),
+                });
+                items.push(...page.items);
+                if (!page.hasMore || page.nextCursor === null) return { items, truncated: false };
+                cursor = page.nextCursor;
+            }
+            return { items, truncated: true };
+        },
+    });
+}
+
 /**
  * The wall board.
  *
@@ -156,8 +201,10 @@ function useKitchenOrderWriteEffects(): (order: KitchenOrder) => void {
         // The answer into every cached list too, so a KDS ticket moves the moment Ready lands
         // rather than when the refetch below does — seconds on a slow server, and the board looked
         // as if nothing had happened.
+        // Merged rather than replaced: a book row carries what has been paid, its run and the
+        // customer beside the order, and the write's answer is the order alone.
         const withFresh = (rows: readonly KitchenOrder[]): readonly KitchenOrder[] =>
-            rows.map((row) => (row.id === order.id ? order : row));
+            rows.map((row) => (row.id === order.id ? { ...row, ...order } : row));
         queryClient.setQueriesData<{
             readonly items?: readonly KitchenOrder[];
             readonly orders?: readonly KitchenOrder[];

@@ -28,12 +28,19 @@ import { OrderDeskSaleScreen } from './screens/order-desk-sale-screen.tsx';
 /* `mock`-prefixed so the factory below may close over them — Jest's hoisting rule. */
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
+const mockDismissTo = jest.fn();
 /** The route's query — `{ order }` opens the page in edit mode. */
 let mockParams: Record<string, string> = {};
 
 jest.mock('expo-router', () => ({
     __esModule: true,
-    useRouter: () => ({ push: mockPush, replace: mockReplace, back: jest.fn() }),
+    useRouter: () => ({
+        push: mockPush,
+        replace: mockReplace,
+        dismissTo: mockDismissTo,
+        canGoBack: () => false,
+        back: jest.fn(),
+    }),
     usePathname: () => '/kitchen/order-desk/sale',
     useLocalSearchParams: () => mockParams,
     Redirect: () => null,
@@ -442,6 +449,7 @@ async function chooseLayla() {
 beforeEach(() => {
     mockPush.mockClear();
     mockReplace.mockClear();
+    mockDismissTo.mockClear();
     mockParams = {};
 });
 
@@ -629,7 +637,7 @@ describe('sale — the menu', () => {
         expect(screen.queryByTestId(MEAL_TILE)).toBeNull();
     });
 
-    it('goes back to the order desk from the menu', async () => {
+    it('goes back to the Orders page from the menu', async () => {
         await renderSale();
         await untilVisible('kitchen-order-desk-sale-back-to-desk');
 
@@ -637,7 +645,8 @@ describe('sale — the menu', () => {
             fireEvent.press(screen.getByTestId('kitchen-order-desk-sale-back-to-desk'));
         });
 
-        expect(mockPush).toHaveBeenCalledWith('/kitchen/order-desk');
+        // No page sent it, so it goes to the Orders page's own start.
+        expect(mockReplace).toHaveBeenCalledWith('/kitchen/orders?tab=today');
     });
 });
 
@@ -1038,7 +1047,10 @@ describe('sale — collections and deliveries', () => {
         });
 
         await waitFor(() => {
-            expect(mockReplace).toHaveBeenCalledWith('/kitchen/order-desk');
+            // On the order's own day, lit up — see `landingHref`.
+            expect(mockDismissTo).toHaveBeenCalledWith(
+                expect.stringMatching(/^\/kitchen\/orders\?tab=today(&day=[\d-]+)?&hl=/),
+            );
         });
         // Forbidden on a collection: the wire is a 422 with it.
         expect(placeSale).toHaveBeenCalledWith({
@@ -1745,7 +1757,10 @@ describe('sale — editing a placed order', () => {
 
         await save();
         await waitFor(() => {
-            expect(mockReplace).toHaveBeenCalledWith('/kitchen/order-desk');
+            // On the order's own day, lit up — see `landingHref`.
+            expect(mockDismissTo).toHaveBeenCalledWith(
+                expect.stringMatching(/^\/kitchen\/orders\?tab=today(&day=[\d-]+)?&hl=/),
+            );
         });
         // The basket whole; the untouched day, slot and method not at all.
         expect(amendOrder).toHaveBeenCalledWith({
