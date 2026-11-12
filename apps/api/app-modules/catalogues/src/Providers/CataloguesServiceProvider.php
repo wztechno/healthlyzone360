@@ -6,10 +6,12 @@ namespace Healthy360\Catalogues\Providers;
 
 use Healthy360\Catalogues\Console\ReportUnassessedCommand;
 use Healthy360\Catalogues\Contracts\ConfirmedPriceRegistry;
+use Healthy360\Catalogues\Contracts\PackPriceRegistry;
 use Healthy360\Catalogues\Contracts\SellingPlaceRegistry;
 use Healthy360\Catalogues\Services\CatalogueIngredientUsageRegistry;
 use Healthy360\Catalogues\Services\CatalogueRecipeUsageRegistry;
 use Healthy360\Catalogues\Services\NullConfirmedPriceRegistry;
+use Healthy360\Catalogues\Services\NullPackPriceRegistry;
 use Healthy360\Catalogues\Services\NullSellingPlaceRegistry;
 use Healthy360\Catalogues\Services\RecordPhotoService;
 use Healthy360\Ingredients\Contracts\IngredientUsageRegistry;
@@ -37,6 +39,7 @@ class CataloguesServiceProvider extends ServiceProvider
         $this->app->bind(ConfirmedPriceRegistry::class, NullConfirmedPriceRegistry::class);
         // The same fail-closed default for where an item sells and is priced; pricing replaces it.
         $this->app->bind(SellingPlaceRegistry::class, NullSellingPlaceRegistry::class);
+        $this->app->bind(PackPriceRegistry::class, NullPackPriceRegistry::class);
 
         // Scoped, so the photo links it looks up are reused for the rest of the request.
         $this->app->scoped(RecordPhotoService::class);

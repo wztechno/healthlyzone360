@@ -6,6 +6,7 @@ namespace Healthy360\Pricing\Services;
 
 use Carbon\CarbonImmutable;
 use Healthy360\Audit\Services\AuditRecorder;
+use Healthy360\Catalogues\Contracts\PackPriceRegistry;
 use Healthy360\Catalogues\Contracts\SellingPlaceRegistry;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\SalesChannelKind;
@@ -19,6 +20,7 @@ use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Services\CatalogueItemService;
+use Healthy360\Catalogues\Services\DishMargins;
 use Healthy360\Catalogues\Services\SellingReadiness;
 use Healthy360\Pricing\Models\PriceList;
 use Healthy360\Pricing\Models\PriceListItem;
@@ -27,6 +29,7 @@ use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * A cooked item's Packs & prices tab, read and written as one statement: the
@@ -62,9 +65,11 @@ use Illuminate\Support\Facades\DB;
  * dates, every per-pack row and every other channel's rows are left as they are.
  *
  * It also answers the catalogue's {@see SellingPlaceRegistry} port, so
- * {@see SellingReadiness} reads places and prices exactly as this tab does.
+ * {@see SellingReadiness} reads places and prices exactly as this tab does, and
+ * its {@see PackPriceRegistry} port, so {@see DishMargins} prices each pack from
+ * this same read. A write refreshes that item's Dish margins once it commits.
  */
-final readonly class ItemPacksService implements SellingPlaceRegistry
+final readonly class ItemPacksService implements PackPriceRegistry, SellingPlaceRegistry
 {
     private const string DESK_CODE = 'desk';
 
@@ -365,7 +370,58 @@ final readonly class ItemPacksService implements SellingPlaceRegistry
             ],
         );
 
+        $this->refreshMargins($item);
+
         return $item;
+    }
+
+    /**
+     * @return list<array{id: string, code: string, name_en: string|null, fill: array{quantity: string, unit: string}, components: list<array{ingredient_id: string, quantity: string, is_container: bool}>, prices: array{home: array{amount_minor: int, currency_code: string, inherited: bool}|null, business: array{amount_minor: int, currency_code: string, inherited: bool}|null}}>
+     */
+    public function packPricesOf(CatalogueItem $item): array
+    {
+        $read = $this->read($item);
+        $out = [];
+
+        foreach ($read['packs'] as $pack) {
+            $prices = [];
+
+            foreach (self::PRICED_PLACES as $place => $kind) {
+                $price = $pack['prices'][$place];
+                $currency = $read['places'][$place]['currency_code'] ?? null;
+                $prices[$place] = $price === null || $currency === null ? null : [...$price, 'currency_code' => $currency];
+            }
+
+            $out[] = [
+                'id' => $pack['id'],
+                'code' => $pack['code'],
+                'name_en' => $pack['name_en'],
+                'fill' => $pack['fill'],
+                'components' => $pack['components'],
+                'prices' => $prices,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Bring this item's Dish margins rows up to date after a committed write
+     * (plan S7), so the page agrees with the tab without the nightly run.
+     *
+     * Resolved here rather than injected: `DishMargins` reads packs through
+     * {@see PackPriceRegistry}, which is this class, so a constructor
+     * dependency would be a cycle. Its own transaction is a savepoint inside
+     * any outer one, so a failure rolls back only the refresh; it is reported
+     * and never fails the write the owner just made.
+     */
+    private function refreshMargins(CatalogueItem $item): void
+    {
+        try {
+            DB::transaction(static fn () => app(DishMargins::class)->refreshItem($item));
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 
     /**

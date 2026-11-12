@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Pricing\Providers;
 
 use Healthy360\Catalogues\Contracts\ConfirmedPriceRegistry;
+use Healthy360\Catalogues\Contracts\PackPriceRegistry;
 use Healthy360\Catalogues\Contracts\SellingPlaceRegistry;
 use Healthy360\Pricing\Contracts\BuyerAgreementLookup;
 use Healthy360\Pricing\Services\ItemPacksService;
@@ -26,5 +27,6 @@ class PricingServiceProvider extends ServiceProvider
     {
         $this->app->bind(ConfirmedPriceRegistry::class, PriceListConfirmedPriceRegistry::class);
         $this->app->bind(SellingPlaceRegistry::class, ItemPacksService::class);
+        $this->app->bind(PackPriceRegistry::class, ItemPacksService::class);
     }
 }

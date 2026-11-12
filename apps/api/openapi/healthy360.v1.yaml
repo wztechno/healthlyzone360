@@ -43929,7 +43929,11 @@ components:
 
     DishMargin:
       type: object
-      required: [id, catalogue_item_id, name_en, name_ar, item_type, channel, price_amount, cost_amount, currency_code, margin_percent, withheld_reason, is_below_target]
+      description: >-
+        What one pack of one dish earns on one place. One row per pack per place it is
+        priced on; a dish with no pack, no published recipe or no price keeps one row with
+        `pack` null and the reason.
+      required: [id, catalogue_item_id, name_en, name_ar, item_type, place, pack, price_amount, contents_amount, cost_amount, currency_code, margin_percent, withheld_reason, is_below_target]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -43943,22 +43947,54 @@ components:
           type: string
           enum: [meal, sauce, dressing, frozen_meal]
           description: The recipe kind the dish is sold as. Products and plans are never priced here.
-        channel:
+        place:
           type: string
-          enum: [b2c, b2b]
+          enum: [home, business]
+          description: The Home shop or Business. The counter charges the Home shop price and has no rows.
+        pack:
+          oneOf:
+            - $ref: '#/components/schemas/DishMarginPack'
+            - type: 'null'
         price_amount:
           type: [string, 'null']
+          description: The pack's price on the place's public tariff, its own or inherited from the item, in major units.
+        contents_amount:
+          type: [string, 'null']
+          description: What the pack's fill costs. Stated even while the packaging is unknown.
         cost_amount:
           type: [string, 'null']
+          description: Contents plus packaging, per pack.
         currency_code:
           type: [string, 'null']
         margin_percent:
           type: [string, 'null']
         withheld_reason:
           type: [string, 'null']
-          enum: [no_recipe, no_price, cost_incomplete, currency_mismatch, null]
+          enum: [no_recipe, no_pack, no_price, packaging_unknown, cost_incomplete, currency_mismatch, null]
         is_below_target:
           type: boolean
+
+    DishMarginPack:
+      type: object
+      required: [catalogue_item_variant_id, label, fill]
+      properties:
+        catalogue_item_variant_id:
+          $ref: '#/components/schemas/Uuid'
+        label:
+          type: [string, 'null']
+          description: The pack's name as of the last run, else its code.
+        fill:
+          description: How much one pack holds; null when the pack records no size.
+          oneOf:
+            - type: object
+              required: [quantity, unit]
+              properties:
+                quantity:
+                  type: string
+                unit:
+                  type: string
+                  description: A measurement unit code.
+            - type: 'null'
 
     DishMarginsEnvelope:
       type: object
