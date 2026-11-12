@@ -3150,8 +3150,9 @@ describe('preparations as lines', () => {
 
         const row = 'kitchen-recipe-lines-table-row-line-0';
         await waitFor(() => {
+            // After the line's warning glyph.
             expect(screen.getByTestId(`${row}-issue`)).toHaveTextContent(
-                'Costed from its typed price, not its recipe · Fix',
+                /Costed from its typed price, not its recipe · Fix$/,
             );
         });
         expect(screen.getByTestId(`${row}-preparation`)).toBeTruthy();
@@ -3583,7 +3584,8 @@ describe('the packs & prices tab', () => {
 
     it('counts a sold recipe’s publish blockers on the tab and takes Fix to the field', async () => {
         const box = packagingItem(3, { name: { en: 'Bottle 750', ar: 'زجاجة' } });
-        const stored = packagedRecipe(10);
+        // One digit: `recipeIdentifier` pads to a fixed width, and 10 is not a UUID.
+        const stored = packagedRecipe(7);
         const unpriced: ItemPacks = {
             ...soldPacks(box),
             packs: soldPacks(box).packs.map((pack) => ({

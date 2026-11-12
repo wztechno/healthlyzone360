@@ -423,18 +423,6 @@ export function RecipeLineTable({
         return { options: [...raw, ...preparations], byOption };
     }, [catalogue.data, wantsIngredients, formatter, locale, t]);
 
-    /** The recipe a line's ingredient is made by, from whichever source says so. */
-    const preparationOf = (row: LineDraft): PreparationRecipe | null => {
-        if (!wantsIngredients || row.ingredientId === null) return null;
-        const id = String(row.ingredientId);
-        return (
-            offered.byOption.get(id)?.producedBy ??
-            byId.get(id)?.producedBy ??
-            figures.get(row.key)?.sourceRecipe ??
-            null
-        );
-    };
-
     /*
      * Each row's figures, matched by line number *and* ingredient.
      *
@@ -456,6 +444,18 @@ export function RecipeLineTable({
         }
         return byKey;
     }, [rows, costs]);
+
+    /** The recipe a line's ingredient is made by, from whichever source says so. */
+    const preparationOf = (row: LineDraft): PreparationRecipe | null => {
+        if (!wantsIngredients || row.ingredientId === null) return null;
+        const id = String(row.ingredientId);
+        return (
+            offered.byOption.get(id)?.producedBy ??
+            byId.get(id)?.producedBy ??
+            figures.get(row.key)?.sourceRecipe ??
+            null
+        );
+    };
 
     const totalQuantity = rows.reduce((sum, row) => sum + (parseQuantity(row.quantity) ?? 0), 0);
 

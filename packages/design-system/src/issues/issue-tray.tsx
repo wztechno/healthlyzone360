@@ -329,36 +329,19 @@ function IssueTrayFrameBody({
         <BlockedNotice tray={tray} controller={tray$} wide={wide} testID={`${base}-blocked`} />
     );
 
-    if (!wide) {
-        return (
-            <>
-                {page}
-                {blocked}
-                {tray === null ? null : (
-                    <Drawer
-                        testID={`${base}-sheet`}
-                        placement="bottom"
-                        title={tray.title}
-                        open={tray$.open && !hidden}
-                        onClose={() => {
-                            tray$.setOpen(false);
-                        }}
-                    >
-                        {panel}
-                    </Drawer>
-                )}
-            </>
-        );
-    }
-
+    /*
+     * And the same place for the page on both sides of `lg`: a page that moved in the tree as the
+     * window crossed it was remounted, dropping every draft in it and any write still in flight —
+     * a refused publish then said nothing at all. Only the tray beside it changes.
+     */
     return (
         <>
-            {blocked}
+            {wide ? blocked : null}
             <View
-                testID={tray === null ? undefined : `${base}-frame`}
-                className="z-auto flex-row items-start gap-6"
+                testID={wide && tray !== null ? `${base}-frame` : undefined}
+                className={wide ? 'z-auto flex-row items-start gap-6' : 'z-auto'}
             >
-                <View className="z-auto min-w-0 flex-1">{page}</View>
+                <View className={wide ? 'z-auto min-w-0 flex-1' : 'z-auto'}>{page}</View>
                 {docked ? (
                     // Sticky against the shell's scroll port, so the tray stays beside whatever part of
                     // a long form the reader is on. Its own scroll when it is taller than the window.
@@ -377,6 +360,20 @@ function IssueTrayFrameBody({
                     </SlideIn>
                 ) : null}
             </View>
+            {wide ? null : blocked}
+            {wide || tray === null ? null : (
+                <Drawer
+                    testID={`${base}-sheet`}
+                    placement="bottom"
+                    title={tray.title}
+                    open={tray$.open && !hidden}
+                    onClose={() => {
+                        tray$.setOpen(false);
+                    }}
+                >
+                    {panel}
+                </Drawer>
+            )}
         </>
     );
 }

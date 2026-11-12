@@ -269,13 +269,19 @@ describe('Packs & prices', () => {
         // A litre is read as a kilogram (owner's ruling 4): the fill opens at 1 Kg.
         await untilVisible('kitchen-packs-new-1-fill-input');
         expect(screen.getByTestId('kitchen-packs-new-1-fill-input').props.value).toBe('1');
-        expect(screen.getByTestId('kitchen-packs-new-1-fill-unit')).toHaveTextContent('Kg');
+        // The suffix is decorative to assistive technology (the label names the unit).
+        expect(
+            screen.getByTestId('kitchen-packs-new-1-fill-unit', { includeHiddenElements: true }),
+        ).toHaveTextContent('Kg');
         expect(screen.getByTestId('kitchen-packs-new-1-container')).toHaveTextContent('Jar 1 L');
-        expect(screen.queryByText(/Container holds/)).toBeNull();
+        // Scoped to the new pack: the fixture's own pack (0.46 Kg in a 0.5 L bottle) carries its hint.
+        expect(screen.queryByTestId('kitchen-packs-new-1-fill-hint')).toBeNull();
 
         // Changed, the field says what the container holds.
         await type('kitchen-packs-new-1-fill-input', '0.92');
-        expect(screen.getByText('Container holds 1 L')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-packs-new-1-fill-hint')).toHaveTextContent(
+            'Container holds 1 L',
+        );
 
         // The draft goes up as roll-up input, keyed by the row.
         await waitFor(() => {

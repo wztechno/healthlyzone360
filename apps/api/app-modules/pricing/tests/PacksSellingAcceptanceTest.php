@@ -7,6 +7,7 @@ use Healthy360\Cart\Services\LineProbe;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\SalesChannelKind;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
+use Healthy360\Catalogues\Models\DishMargin;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Pricing\Models\PriceListItem;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
@@ -181,6 +182,19 @@ it('reports the same sellable state from the publication check', function (): vo
     expect($selling())->toBe(['place_unpriced:home', 'place_unpriced:counter']);
 });
 
-// Slice E: Dish margins carries one Home shop row for the priced pack and none
-// for the cleared one, straight after the write (no nightly run in between).
-it('shows a margin for the priced pack only, straight after the write')->todo();
+// Dish margins is refreshed by the write itself — no nightly run in between — and
+// never states the cleared pack. This meal has no recipe, so the page carries its
+// one pack-less row saying so; the margin figures themselves, with a recipe behind
+// them, are `DishMarginsTest`'s freshness case.
+it('refreshes Dish margins with the write, and never lists the cleared pack', function (): void {
+    expect(DishMargin::withoutTenancy()->where('catalogue_item_id', $this->meal->getKey())->count())->toBe(0);
+
+    $this->putJson($this->url, ($this->statement)(1200, null, ['home' => true, 'counter' => true]), $this->headers + ['If-Match' => '"1"'])
+        ->assertOk();
+
+    $rows = DishMargin::withoutTenancy()->where('catalogue_item_id', $this->meal->getKey())->get();
+
+    expect($rows)->not->toBeEmpty()
+        ->and($rows->where('catalogue_item_variant_id', (string) $this->one->getKey()))->toHaveCount(0)
+        ->and($rows->whereNotNull('margin_percent'))->toHaveCount(0);
+});
