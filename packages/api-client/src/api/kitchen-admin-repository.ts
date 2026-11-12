@@ -24,6 +24,7 @@ import type {
     IngredientAdminSort,
     IngredientCategoryAdmin,
     ItemChannelPrices,
+    ItemPacks,
     KitchenAdminRepository,
     MealAdmin,
     MealAdminFilter,
@@ -108,10 +109,12 @@ import {
     planDurationsFromAssignments,
     priceListChannelsFromAssignments,
     mapItemChannelPrices,
+    mapItemPacks,
     salesChannelIdFor,
     type CategoryLookup,
     type SalesChannelLookup,
     type WireItemChannelPrices,
+    type WireItemPacks,
     type WireRecipeLine,
 } from './kitchen-admin-mappers.ts';
 import type { Transport } from './transport.ts';
@@ -254,6 +257,7 @@ export type ApiKitchenAdminReads = Pick<
     | 'getProduct'
     | 'listSellableChannels'
     | 'getItemChannelPrices'
+    | 'getItemPacks'
     | 'listMeals'
     | 'getMeal'
     | 'listPlans'
@@ -1052,6 +1056,14 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 path: `/catalogue/items/${encodeURIComponent(String(itemId))}/channel-prices`,
             });
             return mapItemChannelPrices(data);
+        },
+
+        async getItemPacks(itemId: ProductId | MealId): Promise<ItemPacks> {
+            const data = await transport.request<WireItemPacks>({
+                method: 'GET',
+                path: `/catalogue/items/${encodeURIComponent(String(itemId))}/packs`,
+            });
+            return mapItemPacks(data);
         },
 
         async listMeals(filter?: MealAdminFilter): Promise<CursorPage<MealAdmin>> {

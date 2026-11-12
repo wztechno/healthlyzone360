@@ -53,7 +53,9 @@ import type {
     SetBranchOperatingRequest,
     SetChannelAvailabilityRequest,
     ItemChannelPrices,
+    ItemPacks,
     SetItemChannelPricesRequest,
+    SetItemPacksRequest,
     SetIngredientAllergensRequest,
     SetMealAvailabilityRequest,
     SetPlanCombinationsRequest,
@@ -97,11 +99,13 @@ import {
     mapDeliveryWindow,
     mapRecipeRollupPreview,
     mapItemChannelPrices,
+    mapItemPacks,
     mapMeasureUnit,
     pickCurrentRecipeVersion,
     salesChannelIdFor,
     type CategoryLookup,
     type WireItemChannelPrices,
+    type WireItemPacks,
 } from './kitchen-admin-mappers.ts';
 import { createApiKitchenAdminReads } from './kitchen-admin-repository.ts';
 import { createApiKitchenAdminWholesale } from './kitchen-admin-wholesale.ts';
@@ -144,6 +148,7 @@ export type ApiKitchenAdminWrites = Pick<
     | 'archiveProduct'
     | 'setProductChannelAvailability'
     | 'setItemChannelPrices'
+    | 'setItemPacks'
     | 'setPriceListEntries'
     | 'publishPriceList'
     | 'createMeal'
@@ -1548,6 +1553,31 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             return mapItemChannelPrices(data);
         },
 
+        async setItemPacks(
+            itemId: ProductId | MealId,
+            request: SetItemPacksRequest,
+        ): Promise<ItemPacks> {
+            const data = await transport.request<WireItemPacks>({
+                method: 'PUT',
+                path: `/catalogue/items/${encodeURIComponent(String(itemId))}/packs`,
+                headers: ifMatch(request.lockVersion),
+                body: {
+                    places: request.places,
+                    packs: request.packs.map((pack) => ({
+                        ...(pack.id === undefined ? {} : { id: pack.id }),
+                        fill: { quantity: pack.fill.quantity, unit: pack.fill.unit },
+                        components: pack.components.map((component) => ({
+                            ingredient_id: String(component.ingredientId),
+                            quantity: component.quantity,
+                            is_container: component.isContainer,
+                        })),
+                        prices: { home: pack.prices.home, business: pack.prices.business },
+                    })),
+                },
+            });
+            return mapItemPacks(data);
+        },
+
         async setPriceListEntries(
             priceListId: PriceListId,
             request: SetPriceListEntriesRequest,
@@ -2260,6 +2290,20 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                                   ...(line.quantity === undefined
                                       ? {}
                                       : { quantity: line.quantity }),
+                              })),
+                          }),
+                    ...(draft.packs === undefined
+                        ? {}
+                        : {
+                              packs: draft.packs.map((pack) => ({
+                                  key: pack.key,
+                                  fill_quantity: pack.fillQuantity,
+                                  fill_unit: pack.fillUnit,
+                                  components: pack.components.map((component) => ({
+                                      ingredient_id: String(component.ingredientId),
+                                      quantity: component.quantity,
+                                      is_container: component.isContainer,
+                                  })),
                               })),
                           }),
                 },

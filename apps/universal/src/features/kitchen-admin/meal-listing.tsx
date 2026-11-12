@@ -50,7 +50,6 @@ import {
 } from '../../data/kitchen-admin-hooks.ts';
 import { useProcurementReferenceQuery } from '../../data/kitchen-ops-hooks.ts';
 import { BilingualField } from './bilingual-field.tsx';
-import { ChannelPricesSection } from './channel-prices-section.tsx';
 import {
     MealAvailabilityEditor,
     availabilityErrors,
@@ -111,7 +110,7 @@ import { DeskChip } from './desk-kit/desk-chip.tsx';
  * afterwards. That link is not decoration: it is the shortest way for the person who pressed the
  * button to check that what they published is what a customer now sees.
  *
- * ## Three things are read-only here, each for its own reason
+ * ## Two things are read-only here, each for its own reason (the margin went to Packs & prices)
  *
  * 1. **Allergens.** `MealAdmin.allergens` is frozen at publication from the recipe version's
  *    declaration and the contract has no meal-level setter. Editing a meal's label directly is
@@ -119,9 +118,6 @@ import { DeskChip } from './desk-kit/desk-chip.tsx';
  *    the recipe and the version — and links to the place the label can actually be changed.
  * 2. **Channel availability.** `setProductChannelAvailability` is a *product* method. Meals carry
  *    channels on the read shape with no writer, so they are shown as a fact.
- * 3. **The margin.** Confidential, and a number nobody can retype: it is derived from the recipe's
- *    cost per serving against a confirmed price. `null` when either side is missing, which is honest —
- *    a margin over a placeholder price is a fiction (plan §2.4).
  *
  * ## Availability is a calendar, not a rule
  *
@@ -1146,38 +1142,10 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                             />
                         ) : null}
                     </View>
-
-                    <View
-                        testID="kitchen-meal-confidential"
-                        className="gap-2 border-s border-stroke-subtle ps-base"
-                    >
-                        <Inline space="xs" align="center" wrap>
-                            <Text variant="micro" tone="secondary">
-                                {t('kitchen:meals.marginRailTitle')}
-                            </Text>
-                            <DeskChip
-                                testID="kitchen-meal-confidential-badge"
-                                tone="danger"
-                                label={t('kitchen:meals.confidential')}
-                            />
-                        </Inline>
-
-                        {data?.marginPercent == null ? (
-                            <>
-                                <Text
-                                    testID="kitchen-meal-margin-unknown"
-                                    variant="bodyStrong"
-                                    tone="secondary"
-                                >
-                                    {t('kitchen:meals.marginEmpty')}
-                                </Text>
-                            </>
-                        ) : (
-                            <Text testID="kitchen-meal-margin" variant="bodyStrong">
-                                {t('kitchen:meals.marginValue', { percent: data.marginPercent })}
-                            </Text>
-                        )}
-                    </View>
+                    {/*
+                     * No margin rail: a margin is per pack and per place now, on the recipe's
+                     * Packs & prices tab and its Costing table.
+                     */}
                 </View>
                 {/* ── identity ─────────────────────────────────────────────────────────────── */}
                 <FormSection
@@ -1450,8 +1418,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                     </Inline>
                 </FormSection>
                 <DishOptionsSection itemId={String(meal)} canManage={canManage} />
-                {/* ── B2B / B2C weight and price ──────────────────────────────────────────── */}
-                <ChannelPricesSection itemId={meal} />
+                {/* Packs and prices are the recipe's Packs & prices tab's, not this listing's. */}
                 {/* ── service days ──────────────────────────────────────────────────────────── */}
                 <FormSection
                     variant="panel"

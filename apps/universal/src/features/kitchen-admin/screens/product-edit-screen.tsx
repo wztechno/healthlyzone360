@@ -712,7 +712,8 @@ function ProductEditor({
     const nameMissing = details.name.en.trim() === '';
     // Embedded, the route has decided the category and the field is not drawn.
     const categoryMissing = !embedded && details.categoryCode.trim() === '';
-    const packsMissing = details.packs.length === 0;
+    // Embedded, the packs are the recipe's Packs & prices tab's and this listing draws none.
+    const packsMissing = !embedded && details.packs.length === 0;
 
     /*
      * A pack row still waiting on its code is a blank, and waits for Save like any other; a row
@@ -781,7 +782,7 @@ function ProductEditor({
                       required: true,
                   },
               ]
-            : firstPackErrorField === undefined
+            : firstPackErrorField === undefined || embedded
               ? []
               : [
                     {
@@ -837,7 +838,7 @@ function ProductEditor({
     const noChannel = !channels.some((row) => row.isAvailable);
     // Not while the record is still being read: its channels are not here yet, not missing.
     const warnings: readonly FormIssue[] =
-        noChannel && (attempted || (!isCreating && data !== undefined))
+        noChannel && !embedded && (attempted || (!isCreating && data !== undefined))
             ? [
                   {
                       key: 'channels',
@@ -1067,7 +1068,11 @@ function ProductEditor({
         recipeId: details.recipeId,
         isMarketPriced: details.isMarketPriced,
         isAssorted: details.isAssorted,
-        packVariants: packRequest(details.packs),
+        /*
+         * Not embedded: the Packs & prices tab writes a cooked item's packs, and a variants write
+         * from here would archive every pack it added (`updateProduct` skips the call when absent).
+         */
+        ...(embedded ? {} : { packVariants: packRequest(details.packs) }),
         ...netContentRequest,
     });
 
@@ -1094,7 +1099,8 @@ function ProductEditor({
                 });
                 lockVersion = updated.meta.lockVersion;
             }
-            if (channelsDirty) {
+            // Where it sells is the Packs & prices tab's; this listing never writes the channels.
+            if (channelsDirty && !embedded) {
                 await setChannels.mutateAsync({
                     productId: data.id,
                     request: { lockVersion, availability: channelRequest(channels) },
@@ -1558,7 +1564,8 @@ function ProductEditor({
     const publishBlocked =
         stockBlockers.length > 0 ||
         blockers.length > 0 ||
-        noChannel ||
+        // Embedded, where it sells is the Packs & prices tab's, and its own checks say so.
+        (noChannel && !embedded) ||
         detailsDirty ||
         channelsDirty ||
         photoDirty ||
@@ -1869,56 +1876,68 @@ function ProductEditor({
                 </FormSection>
 
                 {/* ── packs ────────────────────────────────────────────────────────────────── */}
-                <FormSection
-                    first
-                    variant="panel"
-                    testID="kitchen-product-packs"
-                    title={t('kitchen:products.sectionPacks')}
-                    actions={
-                        canManage ? (
-                            <DeskButton
-                                testID="kitchen-product-packs-add"
-                                size="sm"
-                                variant="secondary"
-                                label={t('kitchen:products.addPack')}
-                                iconStart={<Icon name="plus" size="sm" />}
-                                onPress={() => {
-                                    edit({ packs: [...details.packs, emptyPack(takePackKey())] });
+                {/*
+                 * Not on a recipe's Selling tab: a cooked item's packs, their prices and where they
+                 * sell are the recipe's Packs & prices tab, which writes all three in one statement.
+                 */}
+                {embedded ? null : (
+                    <FormSection
+                        first
+                        variant="panel"
+                        testID="kitchen-product-packs"
+                        title={t('kitchen:products.sectionPacks')}
+                        actions={
+                            canManage ? (
+                                <DeskButton
+                                    testID="kitchen-product-packs-add"
+                                    size="sm"
+                                    variant="secondary"
+                                    label={t('kitchen:products.addPack')}
+                                    iconStart={<Icon name="plus" size="sm" />}
+                                    onPress={() => {
+                                        edit({
+                                            packs: [...details.packs, emptyPack(takePackKey())],
+                                        });
+                                    }}
+                                />
+                            ) : undefined
+                        }
+                    >
+                        {/*
+                         * The anchor the banner's `Packs` chip scrolls to while there is no row to
+                         * focus. A product with no pack is a record no price list can point at and no
+                         * order line can measure, so the save refuses it.
+                         */}
+                        <Text
+                            variant="body"
+                            tone="secondary"
+                            testID="kitchen-product-packs-caption"
+                        >
+                            {t('kitchen:products.packsCaption')}
+                        </Text>
+                        <View nativeID={PACKS_ANCHOR} className="z-auto gap-tight">
+                            <PackVariantEditor
+                                testID={PACK_EDITOR_TEST_ID}
+                                rows={details.packs}
+                                errors={shownPackErrors}
+                                fieldError={packFieldError}
+                                canManage={canManage}
+                                {...(shows('packs') && packsMissing
+                                    ? {
+                                          emptyError: t('kitchen:forms.required'),
+                                          emptyErrorTestID: 'kitchen-product-packs-required',
+                                      }
+                                    : {})}
+                                onChange={(next) => {
+                                    edit({ packs: next });
                                 }}
                             />
-                        ) : undefined
-                    }
-                >
-                    {/*
-                     * The anchor the banner's `Packs` chip scrolls to while there is no row to
-                     * focus. A product with no pack is a record no price list can point at and no
-                     * order line can measure, so the save refuses it.
-                     */}
-                    <Text variant="body" tone="secondary" testID="kitchen-product-packs-caption">
-                        {t('kitchen:products.packsCaption')}
-                    </Text>
-                    <View nativeID={PACKS_ANCHOR} className="z-auto gap-tight">
-                        <PackVariantEditor
-                            testID={PACK_EDITOR_TEST_ID}
-                            rows={details.packs}
-                            errors={shownPackErrors}
-                            fieldError={packFieldError}
-                            canManage={canManage}
-                            {...(shows('packs') && packsMissing
-                                ? {
-                                      emptyError: t('kitchen:forms.required'),
-                                      emptyErrorTestID: 'kitchen-product-packs-required',
-                                  }
-                                : {})}
-                            onChange={(next) => {
-                                edit({ packs: next });
-                            }}
-                        />
-                    </View>
-                </FormSection>
+                        </View>
+                    </FormSection>
+                )}
 
                 {/* ── B2B / B2C weight and price ──────────────────────────────────────────── */}
-                {isCreating ? (
+                {embedded ? null : isCreating ? (
                     <ChannelPricesSection
                         look="panel"
                         itemId={null}
@@ -2085,25 +2104,28 @@ function ProductEditor({
                 {/*
                  * Ticked before the record exists, not after it. The rows are held in local state
                  * and written by the create the moment the product has an id — see `save`.
+                 * Embedded, where it sells is the Packs & prices tab's.
                  */}
-                <FormSection
-                    first
-                    variant="panel"
-                    testID="kitchen-product-channels"
-                    nativeID="kitchen-product-channels"
-                    title={t('kitchen:channels.sectionTitle')}
-                >
-                    <ChannelAvailabilityEditor
-                        testID="kitchen-product-channel-editor"
-                        rows={channels}
-                        offered={sellableChannels.data}
-                        canManage={canManage}
-                        onChange={(next) => {
-                            setChannelRows(next);
-                            markChannelsDirty();
-                        }}
-                    />
-                </FormSection>
+                {embedded ? null : (
+                    <FormSection
+                        first
+                        variant="panel"
+                        testID="kitchen-product-channels"
+                        nativeID="kitchen-product-channels"
+                        title={t('kitchen:channels.sectionTitle')}
+                    >
+                        <ChannelAvailabilityEditor
+                            testID="kitchen-product-channel-editor"
+                            rows={channels}
+                            offered={sellableChannels.data}
+                            canManage={canManage}
+                            onChange={(next) => {
+                                setChannelRows(next);
+                                markChannelsDirty();
+                            }}
+                        />
+                    </FormSection>
+                )}
 
                 {/* ── diet classifications, read-only ──────────────────────────────────────── */}
                 <FormSection

@@ -1364,6 +1364,11 @@ export interface RecipeComputedCost {
      * which item it could not cost instead of showing one package where two were drawn.
      */
     readonly packages: readonly RecipePackageCost[];
+    /**
+     * What each sold pack costs, one entry per pack the draft sent, keyed as it was sent. Absent or
+     * empty on a saved sheet, which knows nothing of packs.
+     */
+    readonly packs?: readonly RecipePackCost[] | undefined;
 }
 
 /** CONFIDENTIAL — one packaging line's cost per filled package. */
@@ -1593,6 +1598,8 @@ export interface RecipeRollupDraft {
     readonly packaging?: readonly RecipePackagingLineInput[] | undefined;
     /** Applied to the packaging half alone. The production coefficient is `wastePercent`. */
     readonly packagingWastePercent?: number | undefined;
+    /** The packs the recipe is sold in, as the editor holds them — costed into `packs`. */
+    readonly packs?: readonly RecipeRollupPack[] | undefined;
 }
 
 /** One allergen the draft would declare, and the lines that put it there. */
@@ -1842,6 +1849,118 @@ export interface SetItemChannelOffer {
 export interface SetItemChannelPricesRequest extends LockedRequest {
     readonly b2b?: SetItemChannelOffer | null | undefined;
     readonly b2c?: SetItemChannelOffer | null | undefined;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * Packs & prices — a cooked item's packs, what each is made of, and where it sells
+ * ---------------------------------------------------------------------------------------------- */
+
+/** The places a pack sells. `counter` carries no price: it charges the Home shop's. */
+export type PackPlace = 'home' | 'business' | 'counter';
+
+/** A place that carries a price — the web shop (`home`) or the B2B channel (`business`). */
+export interface ItemPackPlace {
+    readonly salesChannelId: string;
+    readonly priceListId: PriceListId;
+    readonly currency: CurrencyCode;
+    /** Whether the item is offered there today. */
+    readonly offered: boolean;
+}
+
+/** The order desk. `followsHome` false: it reads another list and cannot be ticked from here. */
+export interface ItemPackCounter {
+    readonly salesChannelId: string;
+    readonly offered: boolean;
+    readonly followsHome: boolean;
+    /** The list the desk reads, named so the editor can say which. */
+    readonly priceListName: string | null;
+}
+
+export interface ItemPackPrice {
+    readonly amountMinor: number;
+    /** The item's pack-less price, standing in until the pack is saved with its own. */
+    readonly inherited: boolean;
+}
+
+/** One packaging item a pack is made of. At most one per pack is the container. */
+export interface ItemPackComponent {
+    readonly ingredientId: IngredientId;
+    readonly quantity: number;
+    readonly isContainer: boolean;
+}
+
+export interface ItemPack {
+    /** The pack's variant id. */
+    readonly id: string;
+    readonly code: string;
+    readonly name: LocalisedText | null;
+    readonly isDefault: boolean;
+    /** What one pack holds. */
+    readonly fill: { readonly quantity: number; readonly unit: MeasureUnit };
+    /** Empty for a pack nobody has given a container yet. */
+    readonly components: readonly ItemPackComponent[];
+    readonly prices: {
+        readonly home: ItemPackPrice | null;
+        readonly business: ItemPackPrice | null;
+    };
+}
+
+/** An item's packs. A place is `null` when the kitchen has nowhere to sell there. */
+export interface ItemPacks {
+    /** The **item's** lock version. */
+    readonly lockVersion: number;
+    readonly places: {
+        readonly home: ItemPackPlace | null;
+        readonly business: ItemPackPlace | null;
+        readonly counter: ItemPackCounter | null;
+    };
+    /** Every active pack, default first. */
+    readonly packs: readonly ItemPack[];
+}
+
+export interface SetItemPack {
+    /** An existing pack, or absent to create one. */
+    readonly id?: string | undefined;
+    readonly fill: { readonly quantity: number; readonly unit: MeasureUnit };
+    readonly components: readonly ItemPackComponent[];
+    /** Minor units; `null` is not sold there. */
+    readonly prices: { readonly home: number | null; readonly business: number | null };
+}
+
+/** The complete set: an active pack left out is archived. `lockVersion` is the item's. */
+export interface SetItemPacksRequest extends LockedRequest {
+    readonly places: {
+        readonly home: boolean;
+        readonly business: boolean;
+        readonly counter: boolean;
+    };
+    readonly packs: readonly SetItemPack[];
+}
+
+/** A pack as the editor holds it, sent with the roll-up draft to be costed under `key`. */
+export interface RecipeRollupPack {
+    readonly key: string;
+    readonly fillQuantity: number;
+    readonly fillUnit: MeasureUnit;
+    readonly components: readonly ItemPackComponent[];
+}
+
+export type PackCostWithheldReason =
+    | 'production_incomplete'
+    | 'no_yield'
+    | 'no_piece_count'
+    | 'unit_unsupported'
+    | 'packaging_unknown'
+    | 'packaging_unpriced';
+
+/** CONFIDENTIAL — what one sold pack costs. Complete, or withheld with the reason. */
+export interface RecipePackCost {
+    readonly key: string;
+    /** Stated whenever the production half is complete. */
+    readonly contents: CostAmount | null;
+    readonly packaging: CostAmount | null;
+    readonly cost: CostAmount | null;
+    readonly withheldReason: PackCostWithheldReason | null;
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -2559,6 +2678,10 @@ export interface KitchenAdminRepository {
         itemId: ProductId | MealId,
         request: SetItemChannelPricesRequest,
     ): Promise<ItemChannelPrices>;
+    /** A cooked item's packs, their packaging, prices and places — `GET …/items/{item}/packs`. */
+    getItemPacks(itemId: ProductId | MealId): Promise<ItemPacks>;
+    /** Writes the whole set in one statement against the item's lock version. */
+    setItemPacks(itemId: ProductId | MealId, request: SetItemPacksRequest): Promise<ItemPacks>;
 
     /* ── price lists ────────────────────────────────────────────────────────────────────────── */
 
