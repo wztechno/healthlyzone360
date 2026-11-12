@@ -68,7 +68,8 @@ use Illuminate\Database\Eloquent\Collection;
  * versions of the same component, which is the kind of disagreement nobody finds
  * until the two figures are on one page.
  *
- * A component contributes its **formulation** cost only. Its packaging belongs to
+ * A component contributes its **formulation** cost only, per unit of what it
+ * outputs and with its own production waste on it. Its packaging belongs to
  * it as a thing that is sold, not as a thing that is poured into a salad: a
  * bottled dressing measured out by the 30 ml does not bring a bottle with it.
  *
@@ -420,9 +421,15 @@ final readonly class WeeklyRecipeCostingService
             return null;
         }
 
-        $perOutputUnit = $this->round(bcdiv(
-            $inner->production->totalInputCostAmount,
-            $outputQuantity,
+        // Per output unit with the component's own production waste on it: what a kilo of the
+        // dressing really costs to put on the shelf, the same with-waste figure its technical
+        // sheet states. Still formulation only — no packaging, as above.
+        $waste = (string) $version->waste_coefficient_percent;
+        $waste = is_numeric($waste) ? $waste : '0';
+
+        $perOutputUnit = $this->round(bcmul(
+            bcdiv($inner->production->totalInputCostAmount, $outputQuantity, self::WORKING_SCALE),
+            bcadd('1', bcdiv($waste, '100', self::WORKING_SCALE), self::WORKING_SCALE),
             self::WORKING_SCALE,
         ));
 
@@ -442,10 +449,10 @@ final readonly class WeeklyRecipeCostingService
     /**
      * The operator's typed purchase price, per the line's unit.
      *
-     * The same resolution `RecipeVersionService::ingredientCostFor()` performs at
-     * write time — priced per the purchase unit where one is recorded, per the
-     * issue unit otherwise — so a line that falls back here costs exactly what
-     * saving it would have frozen.
+     * Priced per the purchase unit where one is recorded, per the issue unit
+     * otherwise. `RecipeVersionService::prepareLines()` reaches this same rule
+     * through {@see unitCostsFor()}, so a line that falls back here costs exactly
+     * what saving it would have frozen.
      *
      * @param  array<string, MeasurementUnit>  $units
      * @return array{amount: numeric-string, currency: string}|null

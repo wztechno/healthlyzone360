@@ -30,7 +30,6 @@ use Healthy360\Recipes\Models\RecipeVersionPackaging;
 use Healthy360\Recipes\Models\RecipeVersionStep;
 use Healthy360\ReferenceData\Models\Currency;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
-use Healthy360\ReferenceData\Services\UnitConversionService;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Support\Api\Exceptions\StaleLockVersion;
@@ -74,7 +73,6 @@ final readonly class RecipeVersionService
         private RecipeNutritionService $nutrition,
         private RecipeOutputNutritionWriter $outputNutrition,
         private RecipeOutputAllergenWriter $outputAllergens,
-        private UnitConversionService $conversion,
         private WeeklyRecipeCostingService $paidPrices,
     ) {}
 
@@ -343,13 +341,9 @@ final readonly class RecipeVersionService
 
             [$unitCost, $currency] = $this->costOf($line, $index);
 
-            // Nothing quoted on the request? Take what the catalogue says.
-            if ($unitCost === null && $currency === null) {
-                [$unitCost, $currency] = $this->ingredientCostFor($ingredient, $unitId);
-
-                if ($unitCost === null && $unitId !== null) {
-                    $unpriced[$index] = [(string) $ingredient->getKey(), $unitId];
-                }
+            // Nothing quoted on the request? Resolved below, in one batch, from the live source.
+            if ($unitCost === null && $currency === null && $unitId !== null) {
+                $unpriced[$index] = [(string) $ingredient->getKey(), $unitId];
             }
 
             if ($currency !== null) {
@@ -376,23 +370,32 @@ final readonly class RecipeVersionService
             ];
         }
 
-        foreach ($this->paidCostsFor($unpriced) as $index => [$unitCost, $currency]) {
-            // A paid price in a second currency stays uncosted rather than refusing the whole
-            // formulation: the line was never quoted in it, so there is nothing for the cook to fix.
-            if ($currencies !== [] && ! isset($currencies[$currency])) {
-                continue;
-            }
+        $live = $this->liveCostsFor($unpriced);
 
-            if (! isset($prepared[$index])) {
-                continue;
-            }
+        /*
+         * Two passes, so the one-currency rule reads exactly as it did when the typed price was
+         * taken inline: a typed price is the catalogue's own statement and a second currency among
+         * them is refused below, while a paid or derived price in a second currency stays uncosted
+         * rather than refusing the whole formulation — the line was never quoted in it, so there
+         * is nothing for the cook to fix.
+         */
+        foreach ([true, false] as $typedPass) {
+            foreach ($live as $index => [$unitCost, $currency, $typed]) {
+                if ($typed !== $typedPass || ! isset($prepared[$index])) {
+                    continue;
+                }
 
-            $currencies[$currency] = true;
-            $row = $prepared[$index];
-            $row['unit_cost_amount'] = $unitCost;
-            $row['line_cost_amount'] = $row['quantity'] === null ? null : $this->costing->lineCost($row['quantity'], $unitCost);
-            $row['cost_currency_code'] = $currency;
-            $prepared[$index] = $row;
+                if (! $typed && $currencies !== [] && ! isset($currencies[$currency])) {
+                    continue;
+                }
+
+                $currencies[$currency] = true;
+                $row = $prepared[$index];
+                $row['unit_cost_amount'] = $unitCost;
+                $row['line_cost_amount'] = $row['quantity'] === null ? null : $this->costing->lineCost($row['quantity'], $unitCost);
+                $row['cost_currency_code'] = $currency;
+                $prepared[$index] = $row;
+            }
         }
 
         if (count($currencies) > 1) {
@@ -1374,88 +1377,34 @@ final readonly class RecipeVersionService
     }
 
     /**
-     * The catalogue's own price for one line's ingredient, as `[amount, currency]`.
+     * The live price of every line the request did not quote, as `[amount, currency, typed]` by
+     * line index.
      *
      * ## Why this exists
      *
      * The recipe editor writes lines with no cost on them — it sends the ingredient, the quantity
-     * and the unit, which is everything a *formulation* is — and nothing else in the product ever
-     * filled the gap. So every line this system has written has been uncosted, and the technical
-     * sheet has been correctly reporting that it cannot total a version whose every line is
-     * missing a price. A kitchen could price its whole ingredient catalogue and still see no
-     * recipe cost anywhere, with nothing on screen to say why.
+     * and the unit, which is everything a *formulation* is — and a line nobody priced reads "No
+     * price yet" even when the kitchen has bought the thing a dozen times.
      *
-     * The packaging path has never had this problem because `setPackaging()` reads the item's
-     * price off the catalogue at write time. This is that same rule for the formulation, and the
-     * two now behave alike.
+     * ## One source order, the same one Dish margins reads
      *
-     * ## Only when the caller quoted nothing
+     * Asked of {@see WeeklyRecipeCostingService::unitCostsFor()}: what was actually paid, then the
+     * recipe that makes it, then the typed purchase price. This used to rank the typed price first,
+     * so the draft preview and Dish margins costed one recipe from two different inputs, and a pack
+     * cost shared on top of them would still have given two margins (plan S4). A request that
+     * states a cost still wins — the importer records what a source sheet said, errors included
+     * (`as_recorded`), and a fallback that overrode it would replace a transcription with a guess.
      *
-     * A request that states a cost still wins. The importer records what a source sheet said,
-     * errors included (`as_recorded`), and a fallback that overrode it would replace a
-     * transcription with a guess at what it should have been.
-     *
-     * ## Converted within a dimension, and never across one
-     *
-     * An ingredient's price is per its purchase pack where it records one, and per its issue unit
-     * otherwise. A line may be written in any unit of the same dimension — grams against an
-     * ingredient bought by the kilo, which is how most recipes are actually written.
-     *
-     * This first refused to convert at all, on the reasoning that a silent conversion could produce
-     * a figure a thousandfold wrong. The caution was right and the conclusion was not: `kg` and `g`
-     * are the *same dimension* and `measurement_units.base_ratio` states the exact relationship
-     * between them, so the conversion is arithmetic rather than a guess. Refusing it meant the most
-     * natural way to write a formulation never costed, which sent people to the workaround of
-     * restating every quantity in the purchase unit.
-     *
-     * What is still refused is a conversion **across** dimensions — a price per `piece` against a
-     * line in `kg`. Nothing in the reference data relates those two, and the factor that would is a
-     * property of the specific ingredient (a piece of what, weighing how much?) that this system
-     * does not record. Such a line stays uncosted: the sheet lists it in `uncosted_line_numbers`,
-     * withholds the total, and says which line to go and look at.
-     *
-     * @return array{0: numeric-string|null, 1: string|null}
-     */
-    private function ingredientCostFor(Ingredient $ingredient, ?string $lineUnitId): array
-    {
-        $price = $ingredient->purchase_price_amount;
-        $currency = $ingredient->purchase_price_currency;
-
-        if ($price === null || $currency === null || $lineUnitId === null) {
-            return [null, null];
-        }
-
-        $pricedIn = $ingredient->purchase_unit_id ?? $ingredient->default_unit_id;
-
-        if ($pricedIn === $lineUnitId) {
-            return [(string) $price, mb_strtoupper($currency)];
-        }
-
-        $converted = $this->pricePerUnit((string) $price, $pricedIn, $lineUnitId);
-
-        return $converted === null ? [null, null] : [$converted, mb_strtoupper($currency)];
-    }
-
-    /**
-     * What was actually paid, for the lines the catalogue left unpriced, as `[amount, currency]`
-     * by line index.
-     *
-     * A food ingredient's form no longer takes a typed price: it shows, read-only, what the
-     * kitchen last paid, so most ingredients bought since then have a price everywhere except
-     * here. The ingredient page said "priced" and the recipe said "No price yet" about the same
-     * soy sauce. This asks {@see WeeklyRecipeCostingService::unitCostsFor()} — the weekly price,
-     * then the latest purchase, then the recipe that makes it — so the line is priced from the
-     * same evidence the technical sheet's weekly block already uses.
-     *
-     * A fallback only: a typed price still wins, so nothing already costed moves.
+     * `typed` marks an answer that came from the typed purchase price, which `prepareLines()` holds
+     * to the one-currency rule exactly as it always did.
      *
      * Batched by ingredient, because the costing service answers one unit per ingredient; a
      * second line naming the same ingredient in another unit goes in the next batch.
      *
      * @param  array<int, array{0: string, 1: string}>  $unpriced  line index => [ingredient id, line unit id]
-     * @return array<int, array{0: numeric-string, 1: string}>
+     * @return array<int, array{0: numeric-string, 1: string, 2: bool}>
      */
-    private function paidCostsFor(array $unpriced): array
+    private function liveCostsFor(array $unpriced): array
     {
         $organisationId = $this->context->organisationId();
         $costs = [];
@@ -1491,69 +1440,16 @@ final readonly class RecipeVersionService
                 }
 
                 foreach ($entry['indexes'] as $index) {
-                    $costs[$index] = [$answer->unitCostAmount, mb_strtoupper($answer->currencyCode)];
+                    $costs[$index] = [
+                        $answer->unitCostAmount,
+                        mb_strtoupper($answer->currencyCode),
+                        $answer->source === WeeklyLineCost::SOURCE_FALLBACK,
+                    ];
                 }
             }
         }
 
         return $costs;
-    }
-
-    /**
-     * A price stated per one unit, restated per another of the same dimension.
-     *
-     * `base_ratio` is how many base units one of this unit is — 1000 for `kg` against a base of
-     * `g`. So a price per kilogram becomes a price per gram by dividing by the ratio between them,
-     * and 7.88 per kg is 0.00788 per g exactly.
-     *
-     * Null when the two units are not comparable: an unknown unit, a ratio of zero, or a pair
-     * {@see UnitConversionService::canConvert()} refuses — a different dimension, or the same
-     * non-convertible one (two `package` units, two `count` units). Every one of those is "this
-     * system cannot know", and the caller turns it into an uncosted line rather than a figure.
-     *
-     * Six decimal places, the scale every cost column stores. A price per gram of a cheap bulk
-     * ingredient can round to zero at that scale, and that is the honest floor of what these
-     * columns can hold rather than something to work around here.
-     *
-     * @param  numeric-string  $price
-     * @return numeric-string|null
-     */
-    private function pricePerUnit(string $price, string $fromUnitId, string $toUnitId): ?string
-    {
-        /** @var MeasurementUnit|null $from */
-        $from = MeasurementUnit::query()->whereKey($fromUnitId)->first();
-        /** @var MeasurementUnit|null $to */
-        $to = MeasurementUnit::query()->whereKey($toUnitId)->first();
-
-        if (! $from instanceof MeasurementUnit || ! $to instanceof MeasurementUnit) {
-            return null;
-        }
-
-        /*
-         * The same predicate {@see UnitConversionService::convert()} applies, asked rather than
-         * re-implemented.
-         *
-         * Comparing dimensions alone was not enough, and the gap was silent. `bunch`, `can`, `bag`,
-         * `bottle` and `pack` all share the `package` dimension and all carry `base_ratio` 1, so a
-         * price quoted per pack against a line measured in bags passed the old check and converted
-         * one-for-one — a plausible number, wrong by whatever a pack and a bag actually differ by,
-         * landing in a cost column with nothing to mark it. `CONVERTIBLE_DIMENSIONS` is exactly the
-         * set where a ratio means something (`mass`, `volume`), and `canConvert()` is the public,
-         * non-throwing form of that question.
-         */
-        if (! $this->conversion->canConvert($from, $to)) {
-            return null;
-        }
-
-        $fromRatio = (string) $from->base_ratio;
-        $toRatio = (string) $to->base_ratio;
-
-        if (bccomp($fromRatio, '0', 9) !== 1) {
-            return null;
-        }
-
-        // price_per_to = price_per_from × (to_ratio ÷ from_ratio).
-        return bcmul($price, bcdiv($toRatio, $fromRatio, 12), 6);
     }
 
     /**
@@ -1674,7 +1570,7 @@ final readonly class RecipeVersionService
      *
      * @return array{0: numeric-string|null, 1: string|null}
      */
-    private function packagingCostOf(Ingredient $item): array
+    public function packagingCostOf(Ingredient $item): array
     {
         $price = $item->purchase_price_amount;
         $currency = $item->purchase_price_currency;

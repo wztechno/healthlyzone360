@@ -50,6 +50,7 @@ final readonly class DraftCostService
     public function __construct(
         private RecipeVersionService $versions,
         private RecipeCostingService $costing,
+        private PackCost $packCost,
         private TenantContext $context,
     ) {}
 
@@ -64,7 +65,8 @@ final readonly class DraftCostService
      *
      * @param  list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null}>  $lines
      * @param  list<array{ingredient_id: string, basis: string, quantity?: float|string|null}>  $packaging
-     * @return array{production: CostComputation, packaging: PackagingCostComputation, total: numeric-string|null, packages: list<array{line_number: int, ingredient_id: string, cost_per_package_amount: numeric-string|null}>, production_lines: list<array{line_number: int, ingredient_id: string, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null}>, packaging_lines: list<array{line_number: int, ingredient_id: string, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null}>}|null
+     * @param  list<array{key: string, fill_quantity: float|int|string, fill_unit: string, components: list<array{ingredient_id: string, quantity: float|int|string, is_container: bool}>}>  $packs  costed by {@see PackCost} over this draft's production half
+     * @return array{production: CostComputation, packaging: PackagingCostComputation, total: numeric-string|null, packages: list<array{line_number: int, ingredient_id: string, cost_per_package_amount: numeric-string|null}>, packs: list<array{key: string, contents_amount: numeric-string|null, packaging_amount: numeric-string|null, cost_amount: numeric-string|null, withheld_reason: string|null}>, production_lines: list<array{line_number: int, ingredient_id: string, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null}>, packaging_lines: list<array{line_number: int, ingredient_id: string, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null}>}|null
      *
      * @throws ApiException
      */
@@ -76,6 +78,7 @@ final readonly class DraftCostService
         ?int $yieldPieceCount,
         ?string $wastePercent,
         ?string $packagingWastePercent,
+        array $packs = [],
     ): ?array {
         if ($yieldQuantity === null || $yieldUnitId === null || ! is_numeric($yieldQuantity) || bccomp($yieldQuantity, '0', 6) !== 1) {
             return null;
@@ -117,6 +120,7 @@ final readonly class DraftCostService
             'packaging' => $packagingCost,
             'total' => $this->costing->totalCostPerYieldUnit($production, $packagingCost),
             'packages' => $this->costing->costPerPackage($version, $production, $packagingCost, $packagingRows),
+            'packs' => $this->packCost->of((string) $version->organisation_id, $production, $packs),
             'production_lines' => $this->costing->lineCostsOf($lineRows),
             'packaging_lines' => $this->costing->lineCostsOf($packagingRows),
         ];
