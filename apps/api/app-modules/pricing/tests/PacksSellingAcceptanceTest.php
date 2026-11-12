@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Cart\Services\LineProbe;
+use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\SalesChannelKind;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
@@ -68,6 +69,11 @@ beforeEach(function (): void {
 
     // …and the item's pack-less Home shop price, which both of them inherit.
     PricingWorld::price($this->retailList, $this->meal, null, 1000);
+
+    // On sale, so the checkout probe quotes it (a draft is refused `item_not_published`,
+    // and a refused probe carries no price) and the published-listing rule applies.
+    $this->meal->status = CatalogueItemStatus::Published;
+    $this->meal->save();
 
     $this->statement = fn (?int $half, ?int $one, array $places): array => [
         'places' => $places + ['home' => false, 'business' => false, 'counter' => false],

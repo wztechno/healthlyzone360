@@ -295,6 +295,8 @@ use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenStoreContr
 use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenSuspendController;
 use Healthy360\Pricing\Http\Controllers\ItemChannelPricesSetController;
 use Healthy360\Pricing\Http\Controllers\ItemChannelPricesShowController;
+use Healthy360\Pricing\Http\Controllers\ItemPacksSetController;
+use Healthy360\Pricing\Http\Controllers\ItemPacksShowController;
 use Healthy360\Pricing\Http\Controllers\PriceListArchiveController;
 use Healthy360\Pricing\Http\Controllers\PriceListChannelReplaceController;
 use Healthy360\Pricing\Http\Controllers\PriceListEntryIndexController;
@@ -1474,6 +1476,9 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
 
                 // An article's B2B and B2C weight and price, read as one pair.
                 Route::get('/items/{item}/channel-prices', ItemChannelPricesShowController::class)->name('catalogue.items.channel-prices.show');
+
+                // A cooked item's packs, their packaging and prices, and where it sells.
+                Route::get('/items/{item}/packs', ItemPacksShowController::class)->name('catalogue.items.packs.show');
             });
 
             Route::middleware(['org.trading', 'permission:price_list.manage_organisation'])->group(function (): void {
@@ -1496,6 +1501,10 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::put('/items/{item}/channel-prices', ItemChannelPricesSetController::class)
                     ->middleware(['precondition', 'permission:catalogue.manage_organisation'])
                     ->name('catalogue.items.channel-prices.set');
+
+                Route::put('/items/{item}/packs', ItemPacksSetController::class)
+                    ->middleware(['precondition', 'permission:catalogue.manage_organisation'])
+                    ->name('catalogue.items.packs.set');
             });
 
             Route::middleware(['org.trading', 'permission:catalogue.publish_organisation'])->group(function (): void {
