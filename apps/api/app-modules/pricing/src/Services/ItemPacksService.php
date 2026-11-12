@@ -189,7 +189,15 @@ final readonly class ItemPacksService implements PackPriceRegistry, SellingPlace
         $places = $this->places($item);
         $ticked = $statement['places'];
 
-        if ($ticked['counter'] && $places['counter'] !== null && ! $places['counter']['follows_home']) {
+        // Switching the counter ON needs the desk to follow the Home shop. A counter that is already
+        // offered is left as it stands: refusing it here would make every item on such a desk
+        // unsaveable from this tab until somebody re-pointed the desk's price list.
+        if (
+            $ticked['counter']
+            && $places['counter'] !== null
+            && ! $places['counter']['follows_home']
+            && ! $this->isOffered($item, $places['counter']['channel'])
+        ) {
             $name = $places['counter']['list']?->name_en;
 
             throw $this->invalid('places.counter', 'The counter charges the Home shop price only while the order desk quotes from the Home shop\'s price list, and it quotes from '.($name === null ? 'no price list' : "\"{$name}\"").'. Change the desk\'s price list first.');
