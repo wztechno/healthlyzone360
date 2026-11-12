@@ -491,6 +491,12 @@ export const zAdminIngredient = z.object({
     allergens_reviewed_by: z.string().nullish(),
     allergens_reviewed_at: z.iso.datetime({ offset: true }).nullish(),
     allergens_review_evidence: z.string().nullish(),
+    produced_by_recipe: z.object({
+        id: zUuid,
+        name_en: z.string(),
+        name_ar: z.string(),
+        is_published: z.boolean()
+    }).nullish(),
     id: zUuid,
     organisation_id: zUuid.nullable(),
     is_platform: z.boolean(),
@@ -1025,7 +1031,19 @@ export const zComputedCostProduction = z.object({
         line_number: z.int().gte(1),
         ingredient_id: z.uuid(),
         unit_cost_amount: z.string().nullable(),
-        line_cost_amount: z.string().nullable()
+        line_cost_amount: z.string().nullable(),
+        cost_source: z.enum([
+            'weekly',
+            'latest_purchase',
+            'component_recipe',
+            'ingredient_fallback',
+            'quoted'
+        ]).nullable(),
+        source_recipe: z.object({
+            id: z.uuid(),
+            name_en: z.string(),
+            name_ar: z.string()
+        }).nullable()
     })).optional()
 });
 
@@ -1127,7 +1145,8 @@ export const zCreateRecipeRequest = z.object({
     source_kind: z.string().max(40).nullish(),
     confidentiality: zRecipeConfidentiality.optional(),
     notes: z.string().max(2000).nullish(),
-    shelf_life_days: z.int().gte(0).lte(3650).nullish()
+    shelf_life_days: z.int().gte(0).lte(3650).nullish(),
+    produces_ingredient: z.boolean().optional().default(false)
 });
 
 /**
@@ -6895,6 +6914,18 @@ export const zCourierCashRun = zCashRun.and(z.object({
     reference: z.string().nullable()
 }));
 
+export const zDishMarginPack = z.object({
+    catalogue_item_variant_id: zUuid,
+    label: z.string().nullable(),
+    fill: z.object({
+        quantity: z.string(),
+        unit: z.string()
+    }).nullable()
+});
+
+/**
+ * What one pack of one dish earns on one place. One row per pack per place it is priced on; a dish with no pack, no published recipe or no price keeps one row with `pack` null and the reason.
+ */
 export const zDishMargin = z.object({
     id: zUuid,
     catalogue_item_id: zUuid,
@@ -6906,14 +6937,18 @@ export const zDishMargin = z.object({
         'dressing',
         'frozen_meal'
     ]),
-    channel: z.enum(['b2c', 'b2b']),
+    place: z.enum(['home', 'business']),
+    pack: zDishMarginPack.nullable(),
     price_amount: z.string().nullable(),
+    contents_amount: z.string().nullable(),
     cost_amount: z.string().nullable(),
     currency_code: z.string().nullable(),
     margin_percent: z.string().nullable(),
     withheld_reason: z.enum([
         'no_recipe',
+        'no_pack',
         'no_price',
+        'packaging_unknown',
         'cost_incomplete',
         'currency_mismatch'
     ]).nullable(),

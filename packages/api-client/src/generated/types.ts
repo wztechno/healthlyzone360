@@ -428,6 +428,21 @@ export type AdminIngredient = {
     allergens_reviewed_by?: string | null;
     allergens_reviewed_at?: string | null;
     allergens_review_evidence?: string | null;
+    /**
+     * The recipe that makes this ingredient — the one whose published
+     * version states it as an output, else whose live draft does — or
+     * null for something bought in. On the list only (`GET
+     * /catalogue/ingredients`), resolved for the whole page at once.
+     * `is_published` false means the recipe's statement is not live yet,
+     * so a line using the ingredient is still costed from its typed price.
+     *
+     */
+    produced_by_recipe?: {
+        id: Uuid;
+        name_en: string;
+        name_ar: string;
+        is_published: boolean;
+    } | null;
     id: Uuid;
     /**
      * Null for a platform-library row.
@@ -1957,6 +1972,27 @@ export type ComputedCostProduction = {
         ingredient_id: string;
         unit_cost_amount: string | null;
         line_cost_amount: string | null;
+        /**
+         * Where this line's cost came from, on a draft preview: what was
+         * paid (`weekly`, `latest_purchase`), the recipe that makes it
+         * (`component_recipe`), the typed purchase price
+         * (`ingredient_fallback` — a preparation whose recipe is not
+         * published yet lands here), or the cost the request stated
+         * (`quoted`). Null on an uncosted line, and on a saved technical
+         * sheet, whose frozen figures never recorded a source.
+         *
+         */
+        cost_source: 'weekly' | 'latest_purchase' | 'component_recipe' | 'ingredient_fallback' | 'quoted' | null;
+        /**
+         * The recipe a `component_recipe` cost came from, so the editor
+         * can label the line and send its Fix there. Null otherwise.
+         *
+         */
+        source_recipe: {
+            id: string;
+            name_en: string;
+            name_ar: string;
+        } | null;
     }>;
 };
 
@@ -2072,6 +2108,17 @@ export type CreateRecipeRequest = {
      * Days a batch keeps; see `AdminRecipe.shelf_life_days`.
      */
     shelf_life_days?: number | null;
+    /**
+     * Create the recipe as a preparation — made to be used inside other
+     * recipes — with its own ingredient twin: kilograms, the recipe's
+     * names and handle, filed under the `preparation` ingredient category.
+     * Once a draft's yield is saved the server states it as that twin's
+     * output, so a line naming the twin is costed from this recipe once it
+     * is published. A sold recipe's twin is its sauce or dressing listing's,
+     * so leave this off for one.
+     *
+     */
+    produces_ingredient?: boolean;
 };
 
 /**
@@ -10839,6 +10886,9 @@ export type CourierCashOwed = {
     runs: Array<CourierCashRun>;
 };
 
+/**
+ * What one pack of one dish earns on one place. One row per pack per place it is priced on; a dish with no pack, no published recipe or no price keeps one row with `pack` null and the reason.
+ */
 export type DishMargin = {
     id: Uuid;
     catalogue_item_id: Uuid;
@@ -10848,13 +10898,45 @@ export type DishMargin = {
      * The recipe kind the dish is sold as. Products and plans are never priced here.
      */
     item_type: 'meal' | 'sauce' | 'dressing' | 'frozen_meal';
-    channel: 'b2c' | 'b2b';
+    /**
+     * The Home shop or Business. The counter charges the Home shop price and has no rows.
+     */
+    place: 'home' | 'business';
+    pack: DishMarginPack | null;
+    /**
+     * The pack's price on the place's public tariff, its own or inherited from the item, in major units.
+     */
     price_amount: string | null;
+    /**
+     * What the pack's fill costs. Stated even while the packaging is unknown.
+     */
+    contents_amount: string | null;
+    /**
+     * Contents plus packaging, per pack.
+     */
     cost_amount: string | null;
     currency_code: string | null;
     margin_percent: string | null;
-    withheld_reason: 'no_recipe' | 'no_price' | 'cost_incomplete' | 'currency_mismatch' | null;
+    withheld_reason: 'no_recipe' | 'no_pack' | 'no_price' | 'packaging_unknown' | 'cost_incomplete' | 'currency_mismatch' | null;
     is_below_target: boolean;
+};
+
+export type DishMarginPack = {
+    catalogue_item_variant_id: Uuid;
+    /**
+     * The pack's name as of the last run, else its code.
+     */
+    label: string | null;
+    /**
+     * How much one pack holds; null when the pack records no size.
+     */
+    fill: {
+        quantity: string;
+        /**
+         * A measurement unit code.
+         */
+        unit: string;
+    } | null;
 };
 
 export type DishMarginsEnvelope = {

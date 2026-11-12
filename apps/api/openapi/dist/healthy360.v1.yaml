@@ -29646,6 +29646,32 @@ components:
           type:
             - string
             - 'null'
+        produced_by_recipe:
+          description: |
+            The recipe that makes this ingredient — the one whose published
+            version states it as an output, else whose live draft does — or
+            null for something bought in. On the list only (`GET
+            /catalogue/ingredients`), resolved for the whole page at once.
+            `is_published` false means the recipe's statement is not live yet,
+            so a line using the ingredient is still costed from its typed price.
+          type:
+            - object
+            - 'null'
+          required:
+            - id
+            - name_en
+            - name_ar
+            - is_published
+          properties:
+            id:
+              $ref: '#/components/schemas/Uuid'
+            name_en:
+              type: string
+            name_ar:
+              type: string
+            is_published:
+              type: boolean
+          additionalProperties: false
         id:
           $ref: '#/components/schemas/Uuid'
         organisation_id:
@@ -32392,6 +32418,8 @@ components:
               - ingredient_id
               - unit_cost_amount
               - line_cost_amount
+              - cost_source
+              - source_recipe
             properties:
               line_number:
                 type: integer
@@ -32407,6 +32435,45 @@ components:
                 type:
                   - string
                   - 'null'
+              cost_source:
+                type:
+                  - string
+                  - 'null'
+                enum:
+                  - weekly
+                  - latest_purchase
+                  - component_recipe
+                  - ingredient_fallback
+                  - quoted
+                  - null
+                description: |
+                  Where this line's cost came from, on a draft preview: what was
+                  paid (`weekly`, `latest_purchase`), the recipe that makes it
+                  (`component_recipe`), the typed purchase price
+                  (`ingredient_fallback` — a preparation whose recipe is not
+                  published yet lands here), or the cost the request stated
+                  (`quoted`). Null on an uncosted line, and on a saved technical
+                  sheet, whose frozen figures never recorded a source.
+              source_recipe:
+                description: |
+                  The recipe a `component_recipe` cost came from, so the editor
+                  can label the line and send its Fix there. Null otherwise.
+                type:
+                  - object
+                  - 'null'
+                required:
+                  - id
+                  - name_en
+                  - name_ar
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name_en:
+                    type: string
+                  name_ar:
+                    type: string
+                additionalProperties: false
             additionalProperties: false
       additionalProperties: false
     ComputedCostPackaging:
@@ -32649,6 +32716,17 @@ components:
           minimum: 0
           maximum: 3650
           description: Days a batch keeps; see `AdminRecipe.shelf_life_days`.
+        produces_ingredient:
+          type: boolean
+          default: false
+          description: |
+            Create the recipe as a preparation — made to be used inside other
+            recipes — with its own ingredient twin: kilograms, the recipe's
+            names and handle, filed under the `preparation` ingredient category.
+            Once a draft's yield is saved the server states it as that twin's
+            output, so a line naming the twin is costed from this recipe once it
+            is published. A sold recipe's twin is its sauce or dressing listing's,
+            so leave this off for one.
       additionalProperties: false
     UpdateRecipeRequest:
       type: object
@@ -47963,14 +48041,17 @@ components:
             $ref: '#/components/schemas/CourierCashRun'
     DishMargin:
       type: object
+      description: What one pack of one dish earns on one place. One row per pack per place it is priced on; a dish with no pack, no published recipe or no price keeps one row with `pack` null and the reason.
       required:
         - id
         - catalogue_item_id
         - name_en
         - name_ar
         - item_type
-        - channel
+        - place
+        - pack
         - price_amount
+        - contents_amount
         - cost_amount
         - currency_code
         - margin_percent
@@ -47995,19 +48076,31 @@ components:
             - dressing
             - frozen_meal
           description: The recipe kind the dish is sold as. Products and plans are never priced here.
-        channel:
+        place:
           type: string
           enum:
-            - b2c
-            - b2b
+            - home
+            - business
+          description: The Home shop or Business. The counter charges the Home shop price and has no rows.
+        pack:
+          oneOf:
+            - $ref: '#/components/schemas/DishMarginPack'
+            - type: 'null'
         price_amount:
           type:
             - string
             - 'null'
+          description: The pack's price on the place's public tariff, its own or inherited from the item, in major units.
+        contents_amount:
+          type:
+            - string
+            - 'null'
+          description: What the pack's fill costs. Stated even while the packaging is unknown.
         cost_amount:
           type:
             - string
             - 'null'
+          description: Contents plus packaging, per pack.
         currency_code:
           type:
             - string
@@ -48022,12 +48115,42 @@ components:
             - 'null'
           enum:
             - no_recipe
+            - no_pack
             - no_price
+            - packaging_unknown
             - cost_incomplete
             - currency_mismatch
             - null
         is_below_target:
           type: boolean
+    DishMarginPack:
+      type: object
+      required:
+        - catalogue_item_variant_id
+        - label
+        - fill
+      properties:
+        catalogue_item_variant_id:
+          $ref: '#/components/schemas/Uuid'
+        label:
+          type:
+            - string
+            - 'null'
+          description: The pack's name as of the last run, else its code.
+        fill:
+          description: How much one pack holds; null when the pack records no size.
+          oneOf:
+            - type: object
+              required:
+                - quantity
+                - unit
+              properties:
+                quantity:
+                  type: string
+                unit:
+                  type: string
+                  description: A measurement unit code.
+            - type: 'null'
     DishMarginsEnvelope:
       type: object
       required:
