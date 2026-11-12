@@ -62,6 +62,7 @@ import type {
     RecipeComputedCost,
     RecipeAllergenDeclaration,
     RecipeLine,
+    RecipeLineCostSource,
     RecipeOutput,
     RecipeRollupPreview,
     RecipeStepAdmin,
@@ -409,6 +410,20 @@ export function mapIngredientAdmin(
                 ? null
                 : IngredientId.unsafe(wire.forked_from_ingredient_id),
         notes: wire.notes ?? null,
+        // Absent on a single read — `undefined`, not "bought in", so a caller can keep the list's.
+        producedByRecipe:
+            wire.produced_by_recipe === undefined
+                ? undefined
+                : wire.produced_by_recipe === null
+                  ? null
+                  : {
+                        id: RecipeId.unsafe(wire.produced_by_recipe.id),
+                        name: {
+                            en: wire.produced_by_recipe.name_en,
+                            ar: wire.produced_by_recipe.name_ar,
+                        },
+                        isPublished: wire.produced_by_recipe.is_published,
+                    },
     };
 }
 
@@ -1229,11 +1244,25 @@ function mapComputedCost(
         readonly ingredient_id: string;
         readonly unit_cost_amount: string | null;
         readonly line_cost_amount: string | null;
+        readonly cost_source?: RecipeLineCostSource | null;
+        readonly source_recipe?: {
+            readonly id: string;
+            readonly name_en: string;
+            readonly name_ar: string;
+        } | null;
     }) => ({
         lineNumber: line.line_number,
         ingredientId: IngredientId.unsafe(line.ingredient_id),
         unitCost: amount(line.unit_cost_amount),
         lineCost: amount(line.line_cost_amount),
+        costSource: line.cost_source ?? null,
+        sourceRecipe:
+            line.source_recipe == null
+                ? null
+                : {
+                      id: RecipeId.unsafe(line.source_recipe.id),
+                      name: { en: line.source_recipe.name_en, ar: line.source_recipe.name_ar },
+                  },
     });
 
     return {

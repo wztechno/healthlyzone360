@@ -1,3 +1,4 @@
+import { isValidationFailure } from '@healthy360/api-client/contracts';
 import type {
     LocalisedText,
     MeasurementUnitOption,
@@ -38,7 +39,7 @@ import { ProductId, SALES_CHANNELS, isCurrencyCode } from '@healthy360/domain-ty
 import type { RecipeId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -114,6 +115,11 @@ import { ImageSlot } from '../image-slot.tsx';
 import { returnCrumbLabel } from '../came-from.ts';
 import { useFinishDetour } from '../finish-detour.ts';
 import { useSaveBar } from '../save-bar.tsx';
+import {
+    PacksHostContext,
+    packsIssueLabel,
+    packsIssuesFromRefusal,
+} from '../packs-prices-section.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { focusFirstRefusal } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
@@ -436,6 +442,8 @@ function ProductEditor({
     const { locale } = useLocale();
     const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
+    // The recipe page around an embedded listing: its packs, and the way to Packs & prices.
+    const packsHost = useContext(PacksHostContext);
 
     const isCreating = product === undefined || product === 'new';
     const parsed = isCreating ? null : ProductId.safeParse(product);
@@ -1310,6 +1318,11 @@ function ProductEditor({
         return failure === null || failure.code === 'resource.conflict' ? null : failure;
     };
     const publishFailure = actFailure(publish.error);
+    // A publish refused for the item's packs, as the cards the recipe's own Publish draws.
+    const publishPackIssues =
+        publishFailure !== null && isValidationFailure(publishFailure)
+            ? packsIssuesFromRefusal(publishFailure.fields, packsHost?.draft ?? null)
+            : [];
     const archiveFailure = actFailure(archive.error);
     useNudgeOnRefusal(
         update.error ?? create.error ?? setChannels.error ?? photoSave.error ?? publishFailure,
@@ -1392,7 +1405,23 @@ function ProductEditor({
             action: { onPress: item.onPress },
             testID: `kitchen-product-issues-warnings-${item.key}`,
         })),
-        ...(publishFailure === null
+        ...publishPackIssues.map((issue) => ({
+            key: `packs-${issue.key}`,
+            tone: 'warning' as const,
+            label: packsIssueLabel(issue, t),
+            detail: t('kitchen:tray.groupPublish'),
+            action:
+                packsHost === null
+                    ? undefined
+                    : {
+                          onPress: () => {
+                              packsHost.open(issue);
+                          },
+                      },
+            testID: `kitchen-product-packs-${issue.key}`,
+        })),
+        // Said by the cards above when that is all the refusal was about.
+        ...(publishFailure === null || publishPackIssues.length > 0
             ? []
             : [
                   {

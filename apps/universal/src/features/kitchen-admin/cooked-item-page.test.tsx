@@ -1,3 +1,4 @@
+import { throwFailure, validationFailure } from '@healthy360/api-client/contracts';
 import type {
     AdminEntityMeta,
     IngredientAdmin,
@@ -558,6 +559,48 @@ describe('a cooked item’s page', () => {
             }),
         );
         await untilVisible('kitchen-recipe-editor-screen-saved');
+    });
+
+    it('puts a listing publish refused for its packs on a card that opens Packs & prices', async () => {
+        // The draft has nothing to say — Home shop is priced — so the card is the server's alone.
+        const { repositories } = await renderSauceRecipe(sauce(), {
+            getItemPacks: async () => saucePacks(7),
+            publishProduct: async () =>
+                throwFailure(
+                    validationFailure(
+                        {
+                            form: ['Price a pack for each place it sells.'],
+                            'reasons.place_unpriced.business': [
+                                'Price a pack for each place it sells.',
+                            ],
+                        },
+                        { message: 'Price a pack for each place it sells.' },
+                    ),
+                ),
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await press('kitchen-recipe-tab-selling');
+        await untilVisible('kitchen-product-publish');
+        await press('kitchen-product-publish');
+        await untilVisible('kitchen-product-publish-confirm');
+        await press('kitchen-product-publish-confirm');
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.publishProduct).toHaveBeenCalledTimes(1);
+        });
+
+        await withDeskWidth(async () => {
+            const card = 'kitchen-product-packs-place_unpriced-business';
+            await untilVisible(card);
+            // The recipe's own wording for the same reason, not the bare refusal.
+            expect(screen.getByTestId(card)).toHaveTextContent(/Price a pack for Business/);
+            expect(screen.queryByTestId('kitchen-product-publish-error')).toBeNull();
+
+            await press(`${card}-fix`);
+            expect(
+                screen.getByTestId('kitchen-recipe-tab-packaging').props.accessibilityState,
+            ).toEqual(expect.objectContaining({ selected: true }));
+        });
     });
 
     it('keeps a half-typed listing through a tab switch, and asks before leaving with it', async () => {

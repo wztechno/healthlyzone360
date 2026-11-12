@@ -2420,16 +2420,15 @@
             "columnCost": "التكلفة",
             "columnMargin": "الهامش",
             "columnStatus": "الحالة",
-            "channel": {
-                "b2c": "الزبائن",
-                "b2b": "الشركات"
-            },
+            "contentsCost": "{{amount}} للمحتوى",
             "belowTarget": "دون الهدف",
             "onTarget": "ضمن الهدف",
             "marginValue": "{{percent}}٪",
             "withheld": {
                 "no_recipe": "محجوب: لا وصفة منشورة",
+                "no_pack": "محجوب: لا عبوة",
                 "no_price": "محجوب: لا سعر معلن",
+                "packaging_unknown": "محجوب: التغليف غير معروف",
                 "cost_incomplete": "محجوب: التكلفة غير مكتملة",
                 "currency_mismatch": "محجوب: عملتان مختلفتان"
             },
@@ -4142,6 +4141,8 @@
         "viewHandle": "المعرّف",
         "viewAllergensFrozen": "ملصق مثبّت على الصنف عند النشر",
         "openIngredient": "فتح {{name}}",
+        "openPreparationRecipe": "فتح وصفة {{name}}",
+        "preparationTypedPrice": "مُسعَّر من سعره المُدخَل لا من وصفته",
         "fixIngredient": "إصلاح {{name}}: {{issue}}",
         "ingredientIssueFix": "{{issue}} · إصلاح",
         "detourRestoredToast": "عدت إلى وصفتك. تغييراتك غير المحفوظة ما زالت هنا.",

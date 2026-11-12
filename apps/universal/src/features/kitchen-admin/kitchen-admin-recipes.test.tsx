@@ -2627,6 +2627,56 @@ describe('creating a recipe', () => {
         expect(repositories.kitchenAdmin.createRecipe).toHaveBeenCalledTimes(1);
         expect(onCreated).toHaveBeenCalledTimes(1);
     });
+
+    it.each([
+        ['preparation', true],
+        ['sauce', undefined],
+    ] as const)(
+        'creating a %s asks for its own ingredient twin: %s',
+        async (kind, producesIngredient) => {
+            const created = recipe({
+                ordinal: 9,
+                name: 'Basil pesto',
+                currentVersion: recipeVersion({
+                    recipeOrdinal: 9,
+                    overrides: { lines: [], allergens: [] },
+                }),
+            });
+
+            const { repositories } = await renderStubScreen(
+                <RecipeEditScreen recipe="new" kind={kind} />,
+                {
+                    session: kitchenManagerSession(),
+                    repositories: {
+                        kitchenAdmin: {
+                            listIngredients: ingredientListing(() => LIBRARY),
+                            nextReference: async () => 'RC-0012',
+                            createRecipe: async () => created,
+                        },
+                    },
+                },
+            );
+
+            await untilVisible('kitchen-recipe-name-en-input');
+            await act(async () => {
+                fireEvent.changeText(
+                    screen.getByTestId('kitchen-recipe-name-en-input'),
+                    'Basil pesto',
+                );
+            });
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
+            });
+
+            await waitFor(() => {
+                expect(repositories.kitchenAdmin.createRecipe).toHaveBeenCalledTimes(1);
+            });
+            // A sauce's twin comes with its listing, so it is not asked for here.
+            const [request] = (repositories.kitchenAdmin.createRecipe as jest.Mock).mock
+                .calls[0] as [{ readonly producesIngredient?: boolean }];
+            expect(request.producesIngredient).toBe(producesIngredient);
+        },
+    );
 });
 
 /* ------------------------------------------------------------------------------------------------
@@ -2977,6 +3027,210 @@ describe('the line editor', () => {
         expect(
             request.lines.filter((entry) => entry.ingredientId === MAPPED_INGREDIENT.id),
         ).toHaveLength(3);
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * Preparations as lines
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('preparations as lines', () => {
+    /** The recipe that makes the pesto — not yet published, so a line is costed from its typed price. */
+    const PESTO_RECIPE_ID = recipeIdentifier(8);
+    const PESTO = ingredient(7, {
+        name: { en: 'Pesto', ar: 'بيستو' },
+        categoryCode: 'preparation',
+        measurementUnit: 'kg',
+        // Assessed, so the only thing the row says is about where its cost came from.
+        allergensAssessedClear: true,
+        producedByRecipe: {
+            id: PESTO_RECIPE_ID,
+            name: { en: 'Pesto', ar: 'بيستو' },
+            isPublished: false,
+        },
+    });
+    const WITH_PESTO: readonly IngredientAdmin[] = [...LIBRARY, PESTO];
+    const RECIPE_HREF = new RegExp(`^/kitchen/recipes/${String(PESTO_RECIPE_ID)}\\?returnTo=`);
+
+    function pestoPasta(lines: readonly RecipeLine[]) {
+        return recipe({
+            ordinal: 4,
+            name: 'Pesto pasta',
+            currentVersion: recipeVersion({
+                recipeOrdinal: 4,
+                overrides: { yieldUnit: 'kg', lines, allergens: [] },
+            }),
+        });
+    }
+
+    it('lists raw materials and preparations apart, and a picked preparation leads to its recipe', async () => {
+        const stored = pestoPasta([]);
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => stored),
+                    listIngredients: ingredientListing(() => WITH_PESTO),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+        await untilVisible(LINE_PICKER_TRIGGER);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(LINE_PICKER_TRIGGER));
+        });
+        await untilVisible(`${LINE_PICKER}-option-${String(PESTO.id)}`);
+
+        // Two headed groups, what is bought first, and every option still offered.
+        expect(screen.getByTestId(`${LINE_PICKER}-section-0`)).toHaveTextContent('Raw materials');
+        expect(screen.getByTestId(`${LINE_PICKER}-section-1`)).toHaveTextContent('Preparations');
+        expect(
+            screen.getAllByTestId(LINE_PICKER_OPTIONS).map((option) => option.props.testID),
+        ).toEqual([
+            `${LINE_PICKER}-option-${String(MAPPED_INGREDIENT.id)}`,
+            `${LINE_PICKER}-option-${String(UNMAPPED_INGREDIENT.id)}`,
+            `${LINE_PICKER}-option-${String(PESTO.id)}`,
+        ]);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${LINE_PICKER}-option-${String(PESTO.id)}`));
+        });
+
+        const row = 'kitchen-recipe-lines-table-row-row-1';
+        await untilVisible(`${row}-preparation`);
+        expect(screen.getByTestId(`${row}-preparation`)).toHaveTextContent('Preparation');
+        // A raw material carries no chip.
+        expect(
+            screen.queryByTestId('kitchen-recipe-lines-table-row-line-0-preparation'),
+        ).toBeNull();
+
+        // Its name opens the recipe that makes it, not the ingredient form.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${row}-open`));
+        });
+        expect(routerMock.__push).toHaveBeenLastCalledWith(expect.stringMatching(RECIPE_HREF));
+    });
+
+    it('says when a preparation is costed from its typed price, and its Fix opens the recipe', async () => {
+        const stored = pestoPasta([line(PESTO, { quantity: 0.2, unit: 'kg' })]);
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => stored),
+                    listIngredients: ingredientListing(() => WITH_PESTO),
+                    // S6: the recipe is unpublished, so the server fell back to the typed price.
+                    previewRecipeRollup: async (draft) => {
+                        const cost = computedFor(draft);
+                        return rollupPreview({
+                            allergenSources: [],
+                            computedCost: {
+                                ...cost,
+                                production: {
+                                    ...cost.production,
+                                    lines: cost.production.lines.map((entry) => ({
+                                        ...entry,
+                                        costSource: 'ingredient_fallback' as const,
+                                    })),
+                                },
+                            },
+                        });
+                    },
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+
+        const row = 'kitchen-recipe-lines-table-row-line-0';
+        await waitFor(() => {
+            expect(screen.getByTestId(`${row}-issue`)).toHaveTextContent(
+                'Costed from its typed price, not its recipe · Fix',
+            );
+        });
+        expect(screen.getByTestId(`${row}-preparation`)).toBeTruthy();
+        // The price is still the server's.
+        expect(screen.getByTestId(`${row}-total`)).toHaveTextContent(/^\$4\.000/);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${row}-issue`));
+        });
+        expect(routerMock.__push).toHaveBeenLastCalledWith(expect.stringMatching(RECIPE_HREF));
+    });
+
+    it('sends an uncosted preparation’s Fix to its recipe, not to the ingredient form', async () => {
+        const stored = pestoPasta([line(PESTO, { quantity: 0.2, unit: 'kg' })]);
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => stored),
+                    listIngredients: ingredientListing(() => WITH_PESTO),
+                    previewRecipeRollup: async (draft) =>
+                        rollupPreview({
+                            allergenSources: [],
+                            computedCost: computedFor(draft, { uncosted: [1] }),
+                        }),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+
+        const row = 'kitchen-recipe-lines-table-row-line-0';
+        await untilVisible(`${row}-issue`);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${row}-issue`));
+        });
+        expect(routerMock.__push).toHaveBeenLastCalledWith(expect.stringMatching(RECIPE_HREF));
+    });
+
+    it('draws no source and no chip on an ordinary raw-material line', async () => {
+        const stored = pestoPasta([line(MAPPED_INGREDIENT)]);
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => stored),
+                    listIngredients: ingredientListing(() => WITH_PESTO),
+                    previewRecipeRollup: async (draft) => {
+                        const cost = computedFor(draft);
+                        return rollupPreview({
+                            allergenSources: [],
+                            computedCost: {
+                                ...cost,
+                                production: {
+                                    ...cost.production,
+                                    lines: cost.production.lines.map((entry) => ({
+                                        ...entry,
+                                        costSource: 'ingredient_fallback' as const,
+                                    })),
+                                },
+                            },
+                        });
+                    },
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+
+        const row = 'kitchen-recipe-lines-table-row-line-0';
+        await waitFor(() => {
+            expect(screen.getByTestId(`${row}-total`)).toHaveTextContent(/^\$4\.000/);
+        });
+        expect(screen.queryByTestId(`${row}-preparation`)).toBeNull();
+        expect(screen.queryByTestId(`${row}-issue`)).toBeNull();
     });
 });
 

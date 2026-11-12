@@ -28,7 +28,7 @@ import type { Formatter } from '@healthy360/i18n';
 import type { MeasureUnit } from '@healthy360/nutrition';
 import { useQueryClient } from '@tanstack/react-query';
 import type { TFunction } from 'i18next';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -371,6 +371,67 @@ export function packsIssuesOf(draft: PacksDraft): readonly PacksIssue[] {
     }
     return issues;
 }
+
+const ISSUE_CODES: readonly PacksIssueCode[] = ['no_pack', 'no_selling_place', 'place_unpriced'];
+
+/**
+ * A publish the server refused for one of the three reasons — on the recipe or on its listing —
+ * as the same issues the draft derives. A refusal names its reasons as `reasons.<code>[.<place>]`
+ * fields (`failures.ts`); anything else is not a packs reason and is left to its caller.
+ */
+export function packsIssuesFromRefusal(
+    fields: Readonly<Record<string, readonly string[]>>,
+    draft: PacksDraft | null,
+): readonly PacksIssue[] {
+    return Object.keys(fields).flatMap((field): PacksIssue[] => {
+        const [head, code, place] = field.split('.');
+        if (head !== 'reasons' || !ISSUE_CODES.includes(code as PacksIssueCode)) return [];
+        const priced = place === 'home' || place === 'business' ? place : undefined;
+        if (code === 'place_unpriced' && priced === undefined) return [];
+        const firstPack = draft?.packs[0];
+        return [
+            {
+                key: priced === undefined ? String(code) : `${String(code)}-${priced}`,
+                code: code as PacksIssueCode,
+                place: priced,
+                targetId:
+                    code === 'no_selling_place'
+                        ? packsTargets.places
+                        : priced !== undefined && firstPack !== undefined
+                          ? packsTargets.price(firstPack.key, priced)
+                          : packsTargets.add,
+                section: code === 'no_selling_place',
+            },
+        ];
+    });
+}
+
+/** What an issue's card says — the tray's wording for the draft's and the server's alike. */
+export function packsIssueLabel(issue: PacksIssue, t: TFunction): string {
+    return issue.code === 'no_pack'
+        ? t('kitchen:packs.issueNoPack')
+        : issue.code === 'no_selling_place'
+          ? t('kitchen:packs.issueNoPlace')
+          : t('kitchen:packs.issuePlaceUnpriced', {
+                place: t(
+                    issue.place === 'business'
+                        ? 'kitchen:packs.placeBusiness'
+                        : 'kitchen:packs.placeHome',
+                ),
+            });
+}
+
+/**
+ * What the recipe page hands the listing inside its Selling tab: the packs draft, to aim a card,
+ * and the way to Packs & prices, which the listing cannot reach itself. `null` outside the page —
+ * the stand-alone product editor — where a refusal's card has no Fix.
+ */
+export interface PacksHost {
+    readonly draft: PacksDraft | null;
+    readonly open: (issue: PacksIssue) => void;
+}
+
+export const PacksHostContext = createContext<PacksHost | null>(null);
 
 /* ── a new item's draft ──────────────────────────────────────────────────────────────────────── */
 

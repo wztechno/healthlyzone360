@@ -122,13 +122,13 @@ import { useFinishDetour } from '../finish-detour.ts';
 import { useBeforeDiscard, useSaveBar } from '../save-bar.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { CostCard } from '../cost-card.tsx';
-import { PACKS_TEST_ID, PackCostTable } from '../packs-prices-section.tsx';
-import type {
-    PacksIssue,
-    PacksIssueCode,
-    PacksTab,
-    PricedPlace,
+import {
+    PackCostTable,
+    PacksHostContext,
+    packsIssueLabel,
+    packsIssuesFromRefusal,
 } from '../packs-prices-section.tsx';
+import type { PacksHost, PacksIssue, PacksTab } from '../packs-prices-section.tsx';
 import {
     RecipeLineTable,
     ingredientEntry,
@@ -1240,7 +1240,16 @@ function RecipeEditor({
     const library = useMemo(() => {
         const byId = new Map<string, IngredientAdmin>();
         for (const entry of ingredients) byId.set(String(entry.id), entry);
-        for (const [id, entry] of Object.entries(lineIngredients)) byId.set(id, entry);
+        for (const [id, entry] of Object.entries(lineIngredients)) {
+            // A single read does not say which recipe makes the row; the list it was on did.
+            const listed = byId.get(id)?.producedByRecipe;
+            byId.set(
+                id,
+                entry.producedByRecipe === undefined && listed !== undefined
+                    ? { ...entry, producedByRecipe: listed }
+                    : entry,
+            );
+        }
         return [...byId.values()];
     }, [ingredients, lineIngredients]);
 
@@ -1269,15 +1278,26 @@ function RecipeEditor({
         return [...names].join(', ');
     }, [computed, libraryEntries, locale]);
 
-    /** The first uncosted line's ingredient — where the tray's card sends the reader to fix it. */
+    /**
+     * The first uncosted line's ingredient — where the tray's card sends the reader to fix it. A
+     * preparation's cost is fixed in its own recipe, so its `recipeId` is carried and opened instead.
+     */
     const firstUncosted = useMemo(() => {
         if (computed === null) return null;
         const half = computed.production;
         const id = half.uncostedLineNumbers
             .map((lineNumber) => half.lines.find((line) => line.lineNumber === lineNumber))
             .find((line) => line !== undefined)?.ingredientId;
-        return id === undefined ? null : { id: String(id), family: 'ingredients' as const };
-    }, [computed]);
+        if (id === undefined) return null;
+        const producedBy = library.find(
+            (entry) => String(entry.id) === String(id),
+        )?.producedByRecipe;
+        return {
+            id: String(id),
+            family: 'ingredients' as const,
+            recipeId: producedBy == null ? null : String(producedBy.id),
+        };
+    }, [computed, library]);
 
     /*
      * How many lines the server could not cost — by number, so it is known before the names of the
@@ -1363,7 +1383,22 @@ function RecipeEditor({
     ) => {
         // This page's own address, on the tab the row is on.
         const here = hrefOnTab(family === 'packaging' ? 'packaging' : tab);
-        const href = ingredientFixHref(ingredientId, needs, here, family);
+        detour(ingredientFixHref(ingredientId, needs, here, family), here);
+    };
+
+    /** A preparation's own recipe, opened the same way — with the way back to this tab. */
+    const openRecipe = (recipeId: string) => {
+        const here = hrefOnTab(tab);
+        detour(withReturnTo(`/kitchen/recipes/${encodeURIComponent(recipeId)}`, here), here);
+    };
+
+    /** The uncosted line's fix: its recipe for a preparation, else the ingredient form. */
+    const openUncosted = (line: NonNullable<typeof firstUncosted>) => {
+        if (line.recipeId !== null) openRecipe(line.recipeId);
+        else openIngredient(line.id, line.family);
+    };
+
+    const detour = (href: string, here: string) => {
         const go = () => {
             router.push(href as never);
         };
@@ -1944,6 +1979,9 @@ function RecipeEditor({
                     wastePercent,
                     ...(recipeCategory === '' ? {} : { recipeCategory }),
                     ...(typeof shelfLife === 'number' ? { shelfLifeDays: shelfLife } : {}),
+                    // A preparation gets its own ingredient twin, so other recipes can use it as
+                    // a line. A cooked kind does not: its listing brings the twin.
+                    ...(kind === 'preparation' ? { producesIngredient: true } : {}),
                 });
 
                 const drafted = lineInputsFrom(lines);
@@ -2292,49 +2330,23 @@ function RecipeEditor({
      * `reasons.<code>[.<place>]` fields (`failures.ts`).
      */
     const refusedPackIssues: readonly PacksIssue[] =
-        packs === undefined
-            ? []
-            : Object.keys(publishFields).flatMap((field): PacksIssue[] => {
-                  const [head, code, place] = field.split('.');
-                  if (head !== 'reasons') return [];
-                  const known: readonly PacksIssueCode[] = [
-                      'no_pack',
-                      'no_selling_place',
-                      'place_unpriced',
-                  ];
-                  if (!known.includes(code as PacksIssueCode)) return [];
-                  const priced = place === 'home' || place === 'business' ? place : undefined;
-                  if (code === 'place_unpriced' && priced === undefined) return [];
-                  const firstPack = packs.report.draft.packs[0];
-                  return [
-                      {
-                          key: priced === undefined ? String(code) : `${String(code)}-${priced}`,
-                          code: code as PacksIssueCode,
-                          place: priced,
-                          targetId:
-                              code === 'no_selling_place'
-                                  ? `${PACKS_TEST_ID}-places`
-                                  : priced !== undefined && firstPack !== undefined
-                                    ? `${PACKS_TEST_ID}-${firstPack.key}-price-${priced}`
-                                    : `${PACKS_TEST_ID}-add`,
-                          section: code === 'no_selling_place',
-                      },
-                  ];
-              });
+        packs === undefined ? [] : packsIssuesFromRefusal(publishFields, packs.report.draft);
     const packIssues: readonly PacksIssue[] = [
         ...(packs?.report.issues ?? []),
         ...refusedPackIssues.filter(
             (refused) => !(packs?.report.issues ?? []).some((issue) => issue.key === refused.key),
         ),
     ];
-    const placeName = (place: PricedPlace | undefined) =>
-        t(place === 'business' ? 'kitchen:packs.placeBusiness' : 'kitchen:packs.placeHome');
-    const packIssueLabel = (issue: PacksIssue): string =>
-        issue.code === 'no_pack'
-            ? t('kitchen:packs.issueNoPack')
-            : issue.code === 'no_selling_place'
-              ? t('kitchen:packs.issueNoPlace')
-              : t('kitchen:packs.issuePlaceUnpriced', { place: placeName(issue.place) });
+    const openPackIssue = (issue: PacksIssue) => {
+        if (issue.section) goToSection('packaging', issue.targetId);
+        else goTo('packaging', issue.targetId);
+    };
+    /*
+     * The listing inside Selling publishes the item, and the server can refuse it for the same
+     * three reasons; its cards open Packs & prices through this (`PacksHostContext`).
+     */
+    const packsHost: PacksHost | null =
+        packs === undefined ? null : { draft: packs.report.draft, open: openPackIssue };
 
     /*
      * What still stands between this draft and Publish, as one amber strip under the tabs: a chip
@@ -2397,7 +2409,7 @@ function RecipeEditor({
                                 onPress: () => {
                                     if (firstUncosted === null)
                                         goToSection('costing', 'kitchen-recipe-cost-cascade');
-                                    else openIngredient(firstUncosted.id, firstUncosted.family);
+                                    else openUncosted(firstUncosted);
                                 },
                             },
                         ]
@@ -2422,11 +2434,10 @@ function RecipeEditor({
                   ...packIssues.map((issue) => ({
                       key: `packs-${issue.key}`,
                       tab: 'packaging' as const,
-                      label: packIssueLabel(issue),
+                      label: packsIssueLabel(issue, t),
                       ...(issue.section ? {} : { fieldId: issue.targetId }),
                       onPress: () => {
-                          if (issue.section) goToSection('packaging', issue.targetId);
-                          else goTo('packaging', issue.targetId);
+                          openPackIssue(issue);
                       },
                   })),
               ];
@@ -2807,7 +2818,7 @@ function RecipeEditor({
                       detail: t('kitchen:recipes.sectionRawMaterials'),
                       action: {
                           onPress: () => {
-                              openIngredient(firstUncosted.id, firstUncosted.family);
+                              openUncosted(firstUncosted);
                           },
                       },
                       // The tray is no longer clear, so it cannot show its own way back.
@@ -3552,6 +3563,7 @@ function RecipeEditor({
                                         openIngredient(row.ingredientId, 'ingredients');
                                     }
                                 }}
+                                onOpenRecipe={openRecipe}
                                 canManage={editable}
                                 nextKey={nextKey}
                                 pickerPlaceholder={t('kitchen:recipes.addIngredientPlaceholder')}
@@ -3704,7 +3716,9 @@ function RecipeEditor({
                     <CascadeItem index={0} className={tab === 'selling' ? undefined : 'hidden'}>
                         <View className="relative z-raised" testID="kitchen-recipe-selling">
                             <IssueRevealScope reveal={revealSelling}>
-                                {sellsAs.content}
+                                <PacksHostContext.Provider value={packsHost}>
+                                    {sellsAs.content}
+                                </PacksHostContext.Provider>
                             </IssueRevealScope>
                         </View>
                     </CascadeItem>

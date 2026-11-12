@@ -1125,6 +1125,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                     ...(request.shelfLifeDays === undefined
                         ? {}
                         : { shelf_life_days: request.shelfLifeDays }),
+                    ...(request.producesIngredient === true ? { produces_ingredient: true } : {}),
                 },
             });
 

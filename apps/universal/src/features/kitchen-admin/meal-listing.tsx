@@ -31,7 +31,7 @@ import { MEAL_TYPES } from '@healthy360/domain-types';
 import type { DietClassification, MealId, MealType } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -81,6 +81,11 @@ import {
 import { AllergenAssessmentCallout, AssessmentBadges } from './catalogue/allergen-assessment.tsx';
 import { stockBlockersSentence } from './catalogue/recipe-columns.tsx';
 import { allergenLabel } from './ops-format.ts';
+import {
+    PacksHostContext,
+    packsIssueLabel,
+    packsIssuesFromRefusal,
+} from './packs-prices-section.tsx';
 import { serverFieldErrors } from './server-field-errors.ts';
 import { useNudgeOnRefusal } from './tray-nudge.ts';
 import { useOptimisticConcurrency } from './use-optimistic-concurrency.ts';
@@ -313,6 +318,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
     const { locale } = useLocale();
     const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
+    const packsHost = useContext(PacksHostContext);
 
     const record = useAdminMealQuery(meal);
 
@@ -899,6 +905,22 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                       action: check.fix === undefined ? undefined : { onPress: check.fix },
                       testID: `kitchen-meal-gate-check-${check.key}`,
                   }))),
+        // A publish refused for its packs: fixed on Packs & prices, which the page opens.
+        ...packsIssuesFromRefusal(publishFields, packsHost?.draft ?? null).map((issue) => ({
+            key: `packs-${issue.key}`,
+            tone: 'warning' as const,
+            label: packsIssueLabel(issue, t),
+            detail: t('kitchen:tray.groupPublish'),
+            action:
+                packsHost === null
+                    ? undefined
+                    : {
+                          onPress: () => {
+                              packsHost.open(issue);
+                          },
+                      },
+            testID: `kitchen-meal-packs-${issue.key}`,
+        })),
         ...(saveFailure === null
             ? []
             : [

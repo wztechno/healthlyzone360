@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10758 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10761 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -5311,14 +5311,13 @@ export interface NamespaceKeys {
     | 'ops.dishMargins.asOf'
     | 'ops.dishMargins.belowTarget'
     | 'ops.dishMargins.changePrice'
-    | 'ops.dishMargins.channel.b2b'
-    | 'ops.dishMargins.channel.b2c'
     | 'ops.dishMargins.columnChannel'
     | 'ops.dishMargins.columnCost'
     | 'ops.dishMargins.columnDish'
     | 'ops.dishMargins.columnMargin'
     | 'ops.dishMargins.columnPrice'
     | 'ops.dishMargins.columnStatus'
+    | 'ops.dishMargins.contentsCost'
     | 'ops.dishMargins.empty'
     | 'ops.dishMargins.heading'
     | 'ops.dishMargins.loadErrorTitle'
@@ -5329,8 +5328,10 @@ export interface NamespaceKeys {
     | 'ops.dishMargins.targetNote'
     | 'ops.dishMargins.withheld.cost_incomplete'
     | 'ops.dishMargins.withheld.currency_mismatch'
+    | 'ops.dishMargins.withheld.no_pack'
     | 'ops.dishMargins.withheld.no_price'
     | 'ops.dishMargins.withheld.no_recipe'
+    | 'ops.dishMargins.withheld.packaging_unknown'
     | 'ops.exceptions.actionFailedToast'
     | 'ops.exceptions.chip'
     | 'ops.exceptions.clearBadge'
@@ -7671,6 +7672,7 @@ export interface NamespaceKeys {
     | 'recipes.notFoundTitle'
     | 'recipes.offTodayToast'
     | 'recipes.openIngredient'
+    | 'recipes.openPreparationRecipe'
     | 'recipes.optional'
     | 'recipes.outputCount'
     | 'recipes.outputIngredient'
@@ -7683,6 +7685,7 @@ export interface NamespaceKeys {
     | 'recipes.pickerNoMatch'
     | 'recipes.pickerSearching'
     | 'recipes.portionsPerBatch'
+    | 'recipes.preparationTypedPrice'
     | 'recipes.primaryOutput'
     | 'recipes.primaryOutputHint'
     | 'recipes.primaryOutputLabel'
@@ -16087,14 +16090,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.dishMargins.asOf',
   'kitchen:ops.dishMargins.belowTarget',
   'kitchen:ops.dishMargins.changePrice',
-  'kitchen:ops.dishMargins.channel.b2b',
-  'kitchen:ops.dishMargins.channel.b2c',
   'kitchen:ops.dishMargins.columnChannel',
   'kitchen:ops.dishMargins.columnCost',
   'kitchen:ops.dishMargins.columnDish',
   'kitchen:ops.dishMargins.columnMargin',
   'kitchen:ops.dishMargins.columnPrice',
   'kitchen:ops.dishMargins.columnStatus',
+  'kitchen:ops.dishMargins.contentsCost',
   'kitchen:ops.dishMargins.empty',
   'kitchen:ops.dishMargins.heading',
   'kitchen:ops.dishMargins.loadErrorTitle',
@@ -16105,8 +16107,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.dishMargins.targetNote',
   'kitchen:ops.dishMargins.withheld.cost_incomplete',
   'kitchen:ops.dishMargins.withheld.currency_mismatch',
+  'kitchen:ops.dishMargins.withheld.no_pack',
   'kitchen:ops.dishMargins.withheld.no_price',
   'kitchen:ops.dishMargins.withheld.no_recipe',
+  'kitchen:ops.dishMargins.withheld.packaging_unknown',
   'kitchen:ops.exceptions.actionFailedToast',
   'kitchen:ops.exceptions.chip',
   'kitchen:ops.exceptions.clearBadge',
@@ -18447,6 +18451,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.notFoundTitle',
   'kitchen:recipes.offTodayToast',
   'kitchen:recipes.openIngredient',
+  'kitchen:recipes.openPreparationRecipe',
   'kitchen:recipes.optional',
   'kitchen:recipes.outputCount',
   'kitchen:recipes.outputIngredient',
@@ -18459,6 +18464,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.pickerNoMatch',
   'kitchen:recipes.pickerSearching',
   'kitchen:recipes.portionsPerBatch',
+  'kitchen:recipes.preparationTypedPrice',
   'kitchen:recipes.primaryOutput',
   'kitchen:recipes.primaryOutputHint',
   'kitchen:recipes.primaryOutputLabel',

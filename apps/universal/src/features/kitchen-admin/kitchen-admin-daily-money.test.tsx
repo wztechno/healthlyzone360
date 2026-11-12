@@ -269,8 +269,14 @@ describe('dish margins', () => {
                 catalogueItemId: 'item-1',
                 name: { en: 'Chicken bowl', ar: '' },
                 itemType: 'meal',
-                channel: 'b2c',
+                place: 'home',
+                pack: {
+                    variantId: 'variant-1',
+                    label: 'Bowl 750 ml',
+                    fill: { quantity: '0.450', unit: 'kg' },
+                },
                 priceAmount: '10.000000',
+                contentsAmount: '7.000000',
                 costAmount: '8.000000',
                 currencyCode: 'USD',
                 marginPercent: '20.00',
@@ -282,12 +288,29 @@ describe('dish margins', () => {
                 catalogueItemId: 'item-2',
                 name: { en: 'Green salad', ar: '' },
                 itemType: 'dressing',
-                channel: 'b2c',
+                place: 'home',
+                pack: null,
                 priceAmount: null,
+                contentsAmount: null,
                 costAmount: null,
                 currencyCode: null,
                 marginPercent: null,
                 withheldReason: 'cost_incomplete',
+                isBelowTarget: false,
+            },
+            {
+                id: 'margin-3',
+                catalogueItemId: 'item-3',
+                name: { en: 'Tahini sauce', ar: '' },
+                itemType: 'sauce',
+                place: 'business',
+                pack: { variantId: 'variant-3', label: 'b2b', fill: null },
+                priceAmount: '6.000000',
+                contentsAmount: '2.500000',
+                costAmount: null,
+                currencyCode: 'USD',
+                marginPercent: null,
+                withheldReason: 'packaging_unknown',
                 isBelowTarget: false,
             },
         ],
@@ -306,6 +329,28 @@ describe('dish margins', () => {
         expect(await screen.findByText('Below target')).toBeTruthy();
         expect(screen.getByText('Withheld: cost incomplete')).toBeTruthy();
         expect(screen.getByTestId('kitchen-dish-margin-margin-2')).toHaveTextContent('—');
+    });
+
+    it('names each row’s pack and place, and costs only the contents while the packaging is unknown', async () => {
+        await renderStubScreen(<DishMarginsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenOps: { getDishMargins: async () => margins } },
+        });
+
+        expect(await screen.findByTestId('kitchen-dish-pack-margin-1')).toHaveTextContent(
+            'Bowl 750 ml · 0.45 Kg',
+        );
+        // A dish with no pack keeps one row, and its pack is a dash.
+        expect(screen.getByTestId('kitchen-dish-pack-margin-2')).toHaveTextContent('—');
+        expect(screen.getByTestId('kitchen-dish-pack-margin-3')).toHaveTextContent('b2b');
+        expect(screen.getAllByText('Home shop').length).toBe(2);
+        expect(screen.getByText('Business')).toBeTruthy();
+
+        expect(screen.getByText('Withheld: packaging not known')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-dish-cost-margin-3')).toHaveTextContent(
+            '2.50 USD contents',
+        );
+        expect(screen.getByTestId('kitchen-dish-margin-margin-3')).toHaveTextContent('—');
     });
 
     it('opens the dish recipe from a row, and its price from the row action, coming back here', async () => {
@@ -328,7 +373,7 @@ describe('dish margins', () => {
             );
         });
         expect(mockPush).toHaveBeenLastCalledWith(
-            '/kitchen/recipes/item/item-2?kind=dressing&tab=selling&returnTo=%252Fkitchen%252Fdish-margins',
+            '/kitchen/recipes/item/item-2?kind=dressing&tab=packaging&returnTo=%252Fkitchen%252Fdish-margins',
         );
     });
 

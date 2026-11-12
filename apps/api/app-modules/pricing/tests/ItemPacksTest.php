@@ -255,6 +255,27 @@ it('refuses the counter when the desk quotes from another list', function (): vo
     expect($fields)->toHaveKey('places.counter');
 });
 
+it('keeps a counter that is already on when the desk has since moved to another list', function (): void {
+    ($this->put)(['places' => ($this->places)(), 'packs' => [($this->pack)(null, $this->bottle, [], 600, null)]], 0)->assertOk();
+    $pack = ($this->packsOf)()['btl-500'];
+
+    PricingWorld::assign($this->desk, PricingWorld::priceList($this->a->organisation, 'counter-usd', active: true), priority: -1);
+
+    // Only switching the counter on is refused; one already on is a statement of what stands.
+    ($this->put)(['places' => ($this->places)(), 'packs' => [($this->pack)((string) $pack->getKey(), $this->bottle, [], 650, null)]], 1)
+        ->assertOk()
+        ->assertJsonPath('data.places.counter.follows_home', false)
+        ->assertJsonPath('data.places.counter.offered', true);
+
+    $deskOffer = ChannelCatalogueItem::withoutTenancy()
+        ->where('sales_channel_id', $this->desk->getKey())
+        ->where('catalogue_item_id', $this->meal->getKey())
+        ->whereNull('catalogue_item_variant_id')
+        ->sole();
+
+    expect($deskOffer->is_available)->toBeTrue();
+});
+
 it('refuses, on a published listing, a ticked place left with no priced pack — and allows unticking every place', function (): void {
     $this->meal->status = CatalogueItemStatus::Published;
     $this->meal->save();

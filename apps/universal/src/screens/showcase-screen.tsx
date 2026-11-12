@@ -2164,6 +2164,36 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         value="kg"
                         onChange={() => undefined}
                     />
+                    {/* Section headings — the recipe line picker's Raw materials / Preparations. */}
+                    <Select
+                        testID={id('select-sections')}
+                        id={id('select-sections')}
+                        label="Ingredient"
+                        placeholder="Add an ingredient…"
+                        searchable
+                        options={[
+                            {
+                                value: 'burghul',
+                                label: 'Burghul',
+                                description: 'Grains · 1.20 USD',
+                                section: 'Raw materials',
+                            },
+                            {
+                                value: 'sumac',
+                                label: 'Sumac',
+                                description: 'Spices · 9.00 USD',
+                                section: 'Raw materials',
+                            },
+                            {
+                                value: 'tahini-sauce',
+                                label: 'Tahini sauce',
+                                description: 'Preparation · 4.10 USD',
+                                section: 'Preparations',
+                            },
+                        ]}
+                        value={null}
+                        onChange={() => undefined}
+                    />
                     <Select
                         testID={id('select-disabled')}
                         id={id('select-disabled')}

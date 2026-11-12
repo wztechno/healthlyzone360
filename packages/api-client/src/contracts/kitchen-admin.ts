@@ -687,6 +687,18 @@ export interface IngredientAdmin {
      */
     readonly forkedFromId: IngredientId | null;
     readonly notes: string | null;
+    /**
+     * The recipe that makes this ingredient — a preparation's twin — or `null` for something
+     * bought in. On list rows only; absent on a single read. `isPublished` false means a line using
+     * it is still costed from its typed price.
+     */
+    readonly producedByRecipe?: ProducedByRecipe | null | undefined;
+}
+
+export interface ProducedByRecipe {
+    readonly id: RecipeId;
+    readonly name: LocalisedText;
+    readonly isPublished: boolean;
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -1334,6 +1346,22 @@ export interface RecipeLineCost {
     /** Null is an unpriced line. Never a zero: a zero is a measurement. */
     readonly unitCost: CostAmount | null;
     readonly lineCost: CostAmount | null;
+    /**
+     * Where a production line's cost came from on a draft preview; `null` on an uncosted line, on a
+     * saved sheet and on packaging lines. `ingredient_fallback` on a preparation means its recipe
+     * could not cost it, so its typed price was used.
+     */
+    readonly costSource?: RecipeLineCostSource | null | undefined;
+    /** The recipe a `component_recipe` cost came from; `null` otherwise. */
+    readonly sourceRecipe?: RecipeLineSourceRecipe | null | undefined;
+}
+
+export type RecipeLineCostSource =
+    'weekly' | 'latest_purchase' | 'component_recipe' | 'ingredient_fallback' | 'quoted';
+
+export interface RecipeLineSourceRecipe {
+    readonly id: RecipeId;
+    readonly name: LocalisedText;
 }
 
 /**
@@ -1500,6 +1528,11 @@ export interface CreateRecipeRequest {
     readonly b2cPrice?: CostAmount | undefined;
     /** See {@link RecipeAdmin.shelfLifeDays}. Omitted leaves it unset. */
     readonly shelfLifeDays?: number | undefined;
+    /**
+     * Create it as a preparation: the server makes the recipe's own ingredient twin so other
+     * recipes can use it as a line. Leave it off for a sold kind, whose listing brings the twin.
+     */
+    readonly producesIngredient?: boolean | undefined;
 }
 
 export interface UpdateRecipeRequest extends LockedRequest {

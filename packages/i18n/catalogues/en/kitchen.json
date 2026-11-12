@@ -2137,16 +2137,15 @@
             "columnCost": "Cost",
             "columnMargin": "Margin",
             "columnStatus": "Status",
-            "channel": {
-                "b2c": "Diners",
-                "b2b": "Business"
-            },
+            "contentsCost": "{{amount}} contents",
             "belowTarget": "Below target",
             "onTarget": "On target",
             "marginValue": "{{percent}}%",
             "withheld": {
                 "no_recipe": "Withheld: no published recipe",
+                "no_pack": "Withheld: no pack",
                 "no_price": "Withheld: no list price",
+                "packaging_unknown": "Withheld: packaging not known",
                 "cost_incomplete": "Withheld: cost incomplete",
                 "currency_mismatch": "Withheld: two currencies"
             },
@@ -3723,6 +3722,8 @@
         "viewHandle": "Handle",
         "viewAllergensFrozen": "Label frozen on the item at publication",
         "openIngredient": "Open {{name}}",
+        "openPreparationRecipe": "Open the recipe for {{name}}",
+        "preparationTypedPrice": "Costed from its typed price, not its recipe",
         "fixIngredient": "Fix {{name}}: {{issue}}",
         "ingredientIssueFix": "{{issue}} · Fix",
         "detourRestoredToast": "Back on your recipe. Your unsaved changes are still here.",
