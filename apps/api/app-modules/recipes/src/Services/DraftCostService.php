@@ -66,7 +66,7 @@ final readonly class DraftCostService
      * @param  list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null}>  $lines
      * @param  list<array{ingredient_id: string, basis: string, quantity?: float|string|null}>  $packaging
      * @param  list<array{key: string, fill_quantity: float|int|string, fill_unit: string, components: list<array{ingredient_id: string, quantity: float|int|string, is_container: bool}>}>  $packs  costed by {@see PackCost} over this draft's production half
-     * @return array{production: CostComputation, packaging: PackagingCostComputation, total: numeric-string|null, packages: list<array{line_number: int, ingredient_id: string, cost_per_package_amount: numeric-string|null}>, packs: list<array{key: string, contents_amount: numeric-string|null, packaging_amount: numeric-string|null, cost_amount: numeric-string|null, withheld_reason: string|null}>, production_lines: list<array{line_number: int, ingredient_id: string, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null}>, packaging_lines: list<array{line_number: int, ingredient_id: string, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null}>}|null
+     * @return array{production: CostComputation, packaging: PackagingCostComputation, total: numeric-string|null, packages: list<array{line_number: int, ingredient_id: string, cost_per_package_amount: numeric-string|null}>, packs: list<array{key: string, contents_amount: numeric-string|null, packaging_amount: numeric-string|null, cost_amount: numeric-string|null, withheld_reason: string|null}>, production_lines: list<array{line_number: int, ingredient_id: string, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null, cost_source: string|null, source_recipe: array{id: string, name_en: string, name_ar: string}|null}>, packaging_lines: list<array{line_number: int, ingredient_id: string, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null}>}|null
      *
      * @throws ApiException
      */
@@ -92,7 +92,8 @@ final readonly class DraftCostService
             $packagingWastePercent ?? '0',
         );
 
-        $lineRows = $this->lineRows($this->versions->prepareLines($lines));
+        $prepared = $this->versions->prepareLines($lines);
+        $lineRows = $this->lineRows($prepared);
         $packagingRows = $this->packagingRows($this->versions->preparePackaging($version, $packaging));
 
         try {
@@ -121,9 +122,53 @@ final readonly class DraftCostService
             'total' => $this->costing->totalCostPerYieldUnit($production, $packagingCost),
             'packages' => $this->costing->costPerPackage($version, $production, $packagingCost, $packagingRows),
             'packs' => $this->packCost->of((string) $version->organisation_id, $production, $packs),
-            'production_lines' => $this->costing->lineCostsOf($lineRows),
+            'production_lines' => $this->withSources($this->costing->lineCostsOf($lineRows), $prepared),
             'packaging_lines' => $this->costing->lineCostsOf($packagingRows),
         ];
+    }
+
+    /**
+     * Each production line with where its cost came from (S6), and — for one costed from the
+     * recipe that makes it — that recipe, so the editor can label a preparation line and send its
+     * Fix to the right place. One query for every component recipe on the draft.
+     *
+     * @param  list<array{line_number: int, ingredient_id: string, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null}>  $costs
+     * @param  list<array{line_number: int, cost_source: string|null, source_recipe_version_id: string|null, ...}>  $prepared
+     * @return list<array{line_number: int, ingredient_id: string, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null, cost_source: string|null, source_recipe: array{id: string, name_en: string, name_ar: string}|null}>
+     */
+    private function withSources(array $costs, array $prepared): array
+    {
+        $byLine = [];
+        $versionIds = [];
+
+        foreach ($prepared as $row) {
+            $byLine[$row['line_number']] = $row;
+
+            if ($row['source_recipe_version_id'] !== null) {
+                $versionIds[] = $row['source_recipe_version_id'];
+            }
+        }
+
+        $recipes = $versionIds === [] ? collect() : RecipeVersion::withoutTenancy()
+            ->join('recipes', 'recipes.id', '=', 'recipe_versions.recipe_id')
+            ->whereIn('recipe_versions.id', array_values(array_unique($versionIds)))
+            ->toBase()
+            ->get(['recipe_versions.id as version_id', 'recipes.id', 'recipes.name_en', 'recipes.name_ar'])
+            ->keyBy('version_id');
+
+        return array_map(static function (array $line) use ($byLine, $recipes): array {
+            $row = $byLine[$line['line_number']] ?? null;
+            $recipe = $row === null || $row['source_recipe_version_id'] === null ? null : $recipes->get($row['source_recipe_version_id']);
+
+            return $line + [
+                'cost_source' => $row['cost_source'] ?? null,
+                'source_recipe' => $recipe === null ? null : [
+                    'id' => (string) $recipe->id,
+                    'name_en' => (string) $recipe->name_en,
+                    'name_ar' => (string) $recipe->name_ar,
+                ],
+            ];
+        }, $costs);
     }
 
     /**
@@ -154,7 +199,7 @@ final readonly class DraftCostService
     }
 
     /**
-     * @param  list<array{line_number: int, ingredient_id: string, quantity: numeric-string|null, unit_id: string|null, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null, cost_currency_code: string|null, source_designation: string|null, comment: string|null}>  $prepared
+     * @param  list<array{line_number: int, ingredient_id: string, quantity: numeric-string|null, unit_id: string|null, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null, cost_currency_code: string|null, source_designation: string|null, comment: string|null, cost_source: string|null, source_recipe_version_id: string|null}>  $prepared
      * @return Collection<int, RecipeVersionLine>
      */
     private function lineRows(array $prepared): Collection

@@ -35,6 +35,7 @@ use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Support\Api\Exceptions\StaleLockVersion;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * Everything that happens to the *content* of a recipe version: drafting,
@@ -74,6 +75,7 @@ final readonly class RecipeVersionService
         private RecipeOutputNutritionWriter $outputNutrition,
         private RecipeOutputAllergenWriter $outputAllergens,
         private WeeklyRecipeCostingService $paidPrices,
+        private RecipeTwinOutputs $twins,
     ) {}
 
     /**
@@ -223,6 +225,12 @@ final readonly class RecipeVersionService
             ],
         );
 
+        // The yield is what a batch makes, so a recipe used as an ingredient states it as its
+        // output — see {@see RecipeTwinOutputs::followYield()}.
+        if (array_key_exists('yield_quantity', $changes) || array_key_exists('yield_unit_id', $changes)) {
+            $this->twins->followYield($version);
+        }
+
         return $version;
     }
 
@@ -319,8 +327,13 @@ final readonly class RecipeVersionService
      * archived ingredient is told, on the step where the line is, rather than
      * being costed as though the ingredient were fine and refused later.
      *
+     * Each row also says where its cost came from (S6): `cost_source` is `quoted` for a cost the
+     * request stated, the {@see WeeklyLineCost} source for one resolved live, and null for a line
+     * left uncosted; `source_recipe_version_id` names the version a `component_recipe` cost came
+     * out of. Neither is stored — a saved line keeps only its figures.
+     *
      * @param  list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null, unit_cost_amount?: float|string|null, cost_currency_code?: string|null, source_designation?: string|null, comment?: string|null}>  $lines
-     * @return list<array{line_number: int, ingredient_id: string, quantity: numeric-string|null, unit_id: string|null, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null, cost_currency_code: string|null, source_designation: string|null, comment: string|null}>
+     * @return list<array{line_number: int, ingredient_id: string, quantity: numeric-string|null, unit_id: string|null, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null, cost_currency_code: string|null, source_designation: string|null, comment: string|null, cost_source: string|null, source_recipe_version_id: string|null}>
      *
      * @throws ApiException
      */
@@ -367,6 +380,8 @@ final readonly class RecipeVersionService
                 'cost_currency_code' => $currency,
                 'source_designation' => $this->trimmedOrNull(isset($line['source_designation']) ? (string) $line['source_designation'] : null),
                 'comment' => $this->trimmedOrNull(isset($line['comment']) ? (string) $line['comment'] : null),
+                'cost_source' => $unitCost === null ? null : WeeklyLineCost::SOURCE_QUOTED,
+                'source_recipe_version_id' => null,
             ];
         }
 
@@ -380,7 +395,9 @@ final readonly class RecipeVersionService
          * is nothing for the cook to fix.
          */
         foreach ([true, false] as $typedPass) {
-            foreach ($live as $index => [$unitCost, $currency, $typed]) {
+            foreach ($live as $index => [$unitCost, $currency, $source, $sourceVersionId]) {
+                $typed = $source === WeeklyLineCost::SOURCE_FALLBACK;
+
                 if ($typed !== $typedPass || ! isset($prepared[$index])) {
                     continue;
                 }
@@ -394,6 +411,8 @@ final readonly class RecipeVersionService
                 $row['unit_cost_amount'] = $unitCost;
                 $row['line_cost_amount'] = $row['quantity'] === null ? null : $this->costing->lineCost($row['quantity'], $unitCost);
                 $row['cost_currency_code'] = $currency;
+                $row['cost_source'] = $source;
+                $row['source_recipe_version_id'] = $sourceVersionId;
                 $prepared[$index] = $row;
             }
         }
@@ -999,7 +1018,30 @@ final readonly class RecipeVersionService
 
         $this->outputNutrition->write($version, $nutrition);
 
+        $this->refreshSellers($version);
+
         return $version;
+    }
+
+    /**
+     * What each seller of the recipe earns, recomputed now that a new formulation is live (S7).
+     *
+     * After the publication's own transaction, and fenced off from it: the refresh runs in a
+     * transaction of its own — a savepoint inside any caller's — and a failure is reported and
+     * swallowed. A figure on the margins page must never refuse or undo a publication; the nightly
+     * run puts it right if this one could not.
+     */
+    private function refreshSellers(RecipeVersion $version): void
+    {
+        try {
+            $recipe = Recipe::withoutTenancy()->whereKey($version->recipe_id)->first();
+
+            if ($recipe instanceof Recipe) {
+                DB::transaction(fn () => $this->usage->recipePublished($recipe));
+            }
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 
     /**
@@ -1408,14 +1450,15 @@ final readonly class RecipeVersionService
      * states a cost still wins — the importer records what a source sheet said, errors included
      * (`as_recorded`), and a fallback that overrode it would replace a transcription with a guess.
      *
-     * `typed` marks an answer that came from the typed purchase price, which `prepareLines()` holds
-     * to the one-currency rule exactly as it always did.
+     * The source travels with the amount (S6), and the version a component cost came out of: a
+     * `ingredient_fallback` answer is the typed purchase price, which `prepareLines()` holds to the
+     * one-currency rule exactly as it always did.
      *
      * Batched by ingredient, because the costing service answers one unit per ingredient; a
      * second line naming the same ingredient in another unit goes in the next batch.
      *
      * @param  array<int, array{0: string, 1: string}>  $unpriced  line index => [ingredient id, line unit id]
-     * @return array<int, array{0: numeric-string, 1: string, 2: bool}>
+     * @return array<int, array{0: numeric-string, 1: string, 2: string, 3: string|null}> [amount, currency, source, source version id]
      */
     private function liveCostsFor(array $unpriced): array
     {
@@ -1456,7 +1499,8 @@ final readonly class RecipeVersionService
                     $costs[$index] = [
                         $answer->unitCostAmount,
                         mb_strtoupper($answer->currencyCode),
-                        $answer->source === WeeklyLineCost::SOURCE_FALLBACK,
+                        $answer->source,
+                        $answer->sourceRecipeVersionId,
                     ];
                 }
             }

@@ -6,6 +6,7 @@ namespace Healthy360\Kitchens\Providers;
 
 use Healthy360\Kitchens\Console\ActivateImportedTariffsCommand;
 use Healthy360\Kitchens\Console\ApplyAllergenDeterminationsCommand;
+use Healthy360\Kitchens\Console\EnsureRecipeOutputsCommand;
 use Healthy360\Kitchens\Console\FormulateUnlinkedCommand;
 use Healthy360\Kitchens\Console\ImportKitchenWorkbookCommand;
 use Healthy360\Kitchens\Console\ImportV6CatalogueCommand;
@@ -57,6 +58,7 @@ class KitchensServiceProvider extends ServiceProvider
                 SeedTestAccountsCommand::class,
                 MergeDuplicateStockCommand::class,
                 MergeDuplicatePacksCommand::class,
+                EnsureRecipeOutputsCommand::class,
                 SuspectRecordsCommand::class,
             ]);
         }

@@ -94,4 +94,17 @@ final class NullRecipeUsageRegistry implements RecipeUsageRegistry
      * @param  Builder<covariant Model>  $scoped
      */
     public function orWhereSellerMatches(Builder $scoped, string $needle): void {}
+
+    /**
+     * Nothing sells this recipe, so no listing holds a twin for it.
+     */
+    public function twinIngredientId(Recipe $recipe): ?string
+    {
+        return null;
+    }
+
+    /**
+     * Nothing sells this recipe, so nothing earns anything from it.
+     */
+    public function recipePublished(Recipe $recipe): void {}
 }

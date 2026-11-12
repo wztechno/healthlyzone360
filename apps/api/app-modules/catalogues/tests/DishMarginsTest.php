@@ -23,6 +23,7 @@ use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionLine;
+use Healthy360\Recipes\Services\RecipeVersionService;
 use Healthy360\Recipes\Tests\Fixtures\RecipeWorld;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\Support\Alerts\StaffAlertType;
@@ -451,6 +452,27 @@ it('is closed to a member without the cost code', function (): void {
     $this->actingAs($cook->user);
 
     $this->getJson('/api/v1/catalogue/reports/dish-margins', PricingWorld::headers($cook))->assertForbidden();
+});
+
+it('brings a dish current when a new version of its recipe is published, with no nightly run', function (): void {
+    costedAt($this, '6.000000');
+    expect(DishMargin::withoutTenancy()->count())->toBe(0);
+
+    app(DatabaseTenantContext::class)->apply(null, $this->orgId, null);
+
+    try {
+        $versions = app(RecipeVersionService::class);
+        $draft = $versions->newDraft(Recipe::withoutTenancy()->whereKey($this->item->recipe_id)->sole(), $this->version);
+        $versions->publish($draft, $draft->lock_version, applySellingRule: false);
+    } finally {
+        app(DatabaseTenantContext::class)->reset();
+    }
+
+    // (5.00 − 3.40) ÷ 5.00, read off the version just published.
+    expect(DishMargin::withoutTenancy()->sole())
+        ->catalogue_item_id->toBe((string) $this->item->getKey())
+        ->catalogue_item_variant_id->toBe((string) $this->pack->getKey())
+        ->margin_percent->toBe('32.00');
 });
 
 it('runs every trading kitchen from the schedule', function (): void {

@@ -28965,6 +28965,26 @@ components:
           format: date-time
         allergens_review_evidence:
           type: ['string', 'null']
+        produced_by_recipe:
+          description: |
+            The recipe that makes this ingredient — the one whose published
+            version states it as an output, else whose live draft does — or
+            null for something bought in. On the list only (`GET
+            /catalogue/ingredients`), resolved for the whole page at once.
+            `is_published` false means the recipe's statement is not live yet,
+            so a line using the ingredient is still costed from its typed price.
+          type: [object, 'null']
+          required: [id, name_en, name_ar, is_published]
+          properties:
+            id:
+              $ref: '#/components/schemas/Uuid'
+            name_en:
+              type: string
+            name_ar:
+              type: string
+            is_published:
+              type: boolean
+          additionalProperties: false
         id:
           $ref: '#/components/schemas/Uuid'
         organisation_id:
@@ -31149,7 +31169,7 @@ components:
               no per-line answer to give.
             items:
               type: object
-              required: [line_number, ingredient_id, unit_cost_amount, line_cost_amount]
+              required: [line_number, ingredient_id, unit_cost_amount, line_cost_amount, cost_source, source_recipe]
               properties:
                 line_number:
                   type: integer
@@ -31161,6 +31181,32 @@ components:
                   type: ['string', 'null']
                 line_cost_amount:
                   type: ['string', 'null']
+                cost_source:
+                  type: ['string', 'null']
+                  enum: [weekly, latest_purchase, component_recipe, ingredient_fallback, quoted, null]
+                  description: |
+                    Where this line's cost came from, on a draft preview: what was
+                    paid (`weekly`, `latest_purchase`), the recipe that makes it
+                    (`component_recipe`), the typed purchase price
+                    (`ingredient_fallback` — a preparation whose recipe is not
+                    published yet lands here), or the cost the request stated
+                    (`quoted`). Null on an uncosted line, and on a saved technical
+                    sheet, whose frozen figures never recorded a source.
+                source_recipe:
+                  description: |
+                    The recipe a `component_recipe` cost came from, so the editor
+                    can label the line and send its Fix there. Null otherwise.
+                  type: [object, 'null']
+                  required: [id, name_en, name_ar]
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    name_en:
+                      type: string
+                    name_ar:
+                      type: string
+                  additionalProperties: false
               additionalProperties: false
         additionalProperties: false
 
@@ -31360,6 +31406,17 @@ components:
           minimum: 0
           maximum: 3650
           description: Days a batch keeps; see `AdminRecipe.shelf_life_days`.
+        produces_ingredient:
+          type: boolean
+          default: false
+          description: |
+            Create the recipe as a preparation — made to be used inside other
+            recipes — with its own ingredient twin: kilograms, the recipe's
+            names and handle, filed under the `preparation` ingredient category.
+            Once a draft's yield is saved the server states it as that twin's
+            output, so a line naming the twin is costed from this recipe once it
+            is published. A sold recipe's twin is its sauce or dressing listing's,
+            so leave this off for one.
       additionalProperties: false
 
     UpdateRecipeRequest:

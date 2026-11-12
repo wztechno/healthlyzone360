@@ -167,4 +167,27 @@ interface RecipeUsageRegistry
      * @param  Builder<covariant Model>  $scoped
      */
     public function orWhereSellerMatches(Builder $scoped, string $needle): void;
+
+    /**
+     * The ingredient a sauce or dressing selling this recipe is used as inside
+     * other recipes — its twin, the listing's `ingredient_id` — or null when no
+     * non-retired sauce or dressing sells it with one (plan slice F).
+     *
+     * Asked so that a version's yield can be stated as what the recipe
+     * produces: the output row is what lets a meal's line be costed from the
+     * sauce's own recipe. Not tenant-scoped, for the reason
+     * {@see sellingBlockers()} gives: the console repair runs without a
+     * request, and the recipe's organisation is the boundary either way.
+     */
+    public function twinIngredientId(Recipe $recipe): ?string;
+
+    /**
+     * A version of this recipe has just been published: what each
+     * non-retired seller earns is recomputed now rather than at night (S7).
+     *
+     * Called after the publication has committed, and a failure is the
+     * caller's to swallow — a figure on the margins page must never undo or
+     * refuse a publication.
+     */
+    public function recipePublished(Recipe $recipe): void;
 }

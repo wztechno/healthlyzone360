@@ -6,6 +6,7 @@ namespace Healthy360\Catalogues\Services;
 
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
+use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Enums\SalesChannelKind;
 use Healthy360\Catalogues\Enums\VariantStatus;
 use Healthy360\Catalogues\Models\CatalogueItem;
@@ -91,6 +92,58 @@ final readonly class CatalogueRecipeUsageRegistry implements RecipeUsageRegistry
         }
 
         return $blockers;
+    }
+
+    /**
+     * The twin of the first non-retired sauce or dressing selling this recipe, by slug.
+     *
+     * ponytail: one twin per recipe. Two sauces selling one recipe under two different twins is
+     * not a shape the editor makes; if it ever is, the second twin gets no output row.
+     */
+    public function twinIngredientId(Recipe $recipe): ?string
+    {
+        $ingredientId = CatalogueItem::withoutTenancy()
+            ->where('organisation_id', $recipe->organisation_id)
+            ->where('recipe_id', $recipe->getKey())
+            ->whereIn('item_type', [CatalogueItemType::Sauce->value, CatalogueItemType::Dressing->value])
+            ->where('status', '!=', CatalogueItemStatus::Retired->value)
+            ->whereNotNull('ingredient_id')
+            ->orderBy('slug')
+            ->value('ingredient_id');
+
+        return is_string($ingredientId) ? $ingredientId : null;
+    }
+
+    /**
+     * {@see DishMargins::refreshItem()} for each non-retired seller of this recipe.
+     *
+     * `DishMargins` is resolved here rather than injected. It reads packs through
+     * `PackPriceRegistry`, which is pricing's `ItemPacksService` — the same class
+     * {@see SellingReadiness} above already reaches through `SellingPlaceRegistry` — and it is
+     * built on the recipes costing services. Constructing that whole graph every time a recipe
+     * service is resolved, to use it only after a publication, is cost for nothing, and a
+     * constructor edge back into it is how a container cycle starts. `ItemPacksService` resolves
+     * it the same way for the same reason.
+     */
+    public function recipePublished(Recipe $recipe): void
+    {
+        $items = CatalogueItem::withoutTenancy()
+            ->where('organisation_id', $recipe->organisation_id)
+            ->where('recipe_id', $recipe->getKey())
+            ->whereIn('item_type', self::KINDS)
+            ->where('status', '!=', CatalogueItemStatus::Retired->value)
+            ->orderBy('slug')
+            ->get();
+
+        if ($items->isEmpty()) {
+            return;
+        }
+
+        $margins = app(DishMargins::class);
+
+        foreach ($items as $item) {
+            $margins->refreshItem($item);
+        }
     }
 
     /**
