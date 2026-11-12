@@ -153,7 +153,33 @@ it('refuses the counter when the desk quotes from another list', function (): vo
 // Slice C: the publication check gives the same answer as the read above —
 // no `no_pack`, `no_selling_place` or `place_unpriced` once one pack is priced
 // for every ticked place, and `place_unpriced` once the last one is cleared.
-it('reports the same sellable state from the publication check')->todo();
+it('reports the same sellable state from the publication check', function (): void {
+    $readiness = '/api/v1/catalogue/items/'.$this->meal->getKey().'/readiness';
+    $sellingCodes = ['no_pack', 'no_selling_place', 'place_unpriced'];
+    $selling = fn (): array => collect($this->getJson($readiness, $this->headers)->assertOk()->json('data.reasons'))
+        ->filter(static fn (array $reason): bool => in_array($reason['code'], $sellingCodes, true))
+        ->map(static fn (array $reason): string => $reason['code'].(isset($reason['context']['place']) ? ':'.$reason['context']['place'] : ''))
+        ->values()
+        ->all();
+
+    $this->putJson($this->url, ($this->statement)(1200, null, ['home' => true, 'counter' => true]), $this->headers + ['If-Match' => '"1"'])
+        ->assertOk();
+
+    expect($selling())->toBe([]);
+
+    // The published-listing rule refuses a write that leaves a ticked place
+    // unpriced, so the cleared state is reached on a draft.
+    $this->meal->status = CatalogueItemStatus::Draft;
+    $this->meal->save();
+
+    $lock = $this->meal->refresh()->lock_version;
+
+    $this->putJson($this->url, ($this->statement)(null, null, ['home' => true, 'counter' => true]), $this->headers + ['If-Match' => '"'.$lock.'"'])
+        ->assertOk();
+
+    // The counter charges the Home shop price, so it goes unpriced with it.
+    expect($selling())->toBe(['place_unpriced:home', 'place_unpriced:counter']);
+});
 
 // Slice E: Dish margins carries one Home shop row for the priced pack and none
 // for the cleared one, straight after the write (no nightly run in between).

@@ -53,7 +53,45 @@ final readonly class CatalogueRecipeUsageRegistry implements RecipeUsageRegistry
         private AuditRecorder $audit,
         private StockDeductionReadiness $stock,
         private AllergenAssessment $assessment,
+        private SellingReadiness $selling,
     ) {}
+
+    /**
+     * {@see SellingReadiness} asked of each non-retired seller of this recipe,
+     * every reason tagged with the item it is about.
+     *
+     * Not tenant-scoped, unlike the guards below: a console publication has no
+     * tenant, and the recipe's own organisation is the boundary either way.
+     * Drafts are asked as well as live listings — publishing the formulation is
+     * what a draft dish waits on, so its packs and prices are owed now (S3).
+     *
+     * @return list<array{code: string, detail: string, context: array<string, mixed>}>
+     */
+    public function sellingBlockers(Recipe $recipe): array
+    {
+        $items = CatalogueItem::withoutTenancy()
+            ->where('organisation_id', $recipe->organisation_id)
+            ->where('recipe_id', $recipe->getKey())
+            ->whereIn('item_type', self::KINDS)
+            ->where('status', '!=', CatalogueItemStatus::Retired->value)
+            ->orderBy('slug')
+            ->get();
+
+        $blockers = [];
+
+        foreach ($items as $item) {
+            foreach ($this->selling->reasons($item) as $reason) {
+                $reason['context'] = [
+                    'catalogue_item_id' => (string) $item->getKey(),
+                    'slug' => $item->slug,
+                    'item_type' => $item->item_type->value,
+                ] + $reason['context'];
+                $blockers[] = $reason;
+            }
+        }
+
+        return $blockers;
+    }
 
     /**
      * @return list<string>

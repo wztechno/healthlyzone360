@@ -70,6 +70,21 @@ interface RecipeUsageRegistry
     public function publishedItemIds(Recipe $recipe): array;
 
     /**
+     * Why what sells this recipe cannot be bought, in the readiness shape
+     * `{code, detail, context}` — `no_pack`, `no_selling_place`,
+     * `place_unpriced` — with `context.catalogue_item_id`, `slug` and
+     * `item_type` naming the seller (S3).
+     *
+     * Asked by API publication of a version: a recipe a non-retired item of
+     * the four {@see KINDS} sells publishes only once each seller has a pack,
+     * a place, and a price on every place it is offered. A recipe nothing
+     * sells — a preparation — answers empty.
+     *
+     * @return list<array{code: string, detail: string, context: array<string, mixed>}>
+     */
+    public function sellingBlockers(Recipe $recipe): array;
+
+    /**
      * Pull every published listing of this recipe off sale and into
      * `review_required`, returning what was moved (K1.8).
      *

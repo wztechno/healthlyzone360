@@ -7,6 +7,7 @@ use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Tests\Fixtures\CatalogueWorld;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
+use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
@@ -44,12 +45,17 @@ function cookedMeal(object $tenant, ?int $piecesProduced): CatalogueItem
         'yield_piece_count' => $piecesProduced,
     ]);
 
-    return CatalogueItem::factory()->meal()->create([
+    $meal = CatalogueItem::factory()->meal()->create([
         'catalogue_id' => $tenant->catalogue->getKey(),
         'organisation_id' => $tenant->organisation->getKey(),
         'name_ar' => 'وجبة',
         'recipe_id' => $recipe->getKey(),
     ]);
+
+    // Buyable (S3), so the only gate left to say anything is stock.
+    PricingWorld::sellable($tenant, $meal);
+
+    return $meal;
 }
 
 /** A draft frozen meal drawing a shelf counted in `$unitCode`. */
@@ -57,7 +63,7 @@ function frozenMealOn(object $tenant, string $unitCode, array $attributes = []):
 {
     $ingredient = CatalogueWorld::producedIngredient($tenant, 'Chicken nuggets', $unitCode);
 
-    return CatalogueItem::factory()->create([
+    $item = CatalogueItem::factory()->create([
         'catalogue_id' => $tenant->catalogue->getKey(),
         'organisation_id' => $tenant->organisation->getKey(),
         'item_type' => CatalogueItemType::FrozenMeal,
@@ -65,6 +71,12 @@ function frozenMealOn(object $tenant, string $unitCode, array $attributes = []):
         'ingredient_id' => $ingredient->getKey(),
         ...$attributes,
     ]);
+
+    // Buyable (S3) through a pack with no size, so the size a sale takes is
+    // still each test's to state.
+    PricingWorld::sellable($tenant, $item);
+
+    return $item;
 }
 
 /** @return list<string> */

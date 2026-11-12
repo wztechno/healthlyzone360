@@ -842,16 +842,29 @@ final readonly class RecipeVersionService
      * the reference its own create skipped (`ingredient_nutrition_pending`):
      * that gap is the kitchen's, and the readiness reason holds it here.
      *
+     * **The selling rule** (S3, owner ruling 7). A recipe a non-retired meal,
+     * sauce, dressing or frozen meal sells publishes only once each seller has
+     * a pack, a place, and a price on every place it is offered; the sellers'
+     * `no_pack` / `no_selling_place` / `place_unpriced` join the structural
+     * reasons in the one `catalogue.publish_blocked`, each naming its item. A
+     * preparation has no seller and is never asked. `$applySellingRule` is
+     * false only for the console paths — importers, seeders, repair commands —
+     * whose behaviour must not move with a commercial rule; the API applies it.
+     *
      * @throws ApiException
      */
-    public function publish(RecipeVersion $version, int $expectedLockVersion): RecipeVersion
+    public function publish(RecipeVersion $version, int $expectedLockVersion, bool $applySellingRule = true): RecipeVersion
     {
         $lines = $this->readiness->linesOf($version);
 
-        $structural = $this->readiness->structuralReasons($version, $lines);
+        $blockers = $this->readiness->structuralReasons($version, $lines);
 
-        if ($structural !== []) {
-            throw PublishBlocked::fromReadiness($structural);
+        if ($applySellingRule) {
+            $blockers = [...$blockers, ...$this->readiness->sellingReasons($version)];
+        }
+
+        if ($blockers !== []) {
+            throw PublishBlocked::fromReadiness($blockers);
         }
 
         /** @var list<string> $orderedIngredientIds */

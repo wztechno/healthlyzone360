@@ -32,6 +32,16 @@ final class NullRecipeUsageRegistry implements RecipeUsageRegistry
     }
 
     /**
+     * Nothing sells this recipe, so nothing about selling it can block it.
+     *
+     * @return list<array{code: string, detail: string, context: array<string, mixed>}>
+     */
+    public function sellingBlockers(Recipe $recipe): array
+    {
+        return [];
+    }
+
+    /**
      * Nothing sells this recipe, so nothing comes off sale. The recompute job
      * still calls it — a quarantine that only happened when the catalogues
      * module was installed would be a quarantine with a hole in it — and the
