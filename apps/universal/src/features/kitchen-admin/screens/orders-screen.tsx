@@ -81,7 +81,7 @@ import { useOrderSteps } from '../orders/use-order-steps.tsx';
  * calendar, which now redirect here.
  *
  * - **Today** — one day at a time, grouped by slot, the late ones from earlier days first.
- * - **Calendar** — a month or a week; a day opens beside the grid with its orders and what to cook.
+ * - **Calendar** — a month or a week; a day opens beside the grid with its orders.
  * - **All orders** — the whole book, newest first, narrowed by dates, status, slot and kind.
  *
  * Above the tabs' lists, four figures say what needs somebody: To confirm, Late, Needs a driver and
@@ -269,15 +269,6 @@ function OrdersPage() {
         router.push(withReturnTo(sale, withQuery(currentHref, { view: null })) as never);
     }
 
-    function openRequirements(forDay: string) {
-        router.push(
-            withReturnTo(
-                withQuery('/kitchen/order-desk/requirements', { from: forDay, to: forDay }),
-                currentHref,
-            ) as never,
-        );
-    }
-
     const dayCount = dayRead.pending
         ? undefined
         : dayRead.rows.filter((row) => row.status !== 'cancelled').length;
@@ -375,7 +366,6 @@ function OrdersPage() {
                         figures={figures}
                         onOpenOrder={openOrder}
                         onNewOrder={newOrder}
-                        onOpenRequirements={openRequirements}
                     />
                 ) : (
                     <AllOrdersTab
