@@ -181,7 +181,34 @@ it('archives a pack left out, and hands its default to the first that remains', 
         ->and($after['btl-500']->is_default)->toBeFalse();
 });
 
-it('touches only the item-level offer of each place, and switches it off rather than deleting it', function (): void {
+it('reads a place as offered when only one of its packs is, as checkout does, and unticking it takes that pack off sale', function (): void {
+    ($this->put)(['places' => ($this->places)(false, false, false), 'packs' => [($this->pack)(null, $this->bottle, [], 600, null)]], 0)->assertOk();
+    $pack = ($this->packsOf)()['btl-500'];
+
+    // How a kitchen priced before this tab is on sale: the pack's own offer, and no item-level one.
+    $perPack = ChannelCatalogueItem::withoutTenancy()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'sales_channel_id' => $this->shop->getKey(),
+        'catalogue_item_id' => $this->meal->getKey(),
+        'catalogue_item_variant_id' => $pack->getKey(),
+        'is_available' => true,
+    ]);
+
+    $this->getJson($this->url, $this->headers)
+        ->assertOk()
+        ->assertJsonPath('data.places.home.offered', true)
+        ->assertJsonPath('data.places.business.offered', false);
+
+    expect(app(SellingReadiness::class)->reasons($this->meal->refresh()))->toBe([]);
+
+    ($this->put)(['places' => ($this->places)(false, false, false), 'packs' => [($this->pack)((string) $pack->getKey(), $this->bottle, [], 600, null)]], 1)
+        ->assertOk()
+        ->assertJsonPath('data.places.home.offered', false);
+
+    expect($perPack->fresh()->is_available)->toBeFalse();
+});
+
+it('touches only this item\'s offers on each place\'s channel, and switches them off rather than deleting them', function (): void {
     ($this->put)(['places' => ($this->places)(), 'packs' => [($this->pack)(null, $this->bottle, [], 600, 450)]], 0)->assertOk();
     $pack = ($this->packsOf)()['btl-500'];
 
@@ -216,7 +243,8 @@ it('touches only the item-level offer of each place, and switches it off rather 
 
     expect($shopRow->is_available)->toBeFalse()
         ->and($elsewhere->fresh()->is_available)->toBeTrue()
-        ->and($perPack->fresh()->is_available)->toBeTrue()
+        // The pack's own web-shop offer goes with the unticked Home shop: left on, it would keep selling.
+        ->and($perPack->fresh()->is_available)->toBeFalse()
         ->and($windowed->available_from?->toDateString())->toBe('2026-01-01')
         ->and($windowed->available_to?->toDateString())->toBe('2027-12-31')
         ->and(ChannelCatalogueItem::withoutTenancy()->where('catalogue_item_id', $this->meal->getKey())->count())->toBe(5);

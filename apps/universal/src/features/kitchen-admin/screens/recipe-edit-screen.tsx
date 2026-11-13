@@ -125,6 +125,7 @@ import { CostCard } from '../cost-card.tsx';
 import {
     PackCostTable,
     PacksHostContext,
+    massKg,
     packsIssueLabel,
     packsIssuesFromRefusal,
 } from '../packs-prices-section.tsx';
@@ -3617,7 +3618,12 @@ function RecipeEditor({
                     <CascadeItem index={0} className={tab === 'packaging' ? undefined : 'hidden'}>
                         <View className="relative z-raised" testID="kitchen-recipe-packs">
                             {packs.render({
-                                yieldKg: yieldMass !== null && yieldMass > 0 ? yieldMass : null,
+                                // In kilograms whatever unit the yield is typed in: a 500 g batch is
+                                // half a kilo of packs, not five hundred.
+                                yieldKg:
+                                    yieldMass !== null && yieldMass > 0
+                                        ? massKg(yieldMass, details.yieldUnit)
+                                        : null,
                                 piecesPerBatch:
                                     yieldPieces !== null && yieldPieces > 0 ? yieldPieces : null,
                                 computed: computed?.packs ?? null,

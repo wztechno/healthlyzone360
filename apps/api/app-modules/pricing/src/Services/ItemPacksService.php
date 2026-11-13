@@ -583,14 +583,23 @@ final readonly class ItemPacksService implements PackPriceRegistry, SellingPlace
         return isset($standing['']) ? ['amount_minor' => $standing[''], 'inherited' => true] : null;
     }
 
+    /**
+     * Offered as checkout reads it (`LineProbe::offeredOn`): through the item's
+     * own row, or through the row of any pack still on sale. Kitchens priced
+     * before this tab offer pack by pack, and are on sale all the same.
+     */
     private function isOffered(CatalogueItem $item, SalesChannel $channel): bool
     {
         $today = CarbonImmutable::now()->toDateString();
+        $activePacks = CatalogueItemVariant::withoutTenancy()
+            ->select('id')
+            ->where('catalogue_item_id', $item->getKey())
+            ->where('status', VariantStatus::Active->value);
 
         return ChannelCatalogueItem::withoutTenancy()
             ->where('sales_channel_id', $channel->getKey())
             ->where('catalogue_item_id', $item->getKey())
-            ->whereNull('catalogue_item_variant_id')
+            ->where(static fn ($query) => $query->whereNull('catalogue_item_variant_id')->orWhereIn('catalogue_item_variant_id', $activePacks))
             ->where('is_available', true)
             ->where(static fn ($query) => $query->whereNull('available_from')->orWhere('available_from', '<=', $today))
             ->where(static fn ($query) => $query->whereNull('available_to')->orWhere('available_to', '>=', $today))
@@ -756,23 +765,24 @@ final readonly class ItemPacksService implements PackPriceRegistry, SellingPlace
     }
 
     /**
-     * Only the item-level row: on → created or switched on; off → switched
-     * off, never deleted. Its date window is left as it is.
+     * On → the item-level row is created or switched on. Off → every row this
+     * item has on the channel is switched off, its packs' own rows included:
+     * a pack still offered by itself would keep the item on sale behind an
+     * unticked place. Nothing is deleted, and date windows are left as they are.
      */
     private function setOffered(CatalogueItem $item, SalesChannel $channel, bool $offered): void
     {
-        $row = ChannelCatalogueItem::withoutTenancy()
+        $rows = ChannelCatalogueItem::withoutTenancy()
             ->where('sales_channel_id', $channel->getKey())
-            ->where('catalogue_item_id', $item->getKey())
-            ->whereNull('catalogue_item_variant_id');
+            ->where('catalogue_item_id', $item->getKey());
 
         if (! $offered) {
-            $row->where('is_available', true)->update(['is_available' => false, 'updated_at' => now()]);
+            $rows->where('is_available', true)->update(['is_available' => false, 'updated_at' => now()]);
 
             return;
         }
 
-        if ($row->update(['is_available' => true, 'updated_at' => now()]) > 0) {
+        if ($rows->whereNull('catalogue_item_variant_id')->update(['is_available' => true, 'updated_at' => now()]) > 0) {
             return;
         }
 
