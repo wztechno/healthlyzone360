@@ -858,7 +858,7 @@ export function PacksPricesSection({
                 description={t('kitchen:packs.packsHint')}
                 actions={
                     canManage ? (
-                        <View className="z-auto w-64">
+                        <View className="z-auto w-64 min-w-0 shrink">
                             <Select
                                 testID={packsTargets.add}
                                 id={packsTargets.add}
@@ -1046,7 +1046,7 @@ export function PackCard({
                 </View>
 
                 <View className="z-auto flex-row flex-wrap items-start gap-base">
-                    <View className="w-40">
+                    <View className="w-40 max-w-full">
                         <QuantityInput
                             testID={`${testID}-fill`}
                             id={`${testID}-fill`}
@@ -1073,14 +1073,14 @@ export function PackCard({
                         />
                     </View>
 
-                    <View className="z-auto min-w-0 flex-1 flex-col gap-hair">
+                    <View className="z-auto min-w-0 shrink grow basis-56 flex-col gap-hair">
                         <Text variant="caption" tone="secondary">
                             {t('kitchen:packs.packaging')}
                         </Text>
                         <View className="z-auto flex-row flex-wrap items-center gap-tight">
                             {containerPart === undefined ? (
                                 canManage ? (
-                                    <View className="z-auto w-56">
+                                    <View className="z-auto w-56 max-w-full">
                                         <Select
                                             testID={`${testID}-choose-container`}
                                             id={`${testID}-choose-container`}
@@ -1144,7 +1144,7 @@ export function PackCard({
                                 </View>
                             ))}
                             {canManage ? (
-                                <View className="z-auto w-40">
+                                <View className="z-auto w-40 max-w-full">
                                     <Select
                                         testID={`${testID}-add-part`}
                                         id={`${testID}-add-part`}
@@ -1191,7 +1191,7 @@ export function PackCard({
                     </View>
 
                     {cost === undefined ? null : (
-                        <View className="w-56">
+                        <View className="w-56 max-w-full">
                             <CostCard
                                 testID={`${testID}-cost`}
                                 title={t('kitchen:packs.costTitle')}
@@ -1222,7 +1222,7 @@ export function PackCard({
                                     : undefined);
                             const currency = currencyOf(place);
                             return (
-                                <View key={place} className="w-56 flex-col gap-hair">
+                                <View key={place} className="w-56 max-w-full flex-col gap-hair">
                                     <QuantityInput
                                         testID={fieldId}
                                         id={fieldId}
