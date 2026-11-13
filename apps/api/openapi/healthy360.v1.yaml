@@ -6348,6 +6348,118 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /catalogue/items/{item}/packs:
+    get:
+      operationId: getCatalogueItemPacks
+      tags: [Sellable catalogue]
+      summary: Read an item's packs, their packaging, where it sells and what each pack costs to buy
+      description: |
+        Everything the Packs & prices tab states about a cooked item: the three
+        places it can sell (`home` — the web shop, `business` — the B2B channel,
+        `counter` — the order desk), and every active pack with what it holds,
+        the packaging items it is made of, and its price at Home shop and at
+        Business.
+
+        **A pack's price is its own row or it is inherited.** The price resolver
+        gives a pack with no row of its own the item's pack-less price on the
+        same list, so that is what is reported here, marked `inherited: true`.
+        The first write through `PUT` makes every price explicit and closes the
+        pack-less rows; from then on a pack with no price is not sold there.
+
+        **The counter has no price.** It charges the Home shop price for as long
+        as the desk channel and the web shop quote from the same first list;
+        `counter.follows_home` says whether they do. A place is `null` when the
+        kitchen has no such channel, or (for `home` and `business`) no active
+        price list on it. Requires `price_list.view_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/XClientRequestId'
+      responses:
+        '200':
+          description: The item's packs and places.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemPacksEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      operationId: setCatalogueItemPacks
+      tags: [Sellable catalogue]
+      summary: Replace an item's packs, their packaging, their prices and where it sells
+      description: |
+        The whole statement, in one transaction against one `lock_version`.
+
+        - **Packs.** A pack with an `id` is updated; one without is created,
+          coded and named after its container. An active pack left out is
+          archived. Components replace what the pack had.
+        - **Prices.** Each pack's `home` and `business` amounts are written as
+          that pack's own base price on the place's public tariff, through the
+          price list's history rules (unchanged writes nothing, a change
+          supersedes, `null` withdraws). Every open pack-less price of the item
+          on those two tariffs is closed in the same transaction.
+        - **Places.** Only the item-level offer of each of the three place
+          channels is touched: switched on, or switched off. Its dates, any
+          per-pack offer and every other channel's offers are left as they are.
+
+        Refused with `422`: a container that records no capacity; a component
+        that is not a packaging item; `counter: true` while
+        `counter.follows_home` is false; and, on a **published** item, a
+        statement that leaves a ticked place with no priced pack.
+
+        **`If-Match` carries the item's `lock_version`**. Requires
+        `catalogue.manage_organisation` and `price_list.manage_organisation`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogueItemPath'
+        - $ref: '#/components/parameters/XOrganisationIdRequired'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XClientRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetItemPacksRequest'
+      responses:
+        '200':
+          description: The item's packs and places as they now stand.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemPacksEnvelope'
+        '400':
+          $ref: '#/components/responses/RequestInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ContextOrPermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ResourceConflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /catalogue/items/{item}/channel-prices:
     get:
       operationId: getCatalogueItemChannelPrices
@@ -28853,6 +28965,26 @@ components:
           format: date-time
         allergens_review_evidence:
           type: ['string', 'null']
+        produced_by_recipe:
+          description: |
+            The recipe that makes this ingredient — the one whose published
+            version states it as an output, else whose live draft does — or
+            null for something bought in. On the list only (`GET
+            /catalogue/ingredients`), resolved for the whole page at once.
+            `is_published` false means the recipe's statement is not live yet,
+            so a line using the ingredient is still costed from its typed price.
+          type: [object, 'null']
+          required: [id, name_en, name_ar, is_published]
+          properties:
+            id:
+              $ref: '#/components/schemas/Uuid'
+            name_en:
+              type: string
+            name_ar:
+              type: string
+            is_published:
+              type: boolean
+          additionalProperties: false
         id:
           $ref: '#/components/schemas/Uuid'
         organisation_id:
@@ -31037,7 +31169,7 @@ components:
               no per-line answer to give.
             items:
               type: object
-              required: [line_number, ingredient_id, unit_cost_amount, line_cost_amount]
+              required: [line_number, ingredient_id, unit_cost_amount, line_cost_amount, cost_source, source_recipe]
               properties:
                 line_number:
                   type: integer
@@ -31049,6 +31181,32 @@ components:
                   type: ['string', 'null']
                 line_cost_amount:
                   type: ['string', 'null']
+                cost_source:
+                  type: ['string', 'null']
+                  enum: [weekly, latest_purchase, component_recipe, ingredient_fallback, quoted, null]
+                  description: |
+                    Where this line's cost came from, on a draft preview: what was
+                    paid (`weekly`, `latest_purchase`), the recipe that makes it
+                    (`component_recipe`), the typed purchase price
+                    (`ingredient_fallback` — a preparation whose recipe is not
+                    published yet lands here), or the cost the request stated
+                    (`quoted`). Null on an uncosted line, and on a saved technical
+                    sheet, whose frozen figures never recorded a source.
+                source_recipe:
+                  description: |
+                    The recipe a `component_recipe` cost came from, so the editor
+                    can label the line and send its Fix there. Null otherwise.
+                  type: [object, 'null']
+                  required: [id, name_en, name_ar]
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    name_en:
+                      type: string
+                    name_ar:
+                      type: string
+                  additionalProperties: false
               additionalProperties: false
         additionalProperties: false
 
@@ -31173,6 +31331,42 @@ components:
               cost_per_package_amount:
                 type: ['string', 'null']
             additionalProperties: false
+        packs:
+          type: array
+          description: |
+            What one sold pack costs: its contents at the production cost (with
+            production waste), plus each of its packaging items at that item's
+            own waste rate. One entry per pack the request stated, in request
+            order; always empty on a saved technical sheet, which knows nothing
+            of packs.
+
+            A cost is complete or it is withheld. `contents_amount` is stated
+            whenever the production half is complete; `packaging_amount` and
+            `cost_amount` are null, with the reason, when the pack has no
+            container yet or one of its items has no price.
+          items:
+            type: object
+            required: [key, contents_amount, packaging_amount, cost_amount, withheld_reason]
+            properties:
+              key:
+                type: string
+              contents_amount:
+                type: ['string', 'null']
+              packaging_amount:
+                type: ['string', 'null']
+              cost_amount:
+                type: ['string', 'null']
+              withheld_reason:
+                type: ['string', 'null']
+                enum:
+                  - production_incomplete
+                  - no_yield
+                  - no_piece_count
+                  - unit_unsupported
+                  - packaging_unknown
+                  - packaging_unpriced
+                  - null
+            additionalProperties: false
       additionalProperties: false
 
 
@@ -31212,6 +31406,17 @@ components:
           minimum: 0
           maximum: 3650
           description: Days a batch keeps; see `AdminRecipe.shelf_life_days`.
+        produces_ingredient:
+          type: boolean
+          default: false
+          description: |
+            Create the recipe as a preparation — made to be used inside other
+            recipes — with its own ingredient twin: kilograms, the recipe's
+            names and handle, filed under the `preparation` ingredient category.
+            Once a draft's yield is saved the server states it as that twin's
+            output, so a line naming the twin is costed from this recipe once it
+            is published. A sold recipe's twin is its sauce or dressing listing's,
+            so leave this off for one.
       additionalProperties: false
 
     UpdateRecipeRequest:
@@ -32658,6 +32863,223 @@ components:
           type: ['integer', 'null']
           minimum: 1
           description: Whole minor units of `currency_code`, or null when the pack is not priced.
+      additionalProperties: false
+    ItemPackPlace:
+      type: object
+      description: A place that carries a price — the web shop (`home`) or the B2B channel (`business`).
+      required: [sales_channel_id, price_list_id, currency_code, offered]
+      properties:
+        sales_channel_id:
+          $ref: '#/components/schemas/Uuid'
+        price_list_id:
+          $ref: '#/components/schemas/Uuid'
+          description: The list the channel quotes to a buyer with no agreement.
+        currency_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+        offered:
+          type: boolean
+          description: Whether the item is offered there today, by its item-level offer.
+      additionalProperties: false
+    ItemPackCounter:
+      type: object
+      description: The order desk. It carries no price of its own.
+      required: [sales_channel_id, offered, follows_home, price_list_name]
+      properties:
+        sales_channel_id:
+          $ref: '#/components/schemas/Uuid'
+        offered:
+          type: boolean
+        follows_home:
+          type: boolean
+          description: |
+            True while the desk quotes from the same first list as the web shop,
+            so a Home shop price is the counter's price. When false the counter
+            cannot be switched on from here.
+        price_list_name:
+          type: ['string', 'null']
+          description: The list the desk quotes from, named so the editor can say which; null when it has none.
+      additionalProperties: false
+    ItemPackPrice:
+      type: object
+      required: [amount_minor, inherited]
+      properties:
+        amount_minor:
+          type: integer
+          minimum: 1
+        inherited:
+          type: boolean
+          description: True when the amount is the item's pack-less price and the pack has no row of its own.
+      additionalProperties: false
+    ItemPackComponent:
+      type: object
+      required: [ingredient_id, quantity, is_container]
+      properties:
+        ingredient_id:
+          $ref: '#/components/schemas/Uuid'
+          description: A packaging item.
+        quantity:
+          type: string
+          description: How many of the item one pack uses, as a decimal string.
+        is_container:
+          type: boolean
+          description: The one component the pack is filled into. At most one per pack.
+      additionalProperties: false
+    ItemPack:
+      type: object
+      required: [id, code, name_en, name_ar, is_default, fill, components, prices]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+          description: The pack's `catalogue_item_variant_id`.
+        code:
+          type: string
+        name_en:
+          type: ['string', 'null']
+        name_ar:
+          type: ['string', 'null']
+        is_default:
+          type: boolean
+        fill:
+          type: object
+          description: What one pack holds, in the unit it is counted in.
+          required: [quantity, unit]
+          properties:
+            quantity:
+              type: string
+            unit:
+              type: string
+              description: A measurement unit code — `kg`, `g`, `l`, `ml` or `piece`.
+          additionalProperties: false
+        components:
+          type: array
+          description: The packaging the pack is made of. Empty for a pack nobody has given a container yet.
+          items:
+            $ref: '#/components/schemas/ItemPackComponent'
+        prices:
+          type: object
+          required: [home, business]
+          properties:
+            home:
+              oneOf:
+                - $ref: '#/components/schemas/ItemPackPrice'
+                - type: 'null'
+            business:
+              oneOf:
+                - $ref: '#/components/schemas/ItemPackPrice'
+                - type: 'null'
+          additionalProperties: false
+      additionalProperties: false
+    ItemPacksEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [item_id, lock_version, places, packs]
+          properties:
+            item_id:
+              $ref: '#/components/schemas/Uuid'
+            lock_version:
+              type: integer
+              minimum: 0
+            places:
+              type: object
+              required: [home, business, counter]
+              properties:
+                home:
+                  oneOf:
+                    - $ref: '#/components/schemas/ItemPackPlace'
+                    - type: 'null'
+                business:
+                  oneOf:
+                    - $ref: '#/components/schemas/ItemPackPlace'
+                    - type: 'null'
+                counter:
+                  oneOf:
+                    - $ref: '#/components/schemas/ItemPackCounter'
+                    - type: 'null'
+              additionalProperties: false
+            packs:
+              type: array
+              description: Every active pack, default first.
+              items:
+                $ref: '#/components/schemas/ItemPack'
+          additionalProperties: false
+        meta:
+          $ref: '#/components/schemas/Meta'
+    SetItemPack:
+      type: object
+      required: [fill, components, prices]
+      properties:
+        id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: An existing pack of this item, or absent/null to create one.
+        fill:
+          type: object
+          required: [quantity, unit]
+          properties:
+            quantity:
+              type: number
+              exclusiveMinimum: 0
+              maximum: 99999999.9999
+            unit:
+              type: string
+              maxLength: 20
+              description: A measurement unit code — `kg`, `g`, `l`, `ml` or `piece`.
+          additionalProperties: false
+        components:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            required: [ingredient_id, quantity, is_container]
+            properties:
+              ingredient_id:
+                $ref: '#/components/schemas/Uuid'
+              quantity:
+                type: number
+                exclusiveMinimum: 0
+                maximum: 99999999.9999
+              is_container:
+                type: boolean
+            additionalProperties: false
+        prices:
+          type: object
+          required: [home, business]
+          properties:
+            home:
+              type: ['integer', 'null']
+              minimum: 1
+            business:
+              type: ['integer', 'null']
+              minimum: 1
+          additionalProperties: false
+      additionalProperties: false
+    SetItemPacksRequest:
+      type: object
+      required: [places, packs]
+      properties:
+        places:
+          type: object
+          required: [home, business, counter]
+          properties:
+            home:
+              type: boolean
+            business:
+              type: boolean
+            counter:
+              type: boolean
+          additionalProperties: false
+        packs:
+          type: array
+          maxItems: 50
+          description: The complete set. An active pack left out is archived.
+          items:
+            $ref: '#/components/schemas/SetItemPack'
       additionalProperties: false
     ItemChannelPricesEnvelope:
       type: object
@@ -43564,7 +43986,11 @@ components:
 
     DishMargin:
       type: object
-      required: [id, catalogue_item_id, name_en, name_ar, item_type, channel, price_amount, cost_amount, currency_code, margin_percent, withheld_reason, is_below_target]
+      description: >-
+        What one pack of one dish earns on one place. One row per pack per place it is
+        priced on; a dish with no pack, no published recipe or no price keeps one row with
+        `pack` null and the reason.
+      required: [id, catalogue_item_id, name_en, name_ar, item_type, place, pack, price_amount, contents_amount, cost_amount, currency_code, margin_percent, withheld_reason, is_below_target]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -43578,22 +44004,54 @@ components:
           type: string
           enum: [meal, sauce, dressing, frozen_meal]
           description: The recipe kind the dish is sold as. Products and plans are never priced here.
-        channel:
+        place:
           type: string
-          enum: [b2c, b2b]
+          enum: [home, business]
+          description: The Home shop or Business. The counter charges the Home shop price and has no rows.
+        pack:
+          oneOf:
+            - $ref: '#/components/schemas/DishMarginPack'
+            - type: 'null'
         price_amount:
           type: [string, 'null']
+          description: The pack's price on the place's public tariff, its own or inherited from the item, in major units.
+        contents_amount:
+          type: [string, 'null']
+          description: What the pack's fill costs. Stated even while the packaging is unknown.
         cost_amount:
           type: [string, 'null']
+          description: Contents plus packaging, per pack.
         currency_code:
           type: [string, 'null']
         margin_percent:
           type: [string, 'null']
         withheld_reason:
           type: [string, 'null']
-          enum: [no_recipe, no_price, cost_incomplete, currency_mismatch, null]
+          enum: [no_recipe, no_pack, no_price, packaging_unknown, cost_incomplete, currency_mismatch, null]
         is_below_target:
           type: boolean
+
+    DishMarginPack:
+      type: object
+      required: [catalogue_item_variant_id, label, fill]
+      properties:
+        catalogue_item_variant_id:
+          $ref: '#/components/schemas/Uuid'
+        label:
+          type: [string, 'null']
+          description: The pack's name as of the last run, else its code.
+        fill:
+          description: How much one pack holds; null when the pack records no size.
+          oneOf:
+            - type: object
+              required: [quantity, unit]
+              properties:
+                quantity:
+                  type: string
+                unit:
+                  type: string
+                  description: A measurement unit code.
+            - type: 'null'
 
     DishMarginsEnvelope:
       type: object
@@ -46957,6 +47415,49 @@ components:
           items:
             $ref: '#/components/schemas/PreviewRecipeRollupPackagingLine'
           description: What the batch ships in. Costed into `computed_cost`; never part of the nutrition or allergen figures.
+        packs:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/PreviewRecipeRollupPack'
+          description: |
+            The packs the recipe is sold in, as the editor holds them. Each is
+            costed into `computed_cost.packs` under its own `key`; nothing about
+            them is read from the catalogue.
+      additionalProperties: false
+
+    PreviewRecipeRollupPack:
+      type: object
+      required: [key, fill_quantity, fill_unit, components]
+      properties:
+        key:
+          type: string
+          maxLength: 80
+          description: The caller's own handle for the pack, echoed back. A saved pack's id, or a draft row's key.
+        fill_quantity:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 99999999.9999
+        fill_unit:
+          type: string
+          maxLength: 20
+          description: A measurement unit code — `kg`, `g`, `l`, `ml` or `piece`. A volume is read as the same weight, 1 L = 1 kg.
+        components:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            required: [ingredient_id, quantity, is_container]
+            properties:
+              ingredient_id:
+                $ref: '#/components/schemas/Uuid'
+              quantity:
+                type: number
+                exclusiveMinimum: 0
+                maximum: 99999999.9999
+              is_container:
+                type: boolean
+            additionalProperties: false
       additionalProperties: false
 
     PreviewRecipeRollupPackagingLine:

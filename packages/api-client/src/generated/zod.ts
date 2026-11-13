@@ -491,6 +491,12 @@ export const zAdminIngredient = z.object({
     allergens_reviewed_by: z.string().nullish(),
     allergens_reviewed_at: z.iso.datetime({ offset: true }).nullish(),
     allergens_review_evidence: z.string().nullish(),
+    produced_by_recipe: z.object({
+        id: zUuid,
+        name_en: z.string(),
+        name_ar: z.string(),
+        is_published: z.boolean()
+    }).nullish(),
     id: zUuid,
     organisation_id: zUuid.nullable(),
     is_platform: z.boolean(),
@@ -1025,7 +1031,19 @@ export const zComputedCostProduction = z.object({
         line_number: z.int().gte(1),
         ingredient_id: z.uuid(),
         unit_cost_amount: z.string().nullable(),
-        line_cost_amount: z.string().nullable()
+        line_cost_amount: z.string().nullable(),
+        cost_source: z.enum([
+            'weekly',
+            'latest_purchase',
+            'component_recipe',
+            'ingredient_fallback',
+            'quoted'
+        ]).nullable(),
+        source_recipe: z.object({
+            id: z.uuid(),
+            name_en: z.string(),
+            name_ar: z.string()
+        }).nullable()
     })).optional()
 });
 
@@ -1101,7 +1119,21 @@ export const zComputedCost = z.object({
         line_number: z.int().gte(1),
         ingredient_id: z.uuid(),
         cost_per_package_amount: z.string().nullable()
-    }))
+    })),
+    packs: z.array(z.object({
+        key: z.string(),
+        contents_amount: z.string().nullable(),
+        packaging_amount: z.string().nullable(),
+        cost_amount: z.string().nullable(),
+        withheld_reason: z.enum([
+            'production_incomplete',
+            'no_yield',
+            'no_piece_count',
+            'unit_unsupported',
+            'packaging_unknown',
+            'packaging_unpriced'
+        ]).nullable()
+    })).optional()
 });
 
 export const zCreateRecipeRequest = z.object({
@@ -1113,7 +1145,8 @@ export const zCreateRecipeRequest = z.object({
     source_kind: z.string().max(40).nullish(),
     confidentiality: zRecipeConfidentiality.optional(),
     notes: z.string().max(2000).nullish(),
-    shelf_life_days: z.int().gte(0).lte(3650).nullish()
+    shelf_life_days: z.int().gte(0).lte(3650).nullish(),
+    produces_ingredient: z.boolean().optional().default(false)
 });
 
 /**
@@ -1802,6 +1835,94 @@ export const zUpdateCatalogueItemRequest = z.object({
  */
 export const zRetireCatalogueItemRequest = z.object({
     reason: z.string().max(200).nullish()
+});
+
+/**
+ * A place that carries a price — the web shop (`home`) or the B2B channel (`business`).
+ */
+export const zItemPackPlace = z.object({
+    sales_channel_id: zUuid,
+    price_list_id: zUuid,
+    currency_code: z.string().length(3),
+    offered: z.boolean()
+});
+
+/**
+ * The order desk. It carries no price of its own.
+ */
+export const zItemPackCounter = z.object({
+    sales_channel_id: zUuid,
+    offered: z.boolean(),
+    follows_home: z.boolean(),
+    price_list_name: z.string().nullable()
+});
+
+export const zItemPackPrice = z.object({
+    amount_minor: z.int().gte(1),
+    inherited: z.boolean()
+});
+
+export const zItemPackComponent = z.object({
+    ingredient_id: zUuid,
+    quantity: z.string(),
+    is_container: z.boolean()
+});
+
+export const zItemPack = z.object({
+    id: zUuid,
+    code: z.string(),
+    name_en: z.string().nullable(),
+    name_ar: z.string().nullable(),
+    is_default: z.boolean(),
+    fill: z.object({
+        quantity: z.string(),
+        unit: z.string()
+    }),
+    components: z.array(zItemPackComponent),
+    prices: z.object({
+        home: zItemPackPrice.nullable(),
+        business: zItemPackPrice.nullable()
+    })
+});
+
+export const zItemPacksEnvelope = z.object({
+    data: z.object({
+        item_id: zUuid,
+        lock_version: z.int().gte(0),
+        places: z.object({
+            home: zItemPackPlace.nullable(),
+            business: zItemPackPlace.nullable(),
+            counter: zItemPackCounter.nullable()
+        }),
+        packs: z.array(zItemPack)
+    }),
+    meta: zMeta
+});
+
+export const zSetItemPack = z.object({
+    id: zUuid.nullish(),
+    fill: z.object({
+        quantity: z.number().gt(0).lte(99999999.9999),
+        unit: z.string().max(20)
+    }),
+    components: z.array(z.object({
+        ingredient_id: zUuid,
+        quantity: z.number().gt(0).lte(99999999.9999),
+        is_container: z.boolean()
+    })).max(20),
+    prices: z.object({
+        home: z.int().gte(1).nullable(),
+        business: z.int().gte(1).nullable()
+    })
+});
+
+export const zSetItemPacksRequest = z.object({
+    places: z.object({
+        home: z.boolean(),
+        business: z.boolean(),
+        counter: z.boolean()
+    }),
+    packs: z.array(zSetItemPack).max(50)
 });
 
 export const zSetItemChannelOffer = z.object({
@@ -6793,6 +6914,18 @@ export const zCourierCashRun = zCashRun.and(z.object({
     reference: z.string().nullable()
 }));
 
+export const zDishMarginPack = z.object({
+    catalogue_item_variant_id: zUuid,
+    label: z.string().nullable(),
+    fill: z.object({
+        quantity: z.string(),
+        unit: z.string()
+    }).nullable()
+});
+
+/**
+ * What one pack of one dish earns on one place. One row per pack per place it is priced on; a dish with no pack, no published recipe or no price keeps one row with `pack` null and the reason.
+ */
 export const zDishMargin = z.object({
     id: zUuid,
     catalogue_item_id: zUuid,
@@ -6804,14 +6937,18 @@ export const zDishMargin = z.object({
         'dressing',
         'frozen_meal'
     ]),
-    channel: z.enum(['b2c', 'b2b']),
+    place: z.enum(['home', 'business']),
+    pack: zDishMarginPack.nullable(),
     price_amount: z.string().nullable(),
+    contents_amount: z.string().nullable(),
     cost_amount: z.string().nullable(),
     currency_code: z.string().nullable(),
     margin_percent: z.string().nullable(),
     withheld_reason: z.enum([
         'no_recipe',
+        'no_pack',
         'no_price',
+        'packaging_unknown',
         'cost_incomplete',
         'currency_mismatch'
     ]).nullable(),
@@ -8466,6 +8603,17 @@ export const zPreviewRecipeRollupLine = z.object({
     cost_currency_code: z.string().length(3).nullish()
 });
 
+export const zPreviewRecipeRollupPack = z.object({
+    key: z.string().max(80),
+    fill_quantity: z.number().gt(0).lte(99999999.9999),
+    fill_unit: z.string().max(20),
+    components: z.array(z.object({
+        ingredient_id: zUuid,
+        quantity: z.number().gt(0).lte(99999999.9999),
+        is_container: z.boolean()
+    })).max(20)
+});
+
 export const zPreviewRecipeRollupPackagingLine = z.object({
     ingredient_id: zUuid,
     basis: zPackagingBasis,
@@ -8481,7 +8629,8 @@ export const zPreviewRecipeRollupRequest = z.object({
     yield_unit_id: zUuid.nullish(),
     yield_piece_count: z.int().gte(1).lte(100000).nullish(),
     packaging_waste_percent: z.number().gte(0).lte(100).nullish(),
-    packaging: z.array(zPreviewRecipeRollupPackagingLine).max(50).optional()
+    packaging: z.array(zPreviewRecipeRollupPackagingLine).max(50).optional(),
+    packs: z.array(zPreviewRecipeRollupPack).max(50).optional()
 });
 
 export const zCatalogueItemAvailabilityDay = z.object({
@@ -13376,6 +13525,43 @@ export const zReplaceCatalogueItemVariantsResponse = z.object({
     }),
     meta: zMeta
 });
+
+export const zGetCatalogueItemPacksHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetCatalogueItemPacksPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The item's packs and places.
+ */
+export const zGetCatalogueItemPacksResponse = zItemPacksEnvelope;
+
+export const zSetCatalogueItemPacksBody = zSetItemPacksRequest;
+
+export const zSetCatalogueItemPacksHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSetCatalogueItemPacksPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The item's packs and places as they now stand.
+ */
+export const zSetCatalogueItemPacksResponse = zItemPacksEnvelope;
 
 export const zGetCatalogueItemChannelPricesHeaders = z.object({
     'X-Organisation-Id': zUuid,

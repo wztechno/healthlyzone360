@@ -10,6 +10,7 @@ use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Tests\Fixtures\CatalogueWorld;
 use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
+use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\Recipes\Enums\AllergenDerivation;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\Recipe;
@@ -100,8 +101,9 @@ it('refuses to publish a meal with no allergen basis at all', function (): void 
         ->assertStatus(409)
         ->json('error.details.reasons');
 
-    // No recipe either, so a sale would take nothing off a shelf (HA-45).
-    expect(collect($reasons)->pluck('reason')->all())->toBe(['no_allergen_basis', 'stock_no_recipe']);
+    // No recipe either, so a sale would take nothing off a shelf (HA-45); and no
+    // pack or place, so there is nothing to buy (S3).
+    expect(collect($reasons)->pluck('reason')->all())->toBe(['no_pack', 'no_selling_place', 'no_allergen_basis', 'stock_no_recipe']);
 });
 
 it('accepts an ingredient list as a meals allergen basis', function (): void {
@@ -121,12 +123,13 @@ it('accepts an ingredient list as a meals allergen basis', function (): void {
     ], $headers + ['If-Match' => '"0"'])->assertOk();
 
     // The list answers "what is in this", so the allergen gate is satisfied. What still blocks
-    // the publication is stock (HA-45): with no recipe, a sale would take nothing off a shelf.
+    // the publication is stock (HA-45): with no recipe, a sale would take nothing off a shelf —
+    // and selling (S3): nothing has a pack or a place yet.
     $reasons = $this->getJson('/api/v1/catalogue/items/'.$item->getKey().'/readiness', $headers)
         ->assertOk()
         ->json('data.reasons');
 
-    expect(collect($reasons)->pluck('code')->all())->toBe(['stock_no_recipe']);
+    expect(collect($reasons)->pluck('code')->all())->toBe(['no_pack', 'no_selling_place', 'stock_no_recipe']);
 
     $this->getJson('/api/v1/catalogue/items/'.$item->getKey().'/allergens', $headers)
         ->assertOk()
@@ -488,6 +491,9 @@ it('refuses to publish a finished-stock meal until a published recipe fills its 
         'net_content_unit_id' => CatalogueWorld::unit('kg'),
         'recipe_id' => $recipe->getKey(),
     ]);
+
+    // Buyable (S3), so the selling rule has nothing to add.
+    PricingWorld::sellable($this->a, $item);
 
     // The allergen basis the meal gate needs, so the only refusal left is the
     // one under test. A different recipe from the one producing the shelf,

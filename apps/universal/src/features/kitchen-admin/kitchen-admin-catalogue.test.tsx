@@ -1918,7 +1918,12 @@ describe('editing a meal', () => {
         await untilVisible('kitchen-meal-availability-editor-row-seed-0-2026-09-01');
     });
 
-    it('renders the confidential margin here, labelled, and never a fabricated zero', async () => {
+    it('leaves prices and margins to the recipe’s Packs & prices tab', async () => {
+        /*
+         * The margin rail and the B2B/B2C block used to sit on this listing. A margin is per pack
+         * and per place now, read off the recipe's Packs & prices tab and its Costing table, so the
+         * listing draws neither — and never a single item-wide figure that could disagree with them.
+         */
         const stored = meal({ ordinal: 1, name: 'Freekeh bowl' });
 
         await renderStubScreen(<MealListing meal={stored.id} />, {
@@ -1930,39 +1935,12 @@ describe('editing a meal', () => {
                 },
             },
         });
-        await untilVisible('kitchen-meal-confidential');
+        await untilVisible('kitchen-meal-summary');
 
-        // Labelled, because an unlabelled purchase-derived figure is one copy-paste from a
-        // customer. `CostAmount` and everything computed from it live on this contract and on no
-        // other, which is what makes a leak a compile error rather than a review finding.
-        expect(screen.getByTestId('kitchen-meal-confidential-badge')).toBeTruthy();
-        // The authored margin, stated exactly — not rounded away and not invented.
-        expect(screen.getByTestId('kitchen-meal-margin')).toHaveTextContent(/42/);
-        expect(screen.queryByTestId('kitchen-meal-margin-unknown')).toBeNull();
-    });
-
-    it('refuses to state a margin it cannot compute, rather than showing nought per cent', async () => {
-        // `null` is the contract's answer when either side of the sum is missing: a margin over a
-        // placeholder price is a fiction (plan §2.4), and a zero would be one with a number on it.
-        const stored = meal({
-            ordinal: 2,
-            name: 'Market-priced bowl',
-            overrides: { marginPercent: null },
-        });
-
-        await renderStubScreen(<MealListing meal={stored.id} />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                kitchenAdmin: {
-                    getMeal: async () => stored,
-                    listRecipes: async () => page(NO_RECIPES),
-                },
-            },
-        });
-
-        await untilVisible('kitchen-meal-margin-unknown');
-        expect(screen.getByTestId('kitchen-meal-confidential-badge')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-meal-confidential')).toBeNull();
         expect(screen.queryByTestId('kitchen-meal-margin')).toBeNull();
+        expect(screen.queryByTestId('kitchen-meal-margin-unknown')).toBeNull();
+        expect(screen.queryByTestId('kitchen-channel-prices')).toBeNull();
     });
 });
 

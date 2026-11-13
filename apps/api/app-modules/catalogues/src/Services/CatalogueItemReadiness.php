@@ -15,6 +15,7 @@ use Healthy360\Catalogues\Models\CatalogueItemIngredient;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\PlanVariantDuration;
 use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
+use Healthy360\Recipes\Contracts\RecipeUsageRegistry;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionOutput;
@@ -43,7 +44,9 @@ use Healthy360\ReferenceData\Models\DietClassification;
  *   an untranslated listing reaching an Arabic-speaking customer as English is
  *   the failure §4.18 exists to prevent.
  * - **Something to buy.** A product with no active variant is a name with no
- *   pack behind it, and a price has nothing to attach to.
+ *   pack behind it, and a price has nothing to attach to. A meal, sauce,
+ *   dressing or frozen meal answers {@see SellingReadiness} instead: a pack, a
+ *   place it is offered on, and a price on every such place (S3).
  * - **An allergen basis.** A meal must either link a recipe with a published
  *   version, or list its own ingredients. Silence is not a statement of
  *   absence.
@@ -77,6 +80,7 @@ final readonly class CatalogueItemReadiness
         private ConfirmedPriceRegistry $prices,
         private StockDeductionReadiness $stock,
         private CatalogueItemService $items,
+        private SellingReadiness $selling,
     ) {}
 
     /**
@@ -86,9 +90,13 @@ final readonly class CatalogueItemReadiness
      * the reason the whole apparatus exists: a plan missing its profile *and*
      * its prices should learn both facts in one attempt rather than two.
      *
+     * `$applySellingRule` is off only for a seeder or a repair command that
+     * publishes past a price it writes later, or never: the rule is the
+     * owner's (S3), and every HTTP surface asks with it on.
+     *
      * @return list<array{code: string, detail: string, context: array<string, mixed>}>
      */
-    public function reasons(CatalogueItem $item): array
+    public function reasons(CatalogueItem $item, bool $applySellingRule = true): array
     {
         $reasons = [];
 
@@ -125,9 +133,15 @@ final readonly class CatalogueItemReadiness
             ];
         }
 
+        // A cooked kind's packs are its only variants, so its `no_pack` is the
+        // fact `no_active_variant` states, with a fix attached: with the selling
+        // rule on it speaks for the four, and `no_active_variant` is reported
+        // only where it would be alone — a product, or a run with the rule off.
         $packKinds = [CatalogueItemType::Product, CatalogueItemType::Sauce, CatalogueItemType::Dressing];
 
-        if (in_array($item->item_type, $packKinds, true) && ! $this->hasActiveVariant($item)) {
+        if ($applySellingRule && in_array($item->item_type->value, RecipeUsageRegistry::KINDS, true)) {
+            $reasons = [...$reasons, ...$this->selling->reasons($item)];
+        } elseif (in_array($item->item_type, $packKinds, true) && ! $this->hasActiveVariant($item)) {
             $reasons[] = [
                 'code' => 'no_active_variant',
                 'detail' => 'A product with no active pack is a name with nothing behind it, and a price has nothing to attach to.',

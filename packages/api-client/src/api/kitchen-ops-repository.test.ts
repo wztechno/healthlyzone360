@@ -177,8 +177,15 @@ describe('getDishMargins', () => {
                                     name_en: 'Tahini sauce',
                                     name_ar: null,
                                     item_type: 'sauce',
-                                    channel: 'b2b',
+                                    place: 'business',
+                                    pack: {
+                                        catalogue_item_variant_id:
+                                            '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e9003',
+                                        label: 'Bottle 0.5 L',
+                                        fill: { quantity: '0.460', unit: 'kg' },
+                                    },
                                     price_amount: '10.000000',
+                                    contents_amount: '7.000000',
                                     cost_amount: '8.000000',
                                     currency_code: 'USD',
                                     margin_percent: '20.00',
@@ -199,7 +206,13 @@ describe('getDishMargins', () => {
             catalogueItemId: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e9001',
             name: { en: 'Tahini sauce', ar: '' },
             itemType: 'sauce',
-            channel: 'b2b',
+            place: 'business',
+            pack: {
+                variantId: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e9003',
+                label: 'Bottle 0.5 L',
+                fill: { quantity: '0.460', unit: 'kg' },
+            },
+            contentsAmount: '7.000000',
         });
     });
 });

@@ -1,5 +1,5 @@
 import type { ApiFailure } from '@healthy360/api-client';
-import { PACKAGING_CATEGORY_CODE, isValidationFailure } from '@healthy360/api-client/contracts';
+import { isValidationFailure } from '@healthy360/api-client/contracts';
 import type {
     AllergenContainment,
     CostAmount,
@@ -8,7 +8,6 @@ import type {
     RecipeAdmin,
     RecipeComputedCost,
     RecipeLineInput,
-    RecipePackagingLineInput,
     RecipeRollupDraft,
     RecipeVersionAdmin,
     RecipeVersionSummary,
@@ -18,7 +17,6 @@ import {
     Badge,
     Button,
     Callout,
-    Card,
     Cascade,
     CascadeItem,
     Checkbox,
@@ -42,7 +40,6 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type {
-    CardTone,
     FormIssueItem,
     IssueCardItem,
     IssueGroup,
@@ -93,7 +90,6 @@ import {
     useRetireRecipeMutation,
     useSaveRecordPhotoMutation,
     useSetRecipeLinesMutation,
-    useSetRecipePackagingMutation,
     useUpdateRecipeMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { BilingualField } from '../bilingual-field.tsx';
@@ -125,12 +121,19 @@ import type { IngredientNeed } from '../ingredient-fix.ts';
 import { useFinishDetour } from '../finish-detour.ts';
 import { useBeforeDiscard, useSaveBar } from '../save-bar.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
+import { CostCard } from '../cost-card.tsx';
+import {
+    PackCostTable,
+    PacksHostContext,
+    packsIssueLabel,
+    packsIssuesFromRefusal,
+} from '../packs-prices-section.tsx';
+import type { PacksHost, PacksIssue, PacksTab } from '../packs-prices-section.tsx';
 import {
     RecipeLineTable,
     ingredientEntry,
     isSendableLine,
     lineCellId,
-    packagingEntry,
 } from '../recipe-line-table.tsx';
 import type { LineColumn, PickerEntry } from '../recipe-line-table.tsx';
 import type { LineDraft } from '../recipe-line-table.tsx';
@@ -152,14 +155,14 @@ import { DeskButton } from '../desk-kit/desk-button.tsx';
  * A sauce is cooked and owns a recipe of its own — the import writes one per SC-/DR- row — so the
  * questions asked of one are these questions, and `RecipeBookEditScreen` hands the recipe here with
  * whatever sells it on a tab. The same tabs, because it is the same component rather than a copy of
- * it — a sauce's bottles are packaging lines exactly as a meal's box is.
+ * it — a sauce's bottles are packs exactly as a meal's box is.
  *
  * ```
  * Kitchen workspace › Recipes › Thousand Islands   <- the shell's trail
  * Thousand Islands  DRAFT  RC-0104  RESTRICTED      [ Cancel ] [ Save draft ] [ Publish ]
- * ┌─────────────────────────────────────────────────────────────────────────────┐
- * │(1) Description │(2) Production 9 │(3) Packaging 3 ① │(4) Costing │(5) Sheet │
- * └─────────────────────────────────────────────────────────────────────────────┘
+ * ┌──────────────────────────────────────────────────────────────────────────────────────┐
+ * │(1) Description │(2) Production 9 │(3) Packs & prices 2 ① │(4) Costing │ … │(6) Sheet │
+ * └──────────────────────────────────────────────────────────────────────────────────────┘
  * ⊗ That save was refused.                          <- one line, only when a save fails
  * ```
  *
@@ -196,20 +199,22 @@ import { DeskButton } from '../desk-kit/desk-button.tsx';
  *
  * ## One Save for every tab
  *
- * Save draft writes everything unsaved on the page — Description, Production and Packaging, and
- * the Selling tab's listing too, which hands its save over (`host-save.ts`) — and then says once
- * that all of it saved; the header keeps saying so until the next edit. A listing that refuses
- * opens the Selling tab on its problem, and the toast says the recipe itself did save.
+ * Save draft writes everything unsaved on the page — Description and Production, then the Selling
+ * tab's listing and then Packs & prices, which both hand their saves over (`host-save.ts`) — and
+ * then says once that all of it saved; the header keeps saying so until the next edit. A listing or
+ * a packs write that refuses opens its tab on the problem, and the next Save writes only what is
+ * still unsaved.
  *
- * The yield moved from Description to Production, where it sits with the production waste as
- * "Yield & waste" above the lines it divides; the packaging waste sits above the packaging lines
- * the same way. Each coefficient is on the tab whose table it applies to.
+ * The yield moved from Description to Production, where it sits with the production waste and the
+ * shelf life as "Yield & waste" above the lines it divides.
  *
- * Five tabs, in the design's order. The two-pane layout this replaced put the formulation on the
+ * The tabs follow the design's order. The two-pane layout this replaced put the formulation on the
  * left and the derived label on the right; the design splits the same material along a different
- * seam — by *what you came to do* rather than by cause and effect — and the seam is better on a
- * sheet with nine lines, three packaging rows and a cost cascade, because none of those three fit
- * beside each other and all of them fit alone.
+ * seam — by *what you came to do* rather than by cause and effect.
+ *
+ * **Packs & prices** (key `packaging`, drawn only for a sold recipe) replaced the per-batch
+ * Packaging table, the packaging waste and the "Expiry & waste" card. The stored packaging lines
+ * are left exactly as they are: nothing here calls `setRecipePackaging` any more.
  *
  * What the right-hand roll-up pane used to say lives on **Technical sheet** now: the derived
  * nutrients, the inherited allergen classes and the print view, in one place instead of two.
@@ -223,21 +228,15 @@ import { DeskButton } from '../desk-kit/desk-button.tsx';
  *
  * ## The expiry period is the recipe's, and it saves on a published recipe too
  *
- * `shelfLifeDays` on Packaging is how many days a batch keeps; completing a batch adds it to the
- * production date to give the batch its use-by date. It is on Packaging rather than Description
- * because how long a batch keeps is a property of what it is packed in as much as of the
- * formulation. It is not required — a recipe without one leaves the cook to enter the date — so it
- * carries no required mark although the design's shelf life does.
+ * `shelfLifeDays`, on Production's "Yield & waste", is how many days a batch keeps; completing a
+ * batch adds it to the production date to give the batch its use-by date. It is not required — a
+ * recipe without one leaves the cook to enter the date — so it carries no required mark although
+ * the design's shelf life does.
  *
  * It is stored on the **recipe**, not the version: correcting how long food keeps must not put the
  * formulation back through review. So it is the one field that stays editable while the current
  * version is published, and a save there sends it alone — the version half of `updateRecipe` would
  * be refused with `catalogue.version_immutable`.
- *
- * **Everything on Packaging and Costing persists.** `setRecipePackaging` is a real endpoint
- * (`PUT …/versions/{version}/packaging`) and the save below calls it on create and on update alike;
- * the packaging waste rate is a version field, so it lives in `DetailsDraft` with everything else
- * `updateRecipe` writes.
  *
  * ## No prices on Costing
  *
@@ -245,9 +244,8 @@ import { DeskButton } from '../desk-kit/desk-button.tsx';
  * were a copy of the catalogue's prices that `kitchen:price-recipes-from-catalogue` wrote back onto
  * the version, so the kitchen kept the same price in two places and only the Selling tab's was ever
  * charged. The card is gone at the kitchen's request; the version columns are left as they are, and
- * a save no longer sends them, so nothing already stored is cleared. The waste rate used to be session-only, defaulting to
- * `5` while the column defaulted to `0.00` — so this screen priced packaging about five per cent
- * above the saved technical sheet for the same lines. It reads the stored rate now.
+ * a save no longer sends them, so nothing already stored is cleared. A price is per pack and per
+ * place now, on Packs & prices, and Costing's "Each pack" table reads its margin off them.
  *
  * ## There is no Method section
  *
@@ -325,8 +323,6 @@ interface DetailsDraft {
     readonly yieldUnit: MeasureUnit;
     readonly yieldPieces: string;
     readonly wastePercent: string;
-    /** Packaging loss, a separate rate from `wastePercent`. Edited on the Packaging tab. */
-    readonly packagingWastePercent: string;
     /**
      * The kitchen's own filing word for this formulation — `cooking_sauce`, `marinade_prep`.
      *
@@ -352,9 +348,6 @@ const EMPTY_DETAILS: DetailsDraft = {
     yieldUnit: 'kg',
     yieldPieces: '',
     wastePercent: '0',
-    // The column's own default. The editor used to start at `5`, but that figure was never saved, so
-    // `0` is what every version written so far actually carries.
-    packagingWastePercent: '0',
     recipeCategory: '',
     shelfLifeDays: '',
 };
@@ -368,7 +361,6 @@ function detailsFrom(recipe: RecipeAdmin): DetailsDraft {
         yieldUnit: version.yieldUnit,
         yieldPieces: version.yieldPieces === null ? '' : String(version.yieldPieces),
         wastePercent: String(version.wastePercent),
-        packagingWastePercent: String(version.packagingWastePercent),
         recipeCategory: recipe.recipeCategory ?? '',
         shelfLifeDays: recipe.shelfLifeDays === null ? '' : String(recipe.shelfLifeDays),
     };
@@ -393,24 +385,6 @@ function linesFrom(version: RecipeVersionAdmin): readonly LineDraft[] {
         unit: line.unit,
         note: line.sourceDesignation ?? '',
         isOptional: line.isOptional,
-    }));
-}
-
-/**
- * The version's saved packaging, as the table draws it.
- *
- * The quantity comes back computed for two of the three bases, so this reads what the server
- * stored rather than what the draft asked for — which is the whole reason the setter answers with
- * rows instead of echoing the request.
- */
-function packagingFrom(version: RecipeVersionAdmin): readonly LineDraft[] {
-    return version.packaging.map((line, index) => ({
-        key: `packaging-${String(index)}`,
-        ingredientId: String(line.ingredientId),
-        quantity: String(line.quantity),
-        unit: line.unit,
-        note: line.comment ?? '',
-        isOptional: false,
     }));
 }
 
@@ -461,12 +435,10 @@ interface RecipeDetour {
     readonly serverKey: string | null;
     readonly details: DetailsDraft;
     readonly lines: readonly LineDraft[];
-    readonly packaging: readonly LineDraft[];
     readonly rowOrdinal: number;
     readonly dirty: {
         readonly details: boolean;
         readonly lines: boolean;
-        readonly packaging: boolean;
     };
 }
 
@@ -479,7 +451,6 @@ const recipeDrafts = createSessionDraftStore<RecipeDetour>({
         const value = raw as Partial<RecipeDetour>;
         return typeof value.details === 'object' &&
             Array.isArray(value.lines) &&
-            Array.isArray(value.packaging) &&
             typeof value.rowOrdinal === 'number' &&
             typeof value.dirty === 'object'
             ? (value as RecipeDetour)
@@ -519,7 +490,11 @@ function useDebouncedRollupDraft(draft: RecipeRollupDraft | null): RecipeRollupD
             ? 'none'
             : JSON.stringify([
                   draft.lines.map((line) => [String(line.ingredientId), line.unit]),
-                  (draft.packaging ?? []).map((line) => String(line.ingredientId)),
+                  // A pack added, removed or given another container is a decision, not typing.
+                  (draft.packs ?? []).map((pack) => [
+                      pack.key,
+                      pack.components.map((component) => String(component.ingredientId)),
+                  ]),
               ]);
 
     const [settled, setSettled] = useState<RecipeRollupDraft | null>(draft);
@@ -645,6 +620,16 @@ export interface RecipeEditScreenProps {
               readonly archive?: HostArchive | null | undefined;
           }
         | undefined;
+    /**
+     * The **Packs & prices** tab — the sold item's packs, their prices and where they sell. Owned by
+     * the host beside the listing, because the packs are the item's (`usePacksTab`); the editor
+     * draws it under the `packaging` key, feeds it the live `computed.packs`, sends its draft with
+     * the roll-up, counts its publish blockers and runs its save after the listing's.
+     *
+     * Absent for a recipe nothing sells — a preparation has no such tab. Present on a new cooked
+     * recipe too, whose item does not exist yet: the host writes the draft once it does.
+     */
+    readonly packs?: PacksTab | undefined;
     /** `?tab=` — the tab to open on. A stock gap's fix still opens on Production. */
     readonly initialTab?: string | undefined;
     /** `?kind=` of a new recipe, so a detour from the create form comes back to the same form. */
@@ -698,9 +683,8 @@ function splitReference(reference: string): {
     return { id: reference.slice(hash + 1), source: reference.slice(0, hash) };
 }
 
-/** The two line tables' roots — every row and cell id hangs off them (`lineCellId`). */
+/** The line table's root — every row and cell id hangs off it (`lineCellId`). */
 const LINES_TABLE = 'kitchen-recipe-lines-table';
-const PACKAGING_TABLE = 'kitchen-recipe-packaging-table';
 
 /** The tabs in the order a reader meets them, so a refused save opens the first one at fault. */
 const TAB_ORDER: readonly RecipeTab[] = [
@@ -719,6 +703,7 @@ function RecipeEditor({
     onCreated,
     referenceSeries = 'RC-',
     sellsAs,
+    packs,
     returnTo,
     stockGapFix,
     initialTab,
@@ -763,7 +748,6 @@ function RecipeEditor({
     // one would be while looking at it is a question nobody on this screen is asking.
     const nextReference = useNextReferenceQuery(referenceSeries, isCreating);
     const setLines = useSetRecipeLinesMutation();
-    const setPackagingLines = useSetRecipePackagingMutation();
     const publish = usePublishRecipeMutation();
     const retire = useRetireRecipeMutation();
     const release = useReleaseRecipeVersionMutation();
@@ -811,6 +795,7 @@ function RecipeEditor({
     /** Set by a save that wrote everything; the header says so until the next edit. */
     const [allSaved, setAllSaved] = useState(false);
     const [listingSaving, setListingSaving] = useState(false);
+    const [packsSaving, setPacksSaving] = useState(false);
     /** Whether a save has been pressed — what lets an empty required field call itself out. */
     const [attempted, setAttempted] = useState(false);
     /*
@@ -836,19 +821,13 @@ function RecipeEditor({
     const recipeCategory = fixedSubcategory ?? details.recipeCategory;
 
     /*
-     * Outside `DetailsDraft` because `updateRecipe` does not write it: `packaging` has an endpoint of
-     * its own — `setRecipePackaging`, keyed on the *version* rather than the recipe — so it is drafted
-     * here and posted separately once the lines have settled the lock version.
-     *
-     * The list prices and the packaging waste rate used to sit here too. They no longer do: all three
-     * are version fields `updateRecipe` writes, so they belong in the draft the save reads.
+     * No packaging draft: the per-batch packaging table is gone (owner's ruling 5). What a sold
+     * recipe is packed in is per pack now, on Packs & prices, and the stored lines are never
+     * rewritten from here.
      */
-    const [packaging, setPackaging] = useState<readonly LineDraft[]>([]);
-
     const [hydratedKey, setHydratedKey] = useState<string | null>(null);
     const [detailsDirty, setDetailsDirty] = useState(false);
     const [linesDirty, setLinesDirty] = useState(false);
-    const [packagingDirty, setPackagingDirty] = useState(false);
 
     const [rowOrdinal, setRowOrdinal] = useState(1);
     const [selectedVersionId, setSelectedVersionId] = useState<RecipeVersionId | null>(null);
@@ -883,7 +862,7 @@ function RecipeEditor({
     const data = record.data;
     const serverKey =
         data === undefined ? null : `${String(data.id)}:${String(data.meta.lockVersion)}`;
-    const anyDirty = detailsDirty || linesDirty || packagingDirty || photoDirty;
+    const anyDirty = detailsDirty || linesDirty || photoDirty;
 
     /*
      * One rehydration key for the whole record rather than one per section: every write answers with
@@ -898,7 +877,6 @@ function RecipeEditor({
         setHydratedKey(serverKey);
         setDetails(detailsFrom(data));
         setLinesDraft(linesFrom(data.currentVersion));
-        setPackaging(packagingFrom(data.currentVersion));
     }
     if (data !== undefined && (data.photoUrl ?? null) !== photoKey && !photoDirty) {
         setPhotoKey(data.photoUrl ?? null);
@@ -941,16 +919,10 @@ function RecipeEditor({
                       row.ingredientId === swapFrom ? { ...row, ingredientId: swapTo } : row,
                   );
         const nextLines = swap(kept?.lines ?? lines);
-        const nextPackaging = swap(kept?.packaging ?? packaging);
         const linesMoved = nextLines.some((row, index) => row !== (kept?.lines ?? lines)[index]);
-        const packagingMoved = nextPackaging.some(
-            (row, index) => row !== (kept?.packaging ?? packaging)[index],
-        );
         setLinesDraft(nextLines);
-        setPackaging(nextPackaging);
         setLinesDirty((kept?.dirty.lines ?? false) || linesMoved);
-        setPackagingDirty((kept?.dirty.packaging ?? false) || packagingMoved);
-        if (linesMoved || packagingMoved) setSwapped(true);
+        if (linesMoved) setSwapped(true);
     }
     // Once per arrival: a ref, so a re-render with a new toast or guard never says it twice.
     const detourAnnounced = useRef(false);
@@ -979,31 +951,19 @@ function RecipeEditor({
      */
     useEffect(() => {
         if (!detourChecked || !detourAnnounced.current) return;
-        if (detailsDirty || linesDirty || packagingDirty) {
+        if (detailsDirty || linesDirty) {
             recipeDrafts.write(detourKey, {
                 serverKey,
                 details,
                 lines,
-                packaging,
                 rowOrdinal,
-                dirty: { details: detailsDirty, lines: linesDirty, packaging: packagingDirty },
+                dirty: { details: detailsDirty, lines: linesDirty },
             });
         } else {
             if (recipeDrafts.read(detourKey) !== null) recipeDrafts.clear(detourKey);
             forgetKeptWork('recipe', detourKey);
         }
-    }, [
-        detourChecked,
-        detourKey,
-        serverKey,
-        details,
-        lines,
-        packaging,
-        rowOrdinal,
-        detailsDirty,
-        linesDirty,
-        packagingDirty,
-    ]);
+    }, [detourChecked, detourKey, serverKey, details, lines, rowOrdinal, detailsDirty, linesDirty]);
 
     /**
      * Cancel, and the way back to where the reader came from: a leave without saving, which asks
@@ -1013,37 +973,15 @@ function RecipeEditor({
      */
     const leaveWithoutKeeping = (go: () => void) => guard.intercept(go);
 
-    /**
-     * The packaging draft as the contract states it.
-     *
-     * Every line goes as `per_batch` with the count somebody typed. The other two bases —
-     * `fills_yield` and `per_container` — compute their own quantity from the yield, and this table
-     * has no control for choosing between them yet, so declaring one of those here would silently
-     * throw away the number in the box. A basis picker is the next thing this tab needs; until it
-     * exists, the honest reading of a hand-entered count is "this many per batch".
-     */
-    const packagingInputs = useMemo(
-        (): readonly RecipePackagingLineInput[] =>
-            packaging.filter(isSendableLine).map((row) => ({
-                ingredientId: IngredientId.unsafe(row.ingredientId),
-                basis: 'per_batch' as const,
-                // Sendable means it parses.
-                quantity: parseQuantity(row.quantity)!,
-                ...(row.note.trim() === '' ? {} : { comment: row.note.trim() }),
-            })),
-        [packaging],
-    );
-
     const nextKey = useCallback((): string => {
         const key = `row-${String(rowOrdinal)}`;
         setRowOrdinal((current) => current + 1);
         return key;
     }, [rowOrdinal]);
 
-    const markDirty = (section: 'details' | 'lines' | 'packaging') => {
+    const markDirty = (section: 'details' | 'lines') => {
         if (section === 'details') setDetailsDirty(true);
         if (section === 'lines') setLinesDirty(true);
-        if (section === 'packaging') setPackagingDirty(true);
         setAllSaved(false);
         guard.markDirty();
     };
@@ -1051,14 +989,12 @@ function RecipeEditor({
     const settle = () => {
         setDetailsDirty(false);
         setLinesDirty(false);
-        setPackagingDirty(false);
         guard.markClean();
     };
 
     const reload = useCallback(() => {
         setDetailsDirty(false);
         setLinesDirty(false);
-        setPackagingDirty(false);
         setHydratedKey(null);
         setPhotoDirty(false);
         setPhotoKey(undefined);
@@ -1078,14 +1014,17 @@ function RecipeEditor({
      * the guard, and it is disarmed only once neither half holds an edit.
      */
     const listingDirty = sellsAs?.isDirty === true;
+    // Packs & prices is the sold item's too, held inside its section the same way.
+    const packsDirty = packs?.report.dirty === true;
+    const sideDirty = listingDirty || packsDirty;
     useEffect(() => {
-        draftKeepable.current = !listingDirty && !photoDirty;
-    }, [listingDirty, photoDirty]);
+        draftKeepable.current = !sideDirty && !photoDirty;
+    }, [sideDirty, photoDirty]);
     const { markDirty: armGuard, markClean: disarmGuard } = guard;
     useEffect(() => {
-        if (listingDirty) armGuard();
+        if (sideDirty) armGuard();
         else if (!anyDirty) disarmGuard();
-    }, [listingDirty, anyDirty, armGuard, disarmGuard]);
+    }, [sideDirty, anyDirty, armGuard, disarmGuard]);
 
     /* ── the version being looked at ─────────────────────────────────────────────────────────── */
 
@@ -1196,7 +1135,7 @@ function RecipeEditor({
      */
     const yieldMass = parseQuantity(details.yieldQuantity);
     const yieldPieces = parseQuantity(details.yieldPieces);
-    const packagingWastePercent = parseQuantity(details.packagingWastePercent) ?? 0;
+    const rollupPacks = packs?.report.rollup;
     /*
      * A meal's sale takes stock off per piece: one portion sold is the recipe divided by its pieces
      * produced (`MealExplosion`). A recipe sold as a meal with no count turns every order for it into
@@ -1224,13 +1163,13 @@ function RecipeEditor({
                           ? { yieldPieceCount: yieldPieces }
                           : {}),
                       /*
-                       * The same rows the Packaging tab holds, sent with the draft.
-                       *
-                       * Without them the preview costed a batch that ships in nothing, while the
-                       * tab one click away listed three consumables.
+                       * The packs Packs & prices holds, each costed under its key into
+                       * `computed.packs` — what that tab's tiles and Costing's table read. No
+                       * packaging lines: the per-batch table is gone.
                        */
-                      ...(packagingInputs.length === 0 ? {} : { packaging: packagingInputs }),
-                      packagingWastePercent,
+                      ...(rollupPacks === undefined || rollupPacks.length === 0
+                          ? {}
+                          : { packs: rollupPacks }),
                   },
         [
             data?.id,
@@ -1239,8 +1178,7 @@ function RecipeEditor({
             details.yieldUnit,
             wastePercent,
             lineInputs,
-            packagingInputs,
-            packagingWastePercent,
+            rollupPacks,
         ],
     );
 
@@ -1273,17 +1211,10 @@ function RecipeEditor({
      * onto page two had no designation and no unit price to render — the other half of "not all
      * ingredients are showing". The picker solves its own half by searching the server; a drawn row
      * cannot search, it knows an id, so the ids are resolved directly.
-     *
-     * Packaging is resolved the same way below. The show endpoint has no packaging exclusion — the
-     * two families are one table again — so a packaging id resolves through it exactly as a food id
-     * does, and the note that used to stand here saying otherwise was describing a table that no
-     * longer exists.
      */
     const lineIngredientIds = useMemo(() => uniqueIngredientIds(lines), [lines]);
-    const packagingIngredientIds = useMemo(() => uniqueIngredientIds(packaging), [packaging]);
 
     const lineIngredients = useIngredientsByIds(lineIngredientIds);
-    const packagingIngredients = useIngredientsByIds(packagingIngredientIds);
 
     /*
      * The ingredient a stock gap names, resolved by id, so the strip can name it even when no line
@@ -1309,7 +1240,16 @@ function RecipeEditor({
     const library = useMemo(() => {
         const byId = new Map<string, IngredientAdmin>();
         for (const entry of ingredients) byId.set(String(entry.id), entry);
-        for (const [id, entry] of Object.entries(lineIngredients)) byId.set(id, entry);
+        for (const [id, entry] of Object.entries(lineIngredients)) {
+            // A single read does not say which recipe makes the row; the list it was on did.
+            const listed = byId.get(id)?.producedByRecipe;
+            byId.set(
+                id,
+                entry.producedByRecipe === undefined && listed !== undefined
+                    ? { ...entry, producedByRecipe: listed }
+                    : entry,
+            );
+        }
         return [...byId.values()];
     }, [ingredients, lineIngredients]);
 
@@ -1319,82 +1259,51 @@ function RecipeEditor({
         [library],
     );
 
-    /*
-     * The packaging pool the packaging rows resolve against — same two sources as the food one.
-     *
-     * It used to be a single *numbered page* of eighteen, on the argument that one page is the whole
-     * catalogue. There are thirty-one packaging rows, so rows nineteen onward resolved to nothing: a
-     * saved line naming one drew "Unnamed line" with no price, and its cost silently left the
-     * cascade. A hundred-row read plus a by-id resolution of whatever the lines name closes both
-     * halves, exactly as it does above.
-     */
-    const packagingCatalogue = useIngredientsQuery({
-        limit: 100,
-        categoryCode: PACKAGING_CATEGORY_CODE,
-    });
-    const packagingLibrary = useMemo((): readonly PickerEntry[] => {
-        const byId = new Map<string, IngredientAdmin>();
-        for (const entry of ingredientsFromPages(packagingCatalogue.data?.pages)) {
-            byId.set(String(entry.id), entry);
-        }
-        for (const [id, entry] of Object.entries(packagingIngredients)) byId.set(id, entry);
-        return [...byId.values()].map(packagingEntry);
-    }, [packagingCatalogue.data?.pages, packagingIngredients]);
-
     /* ── what the server could not cost ──────────────────────────────────────────────────────── */
 
     /*
-     * The uncosted lines by name, across both halves.
-     *
-     * Both, because a row is uncosted for the same two reasons on either tab — no recorded price, or
-     * a unit that will not convert — and the reader wants the designation either way. The server
+     * The uncosted lines by name — no recorded price, or a unit that will not convert. The server
      * says *which* lines by number; its line figures say which ingredient each number is. Empty when
-     * everything could be costed.
+     * everything could be costed. A pack's own packaging is said on its tile, with the reason.
      */
     const uncostedNames = useMemo(() => {
         if (computed === null) return '';
         const names = new Set<string>();
-        for (const [half, pool] of [
-            [computed.production, libraryEntries],
-            [computed.packaging, packagingLibrary],
-        ] as const) {
-            for (const lineNumber of half.uncostedLineNumbers) {
-                const id = half.lines.find((line) => line.lineNumber === lineNumber)?.ingredientId;
-                const entry = pool.find((candidate) => candidate.id === String(id));
-                if (entry !== undefined) names.add(displayName(entry.name, locale).value);
-            }
+        const half = computed.production;
+        for (const lineNumber of half.uncostedLineNumbers) {
+            const id = half.lines.find((line) => line.lineNumber === lineNumber)?.ingredientId;
+            const entry = libraryEntries.find((candidate) => candidate.id === String(id));
+            if (entry !== undefined) names.add(displayName(entry.name, locale).value);
         }
         return [...names].join(', ');
-    }, [computed, libraryEntries, packagingLibrary, locale]);
+    }, [computed, libraryEntries, locale]);
 
-    /** The first uncosted line's ingredient — where the tray's card sends the reader to fix it. */
+    /**
+     * The first uncosted line's ingredient — where the tray's card sends the reader to fix it. A
+     * preparation's cost is fixed in its own recipe, so its `recipeId` is carried and opened instead.
+     */
     const firstUncosted = useMemo(() => {
         if (computed === null) return null;
-        const found = (
-            [
-                [computed.production, 'ingredients'],
-                [computed.packaging, 'packaging'],
-            ] as const
-        )
-            .flatMap(([half, family]) =>
-                half.uncostedLineNumbers.map((lineNumber) => ({
-                    id: half.lines.find((line) => line.lineNumber === lineNumber)?.ingredientId,
-                    family,
-                })),
-            )
-            .find((entry) => entry.id !== undefined);
-        return found === undefined ? null : { id: String(found.id), family: found.family };
-    }, [computed]);
+        const half = computed.production;
+        const id = half.uncostedLineNumbers
+            .map((lineNumber) => half.lines.find((line) => line.lineNumber === lineNumber))
+            .find((line) => line !== undefined)?.ingredientId;
+        if (id === undefined) return null;
+        const producedBy = library.find(
+            (entry) => String(entry.id) === String(id),
+        )?.producedByRecipe;
+        return {
+            id: String(id),
+            family: 'ingredients' as const,
+            recipeId: producedBy == null ? null : String(producedBy.id),
+        };
+    }, [computed, library]);
 
     /*
      * How many lines the server could not cost — by number, so it is known before the names of the
      * ingredients resolve. Zero while the rollup has not answered: unknown is not "all costed".
      */
-    const uncostedCount =
-        computed === null
-            ? 0
-            : computed.production.uncostedLineNumbers.length +
-              computed.packaging.uncostedLineNumbers.length;
+    const uncostedCount = computed === null ? 0 : computed.production.uncostedLineNumbers.length;
 
     // Derived rather than read off the record, so the Technical sheet tab answers from the draft.
     const allergenSources = rollup.data?.allergenSources ?? [];
@@ -1445,15 +1354,13 @@ function RecipeEditor({
         () =>
             ingredientNeedsById({
                 warnings: settledWarnings ?? [],
-                costs: [computed?.production, computed?.packaging],
-                ingredients: [...library, ...Object.values(packagingIngredients)],
+                costs: [computed?.production],
+                ingredients: library,
                 named: new Set(
-                    [...lines, ...packaging]
-                        .map((row) => row.ingredientId)
-                        .filter((id): id is string => id !== null),
+                    lines.map((row) => row.ingredientId).filter((id): id is string => id !== null),
                 ),
             }),
-        [settledWarnings, computed, library, packagingIngredients, lines, packaging],
+        [settledWarnings, computed, library, lines],
     );
 
     /** A row's needs as one short line — "Allergens not checked · No price yet". */
@@ -1476,12 +1383,27 @@ function RecipeEditor({
     ) => {
         // This page's own address, on the tab the row is on.
         const here = hrefOnTab(family === 'packaging' ? 'packaging' : tab);
-        const href = ingredientFixHref(ingredientId, needs, here, family);
+        detour(ingredientFixHref(ingredientId, needs, here, family), here);
+    };
+
+    /** A preparation's own recipe, opened the same way — with the way back to this tab. */
+    const openRecipe = (recipeId: string) => {
+        const here = hrefOnTab(tab);
+        detour(withReturnTo(`/kitchen/recipes/${encodeURIComponent(recipeId)}`, here), here);
+    };
+
+    /** The uncosted line's fix: its recipe for a preparation, else the ingredient form. */
+    const openUncosted = (line: NonNullable<typeof firstUncosted>) => {
+        if (line.recipeId !== null) openRecipe(line.recipeId);
+        else openIngredient(line.id, line.family);
+    };
+
+    const detour = (href: string, here: string) => {
         const go = () => {
             router.push(href as never);
         };
         // A photo is not carried in a session draft — it can be megabytes — so it is asked about.
-        if (listingDirty || photoDirty) {
+        if (sideDirty || photoDirty) {
             guard.intercept(go);
             return;
         }
@@ -1644,7 +1566,7 @@ function RecipeEditor({
             ? [
                   {
                       key: 'shelf-life',
-                      tab: 'packaging' as const,
+                      tab: 'production' as const,
                       fieldId: 'kitchen-recipe-expiry',
                       required: false,
                   },
@@ -1658,13 +1580,6 @@ function RecipeEditor({
     /** An unfinished raw material's own message, under its Qty cell. */
     const incompleteLineMessage = (row: LineDraft): string | undefined =>
         shows(`line-${row.key}`) ? t('kitchen:forms.lineQuantityMissing') : undefined;
-
-    /*
-     * The caution the design draws. It does not block: a packaging line at zero ships nothing and
-     * costs nothing — a sleeve label the count was never typed for — which is legal and almost always
-     * a mistake somebody wants pointed out.
-     */
-    const zeroPackaging = packaging.filter((row) => parseQuantity(row.quantity) === 0);
 
     const goTo = (target: RecipeTab, fieldId: string | null) => {
         setTab(target);
@@ -1687,11 +1602,6 @@ function RecipeEditor({
         label: t('kitchen:recipes.sectionRawMaterials'),
         fieldId: 'kitchen-recipe-lines-table-refusals',
         tab: 'production' as const,
-    };
-    const packagingTarget = {
-        label: t('kitchen:recipes.sectionPackaging'),
-        fieldId: 'kitchen-recipe-packaging-table-refusals',
-        tab: 'packaging' as const,
     };
     const serverTargets: Readonly<Record<string, ServerTarget>> = {
         name_en: {
@@ -1749,20 +1659,12 @@ function RecipeEditor({
         'lines.*.quantity': linesTarget,
         'lines.*.unit_id': linesTarget,
         'lines.*.source_designation': linesTarget,
+        // With the yield and the waste, on Production's "Yield & waste".
         shelf_life_days: {
             label: t('kitchen:forms.expiryPeriod'),
             fieldId: 'kitchen-recipe-expiry',
-            tab: 'packaging',
+            tab: 'production',
         },
-        packaging_waste_percent: {
-            label: t('kitchen:recipes.packagingWastePercent'),
-            fieldId: 'kitchen-recipe-packaging-waste',
-            tab: 'packaging',
-        },
-        'packaging.*.ingredient_id': packagingTarget,
-        'packaging.*.basis': packagingTarget,
-        'packaging.*.quantity': packagingTarget,
-        'packaging.*.comment': packagingTarget,
     };
     const server = serverFieldErrors(saveFailure, serverTargets);
     /*
@@ -1791,29 +1693,16 @@ function RecipeEditor({
         )[0];
         if (first === undefined) return null;
 
-        const section =
-            first === linesTarget ? 'lines' : first === packagingTarget ? 'packaging' : null;
-        if (section === null) return first;
-        const sent = (section === 'lines' ? lines : packaging).filter(isSendableLine);
+        if (first !== linesTarget) return first;
+        const sent = lines.filter(isSendableLine);
         for (const [field, messages] of Object.entries(failure.fields)) {
             const [head, position, column] = field.split('.');
-            if (head !== section || messages.length === 0 || position === undefined) continue;
+            if (head !== 'lines' || messages.length === 0 || position === undefined) continue;
             const row = sent[Number(position)];
             const cell =
-                column === 'quantity'
-                    ? 'qty'
-                    : column === 'source_designation' || column === 'comment'
-                      ? 'comment'
-                      : null;
+                column === 'quantity' ? 'qty' : column === 'source_designation' ? 'comment' : null;
             if (row === undefined || cell === null) continue;
-            return {
-                tab: first.tab,
-                fieldId: lineCellId(
-                    section === 'lines' ? LINES_TABLE : PACKAGING_TABLE,
-                    row.key,
-                    cell,
-                ),
-            };
+            return { tab: first.tab, fieldId: lineCellId(LINES_TABLE, row.key, cell) };
         }
         return first;
     };
@@ -1824,24 +1713,15 @@ function RecipeEditor({
         if (target !== null) goTo(target.tab, target.fieldId);
     };
 
-    /** A line table's refusal, by the sendable row it was sent as — see `isSendableLine`. */
-    const lineFieldError =
-        (section: 'lines' | 'packaging', rows: readonly LineDraft[]) =>
-        (row: LineDraft, column: LineColumn): string | undefined => {
-            const index = rows.filter(isSendableLine).findIndex((entry) => entry.key === row.key);
-            if (index < 0) return undefined;
-            const at = `${section}.${String(index)}`;
-            if (column === 'quantity') return server.errorFor(`${at}.quantity`);
-            if (column === 'comment') {
-                return server.errorFor(
-                    `${at}.${section === 'lines' ? 'source_designation' : 'comment'}`,
-                );
-            }
-            return (
-                server.errorFor(`${at}.ingredient_id`) ??
-                server.errorFor(`${at}.${section === 'lines' ? 'unit_id' : 'basis'}`)
-            );
-        };
+    /** The line table's refusal, by the sendable row it was sent as — see `isSendableLine`. */
+    const lineFieldError = (row: LineDraft, column: LineColumn): string | undefined => {
+        const index = lines.filter(isSendableLine).findIndex((entry) => entry.key === row.key);
+        if (index < 0) return undefined;
+        const at = `lines.${String(index)}`;
+        if (column === 'quantity') return server.errorFor(`${at}.quantity`);
+        if (column === 'comment') return server.errorFor(`${at}.source_designation`);
+        return server.errorFor(`${at}.ingredient_id`) ?? server.errorFor(`${at}.unit_id`);
+    };
 
     /*
      * The stock gap's fields still saying what is wrong with them, counted on Production with
@@ -1872,10 +1752,8 @@ function RecipeEditor({
                 label: t('kitchen:forms.toFixCount', { count: errors }),
             };
         }
-        // A zero packaging line, and what this tab still owes before the draft can be published.
-        const cautions =
-            (target === 'packaging' ? zeroPackaging.length : 0) +
-            publishItems.filter((item) => item.tab === target).length;
+        // What this tab still owes before the draft can be published.
+        const cautions = publishItems.filter((item) => item.tab === target).length;
         if (cautions === 0) return undefined;
         return {
             count: cautions,
@@ -1941,7 +1819,7 @@ function RecipeEditor({
         }
         // The description is no longer edited here (see the docblock), so it is no longer gated on:
         // a blocker with no control on the screen to clear it is a recipe that can never publish.
-        if (anyDirty) reasons.push({ text: t('kitchen:publish.blockUnsaved') });
+        if (anyDirty || packsDirty) reasons.push({ text: t('kitchen:publish.blockUnsaved') });
 
         const unsafe = data.currentVersion.lines
             .map((line) => ingredients.find((entry) => entry.id === line.ingredientId))
@@ -1983,7 +1861,7 @@ function RecipeEditor({
             });
         }
         return reasons;
-    }, [data, anyDirty, soldAsMeal, ingredients, library, locale, t]);
+    }, [data, anyDirty, packsDirty, soldAsMeal, ingredients, library, locale, t]);
 
     const unmappedIngredients = useMemo(() => {
         if (data === null || data === undefined) return [] as readonly IngredientAdmin[];
@@ -2052,6 +1930,22 @@ function RecipeEditor({
         return false;
     };
 
+    /**
+     * Packs & prices, after the listing — both write the item, and the packs write reads the lock
+     * the listing left. A refusal keeps the packs draft dirty and opens its tab, where the section
+     * has said why (its own failure toast, or the field); the next Save writes only what is left.
+     */
+    const savePacks = async (): Promise<boolean> => {
+        if (!packsDirty || packs === undefined) return true;
+        setPacksSaving(true);
+        const saved = await packs.save();
+        setPacksSaving(false);
+        if (saved) return true;
+        setTab('packaging');
+        guard.markDirty();
+        return false;
+    };
+
     const saveAll = (onDone?: () => void) => {
         if (saveBlocked) return;
         setSaveError(null);
@@ -2073,6 +1967,7 @@ function RecipeEditor({
                 // The listing first: it is a record already, and a refusal there should stop the
                 // press before a recipe exists — on the Selling tab, where it says what it needs.
                 if (!(await saveListing())) throw LISTING_REFUSED;
+                if (!(await savePacks())) throw LISTING_REFUSED;
                 const created = await create.mutateAsync({
                     name: details.name,
                     description: details.description,
@@ -2082,9 +1977,11 @@ function RecipeEditor({
                         ? {}
                         : { yieldPieces: parseQuantity(details.yieldPieces)! }),
                     wastePercent,
-                    packagingWastePercent,
                     ...(recipeCategory === '' ? {} : { recipeCategory }),
                     ...(typeof shelfLife === 'number' ? { shelfLifeDays: shelfLife } : {}),
+                    // A preparation gets its own ingredient twin, so other recipes can use it as
+                    // a line. A cooked kind does not: its listing brings the twin.
+                    ...(kind === 'preparation' ? { producesIngredient: true } : {}),
                 });
 
                 const drafted = lineInputsFrom(lines);
@@ -2095,19 +1992,6 @@ function RecipeEditor({
                     written = await setLines.mutateAsync({
                         recipeId: created.id,
                         request: { lockVersion: created.meta.lockVersion, lines: drafted },
-                    });
-                }
-
-                // After the lines, on the lock version they returned: both writes bump the record,
-                // so sending the stale one here would come back a conflict.
-                if (packagingInputs.length > 0) {
-                    written = await setPackagingLines.mutateAsync({
-                        recipeId: created.id,
-                        versionId: written.currentVersion.id,
-                        request: {
-                            lockVersion: written.meta.lockVersion,
-                            packaging: packagingInputs,
-                        },
                     });
                 }
 
@@ -2190,7 +2074,6 @@ function RecipeEditor({
                         yieldUnit: details.yieldUnit,
                         yieldPieces: parseQuantity(details.yieldPieces),
                         wastePercent,
-                        packagingWastePercent,
                         // Only where the form offered it. A route that draws no picker must not
                         // clear a word it never showed the reader.
                         ...(classification === undefined
@@ -2206,18 +2089,9 @@ function RecipeEditor({
             }
 
             if (linesDirty) {
-                const written = await setLines.mutateAsync({
+                await setLines.mutateAsync({
                     recipeId,
                     request: { lockVersion, lines: lineInputsFrom(lines) },
-                });
-                lockVersion = written.meta.lockVersion;
-            }
-
-            if (packagingDirty && data !== undefined) {
-                await setPackagingLines.mutateAsync({
-                    recipeId,
-                    versionId: data.currentVersion.id,
-                    request: { lockVersion, packaging: packagingInputs },
                 });
             }
         };
@@ -2237,6 +2111,7 @@ function RecipeEditor({
                     return;
                 }
                 if (!(await saveListing())) return;
+                if (!(await savePacks())) return;
                 if (onDone !== undefined) onDone();
                 setAllSaved(true);
                 toast.show({
@@ -2273,7 +2148,7 @@ function RecipeEditor({
             explainBlocked({ action: 'publish', groups: ['publish'] });
             return;
         }
-        if ((anyDirty || listingDirty) && !saveBlocked) {
+        if ((anyDirty || sideDirty) && !saveBlocked) {
             saveAll(() => {
                 setShowPublish(true);
             });
@@ -2322,9 +2197,9 @@ function RecipeEditor({
         create.isPending ||
         update.isPending ||
         setLines.isPending ||
-        setPackagingLines.isPending ||
         photoSave.isPending ||
-        listingSaving;
+        listingSaving ||
+        packsSaving;
     const barDrawn = useSaveBar({
         dirty: guard.isDirty,
         creating: isCreating,
@@ -2332,8 +2207,7 @@ function RecipeEditor({
             testID: 'kitchen-recipe-editor-screen-save',
             label: t(isEditable ? 'kitchen:common.saveDraft' : 'kitchen:common.save'),
             loading: recipeWriting,
-            disabled:
-                creatingNow || !canManage || (!isEditable && !shelfLifeChanged && !listingDirty),
+            disabled: creatingNow || !canManage || (!isEditable && !shelfLifeChanged && !sideDirty),
             onPress: attemptSave,
         },
         testID: 'kitchen-recipe-editor-screen',
@@ -2407,7 +2281,7 @@ function RecipeEditor({
      * to publish, and this reader may: until then Save is the next thing to do.
      */
     const publishShown = !isCreating && canManage;
-    const publishLeads = publishShown && isEditable && !anyDirty && !listingDirty;
+    const publishLeads = publishShown && isEditable && !anyDirty && !sideDirty;
 
     /*
      * What stops the save, as the red strip under the tabs: a chip per field, each taking the
@@ -2448,6 +2322,31 @@ function RecipeEditor({
               ]),
         ...server.items,
     ];
+
+    /*
+     * Packs & prices' three publish blockers (the server's `no_pack`, `no_selling_place`,
+     * `place_unpriced`), read off the packs draft — and, after a publish the server refused for
+     * one of them, that refusal too, on the same card. A refusal names its reasons as
+     * `reasons.<code>[.<place>]` fields (`failures.ts`).
+     */
+    const refusedPackIssues: readonly PacksIssue[] =
+        packs === undefined ? [] : packsIssuesFromRefusal(publishFields, packs.report.draft);
+    const packIssues: readonly PacksIssue[] = [
+        ...(packs?.report.issues ?? []),
+        ...refusedPackIssues.filter(
+            (refused) => !(packs?.report.issues ?? []).some((issue) => issue.key === refused.key),
+        ),
+    ];
+    const openPackIssue = (issue: PacksIssue) => {
+        if (issue.section) goToSection('packaging', issue.targetId);
+        else goTo('packaging', issue.targetId);
+    };
+    /*
+     * The listing inside Selling publishes the item, and the server can refuse it for the same
+     * three reasons; its cards open Packs & prices through this (`PacksHostContext`).
+     */
+    const packsHost: PacksHost | null =
+        packs === undefined ? null : { draft: packs.report.draft, open: openPackIssue };
 
     /*
      * What still stands between this draft and Publish, as one amber strip under the tabs: a chip
@@ -2510,7 +2409,7 @@ function RecipeEditor({
                                 onPress: () => {
                                     if (firstUncosted === null)
                                         goToSection('costing', 'kitchen-recipe-cost-cascade');
-                                    else openIngredient(firstUncosted.id, firstUncosted.family);
+                                    else openUncosted(firstUncosted);
                                 },
                             },
                         ]
@@ -2532,6 +2431,15 @@ function RecipeEditor({
                                 },
                             ],
                   ),
+                  ...packIssues.map((issue) => ({
+                      key: `packs-${issue.key}`,
+                      tab: 'packaging' as const,
+                      label: packsIssueLabel(issue, t),
+                      ...(issue.section ? {} : { fieldId: issue.targetId }),
+                      onPress: () => {
+                          openPackIssue(issue);
+                      },
+                  })),
               ];
 
     /** The stock gap, named: its reason, and the ingredient when the gap is about one. */
@@ -2621,23 +2529,6 @@ function RecipeEditor({
                       ),
                       mono: true,
                   },
-                  {
-                      key: 'packaging-per-unit',
-                      label: t('kitchen:recipes.sheetPackagingAfterWaste', {
-                          unit: yieldUnitLabel,
-                      }),
-                      value: sheetMoney(
-                          computed?.packaging.costPerYieldUnitWithWaste,
-                          PER_UNIT_DIGITS,
-                      ),
-                      mono: true,
-                  },
-                  {
-                      key: 'total-per-unit',
-                      label: t('kitchen:recipes.cascadeTotal', { unit: yieldUnitLabel }),
-                      value: sheetMoney(computed?.totalCostPerYieldUnit, PER_UNIT_DIGITS),
-                      mono: true,
-                  },
               ]),
         {
             key: 'allergens',
@@ -2703,7 +2594,7 @@ function RecipeEditor({
                     ? t('kitchen:recipes.checkNoLines')
                     : uncostedNames === ''
                       ? t('kitchen:recipes.checkCostedOk', {
-                            count: lines.length + packaging.length,
+                            count: lines.length,
                         })
                       : t('kitchen:recipes.uncostedLines', { names: uncostedNames }),
         },
@@ -2736,7 +2627,7 @@ function RecipeEditor({
     const tabName = (target: RecipeTab | null): string | undefined => {
         if (target === 'description') return t('kitchen:recipes.tabDescription');
         if (target === 'production') return t('kitchen:recipes.tabProduction');
-        if (target === 'packaging') return t('kitchen:recipes.tabPackaging');
+        if (target === 'packaging') return t('kitchen:packs.tabLabel');
         if (target === 'costing') return t('kitchen:recipes.tabCosting');
         if (target === 'selling') return sellsAs?.label;
         if (target === 'sheet') return t('kitchen:recipes.tabSheet');
@@ -2927,7 +2818,7 @@ function RecipeEditor({
                       detail: t('kitchen:recipes.sectionRawMaterials'),
                       action: {
                           onPress: () => {
-                              openIngredient(firstUncosted.id, firstUncosted.family);
+                              openUncosted(firstUncosted);
                           },
                       },
                       // The tray is no longer clear, so it cannot show its own way back.
@@ -2944,10 +2835,9 @@ function RecipeEditor({
               ];
 
     /*
-     * The two optional fields the page still has an opinion on, each pointed at: a new meal's piece
-     * count, which the publish strip says once the recipe exists, and a packaging line at zero.
+     * The optional field the page still has an opinion on: a new meal's piece count, which the
+     * publish strip says once the recipe exists.
      */
-    const firstZeroPackaging = zeroPackaging[0];
     const optionalFieldCards: IssueCardItem[] = [
         ...(isCreating && piecesOwed
             ? [
@@ -2965,25 +2855,6 @@ function RecipeEditor({
                   },
               ]
             : []),
-        ...(firstZeroPackaging === undefined
-            ? []
-            : [
-                  {
-                      key: 'zero-packaging',
-                      tone: 'info' as const,
-                      label: t('kitchen:forms.zeroQuantity'),
-                      detail: t('kitchen:recipes.sectionPackaging'),
-                      action: {
-                          onPress: () => {
-                              goTo(
-                                  'packaging',
-                                  lineCellId(PACKAGING_TABLE, firstZeroPackaging.key, 'qty'),
-                              );
-                          },
-                      },
-                      testID: 'kitchen-recipe-issues-zero-packaging',
-                  },
-              ]),
     ];
 
     const firstUnmapped = unmappedDraftEntries[0];
@@ -3144,13 +3015,19 @@ function RecipeEditor({
             issues: tabIssues('production'),
             testID: 'kitchen-recipe-tab-production',
         },
-        {
-            value: 'packaging' as const,
-            label: t('kitchen:recipes.tabPackaging'),
-            count: packaging.length,
-            issues: tabIssues('packaging'),
-            testID: 'kitchen-recipe-tab-packaging',
-        },
+        // Packs & prices, only for a recipe something sells. The key stays `packaging`: deep links
+        // and suites name it.
+        ...(packs === undefined
+            ? []
+            : [
+                  {
+                      value: 'packaging' as const,
+                      label: t('kitchen:packs.tabLabel'),
+                      count: packs.report.draft.packs.length,
+                      issues: tabIssues('packaging'),
+                      testID: 'kitchen-recipe-tab-packaging',
+                  },
+              ]),
         {
             value: 'costing' as const,
             label: t('kitchen:recipes.tabCosting'),
@@ -3312,19 +3189,11 @@ function RecipeEditor({
                                                 ? 'kitchen:common.saveDraft'
                                                 : 'kitchen:common.save',
                                         )}
-                                        loading={
-                                            creatingNow ||
-                                            create.isPending ||
-                                            update.isPending ||
-                                            setLines.isPending ||
-                                            setPackagingLines.isPending ||
-                                            photoSave.isPending ||
-                                            listingSaving
-                                        }
+                                        loading={recipeWriting}
                                         disabled={
                                             creatingNow ||
                                             !canManage ||
-                                            (!isEditable && !shelfLifeChanged && !listingDirty)
+                                            (!isEditable && !shelfLifeChanged && !sideDirty)
                                         }
                                         onPress={attemptSave}
                                     />
@@ -3643,6 +3512,28 @@ function RecipeEditor({
                                         markDirty('details');
                                     }}
                                 />
+                                {/*
+                                 * How long a batch keeps. The recipe's, not the version's, so it
+                                 * stays open on a published version (see the docblock).
+                                 */}
+                                <QuantityInput
+                                    testID="kitchen-recipe-expiry"
+                                    id="kitchen-recipe-expiry"
+                                    size="sm"
+                                    label={t('kitchen:forms.expiryPeriod')}
+                                    placeholder={t('kitchen:fields.daysPlaceholder')}
+                                    unit={t('kitchen:forms.days')}
+                                    value={details.shelfLifeDays}
+                                    disabled={!canManage}
+                                    {...(shows('shelf-life')
+                                        ? { error: t('kitchen:forms.shelfLifeInvalid') }
+                                        : {})}
+                                    {...server.flag('shelf_life_days')}
+                                    onChangeText={(next) => {
+                                        setDetails({ ...details, shelfLifeDays: next });
+                                        markDirty('details');
+                                    }}
+                                />
                             </FormGrid>
                         </FormSection>
 
@@ -3658,7 +3549,7 @@ function RecipeEditor({
                                 ingredients={libraryEntries}
                                 flaggedIngredientIds={flaggedIngredientIds}
                                 costs={computed?.production ?? null}
-                                fieldError={lineFieldError('lines', lines)}
+                                fieldError={lineFieldError}
                                 quantityMessage={(row) =>
                                     incompleteLineMessage(row) ?? fixLineMessage(row)
                                 }
@@ -3672,6 +3563,7 @@ function RecipeEditor({
                                         openIngredient(row.ingredientId, 'ingredients');
                                     }
                                 }}
+                                onOpenRecipe={openRecipe}
                                 canManage={editable}
                                 nextKey={nextKey}
                                 pickerPlaceholder={t('kitchen:recipes.addIngredientPlaceholder')}
@@ -3714,104 +3606,25 @@ function RecipeEditor({
                     </View>
                 )}
 
-                {/* ── Packaging ────────────────────────────────────────────────────────────────── */}
-                {tab !== 'packaging' ? null : (
-                    <View className="relative z-raised flex-col gap-loose">
-                        <FormSection
-                            first
-                            variant="panel"
-                            testID="kitchen-recipe-packaging-coefficients"
-                            title={t('kitchen:forms.expiryAndWaste')}
-                        >
-                            <FormGrid track="half" testID="kitchen-recipe-packaging-waste-grid">
-                                {/*
-                                 * How long a packed batch keeps — a property of the pack as much as of
-                                 * the formulation, so it sits with the packaging. The recipe's, so it
-                                 * stays open on a published version (see the docblock).
-                                 */}
-                                <QuantityInput
-                                    testID="kitchen-recipe-expiry"
-                                    id="kitchen-recipe-expiry"
-                                    size="sm"
-                                    label={t('kitchen:forms.expiryPeriod')}
-                                    placeholder={t('kitchen:fields.daysPlaceholder')}
-                                    unit={t('kitchen:forms.days')}
-                                    value={details.shelfLifeDays}
-                                    disabled={!canManage}
-                                    {...(shows('shelf-life')
-                                        ? { error: t('kitchen:forms.shelfLifeInvalid') }
-                                        : {})}
-                                    {...server.flag('shelf_life_days')}
-                                    onChangeText={(next) => {
-                                        setDetails({ ...details, shelfLifeDays: next });
-                                        markDirty('details');
-                                    }}
-                                />
-                                <QuantityInput
-                                    testID="kitchen-recipe-packaging-waste"
-                                    id="kitchen-recipe-packaging-waste"
-                                    label={t('kitchen:recipes.packagingWastePercent')}
-                                    placeholder={t('kitchen:fields.percentPlaceholder')}
-                                    size="sm"
-                                    unit="%"
-                                    value={details.packagingWastePercent}
-                                    disabled={!editable}
-                                    {...server.flag('packaging_waste_percent')}
-                                    onChangeText={(next) => {
-                                        setDetails({
-                                            ...details,
-                                            packagingWastePercent: withoutMinus(next),
-                                        });
-                                        markDirty('details');
-                                    }}
-                                />
-                            </FormGrid>
-                        </FormSection>
-
-                        {/*
-                         * The picker's panel opens downward into whatever is drawn after the table, so
-                         * the section it hangs from is raised: a z-index orders an element against its
-                         * siblings in one stacking context, and this subtree has to paint above the
-                         * next one whatever the views in between do with their own.
-                         */}
-                        <View className="relative z-sticky">
-                            <FormSection
-                                first
-                                variant="panel"
-                                testID="kitchen-recipe-packaging"
-                                title={t('kitchen:recipes.sectionPackaging')}
-                            >
-                                <RecipeLineTable
-                                    testID={PACKAGING_TABLE}
-                                    rows={packaging}
-                                    ingredients={packagingLibrary}
-                                    source="packaging"
-                                    warnZeroQuantity
-                                    costs={computed?.packaging ?? null}
-                                    fieldError={lineFieldError('packaging', packaging)}
-                                    ingredientIssue={(row) =>
-                                        row.ingredientId === null
-                                            ? undefined
-                                            : needsText(needsById.get(row.ingredientId))
-                                    }
-                                    onOpenIngredient={(row) => {
-                                        if (row.ingredientId !== null) {
-                                            openIngredient(row.ingredientId, 'packaging');
-                                        }
-                                    }}
-                                    // `editable`, as the lines table: a published version refuses
-                                    // packaging writes, and rows typed here vanished on save (HA-36).
-                                    canManage={editable}
-                                    nextKey={nextKey}
-                                    pickerPlaceholder={t('kitchen:recipes.packagingPlaceholder')}
-                                    onChange={(next) => {
-                                        setPackaging(next);
-                                        markDirty('packaging');
-                                    }}
-                                />
-                            </FormSection>
+                {/* ── Packs & prices ───────────────────────────────────────────────────────────── */}
+                {/*
+                 * Mounted whenever the recipe is sold, and hidden rather than unmounted on the other
+                 * tabs, as the listing is: its draft lives inside it, and a tab switch must not throw
+                 * a half-typed price away. The host owns the section; this page feeds it the recipe's
+                 * yield and the live `computed.packs`.
+                 */}
+                {packs === undefined ? null : (
+                    <CascadeItem index={0} className={tab === 'packaging' ? undefined : 'hidden'}>
+                        <View className="relative z-raised" testID="kitchen-recipe-packs">
+                            {packs.render({
+                                yieldKg: yieldMass !== null && yieldMass > 0 ? yieldMass : null,
+                                piecesPerBatch:
+                                    yieldPieces !== null && yieldPieces > 0 ? yieldPieces : null,
+                                computed: computed?.packs ?? null,
+                                canViewCosts,
+                            })}
                         </View>
-                    </View>
+                    </CascadeItem>
                 )}
 
                 {/* ── Costing ──────────────────────────────────────────────────────────────────── */}
@@ -3847,7 +3660,6 @@ function RecipeEditor({
                                         computed={computed}
                                         yieldUnit={t(unitShortKey(details.yieldUnit))}
                                         productionWaste={details.wastePercent}
-                                        packagingWaste={details.packagingWastePercent}
                                         t={t}
                                         formatter={formatter}
                                     />
@@ -3865,25 +3677,21 @@ function RecipeEditor({
                         </FormSection>
 
                         {/*
-                         * Between the cascade and the prices, because that is the order the question is
-                         * asked in: what does a kilogram cost, what does one of the things we actually
-                         * sell cost, what do we charge for it.
+                         * After the cascade, because that is the order the question is asked in: what
+                         * does a kilogram cost, what does one of the things we actually sell cost, what
+                         * do we charge for it and what does that leave. One row per pack Packs & prices
+                         * holds, priced off the draft; no Counter column — it charges the Home shop's.
                          */}
-                        {!canViewCosts ? null : (
+                        {!canViewCosts || packs === undefined ? null : (
                             <FormSection
                                 variant="panel"
-                                testID="kitchen-recipe-package-costs"
-                                title={t('kitchen:recipes.sectionPackageCosts')}
+                                testID="kitchen-recipe-pack-costs"
+                                title={t('kitchen:packs.costingTitle')}
                             >
-                                <PackageCosts
-                                    testID="kitchen-recipe-package-costs"
-                                    computed={computed}
-                                    rows={packaging}
-                                    packagingItems={packagingLibrary}
-                                    yieldInvalid={yieldInvalid}
-                                    locale={locale}
-                                    t={t}
-                                    formatter={formatter}
+                                <PackCostTable
+                                    testID="kitchen-recipe-pack-costs-table"
+                                    report={packs.report}
+                                    computed={computed?.packs ?? null}
                                 />
                             </FormSection>
                         )}
@@ -3908,7 +3716,9 @@ function RecipeEditor({
                     <CascadeItem index={0} className={tab === 'selling' ? undefined : 'hidden'}>
                         <View className="relative z-raised" testID="kitchen-recipe-selling">
                             <IssueRevealScope reveal={revealSelling}>
-                                {sellsAs.content}
+                                <PacksHostContext.Provider value={packsHost}>
+                                    {sellsAs.content}
+                                </PacksHostContext.Provider>
                             </IssueRevealScope>
                         </View>
                     </CascadeItem>
@@ -4543,10 +4353,6 @@ const YIELD_DIGITS: Intl.NumberFormatOptions = {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
 };
-const COST_DIGITS: Intl.NumberFormatOptions = {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-};
 const CASCADE_DIGITS: Intl.NumberFormatOptions = {
     minimumFractionDigits: 3,
     maximumFractionDigits: 3,
@@ -4557,20 +4363,16 @@ const PER_UNIT_DIGITS: Intl.NumberFormatOptions = {
 };
 
 /**
- * Three cards on the field grid — Production, Packaging, and the tinted total.
+ * The Production card on the field grid. The Packaging and Total cards went with the per-batch
+ * packaging table: what a sold thing costs is per pack now, in the "Each pack" table below it.
  *
- * `CardGrid` is not the container: these are the width of a *field*, not of a content card, and the
- * design puts them on the same three-column 280px track as the Coefficients section directly below
- * so the two sections line up down the page. `FormGrid` is that track.
- *
- * The total card takes the brand-subtle fill, which is the one place on this screen a panel is
- * filled at all — it is the figure the whole tab exists to produce.
+ * `CardGrid` is not the container: the card is the width of a *field*, not of a content card, so
+ * it sits on the 280px track `FormGrid` draws.
  */
 function CostCascade({
     computed,
     yieldUnit,
     productionWaste,
-    packagingWaste,
     t,
     formatter,
     testID,
@@ -4578,9 +4380,8 @@ function CostCascade({
     /** `null` draws every figure as a dash — see `computed` in the editor for when that is. */
     readonly computed: RecipeComputedCost | null;
     readonly yieldUnit: string;
-    /** The rates as typed, for the labels. The figures carry the rates the server applied. */
+    /** The rate as typed, for the labels. The figures carry the rate the server applied. */
     readonly productionWaste: string;
-    readonly packagingWaste: string;
     readonly t: TFunction;
     readonly formatter: Formatter;
     readonly testID: string;
@@ -4592,327 +4393,47 @@ function CostCascade({
             : formatMoney(formatter, amount.amount, amount.currency, digits);
 
     const production = computed?.production;
-    const packaging = computed?.packaging;
-
-    const cards = [
-        {
-            key: 'production',
-            title: t('kitchen:recipes.costProduction'),
-            tone: 'raised' as const,
-            rows: [
-                {
-                    label: t('kitchen:recipes.costTotal'),
-                    value: money(production?.total, CASCADE_DIGITS),
-                    lead: false,
-                },
-                {
-                    label: t('kitchen:recipes.costPerUnit', { unit: yieldUnit }),
-                    value: money(production?.costPerYieldUnit, PER_UNIT_DIGITS),
-                    lead: false,
-                },
-                {
-                    label: t('kitchen:recipes.costWithWaste', { percent: productionWaste }),
-                    value: money(production?.costPerYieldUnitWithWaste, PER_UNIT_DIGITS),
-                    lead: true,
-                },
-                /*
-                 * Per piece, where the yield counts pieces as well as weighing them. The figure a
-                 * portioned item is priced against, and absent rather than a dash when the version
-                 * never said how many pieces a batch makes.
-                 */
-                ...(production?.costPerPieceWithWaste == null
-                    ? []
-                    : [
-                          {
-                              label: t('kitchen:recipes.costPerPieceWithWaste', {
-                                  percent: productionWaste,
-                              }),
-                              value: money(production.costPerPieceWithWaste, PER_UNIT_DIGITS),
-                              lead: true,
-                          },
-                      ]),
-            ],
-        },
-    ];
-
-    /** Both of these are about packaging: one states its cost, the other adds it to production. */
-    const packagingCards = [
-        {
-            key: 'packaging',
-            title: t('kitchen:recipes.costPackaging'),
-            tone: 'raised' as const,
-            rows: [
-                {
-                    label: t('kitchen:recipes.costTotal'),
-                    value: money(packaging?.total, CASCADE_DIGITS),
-                    lead: false,
-                },
-                {
-                    label: t('kitchen:recipes.costPerUnit', { unit: yieldUnit }),
-                    value: money(packaging?.costPerYieldUnit, PER_UNIT_DIGITS),
-                    lead: false,
-                },
-                {
-                    label: t('kitchen:recipes.costWithWaste', { percent: packagingWaste }),
-                    value: money(packaging?.costPerYieldUnitWithWaste, PER_UNIT_DIGITS),
-                    lead: true,
-                },
-            ],
-        },
-        {
-            key: 'total',
-            title: t('kitchen:recipes.costTotalCard'),
-            tone: 'brand' as const,
-            rows: [
-                {
-                    label: t('kitchen:recipes.costProduction'),
-                    value: money(production?.costPerYieldUnitWithWaste, PER_UNIT_DIGITS),
-                    lead: false,
-                },
-                {
-                    label: t('kitchen:recipes.costPackaging'),
-                    value: money(packaging?.costPerYieldUnitWithWaste, PER_UNIT_DIGITS),
-                    lead: false,
-                },
-                {
-                    // Null unless both halves are whole: a total short by an unpriced line reads
-                    // exactly like a complete one.
-                    label: t('kitchen:recipes.costPerUnit', { unit: yieldUnit }),
-                    value: money(computed?.totalCostPerYieldUnit, PER_UNIT_DIGITS),
-                    lead: true,
-                },
-            ],
-        },
-    ];
-
-    const drawn = [...cards, ...packagingCards];
 
     return (
         <FormGrid testID={testID}>
-            {drawn.map((card) => (
-                <CostCard
-                    key={card.key}
-                    testID={`${testID}-${card.key}`}
-                    title={card.title}
-                    tone={card.tone}
-                    rows={card.rows}
-                />
-            ))}
-        </FormGrid>
-    );
-}
-
-/** One row of a {@link CostCard} — a label, the figure it names, and whether it is the conclusion. */
-interface CostCardRow {
-    readonly label: string;
-    /** Empty where the label is the whole statement, as the package cards' two context rows are. */
-    readonly value: string;
-    readonly lead: boolean;
-}
-
-/**
- * One tile on the field grid: a `micro` title over a short ledger.
- *
- * Extracted from {@link CostCascade}'s own map so the per-package tiles below are the same object
- * rather than a second drawing of it — two copies of a card is two chances for one of them to keep
- * the old row rhythm after the other is adjusted.
- */
-function CostCard({
-    title,
-    tone,
-    rows,
-    testID,
-}: {
-    readonly title: string;
-    readonly tone: CardTone;
-    readonly rows: readonly CostCardRow[];
-    readonly testID: string;
-}) {
-    return (
-        <Card testID={testID} padding="sm" tone={tone}>
-            <View className="flex-col gap-hair">
-                <Text variant="micro" tone="secondary" numberOfLines={1}>
-                    {title}
-                </Text>
-                {rows.map((row) => (
-                    <View
-                        key={row.label}
-                        className="flex-row items-baseline justify-between gap-tight"
-                    >
-                        <Text variant="caption" tone="secondary" numberOfLines={1}>
-                            {row.label}
-                        </Text>
-                        {/*
-                         * The last row of each card is the one the card is for, so it takes the
-                         * strong step; the ones above it are the working.
-                         */}
-                        <Text variant={row.lead ? 'bodyStrong' : 'mono'} numberOfLines={1}>
-                            {row.value}
-                        </Text>
-                    </View>
-                ))}
-            </View>
-        </Card>
-    );
-}
-
-/**
- * What one filled package costs, one tile per packaging line the server could cost.
- *
- * The cascade above states a cost per *yield unit*, which is the figure a formulation is priced on
- * and not the one anybody quotes: a kitchen sells a 300 cc bottle, not a kilogram. The server
- * converts it — the product the container holds at the production cost with waste, plus the
- * container at its own waste rate (`RecipeCostingService::costPerPackage`) — and this draws one tile
- * per line it answered.
- *
- * A line it could not answer is named rather than drawn at zero: an item that records no capacity (a
- * lid holds nothing) or a capacity the yield unit cannot express. Until every raw material is priced
- * the server answers for none of them, and the section says that instead — a package cost built on
- * a formulation missing a line reads exactly like a complete one.
- */
-function PackageCosts({
-    computed,
-    rows,
-    packagingItems,
-    yieldInvalid,
-    locale,
-    t,
-    formatter,
-    testID,
-}: {
-    readonly computed: RecipeComputedCost | null;
-    readonly rows: readonly LineDraft[];
-    readonly packagingItems: readonly PickerEntry[];
-    /** No usable yield means no cost per yield unit, so there is nothing to multiply a capacity by. */
-    readonly yieldInvalid: boolean;
-    readonly locale: string;
-    readonly t: TFunction;
-    readonly formatter: Formatter;
-    readonly testID: string;
-}) {
-    if (yieldInvalid) {
-        return (
-            <Text testID={`${testID}-no-yield`} variant="caption" tone="secondary">
-                {t('kitchen:recipes.packageCostsNoYield')}
-            </Text>
-        );
-    }
-
-    // The rows as sent, so the server's line numbers index them (see `isSendableLine`).
-    const sent = rows.filter(isSendableLine);
-
-    if (computed !== null && sent.length > 0 && !computed.production.isComplete) {
-        return (
-            <Text testID={`${testID}-incomplete`} variant="caption" tone="secondary">
-                {t('kitchen:recipes.packageCostsIncomplete')}
-            </Text>
-        );
-    }
-
-    /*
-     * A line the section cannot cost is named rather than dropped.
-     *
-     * The fix is on the packaging record either way, and a reader who sees the caption "none" under
-     * two lines of boxes cannot tell which record to open — so the names go on the caption.
-     */
-    const skipped: string[] = [];
-
-    const cards = (computed?.packages ?? []).flatMap((pack) => {
-        const row = sent[pack.lineNumber - 1];
-        const entry = packagingItems.find(
-            (candidate) => candidate.id === String(pack.ingredientId),
-        );
-        // Still resolving, or an answer to a draft the rows have since moved past — the refetch is
-        // already on its way, and a tile under the wrong box would be worse than a moment without.
-        if (
-            row === undefined ||
-            row.ingredientId !== String(pack.ingredientId) ||
-            entry === undefined
-        ) {
-            return [];
-        }
-
-        const title = displayName(entry.name, locale).value;
-        if (pack.cost === null) {
-            skipped.push(title);
-            return [];
-        }
-
-        return [
-            {
-                key: row.key,
-                title,
-                rows: [
+            <CostCard
+                testID={`${testID}-production`}
+                title={t('kitchen:recipes.costProduction')}
+                tone="raised"
+                rows={[
                     {
-                        label: t('kitchen:recipes.packageInBatch', { quantity: row.quantity }),
-                        value: '',
+                        label: t('kitchen:recipes.costTotal'),
+                        value: money(production?.total, CASCADE_DIGITS),
                         lead: false,
                     },
-                    ...(entry.capacity === null
+                    {
+                        label: t('kitchen:recipes.costPerUnit', { unit: yieldUnit }),
+                        value: money(production?.costPerYieldUnit, PER_UNIT_DIGITS),
+                        lead: false,
+                    },
+                    {
+                        label: t('kitchen:recipes.costWithWaste', { percent: productionWaste }),
+                        value: money(production?.costPerYieldUnitWithWaste, PER_UNIT_DIGITS),
+                        lead: true,
+                    },
+                    /*
+                     * Per piece, where the yield counts pieces as well as weighing them. Absent
+                     * rather than a dash when the version never said how many pieces a batch makes.
+                     */
+                    ...(production?.costPerPieceWithWaste == null
                         ? []
                         : [
                               {
-                                  label: t('kitchen:recipes.packageHolds', {
-                                      quantity: formatter.formatNumber(
-                                          entry.capacity.quantity,
-                                          YIELD_DIGITS,
-                                      ),
-                                      unit: t(unitShortKey(entry.capacity.unit)),
+                                  label: t('kitchen:recipes.costPerPieceWithWaste', {
+                                      percent: productionWaste,
                                   }),
-                                  value: '',
-                                  lead: false,
+                                  value: money(production.costPerPieceWithWaste, PER_UNIT_DIGITS),
+                                  lead: true,
                               },
                           ]),
-                    {
-                        label: t('kitchen:recipes.packageCostLabel'),
-                        value: formatMoney(
-                            formatter,
-                            pack.cost.amount,
-                            pack.cost.currency,
-                            COST_DIGITS,
-                        ),
-                        lead: true,
-                    },
-                ],
-            },
-        ];
-    });
-
-    const names = skipped.join(', ');
-
-    if (cards.length === 0) {
-        // Nothing to name is "no packaging yet" (or an answer still on its way); something to name
-        // is a list of records to open.
-        return skipped.length === 0 ? (
-            <Text testID={`${testID}-no-lines`} variant="caption" tone="secondary">
-                {t('kitchen:recipes.packageCostsNoLines')}
-            </Text>
-        ) : (
-            <Text testID={`${testID}-none`} variant="caption" tone="secondary">
-                {t('kitchen:recipes.packageCostsNone', { names })}
-            </Text>
-        );
-    }
-
-    return (
-        <Stack space="sm">
-            <FormGrid testID={`${testID}-grid`}>
-                {cards.map((card) => (
-                    <CostCard
-                        key={card.key}
-                        testID={`kitchen-recipe-package-cost-${card.key}`}
-                        title={card.title}
-                        tone="raised"
-                        rows={card.rows}
-                    />
-                ))}
-            </FormGrid>
-            {skipped.length === 0 ? null : (
-                <Text testID={`${testID}-skipped`} variant="caption" tone="secondary">
-                    {t('kitchen:recipes.packageCostsSkipped', { names })}
-                </Text>
-            )}
-        </Stack>
+                ]}
+            />
+        </FormGrid>
     );
 }
 

@@ -44,6 +44,7 @@ import {
 } from '../entity-registry.ts';
 import type { HostArchive, HostSave } from '../host-save.ts';
 import { MealListing } from '../meal-listing.tsx';
+import { usePacksTab, useWritePacksDraft } from '../packs-prices-section.tsx';
 import { parseStockGapFix } from '../recipe-stock-gap-fix.ts';
 import { ProductEditScreen } from './product-edit-screen.tsx';
 import { RecipeEditScreen } from './recipe-edit-screen.tsx';
@@ -57,8 +58,12 @@ import { BackPill } from '../../../ui/back-pill.tsx';
  * ```
  * Kitchen workspace › Recipes › Garlic sauce
  * Garlic sauce  Draft  Restricted          [ Discard ] [ Save draft ] [ Publish ]
- * ── Description │ Production 4 │ Packaging 1 │ Costing │ Selling │ Technical sheet ──
+ * ── Description │ Production 4 │ Packs & prices 1 │ Costing │ Selling │ Technical sheet ──
  * ```
+ *
+ * Packs & prices is the sold item's too — its packs, their prices and where they sell — so each
+ * host owns that section beside the listing (`usePacksTab`) and hands it over as `packs`; the
+ * recipe's one Save writes the recipe, then the listing, then the packs.
  *
  * ## The page is the recipe; what sells it is a tab on it
  *
@@ -270,6 +275,24 @@ function RecipeBookEditor({
     const createMeal = useCreateMealMutation();
     const createItem = useCreateProductMutation();
 
+    const seller = soldAs.find((entry) => entry.id === chosenSeller) ?? soldAs[0];
+
+    /*
+     * Packs & prices — the seller's packs, owned here beside its listing because they are the
+     * item's. A new cooked recipe has no item yet: the section holds a draft, written once the
+     * create below has made one (`useWritePacksDraft`).
+     */
+    const packsTab = usePacksTab(
+        seller === undefined
+            ? null
+            : seller.itemType === 'meal'
+              ? MealId.unsafe(seller.id)
+              : ProductId.unsafe(seller.id),
+        seller?.id ?? 'new',
+    );
+    const writePacksDraft = useWritePacksDraft();
+    const packsShown = seller !== undefined || (isCreating && cooked !== null);
+
     const classification =
         cooked === null || cooked === 'meal'
             ? undefined
@@ -309,11 +332,30 @@ function RecipeBookEditor({
             });
             open();
         };
+        // The item exists now: write what Packs & prices held, then land. Leaving the page, so a
+        // refusal is a toast, as the listing's is.
+        const writePacks = (itemId: MealId | ProductId) => {
+            void writePacksDraft(itemId, packsTab.report.draft).then((error) => {
+                if (error !== null) {
+                    toast.show({
+                        testID: 'kitchen-cooked-item-packs-failed-toast',
+                        tone: 'warning',
+                        message: t('kitchen:packs.draftNotSaved'),
+                    });
+                }
+                open();
+            });
+        };
 
         if (itemType === 'meal') {
             createMeal.mutate(
                 { name: created.name, description: listing.description, recipeId: created.id },
-                { onSuccess: open, onError: keepRecipe },
+                {
+                    onSuccess: (meal) => {
+                        writePacks(meal.id);
+                    },
+                    onError: keepRecipe,
+                },
             );
             return;
         }
@@ -326,11 +368,14 @@ function RecipeBookEditor({
                 itemType,
                 recipeId: created.id,
             },
-            { onSuccess: open, onError: keepRecipe },
+            {
+                onSuccess: (item) => {
+                    writePacks(item.id);
+                },
+                onError: keepRecipe,
+            },
         );
     };
-
-    const seller = soldAs.find((entry) => entry.id === chosenSeller) ?? soldAs[0];
 
     /** The seller's own listing, inside this page — a meal's, or a packaged kind's. */
     const listing =
@@ -370,6 +415,7 @@ function RecipeBookEditor({
             stockGapFix={stockGapFix}
             classification={classification}
             referenceSeries={cooked === null ? undefined : REFERENCE_SERIES[cooked]}
+            packs={packsShown ? packsTab : undefined}
             onCreated={
                 cooked === null
                     ? undefined
@@ -490,6 +536,8 @@ function CookedItemEditor({
         async () => (listingSave.current === null ? true : listingSave.current()),
         [],
     );
+    // Packs & prices: the item exists, so the section writes it directly, after the listing.
+    const packsTab = usePacksTab(parsed, String(parsed ?? 'none'));
 
     /*
      * An item with a recipe is edited on the recipe's page, so this one hands over at once — and
@@ -650,6 +698,7 @@ function CookedItemEditor({
                       }
             }
             referenceSeries={REFERENCE_SERIES.meal}
+            packs={packsTab}
             onCreated={(created) => {
                 linkToItem(created);
             }}

@@ -428,6 +428,21 @@ export type AdminIngredient = {
     allergens_reviewed_by?: string | null;
     allergens_reviewed_at?: string | null;
     allergens_review_evidence?: string | null;
+    /**
+     * The recipe that makes this ingredient — the one whose published
+     * version states it as an output, else whose live draft does — or
+     * null for something bought in. On the list only (`GET
+     * /catalogue/ingredients`), resolved for the whole page at once.
+     * `is_published` false means the recipe's statement is not live yet,
+     * so a line using the ingredient is still costed from its typed price.
+     *
+     */
+    produced_by_recipe?: {
+        id: Uuid;
+        name_en: string;
+        name_ar: string;
+        is_published: boolean;
+    } | null;
     id: Uuid;
     /**
      * Null for a platform-library row.
@@ -1957,6 +1972,27 @@ export type ComputedCostProduction = {
         ingredient_id: string;
         unit_cost_amount: string | null;
         line_cost_amount: string | null;
+        /**
+         * Where this line's cost came from, on a draft preview: what was
+         * paid (`weekly`, `latest_purchase`), the recipe that makes it
+         * (`component_recipe`), the typed purchase price
+         * (`ingredient_fallback` — a preparation whose recipe is not
+         * published yet lands here), or the cost the request stated
+         * (`quoted`). Null on an uncosted line, and on a saved technical
+         * sheet, whose frozen figures never recorded a source.
+         *
+         */
+        cost_source: 'weekly' | 'latest_purchase' | 'component_recipe' | 'ingredient_fallback' | 'quoted' | null;
+        /**
+         * The recipe a `component_recipe` cost came from, so the editor
+         * can label the line and send its Fix there. Null otherwise.
+         *
+         */
+        source_recipe: {
+            id: string;
+            name_en: string;
+            name_ar: string;
+        } | null;
     }>;
 };
 
@@ -2031,6 +2067,26 @@ export type ComputedCost = {
         ingredient_id: string;
         cost_per_package_amount: string | null;
     }>;
+    /**
+     * What one sold pack costs: its contents at the production cost (with
+     * production waste), plus each of its packaging items at that item's
+     * own waste rate. One entry per pack the request stated, in request
+     * order; always empty on a saved technical sheet, which knows nothing
+     * of packs.
+     *
+     * A cost is complete or it is withheld. `contents_amount` is stated
+     * whenever the production half is complete; `packaging_amount` and
+     * `cost_amount` are null, with the reason, when the pack has no
+     * container yet or one of its items has no price.
+     *
+     */
+    packs?: Array<{
+        key: string;
+        contents_amount: string | null;
+        packaging_amount: string | null;
+        cost_amount: string | null;
+        withheld_reason: 'production_incomplete' | 'no_yield' | 'no_piece_count' | 'unit_unsupported' | 'packaging_unknown' | 'packaging_unpriced' | null;
+    }>;
 };
 
 export type CreateRecipeRequest = {
@@ -2052,6 +2108,17 @@ export type CreateRecipeRequest = {
      * Days a batch keeps; see `AdminRecipe.shelf_life_days`.
      */
     shelf_life_days?: number | null;
+    /**
+     * Create the recipe as a preparation — made to be used inside other
+     * recipes — with its own ingredient twin: kilograms, the recipe's
+     * names and handle, filed under the `preparation` ingredient category.
+     * Once a draft's yield is saved the server states it as that twin's
+     * output, so a line naming the twin is costed from this recipe once it
+     * is published. A sold recipe's twin is its sauce or dressing listing's,
+     * so leave this off for one.
+     *
+     */
+    produces_ingredient?: boolean;
 };
 
 /**
@@ -3059,6 +3126,145 @@ export type ItemChannelOffer = {
      * Whole minor units of `currency_code`, or null when the pack is not priced.
      */
     amount_minor: number | null;
+};
+
+/**
+ * A place that carries a price — the web shop (`home`) or the B2B channel (`business`).
+ */
+export type ItemPackPlace = {
+    sales_channel_id: Uuid;
+    /**
+     * The list the channel quotes to a buyer with no agreement.
+     */
+    price_list_id: Uuid;
+    currency_code: string;
+    /**
+     * Whether the item is offered there today, by its item-level offer.
+     */
+    offered: boolean;
+};
+
+/**
+ * The order desk. It carries no price of its own.
+ */
+export type ItemPackCounter = {
+    sales_channel_id: Uuid;
+    offered: boolean;
+    /**
+     * True while the desk quotes from the same first list as the web shop,
+     * so a Home shop price is the counter's price. When false the counter
+     * cannot be switched on from here.
+     *
+     */
+    follows_home: boolean;
+    /**
+     * The list the desk quotes from, named so the editor can say which; null when it has none.
+     */
+    price_list_name: string | null;
+};
+
+export type ItemPackPrice = {
+    amount_minor: number;
+    /**
+     * True when the amount is the item's pack-less price and the pack has no row of its own.
+     */
+    inherited: boolean;
+};
+
+export type ItemPackComponent = {
+    /**
+     * A packaging item.
+     */
+    ingredient_id: Uuid;
+    /**
+     * How many of the item one pack uses, as a decimal string.
+     */
+    quantity: string;
+    /**
+     * The one component the pack is filled into. At most one per pack.
+     */
+    is_container: boolean;
+};
+
+export type ItemPack = {
+    /**
+     * The pack's `catalogue_item_variant_id`.
+     */
+    id: Uuid;
+    code: string;
+    name_en: string | null;
+    name_ar: string | null;
+    is_default: boolean;
+    /**
+     * What one pack holds, in the unit it is counted in.
+     */
+    fill: {
+        quantity: string;
+        /**
+         * A measurement unit code — `kg`, `g`, `l`, `ml` or `piece`.
+         */
+        unit: string;
+    };
+    /**
+     * The packaging the pack is made of. Empty for a pack nobody has given a container yet.
+     */
+    components: Array<ItemPackComponent>;
+    prices: {
+        home: ItemPackPrice | null;
+        business: ItemPackPrice | null;
+    };
+};
+
+export type ItemPacksEnvelope = {
+    data: {
+        item_id: Uuid;
+        lock_version: number;
+        places: {
+            home: ItemPackPlace | null;
+            business: ItemPackPlace | null;
+            counter: ItemPackCounter | null;
+        };
+        /**
+         * Every active pack, default first.
+         */
+        packs: Array<ItemPack>;
+    };
+    meta: Meta;
+};
+
+export type SetItemPack = {
+    /**
+     * An existing pack of this item, or absent/null to create one.
+     */
+    id?: Uuid | null;
+    fill: {
+        quantity: number;
+        /**
+         * A measurement unit code — `kg`, `g`, `l`, `ml` or `piece`.
+         */
+        unit: string;
+    };
+    components: Array<{
+        ingredient_id: Uuid;
+        quantity: number;
+        is_container: boolean;
+    }>;
+    prices: {
+        home: number | null;
+        business: number | null;
+    };
+};
+
+export type SetItemPacksRequest = {
+    places: {
+        home: boolean;
+        business: boolean;
+        counter: boolean;
+    };
+    /**
+     * The complete set. An active pack left out is archived.
+     */
+    packs: Array<SetItemPack>;
 };
 
 export type ItemChannelPricesEnvelope = {
@@ -10680,6 +10886,9 @@ export type CourierCashOwed = {
     runs: Array<CourierCashRun>;
 };
 
+/**
+ * What one pack of one dish earns on one place. One row per pack per place it is priced on; a dish with no pack, no published recipe or no price keeps one row with `pack` null and the reason.
+ */
 export type DishMargin = {
     id: Uuid;
     catalogue_item_id: Uuid;
@@ -10689,13 +10898,45 @@ export type DishMargin = {
      * The recipe kind the dish is sold as. Products and plans are never priced here.
      */
     item_type: 'meal' | 'sauce' | 'dressing' | 'frozen_meal';
-    channel: 'b2c' | 'b2b';
+    /**
+     * The Home shop or Business. The counter charges the Home shop price and has no rows.
+     */
+    place: 'home' | 'business';
+    pack: DishMarginPack | null;
+    /**
+     * The pack's price on the place's public tariff, its own or inherited from the item, in major units.
+     */
     price_amount: string | null;
+    /**
+     * What the pack's fill costs. Stated even while the packaging is unknown.
+     */
+    contents_amount: string | null;
+    /**
+     * Contents plus packaging, per pack.
+     */
     cost_amount: string | null;
     currency_code: string | null;
     margin_percent: string | null;
-    withheld_reason: 'no_recipe' | 'no_price' | 'cost_incomplete' | 'currency_mismatch' | null;
+    withheld_reason: 'no_recipe' | 'no_pack' | 'no_price' | 'packaging_unknown' | 'cost_incomplete' | 'currency_mismatch' | null;
     is_below_target: boolean;
+};
+
+export type DishMarginPack = {
+    catalogue_item_variant_id: Uuid;
+    /**
+     * The pack's name as of the last run, else its code.
+     */
+    label: string | null;
+    /**
+     * How much one pack holds; null when the pack records no size.
+     */
+    fill: {
+        quantity: string;
+        /**
+         * A measurement unit code.
+         */
+        unit: string;
+    } | null;
 };
 
 export type DishMarginsEnvelope = {
@@ -12912,6 +13153,30 @@ export type PreviewRecipeRollupRequest = {
      * What the batch ships in. Costed into `computed_cost`; never part of the nutrition or allergen figures.
      */
     packaging?: Array<PreviewRecipeRollupPackagingLine>;
+    /**
+     * The packs the recipe is sold in, as the editor holds them. Each is
+     * costed into `computed_cost.packs` under its own `key`; nothing about
+     * them is read from the catalogue.
+     *
+     */
+    packs?: Array<PreviewRecipeRollupPack>;
+};
+
+export type PreviewRecipeRollupPack = {
+    /**
+     * The caller's own handle for the pack, echoed back. A saved pack's id, or a draft row's key.
+     */
+    key: string;
+    fill_quantity: number;
+    /**
+     * A measurement unit code — `kg`, `g`, `l`, `ml` or `piece`. A volume is read as the same weight, 1 L = 1 kg.
+     */
+    fill_unit: string;
+    components: Array<{
+        ingredient_id: Uuid;
+        quantity: number;
+        is_container: boolean;
+    }>;
 };
 
 export type PreviewRecipeRollupPackagingLine = {
@@ -24134,6 +24399,171 @@ export type ReplaceCatalogueItemVariantsResponses = {
 };
 
 export type ReplaceCatalogueItemVariantsResponse = ReplaceCatalogueItemVariantsResponses[keyof ReplaceCatalogueItemVariantsResponses];
+
+export type GetCatalogueItemPacksData = {
+    body?: never;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}/packs';
+};
+
+export type GetCatalogueItemPacksErrors = {
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type GetCatalogueItemPacksError = GetCatalogueItemPacksErrors[keyof GetCatalogueItemPacksErrors];
+
+export type GetCatalogueItemPacksResponses = {
+    /**
+     * The item's packs and places.
+     */
+    200: ItemPacksEnvelope;
+};
+
+export type GetCatalogueItemPacksResponse = GetCatalogueItemPacksResponses[keyof GetCatalogueItemPacksResponses];
+
+export type SetCatalogueItemPacksData = {
+    body: SetItemPacksRequest;
+    headers: {
+        /**
+         * The active organisation. Never trusted without server-side validation
+         * against an active membership.
+         *
+         */
+        'X-Organisation-Id': Uuid;
+        /**
+         * The `ETag` the resource was last served with. Required on writes to
+         * lock-versioned resources: absent is **428**
+         * `request.precondition_required`, stale is **409** `resource.conflict`
+         * carrying `details.current_lock_version`. `*` is accepted and means
+         * "as long as the resource exists".
+         *
+         */
+        'If-Match': string;
+        /**
+         * An opaque client-generated identifier for support correlation. Logged
+         * and echoed back; never used as the correlation identifier.
+         *
+         */
+        'X-Client-Request-Id'?: string;
+    };
+    path: {
+        /**
+         * The item identifier, or its `slug`. Both are accepted because both are
+         * natural — a client that walked the list holds identifiers, a
+         * marketplace integration or a support engineer holds
+         * `harissa-paste-250g` — and a slug is unique per organisation and
+         * immutable, so the two answers cannot drift apart.
+         *
+         */
+        item: Uuid | string;
+    };
+    query?: never;
+    url: '/catalogue/items/{item}/packs';
+};
+
+export type SetCatalogueItemPacksErrors = {
+    /**
+     * The request could not be processed as sent — typically a session
+     * endpoint reached without a first-party `Origin`.
+     *
+     */
+    400: ErrorEnvelope;
+    /**
+     * No usable credential was presented.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The context was refused (`context.organisation_forbidden`,
+     * `context.branch_out_of_scope`) or the membership's roles do not grant
+     * the required permission (`authz.permission_denied`, with the denying
+     * RBAC step in `details.reason`).
+     *
+     */
+    403: ErrorEnvelope;
+    /**
+     * The resource does not exist, or is not the caller's to see.
+     */
+    404: ErrorEnvelope;
+    /**
+     * The change conflicts with the current state. On a lock-versioned
+     * write this is a lost race, and `details.current_lock_version` is the
+     * value to reload against, so a client can offer "reload" or "keep
+     * mine" without a second round trip.
+     *
+     */
+    409: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ErrorEnvelope;
+    /**
+     * The resource is lock-versioned and the write carried no `If-Match`.
+     * **HTTP 428, not 409 and not 400**: the client has not lost a race — it
+     * never entered one — and the fix is to read the resource and retry with
+     * its validator.
+     *
+     */
+    428: ErrorEnvelope;
+    /**
+     * The rate limit for this endpoint was exceeded.
+     */
+    429: ErrorEnvelope;
+};
+
+export type SetCatalogueItemPacksError = SetCatalogueItemPacksErrors[keyof SetCatalogueItemPacksErrors];
+
+export type SetCatalogueItemPacksResponses = {
+    /**
+     * The item's packs and places as they now stand.
+     */
+    200: ItemPacksEnvelope;
+};
+
+export type SetCatalogueItemPacksResponse = SetCatalogueItemPacksResponses[keyof SetCatalogueItemPacksResponses];
 
 export type GetCatalogueItemChannelPricesData = {
     body?: never;

@@ -926,7 +926,7 @@ export interface PayablePriceRise {
 }
 
 /**
- * What one dish earns on one channel, as of the last overnight run. `marginPercent` is `null` with
+ * What one pack of one dish earns on one place, as of the last run. `marginPercent` is `null` with
  * a `withheldReason` whenever the figure would be a guess. Major-unit decimal strings.
  */
 export interface DishMargin {
@@ -935,14 +935,33 @@ export interface DishMargin {
     readonly name: LocalisedText;
     /** The kind the dish is sold as — the `?kind=` its recipe opens under. */
     readonly itemType: RecipeSellerKind;
-    readonly channel: 'b2c' | 'b2b';
+    /** The Home shop or Business. The counter charges the Home shop price and has no rows. */
+    readonly place: 'home' | 'business';
+    /** `null` on the one row of a dish with no pack or no recipe. */
+    readonly pack: DishMarginPack | null;
     readonly priceAmount: string | null;
+    /** What the pack's fill costs; stated even while the packaging is unknown. */
+    readonly contentsAmount: string | null;
     readonly costAmount: string | null;
     readonly currencyCode: string | null;
     readonly marginPercent: string | null;
     readonly withheldReason:
-        'no_recipe' | 'no_price' | 'cost_incomplete' | 'currency_mismatch' | null;
+        | 'no_recipe'
+        | 'no_pack'
+        | 'no_price'
+        | 'packaging_unknown'
+        | 'cost_incomplete'
+        | 'currency_mismatch'
+        | null;
     readonly isBelowTarget: boolean;
+}
+
+export interface DishMarginPack {
+    readonly variantId: string;
+    /** The pack's name as of the last run, else its code. */
+    readonly label: string | null;
+    /** How much one pack holds; `null` when it records no size. */
+    readonly fill: { readonly quantity: string; readonly unit: string } | null;
 }
 
 export interface DishMargins {
