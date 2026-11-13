@@ -21,6 +21,7 @@ import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { RECIPE_VIEW_COSTS_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
+import { unitCodeLabel } from '../format.ts';
 
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
@@ -30,15 +31,15 @@ import { DeskChip } from '../desk-kit/desk-chip.tsx';
  * number: a margin over part of a recipe reads like a whole one and is too high. Below target is a
  * warning badge with its wording, so colour is not the only signal.
  *
- * A row opens its dish's recipe on Production, and its actions open it on Production or on Selling
- * (where the list price is set), each coming back here. Only for a reader who may open recipes.
+ * A row opens its dish's recipe on Production, and its actions open it on Production or on Packs & prices
+ * (where each pack's price is set), each coming back here. Only for a reader who may open recipes.
  */
 
 const EM_DASH = '—';
 const RETURN_HREF = '/kitchen/dish-margins';
 
 /** The dish's recipe, under its item's address, on one editor tab. */
-function recipeHref(row: DishMargin, tab: 'production' | 'selling'): string {
+function recipeHref(row: DishMargin, tab: 'production' | 'packaging'): string {
     return withReturnTo(
         withQuery(`/kitchen/recipes/item/${encodeURIComponent(row.catalogueItemId)}`, {
             kind: row.itemType,
@@ -67,7 +68,7 @@ function DishMarginsPage() {
     const report = useDishMarginsQuery();
     const router = useRouter();
     const canOpenRecipe = useCan(RECIPE_VIEW_PERMISSION);
-    const open = (row: DishMargin, tab: 'production' | 'selling') => {
+    const open = (row: DishMargin, tab: 'production' | 'packaging') => {
         router.push(recipeHref(row, tab) as never);
     };
     const rowActions = (row: DishMargin): readonly MenuItem[] => [
@@ -84,7 +85,7 @@ function DishMarginsPage() {
             label: t('kitchen:ops.dishMargins.changePrice'),
             icon: 'tag',
             onSelect: () => {
-                open(row, 'selling');
+                open(row, 'packaging');
             },
         },
     ];
@@ -99,6 +100,18 @@ function DishMarginsPage() {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
               })} ${currency ?? ''}`.trim();
+    const packText = (row: DishMargin) => {
+        if (row.pack === null) return EM_DASH;
+        const label = row.pack.label ?? t('kitchen:packs.unnamed');
+        return row.pack.fill === null
+            ? label
+            : t('kitchen:packs.packWithFill', {
+                  name: label,
+                  fill: `${formatter.formatNumber(Number(row.pack.fill.quantity), {
+                      maximumFractionDigits: 3,
+                  })} ${unitCodeLabel(row.pack.fill.unit, t)}`,
+              });
+    };
 
     const columns: readonly CatalogueColumn<DishMargin>[] = [
         {
@@ -111,12 +124,29 @@ function DishMarginsPage() {
             render: (row) => <Text variant="strong">{name(row)}</Text>,
         },
         {
-            key: 'channel',
+            key: 'pack',
+            label: t('kitchen:packs.columnPack'),
+            width: 180,
+            priority: 75,
+            render: (row) => (
+                <Text tone="secondary" numberOfLines={1} testID={`kitchen-dish-pack-${row.id}`}>
+                    {packText(row)}
+                </Text>
+            ),
+        },
+        {
+            key: 'place',
             label: t('kitchen:ops.dishMargins.columnChannel'),
             width: 110,
             priority: 70,
             render: (row) => (
-                <Text tone="secondary">{t(`kitchen:ops.dishMargins.channel.${row.channel}`)}</Text>
+                <Text tone="secondary">
+                    {t(
+                        row.place === 'home'
+                            ? 'kitchen:packs.placeHome'
+                            : 'kitchen:packs.placeBusiness',
+                    )}
+                </Text>
             ),
         },
         {
@@ -136,8 +166,13 @@ function DishMarginsPage() {
             width: 130,
             priority: 85,
             render: (row) => (
-                <Text variant="mono" tone="secondary">
-                    {money(row.costAmount, row.currencyCode)}
+                <Text variant="mono" tone="secondary" testID={`kitchen-dish-cost-${row.id}`}>
+                    {/* The packaging is not known, so only what the fill costs can be said. */}
+                    {row.withheldReason === 'packaging_unknown' && row.contentsAmount !== null
+                        ? t('kitchen:ops.dishMargins.contentsCost', {
+                              amount: money(row.contentsAmount, row.currencyCode),
+                          })
+                        : money(row.costAmount, row.currencyCode)}
                 </Text>
             ),
         },

@@ -34,6 +34,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $output_quantity
  * @property string $unit_id
  * @property bool $is_primary
+ * @property bool $follows_yield written by the server from the version's yield; only such a row is rewritten
  * @property CarbonImmutable|null $created_at
  */
 #[Classified(DataClassification::Confidential, 'output_quantity')]
@@ -54,6 +55,7 @@ class RecipeVersionOutput extends BaseModel implements OrganisationScoped
         return [
             'output_quantity' => 'decimal:4',
             'is_primary' => 'boolean',
+            'follows_yield' => 'boolean',
         ];
     }
 

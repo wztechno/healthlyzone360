@@ -27,6 +27,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, TextInput, View } from 'react-native';
 
 import { useIngredientWholeSetQuery } from '../../data/kitchen-admin-hooks.ts';
+import { DeskChip } from './desk-kit/desk-chip.tsx';
 import { displayName, formatMoney, humaniseCode, parseQuantity, unitShortKey } from './format.ts';
 import { useIngredientQuickAdd } from './ingredient-quick-add.tsx';
 
@@ -72,6 +73,17 @@ export interface PickerEntry {
     readonly meta: string;
     /** The catalogue reference — `ING-002`, `PKG-014` — drawn beside the designation on a row. */
     readonly reference: string | null;
+    /**
+     * The recipe that makes it, when it is a preparation rather than a raw material. Absent when
+     * the row it came from did not say (a single read), which is not the same as bought in.
+     */
+    readonly producedBy?: PreparationRecipe | null | undefined;
+}
+
+/** The recipe a preparation line is made by — where its name and its Fix lead. */
+export interface PreparationRecipe {
+    readonly id: string;
+    readonly name: LocalisedText;
 }
 
 export interface LineDraft {
@@ -232,6 +244,11 @@ export interface RecipeLineTableProps {
      * reader looks for "what is this, and why is it flagged".
      */
     readonly onOpenIngredient?: ((row: LineDraft) => void) | undefined;
+    /**
+     * Opens a preparation's own recipe. With it, a preparation line's name and its Fix lead there
+     * rather than to the ingredient form: what a preparation costs is fixed in its recipe.
+     */
+    readonly onOpenRecipe?: ((recipeId: string) => void) | undefined;
     readonly canManage: boolean;
     /** Mints a stable row key. The editor owns the counter so keys never collide across tables. */
     readonly nextKey: () => string;
@@ -275,6 +292,10 @@ export function ingredientEntry(entry: IngredientAdmin): PickerEntry {
         capacity: entry.capacity,
         meta: entry.categoryCode === '' ? '' : humaniseCode(entry.categoryCode),
         reference: entry.reference,
+        producedBy:
+            entry.producedByRecipe == null
+                ? entry.producedByRecipe
+                : { id: String(entry.producedByRecipe.id), name: entry.producedByRecipe.name },
     };
 }
 
@@ -326,6 +347,7 @@ export function RecipeLineTable({
     quantityMessage,
     ingredientIssue,
     onOpenIngredient,
+    onOpenRecipe,
     canManage,
     nextKey,
     onChange,
@@ -363,7 +385,8 @@ export function RecipeLineTable({
 
     const offered = useMemo(() => {
         const byOption = new Map<string, PickerEntry>();
-        const options: SelectOption[] = [];
+        const raw: SelectOption[] = [];
+        const preparations: SelectOption[] = [];
         for (const row of catalogue.data ?? []) {
             const entry = wantsIngredients ? ingredientEntry(row) : packagingEntry(row);
             byOption.set(entry.id, entry);
@@ -376,17 +399,29 @@ export function RecipeLineTable({
                           entry.unitPrice.currency,
                           MONEY,
                       );
-            options.push({
+            // The food picker lists what is bought and what the kitchen makes apart; packaging is
+            // one list, as before.
+            const preparation = wantsIngredients && entry.producedBy != null;
+            (preparation ? preparations : raw).push({
                 value: entry.id,
                 label: displayName(entry.name, locale).value,
                 // `Condiments · kg · 3.50`: what kind of thing it is, and what one unit costs.
                 description: [entry.meta, price].filter((part) => part !== '').join(' · '),
                 // What the server's search matched on: both names, the reference and the aliases.
                 keywords: [row.name.en, row.name.ar, row.reference ?? '', ...row.aliases].join(' '),
+                ...(wantsIngredients
+                    ? {
+                          section: t(
+                              preparation
+                                  ? 'kitchen:recipes.kindPreparations'
+                                  : 'kitchen:recipes.sectionRawMaterials',
+                          ),
+                      }
+                    : {}),
             });
         }
-        return { options, byOption };
-    }, [catalogue.data, wantsIngredients, formatter, locale]);
+        return { options: [...raw, ...preparations], byOption };
+    }, [catalogue.data, wantsIngredients, formatter, locale, t]);
 
     /*
      * Each row's figures, matched by line number *and* ingredient.
@@ -409,6 +444,18 @@ export function RecipeLineTable({
         }
         return byKey;
     }, [rows, costs]);
+
+    /** The recipe a line's ingredient is made by, from whichever source says so. */
+    const preparationOf = (row: LineDraft): PreparationRecipe | null => {
+        if (!wantsIngredients || row.ingredientId === null) return null;
+        const id = String(row.ingredientId);
+        return (
+            offered.byOption.get(id)?.producedBy ??
+            byId.get(id)?.producedBy ??
+            figures.get(row.key)?.sourceRecipe ??
+            null
+        );
+    };
 
     const totalQuantity = rows.reduce((sum, row) => sum + (parseQuantity(row.quantity) ?? 0), 0);
 
@@ -489,10 +536,23 @@ export function RecipeLineTable({
                     entry === undefined
                         ? t('kitchen:recipes.unnamedLine')
                         : displayName(entry.name, locale).value;
-                const issue = ingredientIssue?.(row);
-                const opens = onOpenIngredient !== undefined && row.ingredientId !== null;
+                const preparation = preparationOf(row);
+                // S6: a preparation whose recipe could not cost it falls back to its typed price.
+                const typedPrice =
+                    preparation !== null &&
+                    figures.get(row.key)?.costSource === 'ingredient_fallback';
+                const issue =
+                    ingredientIssue?.(row) ??
+                    (typedPrice ? t('kitchen:recipes.preparationTypedPrice') : undefined);
+                const opensRecipe = preparation !== null && onOpenRecipe !== undefined;
+                const opens =
+                    opensRecipe || (onOpenIngredient !== undefined && row.ingredientId !== null);
                 const open = () => {
-                    onOpenIngredient?.(row);
+                    if (preparation !== null && onOpenRecipe !== undefined) {
+                        onOpenRecipe(preparation.id);
+                    } else {
+                        onOpenIngredient?.(row);
+                    }
                 };
                 return (
                     <View className="min-w-0 flex-1 flex-col py-hair">
@@ -502,9 +562,12 @@ export function RecipeLineTable({
                                     testID={`${rowTestId(row)}-open`}
                                     role="link"
                                     accessibilityRole="link"
-                                    accessibilityLabel={t('kitchen:recipes.openIngredient', {
-                                        name,
-                                    })}
+                                    accessibilityLabel={t(
+                                        opensRecipe
+                                            ? 'kitchen:recipes.openPreparationRecipe'
+                                            : 'kitchen:recipes.openIngredient',
+                                        { name },
+                                    )}
                                     onPress={open}
                                     className="min-w-0 shrink"
                                 >
@@ -529,6 +592,14 @@ export function RecipeLineTable({
                                 <Text variant="micro" tone="secondary">
                                     {entry.reference}
                                 </Text>
+                            )}
+                            {preparation === null ? null : (
+                                <DeskChip
+                                    testID={`${rowTestId(row)}-preparation`}
+                                    tone="neutral"
+                                    size="sm"
+                                    label={t('kitchen:recipes.kindPreparation')}
+                                />
                             )}
                             {row.ingredientId !== null &&
                             flaggedIngredientIds.includes(String(row.ingredientId)) ? (

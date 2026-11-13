@@ -2076,8 +2076,17 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                     catalogueItemId: dish.catalogue_item_id,
                     name: { en: dish.name_en, ar: dish.name_ar ?? '' },
                     itemType: dish.item_type,
-                    channel: dish.channel,
+                    place: dish.place,
+                    pack:
+                        dish.pack === null
+                            ? null
+                            : {
+                                  variantId: dish.pack.catalogue_item_variant_id,
+                                  label: dish.pack.label,
+                                  fill: dish.pack.fill,
+                              },
                     priceAmount: dish.price_amount,
+                    contentsAmount: dish.contents_amount,
                     costAmount: dish.cost_amount,
                     currencyCode: dish.currency_code,
                     marginPercent: dish.margin_percent,

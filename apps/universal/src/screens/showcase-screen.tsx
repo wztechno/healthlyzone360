@@ -159,6 +159,7 @@ import { GateRailCard } from '../features/kitchen-admin/gate-rail-card.tsx';
 import { RecordSummaryAside } from '../features/kitchen-admin/record-summary-aside.tsx';
 import { KitchenPageHeader } from '../features/kitchen-admin/kitchen-page-header.tsx';
 import { KpiTile } from '../features/kitchen-admin/kpi-tile.tsx';
+import { PackCard } from '../features/kitchen-admin/packs-prices-section.tsx';
 import { ListToolbar } from '../features/kitchen-admin/list-toolbar.tsx';
 import { ToolbarRow } from '../features/marketplace/toolbar-row.tsx';
 import { AiBand, AiRailCard } from '../ui/ai-surface.tsx';
@@ -2161,6 +2162,36 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             { value: 'l', label: 'Litres (L)', description: 'Volume' },
                         ]}
                         value="kg"
+                        onChange={() => undefined}
+                    />
+                    {/* Section headings — the recipe line picker's Raw materials / Preparations. */}
+                    <Select
+                        testID={id('select-sections')}
+                        id={id('select-sections')}
+                        label="Ingredient"
+                        placeholder="Add an ingredient…"
+                        searchable
+                        options={[
+                            {
+                                value: 'burghul',
+                                label: 'Burghul',
+                                description: 'Grains · 1.20 USD',
+                                section: 'Raw materials',
+                            },
+                            {
+                                value: 'sumac',
+                                label: 'Sumac',
+                                description: 'Spices · 9.00 USD',
+                                section: 'Raw materials',
+                            },
+                            {
+                                value: 'tahini-sauce',
+                                label: 'Tahini sauce',
+                                description: 'Preparation · 4.10 USD',
+                                section: 'Preparations',
+                            },
+                        ]}
+                        value={null}
                         onChange={() => undefined}
                     />
                     <Select
@@ -5216,6 +5247,45 @@ export function ShowcaseScreen() {
                             nullCaption="The count could not be read."
                         />
                     </View>
+                    {/* Packs & prices — one pack, costed, priced on both places, Counter ticked. */}
+                    <PackCard
+                        testID="showcase-kitchen-pack-card"
+                        pack={{
+                            key: 'showcase-pack',
+                            id: 'showcase-pack',
+                            code: 'PK-05',
+                            name: { en: 'Bottle 0.5 L', ar: 'زجاجة 0.5 لتر' },
+                            fill: '0.46',
+                            fillUnit: 'kg',
+                            components: [
+                                { ingredientId: 'showcase-bottle', quantity: 1, isContainer: true },
+                                { ingredientId: 'showcase-cap', quantity: 1, isContainer: false },
+                            ],
+                            prices: { home: '4.50', business: '' },
+                            inherited: { home: false, business: false },
+                        }}
+                        name="Bottle 0.5 L"
+                        perBatch={4}
+                        container={undefined}
+                        nameOf={(id) => (id === 'showcase-cap' ? 'Cap 38 mm' : 'Bottle 0.5 L')}
+                        amountText={(quantity, unit) => `${String(quantity)} ${unit}`}
+                        library={[]}
+                        containerOptions={[]}
+                        places={{ home: true, business: true, counter: true }}
+                        currencyOf={() => 'USD'}
+                        cost={{
+                            key: 'showcase-pack',
+                            contents: { amount: 1.35, currency: 'USD' },
+                            packaging: { amount: 0.35, currency: 'USD' },
+                            cost: { amount: 1.7, currency: 'USD' },
+                            withheldReason: null,
+                        }}
+                        canManage
+                        attempted={false}
+                        serverError={() => undefined}
+                        onChange={() => undefined}
+                        onRemove={() => undefined}
+                    />
                     <ListToolbar
                         testID="showcase-kitchen-toolbar"
                         query={kitchenQuery}

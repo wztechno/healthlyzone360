@@ -15,9 +15,12 @@ import { Dimensions } from 'react-native';
 
 import { readActiveProcess, startProcess } from '../../navigation/active-process.ts';
 import { TEST_ORGANISATION_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { focusField } from './field-focus.ts';
+import { EMPTY_PACKS_DRAFT, EMPTY_PACKS_REPORT, packsIssuesOf } from './packs-prices-section.tsx';
+import type { PacksDraft, PacksTab } from './packs-prices-section.tsx';
 import {
     parseStockGapFix,
     stockGapFieldId,
@@ -744,5 +747,123 @@ describe('leaving the recipe with unsaved work', () => {
         expect(screen.getByTestId('kitchen-recipe-name-en-input').props.value).not.toBe(
             'Burghul salad, extra lemon',
         );
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * A sold recipe's Packs & prices blockers
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * The tab as a host hands it over, with the section itself left out: what is under test is how the
+ * editor counts, explains and leads to the three blockers the server's `SellingReadiness` names.
+ */
+function packsTab(draft: PacksDraft): PacksTab {
+    return {
+        report: { ...EMPTY_PACKS_REPORT, draft, issues: packsIssuesOf(draft) },
+        save: async () => true,
+        render: () => null,
+    };
+}
+
+const ONE_PACK: PacksDraft['packs'][number] = {
+    key: 'pack-1',
+    id: 'pack-1',
+    code: 'BTL300',
+    name: null,
+    fill: '0.3',
+    fillUnit: 'kg',
+    components: [],
+    prices: { home: '', business: '' },
+    inherited: { home: false, business: false },
+};
+
+describe('a sold recipe’s Packs & prices blockers', () => {
+    it('says no pack and no place, and each Fix lands on Packs & prices', async () => {
+        await withDeskWidth(async () => {
+            await renderEditor({ packs: packsTab(EMPTY_PACKS_DRAFT) }, () => recipe());
+
+            await untilVisible('kitchen-recipe-issues-publish-packs-no_pack');
+            expect(
+                screen.getByTestId('kitchen-recipe-issues-publish-packs-no_pack'),
+            ).toHaveTextContent(/Add a pack/);
+            expect(
+                screen.getByTestId('kitchen-recipe-issues-publish-packs-no_selling_place'),
+            ).toHaveTextContent(/Tick where it sells/);
+            // Counted on the tab's pill, as every publish blocker is on its own tab.
+            expect(String(tabLabel('packaging'))).toMatch(/2/);
+
+            // Publish over them explains rather than opening the dialog.
+            await press('kitchen-recipe-publish');
+            expect(screen.queryByTestId('kitchen-recipe-publish-consequence')).toBeNull();
+
+            focusMock.mockClear();
+            await press('kitchen-recipe-issues-publish-packs-no_pack-fix');
+            expect(isSelected('packaging')).toBe(true);
+            await waitFor(() => {
+                expect(focusMock).toHaveBeenCalledWith('kitchen-packs-add');
+            });
+        });
+    });
+
+    it('asks a price for each ticked place, Counter priced by the Home shop', async () => {
+        await withDeskWidth(async () => {
+            // Counter alone is ticked: it charges the Home shop's price, so that is the one owed.
+            await renderEditor(
+                {
+                    packs: packsTab({
+                        places: { home: false, business: false, counter: true },
+                        packs: [ONE_PACK],
+                    }),
+                },
+                () => recipe(),
+            );
+
+            await untilVisible('kitchen-recipe-issues-publish-packs-place_unpriced-home');
+            expect(
+                screen.queryByTestId('kitchen-recipe-issues-publish-packs-place_unpriced-business'),
+            ).toBeNull();
+            expect(screen.queryByTestId('kitchen-recipe-issues-publish-packs-no_pack')).toBeNull();
+
+            focusMock.mockClear();
+            await press('kitchen-recipe-issues-publish-packs-place_unpriced-home-fix');
+            await waitFor(() => {
+                expect(focusMock).toHaveBeenCalledWith('kitchen-packs-pack-1-price-home');
+            });
+        });
+    });
+
+    it('puts a publish the server refused for an unpriced place on the same card', async () => {
+        await withDeskWidth(async () => {
+            // Priced on the draft, so the card comes from the refusal alone.
+            const priced: PacksDraft = {
+                places: { home: true, business: true, counter: false },
+                packs: [{ ...ONE_PACK, prices: { home: '3.00', business: '9.00' } }],
+            };
+            await renderEditor({ packs: packsTab(priced) }, () => recipe(), {
+                publishRecipe: async () =>
+                    throwFailure(
+                        validationFailure({
+                            form: ['This catalogue item is not ready to be published.'],
+                            'reasons.place_unpriced.business': [
+                                'This catalogue item is not ready to be published.',
+                            ],
+                        }),
+                    ),
+            });
+
+            await untilVisible('kitchen-recipe-publish');
+            expect(
+                screen.queryByTestId('kitchen-recipe-issues-publish-packs-place_unpriced-business'),
+            ).toBeNull();
+            await press('kitchen-recipe-publish');
+            await untilVisible('kitchen-recipe-publish-confirm');
+            await press('kitchen-recipe-publish-confirm');
+
+            await untilVisible('kitchen-recipe-issues-publish-packs-place_unpriced-business');
+            expect(
+                screen.getByTestId('kitchen-recipe-issues-publish-packs-place_unpriced-business'),
+            ).toHaveTextContent(/Price a pack for Business/);
+        });
     });
 });

@@ -74,6 +74,22 @@ class PreviewRecipeRollupRequest extends FormRequest
             'packaging.*.ingredient_id' => ['required', 'uuid'],
             'packaging.*.basis' => ['required', Rule::enum(PackagingBasis::class)],
             'packaging.*.quantity' => ['nullable', 'numeric', 'gt:0', 'max:99999999.9999'],
+
+            /*
+             * The packs the recipe is sold in, as the editor holds them — costed
+             * into `computed_cost.packs` under each pack's own key. Nothing about
+             * them is read from the catalogue, and nothing here checks that a
+             * component is packaging: one that is not simply has no price there
+             * (`packaging_unpriced`), which is the answer the editor shows.
+             */
+            'packs' => ['sometimes', 'array', 'max:50'],
+            'packs.*.key' => ['required', 'string', 'max:80'],
+            'packs.*.fill_quantity' => ['required', 'numeric', 'gt:0', 'max:99999999.9999'],
+            'packs.*.fill_unit' => ['required', 'string', 'max:20'],
+            'packs.*.components' => ['present', 'array', 'max:20'],
+            'packs.*.components.*.ingredient_id' => ['required', 'uuid'],
+            'packs.*.components.*.quantity' => ['required', 'numeric', 'gt:0', 'max:99999999.9999'],
+            'packs.*.components.*.is_container' => ['required', 'boolean'],
         ];
     }
 
@@ -87,12 +103,13 @@ class PreviewRecipeRollupRequest extends FormRequest
      *     yield_unit_id: string|null,
      *     yield_piece_count: int|null,
      *     packaging_waste_percent: string|null,
-     *     packaging: list<array{ingredient_id: string, basis: string, quantity?: float|string|null}>
+     *     packaging: list<array{ingredient_id: string, basis: string, quantity?: float|string|null}>,
+     *     packs: list<array{key: string, fill_quantity: float|int|string, fill_unit: string, components: list<array{ingredient_id: string, quantity: float|int|string, is_container: bool}>}>
      * }
      */
     public function draft(): array
     {
-        /** @var array{recipe_id?: string|null, servings?: float|string|null, waste_percent?: float|string|null, lines: list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null, unit_cost_amount?: float|string|null, cost_currency_code?: string|null}>, yield_quantity?: float|string|null, yield_unit_id?: string|null, yield_piece_count?: int|null, packaging_waste_percent?: float|string|null, packaging?: list<array{ingredient_id: string, basis: string, quantity?: float|string|null}>} $validated */
+        /** @var array{recipe_id?: string|null, servings?: float|string|null, waste_percent?: float|string|null, lines: list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null, unit_cost_amount?: float|string|null, cost_currency_code?: string|null}>, yield_quantity?: float|string|null, yield_unit_id?: string|null, yield_piece_count?: int|null, packaging_waste_percent?: float|string|null, packaging?: list<array{ingredient_id: string, basis: string, quantity?: float|string|null}>, packs?: list<array{key: string, fill_quantity: float|int|string, fill_unit: string, components: list<array{ingredient_id: string, quantity: float|int|string, is_container: bool|int|string}>}>} $validated */
         $validated = $this->validated();
 
         return [
@@ -107,6 +124,16 @@ class PreviewRecipeRollupRequest extends FormRequest
                 ? (string) $validated['packaging_waste_percent']
                 : null,
             'packaging' => $validated['packaging'] ?? [],
+            'packs' => array_map(static fn (array $pack): array => [
+                'key' => (string) $pack['key'],
+                'fill_quantity' => $pack['fill_quantity'],
+                'fill_unit' => (string) $pack['fill_unit'],
+                'components' => array_map(static fn (array $component): array => [
+                    'ingredient_id' => (string) $component['ingredient_id'],
+                    'quantity' => $component['quantity'],
+                    'is_container' => filter_var($component['is_container'], FILTER_VALIDATE_BOOLEAN),
+                ], $pack['components']),
+            ], $validated['packs'] ?? []),
         ];
     }
 }

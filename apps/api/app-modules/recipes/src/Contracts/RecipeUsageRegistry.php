@@ -70,6 +70,21 @@ interface RecipeUsageRegistry
     public function publishedItemIds(Recipe $recipe): array;
 
     /**
+     * Why what sells this recipe cannot be bought, in the readiness shape
+     * `{code, detail, context}` — `no_pack`, `no_selling_place`,
+     * `place_unpriced` — with `context.catalogue_item_id`, `slug` and
+     * `item_type` naming the seller (S3).
+     *
+     * Asked by API publication of a version: a recipe a non-retired item of
+     * the four {@see KINDS} sells publishes only once each seller has a pack,
+     * a place, and a price on every place it is offered. A recipe nothing
+     * sells — a preparation — answers empty.
+     *
+     * @return list<array{code: string, detail: string, context: array<string, mixed>}>
+     */
+    public function sellingBlockers(Recipe $recipe): array;
+
+    /**
      * Pull every published listing of this recipe off sale and into
      * `review_required`, returning what was moved (K1.8).
      *
@@ -152,4 +167,27 @@ interface RecipeUsageRegistry
      * @param  Builder<covariant Model>  $scoped
      */
     public function orWhereSellerMatches(Builder $scoped, string $needle): void;
+
+    /**
+     * The ingredient a sauce or dressing selling this recipe is used as inside
+     * other recipes — its twin, the listing's `ingredient_id` — or null when no
+     * non-retired sauce or dressing sells it with one (plan slice F).
+     *
+     * Asked so that a version's yield can be stated as what the recipe
+     * produces: the output row is what lets a meal's line be costed from the
+     * sauce's own recipe. Not tenant-scoped, for the reason
+     * {@see sellingBlockers()} gives: the console repair runs without a
+     * request, and the recipe's organisation is the boundary either way.
+     */
+    public function twinIngredientId(Recipe $recipe): ?string;
+
+    /**
+     * A version of this recipe has just been published: what each
+     * non-retired seller earns is recomputed now rather than at night (S7).
+     *
+     * Called after the publication has committed, and a failure is the
+     * caller's to swallow — a figure on the margins page must never undo or
+     * refuse a publication.
+     */
+    public function recipePublished(Recipe $recipe): void;
 }
